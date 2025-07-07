@@ -14,3 +14,6 @@ Think of it as your magic studio engine.
 |Spring Framework|5.3.31|2020-10-27|2024-12-31|
 |Spring Security|5.7.11|2022-05-16|2023-05-16|
 |Spring Cloud | 2021.0.8 | | |
+
+
+공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다.
