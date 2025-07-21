@@ -1,4 +1,4 @@
-# studio-api
+# studio-api (echoes)
 [![release](https://img.shields.io/badge/release-0.1-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
