@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="studio.api.platform.components.mapper.ApplicationPropertiesMapper">
+
+    <select id="selectAll" resultType="map">
+        SELECT 
+            PROPERTY_NAME AS "name", 
+            PROPERTY_VALUE AS "value"
+        FROM TB_APPLICATION_PROPERTY
+        ORDER BY PROPERTY_NAME
+    </select>
+
+    <insert id="insertProperty">
+        INSERT INTO TB_APPLICATION_PROPERTY (PROPERTY_NAME, PROPERTY_VALUE)
+        VALUES (#{name}, #{value})
+    </insert>
+
+    <update id="updateProperty">
+        UPDATE TB_APPLICATION_PROPERTY
+        SET PROPERTY_VALUE = #{value}
+        WHERE PROPERTY_NAME = #{name}
+    </update>
+
+    <delete id="deleteProperty">
+        DELETE FROM TB_APPLICATION_PROPERTY
+        WHERE PROPERTY_NAME = #{name}
+    </delete>
+
+    <delete id="deletePropertyLike">
+        DELETE FROM TB_APPLICATION_PROPERTY
+        WHERE PROPERTY_NAME LIKE #{nameWithWildcard}
+    </delete>
+
+</mapper>

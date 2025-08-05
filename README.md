@@ -16,4 +16,41 @@ Think of it as your magic studio engine.
 |Spring Cloud | 2021.0.8 | | |
 
 
-공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다.
+공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다. 
+```
+├── core 
+│   ├── platform    # 공통 플랫폼 기능 (studio.platform)
+│   │   ├── src
+│   │   │   ├── main
+│   │   │   │   ├── java
+│   │   │   │   │   └── studio.echo.platform
+│   │   │   │   │       ├── component
+│   │   │   │   │       ├── constant
+│   │   │   │   │       ├── exception
+│   │   │   │   │       ├── service
+│   │   │   │   │       └── util
+│   │   │   │   └── resources
+│   │   │   │       └── i18n
+│   │   │   └── test
+│   ├── platform-jpa
+│   │   ├── src
+│   │   │   ├── main
+│   │   │   │   ├── java
+│   │   │   │   │   └── studio.echo.platform.jpa
+│   │   │   │   │       ├── entity
+│   │   │   │   │       ├── repository
+│   │   │   │   │       ├── mapper 
+│   │   │   │   │       └── component
+│   │   │   │   └── resources
+│   │   │   │       └── i18n
+│   │   │   └── test 
+│   └── platform-starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)  (studio.platform)
+└── .gitignore
+└── build.gradle.kts
+└── gradle.properties
+└── gradlew
+└── gradlew.bat
+└── README.md
+└── settings.gradle.kts
+
+```
