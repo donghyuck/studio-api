@@ -17,3 +17,89 @@ Think of it as your magic studio engine.
 
 
 공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다.
+```
+├── core 
+│   ├── platform    # 공통 플랫폼 기능 (studio.platform)
+│   │   ├── src
+│   │   │   ├── main
+│   │   │   │   ├── java
+│   │   │   │   │   └── studio.echo.platform
+│   │   │   │   │       ├── component
+│   │   │   │   │       ├── constant
+│   │   │   │   │       ├── exception
+│   │   │   │   │       ├── service
+│   │   │   │   │       └── util
+│   │   │   │   └── resources
+│   │   │   │       └── i18n
+│   │   │   └── test
+│   ├── platform-jpa
+│   │   ├── src
+│   │   │   ├── main
+│   │   │   │   ├── java
+│   │   │   │   │   └── studio.echo.platform.jpa
+│   │   │   │   │       ├── entity
+│   │   │   │   │       ├── repository
+│   │   │   │   │       ├── mapper 
+│   │   │   │   │       └── component
+│   │   │   │   └── resources
+│   │   │   │       └── i18n
+│   │   │   └── test
+│   ├── jpa         # JPA 관련 설정/기반 클래스 (BaseEntity, Repository 등) (studio.platform, studio.user)
+│   └── starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)  (studio.platform)
+├── security (studio.user)
+├── community 
+│   ├──  studio.domain.community.streams
+│   ├──  studio.domain.community.commet
+
+
+kr.cufit.curation.api
+
+
+
+
+
+
+
+```
+
+```
+└── studio-api-core 
+│   └── src       
+│   │   └── main
+│   │   │   └── java
+│   │   │   │   └── studio
+│   │   │   │   │   └── platform 
+│   │   │   │   │       └── config
+│   │   │   │   │       └── components
+│   │   │   │   │       └── domains
+│   │   │   │   │       └── exception
+│   │   │   │   │       └── services
+│   │   │   │   │       └── util
+│   │   │   └── resources
+│   │   │       └── META-INF
+│   │   │       │   └── logo 
+│   │   │       └── studio 
+│   │   │       │   └── platform
+│   │   │       │       └── i18n
+│   │   │       │           └── UserLogLocalizer.properties
+│   │   │       └── schema 
+│   │   │       │   └── mysql
+│   │   │       │       └── *.sql
+│   │   │       └── sql 
+│   │   │           └── *-sqlset.xml   
+│   │   └── test    
+│   │       └── java
+│   │       └── resources             
+│   └── build.gradle.kts
+└── .gitignore
+└── build.gradle.kts
+└── gradle.properties
+└── gradlew
+└── gradlew.bat
+└── README.md
+└── settings.gradle.kts
+
+```
+
+
+./gradlew dependencyCheckAnalyze
