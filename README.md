@@ -1,4 +1,4 @@
-# studio-api
+# studio-api (echoes)
 [![release](https://img.shields.io/badge/release-0.1-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
@@ -16,7 +16,7 @@ Think of it as your magic studio engine.
 |Spring Cloud | 2021.0.8 | | |
 
 
-공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다.
+공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다. 
 ```
 ├── core 
 │   ├── platform    # 공통 플랫폼 기능 (studio.platform)
@@ -43,54 +43,8 @@ Think of it as your magic studio engine.
 │   │   │   │   │       └── component
 │   │   │   │   └── resources
 │   │   │   │       └── i18n
-│   │   │   └── test
-│   ├── jpa         # JPA 관련 설정/기반 클래스 (BaseEntity, Repository 등) (studio.platform, studio.user)
-│   └── starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)  (studio.platform)
-├── security (studio.user)
-├── community 
-│   ├──  studio.domain.community.streams
-│   ├──  studio.domain.community.commet
-
-
-kr.cufit.curation.api
-
-
-
-
-
-
-
-```
-
-```
-└── studio-api-core 
-│   └── src       
-│   │   └── main
-│   │   │   └── java
-│   │   │   │   └── studio
-│   │   │   │   │   └── platform 
-│   │   │   │   │       └── config
-│   │   │   │   │       └── components
-│   │   │   │   │       └── domains
-│   │   │   │   │       └── exception
-│   │   │   │   │       └── services
-│   │   │   │   │       └── util
-│   │   │   └── resources
-│   │   │       └── META-INF
-│   │   │       │   └── logo 
-│   │   │       └── studio 
-│   │   │       │   └── platform
-│   │   │       │       └── i18n
-│   │   │       │           └── UserLogLocalizer.properties
-│   │   │       └── schema 
-│   │   │       │   └── mysql
-│   │   │       │       └── *.sql
-│   │   │       └── sql 
-│   │   │           └── *-sqlset.xml   
-│   │   └── test    
-│   │       └── java
-│   │       └── resources             
-│   └── build.gradle.kts
+│   │   │   └── test 
+│   └── platform-starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)  (studio.platform)
 └── .gitignore
 └── build.gradle.kts
 └── gradle.properties
@@ -100,6 +54,3 @@ kr.cufit.curation.api
 └── settings.gradle.kts
 
 ```
-
-
-./gradlew dependencyCheckAnalyze
