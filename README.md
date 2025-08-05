@@ -8,15 +8,15 @@ A modular Spring Boot API platform that provides authentication, file management
 
 Think of it as your magic studio engine.
 
-
 |Name|Version|Initial Release|EOS (End of Service)|
 |------|---|---|---|
 |Spring Framework|5.3.31|2020-10-27|2024-12-31|
 |Spring Security|5.7.11|2022-05-16|2023-05-16|
 |Spring Cloud | 2021.0.8 | | |
 
+Studio Api 는 core, base 모듈들로 구성된다.
 
-공통 모듈과 기초 공통모듈은 아래와 같이 구성되어 있다. 
+코어 모듈은 아래와 같이 구성되어 있다. 
 ```
 ├── core 
 │   ├── platform    # 공통 플랫폼 기능 (studio.platform)
@@ -32,6 +32,7 @@ Think of it as your magic studio engine.
 │   │   │   │   └── resources
 │   │   │   │       └── i18n
 │   │   │   └── test
+│   │   └── build.gradle.kts
 │   ├── platform-jpa
 │   │   ├── src
 │   │   │   ├── main
@@ -44,13 +45,23 @@ Think of it as your magic studio engine.
 │   │   │   │   └── resources
 │   │   │   │       └── i18n
 │   │   │   └── test 
-│   └── platform-starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)  (studio.platform)
-└── .gitignore
-└── build.gradle.kts
-└── gradle.properties
-└── gradlew
-└── gradlew.bat
-└── README.md
+│   │   └── build.gradle.kts
+│   └── platform-starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)
+│       ├── src
+│       │   └── main
+│       │       ├── java
+│       │       │   └── studio.echo.platform.starter
+│       │       │       └── autoconfig
+│       │       │           └── condition
+│       │       └── resources
+│       └── build.gradle.kts
+├── .gitignore
+├── build.gradle.kts
+├── gradle.properties
+├── gradlew
+├── gradlew.bat
+├── README.md
 └── settings.gradle.kts
 
 ```
+
