@@ -3,6 +3,7 @@ plugins {
 	id("org.springframework.boot") apply false
     id("io.spring.dependency-management") apply false
 	id("org.owasp.dependencycheck") apply false
+	id("org.sonarqube") version "5.0.0.4638" apply false
 }
 
 allprojects {
@@ -16,9 +17,30 @@ allprojects {
     }
 }
 
+fun Project.hasAnySource(): Boolean {
+    fun hasFiles(dir: String) =
+        file(dir).exists() && file(dir).walk()
+            .filter { it.isFile }
+            .any { it.extension in setOf("java", "kt", "kts") }
+    return hasFiles("src/main/java") ||
+           hasFiles("src/main/kotlin") ||
+           hasFiles("src/test/java") ||
+           hasFiles("src/test/kotlin")
+}
+
+val skipPaths = setOf(":base", ":core")
 subprojects {
+	
+	logger.lifecycle(" ==================== ${project.path}")
 	apply(plugin = "java")
 	apply(plugin = "org.owasp.dependencycheck")
+
+	if (project.path !in skipPaths) {
+        plugins.apply("org.sonarqube")
+        tasks.matching { it.name == "sonarqube" }.configureEach {
+            onlyIf { hasAnySource() } // 소스가 없으면 자동 스킵
+        }
+    }
 	afterEvaluate{
 		the<org.owasp.dependencycheck.gradle.extension.DependencyCheckExtension>().apply {
 			autoUpdate = false  // 폐쇄망이므로 false
@@ -40,6 +62,7 @@ subprojects {
             extendsFrom(configurations.annotationProcessor.get())
         }
     }	
+	
 	tasks.named<Jar>("jar") {
     	enabled = true
     	manifest {
@@ -58,8 +81,8 @@ subprojects {
         annotationProcessor("org.projectlombok:lombok:$lombokVersion")
 		testCompileOnly("org.projectlombok:lombok:$lombokVersion")
         testAnnotationProcessor("org.projectlombok:lombok:$lombokVersion")
-		// 2.MapStruct
-		 
+		
+		// 2.MapStruct 
         // 3. srping boot test
 		testImplementation("org.springframework.boot:spring-boot-starter-test") {
     		exclude(group = "org.mockito", module = "mockito-core")

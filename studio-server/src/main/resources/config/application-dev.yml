@@ -2,64 +2,145 @@ logging:
   level:
     root: info
     studio.echo: trace
+    studio.server: debug
     org.springframework.boot.context.properties: DEBUG
     org.springframework.boot.context.properties.bind: DEBUG
+    org.springframework.boot.autoconfigure: ERROR
+    org.springframework.security: DEBUG
+    org.springframework.security.web.FilterChainProxy: TRACE
+    org.springframework.security.authentication.ProviderManager: TRACE
+    org.hibernate: ERROR
 spring:
   application:
     name: studio-api
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    sql-migration-prefix: V
+    repeatable-sql-migration-prefix: R
+    sql-migration-separator: __
+    sql-migration-suffixes: .sql
+    locations: classpath:/schema/postgres
+    out-of-order: true
   ### JPA Config ###
   jpa:
     # database-platform: org.hibernate.dialect.MySQLInnoDBDialect, org.hibernate.dialect.MySQL8Dialect
     # database-platform: org.hibernate.dialect.PostgreSQLDialect, org.hibernate.dialect.PostgreSQL10Dialect
     database-platform: org.hibernate.dialect.PostgreSQL10Dialect
     show-sql: false
-    properties: 
-      hibernate: 
+    properties:
+      hibernate:
+        default_schema: studioapi
         format_sql: true
+        jdbc:
+          time)zone: UTC
     hibernate:
+      ddl-auto: validate
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
   ### DATASOURCE Config ###
   datasource:
     primary:
-      url: jdbc:log4jdbc:postgresql://localhost:5432/peis
+      url: jdbc:log4jdbc:postgresql://localhost:5432/cufit_db
       driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
-      username: peis
-      password: peis
+      username: studioapi
+      password: studioapi
       type: com.zaxxer.hikari.HikariDataSource
       hikari:
-        minimum-idle: 5               # 최소 유휴 커넥션 수
-        maximum-pool-size: 5         # 커넥션 풀 최대 크기 (일반 웹서비스 기준)
-        idle-timeout: 600000          # 커넥션 유휴 종료 시간 (10분, 단위: ms)
-        max-lifetime: 1800000         # 커넥션 최대 수명 (30분, 단위: ms)
-        connection-timeout: 30000     # 커넥션 획득 timeout (30초)
-        pool-name: PrimaryHikariCP     # 풀 이름 지정
-        auto-commit: false             # 자동 커밋 여부 
+        minimum-idle: 5 # 최소 유휴 커넥션 수
+        maximum-pool-size: 5 # 커넥션 풀 최대 크기 (일반 웹서비스 기준)
+        idle-timeout: 600000 # 커넥션 유휴 종료 시간 (10분, 단위: ms)
+        max-lifetime: 1800000 # 커넥션 최대 수명 (30분, 단위: ms)
+        connection-timeout: 30000 # 커넥션 획득 timeout (30초)
+        pool-name: PrimaryHikariCP # 풀 이름 지정
+        auto-commit: false # 자동 커밋 여부
 studio:
   banner-mode: off
-  env:  
+  env:
     log:
       enabled: true
-      print-values: true 
-  persistence:
-      jpa: true
+      print-values: true
+  jpa:
+    enabled: true
+    print-entities: true
+    auditing:
+      enabled: true
+      clock:
+        zone-id: "Asia/Seoul" # 감사 시간대(기본: UTC)
+      auditor:
+        strategy: security # security | header | fixed | composite
+        header: "X-Actor" # strategy=header일 때 추출할 헤더 이름
+        fixed: "system" # strategy=fixed일 때 고정 주체
+        composite: # strategy=composite일 때 우선순위
+          - security
+          - header
+          - fixed
+      fallback:
+        pre-persist: true # @PrePersist 기본값 보강
+        pre-update: true # @PreUpdate 기본값 보강
   i18n:
-    resources:
-      - classpath:/i18n/messages
+    # resources:   # ← 비워두면 자동 스캔
+    #   - classpath:i18n/*/messages
+    #   - classpath:META-INF/i18n/user/messages
     encoding: UTF-8
-    cache-seconds: 60      
+    cache-seconds: -1
+    use-code-as-default-message: true
+    fallback-to-system-locale: false
   features:
     application-properties:
       enabled: true
+    user:
+      enabled: true
+      web:
+        base-path: /api/mgmt
+        roles:
+          read: [ADMIN, MANAGER]
+          write: [ADMIN]
+        endpoints:
+          user: { enabled: true, mode: CRUD }
+          group: { enabled: true, mode: CRUD }
+          role: { enabled: true, mode: CRUD }
+          company: { enabled: true, mode: DISABLED }
+    jasypt:
+      enabled: true
+      encryptor:
+        bean: components:foundation:jasypt-string-encryptor
+        password: ${JASYPT_ENCRYPTOR_PASSWORD} # 환경 변수로 암호화 비밀번호 설정
+        algorithm: "PBEWithSHA256And128BitAES-CBC-BC" # Bouncy Castle 알고리즘 사용
+        providerName: "BC" # Bouncy Castle 프로바이더 지정
+        key-obtention-iterations: 1000
+        pool-size: 1
+        salt-generator-classname: "org.jasypt.salt.RandomSaltGenerator"
+        string-output-type: "base64"
+      http:
+        enabled: true # 웹 엔드포인트 사용 시 true
+        base-path: /internal/jasypt
+        require-token: true
+        #token-env: JASYPT_HTTP_TOKEN
+        token-value: local-dev-token
   security:
+    enabled: true
     default-roles:
       - ROLE_USER
-    password-encoder: bcrypt # bcrypt, sha256, pbkdf2
-    jwt: 
+    password-encoder:
+      algorithm: bcrypt # bcrypt, sha256, pbkdf2
+    jwt:
       secret: rPdiCjP07o9Soenln4t58AZr5bgaTLpXllDbbRs6yZ0=
-      access-token-expiry: 3600000 # 1 hour
-      refresh-token-expiry: 3600000 # 1 hour
-      issuer: www.greentogether.go.kr     
+      access-ttl:: 30m
+      refresh-ttl: 35m
+      issuer: www.greentogether.go.kr
+      header: Authorization
+      prefix: Bearer
+      claim-authorities: authorities
+      endpoints:
+        login-enabled: true
+        refresh-enabled: true
+        base-path: /api/auth
+      permit:
+        - /api/auth/**
+      fail-if-missing: true
     cors:
       allowed-origins:
         - "http://localhost:3000"
@@ -80,8 +161,7 @@ studio:
       permit-all:
         - /
         - /index.html
-        - /api/auth/**
+        - /api/mgmt/**
       role:
         USER:
           - /api/profile/**
-

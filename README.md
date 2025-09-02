@@ -65,3 +65,22 @@ Studio Api 는 core, base 모듈들로 구성된다.
 
 ```
 
+
+
+
+## Create dababase (postgres)
+```
+-- 로그인 가능한 사용자 생성 + 비밀번호 지정
+CREATE USER studioapi WITH PASSWORD 'studioapi';
+
+-- 데이터베이스 생성 권한 부여
+ALTER USER studioapi CREATEDB;
+
+CREATE SCHEMA studioapi AUTHORIZATION studioapi;
+
+GRANT ALL PRIVILEGES ON SCHEMA studioapi TO studioapi;
+
+```
+
+
+

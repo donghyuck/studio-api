@@ -1,0 +1,5 @@
+studio.echo.platform.autoconfigure.PlatformI18nAutoConfiguration
+studio.echo.platform.autoconfigure.PlatformPropertiesAutoConfiguration
+studio.echo.platform.autoconfigure.PlatformRepositoryAutoConfiguration
+studio.echo.platform.autoconfigure.PlatformWebAdviceAutoConfiguration
+studio.echo.platform.autoconfigure.PlatformJpaAuditingAutoConfiguration
