@@ -12,10 +12,10 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 }
 
 dependencies {
-    implementation(project(":starter:studio-platform-starter"))
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
+    compileOnly(project(":starter:studio-platform-starter"))
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    compileOnly("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.jasypt:jasypt:1.9.3")
     implementation("org.bouncycastle:bcprov-jdk15to18:${project.findProperty("bouncycastleVersion")}")
 }
