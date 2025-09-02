@@ -20,16 +20,28 @@
  */
 package studio.server;
 
+import javax.persistence.EntityManagerFactory;
+
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import lombok.extern.slf4j.Slf4j;
+import studio.echo.platform.autoconfigure.JpaProperties;
+import studio.echo.platform.service.I18n;
+import studio.echo.platform.util.jpa.EntityLogger;
+
 /**
+ * Main Application.
  * 
  * @author  donghyuck, son
  * @since 2025-07-25
@@ -48,6 +60,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableCaching
 @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
+@EnableConfigurationProperties({ JpaProperties.class })
+@Slf4j
 public class StudioApplication extends SpringBootServletInitializer  {
 
 	@Override
@@ -58,5 +72,15 @@ public class StudioApplication extends SpringBootServletInitializer  {
     public static void main(String[] args) {
 		SpringApplication.run(StudioApplication.class, args);
 	}
+
+
+    @Bean
+    CommandLineRunner userEntityLogger(JpaProperties props, EntityManagerFactory emf, ObjectProvider<I18n> i18n) {
+        return args -> { 
+            if (!props.isPrintEntities())
+                return;
+            EntityLogger.log(emf, log, "STUDIO", i18n.getIfAvailable()); 
+        };
+    }
 
 }

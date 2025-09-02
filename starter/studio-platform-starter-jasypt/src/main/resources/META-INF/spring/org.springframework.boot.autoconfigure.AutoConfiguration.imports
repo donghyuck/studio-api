@@ -1,0 +1,3 @@
+studio.echo.platform.autoconfigure.jasypt.JasyptPresenceGuard
+studio.echo.platform.autoconfigure.jasypt.JasyptAutoConfiguration
+studio.echo.platform.autoconfigure.jasypt.JasyptHttpAutoConfiguration

@@ -18,43 +18,102 @@ Studio Api 는 core, base 모듈들로 구성된다.
 
 코어 모듈은 아래와 같이 구성되어 있다. 
 ```
-├── core 
-│   ├── platform    # 공통 플랫폼 기능 (studio.platform)
+├── starter 
+│   ├── studio-platform-starter    
 │   │   ├── src
 │   │   │   ├── main
 │   │   │   │   ├── java
-│   │   │   │   │   └── studio.echo.platform
-│   │   │   │   │       ├── component
-│   │   │   │   │       ├── constant
-│   │   │   │   │       ├── exception
-│   │   │   │   │       ├── service
-│   │   │   │   │       └── util
+│   │   │   │   │   └── studio.echo.platform.autoconfigure
+│   │   │   │   │       ├── i18n
+│   │   │   │   │       ├── jpa
+│   │   │   │   │       │   └── auditor
 │   │   │   │   └── resources
-│   │   │   │       └── i18n
+│   │   │   │       └── META-INF
+│   │   │   │           ├── i18n/platform
+│   │   │   │           └── spring
+│   │   │   │               └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
 │   │   │   └── test
 │   │   └── build.gradle.kts
-│   ├── platform-jpa
+│   ├── studio-platform-starter-jasypt 
 │   │   ├── src
 │   │   │   ├── main
 │   │   │   │   ├── java
-│   │   │   │   │   └── studio.echo.platform.jpa
-│   │   │   │   │       ├── entity
-│   │   │   │   │       ├── repository
-│   │   │   │   │       ├── mapper 
-│   │   │   │   │       └── component
+│   │   │   │   │   └── studio.echo.platform.ajasypt.autoconfigure
 │   │   │   │   └── resources
-│   │   │   │       └── i18n
+│   │   │   │       └── META-INF
+│   │   │   │           ├── i18n/jasypt
+│   │   │   │           └── spring
+│   │   │   │               └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
 │   │   │   └── test 
 │   │   └── build.gradle.kts
-│   └── platform-starter     # Spring Boot Starter 구성 (자동 설정, AutoConfig 등)
+│   ├── studio-platform-starter-security 
+│   │   ├── src
+│   │   │   ├── main
+│   │   │   │   ├── java
+│   │   │   │   │   └── studio.echo.platform.security.autoconfigure
+│   │   │   │   └── resources
+│   │   │   │       └── META-INF
+│   │   │   │           ├── i18n/jasypt
+│   │   │   │           └── spring
+│   │   │   │               └── org.springframework.boot.autoconfigure.AutoConfiguration.imports
+│   │   │   └── test 
+│   │   └── build.gradle.kts
+│   └── studio-platform-starter-user
 │       ├── src
 │       │   └── main
 │       │       ├── java
-│       │       │   └── studio.echo.platform.starter
+│       │       │   └── studio.echo.platform.user.starter
 │       │       │       └── autoconfig
 │       │       │           └── condition
 │       │       └── resources
 │       └── build.gradle.kts
+├── studio-platform
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── studio.echo.platform
+│   │       └── resources
+│   │           ├── i18n/platform
+│   │           ├── META-INF
+│   │           └── banner.txt
+├── studio-platform-autoconfigure
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── studio.echo.jplatform.autoconfigure
+│   │       └── resources 
+│   │           └── META-INF 
+│   └── build.gradle.kts   
+│
+├── studio-platform-jpa
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── studio.echo.jplatform
+│   │       └── resources 
+│   │           └── schema
+│   │               ├── mysql
+│   │               └── postgres
+│   └── build.gradle.kts 
+├── studio-platform-security
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── studio.echo.base.security
+│   │       └── resources 
+│   │           ├── META-INF 
+│   │           └── i18n/security
+│   └── build.gradle.kts 
+├── studio-platform-user
+│   ├── src
+│   │   └── main
+│   │       ├── java
+│   │       │   └── studio.echo.base.user
+│   │       └── resources 
+│   │           ├── META-INF 
+│   │           └── i18n/security
+│   │           └── schema
+│   └── build.gradle.kts 
 ├── .gitignore
 ├── build.gradle.kts
 ├── gradle.properties
@@ -64,4 +123,23 @@ Studio Api 는 core, base 모듈들로 구성된다.
 └── settings.gradle.kts
 
 ```
+
+
+
+
+## Create dababase (postgres)
+```
+-- 로그인 가능한 사용자 생성 + 비밀번호 지정
+CREATE USER studioapi WITH PASSWORD 'studioapi';
+
+-- 데이터베이스 생성 권한 부여
+ALTER USER studioapi CREATEDB;
+
+CREATE SCHEMA studioapi AUTHORIZATION studioapi;
+
+GRANT ALL PRIVILEGES ON SCHEMA studioapi TO studioapi;
+
+```
+
+
 
