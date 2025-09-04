@@ -49,7 +49,6 @@ import lombok.RequiredArgsConstructor;
 import studio.echo.base.user.domain.entity.ApplicationGroup;
 import studio.echo.base.user.service.ApplicationGroupService;
 import studio.echo.base.user.web.dto.ApplicationGroupDto;
-import studio.echo.base.user.web.dto.ApplicationUserDto;
 import studio.echo.base.user.web.mapper.ApplicationGroupMapper;
 import studio.echo.platform.constant.PropertyKeys;
 import studio.echo.platform.web.dto.ApiResponse;

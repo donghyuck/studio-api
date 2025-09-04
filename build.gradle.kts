@@ -3,7 +3,7 @@ plugins {
 	id("org.springframework.boot") apply false
     id("io.spring.dependency-management") apply false
 	id("org.owasp.dependencycheck") apply false
-	id("org.sonarqube") version "5.0.0.4638" apply false
+	id("org.sonarqube") version "5.0.0.4638" apply false   
 }
 
 allprojects {
@@ -29,6 +29,11 @@ fun Project.hasAnySource(): Boolean {
 }
 
 val skipPaths = setOf(":base", ":core")
+val sourceCompatibilityValue = project.findProperty("sourceCompatibility") as String?
+val toolchainVersion = (findProperty("java.toolchain") as String?)?.toInt() ?: 11
+val javaRelease      = (findProperty("java.release")   as String?)?.toInt() ?: 11
+val lombokVersion: String = project.findProperty("lombokVersion") as String? ?: "1.18.30"
+
 subprojects {
 	
 	logger.lifecycle(" ==================== ${project.path}")
@@ -53,16 +58,21 @@ subprojects {
     	}
 	}
 	java {
-		val sourceCompatibilityValue = project.findProperty("sourceCompatibility") as String?
-		sourceCompatibility = JavaVersion.toVersion(sourceCompatibilityValue ?: "1.8")
-		targetCompatibility = JavaVersion.toVersion(sourceCompatibilityValue ?: "1.8")
+		toolchain.languageVersion.set(JavaLanguageVersion.of(toolchainVersion))
+        sourceCompatibility = JavaVersion.toVersion(sourceCompatibilityValue ?: "11")
+		targetCompatibility = JavaVersion.toVersion(sourceCompatibilityValue ?: "11")
+        withSourcesJar()
+       // withJavadocJar() 
 	}
+
+	tasks.withType<JavaCompile>().configureEach { 
+        options.release.set(javaRelease)
+    } 
 	configurations {
         compileOnly {
             extendsFrom(configurations.annotationProcessor.get())
         }
     }	
-	
 	tasks.named<Jar>("jar") {
     	enabled = true
     	manifest {
@@ -72,8 +82,6 @@ subprojects {
 			)
     	}
 	}
-
-	val lombokVersion: String = project.findProperty("lombokVersion") as String? ?: "1.18.30"
 
 	dependencies {
 		// 1. Lombok
@@ -92,4 +100,59 @@ subprojects {
 	tasks.withType<Test> {
         useJUnitPlatform()
     }
+
+	val publishable = true // 필요 시 특정 모듈만 배포하려면 여기서 조건부로 조정
+
+    if (publishable) {
+        apply(plugin = "maven-publish")
+        plugins.withId("java") {
+            apply(plugin = "maven-publish")
+            extensions.configure<PublishingExtension>("publishing") {
+                publications {
+                    create<MavenPublication>("mavenJava") {
+                        // java 컴포넌트가 없는 모듈에서의 예외 방지
+                        val javaComponent = components.findByName("java")
+                        requireNotNull(javaComponent) { "Java component not found in project ${project.path}" }
+                        from(javaComponent)
+                        pom {
+                            name.set(project.name)
+                            description.set(project.description ?: project.name)
+                            url.set(findProperty("pom.url") as String? ?: "https://example.org")
+                            licenses {
+                                license {
+                                    name.set(findProperty("pom.licenseName") as String? ?: "Apache-2.0")
+                                    url.set(findProperty("pom.licenseUrl") as String? ?: "https://www.apache.org/licenses/LICENSE-2.0")
+                                }
+                            }
+                            scm {
+                                url.set(findProperty("pom.scmUrl") as String? ?: "https://example.org/scm")
+                                connection.set(findProperty("pom.scmConnection") as String? ?: "scm:git:https://example.org/repo.git")
+                                developerConnection.set(findProperty("pom.scmDevConnection") as String? ?: "scm:git:ssh://git@example.org/repo.git")
+                            }
+                        }
+                    }
+                }
+                repositories {
+                    val isSnapshot = version.toString().endsWith("SNAPSHOT")
+                    maven {
+                        name = "Nexus"
+						isAllowInsecureProtocol = (findProperty("nexus.allowInsecure") as String?)?.toBoolean() ?: false
+                        url = uri(
+                            if (isSnapshot)
+                                (findProperty("nexus.snapshotsUrl") as String?
+                                    ?: "http://localhost:8081/repository/maven-snapshots/")
+                            else
+                                (findProperty("nexus.releasesUrl") as String?
+                                    ?: "http://localhost:8081/repository/maven-releases/")
+                        )
+                        credentials {
+                            username = (findProperty("nexus.username") as String?) ?: System.getenv("NEXUS_USERNAME")
+                            password = (findProperty("nexus.password") as String?) ?: System.getenv("NEXUS_PASSWORD")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 }

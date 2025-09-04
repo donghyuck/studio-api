@@ -22,11 +22,26 @@ public class WebProperties {
     @NotBlank
     private String basePath = "/api/mgmt";
 
+    @NotBlank
+    private String selfPath = "/api/self";
+
     private Mode mode = Mode.CRUD;
 
-    private Roles roles = new Roles();
+    private final Roles roles = new Roles();
 
-    private Endpoints endpoints = new Endpoints();
+    private final Endpoints endpoints = new Endpoints();
+
+    private final Self self = new Self();   
+
+    @Getter
+    @Setter
+    public static class Self {
+        
+        private boolean enabled = true; 
+        
+        @NotBlank
+        private String path = "/api/self";
+    }
 
     @Getter
     @Setter
