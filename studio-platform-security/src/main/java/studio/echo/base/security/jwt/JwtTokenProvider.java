@@ -68,13 +68,14 @@ import studio.echo.base.security.exception.JwtTokenException;
  * @since 2025-08-25
  * @version 1.0
  *
- *          <pre>
+ * <pre>
  *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-08-25  donghyuck, son: 최초 생성.
- *          </pre>
+ * 2025-09-02  donghyuck, son: Bearer 토큰 파싱 보강
+ * </pre>
  */
 
 @Slf4j
@@ -90,7 +91,7 @@ public class JwtTokenProvider {
     /**
      * JWT Token prefix
      */
-    public static final String TOKEN_PREFIX = "Bearer";
+    public static final String BEARER_PREFIX = "Bearer";
 
     /**
      * Header key for JWT Token
@@ -158,7 +159,6 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(Authentication authentication) {
-
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
@@ -187,7 +187,6 @@ public class JwtTokenProvider {
     }
 
     public Authentication getAuthentication(String token, UserDetailsService userDetailsService, boolean refresh) {
-
         Claims claims = Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
@@ -245,10 +244,14 @@ public class JwtTokenProvider {
     }
 
     public String resolveToken(HttpServletRequest request) {
-        String bearerToken = request.getHeader(JwtTokenProvider.HEADER_STRING);
-        if (StringUtils.isNotBlank(bearerToken) && bearerToken.startsWith(JwtTokenProvider.TOKEN_PREFIX)) {
-            return bearerToken.substring(TOKEN_PREFIX.length());
+        String header = request.getHeader(HEADER_STRING);
+        if (StringUtils.isBlank(header)) return null;
+        if (StringUtils.startsWithIgnoreCase(header, BEARER_PREFIX)) {
+            String token = header.substring(BEARER_PREFIX.length()).trim();
+            return StringUtils.isNotBlank(token) ? token : null;
         }
         return null;
     }
+
+    
 }

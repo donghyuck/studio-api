@@ -17,6 +17,7 @@ import studio.echo.base.user.service.ApplicationGroupService;
 import studio.echo.base.user.service.ApplicationRoleService;
 import studio.echo.base.user.service.ApplicationUserService;
 import studio.echo.base.user.web.endpoint.GroupController;
+import studio.echo.base.user.web.endpoint.MeController;
 import studio.echo.base.user.web.endpoint.UserController;
 import studio.echo.base.user.web.mapper.ApplicationGroupMapper;
 import studio.echo.base.user.web.mapper.ApplicationGroupMapperImpl;
@@ -106,6 +107,16 @@ public class UserEndpointsAutoConfiguration {
                 LogUtils.blue(RoleEndpoint.class, true),
                 webProperties.normalizedBasePath() + "/roles", webProperties.getEndpoints().getGroup().getMode()));
         return new RoleEndpoint();
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX , name = "enabled", havingValue = "true", matchIfMissing = true )
+    public MeController selfEndpoint(ApplicationUserService<User> svc, ApplicationUserMapper mapper) {
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+                LogUtils.blue("Self"),
+                LogUtils.blue(MeController.class, true),
+                webProperties.getSelf().getPath()));
+        return new MeController(svc, mapper);
     }
 
     @Getter

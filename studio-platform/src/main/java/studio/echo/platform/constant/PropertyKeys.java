@@ -113,9 +113,14 @@ public class PropertyKeys {
             @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
             public static final class Web {
                 public static final String PREFIX = Features.User.PREFIX + ".web";
-                public static final String BASE_PATH = PREFIX + ".base-path";
+                public static final String BASE_PATH = PREFIX + ".base-path"; 
                 public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING; 
 
+                @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+                public static final class Self {
+                    public static final String PREFIX = Features.User.Web.PREFIX + ".self"; 
+                    public static final String PATH = PREFIX + ".path";
+                }
                 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
                 public static final class Endpoints {
                     public static final String PREFIX = Features.User.Web.PREFIX + ".endpoints"; 
