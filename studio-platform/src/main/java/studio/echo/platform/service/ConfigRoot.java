@@ -25,23 +25,34 @@ import java.net.URI;
 import java.util.Optional;
 
 /**
+ * An interface that represents the root of the configuration directory.
  *
  * @author donghyuck, son
  * @since 2025-07-08
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-08  donghyuck, son: 최초 생성.
- *          </pre>
  */
 public interface ConfigRoot {
-	Optional<File> getFile(String name); // 파일명으로 하위 파일 반환
+	/**
+	 * Returns a file from the configuration directory by its name.
+	 *
+	 * @param name the name of the file
+	 * @return an {@link Optional} containing the file, or an empty
+	 *         {@link Optional} if not found
+	 */
+	Optional<File> getFile(String name);
 
-	Optional<File> getRootFile(); // 루트 디렉터리 자체
+	/**
+	 * Returns the root directory of the configuration.
+	 *
+	 * @return an {@link Optional} containing the root directory, or an empty
+	 *         {@link Optional} if not available
+	 */
+	Optional<File> getRootFile();
 
-	URI getRootURI(); // 루트 URI 반환
+	/**
+	 * Returns the URI of the configuration root.
+	 *
+	 * @return the root URI
+	 */
+	URI getRootURI();
 }

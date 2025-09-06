@@ -22,23 +22,26 @@
 
 package studio.echo.platform.error;
 /**
- * 심각도 타입.
+ * Represents the severity of an error.
  * 
  * @author  donghyuck, son
  * @since 2025-08-12
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-12  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 public enum Severity {
-    INFO, // 흐름 안내/사소한 비즈 규칙: 보통 2xx/4xx
-    WARN, // 예상 가능한 문제/제약: 4xx
-    ERROR // 시스템/비예상 오류: 5xx
+    /**
+     * Informational message, typically for flow guidance or minor business rules.
+     * Often associated with 2xx/4xx HTTP statuses.
+     */
+    INFO,
+    /**
+     * A warning about a potential issue or constraint.
+     * Often associated with 4xx HTTP statuses.
+     */
+    WARN,
+    /**
+     * A system or unexpected error.
+     * Often associated with 5xx HTTP statuses.
+     */
+    ERROR
 }

@@ -22,9 +22,21 @@ package studio.echo.platform.constant;
 
 import lombok.NoArgsConstructor;
 
+/**
+ * A utility class that contains constants for message bundle keys used for
+ * internationalization (i18n). This class cannot be instantiated and contains
+ * only static inner classes for different message categories.
+ *
+ * @author donghyuck, son
+ * @since 2025-07-21
+ * @version 1.0
+ */
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class MessageCodes {
 
+    /**
+     * Contains message codes for informational messages.
+     */
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class Info {
         public static final String CONFIG_ROOT_ATTEMPT = "info.config.root.attempt";
@@ -40,6 +52,9 @@ public class MessageCodes {
         
     }
 
+    /**
+     * Contains message codes for error messages.
+     */
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class Error {
         public static final String CONFIG_ROOT_NULL = "error.config.root.null"; 
@@ -54,6 +69,9 @@ public class MessageCodes {
         public static final String CONFIG_APPLICATION_HOME_FAILED =  "error.config.application.home.failed";
     }
 
+    /**
+     * Contains message codes for warning messages.
+     */
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class Warn {
         public static final String CONFIG = "warn.config";

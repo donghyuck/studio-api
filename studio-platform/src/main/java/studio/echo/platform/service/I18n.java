@@ -28,61 +28,53 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.lang.Nullable;
 
 /**
- * 국제화(I18n)를 지원하기 위한 인터페이스.
+ * An interface for supporting internationalization (i18n).
  * <p>
- * 이 인터페이스는 애플리케이션이 다양한 언어와 지역에 따라 다른 메시지를 제공할 수 있도록 설계되었습니다.
- * </p>
+ * This interface is designed to allow the application to provide different
+ * messages based on various languages and regions.
  * 
  * @author donghyuck, son
  * @since 2025-08-13
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-13  donghyuck, son: 최초 생성.
- * 
- *          </pre>
  */
 @FunctionalInterface
 public interface I18n {
 
     /**
-     * 지정된 로캘과 인수를 사용하여 메시지를 조회합니다.
+     * Retrieves a message using the specified locale and arguments.
      *
-     * @param code   메시지 코드 (null 불가)
-     * @param args   메시지 포맷팅에 사용될 인수 배열.
+     * @param code   the message code (non-null)
+     * @param args   an array of arguments to be used for message formatting.
      *               <ul>
-     *                 <li>{@code null} → 인수 없음으로 처리</li>
-     *                 <li>빈 배열 → 빈 값으로 포맷팅</li>
+     *               <li>{@code null} is treated as no arguments</li>
+     *               <li>an empty array is formatted as an empty value</li>
      *               </ul>
-     * @param locale 조회할 대상 로캘 (null 불가)
-     * @return 국제화된 메시지
-     * @throws org.springframework.context.NoSuchMessageException
-     *         메시지를 찾을 수 없는 경우
+     * @param locale the target locale to look up (non-null)
+     * @return the internationalized message
+     * @throws org.springframework.context.NoSuchMessageException if the message
+     *                                                            cannot be found
      */
     String get(String code, @Nullable Object[] args, Locale locale);
 
     /**
-     * 현재 스레드 로캘({@link LocaleContextHolder})을 기준으로 메시지를 조회합니다.
+     * Retrieves a message based on the current thread's locale
+     * (from {@link LocaleContextHolder}).
      *
-     * @param code 메시지 코드 (null 불가)
-     * @param args 메시지 인수 배열. {@code null} 허용.
-     * @return 국제화된 메시지
+     * @param code the message code (non-null)
+     * @param args an array of message arguments. {@code null} is allowed.
+     * @return the internationalized message
      */
     default String get(String code, @Nullable Object... args) {
         return get(code, args, LocaleContextHolder.getLocale());
     }
 
     /**
-     * 메시지를 찾을 수 없으면 지정한 기본 메시지를 반환합니다.
+     * Returns the specified default message if the message cannot be found.
      *
-     * @param code           메시지 코드
-     * @param defaultMessage 기본 반환 메시지
-     * @param args           메시지 인수 배열. {@code null} 허용.
-     * @return 국제화된 메시지 또는 기본 메시지
+     * @param code           the message code
+     * @param defaultMessage the default message to return
+     * @param args           an array of message arguments. {@code null} is allowed.
+     * @return the internationalized message or the default message
      */
     default String getOrDefault(String code, String defaultMessage, @Nullable Object... args) {
         try {
@@ -93,11 +85,12 @@ public interface I18n {
     }
 
     /**
-     * 메시지를 Optional 로 감싸서 반환합니다.
+     * Wraps the message in an {@link Optional}.
      *
-     * @param code 메시지 코드
-     * @param args 메시지 인수 배열. {@code null} 허용.
-     * @return 메시지가 존재하면 Optional, 없으면 Optional.empty()
+     * @param code the message code
+     * @param args an array of message arguments. {@code null} is allowed.
+     * @return an {@link Optional} containing the message if it exists, otherwise
+     *         {@link Optional#empty()}
      */
     default Optional<String> tryGet(String code, @Nullable Object... args) {
         try {
@@ -108,13 +101,14 @@ public interface I18n {
     }
 
     /**
-     * 명시 로캘 기반 조회 + 기본 메시지 폴백.
+     * Retrieves a message based on an explicit locale with a fallback to a default
+     * message.
      *
-     * @param code           메시지 코드
-     * @param args           메시지 인수 배열. {@code null} 허용.
-     * @param locale         조회할 로캘
-     * @param defaultMessage 기본 메시지
-     * @return 메시지 또는 기본 메시지
+     * @param code           the message code
+     * @param args           an array of message arguments. {@code null} is allowed.
+     * @param locale         the locale to look up
+     * @param defaultMessage the default message
+     * @return the message or the default message
      */
     default String getOrDefault(String code, @Nullable Object[] args, Locale locale, String defaultMessage) {
         try {

@@ -26,30 +26,17 @@ import org.springframework.util.StringUtils;
 
 
 /**
- * 프로퍼티 이름이 민감한 정보(예: password, secret, key, token)와 관련되어 있는지 판별하는 유틸리티 클래스입니다.
+ * A utility class to determine if a property name is related to sensitive
+ * information (e.g., password, secret, key, token).
  * <p>
- * 이 클래스는 인스턴스화할 수 없으며, 정적 메서드만 제공합니다.
- * </p>
+ * This class cannot be instantiated and provides only static methods. It checks
+ * for sensitive property names using a regular expression and considers exact
+ * matches for "password", "secret", "key", and "token" as sensitive.
  *
- * <ul>
- * <li>민감한 프로퍼티 이름을 정규표현식으로 검사합니다.</li>
- * <li>정확히 "password", "secret", "key", "token"과 일치하는 경우만 민감한 정보로 간주합니다.</li>
- * <li>유효성 검사가 필요한 곳에서 정적 메서드로 호출하여 사용할 수 있습니다.</li>
- * </ul>
- * 
  * @author donghyuck, son
  * @since 2025-07-14
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-14  donghyuck, son: 최초 생성.
- *          </pre>
  */
-
 public class PropertyValidator {
 
     private static final Pattern SENSITIVE_PATTERN = Pattern.compile("\\b(password|secret|key|token)\\b",
@@ -58,6 +45,13 @@ public class PropertyValidator {
     private PropertyValidator() {
     }
 
+    /**
+     * Checks if a given property name is considered sensitive.
+     *
+     * @param name the name of the property to check.
+     * @return {@code true} if the property name is sensitive, {@code false}
+     *         otherwise.
+     */
     public static boolean isSensitiveProperty(String name) {
         if (!StringUtils.hasText(name)) {
             return false;

@@ -34,30 +34,38 @@ import studio.echo.platform.exception.ConfigurationError;
 import studio.echo.platform.service.ConfigRoot;
 
 /**
+ * An implementation of the {@link ConfigRoot} interface that provides access to
+ * configuration files and directories. This class is responsible for resolving
+ * configuration resources from a given root resource location.
  * 
  * @author donghyuck, son
  * @since 2025-07-21
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-21  donghyuck, son: 최초 생성.
- *          </pre>
  */
-
 @Slf4j
 public class ConfigRootImpl implements ConfigRoot {
 
 	private Resource rootResource;
 
+	/**
+	 * Creates a new {@code ConfigRootImpl} instance with the specified root
+	 * resource.
+	 *
+	 * @param rootResource the root resource location for configuration files. Must
+	 *                     not be {@code null}.
+	 */
 	public ConfigRootImpl(Resource rootResource) {
 		Assert.notNull(rootResource, "Root resource must not be null");
 		this.rootResource = rootResource;
 	}
 
+	/**
+	 * Returns a {@link File} object for the specified configuration file name.
+	 *
+	 * @param name the name of the configuration file to retrieve.
+	 * @return an {@link Optional} containing the configuration file, or an empty
+	 *         {@link Optional} if the file cannot be resolved.
+	 */
 	public Optional<File> getFile(String name) {
 		try {
 			File file = new File(rootResource.getFile(), FilenameUtils.getName(name));
@@ -68,6 +76,12 @@ public class ConfigRootImpl implements ConfigRoot {
 		}
 	}
 
+	/**
+	 * Returns the root directory for configuration files.
+	 *
+	 * @return an {@link Optional} containing the root directory, or an empty
+	 *         {@link Optional} if the root directory cannot be resolved.
+	 */
 	public Optional<File> getRootFile() {
 		try {
 			return Optional.ofNullable(rootResource.getFile());
@@ -77,6 +91,12 @@ public class ConfigRootImpl implements ConfigRoot {
 		}
 	}
 
+	/**
+	 * Returns the URI of the root resource location.
+	 *
+	 * @return the URI of the root resource.
+	 * @throws ConfigurationError if the root URI cannot be resolved.
+	 */
 	public URI getRootURI() {
 		try {
 			return rootResource.getURI();

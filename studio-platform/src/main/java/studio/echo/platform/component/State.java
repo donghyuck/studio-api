@@ -20,61 +20,67 @@
  */
 package studio.echo.platform.component;
 
+/**
+ * Represents the lifecycle state of a component.
+ */
 public enum State {
     /**
+     * The component has not been initialized.
      */
     NONE("NONE"),
     /**
-     * 컴포넌트가 생성 중
+     * The component is being initialized.
      */
     INITIALIZING("INITIALIZING"),
     /**
-     * 컴포넌트가 초기화됨
+     * The component has been initialized.
      */
     INITIALIZED("INITIALIZED"),
     /**
-     * 컴포넌트가 시작 중
+     * The component is starting.
      */
     STARTING("STARTING"),
     /**
-     * 컴포넌트가 시작됨
+     * The component has started.
      */
     STARTED("STARTED"),
     /**
-     * 컴포넌트가 중지 중
+     * The component is stopping.
      */
-    STOPING("STOPING"),
+    STOPPING("STOPPING"),
     /**
-     * 컴포넌트가 실행 중
+     * The component is running.
      */
     RUNNING("RUNNING"),
     /**
-     *  컴포넌트가 중지 중
+     * The component has been stopped.
      */
-    STOPED("STOPED"),
+    STOPPED("STOPPED"),
     /**
-     * 컴포넌트가 파괴 중
+     * The component is being destroyed.
      */
     DESTROYING("DESTROYING"),
     /**
-     * 컴포넌트가 파괴됨
+     * The component has been destroyed.
      */
     DESTROYED("DESTROYED"),
-
+    /**
+     * The component is being created.
+     */
     CREATING("CREATING"),
     /**
-     * 컴포넌트 생성됨
+     * The component has been created.
      */
     CREATED("CREATED"),
 
     /**
-     * 업그레이드 시작
+     * The post-upgrade process has started.
      */
     POST_UPGRADE_STARTED("POST_UPGRADE_STARTED");
 
     private String desc;
 
-    private State(String desc) {
+    State(String desc) {
         this.desc = desc;
     }
 

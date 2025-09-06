@@ -2,9 +2,26 @@ package studio.echo.platform.domain.model;
 
 import java.util.Map;
 
+/**
+ * An interface for objects that have a map of properties.
+ *
+ * @author donghyuck, son
+ * @since 2025-07-21
+ * @version 1.0
+ */
 public interface PropertyAware {
     
-	public abstract Map<String, String> getProperties();
+	/**
+	 * Returns the properties of the object.
+	 *
+	 * @return a map of properties
+	 */
+	Map<String, String> getProperties();
 
-    public abstract void setProperties(Map<String, String> properties);
+    /**
+     * Sets the properties of the object.
+     *
+     * @param properties a map of properties
+     */
+    void setProperties(Map<String, String> properties);
 }

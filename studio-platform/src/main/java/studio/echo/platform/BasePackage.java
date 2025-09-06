@@ -1,20 +1,14 @@
 package studio.echo.platform;
 
 /**
+ * A marker interface for component scanning. This interface is used by Spring to
+ * identify the base package for component scanning. All components in this
+ * project should be in a sub-package of this interface's package.
  *
- * @author  donghyuck, son
- * @since 2025-08-05
+ * @author donghyuck, son
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-05  donghyuck, son: 최초 생성.
- * </pre>
+ * @since 2025-08-05
  */
-
-
 public interface BasePackage {
 
 }

@@ -74,41 +74,38 @@ import studio.echo.platform.service.Repository;
 import studio.echo.platform.util.LogUtils;
 
 /**
- * Repository 구현체로, 애플리케이션의 설정 파일 및 환경 정보를 관리합니다.
+ * An implementation of the {@link Repository} interface that manages the
+ * application's configuration files and environment information.
  * <p>
- * 주요 기능:
+ * This class is responsible for:
  * <ul>
- * <li>애플리케이션의 루트 리소스 및 설정 파일 관리</li>
- * <li>환경 변수 및 프로퍼티 로깅 (민감 정보 마스킹 지원)</li>
- * <li>애플리케이션 배너 및 로고 출력</li>
- * <li>설정 변경 이벤트 및 상태 변경 이벤트 발행</li>
- * <li>애플리케이션 구동 시간(uptime) 측정</li>
+ * <li>Managing the application's root resource and configuration files.</li>
+ * <li>Logging environment variables and properties, with support for masking
+ * sensitive information.</li>
+ * <li>Printing the application banner and logo.</li>
+ * <li>Publishing configuration and state change events.</li>
+ * <li>Measuring the application's uptime.</li>
  * </ul>
- * 
- * <b>초기화 과정</b>
+ *
+ * <h2>Initialization Process</h2>
  * <ol>
- * <li>배너 및 환경 정보 출력 여부에 따라 출력</li>
- * <li>환경 변수에서 application home 설정 시도</li>
- * <li>ServletContext를 통한 application home 설정 지원</li>
- * <li>초기화 상태(State) 관리 및 이벤트 발행</li>
+ * <li>Prints the banner and environment information based on configuration.</li>
+ * <li>Attempts to set the application home directory from environment
+ * variables.</li>
+ * <li>Supports setting the application home directory via the
+ * {@link ServletContext}.</li>
+ * <li>Manages and publishes initialization state changes.</li>
  * </ol>
  *
- * <b>환경 변수 로깅</b><br>
- * 환경 변수 로깅 시 {@link PropertyValidator#isSensitiveProperty(String)}를 통해
- * password, secret, key, token 등 민감한 프로퍼티는 값 대신 "***"로 마스킹 처리합니다.
+ * <h2>Environment Variable Logging</h2>
+ * When logging environment variables, this class uses
+ * {@link PropertyValidator#isSensitiveProperty(String)} to mask sensitive
+ * properties (e.g., password, secret, key, token) with "***".
  *
  * @author donghyuck, son
  * @since 2024-07-25
  * @version 1.1
- * 
- *          <pre>
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *   2024-07-25 donghyuck, son: Initial creation.
- *   2024-09-19 donghyuck, son: Add support for reading the META-INF/logo
- *          </pre>
  */
-
 @Slf4j
 public class RepositoryImpl implements Repository, DomainEvents, ServletContextAware {
 
@@ -129,6 +126,14 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 
 	private Instant startTime;
 
+	/**
+	 * Creates a new {@code RepositoryImpl} instance.
+	 *
+	 * @param applicationProperties     the application properties component.
+	 * @param i18n                      the internationalization component.
+	 * @param env                       the application environment.
+	 * @param applicationEventPublisher the event publisher.
+	 */
 	public RepositoryImpl(
 			@Qualifier(ServiceNames.APPLICATION_PROPERTIES) ApplicationProperties applicationProperties,
 			@Qualifier(ServiceNames.I18N) I18n i18n,
@@ -142,12 +147,21 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 		this.rootResource = null;
 	}
 
+	/**
+	 * Whether to show the banner on startup. Defaults to {@code true}.
+	 */
 	@Value("${" + PropertyKeys.Main.SHOW_BANNER + ":true}")
 	public boolean showBanner;
 
+	/**
+	 * Whether to log environment properties on startup. Defaults to {@code false}.
+	 */
 	@Value("${" + PropertyKeys.Main.LOG_ENVIRONMENT + ":false}")
 	public boolean showEnvironment;
 
+	/**
+	 * Prints the application logo from the {@code META-INF/logo} resource.
+	 */
 	public void printLogo() {
 		try {
 			// Step 1: Read the META-INF/logo file
@@ -191,6 +205,11 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 		return null;
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @throws NotFoundException if the configuration root cannot be found.
+	 */
 	public ConfigRoot getConfigRoot() throws NotFoundException {
 		try {
 			File file = new File(getRootResource().getFile(), "config");
@@ -207,6 +226,11 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 		}
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * @throws IOException if the file cannot be accessed.
+	 */
 	public File getFile(String name) throws IOException {
 		try {
 			return new File(getRootResource().getFile(), name);
@@ -222,14 +246,27 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 		return rootResource;
 	}
 
+	/**
+	 * Refreshes the repository configuration.
+	 *
+	 * @throws UnsupportedOperationException currently not implemented.
+	 */
 	public void refresh() {
 		throw new UnsupportedOperationException();
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	public ApplicationProperties getApplicationProperties() {
 		return this.applicationProperties;
 	}
 
+	/**
+	 * Initializes the repository after construction. This method is called by
+	 * Spring and is responsible for setting up the repository's state, printing the
+	 * banner, and logging environment properties.
+	 */
 	@PostConstruct
 	void initialize() {
 		if (State.NONE != state) {
@@ -291,6 +328,12 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 		}
 	}
 
+	/**
+	 * Sets the application's home directory using the servlet context if it has not
+	 * already been set by an environment property.
+	 *
+	 * @param servletContext the servlet context.
+	 */
 	public void setServletContext(ServletContext servletContext) {
 		setHomeByEnvProperty();
 		if (!initialized.get()) {
@@ -315,26 +358,46 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 			applicationEventPublisher.publishEvent(event);
 	}
 
+	/**
+	 * Handles the {@link PropertiesRefreshedEvent} to refresh the repository.
+	 *
+	 * @param event the properties refreshed event.
+	 */
 	@EventListener(condition = "#event.name eq 'startup'")
 	public void handlePropertiesRefreshedEvent(PropertiesRefreshedEvent event) {
 		this.refresh();
 	}
 
+	/**
+	 * Handles the {@link ApplicationReadyEvent} to record the application's startup
+	 * time.
+	 */
 	@EventListener(ApplicationReadyEvent.class)
 	public void onApplicationReady() {
 		this.startTime = Instant.now();
 	}
 
+	/**
+	 * Returns the application's uptime.
+	 *
+	 * @return the duration since the application has been running.
+	 */
 	public Duration getUptime() {
 		return Duration.between(startTime, Instant.now());
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public void publish(Object event) {
 		if (applicationEventPublisher != null)
 			applicationEventPublisher.publishEvent(event);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 */
 	@Override
 	public void publishAfterCommit(Object event) {
 		

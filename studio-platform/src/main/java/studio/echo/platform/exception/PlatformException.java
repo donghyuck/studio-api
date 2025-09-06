@@ -26,31 +26,39 @@ import lombok.Getter;
 import studio.echo.platform.error.ErrorType;
 import studio.echo.platform.error.Severity;
 /**
+ * The base class for all platform-specific exceptions.
  *
  * @author  donghyuck, son
  * @since 2025-08-12
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-12  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 @Getter
 public class PlatformException extends RuntimeException  {
     
     private final ErrorType type;
     private final Object[] args;
-    private final Severity overrideSeverity; // null이면 type.severity() 사용
+    private final Severity overrideSeverity; // Use type.severity() if null
 
+    /**
+     * Creates a new {@code PlatformException}.
+     *
+     * @param type       the type of error
+     * @param logMessage the message to log
+     * @param args       arguments for the message
+     */
     public PlatformException(ErrorType type, String logMessage, Object... args) {
         this(type, null, logMessage, args);
     }
     
+    /**
+     * Creates a new {@code PlatformException} with an overridden severity.
+     *
+     * @param type             the type of error
+     * @param overrideSeverity the severity to use instead of the default from the
+     *                         error type
+     * @param logMessage       the message to log
+     * @param args             arguments for the message
+     */
     public PlatformException(ErrorType type, Severity overrideSeverity, String logMessage, Object... args) {
         super(logMessage);
         this.type = type;
@@ -58,13 +66,35 @@ public class PlatformException extends RuntimeException  {
         this.overrideSeverity = overrideSeverity;
     }
 
+    /**
+     * Returns the severity of the exception.
+     *
+     * @return the overridden severity, or the default severity from the error type
+     */
     public Severity severity() {
         return overrideSeverity != null ? overrideSeverity : type.severity();
     }
 
+    /**
+     * Creates a new {@code PlatformException} with the specified error type.
+     *
+     * @param type the error type
+     * @param args arguments for the message
+     * @return a new {@code PlatformException} instance
+     */
     public static PlatformException of(ErrorType type, Object... args) {
         return new PlatformException(type, type.getId(), args);
     }
+
+    /**
+     * Creates a new {@code PlatformException} with the specified error type and
+     * severity.
+     *
+     * @param type     the error type
+     * @param severity the severity of the exception
+     * @param args     arguments for the message
+     * @return a new {@code PlatformException} instance
+     */
     public static PlatformException of(ErrorType type, Severity severity, Object... args) {
         return new PlatformException(type, severity, type.getId(), args);
     }

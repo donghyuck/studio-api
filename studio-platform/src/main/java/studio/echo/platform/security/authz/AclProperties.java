@@ -30,9 +30,11 @@ import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 /**
-* ACL(도메인/컴포넌트별) 웹 권한 정책을 구성하는 프로퍼티.
+ * Properties for configuring ACL (Access Control List) web authorization
+ * policies for different domains and components.
  *
- * 예시 YAML:
+ * <p>Example YAML configuration:</p>
+ * <pre>{@code
  * echo:
  *   security:
  *     acl:
@@ -46,27 +48,21 @@ import lombok.Setter;
  *               roles:
  *                 read:  [ADMIN, MANAGER]
  *                 write: [ADMIN]
- * 
+ * }</pre>
  * 
  * @author  donghyuck, son
  * @since 2025-09-01
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-09-01  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 @Getter
 @Setter
 public class AclProperties {  
     
     private Map<String, DomainPolicy> domains = new HashMap<>();
 
+    /**
+     * Represents the policy for a specific domain.
+     */
     @Getter
     @Setter
     public static class DomainPolicy { 
@@ -74,12 +70,18 @@ public class AclProperties {
         private Map<String, ComponentPolicy> components = new HashMap<>();
     }
 
+    /**
+     * Represents the policy for a specific component within a domain.
+     */
     @Getter
     @Setter
     public static class ComponentPolicy { 
         private Roles roles;  
     }
 
+    /**
+     * Represents the roles required for different types of access.
+     */
     @Getter
     @Setter
     public static class Roles {

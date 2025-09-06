@@ -8,38 +8,65 @@ import org.springframework.lang.Nullable;
 import lombok.NoArgsConstructor;
 import studio.echo.platform.service.I18n;
 
+/**
+ * A utility class for working with the {@link I18n} interface.
+ *
+ * @author donghyuck, son
+ * @since 2025-08-13
+ * @version 1.0
+ */
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public final class I18nUtils {
 
-    /** 폴백 구현 (code 그대로 반환) */
+    /** A fallback implementation that simply returns the message code. */
     public static final I18n NOOP = (code, args, locale) -> code;
 
     /**
-     * ObjectProvider에서 I18n 빈을 안전하게 가져오거나,
-     * 없으면 폴백 {@link #NOOP}을 반환합니다.
+     * Safely retrieves an {@link I18n} bean from an {@link ObjectProvider},
+     * or returns the fallback {@link #NOOP} implementation if not available.
      *
-     * @param provider I18n ObjectProvider
-     * @return I18n 구현체 (빈 또는 폴백)
+     * @param provider the I18n ObjectProvider
+     * @return an I18n implementation (either the bean or the fallback)
      */
     public static I18n resolve(ObjectProvider<I18n> provider) {
         return provider.getIfAvailable(() -> NOOP);
     }
 
     /**
-     * null 허용 I18n 인스턴스를 안전하게 감쌉니다.
+     * Safely wraps a nullable {@link I18n} instance.
      *
-     * @param i18n I18n 인스턴스 (nullable)
-     * @return 절대 null 이 아닌 안전한 I18n
+     * @param i18n the I18n instance (nullable)
+     * @return a non-null, safe I18n instance
      */
     public static I18n safe(I18n i18n) {
         return (i18n != null) ? i18n : NOOP;
     }
 
+    /**
+     * Safely gets a message from a nullable {@link I18n} instance.
+     *
+     * @param i18n the I18n instance (nullable)
+     * @param code the message code
+     * @param args the message arguments
+     * @return the internationalized message, or the code if the i18n instance is
+     *         null
+     */
     public static String safeGet(@Nullable I18n i18n, String code, @Nullable Object... args) {
         return (i18n != null) ? i18n.get(code, args) : code;
     }
 
+    /**
+     * Safely gets a message from a nullable {@link I18n} instance with a specific
+     * locale.
+     *
+     * @param i18n   the I18n instance (nullable)
+     * @param code   the message code
+     * @param locale the locale
+     * @param args   the message arguments
+     * @return the internationalized message, or the code if the i18n instance is
+     *         null
+     */
     public static String safeGet(@Nullable I18n i18n, String code, Locale locale, @Nullable Object... args) {
-        return (i18n != null) ? i18n.get(code, locale, args) : code;
+        return (i18n != null) ? i18n.get(code, args, locale) : code;
     }
 }

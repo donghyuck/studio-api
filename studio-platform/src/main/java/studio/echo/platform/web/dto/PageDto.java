@@ -12,28 +12,50 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Value;
 
+/**
+ * A DTO for paginated data that provides a standardized structure for paginated
+ * API responses.
+ *
+ * @param <T> the type of the content
+ */
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class PageDto<T> {
+    /** The content of the page. */
     List<T> content;
 
     // pagination meta
-    int page;            // 0-based
+    /** The page number (0-based). */
+    int page;
+    /** The size of the page. */
     int size;
+    /** The total number of elements. */
     long totalElements;
+    /** The total number of pages. */
     int totalPages;
 
     // convenience flags
+    /** Whether this is the first page. */
     boolean first;
+    /** Whether this is the last page. */
     boolean last;
+    /** Whether there is a next page. */
     boolean hasNext;
+    /** Whether there is a previous page. */
     boolean hasPrevious;
 
     // optional
-    String sort;         // e.g. "userId,DESC;name,ASC"
+    /** The sort order (e.g., "userId,DESC;name,ASC"). */
+    String sort;
 
-    /** Page<T> → PageDto<T> */
+    /**
+     * Creates a {@code PageDto} from a Spring Data {@link Page}.
+     *
+     * @param <T>  the type of the content
+     * @param page the page object
+     * @return a new {@code PageDto} instance
+     */
     public static <T> PageDto<T> from(Page<T> page) {
         return PageDto.<T>builder()
                 .content(page.getContent())
@@ -49,7 +71,16 @@ public class PageDto<T> {
                 .build();
     }
 
-    /** Page<S> → PageDto<T> (매핑 포함) */
+    /**
+     * Creates a {@code PageDto} from a Spring Data {@link Page} with a mapper
+     * function.
+     *
+     * @param <S>    the source type
+     * @param <T>    the target type
+     * @param page   the page object
+     * @param mapper the mapper function to apply to the content
+     * @return a new {@code PageDto} instance
+     */
     public static <S, T> PageDto<T> from(Page<S> page, Function<S, T> mapper) {
         List<T> mapped = page.getContent().stream().map(mapper).collect(Collectors.toList());
         return PageDto.<T>builder()

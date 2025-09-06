@@ -24,34 +24,53 @@ package studio.echo.platform.exception;
 
 import studio.echo.platform.error.PlatformErrors;
 /**
+ * An exception that represents a non-fatal configuration problem.
  *
  * @author  donghyuck, son
  * @since 2025-08-12
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-12  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 public class ConfigurationWarning extends PlatformException {
 
+    /**
+     * Creates a new {@code ConfigurationWarning} with the specified message.
+     *
+     * @param message the detail message
+     */
     public ConfigurationWarning(String message) {
         super(PlatformErrors.CONFIG, message);
     }
 
+    /**
+     * Creates a new {@code ConfigurationWarning} with the specified message and
+     * arguments.
+     *
+     * @param message the detail message
+     * @param args    arguments for the message
+     */
     public ConfigurationWarning(String message, Object... args) {
         super(PlatformErrors.CONFIG, message, args);
     }
 
+    /**
+     * Creates a new {@code ConfigurationWarning} for a deprecated configuration
+     * property.
+     *
+     * @param property the name of the deprecated property
+     * @return a new {@code ConfigurationWarning} instance
+     */
     public static ConfigurationWarning deprecated(String property) {
         return new ConfigurationWarning("Deprecated configuration in use: " + property);
     }
 
+    /**
+     * Creates a new {@code ConfigurationWarning} for a configuration property that
+     * is using a fallback value.
+     *
+     * @param property     the name of the property
+     * @param defaultValue the fallback value being used
+     * @return a new {@code ConfigurationWarning} instance
+     */
     public static ConfigurationWarning fallback(String property, String defaultValue) {
         return new ConfigurationWarning("Configuration '" + property + "' is missing. Using default: " + defaultValue);
     }
