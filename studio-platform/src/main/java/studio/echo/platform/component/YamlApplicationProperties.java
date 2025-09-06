@@ -38,22 +38,16 @@ import studio.echo.platform.service.I18n;
 import studio.echo.platform.util.LogUtils;
 
 /**
- * YamlApplicationProperties는 Spring의 Environment를 사용하여 YAML 파일에서 애플리케이션 속성을
- * 읽어오는 구현체.
- * 이 클래스는 ApplicationProperties 인터페이스를 구현하며, Map<String, String>
- * 인터페이스도 구현하여 속성에 대한 키-값 쌍을 제공.
- * 
+ * An implementation of {@link ApplicationProperties} that reads application
+ * properties from YAML files using Spring's {@link Environment}.
+ * <p>
+ * This class implements both the {@link ApplicationProperties} and
+ * {@link Map<String, String>} interfaces, providing key-value pairs for
+ * properties. It acts as a read-only map.
+ *
  * @author donghyuck, son
  * @since 2025-07-21
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-21  donghyuck, son: 최초 생성.
- *          </pre>
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -63,6 +57,10 @@ public class YamlApplicationProperties implements ApplicationProperties {
 
     private final I18n i18n;
 
+    /**
+     * Initializes the component after construction. This method is called by Spring
+     * and logs the initialization state.
+     */
     @PostConstruct
     protected void initialize() {
 
@@ -79,27 +77,42 @@ public class YamlApplicationProperties implements ApplicationProperties {
     }
     /* ========= Typed getters ========= */
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean getBooleanProperty(String name) {
         // null → false 기본
         return Boolean.TRUE.equals(environment.getProperty(name, Boolean.class));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean getBooleanProperty(String name, boolean defaultValue) {
         return environment.getProperty(name, Boolean.class, defaultValue);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getIntProperty(String name, int defaultValue) {
         return environment.getProperty(name, Integer.class, defaultValue);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public long getLongProperty(String name, long defaultValue) {
         return environment.getProperty(name, Long.class, defaultValue);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String getStringProperty(String name, String defaultValue) {
         return environment.getProperty(name, defaultValue);
@@ -107,6 +120,9 @@ public class YamlApplicationProperties implements ApplicationProperties {
 
     /* ========= Children / Names ========= */
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Collection<String> getChildrenNames(String prefix) {
         if (prefix == null || prefix.isEmpty())
@@ -125,6 +141,9 @@ public class YamlApplicationProperties implements ApplicationProperties {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Collection<String> getPropertyNames() {
         return streamAllPropertyNames()
@@ -133,16 +152,25 @@ public class YamlApplicationProperties implements ApplicationProperties {
 
     /* ========= Map (read-only) ========= */
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String get(Object key) {
         return (key == null) ? null : environment.getProperty(String.valueOf(key));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean containsKey(Object key) {
         return key != null && environment.containsProperty(String.valueOf(key));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Set<Entry<String, String>> entrySet() {
         LinkedHashSet<Entry<String, String>> set = new LinkedHashSet<>();
@@ -152,16 +180,25 @@ public class YamlApplicationProperties implements ApplicationProperties {
         return Collections.unmodifiableSet(set);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int size() {
         return getPropertyNames().size();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean isEmpty() {
         return getPropertyNames().isEmpty();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean containsValue(Object value) {
         if (value == null)
@@ -173,31 +210,49 @@ public class YamlApplicationProperties implements ApplicationProperties {
         return false;
     }
 
+    /**
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public String put(String key, String value) {
         throw new UnsupportedOperationException("read-only");
     }
 
+    /**
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public String remove(Object key) {
         throw new UnsupportedOperationException("read-only");
     }
 
+    /**
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void putAll(Map<? extends String, ? extends String> m) {
         throw new UnsupportedOperationException("read-only");
     }
 
+    /**
+     * @throws UnsupportedOperationException always
+     */
     @Override
     public void clear() {
         throw new UnsupportedOperationException("read-only");
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Set<String> keySet() {
         return Collections.unmodifiableSet(new LinkedHashSet<>(getPropertyNames()));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Collection<String> values() {
         List<String> vals = new ArrayList<>();

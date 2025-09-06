@@ -26,35 +26,54 @@ import studio.echo.platform.error.ErrorType;
 import studio.echo.platform.error.PlatformErrors;
 
 /**
- * 이미 존재하는 객체에 대한 예외 클래스.
+ * An exception that is thrown when an object that is being created already
+ * exists.
  * 
  * @author  donghyuck, son
  * @since 2025-08-22
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-22  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 public class AlreadyExistsException extends PlatformException {
 
+    /**
+     * Creates a new {@code AlreadyExistsException} with a default error type.
+     *
+     * @param message the detail message
+     * @param args    arguments for the message
+     */
     public AlreadyExistsException(String message, Object... args) {
         super(PlatformErrors.OBJECT_ALREADY_EXISTS, message, args);
     }
 
+    /**
+     * Creates a new {@code AlreadyExistsException} with a default error type.
+     *
+     * @param message the detail message
+     * @param what    the type of object that already exists
+     * @param id      the ID of the object that already exists
+     */
     public AlreadyExistsException(String message, String what, Object id) {
         super(PlatformErrors.OBJECT_ALREADY_EXISTS, message, what, id);
     }
 
+    /**
+     * Creates a new {@code AlreadyExistsException} with a custom error type.
+     *
+     * @param type    the error type
+     * @param message the detail message
+     * @param args    arguments for the message
+     */
     public AlreadyExistsException(ErrorType type, String message, Object... args) {
         super(type, message, args);
     }
 
+    /**
+     * Creates a new {@code AlreadyExistsException} with a default message.
+     *
+     * @param what the type of object that already exists
+     * @param id   the ID of the object that already exists
+     * @return a new {@code AlreadyExistsException} instance
+     */
     public static AlreadyExistsException of(String what, Object id) {
         return new AlreadyExistsException("Already exists", what, id);
     }

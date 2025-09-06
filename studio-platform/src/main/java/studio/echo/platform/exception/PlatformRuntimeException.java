@@ -25,40 +25,35 @@ import org.springframework.http.HttpStatus;
 import lombok.Getter;
 
 /**
- * 플랫폼 기반 예외의 최상위 추상 클래스.
- * 모든 커스텀 예외는 이 클래스를 확장하여 일관된 구조를 따름.
- *
- * HTTP 상태 코드, 에러 코드, 메시지, 메시지 치환 변수(args)를 포함.
+ * The abstract base class for all platform runtime exceptions.
+ * <p>
+ * This class provides a consistent structure for custom exceptions, including
+ * an error code, HTTP status, message, and message arguments.
  * 
  * @author donghyuck, son
  * @since 2025-07-21
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-21  donghyuck, son: 최초 생성.
- *          </pre>
  */
-
 @Getter
 public abstract class PlatformRuntimeException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
-    /** 메시지 키 또는 에러 코드 */
+    /** The error code or message key. */
     private final String errorCode;
 
-    /** HTTP 상태 코드 */
+    /** The HTTP status code. */
     private final HttpStatus status;
 
-    /** 메시지에 삽입될 변수들 */
+    /** The arguments to be inserted into the message. */
     private final transient Object[] args;
 
     /**
-     * 기본 생성자
+     * Creates a new {@code PlatformRuntimeException}.
+     *
+     * @param errorCode the error code or message key
+     * @param status    the HTTP status
+     * @param message   the detail message
      */
     protected PlatformRuntimeException(String errorCode, HttpStatus status, String message) {
         super(message);
@@ -67,6 +62,14 @@ public abstract class PlatformRuntimeException extends RuntimeException {
         this.args = new Object[0];
     }
 
+    /**
+     * Creates a new {@code PlatformRuntimeException}.
+     *
+     * @param errorCode the error code or message key
+     * @param status    the HTTP status
+     * @param message   the detail message
+     * @param cause     the cause of the exception
+     */
     protected PlatformRuntimeException(String errorCode, HttpStatus status, String message, Throwable cause) {
         super(message, cause);
         this.errorCode = errorCode;
@@ -74,6 +77,14 @@ public abstract class PlatformRuntimeException extends RuntimeException {
         this.args = new Object[0];
     }
 
+    /**
+     * Creates a new {@code PlatformRuntimeException}.
+     *
+     * @param errorCode the error code or message key
+     * @param status    the HTTP status
+     * @param message   the detail message
+     * @param args      the arguments for the message
+     */
     protected PlatformRuntimeException(String errorCode, HttpStatus status, String message, Object... args) {
         super(message);
         this.errorCode = errorCode;
@@ -81,6 +92,15 @@ public abstract class PlatformRuntimeException extends RuntimeException {
         this.args = args;
     }
 
+    /**
+     * Creates a new {@code PlatformRuntimeException}.
+     *
+     * @param errorCode the error code or message key
+     * @param status    the HTTP status
+     * @param message   the detail message
+     * @param cause     the cause of the exception
+     * @param args      the arguments for the message
+     */
     protected PlatformRuntimeException(String errorCode, HttpStatus status, String message, Throwable cause,
             Object... args) {
         super(message, cause);
@@ -89,6 +109,11 @@ public abstract class PlatformRuntimeException extends RuntimeException {
         this.args = args;
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Appends the nested exception message if available.
+     */
     @Override
     public String getMessage() {
         String message = super.getMessage();
@@ -99,6 +124,11 @@ public abstract class PlatformRuntimeException extends RuntimeException {
         return message;
     }
 
+    /**
+     * Returns the root cause of this exception.
+     *
+     * @return the root cause, or {@code null} if there is no cause
+     */
     public Throwable getRootCause() {
         Throwable root = this;
         Throwable cause = getCause();
@@ -109,11 +139,25 @@ public abstract class PlatformRuntimeException extends RuntimeException {
         return root == this ? null : root;
     }
 
+    /**
+     * Returns the most specific cause of this exception.
+     * <p>
+     * Returns the root cause if available, otherwise returns this exception itself.
+     *
+     * @return the most specific cause
+     */
     public Throwable getMostSpecificCause() {
         Throwable rootCause = getRootCause();
         return (rootCause != null ? rootCause : this);
     }
 
+    /**
+     * Checks if this exception or any of its causes is of the specified type.
+     *
+     * @param exType the type of exception to check for
+     * @return {@code true} if the exception chain contains the specified type,
+     *         {@code false} otherwise
+     */
     public boolean contains(Class<?> exType) {
         if (exType == null) {
             return false;

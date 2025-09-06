@@ -25,35 +25,53 @@ import studio.echo.platform.error.ErrorType;
 import studio.echo.platform.error.PlatformErrors;
 
 /**
- * 찾을 수 없는 객체에 대한 예외 클래스.
+ * An exception that is thrown when an object cannot be found.
  * 
  * @author donghyuck, son
  * @since 2025-08-12
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-12  donghyuck, son: 최초 생성.
- *          </pre>
  */
-
 public class NotFoundException extends PlatformException {
 
+    /**
+     * Creates a new {@code NotFoundException} with a default error type.
+     *
+     * @param message the detail message
+     * @param args    arguments for the message
+     */
     public NotFoundException(String message, Object... args) {
         super(PlatformErrors.NOT_FOUND, message, args);
     }
 
+    /**
+     * Creates a new {@code NotFoundException} with a default error type.
+     *
+     * @param message the detail message
+     * @param what    the type of object that was not found
+     * @param id      the ID of the object that was not found
+     */
     public NotFoundException(String message, String what, Object id) {
         super(PlatformErrors.OBJECT_NOT_FOUND, message, what, id);
     }
 
+    /**
+     * Creates a new {@code NotFoundException} with a custom error type.
+     *
+     * @param type    the error type
+     * @param message the detail message
+     * @param args    arguments for the message
+     */
     public NotFoundException(ErrorType type, String message, Object... args) {
         super(type, message, args);
     }
 
+    /**
+     * Creates a new {@code NotFoundException} with a default message.
+     *
+     * @param what the type of object that was not found
+     * @param id   the ID of the object that was not found
+     * @return a new {@code NotFoundException} instance
+     */
     public static NotFoundException of(String what, Object id) {
         return new NotFoundException("Not found", what, id);
     }

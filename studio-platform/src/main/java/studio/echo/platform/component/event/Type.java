@@ -20,13 +20,32 @@
 
 package studio.echo.platform.component.event;
 
+/**
+ * Represents the type of change in an event.
+ *
+ * @author donghyuck, son
+ * @since 2025-07-21
+ * @version 1.0
+ */
 public enum Type {
  
+    /**
+     * An item was added.
+     */
     ADDED,
  
+    /**
+     * An item was removed.
+     */
     REMOVED,
   
+    /**
+     * An item was modified.
+     */
     MODIFIED,
 
+    /**
+     * No change.
+     */
     NONE
 }

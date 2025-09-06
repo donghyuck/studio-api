@@ -28,26 +28,43 @@ import studio.echo.platform.exception.NotFoundException;
  
 
 /**
+ * An interface that provides access to the application's configuration and
+ * resources.
+ *
  * @author  donghyuck, son
  * @since 2025-07-08
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-08  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 public interface Repository {
 
-    public abstract ConfigRoot getConfigRoot() throws NotFoundException;
+    /**
+     * Returns the root of the configuration directory.
+     *
+     * @return the configuration root
+     * @throws NotFoundException if the configuration root cannot be found
+     */
+    ConfigRoot getConfigRoot() throws NotFoundException;
     
-    public abstract File getFile(String name) throws IOException;
+    /**
+     * Returns a file from the application's root directory by its name.
+     *
+     * @param name the name of the file
+     * @return the file
+     * @throws IOException if the file cannot be accessed
+     */
+    File getFile(String name) throws IOException;
     
-    public abstract ApplicationProperties getApplicationProperties();
+    /**
+     * Returns the application properties.
+     *
+     * @return the application properties
+     */
+    ApplicationProperties getApplicationProperties();
 
-    public abstract Duration getUptime() ;
+    /**
+     * Returns the uptime of the application.
+     *
+     * @return the application uptime
+     */
+    Duration getUptime() ;
 }

@@ -23,32 +23,73 @@ package studio.echo.platform.service;
 import java.util.Collection;
 import java.util.Map;
 /**
+ * An interface that provides access to application properties. This interface
+ * extends {@link Map<String, String>} to provide key-value access to all
+ * properties.
  *
  * @author  donghyuck, son
  * @since 2025-07-08
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-08  donghyuck, son: 최초 생성.
- * </pre>
  */
 public interface ApplicationProperties extends Map<String, String> {
 
-    public abstract boolean getBooleanProperty(String name);
+    /**
+     * Returns the value of a boolean property.
+     *
+     * @param name the name of the property
+     * @return the property value, or {@code false} if not found
+     */
+    boolean getBooleanProperty(String name);
 
-    public abstract boolean getBooleanProperty(String name, boolean defaultValue);
+    /**
+     * Returns the value of a boolean property, with a default value.
+     *
+     * @param name         the name of the property
+     * @param defaultValue the default value to return if the property is not found
+     * @return the property value, or the default value if not found
+     */
+    boolean getBooleanProperty(String name, boolean defaultValue);
 
-    public abstract Collection<String> getChildrenNames(String name);
+    /**
+     * Returns the names of all direct children of a property.
+     *
+     * @param name the name of the parent property
+     * @return a collection of child property names
+     */
+    Collection<String> getChildrenNames(String name);
 
-    public abstract int getIntProperty(String name, int defaultValue);
+    /**
+     * Returns the value of an integer property, with a default value.
+     *
+     * @param name         the name of the property
+     * @param defaultValue the default value to return if the property is not found
+     * @return the property value, or the default value if not found
+     */
+    int getIntProperty(String name, int defaultValue);
 
-    public abstract long getLongProperty(String name, long defaultValue);
+    /**
+     * Returns the value of a long property, with a default value.
+     *
+     * @param name         the name of the property
+     * @param defaultValue the default value to return if the property is not found
+     * @return the property value, or the default value if not found
+     */
+    long getLongProperty(String name, long defaultValue);
 
-    public abstract Collection<String> getPropertyNames();
+    /**
+     * Returns the names of all properties.
+     *
+     * @return a collection of all property names
+     */
+    Collection<String> getPropertyNames();
 
-    public abstract String getStringProperty(String name, String defaultValue);
+    /**
+     * Returns the value of a string property, with a default value.
+     *
+     * @param name         the name of the property
+     * @param defaultValue the default value to return if the property is not found
+     * @return the property value, or the default value if not found
+     */
+    String getStringProperty(String name, String defaultValue);
     
 }

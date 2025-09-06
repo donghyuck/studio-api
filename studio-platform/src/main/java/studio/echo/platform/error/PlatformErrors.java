@@ -5,6 +5,15 @@ import org.springframework.http.HttpStatus;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+/**
+ * An enum that defines a set of standard platform errors, each with an ID,
+ * HTTP status, and severity. This enum implements the {@link ErrorType}
+ * interface.
+ *
+ * @author donghyuck, son
+ * @since 2025-08-12
+ * @version 1.0
+ */
 @Getter
 @RequiredArgsConstructor
 public enum PlatformErrors implements ErrorType {

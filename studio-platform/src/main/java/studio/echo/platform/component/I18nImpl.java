@@ -31,22 +31,14 @@ import lombok.extern.slf4j.Slf4j;
 import studio.echo.platform.service.I18n;
 
 /**
- * I18n 인터페이스 구현체. Spring 의 MessageSource 기반으로 메시지를 로드.
+ * An implementation of the {@link I18n} interface that provides
+ * internationalization (i18n) services. This class uses a Spring
+ * {@link MessageSourceAccessor} to load messages from a message source.
  * 
  * @author donghyuck, son
  * @since 2025-07-21
  * @version 1.0
- *
- *          <pre>
- *  
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-07-21  donghyuck, son: 최초 생성.
- * 2025-08-13  donghyuck, son: MessageSourceAccessor 을 사용하도록 변경.
- *          </pre>
  */
-
 @RequiredArgsConstructor
 @Slf4j
 public class I18nImpl implements I18n {

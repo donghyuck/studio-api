@@ -21,21 +21,45 @@
 package studio.echo.platform.component.event;
 import org.springframework.context.ApplicationEvent;
 
+/**
+ * An {@link ApplicationEvent} that is published when application properties are
+ * refreshed.
+ *
+ * @author donghyuck, son
+ * @since 2025-07-21
+ * @version 1.0
+ */
 public class PropertiesRefreshedEvent extends ApplicationEvent {
 
 	private String name;
 	
+	/**
+	 * Creates a new {@code PropertiesRefreshedEvent}.
+	 *
+	 * @param source the component that published the event
+	 * @param name   the name of the properties that were refreshed
+	 */
 	public PropertiesRefreshedEvent(Object source, String name) {
 		super(source);
 		this.name = name;
 	}
 
 	
+	/**
+	 * Returns the name of the properties that were refreshed.
+	 *
+	 * @return the name of the properties
+	 */
 	public String getName() {
 		return name;
 	}
 
 
+	/**
+	 * Sets the name of the properties that were refreshed.
+	 *
+	 * @param name the name of the properties
+	 */
 	public void setName(String name) {
 		this.name = name;
 	}

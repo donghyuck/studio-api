@@ -14,12 +14,27 @@ import org.springframework.beans.factory.ObjectProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * An implementation of the {@link DomainPolicyRegistry} interface that merges
+ * policies from {@link AclProperties} and {@link DomainPolicyContributor}
+ * beans.
+ *
+ * @author donghyuck, son
+ * @since 2025-09-01
+ * @version 1.0
+ */
 @RequiredArgsConstructor
 @Slf4j
 public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
     
     private final Map<String, AclProperties.DomainPolicy> merged = new HashMap<>();
 
+    /**
+     * Creates a new {@code DomainPolicyRegistryImpl} instance.
+     *
+     * @param props        the ACL properties from YAML configuration
+     * @param contributors a provider for a list of domain policy contributors
+     */
     public DomainPolicyRegistryImpl(
             AclProperties props,
             ObjectProvider<java.util.List<DomainPolicyContributor>> contributors) {
@@ -43,6 +58,9 @@ public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<String> requiredRoles(String resource, String action) {
         Parsed p = parse(resource);

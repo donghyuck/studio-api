@@ -24,34 +24,50 @@ package studio.echo.platform.exception;
 
 import studio.echo.platform.error.PlatformErrors;
 /**
+ * An exception that represents a fatal configuration problem.
  *
  * @author  donghyuck, son
  * @since 2025-08-12
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-12  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 public class ConfigurationError extends PlatformException {
 
+    /**
+     * Creates a new {@code ConfigurationError} with the specified message.
+     *
+     * @param message the detail message
+     */
     public ConfigurationError(String message) {
         super(PlatformErrors.CONFIG_INVALID, message);
     }
 
+    /**
+     * Creates a new {@code ConfigurationError} with the specified message and cause.
+     *
+     * @param message the detail message
+     * @param cause   the cause of the error
+     */
     public ConfigurationError(String message, Throwable cause) {
         super(PlatformErrors.CONFIG_INVALID, message, cause);
     }
 
+    /**
+     * Creates a new {@code ConfigurationError} for a missing configuration property.
+     *
+     * @param propertyName the name of the missing property
+     * @return a new {@code ConfigurationError} instance
+     */
     public static ConfigurationError missing(String propertyName) {
         return new ConfigurationError("Missing required configuration: " + propertyName);
     }
 
+    /**
+     * Creates a new {@code ConfigurationError} for an invalid configuration property.
+     *
+     * @param propertyName the name of the invalid property
+     * @param details      details about why the property is invalid
+     * @return a new {@code ConfigurationError} instance
+     */
     public static ConfigurationError invalid(String propertyName, String details) {
         return new ConfigurationError("Invalid configuration for '" + propertyName + "': " + details);
     }

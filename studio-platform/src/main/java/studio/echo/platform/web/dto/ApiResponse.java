@@ -58,10 +58,22 @@ public class ApiResponse<T> {
     private final String message; // optional
     private final Map<String, Object> meta; // optional (paging, etc.)
 
+    /**
+     * Creates a successful API response with data.
+     *
+     * @param <T>  the type of the data
+     * @param data the response data
+     * @return a new {@code ApiResponse} instance
+     */
     public static <T> ApiResponse<T> ok(T data) {
         return ApiResponse.<T>builder().data(data).build();
     }
 
+    /**
+     * Creates a successful API response with no data.
+     *
+     * @return a new {@code ApiResponse} instance
+     */
     public static ApiResponse<Void> ok() {
         return ApiResponse.<Void>builder().build();
     }

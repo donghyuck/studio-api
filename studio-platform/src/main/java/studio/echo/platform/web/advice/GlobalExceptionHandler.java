@@ -28,6 +28,14 @@ import studio.echo.platform.service.I18n;
 import studio.echo.platform.util.I18nUtils;
 import studio.echo.platform.web.dto.ProblemDetails;
 
+/**
+ * A global exception handler for the application that handles various types of
+ * exceptions and returns a standardized {@link ProblemDetails} response.
+ *
+ * @author donghyuck, son
+ * @since 2025-08-12
+ * @version 1.0
+ */
 @RestControllerAdvice
 @RequiredArgsConstructor
 @Slf4j
@@ -36,11 +44,11 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
     private final I18n i18n;
 
     /**
-     * 업무 도메인 오류 처리
+     * Handles business domain errors.
      * 
-     * @param ex
-     * @param req
-     * @return
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
      */
     @ExceptionHandler(PlatformException.class)
     public ResponseEntity<ProblemDetails> handlePlatform(PlatformException ex, HttpServletRequest req) {
@@ -60,11 +68,11 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
     }
 
     /**
-     * Bean Validation: @RequestBody DTO
+     * Handles bean validation errors for {@code @RequestBody} DTOs.
      * 
-     * @param ex
-     * @param req
-     * @return
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ProblemDetails> handleValidation(MethodArgumentNotValidException ex, HttpServletRequest req) {
@@ -84,7 +92,13 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
         return withContentType(status, body);
     }
 
-    // --- Bean Validation: @ModelAttribute / form ---
+    /**
+     * Handles bean validation errors for {@code @ModelAttribute} or form data.
+     *
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
+     */
     @ExceptionHandler(BindException.class)
     public ResponseEntity<ProblemDetails> handleBindException(BindException ex, HttpServletRequest req) {
         List<ProblemDetails.Violation> violations = ex.getBindingResult().getFieldErrors().stream()
@@ -101,7 +115,14 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
         return withContentType(status, body);
     }
 
-    // --- Bean Validation: @RequestParam / @PathVariable ---
+    /**
+     * Handles bean validation errors for {@code @RequestParam} or
+     * {@code @PathVariable}.
+     *
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
+     */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ProblemDetails> handleConstraintViolation(ConstraintViolationException ex,
             HttpServletRequest req) {
@@ -126,7 +147,13 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
         return withContentType(status, body);
     }
 
-    // --- 요청 본문 파싱 오류/누락 ---
+    /**
+     * Handles errors from parsing or missing request bodies.
+     *
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
+     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ProblemDetails> handleNotReadable(HttpMessageNotReadableException ex,
             HttpServletRequest req) {
@@ -176,7 +203,13 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
         return false;
     }
 
-    // --- HTTP 레벨 ---
+    /**
+     * Handles HTTP-level errors like unsupported methods or media types.
+     *
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
+     */
     @ExceptionHandler({
             HttpRequestMethodNotSupportedException.class,
             HttpMediaTypeNotSupportedException.class
@@ -191,6 +224,13 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
         return withContentType(status, body);
     }
 
+    /**
+     * Handles any other unhandled exceptions.
+     *
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetails> handleOthers(Exception ex, HttpServletRequest req) {
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;

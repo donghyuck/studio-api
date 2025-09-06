@@ -2,6 +2,14 @@ package studio.echo.platform.constant;
 
 import lombok.NoArgsConstructor;
 
+/**
+ * A utility class that provides ANSI escape codes for colored console output.
+ * This class cannot be instantiated and contains only static members.
+ *
+ * @author donghyuck, son
+ * @since 2025-07-21
+ * @version 1.0
+ */
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class Colors {
 
@@ -79,6 +87,13 @@ public class Colors {
     public static final String CYAN_BACKGROUND_BRIGHT = "\033[0;106m";  // CYAN
     public static final String WHITE_BACKGROUND_BRIGHT = "\033[0;107m";   // WHITE
 
+    /**
+     * Formats a given value with a specified color.
+     *
+     * @param color the ANSI color code to apply
+     * @param value the object to format
+     * @return the formatted string with the color applied
+     */
     public static String format( String color , Object value ){
        return new StringBuilder().append(color).append(value).append(RESET).toString();
     }

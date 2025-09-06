@@ -14,6 +14,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Provides the core logic for endpoint authorization using Spring Expression
+ * Language (SpEL). This class checks if the current user has the required
+ * roles to perform an action on a resource.
+ *
+ * @author donghyuck, son
+ * @since 2025-09-01
+ * @version 1.0
+ */
 @RequiredArgsConstructor
 @Slf4j
 public class EndpointAuthorizationImpl {
@@ -26,14 +35,38 @@ public class EndpointAuthorizationImpl {
 
     // ===== SpEL API =====
 
+    /**
+     * Checks if the current user can perform an action on a resource.
+     *
+     * @param resource the resource to check
+     * @param action   the action to perform
+     * @return {@code true} if the user is authorized, {@code false} otherwise
+     */
     public boolean can(String resource, String action) {
         return check(resourceKey(resource), normalizeAction(action));
     }
 
+    /**
+     * Checks if the current user can perform an action on a resource.
+     *
+     * @param domain    the domain of the resource
+     * @param component the component of the resource
+     * @param action    the action to perform
+     * @return {@code true} if the user is authorized, {@code false} otherwise
+     */
     public boolean can(String domain, String component, String action) {
         return check(resourceKey(domain, component), normalizeAction(action));
     }
 
+    /**
+     * Checks if the current user can perform any of the specified actions on a
+     * resource.
+     *
+     * @param resource the resource to check
+     * @param actions  the actions to check
+     * @return {@code true} if the user is authorized for at least one action,
+     *         {@code false} otherwise
+     */
     public boolean any(String resource, String... actions) {
         if (actions == null || actions.length == 0)
             return false;
@@ -44,6 +77,16 @@ public class EndpointAuthorizationImpl {
         return false;
     }
 
+    /**
+     * Checks if the current user can perform any of the specified actions on a
+     * resource.
+     *
+     * @param domain    the domain of the resource
+     * @param component the component of the resource
+     * @param actions   the actions to check
+     * @return {@code true} if the user is authorized for at least one action,
+     *         {@code false} otherwise
+     */
     public boolean any(String domain, String component, String... actions) {
         if (actions == null || actions.length == 0)
             return false;

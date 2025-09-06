@@ -26,37 +26,65 @@ import java.util.Objects;
 
 import org.springframework.http.HttpStatus;
 /**
- * 에러 타입 인터페이스
+ * An interface that represents a type of error in the system.
  * 
  * @author  donghyuck, son
  * @since 2025-08-12
  * @version 1.0
- *
- * <pre> 
- * << 개정이력(Modification Information) >>
- *   수정일        수정자           수정내용
- *  ---------    --------    ---------------------------
- * 2025-08-12  donghyuck, son: 최초 생성.
- * </pre>
  */
-
-
 public interface ErrorType {
 
-    String getId(); // 예: "user.not-found"
+    /**
+     * Returns the unique identifier of the error type (e.g., "user.not-found").
+     *
+     * @return the error ID
+     */
+    String getId();
 
-    HttpStatus getStatus(); // 응답 HTTP 상태
+    /**
+     * Returns the HTTP status associated with the error.
+     *
+     * @return the HTTP status
+     */
+    HttpStatus getStatus();
 
+    /**
+     * Returns the severity of the error.
+     *
+     * @return the error severity
+     */
     Severity getSeverity(); 
     
-    default Severity severity() { // 기본 심각도 (필수 아님, 기본 ERROR)
+    /**
+     * Returns the severity of the error, with a default of {@link Severity#ERROR}.
+     *
+     * @return the error severity
+     */
+    default Severity severity() {
         return Severity.ERROR;
     }
 
+    /**
+     * Creates a new {@code ErrorType} with the specified ID and status, and a
+     * default severity of {@link Severity#ERROR}.
+     *
+     * @param id     the error ID
+     * @param status the HTTP status
+     * @return a new {@code ErrorType} instance
+     */
     static ErrorType of(String id, HttpStatus status) {
         return of(id, status, Severity.ERROR);
     }
     
+    /**
+     * Creates a new {@code ErrorType} with the specified ID, status, and
+     * severity.
+     *
+     * @param id       the error ID
+     * @param status   the HTTP status
+     * @param severity the error severity
+     * @return a new {@code ErrorType} instance
+     */
     static ErrorType of(String id, HttpStatus status, Severity severity) {
         Objects.requireNonNull(id, "id");
         Objects.requireNonNull(status, "status");

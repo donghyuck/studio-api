@@ -22,6 +22,14 @@ package studio.echo.platform.constant;
 
 import lombok.NoArgsConstructor;
 
+/**
+ * A utility class that contains constants for Spring bean names (qualifiers).
+ * This class cannot be instantiated and contains only static members.
+ *
+ * @author donghyuck, son
+ * @since 2025-07-21
+ * @version 1.0
+ */
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class ServiceNames {
 
@@ -33,13 +41,13 @@ public class ServiceNames {
 
     public static final String I18N = PREFIX + ":foundation:i18n";
 
-    public static final String I18N_MSSSAGE_SOURCE = I18N + ":message-source";
+    public static final String I18N_MESSAGE_SOURCE = I18N + ":message-source";
     
-    public static final String I18N_MSSSAGE_ACCESSOR = I18N + ":message-accessor";
+    public static final String I18N_MESSAGE_ACCESSOR = I18N + ":message-accessor";
 
-    public static final String JASYPT_MSSSAGE_ACCESSOR = PREFIX + ":jasypt:message-accessor";
+    public static final String JASYPT_MESSAGE_ACCESSOR = PREFIX + ":jasypt:message-accessor";
 
-    public static final String JASYPT_MSSSAGE_SOURCE = PREFIX + ":jasypt:message-source";
+    public static final String JASYPT_MESSAGE_SOURCE = PREFIX + ":jasypt:message-source";
 
     public static final String AUTHENTICATION_MANAGER = PREFIX + ":security:authentication-manager";
 
