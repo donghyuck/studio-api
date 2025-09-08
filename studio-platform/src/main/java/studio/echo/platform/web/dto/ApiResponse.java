@@ -68,6 +68,10 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> ok(T data) {
         return ApiResponse.<T>builder().data(data).build();
     }
+    
+    public static  <T> ApiResponse<T> ok(String message, T data) {
+        return ApiResponse.<T>builder().message(message).data(data).build();
+    }
 
     /**
      * Creates a successful API response with no data.
@@ -77,6 +81,7 @@ public class ApiResponse<T> {
     public static ApiResponse<Void> ok() {
         return ApiResponse.<Void>builder().build();
     }
+
 
 }
     
