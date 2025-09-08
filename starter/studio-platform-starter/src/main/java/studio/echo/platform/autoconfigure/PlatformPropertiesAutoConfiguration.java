@@ -83,12 +83,14 @@ public class PlatformPropertiesAutoConfiguration {
     public ApplicationProperties jpaApplicationProperties(EntityManager em, ApplicationEventPublisher publisher,
             ObjectProvider<I18n> i18nProvider // 있어도/없어도 동작
     ) {
+        
         return new JpaApplicationProperties(em, publisher, I18nUtils.resolve(i18nProvider));
     }
 
     @ConditionalOnMissingBean
     @Bean(name = ServiceNames.APPLICATION_PROPERTIES)
     public ApplicationProperties applicationPropertiesFallback(Environment environment, ObjectProvider<I18n> i18nProvider) {
+
         return new YamlApplicationProperties(environment, I18nUtils.resolve(i18nProvider));
     }
 

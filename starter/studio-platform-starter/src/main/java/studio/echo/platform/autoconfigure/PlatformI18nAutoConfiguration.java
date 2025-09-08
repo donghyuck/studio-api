@@ -2,6 +2,7 @@ package studio.echo.platform.autoconfigure;
 
 import java.io.IOException;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
@@ -16,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import studio.echo.platform.component.I18nImpl;
 import studio.echo.platform.constant.ServiceNames;
 import studio.echo.platform.service.I18n;
+import studio.echo.platform.util.I18nUtils;
+import studio.echo.platform.web.aop.MessageAspect;
 
 /**
  * i18n.resources 가 지정되면 그 패턴/베이스네임을 사용하고,
@@ -56,5 +59,11 @@ public class PlatformI18nAutoConfiguration {
     @ConditionalOnMissingBean(I18n.class)
     public I18n i18n(@Qualifier(ServiceNames.I18N_MSSSAGE_ACCESSOR) MessageSourceAccessor accessor) {
         return new I18nImpl(accessor); 
+    }
+
+    @Bean 
+    @ConditionalOnMissingBean
+    public MessageAspect messageAspecgt(ObjectProvider<I18n> i18nProvider) {
+        return new MessageAspect(I18nUtils.resolve(i18nProvider)); 
     }
 }
