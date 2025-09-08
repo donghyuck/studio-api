@@ -48,7 +48,7 @@ public class MessageAspect {
 
     private final ExpressionParser parser = new SpelExpressionParser();
 
-    @Around("@annotation(kr.go.greentogether.cmmn.web.annotation.Message)")
+    @Around("@annotation(studio.echo.platform.web.annotation.Message)")
     public Object injectMessage(ProceedingJoinPoint joinPoint) throws Throwable {
         Method method = ((MethodSignature) joinPoint.getSignature()).getMethod();
         Message message = method.getAnnotation(Message.class);

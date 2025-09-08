@@ -214,7 +214,8 @@ public class SecurityAutoConfiguration {
                 jwtProps.getAccessTtl(),
                 jwtProps.getRefreshTtl(),
                 clock,
-                jwtProps.getClaimAuthorities());
+                jwtProps.getClaimAuthorities(), 
+                i18n);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(JwtTokenProvider.class, true), LogUtils.red(State.CREATED.toString())));
                 

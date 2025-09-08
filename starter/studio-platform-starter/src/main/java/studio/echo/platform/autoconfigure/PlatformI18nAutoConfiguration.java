@@ -43,21 +43,21 @@ import studio.echo.platform.web.aop.MessageAspect;
 @Slf4j
 public class PlatformI18nAutoConfiguration {
  
-    @Bean(name = ServiceNames.I18N_MSSSAGE_SOURCE )
-    @ConditionalOnMissingBean(name = ServiceNames.I18N_MSSSAGE_SOURCE)
+    @Bean(name = ServiceNames.I18N_MESSAGE_SOURCE )
+    @ConditionalOnMissingBean(name = ServiceNames.I18N_MESSAGE_SOURCE)
     public MessageSource messageSource(I18nProperties props) throws IOException {
         return ModularMessageSourceFactory.create(props);  
     }
 
-    @Bean(ServiceNames.I18N_MSSSAGE_ACCESSOR)
-    @ConditionalOnMissingBean(name = ServiceNames.I18N_MSSSAGE_ACCESSOR)
-    public MessageSourceAccessor messageSourceAccessor(@Qualifier(ServiceNames.I18N_MSSSAGE_SOURCE) MessageSource ms) {
+    @Bean(ServiceNames.I18N_MESSAGE_ACCESSOR)
+    @ConditionalOnMissingBean(name = ServiceNames.I18N_MESSAGE_ACCESSOR)
+    public MessageSourceAccessor messageSourceAccessor(@Qualifier(ServiceNames.I18N_MESSAGE_SOURCE) MessageSource ms) {
         return new MessageSourceAccessor(ms);
     }
 
     @Bean(name = ServiceNames.I18N)
     @ConditionalOnMissingBean(I18n.class)
-    public I18n i18n(@Qualifier(ServiceNames.I18N_MSSSAGE_ACCESSOR) MessageSourceAccessor accessor) {
+    public I18n i18n(@Qualifier(ServiceNames.I18N_MESSAGE_ACCESSOR) MessageSourceAccessor accessor) {
         return new I18nImpl(accessor); 
     }
 

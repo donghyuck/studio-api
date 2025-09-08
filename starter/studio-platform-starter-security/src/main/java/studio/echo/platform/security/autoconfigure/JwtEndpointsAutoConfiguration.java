@@ -37,7 +37,7 @@ public class JwtEndpointsAutoConfiguration {
                 LogUtils.blue("Jwt"),
                 LogUtils.blue(JwtAuthController.class, true),
                 props.getEndpoints().getBasePath(), getModeString(props)) );
-        return new JwtAuthController(authenticationManager, jwtTokenProvider);
+        return new JwtAuthController(authenticationManager, jwtTokenProvider, I18nUtils.resolve(i18nProvider));
     }
 
     private String getModeString(JwtProperties props)

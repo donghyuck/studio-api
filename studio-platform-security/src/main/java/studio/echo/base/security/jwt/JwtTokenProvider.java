@@ -52,6 +52,7 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import studio.echo.base.security.exception.JwtTokenException;
+import studio.echo.platform.service.I18n;
 
 /**
  * JWT(Json Web Token) 기반 인증 및 토큰 발급/검증을 담당하는 컴포넌트입니다.
@@ -87,6 +88,7 @@ public class JwtTokenProvider {
     private final Duration refreshTtl;
     private final Clock clock;
     private final String claimAuthorities;
+    private final I18n i18n;
 
     /**
      * JWT Token prefix
@@ -114,8 +116,8 @@ public class JwtTokenProvider {
             Duration accessTtl,
             Duration refreshTtl,
             Clock clock,
-            String claimAuthorities) {
-        this(Keys.hmacShaKeyFor(secret.getBytes()), issuer, accessTtl, refreshTtl, clock, claimAuthorities);
+            String claimAuthorities, I18n i18n) {
+        this(Keys.hmacShaKeyFor(secret.getBytes()), issuer, accessTtl, refreshTtl, clock, claimAuthorities, i18n);
     }
 
     /**
@@ -133,7 +135,9 @@ public class JwtTokenProvider {
             Duration accessTtl,
             Duration refreshTtl,
             Clock clock,
-            String claimAuthorities) {
+            String claimAuthorities,
+            I18n i18n) {
+        this.i18n = i18n;
         this.secretKey = Objects.requireNonNull(secret);
         this.issuer = Objects.requireNonNull(issuer);
         this.accessTtl = Objects.requireNonNull(accessTtl);
@@ -144,7 +148,7 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void init() {
-        log.info("[JWT] Initialized: issuer={}, expiresIn={} minutes", issuer, accessTtl.toMinutes());
+        log.info(i18n.get("info.security.jwt.initialized", issuer, accessTtl, refreshTtl));
     }
 
     public int getMaxAgeForRefreshTtl() {
@@ -164,6 +168,8 @@ public class JwtTokenProvider {
                 .collect(Collectors.joining(","));
         Instant now = clock.instant();
         Instant exp = now.plus(accessTtl);
+
+
         return Jwts.builder()
                 .subject(authentication.getName())
                 .claim(claimAuthorities, authorities)

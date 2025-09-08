@@ -99,7 +99,7 @@ public class JasyptPresenceGuard {
     @Bean
     public static BeanFactoryPostProcessor jasyptClasspathGuard(
             Environment env,
-            @Qualifier(ServiceNames.JASYPT_MSSSAGE_ACCESSOR) ObjectProvider<MessageSourceAccessor> messagesProvider) {
+            @Qualifier(ServiceNames.JASYPT_MESSAGE_ACCESSOR) ObjectProvider<MessageSourceAccessor> messagesProvider) {
         return bf -> {
             MessageSourceAccessor msg = messagesProvider.getIfAvailable();
             boolean failIfMissing = env.getProperty(KEY_FAIL_IF_MISSING, Boolean.class, true);

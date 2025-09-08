@@ -307,11 +307,11 @@ public class JpaApplicationProperties implements ApplicationProperties {
 
         if (value != null) {
             deleteProperty(keyStr);
-            firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETEED, keyStr, Collections.emptyMap());
+            firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETED, keyStr, Collections.emptyMap());
         }
 
         // Generate event.
-        firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETEED, keyStr, Collections.emptyMap());
+        firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETED, keyStr, Collections.emptyMap());
         return value;
     }
 
@@ -333,7 +333,7 @@ public class JpaApplicationProperties implements ApplicationProperties {
             }
         }
         // Generate event.
-        firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETEED, key, Collections.emptyMap());
+        firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETED, key, Collections.emptyMap());
     }
 
     /**

@@ -4,7 +4,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.MessageSourceAccessor;
 import org.springframework.context.support.ResourceBundleMessageSource;
 
@@ -14,7 +13,7 @@ import studio.echo.platform.constant.ServiceNames;
 public class JasyptI18nConfiguration {
 
      /** starter 전용 메시지 소스 */
-    @Bean(ServiceNames.JASYPT_MSSSAGE_SOURCE)
+    @Bean(ServiceNames.JASYPT_MESSAGE_SOURCE)
     public MessageSource jasyptMessageSource() {
         ResourceBundleMessageSource ms = new ResourceBundleMessageSource();
         ms.setBasenames("META-INF/i18n/jasypt/messages"); // 아래 2)의 파일 경로와 매칭
@@ -23,8 +22,8 @@ public class JasyptI18nConfiguration {
         return ms;
     }
 
-    @Bean(ServiceNames.JASYPT_MSSSAGE_ACCESSOR)
-    public MessageSourceAccessor studioJasyptMessages(@Qualifier(ServiceNames.JASYPT_MSSSAGE_SOURCE) MessageSource jasyptMessageSource) {
+    @Bean(ServiceNames.JASYPT_MESSAGE_ACCESSOR)
+    public MessageSourceAccessor studioJasyptMessages(@Qualifier(ServiceNames.JASYPT_MESSAGE_SOURCE) MessageSource jasyptMessageSource) {
         return new MessageSourceAccessor(jasyptMessageSource);
     }
 }
