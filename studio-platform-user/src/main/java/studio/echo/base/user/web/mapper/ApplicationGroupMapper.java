@@ -1,7 +1,6 @@
 package studio.echo.base.user.web.mapper;
 
 import java.util.List;
-import java.util.Set;
 
 import org.mapstruct.BeanMapping;
 import org.mapstruct.IterableMapping;
@@ -18,9 +17,7 @@ import studio.echo.base.user.web.dto.ApplicationGroupDto;
 public interface ApplicationGroupMapper {
 
     @Mapping(target = "creationDate", source = "creationDate")
-    @Mapping(target = "modifiedDate", source = "modifiedDate")
-  //  @Mapping(target = "roleCount", expression = "java(safeSize(entity.getGroupRoles()))")
-  //  @Mapping(target = "memberCount", expression = "java(safeSize(entity.getMemberships()))")
+    @Mapping(target = "modifiedDate", source = "modifiedDate")  
     @Mapping(target = "properties", source = "properties", defaultExpression = "java(java.util.Collections.emptyMap())")
     ApplicationGroupDto toDto(ApplicationGroup entity);
 
@@ -43,8 +40,7 @@ public interface ApplicationGroupMapper {
     @Mapping(target = "memberships",   ignore = true)
     void updateEntityFromDto(ApplicationGroupDto dto, @MappingTarget ApplicationGroup entity);
    
-
-    default int safeSize(Set<?> c) {
+    default int safeSize(java.util.Collection<?> c) {
         return c == null ? 0 : c.size();
     }
 }

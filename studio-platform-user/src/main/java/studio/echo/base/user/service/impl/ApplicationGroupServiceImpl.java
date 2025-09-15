@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import studio.echo.base.user.domain.entity.ApplicationGroup;
 import studio.echo.base.user.domain.entity.ApplicationGroupMembership;
 import studio.echo.base.user.domain.entity.ApplicationGroupMembershipId;
@@ -30,7 +31,8 @@ import studio.echo.platform.exception.NotFoundException;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ApplicationGroupServiceImpl implements ApplicationGroupService {
+@Slf4j
+public class ApplicationGroupServiceImpl implements ApplicationGroupService<ApplicationGroup, ApplicationRole, ApplicationUser> {
 
     private final ApplicationGroupRepository groupRepo;
     private final ApplicationUserRepository userRepo;
@@ -137,5 +139,16 @@ public class ApplicationGroupServiceImpl implements ApplicationGroupService {
     @Transactional(readOnly = true)
     public Page<ApplicationGroup> findAll(Pageable pageable) {
         return groupRepo.findAll(pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ApplicationGroup> findAllWithMemberCount(Pageable pageable) {
+        return groupRepo.searchWithMemberCount(null, pageable)
+                .map(p -> {
+                    ApplicationGroup g = p.getEntity();
+                    log.debug("member : {}", p.getMemberCount());
+                    g.setMemberCount(p.getMemberCount() == null ? 0 : p.getMemberCount().intValue());
+                    return g;
+                });
     }
 }

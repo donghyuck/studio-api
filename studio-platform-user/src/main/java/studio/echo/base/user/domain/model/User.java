@@ -25,6 +25,22 @@ import java.time.Instant;
 
 import studio.echo.platform.domain.model.PropertyAware;
 
+/**
+ * 사용자 객체 
+ * 
+ * @author  donghyuck, son
+ * @since 2025-09-15
+ * @version 1.0
+ *
+ * <pre> 
+ * << 개정이력(Modification Information) >>
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2025-09-15  donghyuck, son: 최초 생성.
+ * </pre>
+ */
+
+
 public interface User extends PropertyAware {
 
     public Long getUserId();
@@ -56,9 +72,5 @@ public interface User extends PropertyAware {
     public Instant getModifiedDate();
 
     public abstract boolean isExternal();
-
-    public abstract boolean isAvatarExists();
-
-    public abstract void setAvatarExists(boolean avatarExists);
 
 }
