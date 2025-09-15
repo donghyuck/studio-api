@@ -79,18 +79,14 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     public ApplicationUser create(ApplicationUser user) {
         user.setUserId(null);
         final String username = user.getUsername();
-
         if (userRepo.existsByUsername(username))
             throw UserAlreadyExistsException.byName(user.getUsername());
-
         encodePasswordIfPresent(user); 
         if (user.isEnabled())
             user.setEnabled(Boolean.TRUE);
-
         ApplicationUser saved = userRepo.save(user);
         log.debug("User created: id={}, username={}", saved.getUserId(), saved.getUsername());
         return saved;
-
     }
 
     public ApplicationUser update(Long userId, Consumer<ApplicationUser> mutator) {

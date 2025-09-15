@@ -42,7 +42,6 @@ import javax.persistence.JoinColumn;
 import javax.persistence.MapKeyColumn;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
-import javax.persistence.Transient;
 import javax.persistence.UniqueConstraint;
 
 import org.springframework.data.annotation.CreatedDate;
@@ -53,9 +52,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import studio.echo.base.user.domain.model.Status;
 import studio.echo.base.user.domain.model.User;
 import studio.echo.base.user.util.ApplicationJpaNames;
@@ -68,9 +69,12 @@ import studio.echo.base.user.util.ApplicationJpaNames;
 @Table(name = "TB_APPLICATION_USER")
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(onlyExplicitlyIncluded = true) 
 public class ApplicationUser implements User {
 
 	@Id // tell persistence provider 'id' is primary key
+	@EqualsAndHashCode.Include @ToString.Include
 	@Column(name = "USER_ID", nullable = false)
 	@GeneratedValue( // tell persistence provider that value of 'id' will be generated
 			strategy = GenerationType.IDENTITY // use RDBMS unique id generator
@@ -93,8 +97,6 @@ public class ApplicationUser implements User {
 	@JsonIgnore
 	private String password;
 
-	@Transient
-	private boolean avatarExists;
 
 	@Column(name = "NAME_VISIBLE", nullable = false, length = 1)
 	private boolean nameVisible;
@@ -117,12 +119,12 @@ public class ApplicationUser implements User {
 
 	@CreatedDate
 	@Column(name = "CREATION_DATE", updatable = false)
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
 	private Instant creationDate;
 
 	@LastModifiedDate
 	@Column(name = "MODIFIED_DATE")
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
 	private Instant modifiedDate;
 
 	@ElementCollection(fetch = FetchType.EAGER)
@@ -142,6 +144,7 @@ public class ApplicationUser implements User {
 	private Set<ApplicationGroupMembership> memberships = new HashSet<>();
 
 	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonIgnore
 	@Builder.Default
 	private Set<ApplicationUserRole> userRoles = new HashSet<>();
 

@@ -7,31 +7,48 @@ import java.util.function.Consumer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import studio.echo.base.user.domain.entity.ApplicationRole;
+import studio.echo.base.user.domain.model.Role;
+import studio.echo.platform.constant.ServiceNames;
+/**
+ *
+ * @author  donghyuck, son
+ * @since 2025-09-15
+ * @version 1.0
+ *
+ * <pre> 
+ * << 개정이력(Modification Information) >>
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2025-09-15  donghyuck, son: 최초 생성.
+ * </pre>
+ */
 
-public interface ApplicationRoleService {
 
-    public static final String SERVICE_NAME = "components:application-role-service";
+public interface ApplicationRoleService <T extends Role>{
+
+    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-role-service";
+
+    Page<T> findAll(Pageable pageable);
 
     /**
      * 롤 단건 조회
      */
-    ApplicationRole get(Long roleId);
+    T get(Long roleId);
 
     /**
      * 롤 이름으로 조회
      */
-    Optional<ApplicationRole> findByName(String name);
+    Optional<T> findByName(String name);
 
     /**
      * 롤 생성
      */
-    ApplicationRole create(ApplicationRole role);
+    T create(T role);
 
     /**
      * 롤 수정 (mutator 방식)
      */
-    ApplicationRole update(Long roleId, Consumer<ApplicationRole> mutator);
+    T update(Long roleId, Consumer<T> mutator);
 
     /**
      * 롤 삭제
@@ -41,20 +58,21 @@ public interface ApplicationRoleService {
     /**
      * 특정 사용자에게 직접 부여된 롤 조회 (페이징)
      */
-    Page<ApplicationRole> getRolesByUser(Long userId, Pageable pageable);
+    Page<T> getRolesByUser(Long userId, Pageable pageable);
 
     /**
      * 특정 사용자에게 직접 부여된 롤 전체 조회
      */
-    List<ApplicationRole> getRolesByUser(Long userId);
+    List<T> getRolesByUser(Long userId);
 
     /**
      * 특정 그룹에 부여된 롤 조회 (페이징)
      */
-    Page<ApplicationRole> getRolesByGroup(Long groupId, Pageable pageable);
+    Page<T> getRolesByGroup(Long groupId, Pageable pageable);
 
     /**
      * 특정 그룹에 부여된 롤 전체 조회
      */
-    List<ApplicationRole> getRolesByGroup(Long groupId);
+    List<T> getRolesByGroup(Long groupId);
+
 }

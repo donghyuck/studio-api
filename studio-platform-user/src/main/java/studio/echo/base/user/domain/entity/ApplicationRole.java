@@ -42,11 +42,14 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.ToString;
 import studio.echo.base.user.domain.model.Role;
 import studio.echo.base.user.util.ApplicationJpaNames;
 
@@ -54,12 +57,14 @@ import studio.echo.base.user.util.ApplicationJpaNames;
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(onlyExplicitlyIncluded = true)
 @Table(name = "TB_APPLICATION_ROLE")
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplicationRole implements Role {
 
-	@Id // tell persistence provider 'id' is primary key
+	@Id @EqualsAndHashCode.Include @ToString.Include
 	@Column(name = "ROLE_ID", nullable = false)
 	@GeneratedValue( // tell persistence provider that value of 'id' will be generated
 			strategy = GenerationType.IDENTITY // use RDBMS unique id generator
@@ -74,18 +79,19 @@ public class ApplicationRole implements Role {
 
 	@CreatedDate
 	@Column(name = "CREATION_DATE", updatable = false)
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
 	private Instant creationDate;
 
 	@LastModifiedDate
 	@Column(name = "MODIFIED_DATE")
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
 	private Instant modifiedDate;
 
 	@OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
 	private Set<ApplicationGroupRole> groupRoles = new HashSet<>();
 
 	@OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonIgnore
 	private Set<ApplicationUserRole> userRoles = new HashSet<>();
 
 	@PrePersist

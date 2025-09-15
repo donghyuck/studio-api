@@ -1,5 +1,7 @@
 package studio.echo.base.user.web.mapper;
 
+import java.util.List;
+
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
@@ -20,5 +22,5 @@ public interface ApplicationUserMapper {
     void updateEntityFromDto(UpdateUserRequest dto, @org.mapstruct.MappingTarget User entity);
 
     ApplicationUserDto toDto(User entity);
-
+    List<ApplicationUserDto> toDtos(List<User> entities);
 }

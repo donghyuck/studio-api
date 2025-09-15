@@ -1,4 +1,4 @@
-package studio.echo.base.user.web.endpoint;
+package studio.echo.base.user.web.controller;
 
 import static org.springframework.http.ResponseEntity.ok;
 

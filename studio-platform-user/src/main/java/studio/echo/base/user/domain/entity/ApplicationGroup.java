@@ -42,6 +42,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.PrePersist;
 import javax.persistence.PreUpdate;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -55,8 +56,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Singular;
+import studio.echo.base.user.domain.model.Group;
 import studio.echo.base.user.util.ApplicationJpaNames;
-import studio.echo.platform.domain.model.PropertyAware;
 
 @Entity(name = ApplicationJpaNames.Group.ENTITY)
 @EntityListeners(AuditingEntityListener.class)
@@ -66,7 +67,7 @@ import studio.echo.platform.domain.model.PropertyAware;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ApplicationGroup implements PropertyAware {
+public class ApplicationGroup implements Group {
 
 	@Id // tell persistence provider 'id' is primary key
 	@Column(name = "GROUP_ID", nullable = false)
@@ -81,6 +82,7 @@ public class ApplicationGroup implements PropertyAware {
 	@Column(name = "DESCRIPTION")
 	String description;
 
+	
 	@CreatedDate
 	@Column(name = "CREATION_DATE", updatable = false)
 	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
@@ -106,6 +108,16 @@ public class ApplicationGroup implements PropertyAware {
 	@OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
 	@Builder.Default
 	private Set<ApplicationGroupMembership> memberships = new HashSet<>();
+
+	@Transient 
+	private Integer memberCount = 0;
+
+	public ApplicationGroup(Long groupId, String name, String description, Long memberCount) {
+        this.groupId = groupId;
+        this.name = name;
+        this.description = description;
+        this.memberCount = memberCount == null ? 0 : memberCount.intValue();
+    }
 
 	@PrePersist
 	void onCreate() {

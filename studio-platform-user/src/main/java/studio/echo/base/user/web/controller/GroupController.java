@@ -20,7 +20,7 @@
  */
 
 
-package studio.echo.base.user.web.endpoint;
+package studio.echo.base.user.web.controller;
 
 import static org.springframework.http.ResponseEntity.ok;
 
@@ -78,7 +78,7 @@ public class GroupController {
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('group','read')")
     public ResponseEntity<ApiResponse<Page<ApplicationGroupDto>>> list(@PageableDefault(size = 15, sort = "groupId", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<ApplicationGroup> page = groupService.findAll(pageable); 
+        Page<ApplicationGroup> page = groupService.findAllWithMemberCount(pageable); 
         Page<ApplicationGroupDto> dtoPage = page.map(mapper::toDto);
         return ok(ApiResponse.ok(dtoPage));
     }

@@ -41,7 +41,7 @@ public class ApplicationUserRole {
     private ApplicationRole role;
 
     @Column(name = "ASSIGNED_AT", nullable = false)
-     @Builder.Default
+    @Builder.Default
     private LocalDateTime assignedAt = LocalDateTime.now();
 
     @Column(name = "ASSIGNED_BY")

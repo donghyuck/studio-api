@@ -24,4 +24,5 @@ public interface PropertyAware {
      * @param properties a map of properties
      */
     void setProperties(Map<String, String> properties);
+    
 }

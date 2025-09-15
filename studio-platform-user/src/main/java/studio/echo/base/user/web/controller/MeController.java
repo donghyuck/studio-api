@@ -1,4 +1,4 @@
-package studio.echo.base.user.web.endpoint;
+package studio.echo.base.user.web.controller;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
