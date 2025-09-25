@@ -66,6 +66,21 @@ public class PropertyKeys {
         public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
         public static final String FAIL_IF_MISSING = PREFIX + FAIL_IF_MISSING_VALUE_STRING;
         
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Audit {
+            public static final String PREFIX = Security.PREFIX + ".audit";
+            public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+            public static final String LOGIN_FAILURE = PREFIX + ".login-failure";
+        }
+
+        
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Auth {
+            public static final String PREFIX = Security.PREFIX + ".auth";
+            public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+            public static final String LOCK = PREFIX + ".lock";
+        }        
+
         /**
          * Contains JWT related property keys.
          */

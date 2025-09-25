@@ -51,7 +51,7 @@ import lombok.Value;
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApplicationGroupDto {
+public class GroupDto {
 
     Long groupId;
 

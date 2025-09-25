@@ -52,6 +52,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Builder.Default;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -109,7 +110,7 @@ public class ApplicationGroup implements Group {
 	@Builder.Default
 	private Set<ApplicationGroupMembership> memberships = new HashSet<>();
 
-	@Transient 
+	@Transient @Default
 	private Integer memberCount = 0;
 
 	public ApplicationGroup(Long groupId, String name, String description, Long memberCount) {

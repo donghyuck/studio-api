@@ -3,9 +3,12 @@ package studio.echo.base.user.domain.repository;
 import java.util.List;
 import java.util.Optional;
 
+import javax.persistence.LockModeType;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -58,4 +61,9 @@ public interface ApplicationUserRepository extends JpaRepository<ApplicationUser
 
     @Query("select gm.group.groupId from ApplicationGroupMembership gm where gm.user.userId = :userId")
     List<Long> findGroupIdsByUserId(@Param("userId") Long userId);
+
+
+    @Query(value = "select u from ApplicationUser u where u.username=:username")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<ApplicationUser> findByUsernameForUpdate(@Param("username") String username);
 }

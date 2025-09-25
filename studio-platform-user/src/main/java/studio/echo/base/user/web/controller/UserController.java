@@ -28,15 +28,15 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.user.domain.entity.ApplicationUser;
 import studio.echo.base.user.domain.model.User;
 import studio.echo.base.user.service.ApplicationUserService;
-import studio.echo.base.user.web.dto.ApplicationUserDto;
 import studio.echo.base.user.web.dto.CreateUserRequest;
 import studio.echo.base.user.web.dto.DisableUserRequest;
 import studio.echo.base.user.web.dto.UpdateUserRequest;
+import studio.echo.base.user.web.dto.UserDto;
 import studio.echo.base.user.web.mapper.ApplicationUserMapper;
 import studio.echo.platform.constant.PropertyKeys;
+import studio.echo.platform.util.LogUtils;
 import studio.echo.platform.web.dto.ApiResponse;
 
 @RestController
@@ -60,26 +60,27 @@ public class UserController {
         }
 
         @GetMapping
-         @PreAuthorize("@endpointAuthz.can('user','read')")
-        public ResponseEntity<ApiResponse<Page<ApplicationUserDto>>> list(
-                        @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<ApplicationUser> page = userService.findAll(pageable);
-                Page<ApplicationUserDto> dtoPage = page.map(mapper::toDto);
+        @PreAuthorize("@endpointAuthz.can('user','read')")
+        public ResponseEntity<ApiResponse<Page<UserDto>>> list( @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
+                
+                log.debug(LogUtils.toLog(pageable));
+               
+                Page<User> page = userService.findAll(pageable);
+                Page<UserDto> dtoPage = page.map(mapper::toDto);
                 return ok(ApiResponse.ok(dtoPage));
         }
 
         @GetMapping("/{id}")
          @PreAuthorize("@endpointAuthz.can('user','read')")
-        public ResponseEntity<ApiResponse<ApplicationUserDto>> get(@PathVariable Long id) {
+        public ResponseEntity<ApiResponse<UserDto>> get(@PathVariable Long id) {
                 var user = userService.get(id);
                 return ResponseEntity.ok(ApiResponse.ok(mapper.toDto(user)));
         }
 
         @PutMapping("/{id}")
          @PreAuthorize("@endpointAuthz.can('user','write')")
-        public ResponseEntity<ApiResponse<ApplicationUserDto>> update(@PathVariable Long id,
-                        @RequestBody UpdateUserRequest req) { 
-                ApplicationUser updated = userService.update(id, u -> mapper.updateEntityFromDto(req, u));
+        public ResponseEntity<ApiResponse<UserDto>> update(@PathVariable Long id, @RequestBody UpdateUserRequest req) { 
+                User updated = userService.update(id, u -> mapper.updateEntityFromDto(req, u));
                 return ResponseEntity.ok(ApiResponse.ok(mapper.toDto(updated)));
         }
 

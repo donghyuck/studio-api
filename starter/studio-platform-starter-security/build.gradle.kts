@@ -13,7 +13,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
 
-dependencies { 
+dependencies {  
     compileOnly(project(":starter:studio-platform-starter"))
     compileOnly(project(":studio-platform-user"))
     api(project(":studio-platform-security"))

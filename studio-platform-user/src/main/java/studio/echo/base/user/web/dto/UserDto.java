@@ -12,7 +12,7 @@ import studio.echo.base.user.domain.model.Status;
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApplicationUserDto {
+public class UserDto {
 
 	Long userId;
 	String username;

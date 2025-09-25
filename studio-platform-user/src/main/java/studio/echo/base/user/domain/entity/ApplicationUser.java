@@ -70,11 +70,12 @@ import studio.echo.base.user.util.ApplicationJpaNames;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(onlyExplicitlyIncluded = true) 
+@ToString(onlyExplicitlyIncluded = true)
 public class ApplicationUser implements User {
 
 	@Id // tell persistence provider 'id' is primary key
-	@EqualsAndHashCode.Include @ToString.Include
+	@EqualsAndHashCode.Include
+	@ToString.Include
 	@Column(name = "USER_ID", nullable = false)
 	@GeneratedValue( // tell persistence provider that value of 'id' will be generated
 			strategy = GenerationType.IDENTITY // use RDBMS unique id generator
@@ -97,7 +98,6 @@ public class ApplicationUser implements User {
 	@JsonIgnore
 	private String password;
 
-
 	@Column(name = "NAME_VISIBLE", nullable = false, length = 1)
 	private boolean nameVisible;
 
@@ -116,6 +116,15 @@ public class ApplicationUser implements User {
 	@Enumerated(EnumType.ORDINAL)
 	@Column(name = "STATUS")
 	private Status status;
+
+	@Column(name = "FAILED_ATTEMPTS", nullable = false)
+	private int failedAttempts;
+
+	@Column(name = "LAST_FAILED_AT")
+	private Instant lastFailedAt;
+
+	@Column(name = "ACCOUNT_LOCKED_UNTIL")
+	private Instant accountLockedUntil;
 
 	@CreatedDate
 	@Column(name = "CREATION_DATE", updatable = false)
@@ -154,12 +163,21 @@ public class ApplicationUser implements User {
 			creationDate = java.time.Instant.now();
 		if (modifiedDate == null)
 			modifiedDate = creationDate;
+		if (failedAttempts < 0)
+			failedAttempts = 0;
+		if (status == null)
+			status = Status.NONE;
 	}
 
 	@javax.persistence.PreUpdate
 	void onUpdate() {
 		if (modifiedDate == null)
 			modifiedDate = java.time.Instant.now();
+	}
+
+	@JsonIgnore
+	public boolean isAccountLockedNow(Instant now) {
+		return accountLockedUntil != null && now.isBefore(accountLockedUntil);
 	}
 
 }

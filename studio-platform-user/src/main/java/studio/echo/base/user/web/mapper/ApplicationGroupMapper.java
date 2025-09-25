@@ -11,7 +11,8 @@ import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
 import studio.echo.base.user.domain.entity.ApplicationGroup;
-import studio.echo.base.user.web.dto.ApplicationGroupDto;
+import studio.echo.base.user.domain.model.Group;
+import studio.echo.base.user.web.dto.GroupDto;
 
 @Mapper(componentModel = "spring", uses = { TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)
 public interface ApplicationGroupMapper {
@@ -19,10 +20,10 @@ public interface ApplicationGroupMapper {
     @Mapping(target = "creationDate", source = "creationDate")
     @Mapping(target = "modifiedDate", source = "modifiedDate")  
     @Mapping(target = "properties", source = "properties", defaultExpression = "java(java.util.Collections.emptyMap())")
-    ApplicationGroupDto toDto(ApplicationGroup entity);
+    GroupDto toDto(Group entity);
 
-    @IterableMapping(elementTargetType = ApplicationGroupDto.class)
-    List<ApplicationGroupDto> toDtos(List<ApplicationGroup> entities);
+    @IterableMapping(elementTargetType = GroupDto.class)
+    List<GroupDto> toDtos(List<Group> entities);
 
     @Mapping(target = "groupId",   ignore = true)
     @Mapping(target = "creationDate",  ignore = true)
@@ -30,15 +31,15 @@ public interface ApplicationGroupMapper {
     @Mapping(target = "groupRoles",    ignore = true)
     @Mapping(target = "memberships",   ignore = true)
     @Mapping(target = "properties",    source = "properties", defaultExpression = "java(new java.util.HashMap<>())")
-    ApplicationGroup toEntity(ApplicationGroupDto dto);
+    ApplicationGroup toEntity(GroupDto dto);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "groupId",       ignore = true)  
     @Mapping(target = "creationDate",  ignore = true)   
     @Mapping(target = "modifiedDate",  ignore = true)  
-    @Mapping(target = "groupRoles",    ignore = true)   
-    @Mapping(target = "memberships",   ignore = true)
-    void updateEntityFromDto(ApplicationGroupDto dto, @MappingTarget ApplicationGroup entity);
+    //@Mapping(target = "groupRoles",    ignore = true)   
+    //@Mapping(target = "memberships",   ignore = true)
+    void updateEntityFromDto(GroupDto dto, @MappingTarget Group entity);
    
     default int safeSize(java.util.Collection<?> c) {
         return c == null ? 0 : c.size();

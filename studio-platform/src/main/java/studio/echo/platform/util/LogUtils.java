@@ -1,5 +1,8 @@
 package studio.echo.platform.util;
 
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import lombok.NoArgsConstructor;
 import studio.echo.platform.constant.Colors;
 import studio.echo.platform.service.I18n;
@@ -105,7 +108,7 @@ public class LogUtils {
      * @return the blue-colored message
      */
     public static String blue(String message) {
-        return Colors.format(Colors.BLUE, message );
+        return Colors.format(Colors.BLUE, message);
     }
 
     /**
@@ -115,7 +118,7 @@ public class LogUtils {
      * @return the red-colored message
      */
     public static String red(String message) {
-        return Colors.format(Colors.RED, message );
+        return Colors.format(Colors.RED, message);
     }
 
     /**
@@ -125,7 +128,7 @@ public class LogUtils {
      * @return the green-colored message
      */
     public static String green(String message) {
-        return Colors.format(Colors.GREEN, message );
+        return Colors.format(Colors.GREEN, message);
     }
 
     /**
@@ -136,5 +139,49 @@ public class LogUtils {
      */
     public static String yellow(String message) {
         return Colors.format(Colors.YELLOW, message);
+    }
+
+    public static String toLog(org.springframework.data.domain.Page<?> page) {
+        return String.format(
+            "content=%d, totalElements=%d, totalPages=%d, number=%d, size=%d, first=%s, last=%s, empty=%s, sort=[%s]",
+            page.getNumberOfElements(),
+            page.getTotalElements(),
+            page.getTotalPages(),
+            page.getNumber(),
+            page.getSize(),
+            page.isFirst(),
+            page.isLast(),
+            page.isEmpty(),
+            page.getSort()
+        );
+    }
+
+    public static String toLog(Pageable p) {
+        StringBuilder orders = new StringBuilder();
+        for (Sort.Order o : p.getSort()) {
+            if (orders.length() > 0) orders.append(", ");
+            orders.append(o.getProperty())
+                  .append(' ')
+                  .append(o.getDirection());
+            if (o.isIgnoreCase()) {
+                orders.append(" (ignoreCase)");
+            }
+            // Java 11: switch statement or if/else
+            Sort.NullHandling nh = o.getNullHandling();
+            if (nh == Sort.NullHandling.NULLS_FIRST) {
+                orders.append(" (NULLS_FIRST)");
+            } else if (nh == Sort.NullHandling.NULLS_LAST) {
+                orders.append(" (NULLS_LAST)");
+            }
+        }
+        return String.format(
+            "page=%d, size=%d, offset=%d, paged=%s, sorted=%s, sort=[%s]",
+            p.getPageNumber(),
+            p.getPageSize(),
+            p.getOffset(),
+            p.isPaged(),
+            p.getSort().isSorted(),
+            orders.toString()
+        );
     }
 }

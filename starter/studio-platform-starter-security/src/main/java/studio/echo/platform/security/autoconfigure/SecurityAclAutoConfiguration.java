@@ -36,7 +36,8 @@ public class SecurityAclAutoConfiguration {
     /** SpEL: @endpointAuthz.can('domain','component','action') */
     @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
     @ConditionalOnMissingBean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
-    public EndpointAuthorizationImpl endpointAuthorization(DomainPolicyRegistry registry, EndpointModeGuard endpointModeGuard) {
+    public EndpointAuthorizationImpl endpointAuthorization(DomainPolicyRegistry registry,
+            EndpointModeGuard endpointModeGuard) {
         return new EndpointAuthorizationImpl(registry, endpointModeGuard);
     }
 }

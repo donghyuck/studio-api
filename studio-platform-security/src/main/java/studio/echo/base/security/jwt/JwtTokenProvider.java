@@ -88,6 +88,7 @@ public class JwtTokenProvider {
     private final Duration refreshTtl;
     private final Clock clock;
     private final String claimAuthorities;
+    private final String basePath;
     private final I18n i18n;
 
     /**
@@ -116,8 +117,8 @@ public class JwtTokenProvider {
             Duration accessTtl,
             Duration refreshTtl,
             Clock clock,
-            String claimAuthorities, I18n i18n) {
-        this(Keys.hmacShaKeyFor(secret.getBytes()), issuer, accessTtl, refreshTtl, clock, claimAuthorities, i18n);
+            String claimAuthorities, String basePath, I18n i18n) {
+        this(Keys.hmacShaKeyFor(secret.getBytes()), issuer, accessTtl, refreshTtl, clock, claimAuthorities, basePath, i18n);
     }
 
     /**
@@ -135,7 +136,7 @@ public class JwtTokenProvider {
             Duration accessTtl,
             Duration refreshTtl,
             Clock clock,
-            String claimAuthorities,
+            String claimAuthorities, String basePath,
             I18n i18n) {
         this.i18n = i18n;
         this.secretKey = Objects.requireNonNull(secret);
@@ -144,6 +145,7 @@ public class JwtTokenProvider {
         this.refreshTtl = Objects.requireNonNull(refreshTtl);
         this.clock = Objects.requireNonNullElseGet(clock, Clock::systemUTC);
         this.claimAuthorities = StringUtils.defaultString(claimAuthorities, AUTHORITIES_KEY);
+        this.basePath = basePath;
     }
 
     @PostConstruct
@@ -259,5 +261,7 @@ public class JwtTokenProvider {
         return null;
     }
 
-    
+    public String getBasePath() {
+        return basePath;
+    }
 }

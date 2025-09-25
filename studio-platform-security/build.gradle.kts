@@ -21,6 +21,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
+    implementation(project(":studio-platform-jpa")) 
+    implementation("org.postgresql:postgresql:${project.findProperty("postgresqlVersion")}")    
     api("io.jsonwebtoken:jjwt-api:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-impl:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-jackson:$jsonwebtokenVersion")    
