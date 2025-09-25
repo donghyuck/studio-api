@@ -52,6 +52,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.echo.base.security.authentication.AccountLockService;
 import studio.echo.base.security.handler.AuthenticationErrorHandler;
 import studio.echo.base.security.jwt.JwtTokenProvider;
 import studio.echo.base.security.userdetails.ApplicationUserDetailsService;
@@ -207,7 +208,8 @@ public class SecurityAutoConfiguration {
     public JwtTokenProvider jwtTokenProvider(SecurityProperties properties, Clock clock,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
-        var jwtProps = properties.getJwt();
+        var jwtProps = properties.getJwt(); 
+        
         JwtTokenProvider provider = new JwtTokenProvider(
                 jwtProps.getSecret(),
                 jwtProps.getIssuer(),
@@ -215,6 +217,7 @@ public class SecurityAutoConfiguration {
                 jwtProps.getRefreshTtl(),
                 clock,
                 jwtProps.getClaimAuthorities(), 
+                jwtProps.getEndpoints().getBasePath(),
                 i18n);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(JwtTokenProvider.class, true), LogUtils.red(State.CREATED.toString())));
@@ -254,12 +257,14 @@ public class SecurityAutoConfiguration {
     @Bean(ServiceNames.USER_DETAILS_SERVICE)
     @ConditionalOnMissingBean(ApplicationUserDetailsService.class)
     @ConditionalOnClass({ ApplicationUserService.class })
-    public UserDetailsService applicationUserDetailsService(ApplicationUserService<User> userServce,
+    public UserDetailsService applicationUserDetailsService(
+            ApplicationUserService<User> userServce,
+            ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(ApplicationUserDetailsService.class, true), LogUtils.red(State.CREATED.toString())));
-        return new ApplicationUserDetailsService<>(userServce);
+        return new ApplicationUserDetailsService(userServce, accountLockService);
     }
 
     private static String join(java.util.List<String> values) {

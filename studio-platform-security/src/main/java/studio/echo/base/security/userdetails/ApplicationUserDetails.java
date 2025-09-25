@@ -1,5 +1,6 @@
 package studio.echo.base.security.userdetails;
 
+import java.time.Instant;
 import java.util.Collection;
 
 import org.springframework.security.core.GrantedAuthority;
@@ -43,9 +44,10 @@ public class ApplicationUserDetails<T extends User> implements UserDetails {
     }
 
     @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
+    public boolean isAccountNonLocked() { 
+        Instant until = domainUser.getAccountLockedUntil(); 
+        return (until == null) || Instant.now().isAfter(until);
+    } 
 
     @Override
     public boolean isCredentialsNonExpired() {

@@ -7,6 +7,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.echo.base.security.authentication.AccountLockService;
 import studio.echo.base.user.domain.model.Role;
 import studio.echo.base.user.domain.model.User;
 import studio.echo.base.user.exception.UserNotFoundException;
@@ -30,6 +32,7 @@ import studio.echo.platform.constant.ServiceNames;
 public class ApplicationUserDetailsService<T extends User> implements UserDetailsService {
  
     private final ApplicationUserService<T> userService;
+    private final ObjectProvider<AccountLockService> accountLockService; 
 
     @Value("${"+ PropertyKeys.Security.PREFIX +".efault-roles:#{null}}")  // 프로퍼티 없으면 ROLE_USER 기본값
     private String[] defaultRoles;
@@ -40,17 +43,18 @@ public class ApplicationUserDetailsService<T extends User> implements UserDetail
         T user = userService.findByUsername(username)
             .orElseThrow(() -> UserNotFoundException.of(username)); 
         
-        log.debug("found user {} : {}", user.getUsername(), user.getPassword());
+        log.debug("Found user {}", user.getUserId(), user.getUsername());
 
         List<GrantedAuthority> authorities = getFinalUserAuthority(user);
         return new ApplicationUserDetails<>(user, authorities);
     }
 
     protected List<GrantedAuthority> getFinalUserAuthority(T user) {
+
         Set<Role> effectiveRoles = Optional
             .ofNullable(userService.findEffectiveRoles(user.getUserId()))
             .orElseGet(Set::of);
- 
+
        LinkedHashSet<String> names = new LinkedHashSet<>();
         for (Role r : effectiveRoles) {
             if (r != null) names.add(norm(r.getName()));

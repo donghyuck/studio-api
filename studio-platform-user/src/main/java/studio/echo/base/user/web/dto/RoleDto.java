@@ -10,9 +10,8 @@ import lombok.Value;
 @Value
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class ApplicationRoleDto {
+public class RoleDto {
 
- 
 	private Long roleId;
  
 	private String name;

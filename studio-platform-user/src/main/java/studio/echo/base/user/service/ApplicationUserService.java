@@ -19,13 +19,13 @@
  *
  */
 
-
 package studio.echo.base.user.service;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -36,21 +36,21 @@ import studio.echo.platform.constant.ServiceNames;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-09-15
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-09-15  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
-
 public interface ApplicationUserService<T extends User> {
-    
+
     public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-user-service";
 
     Page<T> findAll(Pageable pageable);
@@ -68,12 +68,12 @@ public interface ApplicationUserService<T extends User> {
     void enable(Long userId, String actor);
 
     void disable(Long userId,
-                    String actor,
-                    String reason,
-                    OffsetDateTime until,
-                    boolean revokeTokens,
-                    boolean invalidateSessions,
-                    boolean notifyUser);
+            String actor,
+            String reason,
+            OffsetDateTime until,
+            boolean revokeTokens,
+            boolean invalidateSessions,
+            boolean notifyUser);
 
     // paging & search
     Page<T> search(String q, Pageable pageable);

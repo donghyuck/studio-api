@@ -63,4 +63,12 @@ public class ServiceNames {
 
     public static final String DOMAIN_ENDPOINT_AUTHZ = "endpointAuthz";
 
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_LOG_RETENTION_JOB = PREFIX + ":security:audit:login-failure-log-retention-job";
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EVENT_LISTENER = PREFIX + ":security:audit:login-failure-event-listener"; 
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EVENT_PUBLISHER = PREFIX + ":security:audit:login-failure-event-publisher";
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR = PREFIX + ":security:audit:login-failure-executor"; 
+    public static final String SECURITY_AUDIT_LOGIN_SUCCESS_EVENT_LISTENER = PREFIX + ":security:audit:login-success-event-listener";
+    public static final String SECURITY_ACCOUNT_LOCK_SERVICE = PREFIX + ":security:account-lock-service";
+
+
 }

@@ -2,3 +2,5 @@ studio.echo.platform.security.autoconfigure.SecurityAutoConfiguration
 studio.echo.platform.security.autoconfigure.SecurityAclAutoConfiguration
 studio.echo.platform.security.autoconfigure.JwtEndpointsAutoConfiguration
 studio.echo.platform.security.autoconfigure.SecurityWebAdviceAutoConfiguration
+studio.echo.platform.security.autoconfigure.LoginFailureAuditAutoConfiguration
+studio.echo.platform.security.autoconfigure.AccountLockAutoConfiguration

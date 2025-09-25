@@ -11,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import studio.echo.base.user.domain.entity.ApplicationRole;
 import studio.echo.base.user.domain.repository.ApplicationRoleRepository;
 import studio.echo.base.user.exception.RoleNotFoundException;
@@ -19,6 +20,7 @@ import studio.echo.base.user.service.ApplicationRoleService;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class ApplicationRoleServiceImpl implements ApplicationRoleService<ApplicationRole> {
 
     private final ApplicationRoleRepository roleRepo;
@@ -47,7 +49,9 @@ public class ApplicationRoleServiceImpl implements ApplicationRoleService<Applic
 
     @Override
     public ApplicationRole update(Long roleId, Consumer<ApplicationRole> mutator) {
+
         ApplicationRole r = get(roleId);
+
         mutator.accept(r);
         return roleRepo.save(r);
     }
@@ -60,7 +64,7 @@ public class ApplicationRoleServiceImpl implements ApplicationRoleService<Applic
     // --- 사용자/그룹 기준 롤 조회 ---
     @Override
     @Transactional(Transactional.TxType.SUPPORTS)
-    public Page<ApplicationRole> getRolesByUser(Long userId, Pageable pageable) { 
+    public Page<ApplicationRole> getRolesByUser(Long userId, Pageable pageable) {
         return roleRepo.findRolesByUserId(userId, pageable);
     }
 
@@ -71,7 +75,7 @@ public class ApplicationRoleServiceImpl implements ApplicationRoleService<Applic
     }
 
     @Override
-   @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(Transactional.TxType.SUPPORTS)
     public Page<ApplicationRole> getRolesByGroup(Long groupId, Pageable pageable) {
         return roleRepo.findRolesByGroupId(groupId, pageable);
     }

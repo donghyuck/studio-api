@@ -67,6 +67,14 @@ public interface User extends PropertyAware {
 
     public String getEmail();
 
+    public int getFailedAttempts();
+
+    public boolean isAccountLockedNow(Instant now);
+
+    public Instant getLastFailedAt();
+
+    public Instant getAccountLockedUntil();
+
     public Instant getCreationDate();
 
     public Instant getModifiedDate();

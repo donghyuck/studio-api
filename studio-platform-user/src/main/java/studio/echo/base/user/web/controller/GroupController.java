@@ -47,8 +47,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import studio.echo.base.user.domain.entity.ApplicationGroup;
+import studio.echo.base.user.domain.model.Group;
 import studio.echo.base.user.service.ApplicationGroupService;
-import studio.echo.base.user.web.dto.ApplicationGroupDto;
+import studio.echo.base.user.web.dto.GroupDto;
 import studio.echo.base.user.web.mapper.ApplicationGroupMapper;
 import studio.echo.platform.constant.PropertyKeys;
 import studio.echo.platform.web.dto.ApiResponse;
@@ -77,24 +78,24 @@ public class GroupController {
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('group','read')")
-    public ResponseEntity<ApiResponse<Page<ApplicationGroupDto>>> list(@PageableDefault(size = 15, sort = "groupId", direction = Sort.Direction.DESC) Pageable pageable) {
+    public ResponseEntity<ApiResponse<Page<GroupDto>>> list(@PageableDefault(size = 15, sort = "groupId", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<ApplicationGroup> page = groupService.findAllWithMemberCount(pageable); 
-        Page<ApplicationGroupDto> dtoPage = page.map(mapper::toDto);
+        Page<GroupDto> dtoPage = page.map(mapper::toDto);
         return ok(ApiResponse.ok(dtoPage));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("@endpointAuthz.can('group','read')")
-    public ResponseEntity<ApiResponse<ApplicationGroupDto>> get(@PathVariable Long id) {
-        ApplicationGroup group = groupService.get(id);
+    public ResponseEntity<ApiResponse<GroupDto>> get(@PathVariable Long id) {
+        Group group = groupService.get(id);
         return ok(ApiResponse.ok(mapper.toDto(group)));
     }
 
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('group','write')")
-    public ResponseEntity<ApiResponse<ApplicationGroupDto>> create(@Valid @RequestBody ApplicationGroupDto req)  {
-        ApplicationGroup group = mapper.toEntity(req); 
-        ApplicationGroup saved = groupService.create(group);
+    public ResponseEntity<ApiResponse<GroupDto>> create(@Valid @RequestBody GroupDto req)  {
+        Group group = mapper.toEntity(req); 
+        Group saved = groupService.create(group);
         // Location 헤더 (선택)
         HttpHeaders headers = new HttpHeaders();
         headers.setLocation(URI.create(String.format("/groups/%s", saved.getGroupId())));
@@ -103,8 +104,8 @@ public class GroupController {
  
     @PutMapping("/{id}")
     @PreAuthorize("@endpointAuthz.can('group','write')")
-    public ResponseEntity<ApiResponse<ApplicationGroupDto>> update(@PathVariable Long id, @Valid @RequestBody ApplicationGroupDto dto)  {
-        ApplicationGroup updated = groupService.update(id, g-> mapper.updateEntityFromDto(dto, g) );
+    public ResponseEntity<ApiResponse<GroupDto>> update(@PathVariable Long id, @Valid @RequestBody GroupDto dto)  {
+        Group updated = groupService.update(id, g-> mapper.updateEntityFromDto(dto, (Group)g) );
         return ok(ApiResponse.ok(mapper.toDto(updated)));
     }
 

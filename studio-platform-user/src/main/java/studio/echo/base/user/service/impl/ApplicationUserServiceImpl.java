@@ -4,19 +4,21 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import javax.transaction.Transactional;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +47,7 @@ import studio.echo.platform.service.DomainEvents;
 
 @Service(ApplicationUserService.SERVICE_NAME)
 @RequiredArgsConstructor
-@Transactional
+@Transactional(readOnly = true)
 @Slf4j
 public class ApplicationUserServiceImpl implements ApplicationUserService<ApplicationUser> {
 
@@ -60,28 +62,29 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     private final Clock clock;
 
     // ---------- 기본 CRUD ----------
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Page<ApplicationUser> findAll(Pageable pageable) {
         return userRepo.findAll(pageable);
     }
 
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(propagation = Propagation.SUPPORTS)
     public ApplicationUser get(Long userId) {
         return userRepo.findById(userId)
                 .orElseThrow(() -> UserNotFoundException.byId(userId));
     }
 
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Optional<ApplicationUser> findByUsername(String username) {
         return userRepo.findByUsername(username);
     }
 
+    @Transactional
     public ApplicationUser create(ApplicationUser user) {
         user.setUserId(null);
         final String username = user.getUsername();
         if (userRepo.existsByUsername(username))
             throw UserAlreadyExistsException.byName(user.getUsername());
-        encodePasswordIfPresent(user); 
+        encodePasswordIfPresent(user);
         if (user.isEnabled())
             user.setEnabled(Boolean.TRUE);
         ApplicationUser saved = userRepo.save(user);
@@ -89,20 +92,31 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return saved;
     }
 
+    @Transactional
     public ApplicationUser update(Long userId, Consumer<ApplicationUser> mutator) {
-        ApplicationUser u = get(userId);
+        
+        Objects.requireNonNull(mutator, "updater");
+        ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
         mutator.accept(u);
         encodePasswordIfPresent(u);
+        
+        log.debug("[UserUpdate] username={}, failedAttempts={}, lastFailedAt={}, lockedUntil={}",
+                u.getUsername(), u.getFailedAttempts(), u.getLastFailedAt(), u.getAccountLockedUntil());
+  
         ApplicationUser saved = userRepo.save(u);
+
         return saved;
     }
 
+
+    @Transactional
     public void delete(Long userId) {
         ApplicationUser u = get(userId);
         userRepo.delete(u);
     }
 
     @Override
+    @Transactional
     public void enable(Long userId, String actor) {
         ApplicationUser u = get(userId);
         if (!Boolean.TRUE.equals(u.isEnabled())) {
@@ -112,7 +126,13 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         }
     }
 
+    void safeAudit(String action, Long userId, String actor, String reason) {
+        log.info("Audit - Action: {}, UserID: {}, Actor: {}, Reason: {}", action, userId, actor, reason);
+
+    }
+
     @Override
+    @Transactional
     public void disable(Long userId, String actor, String reason, OffsetDateTime until, boolean revokeTokens,
             boolean invalidateSessions, boolean notifyUser) {
 
@@ -137,6 +157,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     }
 
     // ---------- 롤 부여/회수 ----------
+    @Transactional
     public void assignRole(Long userId, Long roleId, String by) {
         ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
         ApplicationRole r = roleRepo.findById(roleId)
@@ -152,11 +173,13 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         }
     }
 
+    @Transactional
     public void revokeRole(Long userId, Long roleId) {
         userRoleRepo.deleteByUserIdAndRoleId(userId, roleId);
     }
 
     // ---------- 그룹 가입/탈퇴 ----------
+    @Transactional
     public void joinGroup(Long userId, Long groupId, String by) {
         ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
         ApplicationGroup g = groupRepo.findById(groupId)
@@ -173,6 +196,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         }
     }
 
+    @Transactional
     public void leaveGroup(Long userId, Long groupId) {
         membershipRepo.deleteById(new ApplicationGroupMembershipId(groupId, userId));
     }
@@ -185,15 +209,24 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return userRepo.findGroupsByUserId(userId);
     }
 
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Set<ApplicationRole> findEffectiveRolesFast(Long userId) {
         return new LinkedHashSet<>(roleRepo.findEffectiveRolesByUserId(userId));
     }
 
-    @Transactional(Transactional.TxType.SUPPORTS)
+    @Transactional(propagation = Propagation.SUPPORTS)
     public Set<Role> findEffectiveRoles(Long userId) {
+
+        log.debug("find effective roles for user {}", userId);
+
         List<ApplicationRole> direct = roleRepo.findRolesByUserId(userId);
+
+        log.debug("found role directly to user : {}", direct);
+
         List<Long> groupIds = userRepo.findGroupIdsByUserId(userId);
+
+        log.debug("found group ids of user : {}", groupIds);
+
         List<ApplicationRole> viaGroups = groupIds.isEmpty()
                 ? List.of()
                 : roleRepo.findRolesByGroupIds(groupIds);
@@ -213,10 +246,6 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         if (StringUtils.isNotBlank(user.getPassword())) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
-    }
-
-    private void safeAudit(String type, Long subjectId, String actor, String reason) {
-        
     }
 
 }

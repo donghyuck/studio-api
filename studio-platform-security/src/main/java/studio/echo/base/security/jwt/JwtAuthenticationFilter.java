@@ -62,4 +62,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             errorHandler.handle(request, response, ex.getType(), ex.getArgs());
         }
     }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+
+        String path = request.getRequestURI();
+        if (path.startsWith(jwtTokenProvider.getBasePath())) {
+            return false;
+        }
+        return super.shouldNotFilter(request);
+    }
 }

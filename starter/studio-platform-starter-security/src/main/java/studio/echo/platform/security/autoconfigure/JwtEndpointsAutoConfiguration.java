@@ -10,6 +10,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.echo.base.security.authentication.AccountLockService;
 import studio.echo.base.security.jwt.JwtTokenProvider;
 import studio.echo.base.security.web.controller.JwtAuthController;
 import studio.echo.platform.autoconfigure.i18n.I18nKeys;
@@ -30,7 +31,11 @@ public class JwtEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.Endpoints.PREFIX, name = "login-enabled", havingValue = "true")
-    public JwtAuthController jwtEndpoint(JwtTokenProvider jwtTokenProvider, AuthenticationManager authenticationManager, ObjectProvider<I18n> i18nProvider) {
+    public JwtAuthController jwtEndpoint(
+        JwtTokenProvider jwtTokenProvider, 
+        AuthenticationManager authenticationManager, 
+        ObjectProvider<AccountLockService> accountLockService,
+        ObjectProvider<I18n> i18nProvider) {
          I18n i18n = I18nUtils.resolve(i18nProvider);
         JwtProperties props = securityProperties.getJwt();
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, "Security",
