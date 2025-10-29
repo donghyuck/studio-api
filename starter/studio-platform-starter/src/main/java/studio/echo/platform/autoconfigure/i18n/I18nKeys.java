@@ -42,7 +42,6 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class I18nKeys {
-
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class AutoConfig {
 

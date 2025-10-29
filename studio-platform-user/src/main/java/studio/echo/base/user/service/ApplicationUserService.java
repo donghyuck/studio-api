@@ -22,10 +22,10 @@
 package studio.echo.base.user.service;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -46,18 +46,23 @@ import studio.echo.platform.constant.ServiceNames;
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-09-15  donghyuck, son: 최초 생성.
+ * 2025-10-14  donghyuck, son; 사용자 롤 업데이트 기능 추가.  
  *          </pre>
  */
 
-public interface ApplicationUserService<T extends User> {
+public interface ApplicationUserService<T extends User, R extends Role> {
 
     public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-user-service";
 
     Page<T> findAll(Pageable pageable);
 
+    Page<T> findByNameOrUsernameOrEmail(String keyword, Pageable pageable);
+
     User get(Long userId);
 
     Optional<T> findByUsername(String username);
+
+    Long findIdByUsername(String username); 
 
     T create(T user);
 
@@ -81,14 +86,24 @@ public interface ApplicationUserService<T extends User> {
     Page<T> getUsersByGroup(Long groupId, Pageable pageable);
 
     // associations
+
     void assignRole(Long userId, Long roleId, String by);
 
     void revokeRole(Long userId, Long roleId);
+
+    BatchResult updateUserRolesBulk(Long userId, List<Long> desired, String actor);
+
+    BatchResult assignRolesBulk(Long userId, List<Long> roles, String actor);
 
     void joinGroup(Long userId, Long groupId, String by);
 
     void leaveGroup(Long userId, Long groupId);
 
     // effective roles
-    Set<Role> findEffectiveRoles(Long userId);
+    Set<R> findEffectiveRoles(Long userId);
+
+    List<R> getUserRoles(Long userId) ;
+
+    List<R> getUserGroupsRoles(Long userId);
+
 }

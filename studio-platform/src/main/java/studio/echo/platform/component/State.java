@@ -78,7 +78,7 @@ public enum State {
      */
     POST_UPGRADE_STARTED("POST_UPGRADE_STARTED");
 
-    private String desc;
+    final private String desc;
 
     State(String desc) {
         this.desc = desc;

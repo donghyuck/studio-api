@@ -88,7 +88,7 @@ public class PropertyKeys {
         public static final class Jwt {
 
             public static final String PREFIX = Security.PREFIX + ".jwt";
-
+            public static final String REFRESH_COOKIE_NAME = PREFIX + ".refresh-cookie-name";
             /**
              * Contains JWT endpoint property keys.
              */

@@ -27,6 +27,7 @@ import java.util.List;
 
 import lombok.Getter;
 import lombok.Setter;
+import studio.echo.base.security.jwt.JwtConfig;
 
 /**
  * JWT(Json Web Token) 관련 설정 정보를 담는 클래스입니다.
@@ -54,7 +55,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class JwtProperties {
+public class JwtProperties implements JwtConfig {
 
     private boolean enabled = true;
 
@@ -64,7 +65,9 @@ public class JwtProperties {
 
     private Duration accessTtl = Duration.ofMinutes(15);
 
-    private Duration refreshTtl = Duration.ofMinutes(7);;
+    private Duration refreshTtl = Duration.ofMinutes(7);
+
+    private Duration rotationGrace = Duration.ZERO;
 
     private String header = "Authorization";
 
@@ -72,12 +75,22 @@ public class JwtProperties {
 
     private String claimAuthorities = "authorities";
 
+    private String refreshCookieName = "refresh_token";
+
+    private String cookiePath = "/api/auth";
+    
+    private boolean cookieSecure = true;
+    
+    private String cookieSameSite = "Strict";
+
     @Getter
     @Setter
     public static class Endpoints {
+
         private boolean loginEnabled = true;
         private boolean refreshEnabled = true;
         private String basePath = "/api/auth";
+
     }
 
     private Endpoints endpoints = new Endpoints();

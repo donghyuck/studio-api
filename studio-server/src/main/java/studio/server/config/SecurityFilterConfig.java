@@ -105,8 +105,8 @@ public class SecurityFilterConfig {
             throws Exception {
 
         log.info("Configuring SecurityFilterChain...");
-        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService,
-                authenticationErrorHandler);
+       
+        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(securityProperties.getJwt().getEndpoints().getBasePath(), jwtTokenProvider, userDetailsService, authenticationErrorHandler);
         return http
                 .csrf(csrf -> csrf.disable()) // Stateless API 서버에서 JWT 사용하므로 CSRF 보호는 비활성화함
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -133,8 +133,6 @@ public class SecurityFilterConfig {
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
-
-
 
     private static List<String> jwtOpenPatterns(SecurityProperties securityProperties) {
         JwtProperties p = securityProperties.getJwt();

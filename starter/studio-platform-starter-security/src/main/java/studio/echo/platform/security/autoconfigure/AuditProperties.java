@@ -44,5 +44,8 @@ public class AuditProperties {
         @DecimalMin("0.0")
         @DecimalMax("1.0")
         private double sampling = 1.0;
+
+        private WebProperties web = new WebProperties();
+        
     }
 }

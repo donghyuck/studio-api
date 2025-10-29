@@ -71,6 +71,6 @@ public class GroupDto {
 
     int roleCount = 0;
 
-    Integer memberCount ; 
+    Long memberCount ; 
 
 }

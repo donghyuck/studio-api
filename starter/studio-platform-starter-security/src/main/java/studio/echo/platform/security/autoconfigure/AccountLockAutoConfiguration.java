@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.security.audit.LoginFailureLogRepository;
+import studio.echo.base.security.audit.domain.repository.LoginFailureLogRepository;
 import studio.echo.base.security.authentication.AccountLockService;
 import studio.echo.base.security.authentication.AccountLockServiceImpl;
 import studio.echo.base.user.domain.repository.ApplicationUserRepository;

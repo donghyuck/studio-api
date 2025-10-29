@@ -48,4 +48,13 @@ public class ApplicationGroupMembership implements Serializable {
     @Column(name = "JOINED_BY")
     private String joinedBy;
 
+
+    public static ApplicationGroupMembership of(ApplicationGroup group, ApplicationUser user, String joinedBy) {
+        ApplicationGroupMembership m = new ApplicationGroupMembership();
+        m.setGroup(group);
+        m.setUser(user);
+        m.setId(new ApplicationGroupMembershipId(group.getGroupId(), user.getUserId()));
+        m.setJoinedBy(joinedBy);
+        return m;
+    }
 }

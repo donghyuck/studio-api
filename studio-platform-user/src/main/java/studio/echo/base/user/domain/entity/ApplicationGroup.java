@@ -111,13 +111,13 @@ public class ApplicationGroup implements Group {
 	private Set<ApplicationGroupMembership> memberships = new HashSet<>();
 
 	@Transient @Default
-	private Integer memberCount = 0;
+	private Long memberCount = 0L;
 
 	public ApplicationGroup(Long groupId, String name, String description, Long memberCount) {
         this.groupId = groupId;
         this.name = name;
         this.description = description;
-        this.memberCount = memberCount == null ? 0 : memberCount.intValue();
+        this.memberCount = memberCount == null ? 0L : memberCount.longValue();
     }
 
 	@PrePersist

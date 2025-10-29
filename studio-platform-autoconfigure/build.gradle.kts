@@ -12,7 +12,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
 dependencies { 
-    compileOnly(project(":studio-platform"))
+    implementation(project(":studio-platform"))
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
 }

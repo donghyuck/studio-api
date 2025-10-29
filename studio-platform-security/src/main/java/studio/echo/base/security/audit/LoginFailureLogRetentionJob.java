@@ -1,6 +1,7 @@
 package studio.echo.base.security.audit;
 
 import lombok.RequiredArgsConstructor;
+import studio.echo.base.security.audit.domain.repository.LoginFailureLogRepository;
 
 @RequiredArgsConstructor
 public class LoginFailureLogRetentionJob {

@@ -22,6 +22,8 @@
 
 package studio.echo.base.user.service;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.function.Consumer;
 
 import org.springframework.data.domain.Page;
@@ -50,20 +52,21 @@ import studio.echo.platform.constant.ServiceNames;
 public interface ApplicationGroupService<G extends Group, R extends Role, U extends User> {
 
     public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-group-service";
-
+    
+    // ── Group: CRUD ───────────────────────────────────────────────────────────
     /**
      * Get group by id
      * @param groupId
      * @return
      */
-    G get(Long groupId);
+    G getById(Long groupId);
 
     /**
      * Create new group
      * @param group
      * @return
      */
-    G create(G group);
+    G createGroup(G group);
 
     /*
      * Update group with mutator
@@ -71,14 +74,15 @@ public interface ApplicationGroupService<G extends Group, R extends Role, U exte
      * @param mutator
      * @return
      */
-    G update(Long groupId, Consumer<G> mutator);
+    G updateGroup(Long groupId, Consumer<G> mutator);
 
     /**
      * Delete group
      * @param groupId
      */    
-    void delete(Long groupId);
+    void deleteGroup(Long groupId);
 
+    // ── Group: Queries ───────────────────────────────────────────────────────
     /**
      * Get groups by user
      * @param userId
@@ -87,6 +91,11 @@ public interface ApplicationGroupService<G extends Group, R extends Role, U exte
      */
     Page<G> getGroupsByUser(Long userId, Pageable pageable);
  
+    Page<G> getGroups(Pageable pageable);
+
+    Page<G> getGroupsWithMemberCount(Pageable pageable);
+
+    // ── Membership: Add / Remove ────────────────────────────────────────────
     /**
      * Add user to group
      * @param groupId
@@ -95,12 +104,38 @@ public interface ApplicationGroupService<G extends Group, R extends Role, U exte
      */
     void addMember(Long groupId, Long userId, String by);
 
+    int addMembers(Long groupId, List<Long> userIds, String by);
+    
+    int addMembersBulk(Long groupId, List<Long> userIds, String by,OffsetDateTime joinedAt);
+
     /**
      * Remove user from group
      * @param groupId
      * @param userId
      */
     void removeMember(Long groupId, Long userId);
+
+    int removeMembers(Long groupId, List<Long> userIds) ;
+
+    // ── Membership: Read ─────────────────────────────────────────────────────
+
+    /**
+     * List group members
+     * @param groupId
+     * @param pageable
+     * @return
+     */
+    Page<U> getMembers(Long groupId, Pageable pageable);
+
+
+    // ── Roles: Assign / Revoke / Read ────────────────────────────────────────
+
+    BatchResult updateGroupRolesBulk(Long groupId, List<Long> roles, String actor);
+
+    BatchResult assignRolesBulk(Long groupId, List<Long> roles, String actor) ;
+
+    BatchResult assignRoles(Long groupId, List<Long> roles, String actor) ;
+
 
    /**
     * Assign role to group
@@ -118,23 +153,12 @@ public interface ApplicationGroupService<G extends Group, R extends Role, U exte
     void revokeRole(Long groupId, Long roleId);
 
     /**
-     * List group members
-     * @param groupId
-     * @param pageable
-     * @return
-     */
-    Page<U> listMembers(Long groupId, Pageable pageable);
-
-    /**
      * List group roles
      * @param groupId
      * @param pageable
      * @return
      */
-    Page<R> listRoles(Long groupId, Pageable pageable);
-
-    Page<G> findAll(Pageable pageable);
-
-    Page<G> findAllWithMemberCount(Pageable pageable);
-
+    Page<R> getRoles(Long groupId, Pageable pageable);
+    
+    List<R> getRoles(Long groupId);
 }

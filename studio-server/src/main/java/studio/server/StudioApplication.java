@@ -34,6 +34,8 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.echo.platform.autoconfigure.JpaProperties;
@@ -43,18 +45,18 @@ import studio.echo.platform.util.jpa.EntityLogger;
 /**
  * Main Application.
  * 
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-07-25
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-07-25  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
-
 
 @EnableAsync
 @EnableScheduling
@@ -62,25 +64,34 @@ import studio.echo.platform.util.jpa.EntityLogger;
 @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
 @EnableConfigurationProperties({ JpaProperties.class })
 @Slf4j
-public class StudioApplication extends SpringBootServletInitializer  {
+public class StudioApplication extends SpringBootServletInitializer {
 
-	@Override
+    @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
         return builder.sources(StudioApplication.class);
     }
 
     public static void main(String[] args) {
-		SpringApplication.run(StudioApplication.class, args);
-	}
-
+        SpringApplication.run(StudioApplication.class, args);
+    }
 
     @Bean
     CommandLineRunner userEntityLogger(JpaProperties props, EntityManagerFactory emf, ObjectProvider<I18n> i18n) {
-        return args -> { 
+        return args -> {
             if (!props.isPrintEntities())
                 return;
-            EntityLogger.log(emf, log, "STUDIO", i18n.getIfAvailable()); 
+            EntityLogger.log(emf, log, "STUDIO", i18n.getIfAvailable());
         };
     }
 
+    @Bean
+    AuthenticationManager tracingAuthenticationManager(AuthenticationConfiguration cfg) throws Exception {
+        var delegate = cfg.getAuthenticationManager();
+        return authentication -> {
+            // 스택 로그
+            org.slf4j.LoggerFactory.getLogger("AUTH_TRACE")
+                    .warn("authenticate() called", new RuntimeException("AUTH_STACK"));
+            return delegate.authenticate(authentication);
+        };
+    }
 }

@@ -33,9 +33,9 @@ val sourceCompatibilityValue = project.findProperty("sourceCompatibility") as St
 val toolchainVersion = (findProperty("java.toolchain") as String?)?.toInt() ?: 11
 val javaRelease      = (findProperty("java.release")   as String?)?.toInt() ?: 11
 val lombokVersion: String = project.findProperty("lombokVersion") as String? ?: "1.18.30"
+logger.lifecycle(" ========= JAVA RELEASE ========== ${javaRelease}")
 
 subprojects {
-	
 	logger.lifecycle(" ==================== ${project.path}")
 	apply(plugin = "java")
 	apply(plugin = "org.owasp.dependencycheck")
@@ -100,9 +100,7 @@ subprojects {
 	tasks.withType<Test> {
         useJUnitPlatform()
     }
-
 	val publishable = true // 필요 시 특정 모듈만 배포하려면 여기서 조건부로 조정
-
     if (publishable) {
         apply(plugin = "maven-publish")
         plugins.withId("java") {

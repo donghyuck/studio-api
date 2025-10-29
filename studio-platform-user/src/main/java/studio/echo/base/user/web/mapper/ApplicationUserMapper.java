@@ -12,14 +12,19 @@ import studio.echo.base.user.web.dto.UserDto;
 import studio.echo.base.user.web.dto.CreateUserRequest;
 import studio.echo.base.user.web.dto.UpdateUserRequest;
 
-@Mapper(componentModel = "spring", uses = { TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)
+@Mapper(componentModel = "spring", uses = {
+        TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)
 public interface ApplicationUserMapper {
 
     ApplicationUser toEntity(CreateUserRequest req);
 
-    @Mapping(target = "username", ignore = true)  
-    @Mapping(target = "password", ignore = true)  
-    void updateEntityFromDto(UpdateUserRequest dto, @org.mapstruct. MappingTarget User entity);
+    @Mapping(target = "username", ignore = true)
+    @Mapping(target = "password", ignore = true)
+    void updateEntityFromDto(UpdateUserRequest dto, @org.mapstruct.MappingTarget User entity);
+
+    @Mapping(target = "creationDate", source = "creationDate")
+    @Mapping(target = "modifiedDate", source = "modifiedDate")
     UserDto toDto(User entity);
+
     List<UserDto> toDtos(List<User> entities);
 }

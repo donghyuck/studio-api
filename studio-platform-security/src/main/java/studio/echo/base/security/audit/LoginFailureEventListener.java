@@ -34,6 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.echo.base.security.audit.domain.entity.LoginFailureLog;
+import studio.echo.base.security.audit.domain.repository.LoginFailureLogRepository;
 import studio.echo.base.security.authentication.AccountLockService;
 import studio.echo.platform.constant.ServiceNames;
 

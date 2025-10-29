@@ -20,7 +20,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation(project(":studio-platform")) 
-
     implementation ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
