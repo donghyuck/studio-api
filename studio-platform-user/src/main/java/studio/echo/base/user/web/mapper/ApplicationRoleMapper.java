@@ -1,6 +1,9 @@
 package studio.echo.base.user.web.mapper;
 
+import java.util.List;
+
 import org.mapstruct.BeanMapping;
+import org.mapstruct.IterableMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
@@ -22,10 +25,13 @@ public interface ApplicationRoleMapper {
 
     RoleDto toDto(Role entity);
 
+    @IterableMapping(elementTargetType = RoleDto.class)
+    List<RoleDto> toDtos(List<Role> entities);
+
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     @Mapping(target = "roleId", ignore = true)
     @Mapping(target = "creationDate", ignore = true)
-    @Mapping(target = "modifiedDate", ignore = true) 
+    @Mapping(target = "modifiedDate", ignore = true)
     void updateEntityFromDto(RoleDto dto, @MappingTarget ApplicationRole entity);
 
 }

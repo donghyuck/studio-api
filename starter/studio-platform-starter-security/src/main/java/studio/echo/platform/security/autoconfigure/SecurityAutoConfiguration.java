@@ -21,7 +21,6 @@
 
 package studio.echo.platform.security.autoconfigure;
 
-import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -54,8 +53,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.echo.base.security.authentication.AccountLockService;
 import studio.echo.base.security.handler.AuthenticationErrorHandler;
-import studio.echo.base.security.jwt.JwtTokenProvider;
 import studio.echo.base.security.userdetails.ApplicationUserDetailsService;
+import studio.echo.base.user.domain.model.Role;
 import studio.echo.base.user.domain.model.User;
 import studio.echo.base.user.service.ApplicationUserService;
 import studio.echo.platform.autoconfigure.i18n.I18nKeys;
@@ -196,37 +195,6 @@ public class SecurityAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX + ".jwt", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public Clock jwtClock() {
-        return Clock.systemUTC();
-    }
-
-    @Bean(ServiceNames.JWT_TOKEN_PROVIDER)
-    @ConditionalOnMissingBean
-    @ConditionalOnClass({ JwtTokenProvider.class })
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX  , name = "enabled", havingValue = "true", matchIfMissing = true)
-    public JwtTokenProvider jwtTokenProvider(SecurityProperties properties, Clock clock,
-            ObjectProvider<I18n> i18nProvider) {
-        I18n i18n = I18nUtils.resolve(i18nProvider);
-        var jwtProps = properties.getJwt(); 
-        
-        JwtTokenProvider provider = new JwtTokenProvider(
-                jwtProps.getSecret(),
-                jwtProps.getIssuer(),
-                jwtProps.getAccessTtl(),
-                jwtProps.getRefreshTtl(),
-                clock,
-                jwtProps.getClaimAuthorities(), 
-                jwtProps.getEndpoints().getBasePath(),
-                i18n);
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(JwtTokenProvider.class, true), LogUtils.red(State.CREATED.toString())));
-                
-        return provider;
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
     @ConditionalOnClass({ AuthenticationErrorHandler.class })
     public AuthenticationErrorHandler authenticationErrorHandler(ObjectMapper objectMapper,
             ObjectProvider<I18n> i18nProvider) {
@@ -258,7 +226,7 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean(ApplicationUserDetailsService.class)
     @ConditionalOnClass({ ApplicationUserService.class })
     public UserDetailsService applicationUserDetailsService(
-            ApplicationUserService<User> userServce,
+            ApplicationUserService<User, Role> userServce,
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);

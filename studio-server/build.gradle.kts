@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":starter:studio-platform-starter-jasypt"))  
     implementation(project(":starter:studio-platform-starter-user")) 
     implementation(project(":starter:studio-platform-starter-security")) 
+    implementation(project(":starter:studio-application-starter-avatar"))
 
     // srping starters
     implementation("org.springframework.boot:spring-boot-starter-logging")
@@ -38,6 +39,11 @@ dependencies {
 
     // crypto
     //implementation("com.github.ulisesbocchio:jasypt-spring-boot-starter:${project.findProperty("jasyptVersion")}")
+
+    //cache 
+    implementation("org.springframework.boot:spring-boot-starter-cache")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.8") 
+    
 }
 
 tasks.getByName<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {

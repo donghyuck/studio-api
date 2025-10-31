@@ -1,3 +1,23 @@
+/**
+ *
+ *      Copyright 2025
+ *
+ *      Licensed under the Apache License, Version 2.0 (the 'License');
+ *      you may not use this file except in compliance with the License.
+ *      You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *      Unless required by applicable law or agreed to in writing, software
+ *      distributed under the License is distributed on an 'AS IS' BASIS,
+ *      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *      See the License for the specific language governing permissions and
+ *      limitations under the License.
+ *
+ *      @file SecurityExceptionHandler.java
+ *      @date 2025
+ *
+ */
 package studio.echo.base.security.web.adivce;
 
 import java.time.Clock;
@@ -29,6 +49,21 @@ import studio.echo.platform.util.I18nUtils;
 import studio.echo.platform.web.advice.AbstractExceptionHandler;
 import studio.echo.platform.web.dto.ProblemDetails;
 
+/**
+ *
+ * @author  donghyuck, son
+ * @since 2025-09-29
+ * @version 1.0
+ *
+ * <pre> 
+ * << 개정이력(Modification Information) >>
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2025-09-29  donghyuck, son: 최초 생성.
+ * </pre>
+ */
+
+
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
@@ -55,19 +90,19 @@ public class SecurityExceptionHandler extends AbstractExceptionHandler {
         long remainingSec = 0L;
         java.time.Instant until = null;
         AccountLockService svc = accountLockService.getIfAvailable();
-        String detail = ex.getMessage(); 
-        final String code = "error.security.auth.account-locked"; 
+        String detail = ex.getMessage();
+        final String code = "error.security.auth.account-locked";
         if (svc != null && username != null && !username.isBlank()) {
             try {
                 remainingSec = Math.max(0L, svc.getRemainingLockSeconds(username, clock));
                 until = svc.getLockedUntil(username).orElse(null);
                 long remainingMin = (remainingSec + 59) / 60;
                 detail = I18nUtils.safeGet(i18n, code + ".minutes", remainingMin);
-            } catch (Exception ignore) { 
+            } catch (Exception ignore) {
                 detail = I18nUtils.safeGet(i18n, code, "Your account is locked.");
             }
         }
-        
+
         ProblemDetails body = baseProblem(HttpStatus.LOCKED, req)
                 .type("urn:error:security.auth.account-locked")
                 .detail(detail)

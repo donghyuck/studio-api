@@ -41,6 +41,9 @@ public class ServiceNames {
 
     public static final String I18N = PREFIX + ":foundation:i18n";
 
+    public static final String JDBC_TEMPLATE = PREFIX + ":foundation:jdbc-template";
+    public static final String NAMED_JDBC_TEMPLATE = PREFIX + ":foundation:named-jdbc-template";
+
     public static final String I18N_MESSAGE_SOURCE = I18N + ":message-source";
     
     public static final String I18N_MESSAGE_ACCESSOR = I18N + ":message-accessor";

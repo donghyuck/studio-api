@@ -29,12 +29,19 @@ include("studio-platform-user")
 include("studio-platform-security") 
 include("studio-platform-autoconfigure")
 
+include("studio-application-modules")
+include("studio-application-modules:avatar-service") 
 
 include("starter")
 include("starter:studio-platform-starter") 
 include("starter:studio-platform-starter-jasypt") 
 include("starter:studio-platform-starter-user") 
 include("starter:studio-platform-starter-security") 
+include("starter:studio-application-starter-avatar")
+
 include("studio-server")
+
+
+
 
 

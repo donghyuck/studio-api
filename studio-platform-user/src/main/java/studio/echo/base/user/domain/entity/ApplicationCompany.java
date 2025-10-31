@@ -38,6 +38,7 @@ import studio.echo.base.user.util.ApplicationJpaNames;
 @AllArgsConstructor
 @Builder
 public class ApplicationCompany {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "COMPANY_ID")

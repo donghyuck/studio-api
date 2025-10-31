@@ -18,7 +18,7 @@ import studio.echo.base.user.web.dto.GroupDto;
 public interface ApplicationGroupMapper {
 
     @Mapping(target = "creationDate", source = "creationDate")
-    @Mapping(target = "modifiedDate", source = "modifiedDate")  
+    @Mapping(target = "modifiedDate", source = "modifiedDate")   
     @Mapping(target = "properties", source = "properties", defaultExpression = "java(java.util.Collections.emptyMap())")
     GroupDto toDto(Group entity);
 

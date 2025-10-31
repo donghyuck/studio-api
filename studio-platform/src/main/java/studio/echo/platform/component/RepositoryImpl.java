@@ -110,21 +110,22 @@ import studio.echo.platform.util.LogUtils;
 public class RepositoryImpl implements Repository, DomainEvents, ServletContextAware {
 
 	private static final String LOGO = "META-INF/logo";
+
 	private AtomicBoolean initialized = new AtomicBoolean(false);
 
-	private Resource rootResource;
+	private Resource rootResource = null;
 
 	private State state = State.NONE;
 
-	private ApplicationEventPublisher applicationEventPublisher;
+	private final ApplicationEventPublisher applicationEventPublisher;
 
-	private ApplicationProperties applicationProperties;
+	private final ApplicationProperties applicationProperties;
 
-	private I18n i18n;
+	private final  I18n i18n;
+	
+	private final Environment env;
 
-	private Environment env;
-
-	private Instant startTime;
+	private Instant startTime = Instant.EPOCH;
 
 	/**
 	 * Creates a new {@code RepositoryImpl} instance.
@@ -142,9 +143,7 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 		this.applicationEventPublisher = applicationEventPublisher;
 		this.applicationProperties = applicationProperties;
 		this.env = env;
-		this.i18n = i18n;
-		this.startTime = Instant.EPOCH;
-		this.rootResource = null;
+		this.i18n = i18n; 
 	}
 
 	/**

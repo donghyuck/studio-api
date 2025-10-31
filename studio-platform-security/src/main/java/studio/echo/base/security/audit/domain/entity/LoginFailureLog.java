@@ -1,4 +1,4 @@
-package studio.echo.base.security.audit;
+package studio.echo.base.security.audit.domain.entity;
 
 import java.time.Instant;
 

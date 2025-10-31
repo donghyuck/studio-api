@@ -8,10 +8,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import studio.echo.base.user.domain.model.Group;
+import studio.echo.base.user.domain.model.Role;
 import studio.echo.base.user.domain.model.User;
 import studio.echo.base.user.service.ApplicationGroupService;
 import studio.echo.base.user.service.ApplicationRoleService;
@@ -87,54 +87,52 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX  + ".group", name = "enabled", havingValue = "true")
-    public GroupController groupEndpoint(ApplicationGroupService svc, ApplicationGroupMapper mapper) {
+    public GroupController groupEndpoint(
+        ApplicationGroupService<Group, Role, User> svc, 
+        ApplicationGroupMapper groupMapper,
+        ApplicationUserMapper userMapper,
+        ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationGroupService.class, true),
                 LogUtils.blue(GroupController.class, true),
                 webProperties.normalizedBasePath() + "/groups", webProperties.getEndpoints().getGroup().getMode()));
-        return new GroupController(svc, mapper);
+        return new GroupController(svc, groupMapper, userMapper, roleMapper);
     }
  
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
             + ".user", name = "enabled", havingValue = "true")
-    public UserController userEndpoint(ApplicationUserService<User> svc, ApplicationUserMapper mapper) {
+    public UserController userEndpoint(ApplicationUserService<User, Role> svc, ApplicationUserMapper mapper,  ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserController.class, true),
                 webProperties.normalizedBasePath() + "/users",
                 webProperties.getEndpoints().getGroup().getMode()));
-        return new UserController(svc, mapper);
+        return new UserController(svc, mapper, roleMapper) ;
     }
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
             + ".role", name = "enabled", havingValue = "true")
-    public RoleController roleEndpoint(ApplicationRoleService svc, ApplicationRoleMapper mapper) {
+    public RoleController roleEndpoint(
+        ApplicationRoleService svc, ApplicationRoleMapper mapper,
+        ApplicationGroupMapper gmapper, ApplicationUserMapper umapper
+        ) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationRoleService.class, true),
                 LogUtils.blue(RoleController.class, true),
                 webProperties.normalizedBasePath() + "/roles", webProperties.getEndpoints().getGroup().getMode()));
-        return new RoleController(svc, mapper);
+        return new RoleController(svc, mapper, gmapper, umapper);
     }
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX , name = "enabled", havingValue = "true", matchIfMissing = true )
-    public MeController selfEndpoint(ApplicationUserService<User> svc, ApplicationUserMapper mapper) {
+    public MeController selfEndpoint(ApplicationUserService<User, Role> svc, ApplicationUserMapper mapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue("Self"),
                 LogUtils.blue(MeController.class, true),
                 webProperties.getSelf().getPath()));
         return new MeController(svc, mapper);
     }
-
-    @Getter
-    @Setter
-    public static class UserEndpoint {
-    }
-
-    @Getter
-    @Setter
-    public static class RoleEndpoint {
-    }
+ 
 }

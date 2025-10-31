@@ -12,6 +12,8 @@ public interface Group extends PropertyAware{
 
     public abstract String getDescription();
 
+    public abstract Long getMemberCount();
+
     public Instant getCreationDate();
 
     public Instant getModifiedDate();

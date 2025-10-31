@@ -45,7 +45,7 @@ import studio.echo.platform.service.ConfigRoot;
 @Slf4j
 public class ConfigRootImpl implements ConfigRoot {
 
-	private Resource rootResource;
+	 private final Resource rootResource;
 
 	/**
 	 * Creates a new {@code ConfigRootImpl} instance with the specified root

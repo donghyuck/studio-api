@@ -31,7 +31,7 @@ import studio.echo.platform.web.dto.ApiResponse;
 @RequiredArgsConstructor
 @Slf4j
 public class MeController {
-    private final ApplicationUserService<User> userService;
+    private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper mapper;
 
     @GetMapping("")

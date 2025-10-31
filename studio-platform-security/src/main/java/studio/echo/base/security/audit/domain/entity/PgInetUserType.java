@@ -20,11 +20,10 @@
  */
 
 
-package studio.echo.base.security.audit;
+package studio.echo.base.security.audit.domain.entity;
 
 import org.hibernate.engine.spi.SharedSessionContractImplementor;
 import org.hibernate.usertype.UserType;
-import org.postgresql.util.PGobject;
 
 import java.io.Serializable;
 import java.sql.*;
@@ -104,7 +103,7 @@ public class PgInetUserType implements UserType {
         if (value == null || value.toString().isBlank()) {
             st.setNull(index, Types.OTHER); // ★ NULL 바인딩 타입을 명확히
         } else {
-            PGobject o = new PGobject();
+            org.postgresql.util.PGobject o = new org.postgresql.util.PGobject();
             o.setType("inet");
             o.setValue(value.toString());
             st.setObject(index, o);

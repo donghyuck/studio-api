@@ -159,7 +159,7 @@ public class LogUtils {
     public static String toLog(Pageable p) {
         StringBuilder orders = new StringBuilder();
         for (Sort.Order o : p.getSort()) {
-            if (orders.length() > 0) orders.append(", ");
+            if (orders.isEmpty() ) orders.append(", ");
             orders.append(o.getProperty())
                   .append(' ')
                   .append(o.getDirection());

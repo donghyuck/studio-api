@@ -11,7 +11,7 @@ tasks.named<Jar>("jar") {
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
-
+val mapstructVersion: String = project.findProperty("mapstructVersion") as String? ?: "0.11.5"
 val jsonwebtokenVersion: String = project.findProperty("jsonwebtokenVersion") as String? ?: "0.11.5"
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter") 
@@ -22,7 +22,10 @@ dependencies {
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
     implementation(project(":studio-platform-jpa")) 
-    implementation("org.postgresql:postgresql:${project.findProperty("postgresqlVersion")}")    
+        implementation ("org.mapstruct:mapstruct:$mapstructVersion")
+    annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
+    annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+    compileOnly("org.postgresql:postgresql:${project.findProperty("postgresqlVersion")}")    
     api("io.jsonwebtoken:jjwt-api:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-impl:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-jackson:$jsonwebtokenVersion")    

@@ -1,8 +1,6 @@
 package studio.echo.base.user.web.dto;
 
-import java.time.Clock;
 import java.time.OffsetDateTime;
-import java.util.UUID;
 
 import javax.validation.constraints.FutureOrPresent;
 import javax.validation.constraints.Size;

@@ -80,5 +80,5 @@ public interface User extends PropertyAware {
     public Instant getModifiedDate();
 
     public abstract boolean isExternal();
-
+ 
 }

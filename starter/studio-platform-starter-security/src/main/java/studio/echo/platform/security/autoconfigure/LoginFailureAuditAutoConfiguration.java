@@ -5,11 +5,13 @@ import java.util.concurrent.Executor;
 import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
@@ -18,16 +20,24 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.echo.base.security.audit.LoginFailureEventListener;
-import studio.echo.base.security.audit.LoginFailureLogRepository;
 import studio.echo.base.security.audit.LoginFailureLogRetentionJob;
 import studio.echo.base.security.audit.LoginSuccessEventListener;
+import studio.echo.base.security.audit.domain.entity.LoginFailureLog;
+import studio.echo.base.security.audit.domain.repository.LoginFailureLogRepository;
+import studio.echo.base.security.audit.service.LoginFailureQueryService;
+import studio.echo.base.security.audit.service.LoginFailureQueryServiceImpl;
 import studio.echo.base.security.authentication.AccountLockService;
+import studio.echo.base.security.web.controller.LoginFailureLogController;
+import studio.echo.base.security.web.mapper.LoginFailureLogMapper;
+import studio.echo.base.security.web.mapper.LoginFailureLogMapperImpl;
+import studio.echo.base.user.web.mapper.TimeMapper;
 import studio.echo.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.echo.platform.autoconfigure.i18n.I18nKeys;
 import studio.echo.platform.component.State;
@@ -35,7 +45,7 @@ import studio.echo.platform.constant.PropertyKeys;
 import studio.echo.platform.constant.ServiceNames;
 import studio.echo.platform.service.I18n;
 import studio.echo.platform.util.I18nUtils;
-import studio.echo.platform.util.LogUtils; 
+import studio.echo.platform.util.LogUtils;
 
 @AutoConfiguration
 @EnableConfigurationProperties(AuditProperties.class)
@@ -43,16 +53,55 @@ import studio.echo.platform.util.LogUtils;
 @Slf4j
 public class LoginFailureAuditAutoConfiguration {
 
-    private static final String DEFAULT_ENTITY_PACKAGE = LoginFailureLogRepository.class.getPackageName();
+    private static final String DEFAULT_ENTITY_PACKAGE = LoginFailureLog.class.getPackageName();
+
     private static final String FEATURE_NAME = "Security - Login Failure Audit";
 
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE
+            + ".web", name = "enabled", havingValue = "true")
+    @Bean(LoginFailureQueryService.SERVICE_NAME)
+    @ConditionalOnMissingBean
+    LoginFailureQueryService loginFailureQueryService(
+            LoginFailureLogRepository repository,
+            @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate namedParameterJdbcTemplate,
+            ObjectProvider<I18n> i18nProvider) {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(LoginFailureQueryService.class, true), LogUtils.red(State.CREATED.toString())));
+        return new LoginFailureQueryServiceImpl(repository);
+    }
 
-    @Bean( ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EVENT_PUBLISHER )
+    @Bean
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE
+            + ".web", name = "enabled", havingValue = "true")
+    @ConditionalOnClass({ LoginFailureLogMapper.class, TimeMapper.class })
+    @ConditionalOnMissingBean(LoginFailureLogMapper.class)
+    public LoginFailureLogMapper loginFailureLogMapper(TimeMapper timeMapper) {
+        return new LoginFailureLogMapperImpl(timeMapper);
+    }
+
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE
+            + ".web", name = "enabled", havingValue = "true")
+    @Bean
+    public LoginFailureLogController loginFailureLogController(
+            LoginFailureQueryService loginFailureQueryService,
+            LoginFailureLogMapper mapper,
+            AuditProperties props,
+            ObjectProvider<I18n> i18nProvider) {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+                LogUtils.blue(FEATURE_NAME),
+                LogUtils.blue(LoginFailureLogController.class, true),
+                props.getLoginFailure().getWeb().getBasePath(), "READ"));
+        return new LoginFailureLogController(loginFailureQueryService, mapper);
+    }
+
+    @Bean(ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EVENT_PUBLISHER)
     @ConditionalOnMissingBean
     AuthenticationEventPublisher authenticationEventPublsher(
             org.springframework.context.ApplicationEventPublisher delegate,
             ObjectProvider<I18n> i18nProvider) {
-        
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(AuthenticationEventPublisher.class, true), LogUtils.red(State.CREATED.toString())));
@@ -62,7 +111,7 @@ public class LoginFailureAuditAutoConfiguration {
 
     @Bean(name = ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR)
     @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE, name = "async", havingValue = "true")
-    @ConditionalOnMissingBean(name = ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR )
+    @ConditionalOnMissingBean(name = ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR)
     public Executor loginFailureAuditExecutor(ObjectProvider<I18n> i18nProvider) {
         ThreadPoolTaskExecutor t = new ThreadPoolTaskExecutor();
         t.setCorePoolSize(2);
@@ -77,30 +126,30 @@ public class LoginFailureAuditAutoConfiguration {
     }
 
     @Bean(name = ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EVENT_LISTENER)
-     @ConditionalOnMissingBean(name = ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EVENT_LISTENER)
+    @ConditionalOnMissingBean(name = ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EVENT_LISTENER)
     public LoginFailureEventListener loginFailureEventListener(
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<LoginFailureLogRepository> loginFailureLogRepository,
-            AuditProperties props, 
+            AuditProperties props,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-        LogUtils.blue(LoginFailureEventListener.class, true), LogUtils.red(State.CREATED.toString())));
+                LogUtils.blue(LoginFailureEventListener.class, true), LogUtils.red(State.CREATED.toString())));
         return new LoginFailureEventListener(accountLockService, loginFailureLogRepository);
     }
 
     @Bean(name = ServiceNames.SECURITY_AUDIT_LOGIN_SUCCESS_EVENT_LISTENER)
-     @ConditionalOnMissingBean(name = ServiceNames.SECURITY_AUDIT_LOGIN_SUCCESS_EVENT_LISTENER)
+    @ConditionalOnMissingBean(name = ServiceNames.SECURITY_AUDIT_LOGIN_SUCCESS_EVENT_LISTENER)
     public LoginSuccessEventListener loginSuccessEventListener(
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<LoginFailureLogRepository> loginFailureLogRepository,
-            AuditProperties props, 
+            AuditProperties props,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-        LogUtils.blue(LoginSuccessEventListener.class, true), LogUtils.red(State.CREATED.toString())));
+                LogUtils.blue(LoginSuccessEventListener.class, true), LogUtils.red(State.CREATED.toString())));
         return new LoginSuccessEventListener(accountLockService);
     }
 
@@ -113,30 +162,29 @@ public class LoginFailureAuditAutoConfiguration {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-        LogUtils.blue(LoginFailureLogRetentionJob.class, true), LogUtils.red(State.CREATED.toString())));
+                LogUtils.blue(LoginFailureLogRetentionJob.class, true), LogUtils.red(State.CREATED.toString())));
         log.debug("LoginFailureLogRetentionJob retention days: {}", props.getLoginFailure().getRetentionDays());
         return new LoginFailureLogRetentionJob(repo, props.getLoginFailure().getRetentionDays());
     }
 
-
     @Configuration
-    @AutoConfigureBefore(HibernateJpaAutoConfiguration.class) 
+    @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
     @SuppressWarnings("java:S1118")
     static class EntityScanConfig {
         @Bean
-        static BeanDefinitionRegistryPostProcessor auditEntityScanRegistrar(Environment env, I18n i18n) { 
+        static BeanDefinitionRegistryPostProcessor auditEntityScanRegistrar(Environment env, I18n i18n) {
             String entityKey = PropertyKeys.Security.Audit.LOGIN_FAILURE + ".entity-packages";
-            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, "Aduit", entityKey, DEFAULT_ENTITY_PACKAGE  ));
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, "Jwt", entityKey,
+                    DEFAULT_ENTITY_PACKAGE));
             return EntityScanRegistrarSupport.entityScanRegistrar(
-                entityKey + ".entity-packages", DEFAULT_ENTITY_PACKAGE
-            );
+                    entityKey + ".entity-packages", DEFAULT_ENTITY_PACKAGE);
         }
     }
 
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
-    @EnableJpaRepositories(basePackages =  "studio.echo.base.security.audit" )
+    @EnableJpaRepositories(basePackages = "studio.echo.base.security.audit.domain.repository")
     static class JpaWiring {
     }
 }

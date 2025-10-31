@@ -46,6 +46,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
@@ -87,8 +88,9 @@ public class JwtTokenProvider {
     private final Duration accessTtl;
     private final Duration refreshTtl;
     private final Clock clock;
-    private final String claimAuthorities;
-    private final String basePath;
+    private final String header;
+    private final String claimAuthorities; 
+    private final JwtParser parser;
     private final I18n i18n;
 
     /**
@@ -112,13 +114,18 @@ public class JwtTokenProvider {
      * @param refreshTtl 리프레시 토큰 만료시간
      * @param clock      시간 제공자, null이면 시스템 UTC 시간 사용
      */
-    public JwtTokenProvider(String secret,
-            String issuer,
-            Duration accessTtl,
-            Duration refreshTtl,
+    public JwtTokenProvider(
+            JwtConfig jwtConfig, 
             Clock clock,
-            String claimAuthorities, String basePath, I18n i18n) {
-        this(Keys.hmacShaKeyFor(secret.getBytes()), issuer, accessTtl, refreshTtl, clock, claimAuthorities, basePath, i18n);
+            I18n i18n) {
+        this(Keys.hmacShaKeyFor( jwtConfig.getSecret().getBytes() ), 
+            jwtConfig.getIssuer(), 
+            jwtConfig.getAccessTtl(), 
+            jwtConfig.getRefreshTtl(),
+            jwtConfig.getHeader(),
+            jwtConfig.getClaimAuthorities(),
+            clock, 
+            i18n);
     }
 
     /**
@@ -131,12 +138,14 @@ public class JwtTokenProvider {
      * @param refreshTtl
      * @param clock
      */
-    public JwtTokenProvider(SecretKey secret,
+    public JwtTokenProvider(
+            SecretKey secret,
             String issuer,
             Duration accessTtl,
             Duration refreshTtl,
+            String header,
+            String claimAuthorities,
             Clock clock,
-            String claimAuthorities, String basePath,
             I18n i18n) {
         this.i18n = i18n;
         this.secretKey = Objects.requireNonNull(secret);
@@ -144,8 +153,11 @@ public class JwtTokenProvider {
         this.accessTtl = Objects.requireNonNull(accessTtl);
         this.refreshTtl = Objects.requireNonNull(refreshTtl);
         this.clock = Objects.requireNonNullElseGet(clock, Clock::systemUTC);
-        this.claimAuthorities = StringUtils.defaultString(claimAuthorities, AUTHORITIES_KEY);
-        this.basePath = basePath;
+        this.header = StringUtils.defaultString(header, HEADER_STRING); 
+        this.claimAuthorities = StringUtils.defaultString(claimAuthorities, AUTHORITIES_KEY); 
+        this.parser =  Jwts.parser()
+                .verifyWith(secretKey)
+                .build(); 
     }
 
     @PostConstruct
@@ -164,14 +176,16 @@ public class JwtTokenProvider {
         return (int) s;
     }
 
+    public long getRefreshTtlMs(){
+        return refreshTtl.toMillis();
+    }
+
     public String generateToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
         Instant now = clock.instant();
         Instant exp = now.plus(accessTtl);
-
-
         return Jwts.builder()
                 .subject(authentication.getName())
                 .claim(claimAuthorities, authorities)
@@ -195,11 +209,9 @@ public class JwtTokenProvider {
     }
 
     public Authentication getAuthentication(String token, UserDetailsService userDetailsService, boolean refresh) {
-        Claims claims = Jwts.parser()
-                .verifyWith(secretKey)
-                .build()
-                .parseSignedClaims(token).getPayload();
-
+        Claims claims = parser.parseSignedClaims(token).getPayload();
+        log.debug("claims subject {} ", claims.getSubject());
+        // Jwts.parser().verifyWith(secretKey).build()
         UserDetails details = userDetailsService.loadUserByUsername(claims.getSubject());
         Collection<? extends GrantedAuthority> authorities = null;
         if (refresh) {
@@ -218,9 +230,7 @@ public class JwtTokenProvider {
 
     public String getUsername(String token) {
         try {
-            return Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
+            return parser
                     .parseSignedClaims(token)
                     .getPayload().getSubject();
         } catch (JwtException | IllegalArgumentException e) {
@@ -231,10 +241,7 @@ public class JwtTokenProvider {
     public boolean validateToken(String token) {
         log.debug("validate token<{}>", token);
         try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
+            parser.parseSignedClaims(token);
             return true;
         } catch (MalformedJwtException e) {
             log.error("Invalid JWT token: {}", e.getMessage());
@@ -252,16 +259,13 @@ public class JwtTokenProvider {
     }
 
     public String resolveToken(HttpServletRequest request) {
-        String header = request.getHeader(HEADER_STRING);
-        if (StringUtils.isBlank(header)) return null;
-        if (StringUtils.startsWithIgnoreCase(header, BEARER_PREFIX)) {
-            String token = header.substring(BEARER_PREFIX.length()).trim();
+        String headerVal = request.getHeader(header);
+        if (StringUtils.isBlank(headerVal)) return null;
+        if (StringUtils.startsWithIgnoreCase(headerVal, BEARER_PREFIX)) {
+            String token = headerVal.substring(BEARER_PREFIX.length()).trim();
             return StringUtils.isNotBlank(token) ? token : null;
         }
         return null;
     }
-
-    public String getBasePath() {
-        return basePath;
-    }
+ 
 }
