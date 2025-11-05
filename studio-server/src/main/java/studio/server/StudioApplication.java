@@ -38,9 +38,9 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.platform.autoconfigure.JpaProperties;
-import studio.echo.platform.service.I18n;
-import studio.echo.platform.util.jpa.EntityLogger;
+import studio.one.platform.autoconfigure.JpaProperties;
+import studio.one.platform.service.I18n;
+import studio.one.platform.util.jpa.EntityLogger;
 
 /**
  * Main Application.

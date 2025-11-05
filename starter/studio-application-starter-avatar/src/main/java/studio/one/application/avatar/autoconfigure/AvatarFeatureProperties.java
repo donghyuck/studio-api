@@ -9,8 +9,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.echo.platform.autoconfigure.FeaturesProperties.FeatureToggle;
-import studio.echo.platform.constant.PropertyKeys;
+import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
+import studio.one.platform.constant.PropertyKeys;
 
 @ConfigurationProperties(prefix = PropertyKeys.Features.PREFIX + ".avatar-image")
 @Getter

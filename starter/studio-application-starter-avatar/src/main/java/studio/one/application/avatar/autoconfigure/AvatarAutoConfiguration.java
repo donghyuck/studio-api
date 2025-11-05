@@ -25,17 +25,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.user.domain.model.Role;
-import studio.echo.base.user.domain.model.User;
-import studio.echo.base.user.service.ApplicationUserService;
-import studio.echo.platform.autoconfigure.EntityScanRegistrarSupport;
-import studio.echo.platform.autoconfigure.i18n.I18nKeys;
-import studio.echo.platform.component.State;
-import studio.echo.platform.constant.PropertyKeys;
-import studio.echo.platform.service.I18n;
-import studio.echo.platform.service.Repository;
-import studio.echo.platform.util.I18nUtils;
-import studio.echo.platform.util.LogUtils;
 import studio.one.application.avatar.domain.entity.AvatarImage;
 import studio.one.application.avatar.domain.repository.AvatarImageDataRepository;
 import studio.one.application.avatar.domain.repository.AvatarImageRepository;
@@ -43,6 +32,17 @@ import studio.one.application.avatar.replica.FileReplicaStore;
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.avatar.service.impl.AvatarImageFilesystemReplicaService;
 import studio.one.application.avatar.service.impl.AvatarImageServiceImpl;
+import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.domain.model.User;
+import studio.one.base.user.service.ApplicationUserService;
+import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
+import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.component.State;
+import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.service.I18n;
+import studio.one.platform.service.Repository;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor

@@ -23,11 +23,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
-import studio.echo.base.user.domain.model.User;
 import studio.one.application.avatar.domain.entity.AvatarImage;
 import studio.one.application.avatar.replica.FileReplicaStore; // ← 패키지 확인
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.avatar.service.AvatarImageService.ThumbnailOptions;
+import studio.one.base.user.domain.model.User;
 import studio.one.platform.mediaio.ImageSource;
 import studio.one.platform.mediaio.util.ImageResize.Fit;
 
