@@ -40,14 +40,14 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.security.handler.ApplicationAccessDeniedHandler;
-import studio.echo.base.security.handler.ApplicationAuthenticationEntryPoint;
-import studio.echo.base.security.handler.AuthenticationErrorHandler;
-import studio.echo.base.security.jwt.JwtAuthenticationFilter;
-import studio.echo.base.security.jwt.JwtTokenProvider;
-import studio.echo.platform.constant.ServiceNames;
-import studio.echo.platform.security.autoconfigure.JwtProperties;
-import studio.echo.platform.security.autoconfigure.SecurityProperties;
+import studio.one.base.security.handler.ApplicationAccessDeniedHandler;
+import studio.one.base.security.handler.ApplicationAuthenticationEntryPoint;
+import studio.one.base.security.handler.AuthenticationErrorHandler;
+import studio.one.base.security.jwt.JwtAuthenticationFilter;
+import studio.one.base.security.jwt.JwtTokenProvider;
+import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.security.autoconfigure.JwtProperties;
+import studio.one.platform.security.autoconfigure.SecurityProperties;
 
 /**
  *

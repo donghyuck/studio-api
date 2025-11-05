@@ -34,12 +34,10 @@ val toolchainVersion = (findProperty("java.toolchain") as String?)?.toInt() ?: 1
 val javaRelease      = (findProperty("java.release")   as String?)?.toInt() ?: 11
 val lombokVersion: String = project.findProperty("lombokVersion") as String? ?: "1.18.30"
 logger.lifecycle(" ========= JAVA RELEASE ========== ${javaRelease}")
-
 subprojects {
 	logger.lifecycle(" ==================== ${project.path}")
 	apply(plugin = "java")
 	apply(plugin = "org.owasp.dependencycheck")
-
 	if (project.path !in skipPaths) {
         plugins.apply("org.sonarqube")
         tasks.matching { it.name == "sonarqube" }.configureEach {
@@ -64,7 +62,6 @@ subprojects {
         withSourcesJar()
        // withJavadocJar() 
 	}
-
 	tasks.withType<JavaCompile>().configureEach { 
         options.release.set(javaRelease)
     } 
@@ -82,20 +79,17 @@ subprojects {
 			)
     	}
 	}
-
 	dependencies {
 		// 1. Lombok
         compileOnly("org.projectlombok:lombok:$lombokVersion")
         annotationProcessor("org.projectlombok:lombok:$lombokVersion")
 		testCompileOnly("org.projectlombok:lombok:$lombokVersion")
         testAnnotationProcessor("org.projectlombok:lombok:$lombokVersion")
-		
 		// 2.MapStruct 
         // 3. srping boot test
 		testImplementation("org.springframework.boot:spring-boot-starter-test") {
     		exclude(group = "org.mockito", module = "mockito-core")
 		}
-
 	}
 	tasks.withType<Test> {
         useJUnitPlatform()
@@ -137,11 +131,9 @@ subprojects {
 						isAllowInsecureProtocol = (findProperty("nexus.allowInsecure") as String?)?.toBoolean() ?: false
                         url = uri(
                             if (isSnapshot)
-                                (findProperty("nexus.snapshotsUrl") as String?
-                                    ?: "http://localhost:8081/repository/maven-snapshots/")
+                                (findProperty("nexus.snapshotsUrl") as String??: "http://localhost:8081/repository/maven-snapshots/")
                             else
-                                (findProperty("nexus.releasesUrl") as String?
-                                    ?: "http://localhost:8081/repository/maven-releases/")
+                                (findProperty("nexus.releasesUrl") as String??: "http://localhost:8081/repository/maven-releases/")
                         )
                         credentials {
                             username = (findProperty("nexus.username") as String?) ?: System.getenv("NEXUS_USERNAME")
@@ -152,5 +144,4 @@ subprojects {
             }
         }
     }
-
 }

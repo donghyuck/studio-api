@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.user.domain.model.Role;
-import studio.echo.base.user.domain.model.User;
-import studio.echo.base.user.service.ApplicationUserService;
 import studio.one.application.avatar.domain.entity.AvatarImage;
 import studio.one.application.avatar.domain.entity.AvatarImageData;
 import studio.one.application.avatar.domain.repository.AvatarImageDataRepository;
 import studio.one.application.avatar.domain.repository.AvatarImageRepository;
 import studio.one.application.avatar.service.AvatarImageService;
+import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.domain.model.User;
+import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.mediaio.ImageSource;
 
 @Slf4j

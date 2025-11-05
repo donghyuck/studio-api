@@ -16,7 +16,7 @@ import java.util.Optional;
 import org.springframework.util.FileSystemUtils;
 
 import lombok.RequiredArgsConstructor;
-import studio.echo.platform.constant.ServiceNames;
+import studio.one.platform.constant.ServiceNames;
 
 @RequiredArgsConstructor
 public class FileReplicaStore {

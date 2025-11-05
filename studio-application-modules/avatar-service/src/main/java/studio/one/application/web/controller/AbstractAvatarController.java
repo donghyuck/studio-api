@@ -18,8 +18,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import studio.echo.base.user.domain.entity.ApplicationUser;
-import studio.echo.base.user.domain.model.User;
+import studio.one.base.user.domain.entity.ApplicationUser;
+import studio.one.base.user.domain.model.User;
 
 public abstract class AbstractAvatarController {
 

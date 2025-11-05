@@ -12,12 +12,12 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.user.domain.model.User;
-import studio.echo.platform.constant.PropertyKeys;
 import studio.one.application.avatar.service.AvatarImageService;
+import studio.one.base.user.domain.model.User;
+import studio.one.platform.constant.PropertyKeys;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + "avatar-image.web.public-base:/api/users}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.public-base:/api/users}")
 @RequiredArgsConstructor
 @Slf4j
 public class PublicAvatarController extends AbstractAvatarController {

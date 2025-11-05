@@ -6,9 +6,9 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 
-import studio.echo.base.user.domain.model.User;
 import studio.one.application.avatar.domain.entity.AvatarImage;
-import studio.echo.platform.constant.ServiceNames;
+import studio.one.base.user.domain.model.User;
+import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.mediaio.ImageSource;
 import studio.one.platform.mediaio.ImageSources;
 

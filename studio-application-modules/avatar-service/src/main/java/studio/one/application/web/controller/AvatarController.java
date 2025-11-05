@@ -25,14 +25,14 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.echo.base.user.domain.model.User;
-import studio.echo.platform.constant.PropertyKeys;
-import studio.echo.platform.web.dto.ApiResponse;
 import studio.one.application.avatar.domain.entity.AvatarImage;
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.web.dto.AvatarImageDto;
 import studio.one.application.web.dto.AvatarPresenceDto;
+import studio.one.base.user.domain.model.User;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.mediaio.ImageSources;
+import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
 @RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.user-base:/api/mgmt/users}")

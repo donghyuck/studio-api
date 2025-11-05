@@ -19,13 +19,17 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
     implementation(project(":studio-platform-jpa")) 
-        implementation ("org.mapstruct:mapstruct:$mapstructVersion")
+    
+    implementation ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+
     compileOnly("org.postgresql:postgresql:${project.findProperty("postgresqlVersion")}")    
+
     api("io.jsonwebtoken:jjwt-api:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-impl:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-jackson:$jsonwebtokenVersion")    
