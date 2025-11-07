@@ -6,9 +6,9 @@ import java.util.stream.Collectors;
 
 import studio.one.platform.storage.service.ObjectStorageRegistry;
 import studio.one.platform.storage.service.ProviderCatalog;
-import studio.one.platform.storage.web.dto.ProviderInfo;
-import studio.one.platform.storage.web.dto.ProviderInfo.Health;
-import studio.one.platform.storage.web.dto.ProviderInfo.Capability;
+import studio.one.platform.storage.web.dto.ProviderInfoDto;
+import studio.one.platform.storage.web.dto.ProviderInfoDto.Health;
+import studio.one.platform.storage.web.dto.ProviderInfoDto.Capability;
 import studio.one.platform.storage.autoconfigure.StorageProperties;
 import studio.one.platform.storage.autoconfigure.ObjectStorageAutoConfiguration;
 import org.springframework.util.StringUtils;
@@ -22,7 +22,7 @@ public class ProviderCatalogImpl implements ProviderCatalog {
     private final StorageProperties props;  
 
     @Override
-    public List<ProviderInfo> list(boolean includeHealth) {
+    public List<ProviderInfoDto> list(boolean includeHealth) {
         var ids = new ArrayList<>(registry.ids());  
         Collections.sort(ids);
         var conf = materializeProviders(props);  
@@ -30,7 +30,7 @@ public class ProviderCatalogImpl implements ProviderCatalog {
             var bean = registry.get(id);
             var p = conf.get(id);  
             var kind = detectType(bean);
-            return ProviderInfo.builder()
+            return ProviderInfoDto.builder()
                     .name(id)
                     .type(kind)
                     .enabled(p != null && p.isEnabled())
@@ -132,10 +132,6 @@ public class ProviderCatalogImpl implements ProviderCatalog {
         } catch (Exception ignored) {
             return "...";
         }
-    }
-
-    private static String defaultIfBlank(String v, String d) {
-        return (v == null || v.isBlank()) ? d : v;
     }
 
     private static String nullIfBlank(String v) {

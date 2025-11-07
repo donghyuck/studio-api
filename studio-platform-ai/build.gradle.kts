@@ -12,6 +12,5 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
 dependencies {
-    implementation(project(":studio-platform"))
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa") 
+    implementation(project(":studio-platform")) 
 }
