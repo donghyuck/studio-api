@@ -1,4 +1,4 @@
-# studio-api (echoes)
+# studio-api (one)
 [![release](https://img.shields.io/badge/release-0.4-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
@@ -15,7 +15,7 @@ Think of it as your magic studio engine.
 |Spring Security|5.7.11|2022-05-16|2023-05-16|
 |Spring Cloud | 2021.0.8 | | |
 
-Studio Api 는 core, base 모듈들로 구성된다.
+Studio Api 는 component, starter 모듈들로 구성된다.
 
 코어 모듈은 아래와 같이 구성되어 있다. 
 ```

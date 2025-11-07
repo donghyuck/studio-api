@@ -18,14 +18,15 @@ dependencies {
 
     implementation(project(":studio-platform-user"))
     implementation(project(":studio-platform-autoconfigure"))
-    implementation(project(":studio-platform-objectstorage"))
+    implementation(project(":studio-platform-storage"))
     implementation(project(":starter:studio-platform-starter"))
     
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation ("software.amazon.awssdk:s3:${awssdkS3Version}")
+    compileOnly("org.springframework.boot:spring-boot-starter-validation")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    compileOnly ("software.amazon.awssdk:s3:${awssdkS3Version}")
 
-    //implementation("com.oracle.oci.sdk:oci-java-sdk:${project.findProperty("oracleOciSdkVersion")}")
-    //implementation("com.oracle.oci.sdk:oci-java-sdk-objectstorage:${project.findProperty("oracleOciSdkVersion")}")
-    //implementation("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:${project.findProperty("oracleOciSdkVersion")}")
+    compileOnly("com.oracle.oci.sdk:oci-java-sdk:${project.findProperty("oracleOciSdkVersion")}")
+    compileOnly("com.oracle.oci.sdk:oci-java-sdk-objectstorage:${project.findProperty("oracleOciSdkVersion")}")
+    compileOnly("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:${project.findProperty("oracleOciSdkVersion")}")
+
 }

@@ -22,12 +22,12 @@ dependencyResolutionManagement {
 }
 rootProject.name = providers.gradleProperty("buildApplicationName").get()
 logger.lifecycle("🛠 ${rootProject.name} 프로젝트의 설정과 구성 정보를 정의")
-
 include(":studio-platform")
 include(":studio-platform-jpa")
 include(":studio-platform-user")
 include(":studio-platform-security") 
-include(":studio-platform-objectstorage")
+include(":studio-platform-storage")
+include(":studio-platform-ai") 
 include(":studio-application-modules")
 include(":studio-application-modules:avatar-service") 
 include(":studio-platform-autoconfigure")
@@ -37,10 +37,6 @@ include(":starter:studio-platform-starter-jasypt")
 include(":starter:studio-platform-starter-user") 
 include(":starter:studio-platform-starter-security") 
 include(":starter:studio-platform-starter-objectstorage") 
+include(":starter:studio-platform-starter-objectstorage-aws") 
 include(":starter:studio-application-starter-avatar")
 include(":studio-server")
-
-
-
-
-
