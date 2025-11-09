@@ -23,8 +23,8 @@ dependencies {
     
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
-    compileOnly ("software.amazon.awssdk:s3:${awssdkS3Version}")
 
+    compileOnly ("software.amazon.awssdk:s3:${awssdkS3Version}") 
     compileOnly("com.oracle.oci.sdk:oci-java-sdk:${project.findProperty("oracleOciSdkVersion")}")
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-objectstorage:${project.findProperty("oracleOciSdkVersion")}")
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:${project.findProperty("oracleOciSdkVersion")}")

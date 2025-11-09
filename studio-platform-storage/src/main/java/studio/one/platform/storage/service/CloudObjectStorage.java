@@ -167,8 +167,6 @@ public interface CloudObjectStorage {
             @Nullable String contentType,
             @Nullable String contentDisposition);
 
- 
-
     /**
      * List objects in a bucket.
      * 

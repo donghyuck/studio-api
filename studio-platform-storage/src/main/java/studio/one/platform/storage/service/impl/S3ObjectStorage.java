@@ -1,8 +1,6 @@
 package studio.one.platform.storage.service.impl;
 
 import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,6 +43,20 @@ import studio.one.platform.storage.service.ObjectInfo;
 import studio.one.platform.storage.service.ObjectStorageType;
 import studio.one.platform.storage.service.PageResult;
 
+/**
+ *
+ * @author  donghyuck, son
+ * @since 2025-11-09
+ * @version 1.0
+ *
+ * <pre> 
+ * << 개정이력(Modification Information) >>
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2025-11-09  donghyuck, son: 최초 생성.
+ * </pre>
+ */
+
 @Slf4j
 public class S3ObjectStorage implements CloudObjectStorage {
 
@@ -79,12 +91,7 @@ public class S3ObjectStorage implements CloudObjectStorage {
         this.endpoint = endpoint;
         this.presigner = presigner;
     }
-
-    @PostConstruct
-    public void initialize() {
-
-    }
-
+ 
     public String name() {
         return name;
     }
@@ -119,8 +126,7 @@ public class S3ObjectStorage implements CloudObjectStorage {
     }
 
     @Override
-    public void put(String bucket, String key, InputStream in, long contentLength, String contentType,
-            Map<String, String> metadata) {
+    public void put(String bucket, String key, InputStream in, long contentLength, String contentType, Map<String, String> metadata) {
         key = normalizeKey(key);
         PutObjectRequest.Builder b = PutObjectRequest.builder()
                 .bucket(bucket)
@@ -330,7 +336,7 @@ public class S3ObjectStorage implements CloudObjectStorage {
         }
         // 전체 객체 수 추정을 위해 마지막 continuationToken을 사용하지 않도록 한다.
         long total = hasMoreResults ? offset + objects.size() : offset + totalFetched;
-        return new PageImpl<ObjectInfo>(objects, pageable, total);
+        return new PageImpl<>(objects, pageable, total);
     }
 
     public List<BucketInfo> listBuckets() {

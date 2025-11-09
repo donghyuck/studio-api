@@ -22,69 +22,42 @@
 package studio.one.platform.storage.autoconfigure;
 
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
-import java.util.*;
-import java.time.Duration;
+import java.util.Optional;
 
-import javax.persistence.EntityManagerFactory;
-
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
-import org.springframework.core.env.Environment;
-import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.context.annotation.*;
-import org.springframework.boot.autoconfigure.condition.*;
 import org.springframework.util.StringUtils;
 
-import software.amazon.awssdk.auth.credentials.*;
+import lombok.extern.slf4j.Slf4j;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-
-import studio.one.platform.exception.ConfigurationError;
-import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.i18n.I18nKeys;
 import studio.one.platform.component.State;
-import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.I18n;
-import studio.one.platform.service.Repository;
-import studio.one.platform.util.I18nUtils;
-import studio.one.platform.util.LogUtils;
-import studio.one.platform.component.State;
-
-import studio.one.platform.storage.autoconfigure.StorageProperties.Provider;
-import studio.one.platform.storage.autoconfigure.StorageProperties.Credentials;
 import studio.one.platform.storage.service.CloudObjectStorage;
 import studio.one.platform.storage.service.ObjectStorageRegistry;
 import studio.one.platform.storage.service.impl.S3ObjectStorage;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
 
 /**
  *
@@ -183,7 +156,7 @@ public class ObjectStorageAutoConfiguration {
             var sk = c.getSecretKey();
             var st = c.getSessionToken();
             if (!StringUtils.hasText(ak) || !StringUtils.hasText(sk))
-                return DefaultCredentialsProvider.create();
+                return DefaultCredentialsProvider.builder().build();
             if (StringUtils.hasText(st))
                 return StaticCredentialsProvider.create(AwsSessionCredentials.create(ak, sk, st));
             return StaticCredentialsProvider.create(AwsBasicCredentials.create(ak, sk));
