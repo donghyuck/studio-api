@@ -28,7 +28,7 @@ import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.base.user.web.mapper.TimeMapper;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.security.authz.EndpointModeGuard;
 import studio.one.platform.service.I18n;

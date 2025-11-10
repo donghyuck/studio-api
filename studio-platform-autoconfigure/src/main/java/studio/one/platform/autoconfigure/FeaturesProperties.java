@@ -81,13 +81,15 @@ public class FeaturesProperties {
 
         private boolean enabled;
         private boolean failIfMissing = true;
+        private PersistenceProperties persistence = new PersistenceProperties();
+
 
         public static FeatureToggle enabled() {
-            return new FeatureToggle(true, true);
+            return new FeatureToggle(true, true, PersistenceProperties.of());
         }
 
         public static FeatureToggle disabled() {
-            return new FeatureToggle(false, true);
+            return new FeatureToggle(false, true, PersistenceProperties.of());
         }
 
     }

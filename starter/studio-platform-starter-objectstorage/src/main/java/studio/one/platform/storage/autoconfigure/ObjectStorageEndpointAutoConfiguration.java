@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
 import studio.one.platform.storage.service.ObjectStorageRegistry;

@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure;
+package studio.one.platform.autoconfigure.features.i18n;
 
 import java.io.IOException;
 
@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.support.MessageSourceAccessor;
 
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.autoconfigure.I18nProperties;
 import studio.one.platform.component.I18nImpl;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.I18n;

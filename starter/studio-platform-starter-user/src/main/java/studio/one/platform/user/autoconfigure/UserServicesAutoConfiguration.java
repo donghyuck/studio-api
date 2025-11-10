@@ -33,7 +33,7 @@ import studio.one.base.user.service.impl.ApplicationCompanyServiceImpl;
 import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
 import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
 import studio.one.base.user.service.impl.ApplicationUserServiceImpl;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;

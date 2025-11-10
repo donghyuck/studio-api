@@ -30,7 +30,7 @@ import studio.one.base.security.jwt.refresh.*;
 import studio.one.base.security.web.controller.JwtAuthController;
 import studio.one.base.security.web.controller.JwtRefreshController;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;

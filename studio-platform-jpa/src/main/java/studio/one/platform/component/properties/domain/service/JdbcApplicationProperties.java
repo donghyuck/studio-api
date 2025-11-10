@@ -1,163 +1,94 @@
-/**
- *
- *      Copyright 2025
- *
- *      Licensed under the Apache License, Version 2.0 (the 'License');
- *      you may not use this file except in compliance with the License.
- *      You may obtain a copy of the License at
- *
- *         http://www.apache.org/licenses/LICENSE-2.0
- *
- *      Unless required by applicable law or agreed to in writing, software
- *      distributed under the License is distributed on an 'AS IS' BASIS,
- *      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *      See the License for the specific language governing permissions and
- *      limitations under the License.
- *
- *      @file JpaApplicationProperties.java
- *      @date 2025
- *
- */
-package studio.one.platform.component.properties.domain;
+package studio.one.platform.component.properties.domain.service;
 
+import java.sql.Types;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
-import javax.persistence.EntityManager;
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.CriteriaQuery;
-import javax.persistence.criteria.Root;
+import javax.transaction.Transactional;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.SqlParameterValue;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.component.State;
 import studio.one.platform.component.event.PropertyChangeEvent;
-import studio.one.platform.component.properties.domain.entity.Property;
 import studio.one.platform.constant.Colors;
-import studio.one.platform.constant.MessageCodes;
 import studio.one.platform.service.ApplicationProperties;
 import studio.one.platform.service.I18n;
-import studio.one.platform.util.LogUtils;
 
 /**
- * JpaApplicationProperties는 JPA를 사용하여 애플리케이션 속성을 관리하는 구현체.
- * 이 클래스는 ApplicationProperties 인터페이스를 구현하며, Map<String, String>
- * 인터페이스도 구현하여 속성에 대한 키-값 쌍을 제공.
- * 
- * @author donghyuck, son
- * @since 2025-07-24
+ *
+ * @author  donghyuck, son
+ * @since 2025-11-09
  * @version 1.0
  *
- *          <pre>
- *  
+ * <pre> 
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
- * 2025-07-24  donghyuck, son: 최초 생성.
- *          </pre>
+ * 2025-11-09  donghyuck, son: 최초 생성.
+ * </pre>
  */
 
 @Slf4j
 @Lazy
 @RequiredArgsConstructor
 @Transactional
-public class JpaApplicationProperties implements ApplicationProperties {
+public class JdbcApplicationProperties implements ApplicationProperties {
 
-    private final EntityManager entityManager;
+     protected final AtomicBoolean initFlag = new AtomicBoolean(false);
+     
+     private final JdbcTemplate jdbcTemplate;
+     private final ApplicationEventPublisher applicationEventPublisher;
+     private final I18n i18n;
 
-    private final ApplicationEventPublisher applicationEventPublisher;
-
-    private final I18n i18n;
 
     // The map of property keys to their values
-    private ConcurrentMap<String, String> properties = new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, String> properties = new ConcurrentHashMap<>();
 
     // The map of property keys to a boolean indicating if they are encrypted or not
-    private Map<String, Boolean> encrypted = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> encrypted = new ConcurrentHashMap<>();
 
-    private final AtomicBoolean initFlag = new AtomicBoolean(false);
 
+    /**
+     * For internal use only. This method allows for the reloading of all properties
+     * from the
+     * values in the database. This is required since it's quite possible during the
+     * setup
+     * process that a database connection will not be available till after this
+     * class is
+     * initialized. Thus, if there are existing properties in the database we will
+     * want to reload
+     * this class after the setup process has been completed.
+     */
     @PostConstruct
     protected void initialize() {
-        log.info(LogUtils.format(i18n, MessageCodes.Info.COMPONENT_STATE, LogUtils.blue(getClass(), true),
-                LogUtils.red(State.INITIALIZING.toString())));
-        log.debug("Loading application properties using JPA. ({}, {})", entityManager, applicationEventPublisher);
-        if (!initFlag.compareAndSet(false, true)) {
-            return;
+        log.info("Loading application properties from database.");
+        if (initFlag.compareAndSet(false, true)) {
+            try {
+                log.info("Loading application properties from database.");
+                properties.clear();
+                encrypted.clear();
+                loadProperties(properties);
+                properties.forEach((key, value) -> log.info("{}............{}", Colors.GREEN + key + Colors.RESET, value));
+            } catch (Exception e) {
+                log.error("Failed to initialize properties from database", e);
+                initFlag.set(false); // 실패하면 초기화 상태를 되돌림
+            }
         }
-        try {
-            properties.clear();
-            encrypted.clear();
-            loadProperties(properties);
-            properties.forEach((key, value) -> log.info("{} {}",
-                    StringUtils.rightPad(Colors.WHITE_BRIGHT + key + Colors.RESET, 30), value));
-        } catch (Exception e) {
-            initFlag.set(false);
-            log.error("Failed to initialize properties from database", e);
-        }
-        log.info(LogUtils.format(i18n, MessageCodes.Info.COMPONENT_STATE, LogUtils.blue(getClass(), true),
-                LogUtils.red(State.INITIALIZED.toString())));
-    }
-
-    protected void firePropertyChangeEvent(PropertyChangeEvent.EventType type, String propertyName,
-            Map<String, Object> params) {
-        PropertyChangeEvent event = new PropertyChangeEvent(this, type, propertyName, params);
-        if (applicationEventPublisher != null)
-            applicationEventPublisher.publishEvent(event);
-    }
-
-    // ------------------------------------------------------------------------------------
-    // Jpa Internal Methods :
-    // ------------------------------------------------------------------------------------
-    
-    private void loadProperties(Map<String, String> map) {
-        final CriteriaBuilder builder = entityManager.getCriteriaBuilder();
-        final CriteriaQuery<Property> query = builder.createQuery(Property.class);
-        Root<Property> root = query.from(Property.class);
-        query.select(root);
-        List<Property> resultList = entityManager.createQuery(query).getResultList();
-        Map<String, String> data = resultList.stream().collect(Collectors.toMap(Property::getKey, Property::getValue));
-        map.putAll(data);
-    }
-
-    private void insertProperty(String name, String value, boolean isEncrypted) {
-        log.debug("Inserting property isEncrypted: {}, {}", name, isEncrypted);
-        entityManager.persist(new Property(name, value));
-    }
-
-    private void updateProperty(String name, String value, boolean isEncrypted) {
-        log.debug("Updating property isEncrypted: {}, {}", name, isEncrypted);
-        entityManager.createQuery(
-                "UPDATE Property p SET p.value = :newValue WHERE p.key = :key")
-                .setParameter("newValue", value) // 업데이트할 새로운 값
-                .setParameter("key", name) // 조건에 해당하는 키 값
-                .executeUpdate(); // 업데이트 쿼리 실행 및 영향을 받은 엔티티의 개수를 반환합니다.
-    }
-
-    private void deleteProperty(String name) {
-        entityManager.createQuery("DELETE FROM Property p WHERE p.key = :key")
-                .setParameter("key", name)
-                .executeUpdate();
-        entityManager.createQuery("DELETE FROM Property p WHERE p.key = :key")
-                .setParameter("key", (new StringBuilder()).append(name).append(".%").toString())
-                .executeUpdate();
     }
 
     // ------------------------------------------------------------------------------------
@@ -195,12 +126,24 @@ public class JpaApplicationProperties implements ApplicationProperties {
     }
 
     @Override
-    @Transactional
     public void putAll(Map<? extends String, ? extends String> t) {
         if (t == null || t.isEmpty()) {
             return;
         }
-        t.forEach((key, value) -> put(key, value, isEncrypted(key)));
+        Map<String, String> updates = new HashMap<>();
+        t.forEach((key, value) -> {
+            if (key != null) {
+                String trimmedKey = key.trim();
+                if (trimmedKey.endsWith(".")) {
+                    trimmedKey = trimmedKey.substring(0, trimmedKey.length() - 1);
+                }
+                updates.put(trimmedKey, value);
+            }
+        });
+        properties.putAll(updates);
+        
+        // 데이터베이스 반영을 위해 일괄 insert/update 실행
+        updates.forEach((key, value) -> put(key, value, isPropertyEncrypted(key)));
     }
 
     @Override
@@ -229,12 +172,8 @@ public class JpaApplicationProperties implements ApplicationProperties {
      * @return {@code true} if the property exists and is encrypted, otherwise
      *         {@code false}
      */
-    boolean isEncrypted(final String name) {
-        if (name == null) {
-            return false;
-        }
-        final Boolean isEncrypted = encrypted.get(name);
-        return isEncrypted != null && isEncrypted;
+    public boolean isPropertyEncrypted(String name) {
+        return name != null && Boolean.TRUE.equals(encrypted.get(name));
     }
 
     /**
@@ -249,7 +188,7 @@ public class JpaApplicationProperties implements ApplicationProperties {
      */
     boolean setPropertyEncrypted(String name, boolean encrypt) {
         final boolean encryptionWasChanged = name != null && properties.containsKey(name)
-                && isEncrypted(name) != encrypt;
+                && isPropertyEncrypted(name) != encrypt;
         if (encryptionWasChanged) {
             final String value = get(name);
             put(name, value, encrypt);
@@ -297,28 +236,16 @@ public class JpaApplicationProperties implements ApplicationProperties {
         return properties.keySet();
     }
 
-    @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
+    @Override
     public String remove(Object key) {
         if (!(key instanceof String)) {
             return null;
         }
         String keyStr = (String) key;
         String value = properties.remove(keyStr);
-
         if (value != null) {
             deleteProperty(keyStr);
             firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETED, keyStr, Collections.emptyMap());
-        }
-
-        // Generate event.
-        firePropertyChangeEvent(PropertyChangeEvent.EventType.PROPERTY_DELETED, keyStr, Collections.emptyMap());
-        return value;
-    }
-
-    private String removeWithoutTransaction(String key) {
-        String value = properties.remove(key);
-        if (value != null) {
-            deleteProperty(key);
         }
         return value;
     }
@@ -350,22 +277,18 @@ public class JpaApplicationProperties implements ApplicationProperties {
      *         there was no mapping for
      *         {@code key}.
      */
-
-    @Transactional(propagation = Propagation.REQUIRED)
     public String put(String key, String value, boolean isEncrypted) {
+        if (value == null) {
+            // This is the same as deleting, so remove it.
+            return remove(key);
+        }
         if (key == null) {
             throw new NullPointerException("Key cannot be null. Key=" + key + ", value=" + value);
         }
-        if (value == null) {
-            // This is the same as deleting, so remove it.
-            return removeWithoutTransaction(key);
-        }
-
-        key = key.trim();
         if (key.endsWith(".")) {
             key = key.substring(0, key.length() - 1);
         }
-
+        key = key.trim();
         String result;
         synchronized (this) {
             if (properties.containsKey(key)) {
@@ -377,6 +300,7 @@ public class JpaApplicationProperties implements ApplicationProperties {
             result = properties.put(key, value);
             encrypted.put(key, isEncrypted);
         }
+
         // Generate event.
         Map<String, Object> params = new HashMap<>();
         params.put("value", value);
@@ -384,9 +308,9 @@ public class JpaApplicationProperties implements ApplicationProperties {
         return result;
     }
 
-    @Transactional(readOnly = false, propagation = Propagation.REQUIRES_NEW)
+    @Override
     public String put(String key, String value) {
-        return put(key, value, isEncrypted(key));
+        return put(key, value, isPropertyEncrypted(key));
     }
 
     void localPut(String key, String value, boolean isEncrypted) {
@@ -435,4 +359,60 @@ public class JpaApplicationProperties implements ApplicationProperties {
         return StringUtils.defaultString(get(name), defaultValue);
     }
 
+    private void insertProperty(String name, String value, boolean isEncrypted) {
+        log.debug("Inserting property isEncrypted: {}, {}", name, isEncrypted);
+        jdbcTemplate.update(SQL_INSERT_PROPERTY,
+                new SqlParameterValue(Types.VARCHAR, name),
+                new SqlParameterValue(Types.VARCHAR, value));
+    }
+
+    private void updateProperty(String name, String value, boolean isEncrypted) {
+        log.debug("Updating property isEncrypted: {}, {}", name, isEncrypted);
+        jdbcTemplate.update(SQL_UPDATE_PROPERTY,
+                new SqlParameterValue(Types.VARCHAR, value),
+                new SqlParameterValue(Types.VARCHAR, name));
+    }
+
+    private void deleteProperty(String name) {
+        jdbcTemplate.update(SQL_DELETE_PROPERTY, new SqlParameterValue(Types.VARCHAR, name));
+        jdbcTemplate.update(SQL_DELETE_PROPERTY, new SqlParameterValue(Types.VARCHAR, (new StringBuilder()).append(name).append(".%").toString()));
+    }
+
+    protected void firePropertyChangeEvent(PropertyChangeEvent.EventType type, String propertyName,  Map<String, Object> params) {
+        PropertyChangeEvent event = new PropertyChangeEvent(this, type, propertyName, params);
+        if (applicationEventPublisher != null)
+            applicationEventPublisher.publishEvent(event);
+    }
+    // ------------------------------------------------------------------------------------
+    // JDBC Internal Methods :
+    // ------------------------------------------------------------------------------------
+    private void loadProperties(Map<String, String> map) {
+        Map<String, String> result = jdbcTemplate.query(
+                SQL_SELECT_ALL_PROPERTY,
+                (ResultSetExtractor<Map<String, String>>) rs -> {
+                    Map<String, String> tempMap = new HashMap<>();
+                    while (rs.next()) {
+                        String name = rs.getString(1);
+                        String value = rs.getString(2);
+                        tempMap.put(name, " ".equals(value) ? "" : value);
+                    }
+                    return tempMap;
+                });
+        map.putAll(result);
+    }
+
+    private static final String SQL_INSERT_PROPERTY = """
+     INSERT INTO TB_APPLICATION_PROPERTY ( PROPERTY_NAME, PROPERTY_VALUE ) VALUES (? ,?) 
+     """; 
+    private static final String SQL_UPDATE_PROPERTY = """
+    UPDATE TB_APPLICATION_PROPERTY SET PROPERTY_VALUE=? WHERE PROPERTY_NAME=?
+     """; 
+    private static final String SQL_DELETE_PROPERTY = """
+     DELETE FROM TB_APPLICATION_PROPERTY 
+     WHERE PROPERTY_NAME = ?
+     """;                             
+    private static final String SQL_SELECT_ALL_PROPERTY = """
+     SELECT PROPERTY_NAME, PROPERTY_VALUE 
+     FROM TB_APPLICATION_PROPERTY
+     """;               
 }

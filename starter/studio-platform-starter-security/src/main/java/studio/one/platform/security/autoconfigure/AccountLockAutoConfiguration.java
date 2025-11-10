@@ -14,7 +14,7 @@ import studio.one.base.security.audit.domain.repository.LoginFailureLogRepositor
 import studio.one.base.security.authentication.AccountLockService;
 import studio.one.base.security.authentication.AccountLockServiceImpl;
 import studio.one.base.user.domain.repository.ApplicationUserRepository;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;

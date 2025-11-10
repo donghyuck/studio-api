@@ -19,52 +19,51 @@
  *
  */
 
-
-package studio.one.platform.autoconfigure.i18n;
+package studio.one.platform.autoconfigure;
 
 import lombok.NoArgsConstructor;
 
 /**
  * 오토컨피그 전용 메시지 키 정의 클래스
  * 
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-08-27
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-08-27  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
-
 
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class I18nKeys {
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class AutoConfig {
 
-        public static final class Feature {    
-            
+        public static final class Feature {
+
             private static final String P = "autoconfig.feature.";
             public static final String ENABLED = P + "enabled";
             public static final String DISABLED = P + "disabled";
 
-            public static final class Service { 
+            public static final class Service {
                 private static final String P = Feature.P + "service.";
                 private static final String ENABLED = P + "enabled";
                 public static final String DISABLED = P + "disabled";
-                public static final String DETAILS = P + "details"; 
-                public static final String DEPENDS_ON = P + "depends-on"; 
+                public static final String DETAILS = P + "details";
+                public static final String DEPENDS_ON = P + "depends-on";
             }
-            
-            public static final class EndPoint { 
+
+            public static final class EndPoint {
                 private static final String P = Feature.P + "endpoint.";
                 public static final String REGISTERED = P + "registered";
             }
 
-            public static final class EntityScan {    
+            public static final class EntityScan {
                 private static final String P = Feature.P + "entity-scan.";
                 public static final String PREPARING = P + "preparing";
                 public static final String CONFIG = P + "config";
