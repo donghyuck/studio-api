@@ -46,7 +46,7 @@ import studio.one.platform.constant.ServiceNames;
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-09-15  donghyuck, son: 최초 생성.
- * 2025-10-14  donghyuck, son; 사용자 롤 업데이트 기능 추가.  
+ * 2025-10-14  donghyuck, son; 사용자 롤 업데이트 기능 추가.
  *          </pre>
  */
 
@@ -62,7 +62,7 @@ public interface ApplicationUserService<T extends User, R extends Role> {
 
     Optional<T> findByUsername(String username);
 
-    Long findIdByUsername(String username); 
+    Long findIdByUsername(String username);
 
     T create(T user);
 
@@ -86,7 +86,6 @@ public interface ApplicationUserService<T extends User, R extends Role> {
     Page<T> getUsersByGroup(Long groupId, Pageable pageable);
 
     // associations
-
     void assignRole(Long userId, Long roleId, String by);
 
     void revokeRole(Long userId, Long roleId);
@@ -102,7 +101,7 @@ public interface ApplicationUserService<T extends User, R extends Role> {
     // effective roles
     Set<R> findEffectiveRoles(Long userId);
 
-    List<R> getUserRoles(Long userId) ;
+    List<R> getUserRoles(Long userId);
 
     List<R> getUserGroupsRoles(Long userId);
 

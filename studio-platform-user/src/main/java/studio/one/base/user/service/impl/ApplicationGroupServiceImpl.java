@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,13 +26,13 @@ import studio.one.base.user.domain.entity.ApplicationGroupRoleId;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.exception.GroupNotFoundException;
+import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
 import studio.one.base.user.persistence.ApplicationUserRepository;
-import studio.one.base.user.exception.GroupNotFoundException;
-import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.platform.exception.NotFoundException;
@@ -130,10 +129,12 @@ public class ApplicationGroupServiceImpl
         if (arr.length == 0)
             return 0;
 
-        final String sql = "insert into tb_application_group_members (group_id, user_id, joined_at, joined_by) " +
-                "select ?, uid, coalesce(?, now()), ? " +
-                "from unnest(?::bigint[]) as uid " +
-                "on conflict (group_id, user_id) do nothing";
+        final String sql = """
+        insert into tb_application_group_members (group_id, user_id, joined_at, joined_by) 
+        select ?, uid, coalesce(?, now()), ? 
+        from unnest(?::bigint[]) as uid 
+        on conflict (group_id, user_id) do nothing
+        """;
 
         final String actor = (joinedBy == null || joinedBy.isEmpty()) ? "system" : joinedBy;
 
@@ -197,9 +198,11 @@ public class ApplicationGroupServiceImpl
             return new BatchResult(0, 0, 0, 0);
         }
 
-        final String sql = "insert into tb_application_group_roles (group_id, role_id, assigned_at, assigned_by) " +
-                "select ?, uid, now(), ? from unnest(?::bigint[]) as uid " +
-                "on conflict (group_id, role_id) do nothing";
+        final String sql = """
+        insert into tb_application_group_roles (group_id, role_id, assigned_at, assigned_by) 
+        select ?, uid, now(), ? from unnest(?::bigint[]) as uid 
+        on conflict (group_id, role_id) do nothing
+        """;
 
         final Long[] arr = valid.toArray(new Long[0]);
         final String assignedBy = (actor != null && !actor.isEmpty()) ? actor : "system";
@@ -299,7 +302,5 @@ public class ApplicationGroupServiceImpl
                     return g;
                 });
     }
-
-
-
+    
 }

@@ -94,7 +94,6 @@ public interface ApplicationRoleService <T extends Role, G extends Group, U exte
      * @return
      */
     Page<U> findUsersGrantedRole(Long roleId, @Nullable String scope, @Nullable String q, Pageable pageable);
-
     BatchResult revokeRoleFromGroups(List<Long> groupIds, Long roleId);
     BatchResult revokeRoleFromUsers(List<Long> userIds, Long roleId);
     BatchResult assignRoleToUsers(List<Long> userIds, Long roleId, @Nullable String assignedBy, @Nullable OffsetDateTime assignedAt);

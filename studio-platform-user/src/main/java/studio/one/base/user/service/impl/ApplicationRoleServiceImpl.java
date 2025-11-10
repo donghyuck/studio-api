@@ -166,10 +166,12 @@ public class ApplicationRoleServiceImpl
         }
         final Long[] arr = candidates.toArray(new Long[0]);
 
-        final String sql = "insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by) " +
-                "select uid, ?, coalesce(?, now()), ? " +
-                "from unnest(?::bigint[]) as uid " +
-                "on conflict (user_id, role_id) do nothing";
+        final String sql = """
+        insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)
+        select uid, ?, coalesce(?, now()), ?
+        from unnest(?::bigint[]) as uid 
+        on conflict (user_id, role_id) do nothing
+        """;
         int inserted = jdbcTemplate.update(con -> {
             final java.sql.PreparedStatement ps = con.prepareStatement(sql);
             ps.setLong(1, roleId);
