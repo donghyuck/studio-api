@@ -26,13 +26,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.autoconfigure.features.i18n.PlatformI18nAutoConfiguration;
 import studio.one.platform.component.RepositoryImpl;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.ApplicationProperties;
@@ -57,7 +57,6 @@ import studio.one.platform.util.I18nUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@EnableConfigurationProperties( { FeaturesProperties.class } ) 
 @AutoConfigureAfter({ PlatformPropertiesAutoConfiguration.class, PlatformI18nAutoConfiguration.class })
 @Slf4j
 public class PlatformRepositoryAutoConfiguration {

@@ -20,7 +20,7 @@
  */
 
 
-package studio.one.platform.autoconfigure;
+package studio.one.platform.autoconfigure.features.i18n;
 
 import java.io.IOException;
 import java.net.URL;
@@ -38,6 +38,7 @@ import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.util.CollectionUtils;
 
 import lombok.NoArgsConstructor;
+import studio.one.platform.autoconfigure.I18nProperties;
 
 /**
  * 리소스 패턴 또는 베이스네임으로부터 i18n 메시지 파일의 베이스네임을 추출하는 유틸리티 클래스
@@ -80,7 +81,9 @@ public class BasenameResolver {
         List<String> patternsOrBases = props.getResources();
         if (CollectionUtils.isEmpty(patternsOrBases)) {
             // 기본: 모듈 네임스페이스 방식
-            patternsOrBases = List.of("classpath*:i18n/*/messages*.properties","classpath*:META-INF/i18n/*/messages*.properties" );
+            patternsOrBases = List.of(
+                "classpath*:i18n/*/messages*.properties",
+                "classpath*:META-INF/i18n/*/messages*.properties" );
         }
 
         for (String entry : patternsOrBases) {

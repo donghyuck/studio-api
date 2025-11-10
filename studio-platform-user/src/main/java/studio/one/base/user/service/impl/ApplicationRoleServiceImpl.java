@@ -65,15 +65,17 @@ public class ApplicationRoleServiceImpl
 
     @Override
     public ApplicationRole createRole(ApplicationRole role) {
+        if( ! role.getName().startsWith("ROLE_"))
+            throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
         return roleRepo.save(role);
     }
 
     @Override
-    public ApplicationRole updateRole(Long roleId, Consumer<ApplicationRole> mutator) {
-
-        ApplicationRole r = getRoleById(roleId);
-
+    public ApplicationRole updateRole(Long roleId, Consumer<ApplicationRole> mutator) { 
+        ApplicationRole r = getRoleById(roleId); 
         mutator.accept(r);
+        if( ! r.getName().startsWith("ROLE_"))
+            throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
         return roleRepo.save(r);
     }
 

@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure;
+package studio.one.platform.autoconfigure.perisitence.jdbc;
 
 import javax.sql.DataSource;
 
@@ -13,7 +13,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.I18n;

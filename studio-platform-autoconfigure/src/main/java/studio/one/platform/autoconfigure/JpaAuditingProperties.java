@@ -9,8 +9,10 @@ import lombok.Getter;
 import lombok.Setter;
 import studio.one.platform.constant.PropertyKeys;
 
-@Getter @Setter @Validated
-@ConfigurationProperties(prefix = PropertyKeys.Jpa.Auditing.PREFIX)
+@Getter
+@Setter
+@Validated
+@ConfigurationProperties(prefix = PropertyKeys.Persistence.Jpa.Auditing.PREFIX)
 public class JpaAuditingProperties {
 
     private boolean enabled = false;

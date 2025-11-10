@@ -14,7 +14,7 @@ import studio.one.application.web.controller.AvatarController;
 import studio.one.application.web.controller.PublicAvatarController;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.LogUtils;

@@ -42,7 +42,7 @@ import studio.one.platform.constant.PropertyKeys;
  *          </pre>
  */
 
-@ConfigurationProperties(prefix = PropertyKeys.Jpa.PREFIX)
+@ConfigurationProperties(prefix = PropertyKeys.Persistence.Jpa.PREFIX)
 @Getter
 @Setter
 public class JpaProperties {

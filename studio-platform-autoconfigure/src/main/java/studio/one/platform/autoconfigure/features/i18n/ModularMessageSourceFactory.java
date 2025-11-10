@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure;
+package studio.one.platform.autoconfigure.features.i18n;
 
 import java.util.List;
 
@@ -7,6 +7,7 @@ import org.springframework.context.support.ReloadableResourceBundleMessageSource
 
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.autoconfigure.I18nProperties;
 
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 @Slf4j

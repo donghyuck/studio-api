@@ -39,7 +39,7 @@ import studio.one.base.security.web.controller.LoginFailureLogController;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
 import studio.one.base.user.web.mapper.TimeMapper;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
-import studio.one.platform.autoconfigure.i18n.I18nKeys;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
