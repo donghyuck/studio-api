@@ -2,12 +2,9 @@ package studio.one.platform.user.autoconfigure;
 
 import java.time.Clock;
 
-import javax.persistence.EntityManagerFactory;
-
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,13 +15,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.domain.repository.ApplicationCompanyRepository;
-import studio.one.base.user.domain.repository.ApplicationGroupMembershipRepository;
-import studio.one.base.user.domain.repository.ApplicationGroupRepository;
-import studio.one.base.user.domain.repository.ApplicationGroupRoleRepository;
-import studio.one.base.user.domain.repository.ApplicationRoleRepository;
-import studio.one.base.user.domain.repository.ApplicationUserRepository;
-import studio.one.base.user.domain.repository.ApplicationUserRoleRepository;
+import studio.one.base.user.persistence.ApplicationCompanyRepository;
+import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
+import studio.one.base.user.persistence.ApplicationGroupRepository;
+import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
+import studio.one.base.user.persistence.ApplicationRoleRepository;
+import studio.one.base.user.persistence.ApplicationUserRepository;
+import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
@@ -83,7 +80,6 @@ public class UserServicesAutoConfiguration {
     @Bean(name = ApplicationGroupService.SERVICE_NAME)
     @ConditionalOnMissingBean(ApplicationGroupService.class)
     @ConditionalOnClass({ ApplicationGroupRepository.class })
-    @ConditionalOnBean(EntityManagerFactory.class)
     public ApplicationGroupService applicationGroupService(
             @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
             ApplicationGroupRepository groupRepo,

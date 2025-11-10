@@ -31,8 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
-import studio.one.base.user.domain.entity.ApplicationUser;
-import studio.one.base.user.domain.repository.ApplicationUserRepository;
+import studio.one.base.user.persistence.AccountLockRepository;
 
 /**
  *
@@ -54,7 +53,7 @@ import studio.one.base.user.domain.repository.ApplicationUserRepository;
 @Transactional
 public class AccountLockServiceImpl implements AccountLockService {
 
-    private final ApplicationUserRepository userRepo;
+    private final AccountLockRepository accountLockRepository;
 
     private final LoginFailureLogRepository failureLogRepo;
 
@@ -90,26 +89,35 @@ public class AccountLockServiceImpl implements AccountLockService {
         log.debug("[LOCK] failed login for '{}': enabled={}, maxAttempts={}, window={}, lockDuration={}",
                 username, lockingEnabled, maxAttempts, window, lockDuration);
 
-        userRepo.findByUsernameForUpdate(username).ifPresent(u -> {
+        boolean withinWindow = false;
+        if (useWindow()) {
+            Instant lastFailedAt = accountLockRepository.findLastFailedAt(username);
+            if (lastFailedAt != null) {
+                withinWindow = Duration.between(lastFailedAt, now).compareTo(window) <= 0;
+            }
+        }
 
-            int attempts;
-            boolean withinWindow = false;
-            if (useWindow() && u.getLastFailedAt() != null) {
-                withinWindow = Duration.between(u.getLastFailedAt(), now).compareTo(window) <= 0;
+        if (!withinWindow) {
+            accountLockRepository.resetLockState(username);
+        }
+
+        int updated = accountLockRepository.bumpFailedAttempts(username, now);
+        if (updated == 0) {
+            log.debug("[LOCK] user='{}' does not exist, skipping", username);
+            return;
+        }
+
+        int attempts = Optional.ofNullable(accountLockRepository.findFailedAttempts(username)).orElse(0);
+        log.debug("[LOCK] user='{}' withinWindow={}, attempts={}", username, withinWindow, attempts);
+
+        if (lockingEnabled && attempts >= maxAttempts) {
+            Instant until = now.plus(lockDuration);
+            Instant current = accountLockRepository.findAccountLockedUntil(username);
+            if (current == null || current.isBefore(until)) {
+                accountLockRepository.lockUntil(username, until);
+                log.info("[LOCK] user='{}' locked until {}", username, until);
             }
-            attempts = withinWindow ? (u.getFailedAttempts() + 1) : 1;
-            u.setFailedAttempts(attempts);
-            u.setLastFailedAt(now);
-            log.debug("[LOCK] user='{}' withinWindow={}, attempts={}", username, withinWindow, attempts);
-            if (lockingEnabled && attempts >= maxAttempts) {
-                // 잠금 기간이 유효하면 잠금 until 설정/연장
-                Instant until = now.plus(lockDuration);
-                if (u.getAccountLockedUntil() == null || u.getAccountLockedUntil().isBefore(until)) {
-                    u.setAccountLockedUntil(until);
-                }
-                log.info("[LOCK] user='{}' locked until {}", username, u.getAccountLockedUntil());
-            }
-        });
+        }
     }
 
     @Override
@@ -117,18 +125,10 @@ public class AccountLockServiceImpl implements AccountLockService {
         if (!resetOnSuccess || StringUtils.isBlank(username))
             return;
 
-        final Instant now = Instant.now(clock);
-        userRepo.findByUsername(username).ifPresent(u -> {
-            u.setFailedAttempts(0);
-            u.setLastFailedAt(null);
-            u.setAccountLockedUntil(null);
-
-            if (u.getAccountLockedUntil() != null && u.getAccountLockedUntil().isAfter(now)) {
-                u.setAccountLockedUntil(null);
-            }
+        int updated = accountLockRepository.resetLockState(username);
+        if (updated > 0) {
             log.debug("[LOCK] user='{}' counters reset on success", username);
-
-        });
+        }
     }
 
     @Transactional(readOnly = true)
@@ -136,7 +136,7 @@ public class AccountLockServiceImpl implements AccountLockService {
     public Optional<Instant> getLockedUntil(String username) {
         if (username == null || username.isBlank())
             return Optional.empty();
-        return userRepo.findByUsername(username).map(ApplicationUser::getAccountLockedUntil);
+        return Optional.ofNullable(accountLockRepository.findAccountLockedUntil(username));
     }
 
 }
