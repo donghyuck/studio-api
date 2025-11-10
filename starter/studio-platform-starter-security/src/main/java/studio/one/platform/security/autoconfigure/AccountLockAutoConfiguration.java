@@ -13,7 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
 import studio.one.base.security.authentication.AccountLockService;
 import studio.one.base.security.authentication.AccountLockServiceImpl;
-import studio.one.base.user.domain.repository.ApplicationUserRepository;
+import studio.one.base.user.persistence.AccountLockRepository;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
@@ -32,7 +32,7 @@ public class AccountLockAutoConfiguration {
         @Bean(ServiceNames.SECURITY_ACCOUNT_LOCK_SERVICE) 
         @ConditionalOnMissingBean(name = ServiceNames.SECURITY_ACCOUNT_LOCK_SERVICE)
         public AccountLockService accountLockService(
-                        ApplicationUserRepository aplicationUserRepository,
+                        AccountLockRepository accountLockRepository,
                         LoginFailureLogRepository failureLogRepo,
                         AccountLockProperties properties,
                         Clock clock,
@@ -42,7 +42,7 @@ public class AccountLockAutoConfiguration {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(AccountLockService.class, true), LogUtils.red(State.CREATED.toString())));
                 return new AccountLockServiceImpl(
-                                aplicationUserRepository,
+                                accountLockRepository,
                                 failureLogRepo,
                                 clock,
                                 properties.getMaxAttempts(),

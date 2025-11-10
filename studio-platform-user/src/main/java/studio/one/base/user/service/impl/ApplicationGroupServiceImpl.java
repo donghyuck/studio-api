@@ -27,11 +27,11 @@ import studio.one.base.user.domain.entity.ApplicationGroupRoleId;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.repository.ApplicationGroupMembershipRepository;
-import studio.one.base.user.domain.repository.ApplicationGroupRepository;
-import studio.one.base.user.domain.repository.ApplicationGroupRoleRepository;
-import studio.one.base.user.domain.repository.ApplicationRoleRepository;
-import studio.one.base.user.domain.repository.ApplicationUserRepository;
+import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
+import studio.one.base.user.persistence.ApplicationGroupRepository;
+import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
+import studio.one.base.user.persistence.ApplicationRoleRepository;
+import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.exception.GroupNotFoundException;
 import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.service.ApplicationGroupService;
@@ -225,7 +225,7 @@ public class ApplicationGroupServiceImpl
         int inserted = 0;
         int skipped = 0;
         for (Long rid : candidates) {
-            if (groupRoleRepo.existsByGroup_GroupIdAndRole_RoleId(groupId, rid)) {
+            if (groupRoleRepo.existsByGroupIdAndRoleId(groupId, rid)) {
                 skipped++;
                 continue;
             }
@@ -244,7 +244,7 @@ public class ApplicationGroupServiceImpl
         ApplicationRole r = roleRepo.findById(roleId).orElseThrow(() -> new NotFoundException("Role", roleId));
 
         ApplicationGroupRoleId id = new ApplicationGroupRoleId(groupId, roleId);
-        if (!groupRoleRepo.existsByGroup_GroupIdAndRole_RoleId(groupId, roleId)) {
+        if (!groupRoleRepo.existsByGroupIdAndRoleId(groupId, roleId)) {
             groupRoleRepo.save(ApplicationGroupRole.builder()
                     .id(id).group(g).role(r).assignedBy(by).build());
         }

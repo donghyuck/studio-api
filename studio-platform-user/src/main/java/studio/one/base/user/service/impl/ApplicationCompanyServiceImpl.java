@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.domain.repository.ApplicationCompanyRepository;
+import studio.one.base.user.persistence.ApplicationCompanyRepository;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.platform.exception.NotFoundException;
 

@@ -20,7 +20,7 @@ import studio.one.platform.constant.PropertyKeys;
 @EqualsAndHashCode(callSuper = true)
 public class UserFeatureProperties extends FeatureToggle {
 
-    public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.user.domain.repository";
+    public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jpa";
 
     public static final String DEFAULT_ENTITY_PACKAGE = "studio.one.base.user.domain.entity";
 

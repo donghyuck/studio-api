@@ -37,11 +37,11 @@ import studio.one.base.user.domain.event.UserDisabledEvent;
 import studio.one.base.user.domain.event.UserEnabledEvent;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.UserIdOnly;
-import studio.one.base.user.domain.repository.ApplicationGroupMembershipRepository;
-import studio.one.base.user.domain.repository.ApplicationGroupRepository;
-import studio.one.base.user.domain.repository.ApplicationRoleRepository;
-import studio.one.base.user.domain.repository.ApplicationUserRepository;
-import studio.one.base.user.domain.repository.ApplicationUserRoleRepository;
+import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
+import studio.one.base.user.persistence.ApplicationGroupRepository;
+import studio.one.base.user.persistence.ApplicationRoleRepository;
+import studio.one.base.user.persistence.ApplicationUserRepository;
+import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.exception.GroupNotFoundException;
 import studio.one.base.user.exception.RoleNotFoundException;
 import studio.one.base.user.exception.UserAlreadyExistsException;
@@ -284,6 +284,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         ApplicationRole r = roleRepo.findById(roleId)
                 .orElseThrow(() -> RoleNotFoundException.byId(roleId));
         ApplicationUserRoleId id = new ApplicationUserRoleId(u.getUserId(), r.getRoleId());
+       
         if (!userRoleRepo.existsById(id)) {
             userRoleRepo.save(ApplicationUserRole.builder()
                     .id(id)
