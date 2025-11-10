@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jpa.auditor;
+package studio.one.platform.autoconfigure.perisistence.jpa.auditor;
 
 import studio.one.platform.autoconfigure.JpaAuditingProperties;
 

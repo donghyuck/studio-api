@@ -15,10 +15,10 @@ import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import studio.one.platform.autoconfigure.JpaAuditingProperties;
-import studio.one.platform.autoconfigure.perisitence.jpa.auditor.CompositeAuditorAware;
-import studio.one.platform.autoconfigure.perisitence.jpa.auditor.FixedAuditorAware;
-import studio.one.platform.autoconfigure.perisitence.jpa.auditor.HeaderAuditorAware;
-import studio.one.platform.autoconfigure.perisitence.jpa.auditor.SecurityAuditorAware;
+import studio.one.platform.autoconfigure.perisistence.jpa.auditor.CompositeAuditorAware;
+import studio.one.platform.autoconfigure.perisistence.jpa.auditor.FixedAuditorAware;
+import studio.one.platform.autoconfigure.perisistence.jpa.auditor.HeaderAuditorAware;
+import studio.one.platform.autoconfigure.perisistence.jpa.auditor.SecurityAuditorAware;
 import studio.one.platform.constant.PropertyKeys;
 
 @Configuration

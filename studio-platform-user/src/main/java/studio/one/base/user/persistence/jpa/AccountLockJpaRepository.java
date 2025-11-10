@@ -19,10 +19,12 @@ public interface AccountLockJpaRepository extends JpaRepository<ApplicationUser,
      */
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update ApplicationUser u " +
-            "   set u.failedAttempts = u.failedAttempts + 1, " +
-            "       u.lastFailedAt = :now " +
-            " where u.username = :username")
+    @Query("""
+        update ApplicationUser u
+        set u.failedAttempts = u.failedAttempts + 1, 
+        u.lastFailedAt = :now
+        where u.username = :username
+        """)
     int bumpFailedAttempts(@Param("username") String username, @Param("now") Instant now);
 
     /**
@@ -30,9 +32,11 @@ public interface AccountLockJpaRepository extends JpaRepository<ApplicationUser,
      */
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update ApplicationUser u " +
-            "   set u.accountLockedUntil = :until " +
-            " where u.username = :username")
+    @Query("""
+        update ApplicationUser u 
+        set u.accountLockedUntil = :until
+        where u.username = :username
+        """)
     int lockUntil(@Param("username") String username, @Param("until") Instant until);
 
     /**
@@ -40,11 +44,13 @@ public interface AccountLockJpaRepository extends JpaRepository<ApplicationUser,
      */
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update ApplicationUser u " +
-            "   set u.failedAttempts = 0, " +
-            "       u.lastFailedAt = null, " +
-            "       u.accountLockedUntil = null " +
-            " where u.username = :username")
+    @Query("""
+        update ApplicationUser u
+        set u.failedAttempts = 0,
+        u.lastFailedAt = null,
+        u.accountLockedUntil = null
+        where u.username = :username
+        """)
     int resetLockState(@Param("username") String username);
 
     // ── 읽기용 경량 쿼리들 ─────────────────────────────────────────────

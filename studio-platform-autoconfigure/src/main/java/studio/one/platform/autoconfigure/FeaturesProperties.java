@@ -58,17 +58,17 @@ import studio.one.platform.constant.PropertyKeys;
 @Validated
 public class FeaturesProperties {
 
-    @Valid
-    @NotNull
-    private FeatureToggle applicationProperties = FeatureToggle.disabled();
+    // @Valid
+    // @NotNull
+    // private FeatureToggle applicationProperties = FeatureToggle.disabled();
 
-    @Valid
-    @NotNull
-    private FeatureToggle imageService = FeatureToggle.disabled();
+    // @Valid
+    // @NotNull
+    // private FeatureToggle imageService = FeatureToggle.disabled();
 
-    @Valid
-    @NotNull
-    private FeatureToggle fileUpload = FeatureToggle.disabled();
+    // @Valid
+    // @NotNull
+    // private FeatureToggle fileUpload = FeatureToggle.disabled();
 
     /** 사전에 정의하지 않은 동적 기능들 (선택) */
     @Valid
@@ -81,21 +81,25 @@ public class FeaturesProperties {
 
         private boolean enabled;
         private boolean failIfMissing = true;
-        private PersistenceProperties persistence = new PersistenceProperties();
-
+        private PersistenceProperties.Type persistence ;
 
         public static FeatureToggle enabled() {
-            return new FeatureToggle(true, true, PersistenceProperties.of());
+            return new FeatureToggle(true, true, null);
         }
 
         public static FeatureToggle disabled() {
-            return new FeatureToggle(false, true, PersistenceProperties.of());
+            return new FeatureToggle(false, true, null);
+        }  
+        
+        public PersistenceProperties.Type resolvePersistence( PersistenceProperties.Type globalDefault) {
+            if (persistence != null) return persistence;
+            return globalDefault != null ? globalDefault : PersistenceProperties.Type.jpa;
         }
-
     }
 
     /** 사전에 정의하지 않은 동적 기능들 (선택) */
     public static class GenericFeature extends FeatureToggle {
+
         /** 임의 속성 보관 */
         private Map<@NotBlank String, @NotBlank String> attrs = Map.of();
 

@@ -24,23 +24,27 @@ import org.springframework.jdbc.core.SqlParameterValue;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.component.State;
 import studio.one.platform.component.event.PropertyChangeEvent;
 import studio.one.platform.constant.Colors;
+import studio.one.platform.constant.MessageCodes;
 import studio.one.platform.service.ApplicationProperties;
 import studio.one.platform.service.I18n;
+import studio.one.platform.util.LogUtils;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-11-09
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-11-09  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 @Slf4j
@@ -49,19 +53,17 @@ import studio.one.platform.service.I18n;
 @Transactional
 public class JdbcApplicationProperties implements ApplicationProperties {
 
-     protected final AtomicBoolean initFlag = new AtomicBoolean(false);
-     
-     private final JdbcTemplate jdbcTemplate;
-     private final ApplicationEventPublisher applicationEventPublisher;
-     private final I18n i18n;
+    protected final AtomicBoolean initFlag = new AtomicBoolean(false);
 
+    private final JdbcTemplate jdbcTemplate;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final I18n i18n;
 
     // The map of property keys to their values
     private final ConcurrentMap<String, String> properties = new ConcurrentHashMap<>();
 
     // The map of property keys to a boolean indicating if they are encrypted or not
     private final Map<String, Boolean> encrypted = new ConcurrentHashMap<>();
-
 
     /**
      * For internal use only. This method allows for the reloading of all properties
@@ -76,19 +78,24 @@ public class JdbcApplicationProperties implements ApplicationProperties {
      */
     @PostConstruct
     protected void initialize() {
-        log.info("Loading application properties from database.");
+        log.info(LogUtils.format(i18n, MessageCodes.Info.COMPONENT_STATE, LogUtils.blue(getClass(), true),
+                LogUtils.red(State.INITIALIZING.toString())));
+        log.debug("Loading application properties using jdbc. ({}, {})", jdbcTemplate, applicationEventPublisher);
         if (initFlag.compareAndSet(false, true)) {
             try {
                 log.info("Loading application properties from database.");
                 properties.clear();
                 encrypted.clear();
                 loadProperties(properties);
-                properties.forEach((key, value) -> log.info("{}............{}", Colors.GREEN + key + Colors.RESET, value));
+                properties.forEach(
+                        (key, value) -> log.info("{}............{}", Colors.GREEN + key + Colors.RESET, value));
             } catch (Exception e) {
                 log.error("Failed to initialize properties from database", e);
                 initFlag.set(false); // 실패하면 초기화 상태를 되돌림
             }
         }
+        log.info(LogUtils.format(i18n, MessageCodes.Info.COMPONENT_STATE, LogUtils.blue(getClass(), true),
+                LogUtils.red(State.INITIALIZED.toString())));
     }
 
     // ------------------------------------------------------------------------------------
@@ -141,7 +148,7 @@ public class JdbcApplicationProperties implements ApplicationProperties {
             }
         });
         properties.putAll(updates);
-        
+
         // 데이터베이스 반영을 위해 일괄 insert/update 실행
         updates.forEach((key, value) -> put(key, value, isPropertyEncrypted(key)));
     }
@@ -375,14 +382,17 @@ public class JdbcApplicationProperties implements ApplicationProperties {
 
     private void deleteProperty(String name) {
         jdbcTemplate.update(SQL_DELETE_PROPERTY, new SqlParameterValue(Types.VARCHAR, name));
-        jdbcTemplate.update(SQL_DELETE_PROPERTY, new SqlParameterValue(Types.VARCHAR, (new StringBuilder()).append(name).append(".%").toString()));
+        jdbcTemplate.update(SQL_DELETE_PROPERTY,
+                new SqlParameterValue(Types.VARCHAR, (new StringBuilder()).append(name).append(".%").toString()));
     }
 
-    protected void firePropertyChangeEvent(PropertyChangeEvent.EventType type, String propertyName,  Map<String, Object> params) {
+    protected void firePropertyChangeEvent(PropertyChangeEvent.EventType type, String propertyName,
+            Map<String, Object> params) {
         PropertyChangeEvent event = new PropertyChangeEvent(this, type, propertyName, params);
         if (applicationEventPublisher != null)
             applicationEventPublisher.publishEvent(event);
     }
+
     // ------------------------------------------------------------------------------------
     // JDBC Internal Methods :
     // ------------------------------------------------------------------------------------
@@ -402,17 +412,17 @@ public class JdbcApplicationProperties implements ApplicationProperties {
     }
 
     private static final String SQL_INSERT_PROPERTY = """
-     INSERT INTO TB_APPLICATION_PROPERTY ( PROPERTY_NAME, PROPERTY_VALUE ) VALUES (? ,?) 
-     """; 
+            INSERT INTO TB_APPLICATION_PROPERTY ( PROPERTY_NAME, PROPERTY_VALUE ) VALUES (? ,?)
+            """;
     private static final String SQL_UPDATE_PROPERTY = """
-    UPDATE TB_APPLICATION_PROPERTY SET PROPERTY_VALUE=? WHERE PROPERTY_NAME=?
-     """; 
+            UPDATE TB_APPLICATION_PROPERTY SET PROPERTY_VALUE=? WHERE PROPERTY_NAME=?
+             """;
     private static final String SQL_DELETE_PROPERTY = """
-     DELETE FROM TB_APPLICATION_PROPERTY 
-     WHERE PROPERTY_NAME = ?
-     """;                             
+            DELETE FROM TB_APPLICATION_PROPERTY
+            WHERE PROPERTY_NAME = ?
+            """;
     private static final String SQL_SELECT_ALL_PROPERTY = """
-     SELECT PROPERTY_NAME, PROPERTY_VALUE 
-     FROM TB_APPLICATION_PROPERTY
-     """;               
+            SELECT PROPERTY_NAME, PROPERTY_VALUE
+            FROM TB_APPLICATION_PROPERTY
+            """;
 }

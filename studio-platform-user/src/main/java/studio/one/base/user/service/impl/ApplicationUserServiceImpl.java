@@ -264,10 +264,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     @Override
     public List<ApplicationRole> getUserGroupsRoles(Long userId) {
         List<Long> groupIds = userRepo.findGroupIdsByUserId(userId);
-        List<ApplicationRole> viaGroups = groupIds.isEmpty()
-                ? List.of()
-                : roleRepo.findRolesByGroupIds(groupIds);
-        return viaGroups;
+        return  groupIds.isEmpty()?List.of():roleRepo.findRolesByGroupIds(groupIds); 
     }
 
 
@@ -281,10 +278,8 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     @Transactional
     public void assignRole(Long userId, Long roleId, String by) {
         ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
-        ApplicationRole r = roleRepo.findById(roleId)
-                .orElseThrow(() -> RoleNotFoundException.byId(roleId));
+        ApplicationRole r = roleRepo.findById(roleId).orElseThrow(() -> RoleNotFoundException.byId(roleId));
         ApplicationUserRoleId id = new ApplicationUserRoleId(u.getUserId(), r.getRoleId());
-       
         if (!userRoleRepo.existsById(id)) {
             userRoleRepo.save(ApplicationUserRole.builder()
                     .id(id)
@@ -340,9 +335,11 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             return new BatchResult(0, 0, 0, 0);
         }
 
-        final String sql = "insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by) " +
-                "select ?, uid, now(), ? from unnest(?::bigint[]) as uid " +
-                "on conflict (user_id, role_id) do nothing";
+        final String sql = """
+        insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)  
+        select ?, uid, now(), ? from unnest(?::bigint[]) as uid  
+        on conflict (user_id, role_id) do nothing
+        """;
 
         final Long[] arr = valid.toArray(new Long[0]);
         final String assignedBy = (actor != null && !actor.isEmpty()) ? actor : "system";

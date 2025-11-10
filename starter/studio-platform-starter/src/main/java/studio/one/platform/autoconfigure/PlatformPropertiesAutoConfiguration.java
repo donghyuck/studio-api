@@ -24,16 +24,12 @@ package studio.one.platform.autoconfigure;
 import java.util.Objects;
 
 import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
-import org.springframework.boot.autoconfigure.batch.BatchProperties.Jdbc;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -43,6 +39,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.YamlApplicationProperties;
 import studio.one.platform.component.properties.domain.service.JdbcApplicationProperties;
@@ -71,45 +68,45 @@ import studio.one.platform.util.I18nUtils;
 
 @AutoConfiguration
 @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
-@EnableConfigurationProperties({ PropertiesProperties.class })
+@EnableConfigurationProperties({ PersistenceProperties.class, PropertiesProperties.class })
 @RequiredArgsConstructor
+@Slf4j
 public class PlatformPropertiesAutoConfiguration {
 
-    final PropertiesProperties props;
+    final PersistenceProperties persistence;
+    final PropertiesProperties props;   
 
     @Bean 
     @ConditionalOnProperties.Property(name = PropertyKeys.Persistence.Jpa.ENABLED, havingValue = "true")
     static BeanDefinitionRegistryPostProcessor featureAEntityScanRegistrar() {  
+        
         return EntityScanRegistrarSupport.entityScanRegistrar(
                 PropertyKeys.Features.ApplicationProperties.PREFIX + ".entity-packages", "studio.one.platform.component.properties.domain.entity");
     }
 
     @Bean(name = ServiceNames.APPLICATION_PROPERTIES)
-    @ConditionalOnClass(EntityManagerFactory.class)
-    @ConditionalOnBean(EntityManagerFactory.class)
-    @ConditionalOnProperties(value = {
-            @ConditionalOnProperties.Property(name = PropertyKeys.Persistence.Jpa.ENABLED, havingValue = "true"),
-            @ConditionalOnProperties.Property(name = PropertyKeys.Features.ApplicationProperties.ENABLED, havingValue = "true", matchIfMissing = false)
-    })
-    public ApplicationProperties jpaApplicationProperties(
+    @ConditionalOnProperties.Property(name = PropertyKeys.Features.ApplicationProperties.ENABLED, havingValue = "true", matchIfMissing = false)
+    public ApplicationProperties applicationProperties(
             ObjectProvider<EntityManager> emProvider,
             @Qualifier(ServiceNames.JDBC_TEMPLATE) ObjectProvider<JdbcTemplate> jdbcProvider,
             ApplicationEventPublisher publisher,
             ObjectProvider<I18n> i18nProvider // 있어도/없어도 동작
     ) { 
+        var p = props.resolvePersistence(persistence.getType());
+        if(log.isDebugEnabled())
+            log.debug("Preparing ApplicationProperties resolvePersistence:{}" , p ); 
         I18n i18n = I18nUtils.resolve(i18nProvider); 
-        return switch (props.getPersistence().getType()) {
+        return switch (p) {
             case jpa -> {
                 var em = Objects.requireNonNull(emProvider.getIfAvailable(), "type=jpa 인데 EntityManager 가 없습니다.");
                 yield new JpaApplicationProperties(em, publisher, i18n);
             }
             case jdbc -> {
-                var jdbc = Objects.requireNonNull(jdbcProvider.getIfAvailable(), "type=" + props.getPersistence().getType() + " 인데 JdbcTemplate 이 없습니다.");
+                var jdbc = Objects.requireNonNull(jdbcProvider.getIfAvailable(), "type=" + props.getPersistence() + " 인데 JdbcTemplate 이 없습니다.");
                 yield new JdbcApplicationProperties(jdbc, publisher, i18n);
             }
-            default -> throw new IllegalStateException("Unexpected value: " + props.getPersistence().getType());
+            default -> throw new IllegalStateException("Unexpected value: " + p );
         };
-
     }
 
     @ConditionalOnMissingBean

@@ -15,8 +15,10 @@ import lombok.NoArgsConstructor;
 public class PropertyKeys {
 
     private static final String ENABLED_VALUE_STRING = ".enabled";
-    private static final String FAIL_IF_MISSING_VALUE_STRING = ".fail-if-missing";
+    private static final String FAIL_IF_MISSING_VALUE_STRING = ".fail-if-missing"; 
+    private static final String PERSISTENCE_STRING = ".persistence";
     private static final String TYPE_VALUE_STRING = ".type";
+
 
     /**
      * Contains main application property keys.
@@ -32,7 +34,7 @@ public class PropertyKeys {
 
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class Persistence {
-        public static final String PREFIX = Main.PREFIX + ".persistence";
+        public static final String PREFIX = Main.PREFIX + PERSISTENCE_STRING;
         public static final String TYPE = PREFIX + TYPE_VALUE_STRING;
 
         /**
@@ -163,10 +165,7 @@ public class PropertyKeys {
             public static final String PREFIX = Features.PREFIX + ".application-properties";
             public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
             public static final String FAIL_IF_MISSING = PREFIX + FAIL_IF_MISSING_VALUE_STRING;
-            @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
-            public static final class Persistence {
-                public static final String TYPE = ApplicationProperties.PREFIX + TYPE_VALUE_STRING;
-            }
+            public static final String PERSISTENCE = PREFIX + PERSISTENCE_STRING;
         }
 
         /**
