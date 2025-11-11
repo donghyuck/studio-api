@@ -1,3 +1,24 @@
+/**
+ *
+ *      Copyright 2025
+ *
+ *      Licensed under the Apache License, Version 2.0 (the 'License');
+ *      you may not use this file except in compliance with the License.
+ *      You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *      Unless required by applicable law or agreed to in writing, software
+ *      distributed under the License is distributed on an 'AS IS' BASIS,
+ *      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *      See the License for the specific language governing permissions and
+ *      limitations under the License.
+ *
+ *      @file UserEndpointsAutoConfiguration.java
+ *      @date 2025
+ *
+ */
+
 package studio.one.platform.user.autoconfigure;
 
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -10,13 +31,6 @@ import org.springframework.context.annotation.Configuration;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.web.mapper.ApplicationGroupMapperImpl;
-import studio.one.base.user.web.mapper.ApplicationRoleMapperImpl;
-import studio.one.base.user.web.mapper.ApplicationUserMapperImpl;
-import studio.one.base.user.web.mapper.TimeMapperImpl;
-import studio.one.base.user.domain.model.Group;
-import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
@@ -25,14 +39,31 @@ import studio.one.base.user.web.controller.MeController;
 import studio.one.base.user.web.controller.RoleController;
 import studio.one.base.user.web.controller.UserController;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
+import studio.one.base.user.web.mapper.ApplicationGroupMapperImpl;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
+import studio.one.base.user.web.mapper.ApplicationRoleMapperImpl;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
+import studio.one.base.user.web.mapper.ApplicationUserMapperImpl;
 import studio.one.base.user.web.mapper.TimeMapper;
+import studio.one.base.user.web.mapper.TimeMapperImpl;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.security.authz.EndpointModeGuard;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.LogUtils;
+
+/**
+ *
+ * @author  donghyuck, son
+ * @since 2025-11-11
+ * @version 1.0
+ *
+ * <pre> 
+ * << 개정이력(Modification Information) >>
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2025-11-11  donghyuck, son: 최초 생성.
+ * </pre>
+ */
 
 @Configuration
 @EnableConfigurationProperties(WebProperties.class)
@@ -45,17 +76,6 @@ public class UserEndpointsAutoConfiguration {
     private static final String FEATURE_NAME = "User";
     private final WebProperties webProperties;
     private final I18n i18n;
-
-    @Bean
-    public UserDomainPolicyContributor userDomainPolicyContributor(WebProperties web){
-       return  new UserDomainPolicyContributor(web);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(EndpointModeGuard.class)
-    public EndpointModeGuard endpointModeGuard(WebProperties web) {
-        return new UserDomainEndpointModeGuard(web);
-    }
 
     @Bean
     @ConditionalOnClass(TimeMapper.class)
@@ -95,13 +115,12 @@ public class UserEndpointsAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationGroupService.class, true),
                 LogUtils.blue(GroupController.class, true),
-                webProperties.normalizedBasePath() + "/groups", webProperties.getEndpoints().getGroup().getMode()));
+                webProperties.normalizedBasePath() + "/groups", LogUtils.blue("ACL-managed")));
         return new GroupController(svc, groupMapper, userMapper, roleMapper);
     }
  
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
-            + ".user", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".user", name = "enabled", havingValue = "true")
     public UserController userEndpoint(
         ApplicationUserService svc, 
         ApplicationUserMapper mapper,  
@@ -110,13 +129,12 @@ public class UserEndpointsAutoConfiguration {
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserController.class, true),
                 webProperties.normalizedBasePath() + "/users",
-                webProperties.getEndpoints().getGroup().getMode()));
+                LogUtils.blue("ACL-managed")));
         return new UserController(svc, mapper, roleMapper) ;
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
-            + ".role", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".role", name = "enabled", havingValue = "true")
     public RoleController roleEndpoint(
         ApplicationRoleService svc, 
         ApplicationRoleMapper mapper,
@@ -126,7 +144,8 @@ public class UserEndpointsAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationRoleService.class, true),
                 LogUtils.blue(RoleController.class, true),
-                webProperties.normalizedBasePath() + "/roles", webProperties.getEndpoints().getGroup().getMode()));
+                webProperties.normalizedBasePath() + "/roles", 
+                LogUtils.blue("ACL-managed")));
         return new RoleController(svc, mapper, gmapper, umapper);
     }
 
@@ -138,7 +157,8 @@ public class UserEndpointsAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue("Self"),
                 LogUtils.blue(MeController.class, true),
-                webProperties.getSelf().getPath()));
+                webProperties.getSelf().getPath()),
+                LogUtils.blue("ACL-managed"));
         return new MeController(svc, mapper);
     }
  

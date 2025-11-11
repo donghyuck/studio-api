@@ -198,8 +198,7 @@ public class UserController {
                                 .stream()
                                 .map(RoleDto::getRoleId)
                                 .filter(Objects::nonNull)
-                                .distinct()
-                                .collect(Collectors.toList());
+                                .distinct().toList();
 
                 BatchResult result = userService.updateUserRolesBulk(id, desired, actor.getUsername());
                 log.debug("batch : {}", result);
