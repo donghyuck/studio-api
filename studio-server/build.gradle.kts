@@ -27,6 +27,8 @@ dependencies {
     implementation(project(":starter:studio-platform-starter-objectstorage-aws")) 
     implementation(project(":starter:studio-application-starter-avatar"))
 
+    //implementation(project(":studio-platform-user"))  
+    implementation(project(":studio-platform-security-acl"))  
     // srping starters
     implementation("org.springframework.boot:spring-boot-starter-logging")
     implementation("org.springframework.boot:spring-boot-starter-web")

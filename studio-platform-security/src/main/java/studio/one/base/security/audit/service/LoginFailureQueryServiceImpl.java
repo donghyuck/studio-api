@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
-import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
+import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
 
 /**
  * 

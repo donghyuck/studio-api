@@ -43,7 +43,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.AccountLockService;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.web.advice.AbstractExceptionHandler;

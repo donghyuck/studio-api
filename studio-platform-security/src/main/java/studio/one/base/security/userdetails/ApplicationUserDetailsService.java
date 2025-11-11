@@ -39,7 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.AccountLockService;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.exception.UserNotFoundException;

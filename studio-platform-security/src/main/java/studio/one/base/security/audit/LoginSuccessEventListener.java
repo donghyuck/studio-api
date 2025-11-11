@@ -5,7 +5,7 @@ import org.springframework.context.ApplicationListener;
 import org.springframework.security.authentication.event.AuthenticationSuccessEvent;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.authentication.AccountLockService;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
 /**
  *
  * @author  donghyuck, son

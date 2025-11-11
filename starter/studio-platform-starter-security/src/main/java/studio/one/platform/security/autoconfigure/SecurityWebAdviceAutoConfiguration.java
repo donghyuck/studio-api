@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.authentication.AccountLockService;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.web.adivce.SecurityExceptionHandler;
 
 @AutoConfiguration

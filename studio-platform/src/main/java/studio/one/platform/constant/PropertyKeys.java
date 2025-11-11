@@ -54,6 +54,22 @@ public class PropertyKeys {
                 public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
             }
         }
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class SecurityAcl {
+            public static final String PREFIX = Features.PREFIX + ".security-acl";
+            public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+
+            @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+            public static final class Entity {
+                public static final String PREFIX = SecurityAcl.PREFIX + ".entity-packages";
+            }
+
+            @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+            public static final class Repository {
+                public static final String PREFIX = SecurityAcl.PREFIX + ".repository-packages";
+            }
+        }
     }
 
     /**
@@ -80,6 +96,12 @@ public class PropertyKeys {
             public static final String PREFIX = Security.PREFIX + ".audit";
             public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
             public static final String LOGIN_FAILURE = PREFIX + ".login-failure";
+        }
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Acl {
+            public static final String PREFIX = Security.PREFIX + ".acl";
+            public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
         }
 
         @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)

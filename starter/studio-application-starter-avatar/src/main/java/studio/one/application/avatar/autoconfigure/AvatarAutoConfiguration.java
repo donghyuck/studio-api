@@ -22,12 +22,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.application.avatar.autoconfigure.condition.ConditionalOnAvatarPersistence;
 import studio.one.application.avatar.domain.entity.AvatarImage;
-import studio.one.application.avatar.domain.repository.AvatarImageDataRepository;
-import studio.one.application.avatar.domain.repository.AvatarImageRepository;
+import studio.one.application.avatar.persistence.AvatarImageDataRepository;
+import studio.one.application.avatar.persistence.AvatarImageRepository;
+import studio.one.application.avatar.persistence.jdbc.AvatarImageDataJdbcRepository;
+import studio.one.application.avatar.persistence.jdbc.AvatarImageJdbcRepository;
+import studio.one.application.avatar.persistence.jpa.AvatarImageDataJpaRepository;
+import studio.one.application.avatar.persistence.jpa.AvatarImageJpaRepository;
 import studio.one.application.avatar.replica.FileReplicaStore;
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.avatar.service.impl.AvatarImageFilesystemReplicaService;
@@ -37,8 +43,10 @@ import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
 import studio.one.platform.util.I18nUtils;
@@ -46,23 +54,32 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@EnableConfigurationProperties({ AvatarFeatureProperties.class }) 
+@EnableConfigurationProperties({ AvatarFeatureProperties.class, PersistenceProperties.class }) 
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".avatar-image", name = "enabled", havingValue = "true")
 @Slf4j
 public class AvatarAutoConfiguration {
 
     private static final String FEATURE_NAME = "Avatar"; 
 
+    private final AvatarFeatureProperties avatarFeatureProperties;
+    private final PersistenceProperties persistenceProperties;
+
     @Bean(name = AvatarImageService.SERVICE_NAME )
     @ConditionalOnMissingBean(name = AvatarImageService.SERVICE_NAME )
     public AvatarImageService<User> avatarImageService( 
             AvatarImageRepository avatarImageRepository,
             AvatarImageDataRepository avatarImageDataRepository, 
-            ApplicationUserService<User, Role> userService,
+            @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService  userService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
+        var globalPersistence = persistenceProperties.getType();
+        var avatarPersistence = avatarFeatureProperties.resolvePersistence(globalPersistence);
+        if (avatarPersistence == PersistenceProperties.Type.jpa && globalPersistence != PersistenceProperties.Type.jpa) {
+            log.warn("Avatar persistence set to JPA but studio.persistence.type={} — ensure JPA is configured.", globalPersistence);
+        }
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
         LogUtils.blue(AvatarImageServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
+        log.info("Using AvatarImageRepository: {}", LogUtils.green(avatarImageRepository.getClass(), true));
         return new AvatarImageServiceImpl(avatarImageRepository, avatarImageDataRepository, userService);
     }
 
@@ -130,6 +147,7 @@ public class AvatarAutoConfiguration {
 
     @Configuration
     @AutoConfigureBefore(HibernateJpaAutoConfiguration.class) 
+    @ConditionalOnAvatarPersistence(PersistenceProperties.Type.jpa)
     @SuppressWarnings("java:S1118")
     static class EntityScanConfig {
         @Bean
@@ -147,7 +165,27 @@ public class AvatarAutoConfiguration {
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
-    @EnableJpaRepositories(basePackages =  "studio.one.application.avatar.domain.repository") 
+    @ConditionalOnAvatarPersistence(PersistenceProperties.Type.jpa)
+    @EnableJpaRepositories(basePackageClasses = { AvatarImageJpaRepository.class, AvatarImageDataJpaRepository.class }) 
     static class JpaWiring {
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnAvatarPersistence(PersistenceProperties.Type.jdbc)
+    static class AvatarJdbcConfig {
+
+        @Bean
+        @ConditionalOnMissingBean(AvatarImageRepository.class)
+        AvatarImageRepository avatarImageJdbcRepository(
+                @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
+            return new AvatarImageJdbcRepository(template);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(AvatarImageDataRepository.class)
+        AvatarImageDataRepository avatarImageDataJdbcRepository(
+                @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
+            return new AvatarImageDataJdbcRepository(template);
+        }
     }
 }
