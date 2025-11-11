@@ -11,7 +11,7 @@ import studio.one.platform.constant.PropertyKeys;
  */
 @Getter
 @Setter
-@ConfigurationProperties(prefix = PropertyKeys.Security.Acl.Admin.PREFIX)
+@ConfigurationProperties(prefix = PropertyKeys.Security.Acl.PREFIX + ".web")
 public class SecurityAclAdminProperties {
 
     /**

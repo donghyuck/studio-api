@@ -16,14 +16,13 @@ import studio.one.base.security.acl.service.AclAdministrationService;
 import studio.one.base.security.acl.web.controller.AclAdminController;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(SecurityAclAdminProperties.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.Admin.PREFIX, name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX + ".web", name = "enabled", havingValue = "true")
 @Slf4j
 public class SecurityAclAdminAutoConfiguration {
 
