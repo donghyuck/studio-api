@@ -24,6 +24,7 @@ tasks.named<org.gradle.jvm.tasks.Jar>("jar").configure {
 
 dependencies {
     implementation(project(":studio-platform")) 
+    
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")

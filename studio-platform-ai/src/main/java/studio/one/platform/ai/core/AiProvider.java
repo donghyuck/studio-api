@@ -5,5 +5,6 @@ package studio.one.platform.ai.core;
  */
 public enum AiProvider {
     OPENAI,
-    OLLAMA
+    OLLAMA,
+    GOOGLE_AI_GEMINI
 }

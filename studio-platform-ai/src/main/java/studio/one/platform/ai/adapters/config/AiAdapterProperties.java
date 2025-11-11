@@ -17,6 +17,9 @@ public class AiAdapterProperties {
     @NestedConfigurationProperty
     private final OllamaProperties ollama = new OllamaProperties();
 
+    @NestedConfigurationProperty
+    private final GoogleAiGeminiProperties googleAiGemini = new GoogleAiGeminiProperties();
+
     public AiProvider getProvider() {
         return provider;
     }
@@ -33,10 +36,15 @@ public class AiAdapterProperties {
         return ollama;
     }
 
+    public GoogleAiGeminiProperties getGoogleAiGemini() {
+        return googleAiGemini;
+    }
+
     public static class OpenAiProperties {
         private String apiKey;
         private String baseUrl = "https://api.openai.com/v1";
         private String model = "text-embedding-3-small";
+        private String chatModel = "gpt-3.5-turbo";
 
         public String getApiKey() {
             return apiKey;
@@ -61,6 +69,14 @@ public class AiAdapterProperties {
         public void setModel(String model) {
             this.model = model;
         }
+
+        public String getChatModel() {
+            return chatModel;
+        }
+
+        public void setChatModel(String chatModel) {
+            this.chatModel = chatModel;
+        }
     }
 
     public static class OllamaProperties {
@@ -81,6 +97,63 @@ public class AiAdapterProperties {
 
         public void setModel(String model) {
             this.model = model;
+        }
+    }
+
+    public static class GoogleAiGeminiProperties {
+        private String apiKey;
+        private String baseUrl = "https://generativelanguage.googleapis.com/v1";
+        private String chatModel = "models/chat-bison-001";
+        private String embeddingModel = "textembedding-gecko-001";
+        private String taskType = "RETRIEVAL_DOCUMENT";
+        private String titleMetadataKey = "title";
+
+        public String getApiKey() {
+            return apiKey;
+        }
+
+        public void setApiKey(String apiKey) {
+            this.apiKey = apiKey;
+        }
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getChatModel() {
+            return chatModel;
+        }
+
+        public void setChatModel(String chatModel) {
+            this.chatModel = chatModel;
+        }
+
+        public String getEmbeddingModel() {
+            return embeddingModel;
+        }
+
+        public void setEmbeddingModel(String embeddingModel) {
+            this.embeddingModel = embeddingModel;
+        }
+
+        public String getTaskType() {
+            return taskType;
+        }
+
+        public void setTaskType(String taskType) {
+            this.taskType = taskType;
+        }
+
+        public String getTitleMetadataKey() {
+            return titleMetadataKey;
+        }
+
+        public void setTitleMetadataKey(String titleMetadataKey) {
+            this.titleMetadataKey = titleMetadataKey;
         }
     }
 }
