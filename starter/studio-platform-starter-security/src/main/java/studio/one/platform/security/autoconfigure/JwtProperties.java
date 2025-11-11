@@ -28,6 +28,7 @@ import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import studio.one.base.security.jwt.JwtConfig;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 
 /**
  * JWT(Json Web Token) 관련 설정 정보를 담는 클래스입니다.
@@ -69,6 +70,11 @@ public class JwtProperties implements JwtConfig {
 
     private Duration rotationGrace = Duration.ZERO;
 
+    /**
+     * Optional persistence override for refresh tokens.
+     */
+    private PersistenceProperties.Type persistence;
+
     private String header = "Authorization";
 
     private String prefix = "Bearer";
@@ -97,5 +103,12 @@ public class JwtProperties implements JwtConfig {
 
     /** 인증 없이 접근 허용할 패턴 */
     private List<String> permit = Arrays.asList("/api/auth/**");
+
+    public PersistenceProperties.Type resolvePersistence(PersistenceProperties.Type globalDefault) {
+        if (persistence != null) {
+            return persistence;
+        }
+        return globalDefault != null ? globalDefault : PersistenceProperties.Type.jpa;
+    }
 
 }

@@ -9,6 +9,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import javax.annotation.PostConstruct;
+
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -35,7 +38,11 @@ import studio.one.base.user.persistence.ApplicationRoleRepository;
 import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.platform.component.State;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.service.I18n;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -50,6 +57,15 @@ public class ApplicationGroupServiceImpl
     private final ApplicationGroupMembershipRepository membershipRepo;
     private final ApplicationGroupRoleRepository groupRoleRepo;
     private final JdbcTemplate jdbcTemplate;
+
+    private final ObjectProvider<I18n> i18nProvider;
+
+    @PostConstruct
+    void initialize() {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, "autoconfig.feature.service.details", "User",
+                LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZED.toString())));
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -130,11 +146,11 @@ public class ApplicationGroupServiceImpl
             return 0;
 
         final String sql = """
-        insert into tb_application_group_members (group_id, user_id, joined_at, joined_by) 
-        select ?, uid, coalesce(?, now()), ? 
-        from unnest(?::bigint[]) as uid 
-        on conflict (group_id, user_id) do nothing
-        """;
+                insert into tb_application_group_members (group_id, user_id, joined_at, joined_by)
+                select ?, uid, coalesce(?, now()), ?
+                from unnest(?::bigint[]) as uid
+                on conflict (group_id, user_id) do nothing
+                """;
 
         final String actor = (joinedBy == null || joinedBy.isEmpty()) ? "system" : joinedBy;
 
@@ -162,24 +178,25 @@ public class ApplicationGroupServiceImpl
     }
 
     // --- 롤 ---
-    public BatchResult updateGroupRolesBulk(Long groupId, List<Long> desired, String actor){
-        
-        List<Long> current = roleRepo.findRolesByGroupId(groupId).stream().map(Role::getRoleId).filter(Objects::nonNull).toList();
+    public BatchResult updateGroupRolesBulk(Long groupId, List<Long> desired, String actor) {
+
+        List<Long> current = roleRepo.findRolesByGroupId(groupId).stream().map(Role::getRoleId).filter(Objects::nonNull)
+                .toList();
         Set<Long> desiredSet = new HashSet<>(desired);
         Set<Long> currentSet = new HashSet<>(current);
 
         List<Long> toAssign = desiredSet.stream()
-        .filter(id -> !currentSet.contains(id))
-        .toList();
+                .filter(id -> !currentSet.contains(id))
+                .toList();
 
         List<Long> toRevoke = currentSet.stream()
-        .filter(id -> !desiredSet.contains(id))
-        .toList();
+                .filter(id -> !desiredSet.contains(id))
+                .toList();
 
         long inserted = toAssign.isEmpty() ? 0 : assignRolesBulk(groupId, toAssign, actor).getInserted();
-        long deleted  = toRevoke.isEmpty() ? 0 : groupRoleRepo.deleteByGroupIdAndRoleIds(groupId, toRevoke);
+        long deleted = toRevoke.isEmpty() ? 0 : groupRoleRepo.deleteByGroupIdAndRoleIds(groupId, toRevoke);
         long skipped = toAssign.size() - inserted;
-         return new BatchResult(desired.size(), inserted, skipped, deleted);
+        return new BatchResult(desired.size(), inserted, skipped, deleted);
     }
 
     public BatchResult assignRolesBulk(Long groupId, List<Long> roles, String actor) {
@@ -199,10 +216,10 @@ public class ApplicationGroupServiceImpl
         }
 
         final String sql = """
-        insert into tb_application_group_roles (group_id, role_id, assigned_at, assigned_by) 
-        select ?, uid, now(), ? from unnest(?::bigint[]) as uid 
-        on conflict (group_id, role_id) do nothing
-        """;
+                insert into tb_application_group_roles (group_id, role_id, assigned_at, assigned_by)
+                select ?, uid, now(), ? from unnest(?::bigint[]) as uid
+                on conflict (group_id, role_id) do nothing
+                """;
 
         final Long[] arr = valid.toArray(new Long[0]);
         final String assignedBy = (actor != null && !actor.isEmpty()) ? actor : "system";
@@ -232,7 +249,7 @@ public class ApplicationGroupServiceImpl
                 skipped++;
                 continue;
             }
-            ApplicationGroupRole gr = new ApplicationGroupRole(   );
+            ApplicationGroupRole gr = new ApplicationGroupRole();
             gr.setId(new ApplicationGroupRoleId(groupId, rid));
             gr.setAssignedBy(actor);
             groupRoleRepo.save(gr);
@@ -302,5 +319,5 @@ public class ApplicationGroupServiceImpl
                     return g;
                 });
     }
-    
+
 }

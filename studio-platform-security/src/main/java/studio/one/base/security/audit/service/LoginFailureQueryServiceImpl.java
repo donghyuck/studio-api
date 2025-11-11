@@ -21,22 +21,14 @@
 
 package studio.one.base.security.audit.service;
 
-import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.criteria.Predicate;
-import javax.persistence.criteria.Root;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
 import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
 
@@ -56,6 +48,7 @@ import studio.one.base.security.audit.domain.repository.LoginFailureLogRepositor
 
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class LoginFailureQueryServiceImpl implements LoginFailureQueryService {
 
     private final LoginFailureLogRepository repo;
@@ -63,46 +56,14 @@ public class LoginFailureQueryServiceImpl implements LoginFailureQueryService {
     @Override
     public Page<LoginFailureLog> find(LoginFailQuery q, Pageable pageable) {
         Pageable p = safePageable(pageable);
-        Specification<LoginFailureLog> spec = (root, cq, cb) -> {
-            List<Predicate> ps = new ArrayList<>();
-            if (q != null) {
-                // 날짜 범위
-                OffsetDateTime from = q.getFrom();
-                OffsetDateTime to = q.getTo();
-                if (from != null)
-                    ps.add(cb.greaterThanOrEqualTo(root.get("occurredAt"), from.toInstant()));
-                if (to != null)
-                    ps.add(cb.lessThan(root.get("occurredAt"), to.toInstant())); 
-                // username LIKE
-                setUsernameLike(q.getUsernameLike(), ps, root, cb); 
-                // ip equals (엔티티 컬럼명이 remoteIp 라고 가정)
-                setIpEquals(q.getIpEquals(), ps, root, cb); 
-                // failureType equals
-                setFailureType( q.getFailureType(), ps, root, cb);
-            }
-
-            return cb.and(ps.toArray(Predicate[]::new));
-        };
-        return repo.findAll(spec, p);
+        log.debug("[LoginFailureQuery] usernameLike={}, ipEquals={}, failureType={}, from={}, to={}",
+                q != null ? q.getUsernameLike() : null,
+                q != null ? q.getIpEquals() : null,
+                q != null ? q.getFailureType() : null,
+                q != null ? q.getFrom() : null,
+                q != null ? q.getTo() : null);
+        return repo.search(q, p);
     }
-
-    private void setUsernameLike(String usernameLike, List<Predicate> ps, Root<LoginFailureLog> root,
-            CriteriaBuilder cb) {
-        if (usernameLike != null && !usernameLike.isBlank())
-            ps.add(cb.like(cb.lower(root.get("username")), "%" + usernameLike.trim().toLowerCase() + "%"));
-    }
-
-    private void setIpEquals(String ipEquals, List<Predicate> ps, Root<LoginFailureLog> root, CriteriaBuilder cb) {
-        if (ipEquals != null && !ipEquals.isBlank()) {
-            ps.add(cb.equal(root.get("remoteIp"), ipEquals.trim()));
-        }
-    }
-
-    private void setFailureType(String failureType, List<Predicate> ps, Root<LoginFailureLog> root, CriteriaBuilder cb) {
-        if (failureType != null && !failureType.isBlank()) {
-            ps.add(cb.equal(root.get("failureType"), failureType.trim()));
-        }
-    }    
 
     private Pageable safePageable(Pageable pageable) {
         Sort defaultSort = Sort.by(Sort.Order.desc("occurredAt"));

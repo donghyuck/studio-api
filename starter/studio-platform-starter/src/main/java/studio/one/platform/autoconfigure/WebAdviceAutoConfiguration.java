@@ -9,11 +9,11 @@ import studio.one.platform.web.advice.GlobalExceptionHandler;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-public class PlatformWebAdviceAutoConfiguration {
+public class WebAdviceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public GlobalExceptionHandler globalExceptionHandler(studio.one.platform.service.I18n i18n) {
+    public GlobalExceptionHandler globalExceptionHandler( studio.one.platform.service.I18n i18n) {
         return new GlobalExceptionHandler(i18n);  
     }
 }

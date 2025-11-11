@@ -4,14 +4,19 @@ import java.time.Duration;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @Getter
 @Setter
+@EqualsAndHashCode(callSuper=false)
 @ConfigurationProperties(prefix = PropertyKeys.Security.Auth.LOCK)
-public class AccountLockProperties {
+public class AccountLockProperties extends FeatureToggle  { 
+
     /** 최대 실패 허용 횟수 (초과 시 잠금) */
     private int maxAttempts = 5;
 
@@ -23,4 +28,11 @@ public class AccountLockProperties {
 
     /** 성공 시 실패횟수/잠금 리셋 여부 */
     private boolean resetOnSuccess = true;
+
+    public PersistenceProperties.Type resolvePersistence(PersistenceProperties.Type globalDefault) {
+        if (getPersistence() != null) {
+            return getPersistence();
+        }
+        return globalDefault != null ? globalDefault : PersistenceProperties.Type.jpa;
+    }
 }

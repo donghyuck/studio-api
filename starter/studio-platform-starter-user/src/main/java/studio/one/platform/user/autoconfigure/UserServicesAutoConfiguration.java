@@ -2,6 +2,7 @@ package studio.one.platform.user.autoconfigure;
 
 import java.time.Clock;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -31,89 +32,96 @@ import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
 import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
 import studio.one.base.user.service.impl.ApplicationUserServiceImpl;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
-import studio.one.platform.service.Repository;
+import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@EnableConfigurationProperties({ UserFeatureProperties.class })
+@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
 @AutoConfigureAfter(UserEntityAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @Slf4j
 public class UserServicesAutoConfiguration {
 
-    private static final String FEATURE_NAME = "User";
-    private final I18n i18n;
-    
-    @Bean
-    @ConditionalOnMissingBean
-    public Clock jwtClock() {
-        return Clock.systemUTC();
-    }
+        private static final String FEATURE_NAME = "User";
+        private final ObjectProvider<I18n> i18nProvider;
 
-    @Bean(name = ApplicationUserService.SERVICE_NAME)
-    @ConditionalOnClass(ApplicationUserRepository.class)
-    @ConditionalOnMissingBean(ApplicationUserService.class)
-    public ApplicationUserService<?,?> applicationUserService(
-           @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
-            ApplicationUserRepository userRepo,
-            ApplicationRoleRepository roleRepo,
-            ApplicationGroupRepository groupRepo,
-            ApplicationUserRoleRepository userRoleRepo,
-            ApplicationGroupMembershipRepository membershipRepo,
-            ApplicationGroupRoleRepository groupRoleRepo,
-            PasswordEncoder passwordEncoder,
-            @Qualifier(ServiceNames.REPOSITORY) Repository repository,
-            Clock clock) {
+        @Bean
+        @ConditionalOnMissingBean
+        public Clock jwtClock() {
+                return Clock.systemUTC();
+        }
 
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(ApplicationUserServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        return new ApplicationUserServiceImpl(userRepo, roleRepo, groupRepo, userRoleRepo, membershipRepo,
-                jdbcTemplate, passwordEncoder, (DomainEvents) repository, clock);
-    }
+        @Bean(name = ApplicationUserService.SERVICE_NAME)
+        @ConditionalOnClass(ApplicationUserRepository.class)
+        @ConditionalOnMissingBean(ApplicationUserService.class)
+        public ApplicationUserService<?, ?> applicationUserService(
+                        @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
+                        ApplicationUserRepository userRepo,
+                        ApplicationRoleRepository roleRepo,
+                        ApplicationGroupRepository groupRepo,
+                        ApplicationUserRoleRepository userRoleRepo,
+                        ApplicationGroupMembershipRepository membershipRepo,
+                        ApplicationGroupRoleRepository groupRoleRepo,
+                        ObjectProvider<PasswordEncoder> passwordEncoder,
+                        @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider,
+                        Clock clock) {
 
-    @Bean(name = ApplicationGroupService.SERVICE_NAME)
-    @ConditionalOnMissingBean(ApplicationGroupService.class)
-    @ConditionalOnClass({ ApplicationGroupRepository.class })
-    public ApplicationGroupService applicationGroupService(
-            @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
-            ApplicationGroupRepository groupRepo,
-            ApplicationUserRepository userRepo,
-            ApplicationRoleRepository userRoleRepo,
-            ApplicationGroupMembershipRepository membershipRepo,
-            ApplicationGroupRoleRepository groupRoleRepo) {
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(ApplicationGroupServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        return new ApplicationGroupServiceImpl(groupRepo, userRepo, userRoleRepo, membershipRepo, groupRoleRepo,
-                jdbcTemplate);
-    }
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationUserServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationUserServiceImpl(userRepo, roleRepo, groupRepo, userRoleRepo, membershipRepo,
+                                jdbcTemplate, passwordEncoder, domainEventsProvider, clock, i18nProvider);
+        }
 
-    @Bean(name = ApplicationRoleService.SERVICE_NAME)
-    @ConditionalOnMissingBean(ApplicationRoleRepository.class)
-    @ConditionalOnClass({ ApplicationRoleRepository.class })
-    public ApplicationRoleService applicationRoleService(
-        @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
-        ApplicationRoleRepository roleRepo,
-        ApplicationGroupRoleRepository groupRoleRepo,
-        ApplicationUserRoleRepository userRoleRepo
-        ) {
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(ApplicationRoleServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        return new ApplicationRoleServiceImpl(roleRepo, groupRoleRepo, userRoleRepo, jdbcTemplate);
-    }
+        @Bean(name = ApplicationGroupService.SERVICE_NAME)
+        @ConditionalOnMissingBean(ApplicationGroupService.class)
+        @ConditionalOnClass({ ApplicationGroupRepository.class })
+        public ApplicationGroupService applicationGroupService(
+                        @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
+                        ApplicationGroupRepository groupRepo,
+                        ApplicationUserRepository userRepo,
+                        ApplicationRoleRepository userRoleRepo,
+                        ApplicationGroupMembershipRepository membershipRepo,
+                        ApplicationGroupRoleRepository groupRoleRepo) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationGroupServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationGroupServiceImpl(groupRepo, userRepo, userRoleRepo, membershipRepo, groupRoleRepo,
+                                jdbcTemplate, i18nProvider);
+        }
 
-    @Bean(name = ApplicationCompanyService.SERVICE_NAME)
-    @ConditionalOnMissingBean(ApplicationCompanyService.class)
-    @ConditionalOnClass({ ApplicationCompanyRepository.class })
-    public ApplicationCompanyService applicationCompanyService(ApplicationCompanyRepository companyRepo) {
+        @Bean(name = ApplicationRoleService.SERVICE_NAME)
+        @ConditionalOnMissingBean(ApplicationRoleRepository.class)
+        @ConditionalOnClass({ ApplicationRoleRepository.class })
+        public ApplicationRoleService applicationRoleService(
+                        @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
+                        ApplicationRoleRepository roleRepo,
+                        ApplicationGroupRoleRepository groupRoleRepo,
+                        ApplicationUserRoleRepository userRoleRepo) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationRoleServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationRoleServiceImpl(roleRepo, groupRoleRepo, userRoleRepo, jdbcTemplate, i18nProvider);
+        }
 
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(ApplicationCompanyServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        return new ApplicationCompanyServiceImpl(companyRepo);
-    }
+        @Bean(name = ApplicationCompanyService.SERVICE_NAME)
+        @ConditionalOnMissingBean(ApplicationCompanyService.class)
+        @ConditionalOnClass({ ApplicationCompanyRepository.class })
+        public ApplicationCompanyService applicationCompanyService(ApplicationCompanyRepository companyRepo) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationCompanyServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationCompanyServiceImpl(companyRepo, i18nProvider);
+        }
 }

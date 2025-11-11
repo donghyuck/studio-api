@@ -1,13 +1,15 @@
 package studio.one.base.user.service.impl;
- 
+
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Consumer; 
+import java.util.function.Consumer;
 
+import javax.annotation.PostConstruct;
 import javax.transaction.Transactional;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -27,6 +29,10 @@ import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.exception.RoleNotFoundException;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.platform.component.State;
+import studio.one.platform.service.I18n;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +45,15 @@ public class ApplicationRoleServiceImpl
     private final ApplicationGroupRoleRepository groupRoleRepo;
     private final ApplicationUserRoleRepository userRoleRepo;
     private final JdbcTemplate jdbcTemplate;
+
+    private final ObjectProvider<I18n> i18nProvider;
+
+    @PostConstruct
+    void initialize() {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, "autoconfig.feature.service.details", "User",
+                LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZED.toString())));
+    }
 
     @Transactional(Transactional.TxType.SUPPORTS)
     public Page<ApplicationRole> getRoles(Pageable pageable) {
@@ -65,16 +80,16 @@ public class ApplicationRoleServiceImpl
 
     @Override
     public ApplicationRole createRole(ApplicationRole role) {
-        if( ! role.getName().startsWith("ROLE_"))
+        if (!role.getName().startsWith("ROLE_"))
             throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
         return roleRepo.save(role);
     }
 
     @Override
-    public ApplicationRole updateRole(Long roleId, Consumer<ApplicationRole> mutator) { 
-        ApplicationRole r = getRoleById(roleId); 
+    public ApplicationRole updateRole(Long roleId, Consumer<ApplicationRole> mutator) {
+        ApplicationRole r = getRoleById(roleId);
         mutator.accept(r);
-        if( ! r.getName().startsWith("ROLE_"))
+        if (!r.getName().startsWith("ROLE_"))
             throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
         return roleRepo.save(r);
     }
@@ -167,11 +182,11 @@ public class ApplicationRoleServiceImpl
         final Long[] arr = candidates.toArray(new Long[0]);
 
         final String sql = """
-        insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)
-        select uid, ?, coalesce(?, now()), ?
-        from unnest(?::bigint[]) as uid 
-        on conflict (user_id, role_id) do nothing
-        """;
+                insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)
+                select uid, ?, coalesce(?, now()), ?
+                from unnest(?::bigint[]) as uid
+                on conflict (user_id, role_id) do nothing
+                """;
         int inserted = jdbcTemplate.update(con -> {
             final java.sql.PreparedStatement ps = con.prepareStatement(sql);
             ps.setLong(1, roleId);

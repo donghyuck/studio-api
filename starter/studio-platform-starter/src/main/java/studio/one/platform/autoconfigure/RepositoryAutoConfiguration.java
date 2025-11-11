@@ -32,8 +32,10 @@ import org.springframework.core.env.Environment;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.autoconfigure.features.i18n.PlatformI18nAutoConfiguration;
+import studio.one.platform.autoconfigure.features.i18n.I18nAutoConfiguration;
+import studio.one.platform.autoconfigure.features.properties.PropertiesAutoConfiguration;
 import studio.one.platform.component.RepositoryImpl;
+import studio.one.platform.component.YamlApplicationProperties;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.ApplicationProperties;
 import studio.one.platform.service.I18n;
@@ -57,9 +59,9 @@ import studio.one.platform.util.I18nUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@AutoConfigureAfter({ PlatformPropertiesAutoConfiguration.class, PlatformI18nAutoConfiguration.class })
+@AutoConfigureAfter({ PropertiesAutoConfiguration.class, I18nAutoConfiguration.class })
 @Slf4j
-public class PlatformRepositoryAutoConfiguration {
+public class RepositoryAutoConfiguration {
     /**
      * ==============================
      * Repository Component
@@ -71,7 +73,14 @@ public class PlatformRepositoryAutoConfiguration {
             ObjectProvider<I18n> i18nProvider,
             Environment env,
             ApplicationEventPublisher applicationEventPublisher) {
-        return new RepositoryImpl(applicationProperties, I18nUtils.resolve(i18nProvider), env, applicationEventPublisher);
+        return new RepositoryImpl(applicationProperties, I18nUtils.resolve(i18nProvider), env,
+                applicationEventPublisher);
     }
 
+    @ConditionalOnMissingBean
+    @Bean(name = ServiceNames.APPLICATION_PROPERTIES)
+    public ApplicationProperties applicationPropertiesFallback(Environment environment,
+            ObjectProvider<I18n> i18nProvider) {
+        return new YamlApplicationProperties(environment, I18nUtils.resolve(i18nProvider));
+    }
 }

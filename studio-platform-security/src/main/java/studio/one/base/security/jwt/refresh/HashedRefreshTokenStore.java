@@ -114,6 +114,7 @@ public class HashedRefreshTokenStore implements RefreshTokenStore {
         // replacedBy 연결(선택)
         String[] nextParts = split(nextRaw);
         refreshTokenRepository.findBySelector(nextParts[0]).ifPresent(current::setReplacedBy);
+        refreshTokenRepository.save(current);
         return nextRaw ;
     }
 

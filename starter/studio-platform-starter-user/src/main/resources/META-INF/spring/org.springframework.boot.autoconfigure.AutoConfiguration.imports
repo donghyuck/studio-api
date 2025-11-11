@@ -1,3 +1,2 @@
 studio.one.platform.user.autoconfigure.UserEntityAutoConfiguration
-studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration
 studio.one.platform.user.autoconfigure.UserEndpointsAutoConfiguration

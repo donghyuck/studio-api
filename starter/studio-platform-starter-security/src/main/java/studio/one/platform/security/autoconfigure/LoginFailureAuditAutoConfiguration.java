@@ -26,26 +26,30 @@ import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.DefaultAuthenticationEventPublisher;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.web.mapper.LoginFailureLogMapperImpl;
 import studio.one.base.security.audit.LoginFailureEventListener;
 import studio.one.base.security.audit.LoginFailureLogRetentionJob;
 import studio.one.base.security.audit.LoginSuccessEventListener;
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
+import studio.one.base.security.audit.domain.repository.LoginFailureLogJdbcRepository;
+import studio.one.base.security.audit.domain.repository.LoginFailureLogJpaRepository;
 import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
 import studio.one.base.security.audit.service.LoginFailureQueryService;
 import studio.one.base.security.audit.service.LoginFailureQueryServiceImpl;
 import studio.one.base.security.authentication.AccountLockService;
 import studio.one.base.security.web.controller.LoginFailureLogController;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
+import studio.one.base.security.web.mapper.LoginFailureLogMapperImpl;
 import studio.one.base.user.web.mapper.TimeMapper;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
+import studio.one.platform.security.autoconfigure.condition.ConditionalOnLoginFailurePersistence;
 
 /**
  *
@@ -62,7 +66,7 @@ import studio.one.platform.util.LogUtils;
  */
 
 @AutoConfiguration
-@EnableConfigurationProperties(AuditProperties.class)
+@EnableConfigurationProperties({ AuditProperties.class, PersistenceProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE, name = "enabled", havingValue = "true")
 @Slf4j
 public class LoginFailureAuditAutoConfiguration {
@@ -76,11 +80,12 @@ public class LoginFailureAuditAutoConfiguration {
     @ConditionalOnMissingBean
     LoginFailureQueryService loginFailureQueryService(
             LoginFailureLogRepository repository,
-            @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate namedParameterJdbcTemplate,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(LoginFailureQueryService.class, true), LogUtils.red(State.CREATED.toString())));
+        boolean isJdbc = repository instanceof LoginFailureLogJdbcRepository ;
+        log.info("Using LoginFailureLogRepository: {}", LogUtils.green(  isJdbc ? LoginFailureLogJdbcRepository.class: LoginFailureLogJpaRepository.class, true ));        
         return new LoginFailureQueryServiceImpl(repository);
     }
 
@@ -180,6 +185,7 @@ public class LoginFailureAuditAutoConfiguration {
 
     @Configuration
     @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
+    @ConditionalOnLoginFailurePersistence(PersistenceProperties.Type.jpa)
     @SuppressWarnings("java:S1118")
     static class EntityScanConfig {
         @Bean
@@ -195,7 +201,19 @@ public class LoginFailureAuditAutoConfiguration {
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
+    @ConditionalOnLoginFailurePersistence(PersistenceProperties.Type.jpa)
     @EnableJpaRepositories(basePackages =   "studio.one.base.security.audit.domain.repository")
     static class JpaWiring {
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnLoginFailurePersistence(PersistenceProperties.Type.jdbc)
+    static class JdbcWiring {
+        @Bean
+        @ConditionalOnMissingBean(LoginFailureLogRepository.class)
+        LoginFailureLogRepository loginFailureLogJdbcRepository(
+                @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
+            return new LoginFailureLogJdbcRepository(template);
+        }
     }
 }
