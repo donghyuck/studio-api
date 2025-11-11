@@ -45,6 +45,10 @@ public class AclAdministrationService {
         return toDto(classRepository.save(entity));
     }
 
+    public void deleteClass(Long id) {
+        classRepository.deleteById(id);
+    }
+
     public List<AclSidDto> listSids() {
         return sidRepository.findAll().stream()
                 .map(this::toDto)
@@ -56,6 +60,10 @@ public class AclAdministrationService {
         entity.setSid(request.getSid().trim());
         entity.setPrincipal(request.isPrincipal());
         return toDto(sidRepository.save(entity));
+    }
+
+    public void deleteSid(Long id) {
+        sidRepository.deleteById(id);
     }
 
     public List<AclObjectIdentityDto> listObjectIdentities() {
@@ -82,6 +90,10 @@ public class AclAdministrationService {
         return toDto(objectIdentityRepository.save(entity));
     }
 
+    public void deleteObjectIdentity(Long id) {
+        objectIdentityRepository.deleteById(id);
+    }
+
     public List<AclEntryDto> listEntries() {
         return entryRepository.findAll().stream()
                 .map(this::toDto)
@@ -102,6 +114,10 @@ public class AclAdministrationService {
         entry.setAuditSuccess(request.isAuditSuccess());
         entry.setAuditFailure(request.isAuditFailure());
         return toDto(entryRepository.save(entry));
+    }
+
+    public void deleteEntry(Long id) {
+        entryRepository.deleteById(id);
     }
 
     private AclClassDto toDto(AclClassEntity entity) {
