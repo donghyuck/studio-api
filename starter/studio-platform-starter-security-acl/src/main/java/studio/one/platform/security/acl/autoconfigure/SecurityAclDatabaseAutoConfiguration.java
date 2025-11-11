@@ -21,6 +21,7 @@
 
 package studio.one.platform.security.acl.autoconfigure;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -56,8 +57,11 @@ import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.security.authz.AclProperties;
+import studio.one.platform.security.authz.AllowAllEndpointModeGuard;
 import studio.one.platform.security.authz.DomainPolicyContributor;
 import studio.one.platform.security.authz.DomainPolicyRegistry;
+import studio.one.platform.security.authz.DomainPolicyRegistryImpl;
 import studio.one.platform.security.authz.EndpointAuthorizationImpl;
 import studio.one.platform.security.authz.EndpointModeGuard;
 import studio.one.platform.service.I18n;
@@ -162,9 +166,22 @@ public class SecurityAclDatabaseAutoConfiguration {
                 return new DatabaseAclDomainPolicyContributor(repository, resourceMapper, permissionMapper);
         }
 
+        @Bean(name = ServiceNames.DOMAIN_POLICY_REGISTRY)
+        @ConditionalOnMissingBean
+        public DomainPolicyRegistry domainPolicyRegistry(
+                        ObjectProvider<List<DomainPolicyContributor>> contributors) {
+                return new DomainPolicyRegistryImpl(new AclProperties(), contributors);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(EndpointModeGuard.class)
+        public EndpointModeGuard endpointModeGuard() {
+                return new AllowAllEndpointModeGuard();
+        }
+
         /** SpEL: @endpointAuthz.can('domain','component','action') */
         @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
-        //@ConditionalOnBean({ DomainPolicyRegistry.class, EndpointModeGuard.class })
+        @ConditionalOnBean({ DomainPolicyRegistry.class, EndpointModeGuard.class })
         @ConditionalOnMissingBean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
         public EndpointAuthorizationImpl endpointAuthorization(
                         DomainPolicyRegistry registry,

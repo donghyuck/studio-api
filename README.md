@@ -139,7 +139,7 @@ Studio Api 는 component, starter 모듈들로 구성된다.
 - **회사(Company)** – 회사 정보를 등록/조회하여 멀티 테넌시 시나리오를 지원한다.【F:studio-platform-user/src/main/java/studio/one/base/user/web/controller/CompanyController.java†L1-L165】
 - **자기 조회(Self)** – 인증된 사용자가 자신의 프로필을 `/api/self` 경로에서 조회할 수 있다.【F:studio-platform-user/src/main/java/studio/one/base/user/web/controller/MeController.java†L1-L106】
 
-모든 엔드포인트는 `studio.features.user.web.base-path` (기본값 `/api/mgmt`) 하위에 노출되며, `@PreAuthorize` 가 붙은 세부 권한 검사를 통해 역할 기반 접근 제어를 적용한다.【F:studio-platform-user/src/main/java/studio/one/base/user/web/controller/UserController.java†L54-L160】【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/WebProperties.java†L18-L86】
+모든 엔드포인트는 `studio.features.user.web.base-path` (기본값 `/api/mgmt`) 하위에 노출되며, `@PreAuthorize` 가 붙은 세부 권한 검사를 통해 역할 기반 접근 제어를 적용한다.【F:studio-platform-user/src/main/java/studio/one/base/user/web/controller/UserController.java†L54-L160】【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/WebProperties.java†L18-L59】
 
 ### 사용 방법
 
@@ -164,7 +164,7 @@ Studio Api 는 component, starter 모듈들로 구성된다.
 
    기본 JPA 레포지토리/엔티티 패키지는 스타터가 제공하지만, 필요 시 `studio.features.user.repository-packages`, `studio.features.user.entity-packages`, `studio.features.user.component-packages` 로 커스터마이징할 수 있다.【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/UserFeatureProperties.java†L16-L44】
 
-3. **엔드포인트 구성** – 각 도메인 엔드포인트는 `studio.features.user.web.endpoints.<user|group|role|company>` 설정으로 개별 활성화/권한 모드를 조정할 수 있으며, 기본 역할 요구 사항은 `ADMIN`/`MANAGER` 조합으로 제공된다.【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/WebProperties.java†L24-L86】【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/UserEndpointsAutoConfiguration.java†L33-L121】
+3. **엔드포인트 구성** – 각 도메인 엔드포인트는 `studio.features.user.web.endpoints.<user|group|role|company>` 설정으로 개별 활성화 여부만 제어하며, 세부 권한 정책은 `studio.security.acl` 설정이나 DB 기반 ACL 정책으로 관리한다.【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/WebProperties.java†L18-L59】【F:starter/studio-platform-starter-security/src/main/java/studio/one/platform/security/autoconfigure/SecurityAclAutoConfiguration.java†L30-L48】【F:starter/studio-platform-starter-security-acl/src/main/java/studio/one/platform/security/acl/autoconfigure/SecurityAclDatabaseAutoConfiguration.java†L135-L177】
 
 4. **도메인 서비스 확장** – `ApplicationUserService`, `ApplicationGroupService`, `ApplicationRoleService`, `ApplicationCompanyService` 인터페이스와 기본 구현이 빈으로 등록되므로, 커스터마이징이 필요한 경우 동일한 인터페이스를 구현한 빈을 제공하여 교체할 수 있다.【F:studio-platform-user/src/main/java/studio/one/base/user/service/ApplicationUserService.java†L1-L82】【F:studio-platform-user/src/main/java/studio/one/base/user/service/impl/ApplicationUserServiceImpl.java†L1-L200】【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/UserServicesAutoConfiguration.java†L1-L120】
 
@@ -223,6 +223,46 @@ Studio Api 는 component, starter 모듈들로 구성된다.
    - `AccountLockService`, `LoginFailureQueryService`, `RefreshTokenStore` 는 빈 대체가 가능하므로, 필요 시 커스텀 구현을 동일한 인터페이스 이름으로 등록하면 자동으로 교체된다.
 
 이렇게 하면 인증/토큰/로그 감사/계정 잠금 기능을 손쉽게 애플리케이션에 붙일 수 있으며, 각 기능의 저장소 방식을 속성만으로 독립적으로 제어할 수 있다.
+
+### ACL 기본 정책 시딩
+
+`studio-platform-security-acl` 스타터는 `studio.security.acl.defaults` 설정을 통해 `tb_application_role` 등 기존 역할 테이블에 정의된 `ROLE_*` 정보를 ACL 테이블( `acl_sid`, `acl_class`, `acl_object_identity`, `acl_entry` )로 쉽게 전파할 수 있습니다. `AclPolicySeeder`는 `DefaultAclPolicyProperties`로 선언된 도메인/컴포넌트별 정책을 읽어서 필요한 행을 `INSERT ... ON CONFLICT` 방식으로 적재하고, 이후 `DatabaseAclDomainPolicyContributor`가 해당 정보를 읽어 `@endpointAuthz`로 노출합니다. 예:
+
+```yaml
+studio:
+  security:
+    acl:
+      defaults:
+        enabled: true
+        policies:
+          - domain: user
+            roles:
+              - role: ROLE_ADMIN
+                actions: [READ, WRITE, ADMIN]
+              - role: ROLE_MANAGER
+                actions: [READ]
+          - domain: group
+            component: members
+            roles:
+              - role: ROLE_ADMIN
+                actions: [READ, WRITE]
+```
+
+`domain`/`component` 이름은 자동으로 소문자·하이픈으로 정규화되고, `actions`에는 `READ`, `WRITE`, `ADMIN` 중 하나 이상을 지정해 ACL 마스크를 생성합니다. `ROLE_*` 이름은 `studio-platform-user` 모듈에서 이미 관리중인 역할과 일치시킬 수 있으므로, 기존 역할/그룹 기능을 활용하면서 ACL 기반 권한 평가를 쉽게 연결할 수 있습니다.
+
+### ACL Web API
+
+`studio.security.acl.web.enabled=true`로 설정하면 기본 경로 `/api/mgmt/acl` 아래에 다음 엔드포인트가 자동으로 공개됩니다.
+
+```
+GET  /api/mgmt/acl/defaults       → 현재 등록된 service/policy descriptor 목록
+POST /api/mgmt/acl/sync           → body로 단일 descriptor를 받아 즉시 ACL 테이블에 동기화
+POST /api/mgmt/acl/sync/defaults  → YAML/프로퍼티로 정의한 defaults 전체를 다시 동기화
+```
+
+`studio.security.acl.web.base-path` 값을 변경하면 해당 경로 아래로 API가 이동하고, `AclPolicySynchronizationService`를 직접 주입하거나 `AclPolicySyncEvent`를 publish하여 추가적인 배치/이벤트 핸들링을 만들 수 있습니다. 이벤트 핸들러는 `studio.security.acl.sync.enabled=false`로 끌 수 있어 컨트롤러로만 수동 처리하는 구성도 가능합니다.
+
+`AclPolicySynchronizationService`를 `@Autowired` 받아 `AclPolicyDescriptor`를 직접 전달하거나, `ApplicationEventPublisher`/`DomainEvents`로 `AclPolicySyncEvent`를 발생시켜 배치·이벤트 기반으로 동기화할 수 있습니다. `studio.security.acl.sync.enabled=false` 로 설정하면 이벤트 리스너는 비활성화되므로 배치 서비스나 커스텀 핸들러만 동작하게 됩니다. 이는 새 그룹/롤이 등록되었을 때 ACL 테이블을 강제로 최신 상태로 만들거나, 주기적으로 검증하는 배치/스케줄러에서 유용합니다.
 
 ## Create dababase (postgres)
 
