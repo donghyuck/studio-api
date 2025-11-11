@@ -36,8 +36,6 @@ import studio.one.base.security.audit.persistence.jpa.LoginFailureLogJpaReposito
 import studio.one.base.security.audit.service.LoginFailureQueryService;
 import studio.one.base.security.audit.service.LoginFailureQueryServiceImpl;
 import studio.one.base.security.authentication.lock.service.AccountLockService;
-import studio.one.base.security.jwt.refresh.persistence.jdbc.RefreshTokenJdbcRepository;
-import studio.one.base.security.jwt.refresh.persistence.jpa.RefreshTokenJpaRepository;
 import studio.one.base.security.web.controller.LoginFailureLogController;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
 import studio.one.base.security.web.mapper.LoginFailureLogMapperImpl;
