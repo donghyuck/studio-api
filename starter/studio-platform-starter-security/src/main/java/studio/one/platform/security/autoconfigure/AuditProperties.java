@@ -10,6 +10,7 @@ import org.springframework.validation.annotation.Validated;
 
 import lombok.Getter;
 import lombok.Setter;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @Getter
@@ -26,6 +27,8 @@ public class AuditProperties {
     public static class LoginFailure {
         /** 기능 온/오프 */
         private boolean enabled = true;
+
+         private PersistenceProperties.Type persistence ;
 
         /** 비동기 저장 여부 */
         private boolean async = true;
@@ -46,6 +49,13 @@ public class AuditProperties {
         private double sampling = 1.0;
 
         private WebProperties web = new WebProperties();
+
+        public PersistenceProperties.Type resolvePersistence(PersistenceProperties.Type globalDefault) {
+            if (persistence != null) {
+                return persistence;
+            }
+            return globalDefault != null ? globalDefault : PersistenceProperties.Type.jpa;
+        }
         
     }
 }

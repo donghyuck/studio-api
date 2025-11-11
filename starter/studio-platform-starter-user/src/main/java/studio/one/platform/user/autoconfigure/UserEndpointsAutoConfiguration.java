@@ -88,7 +88,7 @@ public class UserEndpointsAutoConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX  + ".group", name = "enabled", havingValue = "true")
     public GroupController groupEndpoint(
-        ApplicationGroupService<Group, Role, User> svc, 
+        ApplicationGroupService svc, 
         ApplicationGroupMapper groupMapper,
         ApplicationUserMapper userMapper,
         ApplicationRoleMapper roleMapper) {
@@ -102,7 +102,10 @@ public class UserEndpointsAutoConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
             + ".user", name = "enabled", havingValue = "true")
-    public UserController userEndpoint(ApplicationUserService<User, Role> svc, ApplicationUserMapper mapper,  ApplicationRoleMapper roleMapper) {
+    public UserController userEndpoint(
+        ApplicationUserService svc, 
+        ApplicationUserMapper mapper,  
+        ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserController.class, true),
@@ -115,8 +118,10 @@ public class UserEndpointsAutoConfiguration {
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
             + ".role", name = "enabled", havingValue = "true")
     public RoleController roleEndpoint(
-        ApplicationRoleService svc, ApplicationRoleMapper mapper,
-        ApplicationGroupMapper gmapper, ApplicationUserMapper umapper
+        ApplicationRoleService svc, 
+        ApplicationRoleMapper mapper,
+        ApplicationGroupMapper gmapper, 
+        ApplicationUserMapper umapper
         ) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationRoleService.class, true),
@@ -127,7 +132,9 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX , name = "enabled", havingValue = "true", matchIfMissing = true )
-    public MeController selfEndpoint(ApplicationUserService<User, Role> svc, ApplicationUserMapper mapper) {
+    public MeController selfEndpoint(
+        ApplicationUserService svc, 
+        ApplicationUserMapper mapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue("Self"),
                 LogUtils.blue(MeController.class, true),

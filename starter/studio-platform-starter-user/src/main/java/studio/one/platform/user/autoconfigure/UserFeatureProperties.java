@@ -22,6 +22,9 @@ public class UserFeatureProperties extends FeatureToggle {
 
     public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jpa";
 
+    /** JDBC 구현 패키지 경로 (필요 시 repository-packages에 설정) */
+    public static final String JDBC_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jdbc";
+
     public static final String DEFAULT_ENTITY_PACKAGE = "studio.one.base.user.domain.entity";
 
     public static final String DEFAULT_COMPONENT_PACKAGE = "studio.one.base.user.service.impl";
@@ -35,6 +38,10 @@ public class UserFeatureProperties extends FeatureToggle {
     @NotEmpty(message = "studio.features.user.repository-packages must not be empty when feature is enabled")
     private List<String> repositoryPackages = List.of(DEFAULT_REPOSITORY_PACKAGE);
 
+    /** JDBC 구현 사용 시 스캔할 리포지토리 패키지 */
+    @NotEmpty(message = "studio.features.user.jdbc-repository-packages must not be empty when feature is enabled")
+    private List<String> jdbcRepositoryPackages = List.of(JDBC_REPOSITORY_PACKAGE);
+
     /** 선택: 엔티티 패키지 — 디폴트 제공 */
     @NotEmpty(message = "studio.features.user.entity-packages must not be empty when feature is enabled")
     private List<String> entityPackages = List.of(DEFAULT_ENTITY_PACKAGE);
@@ -42,5 +49,4 @@ public class UserFeatureProperties extends FeatureToggle {
     /** (선택) 컴포넌트 스캔 패키지들 */
     private List<String> componentPackages = List.of(DEFAULT_COMPONENT_PACKAGE);
 
- 
 }

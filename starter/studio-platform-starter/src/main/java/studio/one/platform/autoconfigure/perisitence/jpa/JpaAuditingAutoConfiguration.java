@@ -25,7 +25,7 @@ import studio.one.platform.constant.PropertyKeys;
 @EnableConfigurationProperties(JpaAuditingProperties.class)
 @ConditionalOnClass(EnableJpaAuditing.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Persistence.Jpa.Auditing.PREFIX, name = "enabled", havingValue = "true")
-public class PlatformJpaAuditingAutoConfiguration {
+public class JpaAuditingAutoConfiguration {
 
     @Configuration
     @EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider", auditorAwareRef = "auditorAware")

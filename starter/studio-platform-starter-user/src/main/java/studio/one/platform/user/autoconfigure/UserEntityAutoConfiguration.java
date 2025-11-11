@@ -20,13 +20,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
+import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersistence;
 import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @ConditionalOnClass(EnableJpaRepositories.class)
-@EnableConfigurationProperties({ UserFeatureProperties.class })
+@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @Slf4j
 @SuppressWarnings("java:S1118")
@@ -34,15 +36,14 @@ public class UserEntityAutoConfiguration {
  
     @Configuration
     @AutoConfigureBefore(HibernateJpaAutoConfiguration.class) 
+    @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
     @SuppressWarnings("java:S1118")
     static class EntityScanConfig {
 
         @Bean
-        static BeanDefinitionRegistryPostProcessor userEntityScanRegistrar(Environment env, I18n i18n) { 
-             
+        static BeanDefinitionRegistryPostProcessor userEntityScanRegistrar(Environment env, I18n i18n) {  
             final String propKey = PropertyKeys.Features.User.PREFIX + ".entity-packages";
             final String defaultPkg = UserFeatureProperties.DEFAULT_ENTITY_PACKAGE;
-
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, "User",  propKey, defaultPkg));
             String configured = env.getProperty(propKey);
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.CONFIG, "User",  propKey, configured )); 
@@ -56,9 +57,21 @@ public class UserEntityAutoConfiguration {
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(HibernateJpaAutoConfiguration.class)
     @ConditionalOnBean(EntityManagerFactory.class)
+    @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
     @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".repository-packages:" + UserFeatureProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
-    @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".component-packages:" + UserFeatureProperties.DEFAULT_COMPONENT_PACKAGE + "}")
     static class JpaWiring {
     }
 
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnUserPersistence(PersistenceProperties.Type.jdbc)
+    @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".jdbc-repository-packages:" + UserFeatureProperties.JDBC_REPOSITORY_PACKAGE + "}")
+    static class JdbcWiring {
+    }
+
+
+    @Configuration(proxyBeanMethods = false) 
+    @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".component-packages:" + UserFeatureProperties.DEFAULT_COMPONENT_PACKAGE + "}")
+    static class UserComponentScan {
+        
+    }
 }

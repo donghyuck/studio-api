@@ -1,6 +1,6 @@
-studio.one.platform.autoconfigure.features.i18n.PlatformI18nAutoConfiguration
-studio.one.platform.autoconfigure.perisitence.jdbc.PlatformJdbcAutoConfiguration
-studio.one.platform.autoconfigure.perisitence.jpa.PlatformJpaAuditingAutoConfiguration
-studio.one.platform.autoconfigure.PlatformPropertiesAutoConfiguration
-studio.one.platform.autoconfigure.PlatformRepositoryAutoConfiguration
-studio.one.platform.autoconfigure.PlatformWebAdviceAutoConfiguration 
+studio.one.platform.autoconfigure.features.i18n.I18nAutoConfiguration
+studio.one.platform.autoconfigure.perisitence.jdbc.JdbcAutoConfiguration
+studio.one.platform.autoconfigure.perisitence.jpa.JpaAuditingAutoConfiguration
+studio.one.platform.autoconfigure.features.properties.PropertiesAutoConfiguration
+studio.one.platform.autoconfigure.RepositoryAutoConfiguration
+studio.one.platform.autoconfigure.WebAdviceAutoConfiguration 

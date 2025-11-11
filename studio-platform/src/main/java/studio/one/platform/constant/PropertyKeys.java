@@ -108,6 +108,11 @@ public class PropertyKeys {
             }
         }
 
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Cors {
+            public static final String PREFIX = Security.PREFIX + ".cors";
+        }
+
     }
 
     /**

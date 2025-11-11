@@ -55,6 +55,7 @@ import lombok.Setter;
 @Getter
 @Setter
 public class CorsProperties {
+    private boolean enabled = true;
     private List<String> allowedOrigins;
     private List<String> allowedOriginPatterns;
     private List<String> allowedMethods;

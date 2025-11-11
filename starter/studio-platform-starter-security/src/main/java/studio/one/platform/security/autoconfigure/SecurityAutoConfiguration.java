@@ -54,8 +54,6 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.authentication.AccountLockService;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 import studio.one.base.security.userdetails.ApplicationUserDetailsService;
-import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -69,7 +67,7 @@ import studio.one.platform.util.LogUtils;
 @EnableConfigurationProperties(SecurityProperties.class)
 @AutoConfigureAfter(name = "studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration")
 @ConditionalOnClass({ HttpSecurity.class, PasswordEncoder.class })
-@ConditionalOnProperty(prefix = PropertyKeys.Security.PREFIX, name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = PropertyKeys.Security.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
 @SuppressWarnings("java:S1118")
@@ -130,14 +128,17 @@ public class SecurityAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(PasswordEncoder.class, true),
                 LogUtils.red(State.CREATED.toString())));
+
         return new DelegatingPasswordEncoder(idForEncode, encoders);
     }
 
     @Primary
     @Bean(name = ServiceNames.CORS_CONFIGURATION_SOURCE)
     @ConditionalOnMissingBean(name = ServiceNames.CORS_CONFIGURATION_SOURCE)
-    public CorsConfigurationSource corsConfigurationSource(SecurityProperties properties,
-            ObjectProvider<I18n> i18nProvider) {
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Cors.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+    public CorsConfigurationSource corsConfigurationSource(
+        SecurityProperties properties,
+        ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         CorsConfiguration config = new CorsConfiguration();
 
@@ -196,12 +197,12 @@ public class SecurityAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnClass({ AuthenticationErrorHandler.class })
-    public AuthenticationErrorHandler authenticationErrorHandler(ObjectMapper objectMapper,
+    public AuthenticationErrorHandler authenticationErrorHandler(
+            ObjectMapper objectMapper,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(AuthenticationErrorHandler.class, true), LogUtils.red(State.CREATED.toString())));
-
         return new AuthenticationErrorHandler(objectMapper, i18n);
     }
 
@@ -226,7 +227,7 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean(ApplicationUserDetailsService.class)
     @ConditionalOnClass({ ApplicationUserService.class })
     public UserDetailsService applicationUserDetailsService(
-            ApplicationUserService<User, Role> userServce,
+            ApplicationUserService userServce,
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);

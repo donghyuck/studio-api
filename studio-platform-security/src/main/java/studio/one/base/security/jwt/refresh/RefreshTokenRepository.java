@@ -22,8 +22,6 @@
 package studio.one.base.security.jwt.refresh;
 
 import java.util.Optional;
-
-import org.springframework.data.jpa.repository.JpaRepository;
 /**
  *
  * @author  donghyuck, son
@@ -38,8 +36,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
  * </pre>
  */
 
-public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
+public interface RefreshTokenRepository {
 
+    /**
+     * Persists the given refresh token.
+     */
+    RefreshToken save(RefreshToken token);
+
+    /**
+     * Finds a token by its public selector.
+     */
     Optional<RefreshToken> findBySelector(String selector);
-
 }

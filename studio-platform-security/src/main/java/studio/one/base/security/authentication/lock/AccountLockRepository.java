@@ -1,4 +1,4 @@
-package studio.one.base.user.persistence;
+package studio.one.base.security.authentication.lock;
 
 import java.time.Instant;
 

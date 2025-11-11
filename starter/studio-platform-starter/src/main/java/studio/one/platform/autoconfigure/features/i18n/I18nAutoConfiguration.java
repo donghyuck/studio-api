@@ -42,7 +42,7 @@ import studio.one.platform.web.aop.MessageAspect;
 @EnableConfigurationProperties(I18nProperties.class)
 @AutoConfigureBefore(MessageSourceAutoConfiguration.class)
 @Slf4j
-public class PlatformI18nAutoConfiguration {
+public class I18nAutoConfiguration {
  
     @Bean(name = ServiceNames.I18N_MESSAGE_SOURCE )
     @ConditionalOnMissingBean(name = ServiceNames.I18N_MESSAGE_SOURCE)

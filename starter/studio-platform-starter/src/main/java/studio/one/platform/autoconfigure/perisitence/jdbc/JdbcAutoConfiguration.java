@@ -24,7 +24,7 @@ import studio.one.platform.util.LogUtils;
 @ConditionalOnClass({ DataSource.class, JdbcTemplate.class })
 @ConditionalOnBean(DataSource.class)
 @Slf4j
-public class PlatformJdbcAutoConfiguration {
+public class JdbcAutoConfiguration {
 
     private final I18n i18n;
 

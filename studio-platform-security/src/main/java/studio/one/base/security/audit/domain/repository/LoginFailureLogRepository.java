@@ -1,16 +1,20 @@
 package studio.one.base.security.audit.domain.repository;
 
 import java.time.Instant;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
+import studio.one.base.security.audit.service.LoginFailQuery;
 
-public interface LoginFailureLogRepository
-    extends JpaRepository<LoginFailureLog, Long>, JpaSpecificationExecutor<LoginFailureLog> {
+public interface LoginFailureLogRepository {
 
-  long deleteByOccurredAtBefore(Instant cutoff);
+  LoginFailureLog save(LoginFailureLog log);
 
-  long countByUsernameAndOccurredAtAfter(String username, Instant since);
+  long deleteOlderThan(Instant cutoff);
 
+  long countByUsernameSince(String username, Instant since);
+
+  Page<LoginFailureLog> search(LoginFailQuery query, Pageable pageable);
 }

@@ -30,8 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
-import studio.one.base.user.persistence.AccountLockRepository;
+import studio.one.base.security.authentication.lock.AccountLockRepository;
 
 /**
  *
@@ -53,9 +52,7 @@ import studio.one.base.user.persistence.AccountLockRepository;
 @Transactional
 public class AccountLockServiceImpl implements AccountLockService {
 
-    private final AccountLockRepository accountLockRepository;
-
-    private final LoginFailureLogRepository failureLogRepo;
+    private final AccountLockRepository accountLockRepository; 
 
     private final Clock clock;
 
