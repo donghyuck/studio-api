@@ -51,7 +51,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.AccountLockService;
+import studio.one.base.security.audit.persistence.jdbc.LoginFailureLogJdbcRepository;
+import studio.one.base.security.audit.persistence.jpa.LoginFailureLogJpaRepository;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 import studio.one.base.security.userdetails.ApplicationUserDetailsService;
 import studio.one.base.user.service.ApplicationUserService;
@@ -123,12 +125,14 @@ public class SecurityAutoConfiguration {
             // 커스텀 미구현 시 안전 기본값 유지
             idForEncode = PasswordEncoderProperties.Algorithm.BCRYPT.name().toLowerCase();
         }
-        log.info(i18n.get("info.security.password.encoder.initialized", LogUtils.green(props.getAlgorithm().name())));
-
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(PasswordEncoder.class, true),
-                LogUtils.red(State.CREATED.toString())));
+                LogUtils.red(State.CREATED.toString()))); 
 
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.INFO + I18nKeys.AutoConfig.Feature.Service.INIT,
+                FEATURE_NAME,
+                LogUtils.blue(PasswordEncoder.class, true),
+                "Algorithm",LogUtils.green(props.getAlgorithm().name()))); 
         return new DelegatingPasswordEncoder(idForEncode, encoders);
     }
 

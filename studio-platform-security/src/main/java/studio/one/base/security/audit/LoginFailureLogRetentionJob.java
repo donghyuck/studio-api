@@ -1,7 +1,7 @@
 package studio.one.base.security.audit;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
+import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
 
 @RequiredArgsConstructor
 public class LoginFailureLogRetentionJob {

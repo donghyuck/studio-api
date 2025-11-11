@@ -2,11 +2,9 @@ package studio.one.platform.security.autoconfigure;
 
 import java.time.Clock;
 
-import javax.annotation.PostConstruct;
 import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -19,14 +17,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.AccountLockService;
-import studio.one.base.security.authentication.AccountLockServiceImpl;
-import studio.one.base.security.authentication.lock.AccountLockJdbcRepository;
-import studio.one.base.security.authentication.lock.AccountLockJpaRepository;
-import studio.one.base.security.authentication.lock.AccountLockRepository;
-import studio.one.base.user.domain.entity.ApplicationUser;
+import studio.one.base.security.authentication.lock.persistence.AccountLockRepository;
+import studio.one.base.security.authentication.lock.persistence.jdbc.AccountLockJdbcRepository;
+import studio.one.base.security.authentication.lock.persistence.jpa.AccountLockJpaRepository;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.authentication.lock.service.AccountLockServiceImpl;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
@@ -57,8 +53,7 @@ public class AccountLockAutoConfiguration {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
 
                 PersistenceProperties.Type globalPersistence = persistenceProperties.getType();
-                PersistenceProperties.Type lockPersistence = properties.resolvePersistence(globalPersistence);
-
+                PersistenceProperties.Type lockPersistence = properties.resolvePersistence(globalPersistence); 
                 if (lockPersistence == PersistenceProperties.Type.jpa
                                 && globalPersistence != PersistenceProperties.Type.jpa) {
                         throw new IllegalStateException(
@@ -66,14 +61,14 @@ public class AccountLockAutoConfiguration {
                                                         Account lock persistence is set to JPA but studio.persistence.type=%s. \
                                                         Enable JPA persistence for the user module or change security.auth.lock.persistence to jdbc."""
                                                         .formatted(globalPersistence));
-                }
-
-                boolean isJdbc = accountLockRepository instanceof AccountLockJdbcRepository;
-
+                } 
+                boolean isJdbc = accountLockRepository instanceof AccountLockJdbcRepository; 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(AccountLockService.class, true), LogUtils.red(State.CREATED.toString())));
-                log.info("Using AccountLockRepository: {}", LogUtils.green(
-                                isJdbc ? AccountLockJdbcRepository.class : AccountLockJpaRepository.class, true));
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.INFO + I18nKeys.AutoConfig.Feature.Service.INIT, FEATURE_NAME,
+                                LogUtils.blue(AccountLockService.class, true), 
+                                "AccountLockRepository",
+                                LogUtils.green( isJdbc ? AccountLockJdbcRepository.class : AccountLockJpaRepository.class, true ))); 
 
                 return new AccountLockServiceImpl(
                                 accountLockRepository,

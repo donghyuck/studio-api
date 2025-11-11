@@ -30,12 +30,14 @@ import studio.one.base.security.audit.LoginFailureEventListener;
 import studio.one.base.security.audit.LoginFailureLogRetentionJob;
 import studio.one.base.security.audit.LoginSuccessEventListener;
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
-import studio.one.base.security.audit.domain.repository.LoginFailureLogJdbcRepository;
-import studio.one.base.security.audit.domain.repository.LoginFailureLogJpaRepository;
-import studio.one.base.security.audit.domain.repository.LoginFailureLogRepository;
+import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
+import studio.one.base.security.audit.persistence.jdbc.LoginFailureLogJdbcRepository;
+import studio.one.base.security.audit.persistence.jpa.LoginFailureLogJpaRepository;
 import studio.one.base.security.audit.service.LoginFailureQueryService;
 import studio.one.base.security.audit.service.LoginFailureQueryServiceImpl;
-import studio.one.base.security.authentication.AccountLockService;
+import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.jwt.refresh.persistence.jdbc.RefreshTokenJdbcRepository;
+import studio.one.base.security.jwt.refresh.persistence.jpa.RefreshTokenJpaRepository;
 import studio.one.base.security.web.controller.LoginFailureLogController;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
 import studio.one.base.security.web.mapper.LoginFailureLogMapperImpl;
@@ -46,23 +48,24 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.security.autoconfigure.condition.ConditionalOnLoginFailurePersistence;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
-import studio.one.platform.security.autoconfigure.condition.ConditionalOnLoginFailurePersistence;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-11-01
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-11-01  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 @AutoConfiguration
@@ -71,11 +74,14 @@ import studio.one.platform.security.autoconfigure.condition.ConditionalOnLoginFa
 @Slf4j
 public class LoginFailureAuditAutoConfiguration {
 
-    private static final String DEFAULT_ENTITY_PACKAGE = LoginFailureLog.class.getPackageName();
+    private static final String DEFAULT_JPA_ENTITY_PACKAGE = LoginFailureLog.class.getPackageName();
+
+    private static final String DEFAULT_JPA_REPOSITORY_PACKAGE = "studio.one.base.security.audit.persistence.jpa";
 
     private static final String FEATURE_NAME = "Security - Login Failure Audit";
 
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE + ".web", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE
+            + ".web", name = "enabled", havingValue = "true")
     @Bean(LoginFailureQueryService.SERVICE_NAME)
     @ConditionalOnMissingBean
     LoginFailureQueryService loginFailureQueryService(
@@ -84,20 +90,28 @@ public class LoginFailureAuditAutoConfiguration {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(LoginFailureQueryService.class, true), LogUtils.red(State.CREATED.toString())));
-        boolean isJdbc = repository instanceof LoginFailureLogJdbcRepository ;
-        log.info("Using LoginFailureLogRepository: {}", LogUtils.green(  isJdbc ? LoginFailureLogJdbcRepository.class: LoginFailureLogJpaRepository.class, true ));        
+        boolean isJdbc = repository instanceof LoginFailureLogJdbcRepository;
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.INFO + I18nKeys.AutoConfig.Feature.Service.INIT,
+                FEATURE_NAME,
+                LogUtils.blue(AccountLockService.class, true),
+                "LoginFailureLogRepository",
+                LogUtils.green(isJdbc ? LoginFailureLogJdbcRepository.class : LoginFailureLogJpaRepository.class,
+                        true)));
+
         return new LoginFailureQueryServiceImpl(repository);
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE  + ".web", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE
+            + ".web", name = "enabled", havingValue = "true")
     @ConditionalOnClass({ LoginFailureLogMapper.class, TimeMapper.class })
     @ConditionalOnMissingBean(LoginFailureLogMapper.class)
     public LoginFailureLogMapper loginFailureLogMapper(TimeMapper timeMapper) {
         return new LoginFailureLogMapperImpl(timeMapper);
     }
 
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE + ".web", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE
+            + ".web", name = "enabled", havingValue = "true")
     @Bean
     public LoginFailureLogController loginFailureLogController(
             LoginFailureQueryService loginFailureQueryService,
@@ -179,7 +193,13 @@ public class LoginFailureAuditAutoConfiguration {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(LoginFailureLogRetentionJob.class, true), LogUtils.red(State.CREATED.toString())));
-        log.debug("LoginFailureLogRetentionJob retention days: {}", props.getLoginFailure().getRetentionDays());
+
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.INFO + I18nKeys.AutoConfig.Feature.Service.INIT,
+                FEATURE_NAME,
+                LogUtils.blue(AccountLockService.class, true),
+                "LoginFailureLogRetentionJob Retention Days",
+                LogUtils.green( props.getLoginFailure().getRetentionDays().toString() ) )); 
+
         return new LoginFailureLogRetentionJob(repo, props.getLoginFailure().getRetentionDays());
     }
 
@@ -192,17 +212,17 @@ public class LoginFailureAuditAutoConfiguration {
         static BeanDefinitionRegistryPostProcessor auditEntityScanRegistrar(Environment env, I18n i18n) {
             String entityKey = PropertyKeys.Security.Audit.LOGIN_FAILURE + ".entity-packages";
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, "Jwt", entityKey,
-                    DEFAULT_ENTITY_PACKAGE));
-            return EntityScanRegistrarSupport.entityScanRegistrar(
-                    entityKey + ".entity-packages", DEFAULT_ENTITY_PACKAGE);
+                    DEFAULT_JPA_ENTITY_PACKAGE));
+            return EntityScanRegistrarSupport.entityScanRegistrar(entityKey + ".entity-packages",
+                    DEFAULT_JPA_ENTITY_PACKAGE);
         }
     }
- 
+
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnLoginFailurePersistence(PersistenceProperties.Type.jpa)
-    @EnableJpaRepositories(basePackages =   "studio.one.base.security.audit.domain.repository")
+    @EnableJpaRepositories(basePackages = DEFAULT_JPA_REPOSITORY_PACKAGE)
     static class JpaWiring {
     }
 

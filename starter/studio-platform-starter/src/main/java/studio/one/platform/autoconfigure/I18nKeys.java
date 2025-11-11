@@ -44,6 +44,10 @@ public class I18nKeys {
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class AutoConfig {
 
+        public static final String INFO  = "info.";
+        public static final String DEBUG  = "debug.";
+        public static final String WARN  = "warn.";
+        public static final String ERROR  = "error.";
         public static final class Feature {
 
             private static final String P = "autoconfig.feature.";
@@ -55,6 +59,7 @@ public class I18nKeys {
                 private static final String ENABLED = P + "enabled";
                 public static final String DISABLED = P + "disabled";
                 public static final String DETAILS = P + "details";
+                public static final String INIT = P + "init";
                 public static final String DEPENDS_ON = P + "depends-on";
             }
 
