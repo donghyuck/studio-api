@@ -1,0 +1,14 @@
+ai:
+  provider: openai
+  openai:
+    model: text-embedding-3-small
+    api-key: 
+  pipeline:
+    chunk-size: 500
+    chunk-overlap: 50
+    cache:
+      maximum-size: 1000
+      ttl: 10m
+    retry:
+      max-attempts: 3
+      wait-duration: 2s

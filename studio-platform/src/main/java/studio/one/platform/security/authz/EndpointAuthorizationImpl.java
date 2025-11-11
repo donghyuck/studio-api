@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class EndpointAuthorizationImpl {
+    
     private static final String ADMIN = "ADMIN";
     private static final String ROLE_PREFIX = "ROLE_";
 

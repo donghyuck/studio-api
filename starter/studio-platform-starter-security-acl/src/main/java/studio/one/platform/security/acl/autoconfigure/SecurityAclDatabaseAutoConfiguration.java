@@ -55,7 +55,11 @@ import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.security.authz.DomainPolicyContributor;
+import studio.one.platform.security.authz.DomainPolicyRegistry;
+import studio.one.platform.security.authz.EndpointAuthorizationImpl;
+import studio.one.platform.security.authz.EndpointModeGuard;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -64,16 +68,17 @@ import studio.one.platform.util.LogUtils;
  * Auto-configuration that exposes the database ACL repositories and
  * contributors.
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-11-11
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-11-11  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 @AutoConfiguration
@@ -86,7 +91,7 @@ public class SecurityAclDatabaseAutoConfiguration {
         private static final String FEATURE_NAME = "Security - Acl";
 
         /**
-         * SimpleAclResourceMapper를 생성해 도메인별 리소스 식별자/별칭/인디케이터를 매핑합니다. 
+         * SimpleAclResourceMapper를 생성해 도메인별 리소스 식별자/별칭/인디케이터를 매핑합니다.
          * ai.security.acl.domain-aliases/indicators 설정을 반영하며 생성.
          * 
          * @param i18nProvider
@@ -110,6 +115,7 @@ public class SecurityAclDatabaseAutoConfiguration {
 
         /**
          * 기본 구현인 DefaultAclPermissionMapper를 제공해 권한 코드 ↔ 비트마스크 매핑을 담당
+         * 
          * @param i18nProvider
          * @return
          */
@@ -123,9 +129,10 @@ public class SecurityAclDatabaseAutoConfiguration {
                 return new DefaultAclPermissionMapper();
         }
 
-
         /**
-         * AclEntryRepository + AclResourceMapper + AclPermissionMapper를 묶어 DB 기반 ACL 도메인 정책 제공자를 등록합니다. AclEntryRepository 빈이 있을 때만 활성화
+         * AclEntryRepository + AclResourceMapper + AclPermissionMapper를 묶어 DB 기반 ACL
+         * 도메인 정책 제공자를 등록합니다. AclEntryRepository 빈이 있을 때만 활성화
+         * 
          * @param repository
          * @param resourceMapper
          * @param permissionMapper
@@ -150,13 +157,31 @@ public class SecurityAclDatabaseAutoConfiguration {
                                 FEATURE_NAME,
                                 LogUtils.blue(DomainPolicyContributor.class, true),
                                 "DatabaseAclDomainPolicyContributor",
-                                LogUtils.green(repository.getClass(), true))); 
+                                LogUtils.green(repository.getClass(), true)));
 
                 return new DatabaseAclDomainPolicyContributor(repository, resourceMapper, permissionMapper);
         }
 
+        /** SpEL: @endpointAuthz.can('domain','component','action') */
+        @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
+        //@ConditionalOnBean({ DomainPolicyRegistry.class, EndpointModeGuard.class })
+        @ConditionalOnMissingBean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
+        public EndpointAuthorizationImpl endpointAuthorization(
+                        DomainPolicyRegistry registry,
+                        EndpointModeGuard endpointModeGuard,
+                        ObjectProvider<I18n> i18nProvider) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(EndpointAuthorizationImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+
+                return new EndpointAuthorizationImpl(registry, endpointModeGuard);
+        }
+
         /**
-         * 존재하는 MutableAclService를 감싸 권한 조회/부여 등의 고수준 서비스를 제공. MutableAclService가 클래스패스·빈 모두에 있을 때만 생성
+         * 존재하는 MutableAclService를 감싸 권한 조회/부여 등의 고수준 서비스를 제공. MutableAclService가
+         * 클래스패스·빈 모두에 있을 때만 생성
+         * 
          * @param aclService
          * @param i18nProvider
          * @return
@@ -165,20 +190,21 @@ public class SecurityAclDatabaseAutoConfiguration {
         @ConditionalOnClass(MutableAclService.class)
         @ConditionalOnBean(MutableAclService.class)
         @ConditionalOnMissingBean
-        public AclPermissionService aclPermissionService(MutableAclService aclService, ObjectProvider<I18n> i18nProvider) {
+        public AclPermissionService aclPermissionService(MutableAclService aclService,
+                        ObjectProvider<I18n> i18nProvider) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
-                FEATURE_NAME,
-                LogUtils.blue(AclPermissionService.class, true),
-                LogUtils.red(State.CREATED.toString())));
+                                FEATURE_NAME,
+                                LogUtils.blue(AclPermissionService.class, true),
+                                LogUtils.red(State.CREATED.toString())));
 
                 return new AclPermissionService(aclService);
         }
 
         @Bean
-        BeanDefinitionRegistryPostProcessor securityAclConfiguredEntityScan(SecurityAclProperties properties) { 
-                String[] pkgs = properties.getEntityPackages().toArray(String[]::new); 
+        BeanDefinitionRegistryPostProcessor securityAclConfiguredEntityScan(SecurityAclProperties properties) {
+                String[] pkgs = properties.getEntityPackages().toArray(String[]::new);
                 return EntityScanRegistrarSupport.entityScanRegistrar(
                                 PropertyKeys.Security.Acl.ENTITY_PACKAGES,
                                 pkgs);
@@ -199,7 +225,8 @@ public class SecurityAclDatabaseAutoConfiguration {
         @AutoConfigureAfter(EntityScanConfig.class)
         @ConditionalOnClass(EntityManagerFactory.class)
         @ConditionalOnBean(EntityManagerFactory.class)
-        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Security.Acl.REPOSITORY_PACKAGES + ":" + SecurityAclProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
+        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Security.Acl.REPOSITORY_PACKAGES + ":"
+                        + SecurityAclProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
         static class JpaRepositoriesConfig {
         }
 
