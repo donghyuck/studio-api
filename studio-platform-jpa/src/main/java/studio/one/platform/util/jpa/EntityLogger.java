@@ -121,6 +121,7 @@ public final class EntityLogger {
             log.info(format(i18n, CODE_HEADER, DEF_HEADER, LogUtils.blue(tag), pu, names.size()));
             for (String fqn : names) {
                 String table = tableName(fqn, emf).orElse("-");
+                
                 log.info(format(i18n, CODE_LINE, DEF_LINE, fqn, table));
             }
         }

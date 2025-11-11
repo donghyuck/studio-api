@@ -1,4 +1,4 @@
-package studio.one.platform.security.acl.autoconfigure;
+package studio.one.base.security.acl.policy;
 
 import java.util.EnumSet;
 import java.util.Locale;
@@ -9,12 +9,10 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.acl.policy.AclAction;
-import studio.one.base.security.acl.policy.AclPolicyDescriptor;
 
 /**
- * Helper bean that writes ACL rows (class/sid/object/entry) into the legacy
- * Spring Security ACL tables so that domain policies can be assembled later.
+ * Helper that writes ACL rows (class/sid/object/entry) into the legacy Spring
+ * Security ACL tables so that domain policies can be assembled later.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -126,5 +124,4 @@ public class AclPolicySeeder {
         trimmed = trimmed.replaceAll("^-+", "").replaceAll("-+$", "");
         return trimmed.isEmpty() ? null : trimmed;
     }
-
 }
