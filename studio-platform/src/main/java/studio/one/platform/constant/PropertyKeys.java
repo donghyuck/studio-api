@@ -69,6 +69,13 @@ public class PropertyKeys {
             public static final class Repository {
                 public static final String PREFIX = SecurityAcl.PREFIX + ".repository-packages";
             }
+            
+            @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+            public static final class Admin {
+                public static final String PREFIX = SecurityAcl.PREFIX + ".admin";
+                public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+                public static final String BASE_PATH = PREFIX + ".base-path";
+            }
         }
     }
 

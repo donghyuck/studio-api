@@ -262,6 +262,8 @@ POST /api/mgmt/acl/sync/defaults  → YAML/프로퍼티로 정의한 defaults �
 
 `studio.security.acl.web.base-path` 값을 변경하면 해당 경로 아래로 API가 이동하고, `AclPolicySynchronizationService`를 직접 주입하거나 `AclPolicySyncEvent`를 publish하여 추가적인 배치/이벤트 핸들링을 만들 수 있습니다. 이벤트 핸들러는 `studio.security.acl.sync.enabled=false`로 끌 수 있어 컨트롤러로만 수동 처리하는 구성도 가능합니다.
 
+`studio.security.acl.admin.enabled=true`로 설정하면 `/api/mgmt/acl/admin` (기본값, `studio.security.acl.admin.base-path`로 조절) 아래에 `acl_class`, `acl_sid`, `acl_object_identity`, `acl_entry`를 위한 CRUD 엔드포인트가 등록되어 Vue 같은 관리 UI가 해당 테이블을 직접 조회·삽입할 수 있습니다. `AclAdministrationService`를 사용하면 필요한 요청과 바꾸어 락 없이 상태를 갱신할 수 있습니다.
+
 `AclPolicySynchronizationService`를 `@Autowired` 받아 `AclPolicyDescriptor`를 직접 전달하거나, `ApplicationEventPublisher`/`DomainEvents`로 `AclPolicySyncEvent`를 발생시켜 배치·이벤트 기반으로 동기화할 수 있습니다. `studio.security.acl.sync.enabled=false` 로 설정하면 이벤트 리스너는 비활성화되므로 배치 서비스나 커스텀 핸들러만 동작하게 됩니다. 이는 새 그룹/롤이 등록되었을 때 ACL 테이블을 강제로 최신 상태로 만들거나, 주기적으로 검증하는 배치/스케줄러에서 유용합니다.
 
 ## Create dababase (postgres)

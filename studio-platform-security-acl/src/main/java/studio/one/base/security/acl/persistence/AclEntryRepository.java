@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.security.acl.domain.entity.AclEntryEntity;
@@ -33,4 +34,10 @@ public interface AclEntryRepository extends JpaRepository<AclEntryEntity, Long> 
             join e.sid s
             """)
     List<AclPolicyProjection> findAllForPolicy();
+
+    /**
+     * Returns the largest ace_order value for a given object identity.
+     */
+    @Query("select max(e.aceOrder) from AclEntryEntity e where e.aclObjectIdentity.id = :objectId")
+    Integer findMaxAceOrderByAclObjectIdentity_Id(@Param("objectId") Long objectIdentityId);
 }

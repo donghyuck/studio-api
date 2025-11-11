@@ -24,8 +24,8 @@ import studio.one.platform.web.dto.ApiResponse;
  */
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("${studio.security.acl.web.base-path:/api/mgmt}/acl")
-public class SecurityAclWebController {
+@RequestMapping("${studio.security.acl.web.base-path:/api/mgmt/acl}/sync")
+public class AclSyncController {
 
     private final List<AclPolicyDescriptor> policies;
 
