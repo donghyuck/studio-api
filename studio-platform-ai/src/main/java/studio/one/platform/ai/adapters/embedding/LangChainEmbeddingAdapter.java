@@ -1,7 +1,9 @@
 package studio.one.platform.ai.adapters.embedding;
 
 import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.model.output.Response;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -24,7 +26,12 @@ public class LangChainEmbeddingAdapter implements EmbeddingPort {
     @Override
     public EmbeddingResponse embed(EmbeddingRequest request) {
         
-        List<Embedding> embeddings = embeddingModel.embedAll(request.texts());
+        List<TextSegment> segments = request.texts()
+                .stream()
+                .map(TextSegment::from)
+                .toList();
+        Response<List<Embedding>> response = embeddingModel.embedAll(segments);
+        List<Embedding> embeddings = response.content();
         List<EmbeddingVector> vectors = new ArrayList<>(embeddings.size());
         for (int index = 0; index < embeddings.size(); index++) {
             Embedding embedding = embeddings.get(index);

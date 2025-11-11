@@ -170,6 +170,22 @@ Studio Api 는 component, starter 모듈들로 구성된다.
 
 위 설정만으로 사용자/권한 관리를 위한 REST API, 서비스, 도메인 이벤트 퍼블리셔가 통합되며, 필요 시 MapStruct 기반 DTO 매퍼 빈도 자동으로 주입된다.【F:starter/studio-platform-starter-user/src/main/java/studio/one/platform/user/autoconfigure/UserEndpointsAutoConfiguration.java†L53-L106】【F:studio-platform-user/build.gradle.kts†L1-L24】
 
+## studio-platform-ai 모듈
+
+`studio-platform-ai` 모듈은 LangChain4j 기반 OpenAI/Gemini 모델을 감싸는 도메인 포트, DTO, REST 컨트롤러를 묶어서 API로 노출하는 역할을 한다. `/api/ai/chat`, `/api/ai/embedding`, `/api/ai/vectors` 엔드포인트를 별도 컨트롤러로 분리하여 메시지 ↔ 도메인 변환을 담당하며, API 사용자에게는 `ApiResponse` 포맷으로 일관된 응답을 제공한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/ChatController.java#L1-L85】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/EmbeddingController.java#L1-L45】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/VectorController.java#L1-L103】
+
+### 제공 기능
+
+- **Chat** – `ChatController`가 `ChatRequestDto`/`ChatResponseDto`를 받아 내부 `ChatPort`를 통해 LangChain4j `ChatModel`과 통신하며, `LangChainChatAdapter`가 DTO를 LangChain 메시지로 변환한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/adapters/chat/LangChainChatAdapter.java#L1-L89】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/ChatController.java#L1-L85】
+- **Embedding** – `EmbeddingController`와 `LangChainEmbeddingAdapter`는 텍스트를 `TextSegment`로 변환하고 LangChain에서 반환한 `Response<List<Embedding>>`를 도메인 `EmbeddingVector`로 변환해 `EmbeddingPort`를 구현한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/adapters/embedding/LangChainEmbeddingAdapter.java#L1-L47】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/EmbeddingController.java#L1-L45】
+- **Vector** – `/api/ai/vectors` 컨트롤러는 `VectorStorePort`를 통해 벡터 문서를 upsert하거나 검색하며, 벡터 검색 시 텍스트 쿼리를 자동으로 임베딩하여 사용한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/VectorController.java#L1-L103】
+
+### 사용 방법
+
+1. **AI 설정** – `application.yml`의 `ai.provider`를 `openai`, `ollama`, `google-ai-gemini` 중 하나로 설정하고, `AiAdapterProperties`를 통해 API 키/모델/베이스 URL을 주입한다.
+2. **LangChain 의존성** – `studio-platform-ai` 모듈은 LangChain4j 본체와 각 모델별 어댑터(예: `langchain4j-open-ai`, `langchain4j-google-ai-gemini`)를 Gradle 의존성으로 추가한다. 새로운 모델을 줄 경우 `LangChainChatConfiguration`과 `LangChainEmbeddingConfiguration`에서 빈을 확장하면 된다.
+3. **벡터 저장소** – PostgreSQL 기반 PGVector 어댑터(`PgVectorStoreAdapter`)를 함께 등록하면 `VectorController`가 벡터 검색/업서트를 처리하며, `VectorStorePort`가 없으면 `/api/ai/vectors` 호출 시 503을 반환한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapter.java#L1-L146】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/VectorController.java#L32-L101】
+
 ## studio-platform-security 모듈
 
 `studio-platform-security` 는 JWT 인증, 리프레시 토큰 저장소, 계정 잠금(Account Lock), 로그인 실패 감사 로깅을 제공하는 보안 모듈이다. `/starter/studio-platform-starter-security` 스타터를 통해 자동 구성되며, 각 기능은 독립적인 퍼시스턴스 전략(JPA 또는 JDBC)을 선택할 수 있다.
