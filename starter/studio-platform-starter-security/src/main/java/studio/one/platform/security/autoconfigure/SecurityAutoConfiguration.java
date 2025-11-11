@@ -51,8 +51,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.audit.persistence.jdbc.LoginFailureLogJdbcRepository;
-import studio.one.base.security.audit.persistence.jpa.LoginFailureLogJpaRepository;
 import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 import studio.one.base.security.userdetails.ApplicationUserDetailsService;

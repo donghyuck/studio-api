@@ -13,7 +13,6 @@ import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.web.controller.AvatarController;
 import studio.one.application.web.controller.PublicAvatarController;
 import studio.one.base.user.domain.model.User;
-import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
@@ -52,6 +51,7 @@ class AvatarEndpointsAutoConfiguration {
                 LogUtils.blue(PublicAvatarController.class, true),
                 props.getWeb().getPublicBase(),
                 "R"));
+                
         return new PublicAvatarController(avatarImageService);
     }
 

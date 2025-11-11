@@ -69,7 +69,7 @@ public class AvatarAutoConfiguration {
     public AvatarImageService<User> avatarImageService( 
             AvatarImageRepository avatarImageRepository,
             AvatarImageDataRepository avatarImageDataRepository, 
-            @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService  userService,
+            @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService userService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         var globalPersistence = persistenceProperties.getType();
@@ -153,7 +153,7 @@ public class AvatarAutoConfiguration {
         @Bean
         static BeanDefinitionRegistryPostProcessor  entityScanRegistrar(Environment env , ObjectProvider<I18n> i18nProvider) { 
             I18n i18n = I18nUtils.resolve(i18nProvider);
-            String entityKey = PropertyKeys.Features.PREFIX + ".avatar" + ".entity-packages";
+            String entityKey = PropertyKeys.Features.PREFIX + ".avatar-image.entity-packages";
             String packageName = AvatarImage.class.getPackageName();
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, FEATURE_NAME, entityKey, packageName  ));
             return EntityScanRegistrarSupport.entityScanRegistrar(

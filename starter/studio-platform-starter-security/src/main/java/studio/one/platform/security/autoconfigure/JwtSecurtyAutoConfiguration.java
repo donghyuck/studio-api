@@ -25,8 +25,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.lock.persistence.jdbc.AccountLockJdbcRepository;
-import studio.one.base.security.authentication.lock.persistence.jpa.AccountLockJpaRepository;
 import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.jwt.JwtTokenProvider;
 import studio.one.base.security.jwt.refresh.HashedRefreshTokenStore;
@@ -57,7 +55,6 @@ public class JwtSecurtyAutoConfiguration {
 
     private static final String FEATURE_NAME = "Security - Jwt";
     private static final String DEFAULT_JPA_ENTITY_PACKAGE = RefreshTokenStore.class.getPackageName();
-    private static final String DEFAULT_JPA_REPOSITORY_PACKAGE = "studio.one.base.security.jwt.refresh.persistence.jpa";
 
     private final SecurityProperties securityProperties;
 
@@ -167,7 +164,7 @@ public class JwtSecurtyAutoConfiguration {
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnJwtPersistence(PersistenceProperties.Type.jpa)
-    @EnableJpaRepositories(basePackages = DEFAULT_JPA_REPOSITORY_PACKAGE)
+    @EnableJpaRepositories(basePackageClasses = {RefreshTokenJpaRepository.class})
     static class JpaWiring {
 
     }
@@ -196,5 +193,4 @@ public class JwtSecurtyAutoConfiguration {
             return "NONE";
         }
     }
-
 }

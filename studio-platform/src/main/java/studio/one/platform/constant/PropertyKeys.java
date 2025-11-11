@@ -102,6 +102,9 @@ public class PropertyKeys {
         public static final class Acl {
             public static final String PREFIX = Security.PREFIX + ".acl";
             public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
+            public static final String ENTITY_PACKAGES = PREFIX + ".entity-packages";
+            public static final String REPOSITORY_PACKAGES = PREFIX + ".repository-packages";
+            public static final String PERSISTENCE = PREFIX + PERSISTENCE_STRING;
         }
 
         @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
