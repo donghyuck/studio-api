@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.acl.policy.AclPolicySeeder;
 import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
 import studio.one.base.security.acl.policy.AclPolicySynchronizationServiceImpl;
-import studio.one.base.security.acl.web.controller.SecurityAclWebController;
+import studio.one.base.security.acl.web.controller.AclSyncController;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -64,19 +64,17 @@ public class SecurityAclWebAutoConfiguration {
     }
 
     @Bean
-    public SecurityAclWebController securityAclWebController(
+    public AclSyncController securityAclWebController(
             SecurityAclWebProperties properties,
             DefaultAclPolicyProperties defaults,
             ObjectProvider<AclPolicySynchronizationService> synchronizationService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
-        log.info(
-                LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(AclPolicySynchronizationService.class, true),
-                LogUtils.blue(SecurityAclWebController.class, true),
-                properties.getBasePath(),
-                LogUtils.blue("ACL-managed"))
-        );
-        return new SecurityAclWebController(defaults.getPolicies(), synchronizationService);
+                LogUtils.blue(AclSyncController.class, true),
+                properties.getBasePath()),
+                LogUtils.blue("ACL-managed"));
+        return new AclSyncController(defaults.getPolicies(), synchronizationService);
     }
 }
