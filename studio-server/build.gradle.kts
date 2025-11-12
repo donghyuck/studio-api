@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":starter:studio-platform-starter-user")) 
     implementation(project(":starter:studio-platform-starter-security")) 
     implementation(project(":starter:studio-platform-starter-security-acl")) 
+    implementation(project(":starter:studio-platform-starter-ai")) 
     implementation(project(":starter:studio-platform-starter-objectstorage")) 
     implementation(project(":starter:studio-platform-starter-objectstorage-aws")) 
     implementation(project(":starter:studio-application-starter-avatar"))

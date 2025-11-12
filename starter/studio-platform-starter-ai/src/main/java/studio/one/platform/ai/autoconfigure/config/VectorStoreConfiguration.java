@@ -1,4 +1,4 @@
-package studio.one.platform.ai.adapters.config;
+package studio.one.platform.ai.autoconfigure.config;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -8,7 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapter;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 public class VectorStoreConfiguration {
 
     @Bean

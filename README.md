@@ -173,6 +173,7 @@ Studio Api 는 component, starter 모듈들로 구성된다.
 ## studio-platform-ai 모듈
 
 `studio-platform-ai` 모듈은 LangChain4j 기반 OpenAI/Gemini 모델을 감싸는 도메인 포트, DTO, REST 컨트롤러를 묶어서 API로 노출하는 역할을 한다. `/api/ai/chat`, `/api/ai/embedding`, `/api/ai/vectors` 엔드포인트를 별도 컨트롤러로 분리하여 메시지 ↔ 도메인 변환을 담당하며, API 사용자에게는 `ApiResponse` 포맷으로 일관된 응답을 제공한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/ChatController.java#L1-L85】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/EmbeddingController.java#L1-L45】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/VectorController.java#L1-L103】
+Auto-configuration, property binding, and the LangChain client wiring are hosted in the `studio-platform-starter-ai` module, so you only need to depend on the starter to enable them (`starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/autoconfigure/AiAutoConfiguration.java`).【F:starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/adapters/config/AiAdapterProperties.java#L1-L104】【F:starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/adapters/config/LangChainEmbeddingConfiguration.java#L1-L73】
 
 ### 제공 기능
 
@@ -185,6 +186,34 @@ Studio Api 는 component, starter 모듈들로 구성된다.
 1. **AI 설정** – `application.yml`의 `ai.provider`를 `openai`, `ollama`, `google-ai-gemini` 중 하나로 설정하고, `AiAdapterProperties`를 통해 API 키/모델/베이스 URL을 주입한다.
 2. **LangChain 의존성** – `studio-platform-ai` 모듈은 LangChain4j 본체와 각 모델별 어댑터(예: `langchain4j-open-ai`, `langchain4j-google-ai-gemini`)를 Gradle 의존성으로 추가한다. 새로운 모델을 줄 경우 `LangChainChatConfiguration`과 `LangChainEmbeddingConfiguration`에서 빈을 확장하면 된다.
 3. **벡터 저장소** – PostgreSQL 기반 PGVector 어댑터(`PgVectorStoreAdapter`)를 함께 등록하면 `VectorController`가 벡터 검색/업서트를 처리하며, `VectorStorePort`가 없으면 `/api/ai/vectors` 호출 시 503을 반환한다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapter.java#L1-L146】【F:studio-platform-ai/src/main/java/studio/one/platform/ai/web/controller/VectorController.java#L32-L101】
+
+### studio.ai 설정
+
+AI 관련 설정은 이제 `studio.ai` 접두어로 이루어지며, 각 프로바이더별로 별도 옵션을 정의할 수 있다. 예를 들어 OpenAI 채팅/임베딩과 Ollama 임베딩 옵션을 동시에 다루려면 다음과 같이 작성한다.
+
+```yaml
+studio:
+  ai:
+    default-provider: openai
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        enabled: true
+        options:
+          model: gpt-4o-mini
+      embedding:
+        enabled: true
+        options:
+          model: text-embedding-3-small
+    ollama:
+      base-url: http://ollama.internal:11434
+      embedding:
+        enabled: true
+        options:
+          model: bge-m3
+```
+
+이처럼 여러 프로바이더를 동시에 설정하고 `AiProviderRegistry`를 통해 필요에 따라 프로그램에서 선택할 수도 있다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/core/registry/AiProviderRegistry.java#L1-L44】
 
 ## studio-platform-security 모듈
 

@@ -1,0 +1,23 @@
+ai:
+  provider: openai
+  openai:
+    model: text-embedding-3-small
+    chat-model: gpt-3.5-turbo
+    api-key: 
+    base-url: https://api.openai.com/v1
+  google-ai-gemini:
+    api-key: 
+    base-url: https://generativelanguage.googleapis.com/v1
+    chat-model: models/chat-bison-001
+    embedding-model: textembedding-gecko-001
+    task-type: RETRIEVAL_DOCUMENT
+    title-metadata-key: title
+  pipeline:
+    chunk-size: 500
+    chunk-overlap: 50
+    cache:
+      maximum-size: 1000
+      ttl: 10m
+    retry:
+      max-attempts: 3
+      wait-duration: 2s
