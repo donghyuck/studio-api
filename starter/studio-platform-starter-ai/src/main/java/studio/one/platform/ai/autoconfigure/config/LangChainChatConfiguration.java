@@ -3,6 +3,7 @@ package studio.one.platform.ai.autoconfigure.config;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -10,12 +11,11 @@ import org.springframework.context.annotation.Configuration;
 
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.adapters.chat.LangChainChatAdapter;
-import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
-import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -28,8 +28,8 @@ import studio.one.platform.util.LogUtils;
 public class LangChainChatConfiguration {
 
     @Bean(name = "providerChatPorts")
-    public Map<String, ChatPort> chatPorts(AiAdapterProperties properties, ObjectProvider<I18n> i18nProvider) { 
-        
+    public Map<String, ChatPort> chatPorts(AiAdapterProperties properties, ObjectProvider<I18n> i18nProvider) {
+
         I18n i18n = I18nUtils.resolve(i18nProvider);
         Map<String, ChatPort> ports = new LinkedHashMap<>();
         AiAdapterProperties.OpenAiProperties openai = properties.getOpenai();
@@ -49,7 +49,7 @@ public class LangChainChatConfiguration {
                 .baseUrl(properties.getBaseUrl())
                 .modelName(requireModel(properties.getChat().getOptions().getModel()))
                 .build();
-          log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(ChatModel.class, true),
                 LogUtils.green(OpenAiChatModel.class, true),
@@ -58,16 +58,19 @@ public class LangChainChatConfiguration {
     }
 
     private static ChatPort createGoogleAiChat(AiAdapterProperties.GoogleAiGeminiProperties properties, I18n i18n) {
-        ChatModel model = GoogleAiGeminiChatModel.builder()
-                .apiKey(properties.getApiKey())
-                .baseUrl(properties.getBaseUrl())
-                .modelName(requireModel(properties.getChat().getOptions().getModel()))
-                .build();
-          log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
+        GoogleAiGeminiChatModelBuilder builder = GoogleAiGeminiChatModel.builder()
+                .apiKey(properties.getApiKey()) 
+                .modelName(requireModel(properties.getChat().getOptions().getModel()));
+         if(StringUtils.isNoneBlank(properties.getBaseUrl()))
+            builder.baseUrl(properties.getBaseUrl()); 
+         if( properties.isDebug() )
+            builder.logRequestsAndResponses(true); 
+        ChatModel model = builder.build();          
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(ChatModel.class, true),
                 LogUtils.green(GoogleAiGeminiChatModel.class, true),
-                LogUtils.red(State.CREATED.toString())));     
+                LogUtils.red(State.CREATED.toString())));
         return new LangChainChatAdapter(model);
     }
 

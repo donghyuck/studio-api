@@ -65,37 +65,40 @@ public class AiAdapterProperties {
         private String basePath = "/api/ai";
     }
 
+    @Getter @Setter
     public static class ProviderProperties {
         private boolean enabled = false;
         private String baseUrl;
+        private boolean debug = false;
 
-        public boolean isEnabled() {
-            return enabled;
-        }
+        // public boolean isEnabled() {
+        //     return enabled;
+        // }
 
-        public void setEnabled(boolean enabled) {
-            this.enabled = enabled;
-        }
+        // public void setEnabled(boolean enabled) {
+        //     this.enabled = enabled;
+        // }
 
-        public String getBaseUrl() {
-            return baseUrl;
-        }
+        // public String getBaseUrl() {
+        //     return baseUrl;
+        // }
 
-        public void setBaseUrl(String baseUrl) {
-            this.baseUrl = baseUrl;
-        }
+        // public void setBaseUrl(String baseUrl) {
+        //     this.baseUrl = baseUrl;
+        // }
     }
 
+    @Getter @Setter
     public static class Options {
         private String model;
 
-        public String getModel() {
-            return model;
-        }
+        // public String getModel() {
+        //     return model;
+        // }
 
-        public void setModel(String model) {
-            this.model = model;
-        }
+        // public void setModel(String model) {
+        //     this.model = model;
+        // }
     }
 
     public static class OpenAiProperties extends ProviderProperties {
@@ -197,9 +200,9 @@ public class AiAdapterProperties {
         private final EmbeddingProperties embedding = new EmbeddingProperties();
 
         public GoogleAiGeminiProperties() {
-            setBaseUrl("https://generativelanguage.googleapis.com/v1");
-            chat.getOptions().setModel("models/chat-bison-001");
-            embedding.getOptions().setModel("textembedding-gecko-001");
+            //setBaseUrl("https://generativelanguage.googleapis.com/v1");
+            //chat.getOptions().setModel("models/chat-bison-001");
+            //embedding.getOptions().setModel("textembedding-gecko-001");
         }
 
         public String getApiKey() {

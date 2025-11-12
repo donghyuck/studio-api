@@ -1,20 +1,18 @@
 package studio.one.platform.ai.adapters.chat;
 
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequestParameters;
 import studio.one.platform.ai.core.chat.ChatMessage;
-import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
-
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Adapter that bridges LangChain4j {@link ChatModel} to the domain {@link ChatPort}.
