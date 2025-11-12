@@ -1,16 +1,19 @@
 package studio.one.platform.ai.autoconfigure.config;
 
+import java.util.Objects;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import lombok.Getter;
+import lombok.Setter;
 import studio.one.platform.ai.core.AiProvider;
 import studio.one.platform.constant.PropertyKeys;
-
-import java.util.Objects;
 
 /**
  * Studio AI inspired configuration binding allowing multiple providers to be
  * defined.
  */
-@ConfigurationProperties(prefix = PropertyKeys.Ai.PREFIX)
+@ConfigurationProperties(prefix = PropertyKeys.AI.PREFIX)
 public class AiAdapterProperties {
 
     private boolean enabled = false;
@@ -18,6 +21,15 @@ public class AiAdapterProperties {
     private final OpenAiProperties openai = new OpenAiProperties();
     private final OllamaProperties ollama = new OllamaProperties();
     private final GoogleAiGeminiProperties googleAiGemini = new GoogleAiGeminiProperties();
+    private Endpoints endpoints = new Endpoints();
+
+    public Endpoints getEndpoints(){
+        return endpoints;
+    }
+
+    public void setEndpoints(Endpoints endpoints){
+        this.endpoints = endpoints;
+    }
 
     public String getDefaultProvider() {
         return defaultProvider;
@@ -45,6 +57,12 @@ public class AiAdapterProperties {
 
     public GoogleAiGeminiProperties getGoogleAiGemini() {
         return googleAiGemini;
+    }
+
+    @Getter @Setter
+    public static class Endpoints { 
+        private boolean enabled = false;
+        private String basePath = "/api/ai";
     }
 
     public static class ProviderProperties {

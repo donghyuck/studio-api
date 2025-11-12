@@ -28,10 +28,11 @@ import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
 import studio.one.platform.ai.web.dto.VectorUpsertRequestDto;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
-@RequestMapping("/api/ai/vectors")
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/vectors")
 @Validated
 public class VectorController {
 
@@ -40,7 +41,7 @@ public class VectorController {
     private final VectorStorePort vectorStorePort;
 
     public VectorController(EmbeddingPort embeddingPort,
-                            @Nullable VectorStorePort vectorStorePort) {
+            @Nullable VectorStorePort vectorStorePort) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = vectorStorePort;
     }
@@ -56,7 +57,8 @@ public class VectorController {
     }
 
     @PostMapping("/search")
-    public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(@Valid @RequestBody VectorSearchRequestDto request) {
+    public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(
+            @Valid @RequestBody VectorSearchRequestDto request) {
         VectorStorePort store = requireVectorStore();
         List<Double> queryEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());

@@ -18,10 +18,11 @@ import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.web.dto.EmbeddingRequestDto;
 import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
 import studio.one.platform.ai.web.dto.EmbeddingVectorDto;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
-@RestController
-@RequestMapping("/api/ai/embedding")
+@RestController 
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/embedding")
 @Validated
 public class EmbeddingController {
 

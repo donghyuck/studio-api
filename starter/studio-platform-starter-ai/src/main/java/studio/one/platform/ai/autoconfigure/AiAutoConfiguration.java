@@ -17,7 +17,7 @@ import studio.one.platform.constant.PropertyKeys;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(ChatPort.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Ai.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
 @Import({
                 
                 LangChainEmbeddingConfiguration.class,

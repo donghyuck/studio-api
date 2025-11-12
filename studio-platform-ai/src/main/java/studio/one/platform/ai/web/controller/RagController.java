@@ -20,9 +20,10 @@ import studio.one.platform.ai.web.dto.IndexRequest;
 import studio.one.platform.ai.web.dto.SearchRequest;
 import studio.one.platform.ai.web.dto.SearchResponse;
 import studio.one.platform.ai.web.dto.SearchResult;
+import studio.one.platform.constant.PropertyKeys;
 
-@RestController
-@RequestMapping("/api/ai/rag")
+@RestController 
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/rag")
 @Validated
 public class RagController {
 

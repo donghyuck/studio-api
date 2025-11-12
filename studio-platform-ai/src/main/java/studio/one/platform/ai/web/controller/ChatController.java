@@ -22,10 +22,11 @@ import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
-@RestController
-@RequestMapping("/api/ai/chat")
+@RestController 
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/chat")
 @Validated
 public class ChatController {
 
