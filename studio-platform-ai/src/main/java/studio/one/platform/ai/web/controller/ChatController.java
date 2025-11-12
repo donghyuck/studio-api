@@ -25,7 +25,7 @@ import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
-@RestController 
+@RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/chat")
 @Validated
 public class ChatController {
@@ -37,14 +37,13 @@ public class ChatController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) {
+    public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) { 
         ChatResponse response = chatPort.chat(toDomainChatRequest(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(response)));
     }
 
     private ChatRequest toDomainChatRequest(ChatRequestDto request) {
-        ChatRequest.Builder builder = ChatRequest.builder()
-                .messages(toDomainMessages(request.messages()));
+        ChatRequest.Builder builder = ChatRequest.builder().messages(toDomainMessages(request.messages()));
         if (request.model() != null) {
             builder.model(request.model());
         }

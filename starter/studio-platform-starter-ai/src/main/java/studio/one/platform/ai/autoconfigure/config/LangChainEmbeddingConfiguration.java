@@ -4,6 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -16,7 +17,6 @@ import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.adapters.embedding.LangChainEmbeddingAdapter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
-import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -46,7 +46,6 @@ public class LangChainEmbeddingConfiguration {
         if (google.isEnabled() && google.getEmbedding().isEnabled()) {
             ports.put("google-ai-gemini", createGoogleAiEmbedding(google, i18n));
         }
-
         return ports;
     }
 
@@ -81,12 +80,17 @@ public class LangChainEmbeddingConfiguration {
 
     private static EmbeddingPort createGoogleAiEmbedding(AiAdapterProperties.GoogleAiGeminiProperties google,
             I18n i18n) {
-        AiAdapterProperties.GoogleAiGeminiProperties.EmbeddingProperties embedding = google.getEmbedding();
+        AiAdapterProperties.GoogleAiGeminiProperties.EmbeddingProperties embedding = google.getEmbedding(); 
         GoogleAiEmbeddingModel.GoogleAiEmbeddingModelBuilder builder = GoogleAiEmbeddingModel.builder()
-                .apiKey(google.getApiKey())
-                .baseUrl(google.getBaseUrl())
-                .modelName(requireModel(embedding.getOptions().getModel()))
-                .titleMetadataKey(embedding.getTitleMetadataKey());
+                .apiKey(google.getApiKey()) 
+                .modelName(requireModel(embedding.getOptions().getModel())); 
+        
+        if( StringUtils.isNotEmpty(google.getBaseUrl()))
+                builder.baseUrl(google.getBaseUrl());
+
+        if( StringUtils.isNotEmpty(embedding.getTitleMetadataKey()))
+                builder.titleMetadataKey(embedding.getTitleMetadataKey()); 
+
         GoogleAiEmbeddingModel.TaskType taskType = parseTaskType(embedding.getTaskType());
         if (taskType != null) {
             builder.taskType(taskType);
