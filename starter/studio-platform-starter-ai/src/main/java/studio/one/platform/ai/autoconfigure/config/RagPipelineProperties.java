@@ -1,4 +1,4 @@
-package studio.one.platform.ai.service.config;
+package studio.one.platform.ai.autoconfigure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 

@@ -1,5 +1,12 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import javax.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
@@ -9,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -20,17 +28,11 @@ import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
 import studio.one.platform.ai.web.dto.VectorUpsertRequestDto;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
-import javax.validation.Valid;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 @RestController
-@RequestMapping("/api/ai/vectors")
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/vectors")
 @Validated
 public class VectorController {
 
@@ -39,7 +41,7 @@ public class VectorController {
     private final VectorStorePort vectorStorePort;
 
     public VectorController(EmbeddingPort embeddingPort,
-                            @Nullable VectorStorePort vectorStorePort) {
+            @Nullable VectorStorePort vectorStorePort) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = vectorStorePort;
     }
@@ -49,20 +51,21 @@ public class VectorController {
         VectorStorePort store = requireVectorStore();
         List<VectorDocument> documents = request.documents().stream()
                 .map(this::toVectorDocument)
-                .collect(Collectors.toList());
+                .toList();
         store.upsert(documents);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     @PostMapping("/search")
-    public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(@Valid @RequestBody VectorSearchRequestDto request) {
+    public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(
+            @Valid @RequestBody VectorSearchRequestDto request) {
         VectorStorePort store = requireVectorStore();
         List<Double> queryEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
         List<VectorSearchResult> results = store.search(searchRequest);
         List<VectorSearchResultDto> payload = results.stream()
                 .map(this::toVectorSearchResultDto)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(ApiResponse.ok(payload));
     }
 

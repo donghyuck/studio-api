@@ -23,7 +23,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.security:spring-security-acl")
-
+    
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}") 
     implementation("dev.langchain4j:langchain4j:${property("langchain4jVersion")}")
     implementation("dev.langchain4j:langchain4j-open-ai:${property("langchain4jVersion")}")
@@ -31,4 +31,5 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-google-ai-gemini:${property("langchain4jVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
+    
 }

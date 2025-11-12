@@ -194,6 +194,7 @@ AI 관련 설정은 이제 `studio.ai` 접두어로 이루어지며, 각 프로�
 ```yaml
 studio:
   ai:
+    enabled: true <!-- add mention? need show default property -->
     default-provider: openai
     openai:
       api-key: ${OPENAI_API_KEY}

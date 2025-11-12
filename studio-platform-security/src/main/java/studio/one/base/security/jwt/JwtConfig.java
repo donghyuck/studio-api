@@ -25,20 +25,20 @@ import java.time.Duration;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-09-30
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-09-30  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 public interface JwtConfig {
-
 
     Duration getAccessTtl();
 
@@ -50,19 +50,18 @@ public interface JwtConfig {
 
     String getPrefix();
 
-    String getClaimAuthorities(); 
+    String getClaimAuthorities();
 
-    String getRefreshCookieName(); 
+    String getRefreshCookieName();
 
     String getCookiePath();
-    
-    boolean isCookieSecure ();
-    
+
+    boolean isCookieSecure();
+
     String getCookieSameSite();
 
     String getSecret();
 
     String getIssuer();
 
-    
 }
