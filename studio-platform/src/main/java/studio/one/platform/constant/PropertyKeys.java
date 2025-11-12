@@ -261,4 +261,9 @@ public class PropertyKeys {
         public static final String PREFIX = Main.PREFIX + ".cloud";
 
     }
+
+    @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+    public static final class Ai {
+        public static final String PREFIX = Main.PREFIX + ".ai";
+    }    
 }

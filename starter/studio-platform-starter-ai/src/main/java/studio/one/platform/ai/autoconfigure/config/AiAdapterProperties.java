@@ -2,6 +2,7 @@ package studio.one.platform.ai.autoconfigure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import studio.one.platform.ai.core.AiProvider;
+import studio.one.platform.constant.PropertyKeys;
 
 import java.util.Objects;
 
@@ -9,17 +10,25 @@ import java.util.Objects;
  * Studio AI inspired configuration binding allowing multiple providers to be
  * defined.
  */
-@ConfigurationProperties(prefix = "studio.ai")
+@ConfigurationProperties(prefix = PropertyKeys.Ai.PREFIX)
 public class AiAdapterProperties {
 
+    private boolean enabled = false;
     private String defaultProvider = AiProvider.OPENAI.name().toLowerCase();
-
     private final OpenAiProperties openai = new OpenAiProperties();
     private final OllamaProperties ollama = new OllamaProperties();
     private final GoogleAiGeminiProperties googleAiGemini = new GoogleAiGeminiProperties();
 
     public String getDefaultProvider() {
         return defaultProvider;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 
     public void setDefaultProvider(String defaultProvider) {
@@ -39,7 +48,7 @@ public class AiAdapterProperties {
     }
 
     public static class ProviderProperties {
-        private boolean enabled = true;
+        private boolean enabled = false;
         private String baseUrl;
 
         public boolean isEnabled() {
@@ -72,6 +81,7 @@ public class AiAdapterProperties {
     }
 
     public static class OpenAiProperties extends ProviderProperties {
+
         private String apiKey;
         private final ChatProperties chat = new ChatProperties();
         private final EmbeddingProperties embedding = new EmbeddingProperties();
@@ -146,7 +156,7 @@ public class AiAdapterProperties {
         }
 
         public static class EmbeddingProperties {
-            private boolean enabled = true;
+            private boolean enabled = false;
             private final Options options = new Options();
 
             public boolean isEnabled() {
@@ -191,7 +201,7 @@ public class AiAdapterProperties {
         }
 
         public static class ChatProperties {
-            private boolean enabled = true;
+            private boolean enabled = false;
             private final Options options = new Options();
 
             public boolean isEnabled() {
@@ -208,7 +218,7 @@ public class AiAdapterProperties {
         }
 
         public static class EmbeddingProperties {
-            private boolean enabled = true;
+            private boolean enabled = false;
             private final Options options = new Options();
             private String taskType = "RETRIEVAL_DOCUMENT";
             private String titleMetadataKey = "title";

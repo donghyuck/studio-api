@@ -1,11 +1,19 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+
+import javax.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -15,13 +23,6 @@ import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.web.dto.ApiResponse;
-
-import javax.validation.Valid;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/ai/chat")
@@ -67,7 +68,7 @@ public class ChatController {
     private List<ChatMessage> toDomainMessages(List<ChatMessageDto> messages) {
         return messages.stream()
                 .map(this::toDomainMessage)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private ChatMessage toDomainMessage(ChatMessageDto dto) {
@@ -78,7 +79,7 @@ public class ChatController {
     private ChatResponseDto toDto(ChatResponse response) {
         List<ChatMessageDto> messages = response.messages().stream()
                 .map(message -> new ChatMessageDto(message.role().name().toLowerCase(Locale.ROOT), message.content()))
-                .collect(Collectors.toList());
+                .toList();
         Map<String, Object> metadata = Map.copyOf(response.metadata());
         return new ChatResponseDto(messages, response.model(), metadata);
     }

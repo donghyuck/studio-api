@@ -1,11 +1,17 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.List;
+import java.util.Map;
+
+import javax.validation.Valid;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -15,13 +21,8 @@ import studio.one.platform.ai.web.dto.SearchRequest;
 import studio.one.platform.ai.web.dto.SearchResponse;
 import studio.one.platform.ai.web.dto.SearchResult;
 
-import javax.validation.Valid;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/ai/rag")
 @Validated
 public class RagController {
 
@@ -47,7 +48,7 @@ public class RagController {
                         result.content(),
                         result.metadata(),
                         result.score()))
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(new SearchResponse(payload));
     }
 }

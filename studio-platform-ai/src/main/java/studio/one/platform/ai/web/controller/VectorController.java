@@ -1,5 +1,12 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+import javax.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
@@ -9,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -21,13 +29,6 @@ import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
 import studio.one.platform.ai.web.dto.VectorUpsertRequestDto;
 import studio.one.platform.web.dto.ApiResponse;
-
-import javax.validation.Valid;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/ai/vectors")
@@ -49,7 +50,7 @@ public class VectorController {
         VectorStorePort store = requireVectorStore();
         List<VectorDocument> documents = request.documents().stream()
                 .map(this::toVectorDocument)
-                .collect(Collectors.toList());
+                .toList();
         store.upsert(documents);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
@@ -62,7 +63,7 @@ public class VectorController {
         List<VectorSearchResult> results = store.search(searchRequest);
         List<VectorSearchResultDto> payload = results.stream()
                 .map(this::toVectorSearchResultDto)
-                .collect(Collectors.toList());
+                .toList();
         return ResponseEntity.ok(ApiResponse.ok(payload));
     }
 
