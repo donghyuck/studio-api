@@ -23,11 +23,11 @@ public class AiAdapterProperties {
     private final GoogleAiGeminiProperties googleAiGemini = new GoogleAiGeminiProperties();
     private Endpoints endpoints = new Endpoints();
 
-    public Endpoints getEndpoints(){
+    public Endpoints getEndpoints() {
         return endpoints;
     }
 
-    public void setEndpoints(Endpoints endpoints){
+    public void setEndpoints(Endpoints endpoints) {
         this.endpoints = endpoints;
     }
 
@@ -59,45 +59,49 @@ public class AiAdapterProperties {
         return googleAiGemini;
     }
 
-    @Getter @Setter
-    public static class Endpoints { 
+    @Getter
+    @Setter
+    public static class Endpoints {
         private boolean enabled = false;
         private String basePath = "/api/ai";
     }
 
-    @Getter @Setter
+    @Getter
+    @Setter
     public static class ProviderProperties {
+
         private boolean enabled = false;
         private String baseUrl;
         private boolean debug = false;
 
         // public boolean isEnabled() {
-        //     return enabled;
+        // return enabled;
         // }
 
         // public void setEnabled(boolean enabled) {
-        //     this.enabled = enabled;
+        // this.enabled = enabled;
         // }
 
         // public String getBaseUrl() {
-        //     return baseUrl;
+        // return baseUrl;
         // }
 
         // public void setBaseUrl(String baseUrl) {
-        //     this.baseUrl = baseUrl;
+        // this.baseUrl = baseUrl;
         // }
     }
 
-    @Getter @Setter
+    @Getter
+    @Setter
     public static class Options {
         private String model;
 
         // public String getModel() {
-        //     return model;
+        // return model;
         // }
 
         // public void setModel(String model) {
-        //     this.model = model;
+        // this.model = model;
         // }
     }
 
@@ -108,7 +112,7 @@ public class AiAdapterProperties {
         private final EmbeddingProperties embedding = new EmbeddingProperties();
 
         public OpenAiProperties() {
-            setBaseUrl("https://api.openai.com/v1");
+            //setBaseUrl("https://api.openai.com/v1");
             chat.getOptions().setModel("gpt-4o-mini");
             embedding.getOptions().setModel("text-embedding-3-small");
         }
@@ -168,7 +172,7 @@ public class AiAdapterProperties {
         private final EmbeddingProperties embedding = new EmbeddingProperties();
 
         public OllamaProperties() {
-            setBaseUrl("http://localhost:11434");
+            //setBaseUrl("http://localhost:11434");
             embedding.getOptions().setModel("nomic-embed-text");
         }
 
@@ -177,7 +181,7 @@ public class AiAdapterProperties {
         }
 
         public static class EmbeddingProperties {
-            private boolean enabled = false;
+            private boolean enabled = true;
             private final Options options = new Options();
 
             public boolean isEnabled() {
@@ -200,9 +204,9 @@ public class AiAdapterProperties {
         private final EmbeddingProperties embedding = new EmbeddingProperties();
 
         public GoogleAiGeminiProperties() {
-            //setBaseUrl("https://generativelanguage.googleapis.com/v1");
-            //chat.getOptions().setModel("models/chat-bison-001");
-            //embedding.getOptions().setModel("textembedding-gecko-001");
+            // setBaseUrl("https://generativelanguage.googleapis.com/v1");
+            chat.getOptions().setModel("models/chat-bison-001");
+            embedding.getOptions().setModel("textembedding-gecko-001");
         }
 
         public String getApiKey() {
@@ -222,7 +226,7 @@ public class AiAdapterProperties {
         }
 
         public static class ChatProperties {
-            private boolean enabled = false;
+            private boolean enabled = true;
             private final Options options = new Options();
 
             public boolean isEnabled() {
@@ -239,7 +243,7 @@ public class AiAdapterProperties {
         }
 
         public static class EmbeddingProperties {
-            private boolean enabled = false;
+            private boolean enabled = true;
             private final Options options = new Options();
             private String taskType = "RETRIEVAL_DOCUMENT";
             private String titleMetadataKey = "title";

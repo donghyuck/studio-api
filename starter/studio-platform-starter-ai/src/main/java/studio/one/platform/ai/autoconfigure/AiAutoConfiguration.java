@@ -12,7 +12,10 @@ import studio.one.platform.ai.autoconfigure.config.LangChainChatConfiguration;
 import studio.one.platform.ai.autoconfigure.config.LangChainEmbeddingConfiguration;
 import studio.one.platform.ai.autoconfigure.config.VectorStoreConfiguration;
 import studio.one.platform.ai.core.chat.ChatPort;
+import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
+import studio.one.platform.ai.web.controller.EmbeddingController;
+import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.constant.PropertyKeys;
 
 @Configuration(proxyBeanMethods = false)
@@ -26,7 +29,7 @@ import studio.one.platform.constant.PropertyKeys;
                 RagPipelineConfiguration.class,
                 VectorStoreConfiguration.class
 })
-@ComponentScan(basePackageClasses = { ChatController.class })
+@ComponentScan(basePackageClasses = { ChatController.class, EmbeddingController.class, VectorController.class, AiInfoController.class })
 public class AiAutoConfiguration {
 
 }

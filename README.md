@@ -216,6 +216,8 @@ studio:
 
 이처럼 여러 프로바이더를 동시에 설정하고 `AiProviderRegistry`를 통해 필요에 따라 프로그램에서 선택할 수도 있다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/core/registry/AiProviderRegistry.java#L1-L44】
 
+`/api/ai/info/providers` 엔드포인트는 각 프로바이더의 채팅/임베딩 모델, 벡터 저장소 상태, 기본 프로바이더를 JSON으로 반환하므로 운영 중인 프로바이더 구성을 동적으로 확인할 때 유용하다.
+
 ## studio-platform-security 모듈
 
 `studio-platform-security` 는 JWT 인증, 리프레시 토큰 저장소, 계정 잠금(Account Lock), 로그인 실패 감사 로깅을 제공하는 보안 모듈이다. `/starter/studio-platform-starter-security` 스타터를 통해 자동 구성되며, 각 기능은 독립적인 퍼시스턴스 전략(JPA 또는 JDBC)을 선택할 수 있다.
