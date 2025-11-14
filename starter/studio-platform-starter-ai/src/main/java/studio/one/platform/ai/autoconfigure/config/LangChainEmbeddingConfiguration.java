@@ -30,83 +30,74 @@ public class LangChainEmbeddingConfiguration {
 
     @Bean(name = "providerEmbeddingPorts")
     public Map<String, EmbeddingPort> embeddingPorts(AiAdapterProperties properties,
-            ObjectProvider<I18n> i18nProvider) { 
-
+                                                    ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         Map<String, EmbeddingPort> ports = new LinkedHashMap<>();
-        AiAdapterProperties.OpenAiProperties openai = properties.getOpenai();
-        if (openai.isEnabled() && openai.getEmbedding().isEnabled()) {
-            ports.put("openai", createOpenAiEmbedding(openai, i18n));
-        }
-        AiAdapterProperties.OllamaProperties ollama = properties.getOllama();
-        if (ollama.isEnabled() && ollama.getEmbedding().isEnabled()) {
-            ports.put("ollama", createOllamaEmbedding(ollama, i18n));
-        }
-        AiAdapterProperties.GoogleAiGeminiProperties google = properties.getGoogleAiGemini();
-        if (google.isEnabled() && google.getEmbedding().isEnabled()) {
-            ports.put("google-ai-gemini", createGoogleAiEmbedding(google, i18n));
+        for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
+            AiAdapterProperties.Provider provider = entry.getValue();
+            log.debug("checking <{}> : provider - {}, embedding - {}", entry.getKey(), provider.isEnabled(), provider.getEmbedding().isEnabled());
+            if (!provider.isEnabled() || !provider.getEmbedding().isEnabled()) {
+                continue;
+            }
+            ports.put(entry.getKey(), createEmbedding(provider, i18n));
         }
         return ports;
     }
 
-    private static EmbeddingPort createOpenAiEmbedding(AiAdapterProperties.OpenAiProperties openai, I18n i18n) {
-        EmbeddingModel model = OpenAiEmbeddingModel.builder()
-                .apiKey(openai.getApiKey())
-                .baseUrl(openai.getBaseUrl())
-                .modelName(requireModel(openai.getEmbedding().getOptions().getModel()))
-                .build();
-
+    private static EmbeddingPort createEmbedding(AiAdapterProperties.Provider provider, I18n i18n) {
+        log.debug("Creating Embedding Port by  {}", provider );
+        String model = requireModel(provider.getEmbedding().getModel());
+        String baseUrl = resolveBaseUrl(provider);
+        EmbeddingModel embeddingModel = switch (provider.getType()) {
+            case OPENAI -> OpenAiEmbeddingModel.builder()
+                    .apiKey(provider.getApiKey())
+                    .baseUrl(baseUrl)
+                    .modelName(model)
+                    .build();
+            case OLLAMA -> OllamaEmbeddingModel.builder()
+                    .baseUrl(baseUrl)
+                    .modelName(model)
+                    .build();
+            case GOOGLE_AI_GEMINI -> buildGoogleEmbedding(provider, baseUrl, model);
+            default -> throw new IllegalArgumentException("Unsupported embedding provider: " + provider.getType());
+        };
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(EmbeddingModel.class, true),
-                LogUtils.green(OpenAiEmbeddingModel.class, true),
+                LogUtils.green(embeddingModel.getClass(), true),
                 LogUtils.red(State.CREATED.toString())));
-        return new LangChainEmbeddingAdapter(model);
+        return new LangChainEmbeddingAdapter(embeddingModel);
     }
 
-    private static EmbeddingPort createOllamaEmbedding(AiAdapterProperties.OllamaProperties ollama, I18n i18n) {
-        EmbeddingModel model = OllamaEmbeddingModel.builder()
-                .baseUrl(ollama.getBaseUrl())
-                .modelName(requireModel(ollama.getEmbedding().getOptions().getModel()))
-                .build();
-
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
-                AiProviderRegistryConfiguration.FEATURE_NAME,
-                LogUtils.blue(EmbeddingModel.class, true),
-                LogUtils.green(OllamaEmbeddingModel.class, true),
-                LogUtils.red(State.CREATED.toString())));
-        return new LangChainEmbeddingAdapter(model);
-    }
-
-    private static EmbeddingPort createGoogleAiEmbedding(AiAdapterProperties.GoogleAiGeminiProperties google,
-            I18n i18n) {
-        AiAdapterProperties.GoogleAiGeminiProperties.EmbeddingProperties embedding = google.getEmbedding(); 
+    private static GoogleAiEmbeddingModel buildGoogleEmbedding(AiAdapterProperties.Provider provider, String baseUrl, String model) {
+        AiAdapterProperties.GoogleEmbeddingOptions google = provider.getGoogleEmbedding();
         GoogleAiEmbeddingModel.GoogleAiEmbeddingModelBuilder builder = GoogleAiEmbeddingModel.builder()
-                .apiKey(google.getApiKey()) 
-                .modelName(requireModel(embedding.getOptions().getModel())); 
-        
-        if( StringUtils.isNotEmpty(google.getBaseUrl()))
-                builder.baseUrl(google.getBaseUrl());
-
-        if( StringUtils.isNotEmpty(embedding.getTitleMetadataKey()))
-                builder.titleMetadataKey(embedding.getTitleMetadataKey()); 
-
-        GoogleAiEmbeddingModel.TaskType taskType = parseTaskType(embedding.getTaskType());
-        if (taskType != null) {
-            builder.taskType(taskType);
+                .apiKey(provider.getApiKey())
+                .baseUrl(baseUrl)
+                .modelName(model)
+                .titleMetadataKey(google.getTitleMetadataKey());
+        String taskType = google.getTaskType();
+        if (taskType != null && !taskType.isBlank()) {
+            builder.taskType(GoogleAiEmbeddingModel.TaskType.valueOf(taskType.trim().toUpperCase(Locale.ROOT)));
         }
+        return builder.build();
+    }
 
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
-                AiProviderRegistryConfiguration.FEATURE_NAME,
-                LogUtils.blue(EmbeddingModel.class, true),
-                LogUtils.green(GoogleAiEmbeddingModel.class, true),
-                LogUtils.red(State.CREATED.toString())));
-        return new LangChainEmbeddingAdapter(builder.build());
+    private static String resolveBaseUrl(AiAdapterProperties.Provider provider) {
+        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+            return provider.getBaseUrl();
+        }
+        return switch (provider.getType()) {
+            case OPENAI -> "https://api.openai.com/v1";
+            case OLLAMA -> "http://localhost:11434";
+            case GOOGLE_AI_GEMINI -> "https://generativelanguage.googleapis.com/v1";
+            default -> null;
+        };
     }
 
     private static String requireModel(String model) {
         if (model == null || model.isBlank()) {
-            throw new IllegalArgumentException("Model name must be provided");
+            throw new IllegalArgumentException("Model name must be provided for embedding configuration");
         }
         return model;
     }
