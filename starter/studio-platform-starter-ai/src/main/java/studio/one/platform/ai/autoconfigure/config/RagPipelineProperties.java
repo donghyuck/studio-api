@@ -2,9 +2,11 @@ package studio.one.platform.ai.autoconfigure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import studio.one.platform.constant.PropertyKeys;
+
 import java.time.Duration;
 
-@ConfigurationProperties(prefix = "ai.pipeline")
+@ConfigurationProperties(prefix = PropertyKeys.AI.PREFIX + ".pipeline")
 public class RagPipelineProperties {
 
     private int chunkSize = 500;

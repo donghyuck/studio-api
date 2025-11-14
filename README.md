@@ -189,29 +189,35 @@ Auto-configuration, property binding, and the LangChain client wiring are hosted
 
 ### studio.ai 설정
 
-AI 관련 설정은 이제 `studio.ai` 접두어로 이루어지며, 각 프로바이더별로 별도 옵션을 정의할 수 있다. 예를 들어 OpenAI 채팅/임베딩과 Ollama 임베딩 옵션을 동시에 다루려면 다음과 같이 작성한다.
+AI 관련 설정은 이제 `studio.ai` 접두어로 이루어지며, 원하는 만큼의 프로바이더를 `providers` 리스트로 정의할 수 있다. 각 엔트리는 `type`으로 OpenAI/OpenAI Gemini/Ollama 중 하나를 선택하고, `chat`/`embedding` 채널에 다른 모델을 지정할 수 있다. 예시:
 
 ```yaml
 studio:
   ai:
-    enabled: true <!-- add mention? need show default property -->
+    enabled: true
     default-provider: openai
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      chat:
-        enabled: true
-        options:
+    providers:
+      - name: openai
+        type: OPENAI
+        api-key: ${OPENAI_API_KEY}
+        chat:
+          enabled: true
           model: gpt-4o-mini
-      embedding:
-        enabled: true
-        options:
+        embedding:
+          enabled: true
           model: text-embedding-3-small
-    ollama:
-      base-url: http://ollama.internal:11434
-      embedding:
-        enabled: true
-        options:
+      - name: ollama
+        type: OLLAMA
+        base-url: http://ollama.internal:11434
+        embedding:
           model: bge-m3
+      - name: mexico-gemini
+        type: GOOGLE_AI_GEMINI
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          model: models/chat-bison-001
+        embedding:
+          model: textembedding-gecko-001
 ```
 
 이처럼 여러 프로바이더를 동시에 설정하고 `AiProviderRegistry`를 통해 필요에 따라 프로그램에서 선택할 수도 있다.【F:studio-platform-ai/src/main/java/studio/one/platform/ai/core/registry/AiProviderRegistry.java#L1-L44】
