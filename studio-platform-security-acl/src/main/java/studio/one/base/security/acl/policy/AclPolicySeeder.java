@@ -2,7 +2,6 @@ package studio.one.base.security.acl.policy;
 
 import java.util.EnumSet;
 import java.util.Locale;
-import java.util.Map;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.util.StringUtils;
@@ -17,11 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class AclPolicySeeder {
-
-    private static final Map<AclAction, Integer> ACTION_MASK = Map.of(
-            AclAction.READ, org.springframework.security.acls.domain.BasePermission.READ.getMask(),
-            AclAction.WRITE, org.springframework.security.acls.domain.BasePermission.WRITE.getMask(),
-            AclAction.ADMIN, org.springframework.security.acls.domain.BasePermission.ADMINISTRATION.getMask());
 
     private final JdbcTemplate jdbcTemplate;
 
@@ -100,9 +94,7 @@ public class AclPolicySeeder {
             return 0;
         int mask = 0;
         for (AclAction action : actions) {
-            Integer m = ACTION_MASK.get(action);
-            if (m != null)
-                mask |= m;
+            mask |= action.getMask();
         }
         return mask;
     }

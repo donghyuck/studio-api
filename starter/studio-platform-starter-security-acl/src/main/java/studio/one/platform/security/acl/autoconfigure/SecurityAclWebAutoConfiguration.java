@@ -77,4 +77,5 @@ public class SecurityAclWebAutoConfiguration {
                 LogUtils.blue("ACL-managed"));
         return new AclSyncController(defaults.getPolicies(), synchronizationService);
     }
+    
 }
