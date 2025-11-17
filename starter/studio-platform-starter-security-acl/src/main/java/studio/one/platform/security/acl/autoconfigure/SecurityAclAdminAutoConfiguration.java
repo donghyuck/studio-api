@@ -13,6 +13,7 @@ import studio.one.base.security.acl.persistence.AclEntryRepository;
 import studio.one.base.security.acl.persistence.AclObjectIdentityRepository;
 import studio.one.base.security.acl.persistence.AclSidRepository;
 import studio.one.base.security.acl.service.AclAdministrationService;
+import studio.one.base.security.acl.web.controller.AclActionController;
 import studio.one.base.security.acl.web.controller.AclAdminController;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
@@ -48,4 +49,17 @@ public class SecurityAclAdminAutoConfiguration {
                 properties.getBasePath()));
         return new AclAdminController(administrationService);
     }
+
+
+    @Bean 
+    public AclActionController aclActionController(
+            SecurityAclAdminProperties properties, 
+            ObjectProvider<I18n> i18nProvider) {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, "Security - Acl",
+                LogUtils.blue(AclAdministrationService.class, true),
+                LogUtils.blue(AclActionController.class, true),
+                properties.getBasePath()));
+        return new AclActionController();
+    }    
 }

@@ -62,7 +62,7 @@ public class AclAdminController {
 
     private final AclAdministrationService administrationService;
 
-    @PreAuthorize("@endpointAuthz.can('security:acl','read')")
+    @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
     @GetMapping("/classes")
     public ResponseEntity<ApiResponse<List<AclClassDto>>> classes() {
         var list = administrationService.listClasses();
@@ -85,7 +85,7 @@ public class AclAdminController {
         return ok(ApiResponse.ok());
     }
 
-    @PreAuthorize("@endpointAuthz.can('security:acl','read')")
+    @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
     @GetMapping("/sids")
     public ResponseEntity<ApiResponse<List<AclSidDto>>> sids() {
         var list = administrationService.listSids();
@@ -108,15 +108,15 @@ public class AclAdminController {
         return ok(ApiResponse.ok());
     }
 
-    @PreAuthorize("@endpointAuthz.can('security:acl','read')")
-    @GetMapping("/object-identities")
+    @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
+    @GetMapping("/objects")
     public ResponseEntity<ApiResponse<List<AclObjectIdentityDto>>> objectIdentities() {
         var list = administrationService.listObjectIdentities();
         return ok(ApiResponse.ok(list));
     }
 
     @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
-    @PostMapping("/object-identities")
+    @PostMapping("/objects")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<AclObjectIdentityDto>> createObjectIdentity(@RequestBody @Valid AclObjectIdentityRequest request) {
         var created = administrationService.createObjectIdentity(request);
@@ -124,14 +124,14 @@ public class AclAdminController {
     }
 
     @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
-    @DeleteMapping("/object-identities/{id}")
+    @DeleteMapping("/objects/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ResponseEntity<ApiResponse<Void>> deleteObjectIdentity(@PathVariable("id") Long id) {
         administrationService.deleteObjectIdentity(id);
         return ok(ApiResponse.ok());
     }
 
-    @PreAuthorize("@endpointAuthz.can('security:acl','read')")
+    @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
     @GetMapping("/entries")
     public ResponseEntity<ApiResponse<List<AclEntryDto>>>  entries() {
         var list = administrationService.listEntries();
