@@ -57,7 +57,6 @@ import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
-import studio.one.platform.security.authz.AclProperties;
 import studio.one.platform.security.authz.AllowAllEndpointModeGuard;
 import studio.one.platform.security.authz.DomainPolicyContributor;
 import studio.one.platform.security.authz.DomainPolicyRegistry;
@@ -170,7 +169,7 @@ public class SecurityAclDatabaseAutoConfiguration {
         @ConditionalOnMissingBean
         public DomainPolicyRegistry domainPolicyRegistry(
                         ObjectProvider<List<DomainPolicyContributor>> contributors) {
-                return new DomainPolicyRegistryImpl(new AclProperties(), contributors);
+                return new DomainPolicyRegistryImpl(contributors);
         }
 
         @Bean

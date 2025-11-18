@@ -36,10 +36,12 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
 import studio.one.base.user.web.dto.RoleDto;
@@ -49,6 +51,22 @@ import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
+
+/**
+ * User Endpoints
+ * 
+ * @author donghyuck, son
+ * @since 2025-11-17
+ * @version 1.0
+ *
+ *          <pre>
+ *  
+ * << 개정이력(Modification Information) >>
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2025-11-17  donghyuck, son: 최초 생성.
+ *          </pre>
+ */
 
 @RestController
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/users")
@@ -61,7 +79,7 @@ public class UserController {
         private final ApplicationRoleMapper roleMapper;
 
         @PostMapping
-        @PreAuthorize("@endpointAuthz.can('user','write')")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         public ResponseEntity<ApiResponse<Long>> register(@Valid @RequestBody CreateUserRequest request,
                         HttpServletRequest http) {
 
@@ -72,7 +90,7 @@ public class UserController {
         }
 
         @GetMapping
-        @PreAuthorize("@endpointAuthz.can('user','read')")
+        @PreAuthorize("@endpointAuthz.can('features:user','read')")
         public ResponseEntity<ApiResponse<Page<UserDto>>> list(
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
                 Page<User> page = userService.findAll(pageable);
@@ -81,14 +99,14 @@ public class UserController {
         }
 
         @GetMapping("/find")
-        @PreAuthorize("@endpointAuthz.can('user','read')")
+        @PreAuthorize("@endpointAuthz.can('features:user','read')")
         public ResponseEntity<ApiResponse<Page<UserDto>>> find(
-                @RequestParam(value = "q", required = false) Optional<String> q,
-                @RequestParam(value = "requireQuery" , required = false, defaultValue = "true" ) boolean requireQuery,
-                @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
+                        @RequestParam(value = "q", required = false) Optional<String> q,
+                        @RequestParam(value = "requireQuery", required = false, defaultValue = "true") boolean requireQuery,
+                        @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
 
-                if( q.isEmpty() && requireQuery )
-                      return ok(ApiResponse.ok(Page.empty(pageable)));          
+                if (q.isEmpty() && requireQuery)
+                        return ok(ApiResponse.ok(Page.empty(pageable)));
                 Page<User> page;
                 if (q.isEmpty()) {
                         page = userService.findAll(pageable);
@@ -101,28 +119,52 @@ public class UserController {
         }
 
         @GetMapping("/{id}")
-        @PreAuthorize("@endpointAuthz.can('user','read')")
+        @PreAuthorize("@endpointAuthz.can('features:user','read')")
         public ResponseEntity<ApiResponse<UserDto>> get(@PathVariable Long id) {
                 var user = userService.get(id);
                 return ResponseEntity.ok(ApiResponse.ok(userMapper.toDto(user)));
         }
 
         @PutMapping("/{id}")
-        @PreAuthorize("@endpointAuthz.can('user','write')")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         public ResponseEntity<ApiResponse<UserDto>> update(@PathVariable Long id, @RequestBody UpdateUserRequest req) {
-                User updated = userService.update(id, u -> userMapper.updateEntityFromDto(req, u));
+
+                User entity = userService.get(id);
+                userMapper.updateEntityFromDto(req, (ApplicationUser) entity);
+                log.debug("{}->{}", req, entity);
+
+                User updated = userService.update(id, u -> userMapper.updateEntityFromDto(req, (ApplicationUser) u));
                 return ResponseEntity.ok(ApiResponse.ok(userMapper.toDto(updated)));
         }
 
+        @GetMapping("/{id}/password/reset")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        public ResponseEntity<Void> passwordReset(@PathVariable Long id, @AuthenticationPrincipal UserDetails actor) {
+                ChangePasswordRequest cpr = new ChangePasswordRequest();
+                cpr.setNewPassword("P@sswOrd!");
+                cpr.setReason("reset by admin.");
+                userService.resetPassword(id, cpr.getNewPassword(), requireActor(actor), cpr.getReason());
+                return ResponseEntity.noContent().build();
+        }
+
+        @PostMapping("/{id}/password")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        public ResponseEntity<Void> passwordReset(@PathVariable Long id,
+                        @Valid @RequestBody ChangePasswordRequest req,
+                        @AuthenticationPrincipal UserDetails actor) {
+                userService.resetPassword(id, req.getNewPassword(), requireActor(actor), req.getReason());
+                return ResponseEntity.noContent().build();
+        }
+
         @PostMapping("/{id}/enable")
-        @PreAuthorize("@endpointAuthz.can('user','write')")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         public ResponseEntity<Void> enable(@PathVariable Long id, @AuthenticationPrincipal UserDetails actor) {
                 userService.enable(id, requireActor(actor));
                 return ResponseEntity.noContent().build();
         }
 
         @PostMapping("/{id}/disable")
-        @PreAuthorize("@endpointAuthz.can('user','write')")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         public ResponseEntity<Void> disable(@PathVariable Long id,
                         @RequestBody(required = false) DisableUserRequest req,
                         @AuthenticationPrincipal UserDetails actor) {
@@ -163,7 +205,7 @@ public class UserController {
         }
 
         @GetMapping("/{id}/roles")
-        @PreAuthorize("@endpointAuthz.can('user','read')")
+        @PreAuthorize("@endpointAuthz.can('features:user','read')")
         public ResponseEntity<ApiResponse<List<RoleDto>>> roles(
                         @PathVariable Long id,
                         @RequestParam(value = "by", required = false, defaultValue = "all") String by) {
@@ -187,7 +229,7 @@ public class UserController {
         }
 
         @PostMapping("/{id}/roles")
-        @PreAuthorize("@endpointAuthz.can('group','write')")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         public ResponseEntity<ApiResponse<Void>> updateUserRoles(@PathVariable Long id,
                         @RequestBody List<RoleDto> roles,
                         @AuthenticationPrincipal UserDetails actor) {

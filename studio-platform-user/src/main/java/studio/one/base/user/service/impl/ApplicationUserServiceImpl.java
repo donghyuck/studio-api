@@ -29,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.constant.CacheNames;
 import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
@@ -38,6 +39,8 @@ import studio.one.base.user.domain.entity.ApplicationUserRole;
 import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.base.user.domain.event.UserDisabledEvent;
 import studio.one.base.user.domain.event.UserEnabledEvent;
+import studio.one.base.user.domain.event.UserPasswordResetEvent;
+import studio.one.base.user.domain.event.UserUpdatedEvent;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.UserIdOnly;
 import studio.one.base.user.exception.GroupNotFoundException;
@@ -79,8 +82,9 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, "autoconfig.feature.service.details", "User",
-                LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZING.toString()))); 
-        passwordEncoderProvider.ifAvailable(encoder -> log.debug("ApplicationUserService - PasswordEncoder: {}", LogUtils.green(encoder.getClass(), true)));
+                LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZING.toString())));
+        passwordEncoderProvider.ifAvailable(encoder -> log.debug("ApplicationUserService - PasswordEncoder: {}",
+                LogUtils.green(encoder.getClass(), true)));
         if (passwordEncoderProvider.getIfAvailable() == null)
             log.warn(LogUtils.red("ApplicationUserService - No PasswordEncoder bean not found."));
 
@@ -99,14 +103,14 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return userRepo.search(keyword, pageable);
     }
 
-    @Cacheable(cacheNames = "users.byUserId", key = "#userId", unless = "#result == null")
+    @Cacheable(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId", unless = "#result == null")
     @Transactional(propagation = Propagation.SUPPORTS)
     public ApplicationUser get(Long userId) {
         return userRepo.findById(userId)
                 .orElseThrow(() -> UserNotFoundException.byId(userId));
     }
 
-    @Cacheable(cacheNames = "users.byUsername", key = "#username", unless = "#result == null")
+    @Cacheable(cacheNames = CacheNames.User.BY_USERNAME, key = "#username", unless = "#result == null")
     @Transactional(propagation = Propagation.SUPPORTS)
     public Optional<ApplicationUser> findByUsername(String username) {
         return userRepo.findByUsername(username);
@@ -126,9 +130,6 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return saved;
     }
 
-    @Caching(evict = {
-            @CacheEvict(cacheNames = "users.byUsername, users.byUserId", allEntries = true)
-    })
     @Transactional
     public ApplicationUser update(Long userId, Consumer<ApplicationUser> mutator) {
         Objects.requireNonNull(mutator, "updater");
@@ -138,30 +139,28 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         log.debug("[UserUpdate] username={}, failedAttempts={}, lastFailedAt={}, lockedUntil={}", u.getUsername(),
                 u.getFailedAttempts(), u.getLastFailedAt(), u.getAccountLockedUntil());
         ApplicationUser saved = userRepo.save(u);
+        domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit(UserUpdatedEvent.of(userId, u.getUsername(), "system", clock)));
         return saved;
     }
 
-    @Caching(evict = {
-            @CacheEvict(cacheNames = "users.byUsername, users.byUserId, users.userId.byUsername", allEntries = true)
-    })
     @Transactional
     public void delete(Long userId) {
         ApplicationUser u = get(userId);
         userRepo.delete(u);
+        domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit(UserUpdatedEvent.of(userId, u.getUsername(), "system", clock)));
     }
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = "users.byUsername,users.byUserId", allEntries = true)
-    })
     public void enable(Long userId, String actor) {
         ApplicationUser u = get(userId);
         if (!Boolean.TRUE.equals(u.isEnabled())) {
             u.setEnabled(true);
             safeAudit("USER_ENABLED", userId, actor, null);
-            domainEventsProvider
-                    .ifAvailable(resolved -> resolved.publishAfterCommit(UserEnabledEvent.of(userId, actor, clock)));
+            domainEventsProvider.ifAvailable(resolved -> resolved
+                    .publishAfterCommit(UserEnabledEvent.of(userId, u.getUsername(), actor, clock)));
         }
     }
 
@@ -171,17 +170,14 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
     @Override
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(cacheNames = "users.byUsername,users.byUserId", allEntries = true)
-    })
     public void disable(Long userId, String actor, String reason, OffsetDateTime until, boolean revokeTokens,
             boolean invalidateSessions, boolean notifyUser) {
         ApplicationUser u = get(userId);
         if (!Boolean.FALSE.equals(u.isEnabled())) {
             u.setEnabled(false);
             safeAudit("USER_DISABLED", userId, actor, reason);
-            domainEventsProvider.ifAvailable(
-                    resolved -> resolved.publishAfterCommit(UserDisabledEvent.of(userId, actor, reason, until, clock)));
+            domainEventsProvider.ifAvailable(resolved -> resolved
+                    .publishAfterCommit(UserDisabledEvent.of(userId, u.getUsername(), actor, reason, until, clock)));
         }
     }
 
@@ -199,14 +195,13 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
     // ---------- 그룹 가입/탈퇴 ----------
     @Caching(evict = {
-            @CacheEvict(cacheNames = "roles.effective", key = "userId")
+            @CacheEvict(cacheNames = "roles.effective", key = "#userId")
     })
     @Transactional
     public void joinGroup(Long userId, Long groupId, String by) {
         ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
         ApplicationGroup g = groupRepo.findById(groupId)
                 .orElseThrow(() -> GroupNotFoundException.byId(groupId));
-
         ApplicationGroupMembershipId id = new ApplicationGroupMembershipId(groupId, userId);
         if (!membershipRepo.existsById(id)) {
             membershipRepo.save(ApplicationGroupMembership.builder()
@@ -219,7 +214,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "roles.effective", key = "userId")
+            @CacheEvict(cacheNames = "roles.effective", key = "#userId")
     })
     @Transactional
     public void leaveGroup(Long userId, Long groupId) {
@@ -263,11 +258,6 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             // 이미 해시인지 구분하려면 패턴 검사 추가 가능({bcrypt} or $2a$ ...)
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
-        // (B) 해시 저장 필드가 passwordHash, 입력 원문이 rawPassword 인 경우
-        if (StringUtils.isNotBlank(user.getPassword())) {
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
-        }
-
     }
 
     @Override
@@ -284,7 +274,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     // ---------- 롤 부여/회수 ----------
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "roles.effective", key = "userId")
+            @CacheEvict(cacheNames = "roles.effective", key = "#userId")
     })
     @Transactional
     public void assignRole(Long userId, Long roleId, String by) {
@@ -302,7 +292,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     }
 
     @Caching(evict = {
-            @CacheEvict(cacheNames = "roles.effective", key = "userId")
+            @CacheEvict(cacheNames = "roles.effective", key = "#userId")
     })
     @Transactional
     public void revokeRole(Long userId, Long roleId) {
@@ -322,7 +312,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         List<Long> toRevoke = currentSet.stream()
                 .filter(id -> !desiredSet.contains(id))
                 .toList();
-        long inserted = toAssign.isEmpty() ? 0 : assignRolesBulk(userId, toAssign, actor).getInserted();
+        long inserted = toAssign.isEmpty() ? 0 :  assignRolesBulk(userId, toAssign, actor).getInserted();
         long deleted = toRevoke.isEmpty() ? 0 : userRoleRepo.deleteByUserIdAndRoleIds(userId, toRevoke);
         long skipped = toAssign.size() - inserted;
         return new BatchResult(desired.size(), inserted, skipped, deleted);
@@ -333,7 +323,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
         List<Long> candidates = (roles == null)
                 ? java.util.Collections.emptyList()
-                : roles.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
+                : roles.stream().filter(Objects::nonNull).distinct().toList();
         if (candidates.isEmpty()) {
             return new BatchResult(0, 0, 0, 0);
         }
@@ -377,4 +367,17 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
                 .orElseThrow(() -> UserNotFoundException.of(username));
     }
 
+    @Override
+    @Transactional
+    public void resetPassword(Long userId, String rawPassword, String actor, String reason) {
+        ApplicationUser user = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
+        user.setPassword(rawPassword);
+        user.setFailedAttempts(0);
+        user.setLastFailedAt(null);
+        user.setAccountLockedUntil(null);
+        encodePasswordIfPresent(user);
+        safeAudit("USER_PASSWORD_RESET", userId, actor, reason);
+        domainEventsProvider.ifAvailable(resolved -> resolved
+                .publishAfterCommit(UserPasswordResetEvent.of(userId, user.getUsername(), actor, clock)));
+    }
 }

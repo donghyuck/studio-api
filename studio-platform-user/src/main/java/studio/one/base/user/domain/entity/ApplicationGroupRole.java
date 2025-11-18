@@ -19,11 +19,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.base.user.util.ApplicationJpaNames;
+import studio.one.base.user.constant.JpaEntityNames;
 
 @Getter
 @Setter
-@Entity(name=ApplicationJpaNames.Group.Role.ENTITY)
+@Entity(name=JpaEntityNames.Group.Role.ENTITY)
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "TB_APPLICATION_GROUP_ROLES")
 @NoArgsConstructor

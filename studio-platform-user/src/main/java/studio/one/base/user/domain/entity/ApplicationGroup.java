@@ -53,14 +53,14 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Builder.Default;
+import studio.one.base.user.constant.JpaEntityNames;
 import studio.one.base.user.domain.model.Group;
-import studio.one.base.user.util.ApplicationJpaNames;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.Singular;
 
-@Entity(name = ApplicationJpaNames.Group.ENTITY)
+@Entity(name = JpaEntityNames.Group.ENTITY)
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "TB_APPLICATION_GROUP")
 @Getter

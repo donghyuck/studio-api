@@ -24,7 +24,6 @@ package studio.one.platform.security.acl.autoconfigure;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.acl.policy.AclPolicySeeder;
 import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
@@ -46,8 +46,12 @@ import studio.one.platform.util.LogUtils;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(DefaultAclPolicyProperties.class)
-@ConditionalOnClass(JdbcTemplate.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX + ".sync", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(JdbcTemplate.class) 
+@ConditionalOnProperties( prefix = PropertyKeys.Security.Acl.PREFIX,
+    value = {
+    @ConditionalOnProperties.Property( name = "enabled", havingValue = "true"),
+    @ConditionalOnProperties.Property( name = "sync.enabled", havingValue = "true", matchIfMissing = false)    
+})
 @Slf4j
 public class DefaultAclPolicyAutoConfiguration {
 
@@ -67,7 +71,7 @@ public class DefaultAclPolicyAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public AclPolicySyncEventListener aclPolicySyncEventListener(
-            AclPolicySynchronizationService aclPolicySynchronizationService, 
+            AclPolicySynchronizationService aclPolicySynchronizationService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,

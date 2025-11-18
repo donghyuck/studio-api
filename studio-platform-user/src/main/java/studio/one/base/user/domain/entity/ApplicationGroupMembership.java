@@ -17,8 +17,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import studio.one.base.user.util.ApplicationJpaNames;
+import studio.one.base.user.constant.JpaEntityNames;
 
 @Builder
 @Getter
@@ -26,7 +25,7 @@ import studio.one.base.user.util.ApplicationJpaNames;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "TB_APPLICATION_GROUP_MEMBERS")
-@Entity(name = ApplicationJpaNames.GroupMembership.ENTITY)
+@Entity(name = JpaEntityNames.GroupMembership.ENTITY)
 public class ApplicationGroupMembership implements Serializable {
 
     @EmbeddedId

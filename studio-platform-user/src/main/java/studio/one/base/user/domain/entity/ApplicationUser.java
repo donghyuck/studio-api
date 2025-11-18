@@ -57,12 +57,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import studio.one.base.user.constant.JpaEntityNames;
 import studio.one.base.user.domain.model.Status;
 import studio.one.base.user.domain.model.User;
-import studio.one.base.user.util.ApplicationJpaNames;
 
 @Builder
-@Entity(name = ApplicationJpaNames.User.ENTITY)
+@Entity(name = JpaEntityNames.User.ENTITY)
 @EntityListeners(org.springframework.data.jpa.domain.support.AuditingEntityListener.class)
 @Getter
 @Setter
@@ -70,7 +70,7 @@ import studio.one.base.user.util.ApplicationJpaNames;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString(onlyExplicitlyIncluded = true)
+@ToString 
 public class ApplicationUser implements User {
 
 	@Id // tell persistence provider 'id' is primary key
