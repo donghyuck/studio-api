@@ -2,7 +2,6 @@ package studio.one.platform.security.acl.autoconfigure;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +15,7 @@ import studio.one.base.security.acl.service.AclAdministrationService;
 import studio.one.base.security.acl.web.controller.AclActionController;
 import studio.one.base.security.acl.web.controller.AclAdminController;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
@@ -23,7 +23,11 @@ import studio.one.platform.util.LogUtils;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(SecurityAclAdminProperties.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX + ".web", name = "enabled", havingValue = "true")
+@ConditionalOnProperties( prefix = PropertyKeys.Security.Acl.PREFIX,
+    value = {
+    @ConditionalOnProperties.Property( name = "enabled", havingValue = "true"),
+    @ConditionalOnProperties.Property( name = "web.enabled", havingValue = "true", matchIfMissing = false)    
+})
 @Slf4j
 public class SecurityAclAdminAutoConfiguration {
 
@@ -50,10 +54,9 @@ public class SecurityAclAdminAutoConfiguration {
         return new AclAdminController(administrationService);
     }
 
-
-    @Bean 
+    @Bean
     public AclActionController aclActionController(
-            SecurityAclAdminProperties properties, 
+            SecurityAclAdminProperties properties,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, "Security - Acl",
@@ -61,5 +64,5 @@ public class SecurityAclAdminAutoConfiguration {
                 LogUtils.blue(AclActionController.class, true),
                 properties.getBasePath()));
         return new AclActionController();
-    }    
+    }
 }

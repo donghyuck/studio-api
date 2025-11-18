@@ -72,6 +72,8 @@ public interface ApplicationUserService<T extends User, R extends Role> {
 
     void enable(Long userId, String actor);
 
+    void resetPassword(Long userId, String rawPassword, String actor, String reason);
+
     void disable(Long userId,
             String actor,
             String reason,

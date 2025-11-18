@@ -1,9 +1,9 @@
-package studio.one.base.user.util;
+package studio.one.base.user.constant;
 
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
-public class ApplicationJpaNames {
+public class JpaEntityNames {
 
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class Company {

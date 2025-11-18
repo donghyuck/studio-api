@@ -34,7 +34,9 @@ import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
 import studio.one.base.security.acl.policy.AclPolicySynchronizationServiceImpl;
 import studio.one.base.security.acl.web.controller.AclSyncController;
 import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.State;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -44,7 +46,11 @@ import studio.one.platform.util.LogUtils;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(SecurityAclWebProperties.class)
-@ConditionalOnProperty(prefix = "studio.security.acl.web", name = "enabled", havingValue = "true")
+@ConditionalOnProperties( prefix = PropertyKeys.Security.Acl.PREFIX,
+    value = {
+    @ConditionalOnProperties.Property( name = "enabled", havingValue = "true"),
+    @ConditionalOnProperties.Property( name = "web.enabled", havingValue = "true", matchIfMissing = false)    
+})
 @Slf4j
 public class SecurityAclWebAutoConfiguration {
 

@@ -16,11 +16,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.base.user.util.ApplicationJpaNames;
+import studio.one.base.user.constant.JpaEntityNames;
 
 @Getter
 @Setter
-@Entity(name= ApplicationJpaNames.User.Role.ENTITY)
+@Entity(name= JpaEntityNames.User.Role.ENTITY)
 @Table(name = "TB_APPLICATION_USER_ROLES")
 @NoArgsConstructor
 @AllArgsConstructor

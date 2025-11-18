@@ -22,6 +22,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -115,6 +116,8 @@ public class JwtSecurtyAutoConfiguration {
     public JwtAuthController jwtLoginEndpoint(
             JwtTokenProvider jwtTokenProvider,
             AuthenticationManager authenticationManager,
+            PasswordEncoder passwordEncoder,
+            UserDetailsService userDetailsService,
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<RefreshTokenStore> storeProvider,
             ObjectProvider<I18n> i18nProvider) {
@@ -124,7 +127,7 @@ public class JwtSecurtyAutoConfiguration {
                 LogUtils.blue("Jwt"),
                 LogUtils.blue(JwtAuthController.class, true),
                 props.getEndpoints().getBasePath(), getModeString(props)));
-        return new JwtAuthController(authenticationManager, jwtTokenProvider, storeProvider,
+        return new JwtAuthController(authenticationManager, userDetailsService, passwordEncoder, jwtTokenProvider, storeProvider,
                 I18nUtils.resolve(i18nProvider));
     }
 

@@ -11,40 +11,23 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * An implementation of the {@link DomainPolicyRegistry} interface that merges
- * policies from {@link AclProperties} and {@link DomainPolicyContributor}
- * beans.
- *
- * @author donghyuck, son
- * @since 2025-09-01
- * @version 1.0
+ * Implementation of {@link DomainPolicyRegistry} that only merges policies
+ * provided by {@link DomainPolicyContributor} beans (e.g., database-backed ACLs).
  */
-@RequiredArgsConstructor
 @Slf4j
 public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
-    
+
     private final Map<String, AclProperties.DomainPolicy> merged = new HashMap<>();
 
     /**
-     * Creates a new {@code DomainPolicyRegistryImpl} instance.
+     * Creates a strategy that merges policies coming from contributors only.
      *
-     * @param props        the ACL properties from YAML configuration
-     * @param contributors a provider for a list of domain policy contributors
+     * @param contributors provider for the list of contributors
      */
-    public DomainPolicyRegistryImpl(
-            AclProperties props,
-            ObjectProvider<java.util.List<DomainPolicyContributor>> contributors) {
-
-        // 1) YAML → merged
-        if (props != null && props.getDomains() != null) {
-            props.getDomains().forEach((k, v) -> merged.put(norm(k), freezeDomain(copyDomain(v))));
-        }
-
-        // 2) 컨트리뷰터 병합
+    public DomainPolicyRegistryImpl(ObjectProvider<java.util.List<DomainPolicyContributor>> contributors) {
         var list = Optional.ofNullable(contributors)
                 .map(ObjectProvider::getIfAvailable)
                 .orElse(Collections.emptyList());

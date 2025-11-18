@@ -49,30 +49,32 @@ import studio.one.platform.constant.ServiceNames;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-09-30
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-09-30  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 @Service(ServiceNames.USER_DETAILS_SERVICE)
 @RequiredArgsConstructor
 @Slf4j
-public class ApplicationUserDetailsService<T extends User, R extends Role> implements UserDetailsService, UserIdToUsername {
- 
-    private final ApplicationUserService<T, R> userService;
-    private final ObjectProvider<AccountLockService> accountLockService; 
+public class ApplicationUserDetailsService<T extends User, R extends Role>
+        implements UserDetailsService, UserIdToUsername {
 
-    @Value("${"+ PropertyKeys.Security.PREFIX +".efault-roles:#{null}}")  // 프로퍼티 없으면 ROLE_USER 기본값
+    private final ApplicationUserService<T, R> userService;
+    private final ObjectProvider<AccountLockService> accountLockService;
+
+    @Value("${" + PropertyKeys.Security.PREFIX + ".efault-roles:#{null}}") // 프로퍼티 없으면 ROLE_USER 기본값
     private String[] defaultRoles;
 
-    public String usernameOf(long userId){
+    public String usernameOf(long userId) {
         User exist = userService.get(userId);
         return exist.getUsername();
     }
@@ -80,8 +82,7 @@ public class ApplicationUserDetailsService<T extends User, R extends Role> imple
     @Override
     @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(String username) {
-        T user = userService.findByUsername(username)
-            .orElseThrow(() -> UserNotFoundException.of(username)); 
+        T user = userService.findByUsername(username).orElseThrow(() -> UserNotFoundException.of(username));
         log.debug("Found user {}", user.getUserId(), user.getUsername());
         List<GrantedAuthority> authorities = getFinalUserAuthority(user);
         return new ApplicationUserDetails<>(user, authorities);
@@ -89,19 +90,21 @@ public class ApplicationUserDetailsService<T extends User, R extends Role> imple
 
     protected List<GrantedAuthority> getFinalUserAuthority(T user) {
         Set<R> effectiveRoles = Optional
-            .ofNullable(userService.findEffectiveRoles(user.getUserId()))
-            .orElseGet(Set::of);
-       LinkedHashSet<String> names = new LinkedHashSet<>();
+                .ofNullable(userService.findEffectiveRoles(user.getUserId()))
+                .orElseGet(Set::of);
+        LinkedHashSet<String> names = new LinkedHashSet<>();
         for (Role r : effectiveRoles) {
-            if (r != null) names.add(norm(r.getName()));
+            if (r != null)
+                names.add(norm(r.getName()));
         }
         return names.stream().filter(Objects::nonNull)
-            .map(SimpleGrantedAuthority::new)
-            .collect(Collectors.toUnmodifiableList());
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toUnmodifiableList());
     }
 
     private String norm(String name) {
-        if (name == null || name.isBlank()) return null;
+        if (name == null || name.isBlank())
+            return null;
         String trimmed = name.trim();
         return trimmed.startsWith("ROLE_") ? trimmed : "ROLE_" + trimmed;
     }

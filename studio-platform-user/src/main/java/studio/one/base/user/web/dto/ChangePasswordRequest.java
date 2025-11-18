@@ -18,4 +18,6 @@ public class ChangePasswordRequest {
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     @NotBlank @Size(min = 8, max = 100)
     private String newPassword;
+
+    private String reason;
 }

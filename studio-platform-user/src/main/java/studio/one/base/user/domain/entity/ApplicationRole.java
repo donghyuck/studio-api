@@ -50,10 +50,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import studio.one.base.user.constant.JpaEntityNames;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.util.ApplicationJpaNames;
 
-@Entity(name = ApplicationJpaNames.Role.ENTITY)
+@Entity(name = JpaEntityNames.Role.ENTITY)
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter

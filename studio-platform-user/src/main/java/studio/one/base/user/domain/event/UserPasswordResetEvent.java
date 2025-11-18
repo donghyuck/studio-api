@@ -8,7 +8,7 @@ import java.util.UUID;
 import lombok.Value;
 
 @Value
-public class UserEnabledEvent implements Serializable, UserCacheEvictableEvent {
+public class UserPasswordResetEvent implements Serializable , UserCacheEvictableEvent {
 
     UUID eventId; // 이벤트 고유 ID (멱등/추적용)
     Long userId; // 대상 사용자 ID
@@ -16,8 +16,8 @@ public class UserEnabledEvent implements Serializable, UserCacheEvictableEvent {
     String actor; // 조치 수행자(시스템/관리자 등)
     OffsetDateTime occurredAt; // 이벤트 발생 시각(UTC 권장)
 
-    public static UserEnabledEvent of(Long userId, String username, String actor, Clock clock) {
-        return new UserEnabledEvent(
+    public static UserPasswordResetEvent of(Long userId, String username, String actor, Clock clock) {
+        return new UserPasswordResetEvent(
                 UUID.randomUUID(),
                 userId,
                 username,
@@ -25,7 +25,8 @@ public class UserEnabledEvent implements Serializable, UserCacheEvictableEvent {
                 OffsetDateTime.now(clock));
     }
 
-    public static UserEnabledEvent now(Long userId, String username, String actor) {
+    public static UserPasswordResetEvent now(Long userId, String username, String actor) {
         return of(userId, username, actor, Clock.systemUTC());
     }
+
 }

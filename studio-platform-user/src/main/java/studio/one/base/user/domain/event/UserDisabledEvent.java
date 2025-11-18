@@ -8,18 +8,19 @@ import java.util.UUID;
 import lombok.Value;
 
 @Value
-public class UserDisabledEvent implements Serializable{
+public class UserDisabledEvent implements Serializable, UserCacheEvictableEvent {
 
     UUID eventId;
     Long userId;
+    String username;
     String actor;
     String reason;
     OffsetDateTime until; // nullable
     OffsetDateTime occurredAt;
 
-    public static UserDisabledEvent of(Long userId, String actor, String reason,
+    public static UserDisabledEvent of(Long userId, String username, String actor, String reason,
             OffsetDateTime until, Clock clock) {
         return new UserDisabledEvent(
-                UUID.randomUUID(), userId, actor, reason, until, OffsetDateTime.now(clock));
+                UUID.randomUUID(), userId, username, actor, reason, until, OffsetDateTime.now(clock));
     }
 }

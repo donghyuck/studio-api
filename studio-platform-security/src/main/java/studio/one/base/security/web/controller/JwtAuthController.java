@@ -6,11 +6,15 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +41,8 @@ import studio.one.platform.web.dto.ApiResponse;
 public class JwtAuthController  extends AbstractTokenController {
 
         private final AuthenticationManager authenticationManager;
+        private final UserDetailsService userDetailsService;
+        private final PasswordEncoder passwordEncoder;
         private final JwtTokenProvider jwtTokenProvider;
         private final ObjectProvider<RefreshTokenStore> store;
         private final I18n i18n;
@@ -51,6 +57,13 @@ public class JwtAuthController  extends AbstractTokenController {
                 token.setDetails(ClientRequestDetails.from(http));
                 http.setAttribute("login.username", request.getUsername());
                 
+                UserDetails details = userDetailsService.loadUserByUsername(request.getUsername());
+
+                log.debug("presentedPassword : {} , (P@sswOrd!), {}", token.getCredentials().toString(), StringUtils.equals("P@sswOrd!", token.getCredentials().toString()));
+                log.debug("encoding: {}" , passwordEncoder.encode(token.getCredentials().toString()));
+                log.debug("saved password : {}", details.getPassword());
+                log.debug("password matches : {}", passwordEncoder.matches(token.getCredentials().toString(), details.getPassword()));
+
                 Authentication authentication = authenticationManager.authenticate(token); 
 
                 String accessToken = jwtTokenProvider.generateToken(authentication);
