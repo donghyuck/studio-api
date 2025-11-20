@@ -49,6 +49,7 @@ public class SecurityAclProperties extends FeatureToggle {
     public static final String DEFAULT_ENTITY_PACKAGE = "studio.one.base.security.acl.domain.entity";
     public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.security.acl.persistence";
 
+
     /**
      * JPA entity packages to scan.
      */

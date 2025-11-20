@@ -94,7 +94,7 @@ public class GroupController {
     private final ApplicationRoleMapper roleMapper;
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('group','read')")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
     public ResponseEntity<ApiResponse<Page<GroupDto>>> list(
             @PageableDefault(size = 15, sort = "groupId", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<Group> page = groupService.getGroupsWithMemberCount(pageable);
@@ -103,14 +103,14 @@ public class GroupController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@endpointAuthz.can('group','read')")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
     public ResponseEntity<ApiResponse<GroupDto>> get(@PathVariable Long id) {
         Group group = groupService.getById(id);
         return ok(ApiResponse.ok(groupMapper.toDto(group)));
     }
 
     @PostMapping
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<GroupDto>> create(@Valid @RequestBody GroupDto req) {
         Group group = groupMapper.toEntity(req);
         Group saved = groupService.createGroup(group);
@@ -121,14 +121,14 @@ public class GroupController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<GroupDto>> update(@PathVariable Long id, @Valid @RequestBody GroupDto dto) {
         Group updated = groupService.updateGroup(id, g -> groupMapper.updateEntityFromDto(dto, g));
         return ok(ApiResponse.ok(groupMapper.toDto(updated)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         groupService.deleteGroup(id);
         return ok(ApiResponse.ok());
@@ -136,14 +136,14 @@ public class GroupController {
 
     // Roles --------------------------------------
     @GetMapping("/{id}/roles")
-    @PreAuthorize("@endpointAuthz.can('group','read')")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
     public ResponseEntity<ApiResponse<List<RoleDto>>> roles(@PathVariable Long id) {
         List<Role> list = groupService.getRoles(id);
         return ok(ApiResponse.ok(roleMapper.toDtos(list)));
     }
 
     @PostMapping("/{id}/roles")
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<Void>> updateGroupRoles(@PathVariable Long id, @RequestBody List<RoleDto> roles,
             @AuthenticationPrincipal UserDetails actor) {
         if (actor == null) {
@@ -161,7 +161,7 @@ public class GroupController {
 
     // Membership --------------------------------------
     @GetMapping("/{id}/members")
-    @PreAuthorize("@endpointAuthz.can('group','read')")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
     public ResponseEntity<ApiResponse<Page<UserDto>>> members(
             @PathVariable Long id,
             @PageableDefault(size = 15, direction = Sort.Direction.DESC) Pageable pageable) {
@@ -172,7 +172,7 @@ public class GroupController {
     }
 
     @PostMapping("/{id}/members")
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<Integer>> addMemberships(
             @PathVariable Long id,
             @RequestBody List<Long> userList,
@@ -182,7 +182,7 @@ public class GroupController {
     }
 
     @DeleteMapping("/{id}/members")
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<Integer>> removeaddMemberships(@PathVariable Long id,
             @RequestBody List<Long> userList) {
         int result = groupService.removeMembers(id, userList);

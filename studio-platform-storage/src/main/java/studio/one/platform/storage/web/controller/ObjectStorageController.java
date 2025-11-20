@@ -89,21 +89,21 @@ public class ObjectStorageController {
 
 
     @GetMapping(value = "/providers")
-    @PreAuthorize("@endpointAuthz.can('services:storage:cloud','read')")
+    @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<List<ProviderInfoDto>>> listProviders(
             @RequestParam(defaultValue = "false") boolean health) {
         return ok(ApiResponse.ok(catalog.list(health)));
     }
 
     @GetMapping(value = "/providers/{providerId}/buckets")
-    @PreAuthorize("@endpointAuthz.can('services:storage:cloud','read')")
+    @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<List<BucketInfo>>> listBuckets(@PathVariable String providerId) {
         var storage = registry.get(providerId);
         return ok(ApiResponse.ok(storage.listBuckets()));
     }
 
     @GetMapping(value = "/providers/{providerId}/buckets/{bucket}/objects")
-    @PreAuthorize("@endpointAuthz.can('services:storage:cloud','read')")
+    @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<ObjectListResponse>> listObjects(
             @PathVariable String providerId,
             @PathVariable String bucket,
@@ -139,7 +139,7 @@ public class ObjectStorageController {
     }
 
     @GetMapping(value = "/providers/{providerId}/buckets/{bucket}/object")
-    @PreAuthorize("@endpointAuthz.can('services:storage:cloud','read')")
+    @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<ObjectInfoDto>> headObject(
             @PathVariable String providerId,
             @PathVariable String bucket,
@@ -155,7 +155,7 @@ public class ObjectStorageController {
      * /.../presigned-get?key=path/to/a.txt&ttl=300&disposition=attachment&filename=abc.txt
      */
     @GetMapping("/providers/{providerId}/buckets/{bucket}/object:presigned-get")
-    @PreAuthorize("@endpointAuthz.can('services:storage:cloud','write')")
+    @PreAuthorize("@endpointAuthz.can('services:storage_cloud','write')")
     public ResponseEntity<ApiResponse<PresignedUrlDto>> presignGet(
             @PathVariable String providerId,
             @PathVariable String bucket,
@@ -174,7 +174,7 @@ public class ObjectStorageController {
     }
 
     @PostMapping("/providers/{providerId}/buckets/{bucket}/object:presigned-put")
-    @PreAuthorize("@endpointAuthz.can('services:storage:cloud','write')")
+    @PreAuthorize("@endpointAuthz.can('services:storage_cloud','write')")
     public ApiResponse<PresignedUrlDto> presignedPut(
             @PathVariable String providerId,
             @PathVariable String bucket,

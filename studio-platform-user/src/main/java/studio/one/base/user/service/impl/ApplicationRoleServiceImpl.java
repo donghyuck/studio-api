@@ -23,13 +23,15 @@ import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.entity.ApplicationUser;
+import studio.one.base.user.exception.RoleNotFoundException;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
-import studio.one.base.user.exception.RoleNotFoundException;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.platform.component.State;
+import studio.one.platform.security.event.RoleUpdatedEvent;
+import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -45,7 +47,7 @@ public class ApplicationRoleServiceImpl
     private final ApplicationGroupRoleRepository groupRoleRepo;
     private final ApplicationUserRoleRepository userRoleRepo;
     private final JdbcTemplate jdbcTemplate;
-
+    private final ObjectProvider<DomainEvents> domainEventsProvider; 
     private final ObjectProvider<I18n> i18nProvider;
 
     @PostConstruct
@@ -82,21 +84,29 @@ public class ApplicationRoleServiceImpl
     public ApplicationRole createRole(ApplicationRole role) {
         if (!role.getName().startsWith("ROLE_"))
             throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
-        return roleRepo.save(role);
+        ApplicationRole saved = roleRepo.save(role);
+        publishEvent(RoleUpdatedEvent.Action.CREATED, saved.getName(), null);
+        return saved;
     }
 
     @Override
     public ApplicationRole updateRole(Long roleId, Consumer<ApplicationRole> mutator) {
         ApplicationRole r = getRoleById(roleId);
+        String previousName = r.getName();
         mutator.accept(r);
         if (!r.getName().startsWith("ROLE_"))
             throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
-        return roleRepo.save(r);
+        ApplicationRole saved = roleRepo.save(r);
+        publishEvent(RoleUpdatedEvent.Action.UPDATED, saved.getName(), previousName);
+        return saved;
     }
 
     @Override
     public void deleteRole(Long roleId) {
-        roleRepo.deleteById(roleId);
+        ApplicationRole existing = getRoleById(roleId);
+        String roleName = existing.getName();
+        roleRepo.delete(existing);
+        publishEvent(RoleUpdatedEvent.Action.DELETED, roleName, null);
     }
 
     // --- 사용자/그룹 기준 롤 조회 ---
@@ -148,6 +158,14 @@ public class ApplicationRoleServiceImpl
 
     private static String blankToNull(String s) {
         return (s == null || s.trim().isEmpty()) ? null : s.trim();
+    }
+
+    private void publishEvent(RoleUpdatedEvent.Action action, String roleName, String previousName) {
+        if (roleName == null || roleName.isBlank())
+            return;
+        log.debug("{} -> {} : {}.", previousName, roleName, action.toString());    
+        domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit( RoleUpdatedEvent.of(action, roleName.trim(), previousName))); 
     }
 
     @Override

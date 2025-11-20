@@ -142,9 +142,7 @@ public class SecurityAclDatabaseAutoConfiguration {
          * @param i18nProvider
          * @return
          */
-        @Bean
-        @ConditionalOnBean(AclEntryRepository.class)
-        @ConditionalOnMissingBean(DatabaseAclDomainPolicyContributor.class)
+        @Bean 
         public DomainPolicyContributor databaseAclDomainPolicyContributor(
                         AclEntryRepository repository,
                         AclResourceMapper resourceMapper,
@@ -159,7 +157,7 @@ public class SecurityAclDatabaseAutoConfiguration {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.INFO + I18nKeys.AutoConfig.Feature.Service.INIT,
                                 FEATURE_NAME,
                                 LogUtils.blue(DomainPolicyContributor.class, true),
-                                "DatabaseAclDomainPolicyContributor",
+                                DatabaseAclDomainPolicyContributor.class.getSimpleName(),
                                 LogUtils.green(repository.getClass(), true)));
 
                 return new DatabaseAclDomainPolicyContributor(repository, resourceMapper, permissionMapper);
@@ -168,13 +166,33 @@ public class SecurityAclDatabaseAutoConfiguration {
         @Bean(name = ServiceNames.DOMAIN_POLICY_REGISTRY)
         @ConditionalOnMissingBean
         public DomainPolicyRegistry domainPolicyRegistry(
-                        ObjectProvider<List<DomainPolicyContributor>> contributors) {
+                        ObjectProvider<List<DomainPolicyContributor>> contributors, ObjectProvider<I18n> i18nProvider) {
+
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(DomainPolicyRegistryImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+
+                List<DomainPolicyContributor> list = contributors.getIfAvailable(() -> List.of());
+                if (list.isEmpty()) {
+                        log.debug("{} - {}", FEATURE_NAME, LogUtils.red("no contributors found"));
+                } else {
+                        String joined = list.stream()
+                                        .map(c -> LogUtils.green(c.getClass(), true))
+                                        .collect(java.util.stream.Collectors.joining(", "));
+                        log.debug("{} - {} {}", FEATURE_NAME, LogUtils.blue(DomainPolicyContributor.class, true), joined);
+                }
+
                 return new DomainPolicyRegistryImpl(contributors);
         }
 
         @Bean
         @ConditionalOnMissingBean(EndpointModeGuard.class)
-        public EndpointModeGuard endpointModeGuard() {
+        public EndpointModeGuard endpointModeGuard(ObjectProvider<I18n> i18nProvider) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(AllowAllEndpointModeGuard.class, true),
+                                LogUtils.red(State.CREATED.toString())));
                 return new AllowAllEndpointModeGuard();
         }
 
@@ -190,7 +208,6 @@ public class SecurityAclDatabaseAutoConfiguration {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(EndpointAuthorizationImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-
                 return new EndpointAuthorizationImpl(registry, endpointModeGuard);
         }
 
@@ -208,32 +225,22 @@ public class SecurityAclDatabaseAutoConfiguration {
         @ConditionalOnMissingBean
         public AclPermissionService aclPermissionService(MutableAclService aclService,
                         ObjectProvider<I18n> i18nProvider) {
-
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                                 FEATURE_NAME,
                                 LogUtils.blue(AclPermissionService.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-
                 return new AclPermissionService(aclService);
         }
-
-        @Bean
-        BeanDefinitionRegistryPostProcessor securityAclConfiguredEntityScan(SecurityAclProperties properties) {
-                String[] pkgs = properties.getEntityPackages().toArray(String[]::new);
-                return EntityScanRegistrarSupport.entityScanRegistrar(
-                                PropertyKeys.Security.Acl.ENTITY_PACKAGES,
-                                pkgs);
-        }
-
         @Configuration(proxyBeanMethods = false)
         @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
         static class EntityScanConfig {
+
                 @Bean
                 static BeanDefinitionRegistryPostProcessor securityAclDefaultEntityScan() {
                         return EntityScanRegistrarSupport.entityScanRegistrar(
-                                        PropertyKeys.Security.Acl.ENTITY_PACKAGES,
-                                        SecurityAclProperties.DEFAULT_ENTITY_PACKAGE);
+                        PropertyKeys.Security.Acl.ENTITY_PACKAGES, 
+                        SecurityAclProperties.DEFAULT_ENTITY_PACKAGE);
                 }
         }
 
@@ -241,9 +248,9 @@ public class SecurityAclDatabaseAutoConfiguration {
         @AutoConfigureAfter(EntityScanConfig.class)
         @ConditionalOnClass(EntityManagerFactory.class)
         @ConditionalOnBean(EntityManagerFactory.class)
-        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Security.Acl.REPOSITORY_PACKAGES + ":"
-                        + SecurityAclProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
-        static class JpaRepositoriesConfig {
+        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Security.Acl.REPOSITORY_PACKAGES + ":" + SecurityAclProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
+        static class JpaWiring {
+
         }
 
 }

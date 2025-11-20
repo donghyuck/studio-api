@@ -1,6 +1,7 @@
 package studio.one.platform.ai.web.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,6 +33,7 @@ public class RagController {
     }
 
     @PostMapping("/index")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<Void> index(@Valid @RequestBody IndexRequest request) {
         Map<String, Object> metadata = request.metadata() == null ? Map.of() : request.metadata();
         ragPipelineService.index(new RagIndexRequest(request.documentId(), request.text(), metadata));
@@ -39,6 +41,7 @@ public class RagController {
     }
 
     @PostMapping("/search")
+     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<SearchResponse> search(@Valid @RequestBody SearchRequest request) {
         List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest(request.query(), request.topK()));
         List<SearchResult> payload = results.stream()

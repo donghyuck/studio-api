@@ -109,6 +109,7 @@ public class EndpointAuthorizationImpl {
 
         // 1) 모드 게이트 (도메인 기준)
         Parsed parsed = parseResource(resourceKey);
+        log.debug("checing mode by domain={}, action={}, resource={}", parsed.domain, action, resourceKey);
         if (modeGuard != null && parsed.domain != null && !modeGuard.allows(parsed.domain, action)) {
             log.trace("AuthZ DENY by MODE: domain={}, action={}, resource={}", parsed.domain, action, resourceKey);
             return false;
@@ -116,6 +117,7 @@ public class EndpointAuthorizationImpl {
 
         // 2) ADMIN 슈퍼 롤
         Set<String> granted = toRoleNames(auth.getAuthorities());
+        log.debug("granted roles are {}", granted);
         if (granted.contains(ADMIN)) {
             log.trace("AuthZ ALLOW by ADMIN: resource={}, action={}", resourceKey, action);
             return true;
@@ -123,9 +125,11 @@ public class EndpointAuthorizationImpl {
 
         // 3) 정책 조회 + write→read 폴백
         List<String> required = safe(registry.requiredRoles(resourceKey, action));
+        log.debug("resource={}, action={} are required roles={}.", resourceKey, action, required);
         if (required.isEmpty() && "write".equals(action)) {
             required = safe(registry.requiredRoles(resourceKey, "read"));
         }
+        
         if (required.isEmpty()) {
             log.trace("AuthZ DENY (no policy): resource={}, action={}", resourceKey, action);
             return false;

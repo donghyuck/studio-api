@@ -10,6 +10,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -71,7 +73,9 @@ public class DatabaseAclDomainPolicyContributor implements DomainPolicyContribut
             }
         });
 
-        if (log.isDebugEnabled()) {
+        if (log.isTraceEnabled()) {
+            log.trace("[ACL] loaded {} policies from database:\n{}", result.size(), formatPolicies(result));
+        } else if (log.isDebugEnabled()) {
             log.debug("[ACL] loaded {} policies from database", result.size());
         }
         return result;
@@ -172,5 +176,56 @@ public class DatabaseAclDomainPolicyContributor implements DomainPolicyContribut
         private boolean isEmpty(List<String> values) {
             return values == null || values.isEmpty();
         }
+    }
+
+    private String formatPolicies(Map<String, AclProperties.DomainPolicy> policies) {
+        return policies.entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + formatDomain(entry.getValue()))
+                .collect(Collectors.joining(System.lineSeparator()));
+    }
+
+    private String formatDomain(AclProperties.DomainPolicy domainPolicy) {
+        StringJoiner joiner = new StringJoiner(", ", "{", "}");
+        String root = (domainPolicy.getRoles() != null) ? formatRoles(domainPolicy.getRoles()) : null;
+        if (root != null) {
+            joiner.add("root=" + root);
+        }
+        if (domainPolicy.getComponents() != null) {
+            domainPolicy.getComponents().forEach((name, component) -> {
+                String roles = (component != null) ? formatRoles(component.getRoles()) : null;
+                if (roles != null) {
+                    joiner.add(name + "=" + roles);
+                }
+            });
+        }
+        return joiner.toString();
+    }
+
+    private String formatRoles(AclProperties.Roles roles) {
+        if (roles == null) {
+            return null;
+        }
+        StringJoiner joiner = new StringJoiner(", ", "[", "]");
+        String read = listToString(roles.getRead());
+        String write = listToString(roles.getWrite());
+        String admin = listToString(roles.getAdmin());
+        if (read != null) {
+            joiner.add("read=" + read);
+        }
+        if (write != null) {
+            joiner.add("write=" + write);
+        }
+        if (admin != null) {
+            joiner.add("admin=" + admin);
+        }
+        String result = joiner.toString();
+        return (result.length() <= 2) ? null : result;
+    }
+
+    private String listToString(List<String> values) {
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        return values.stream().collect(Collectors.joining(", ", "[", "]"));
     }
 }

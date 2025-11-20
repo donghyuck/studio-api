@@ -3,6 +3,8 @@ package studio.one.base.security.acl.service;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.beans.factory.ObjectProvider;
+
 import lombok.RequiredArgsConstructor;
 import studio.one.base.security.acl.domain.entity.AclClassEntity;
 import studio.one.base.security.acl.domain.entity.AclEntryEntity;
@@ -20,11 +22,11 @@ import studio.one.base.security.acl.web.dto.AclObjectIdentityDto;
 import studio.one.base.security.acl.web.dto.AclObjectIdentityRequest;
 import studio.one.base.security.acl.web.dto.AclSidDto;
 import studio.one.base.security.acl.web.dto.AclSidRequest;
+import studio.one.platform.security.authz.DomainPolicyRefreshEvent;
+import studio.one.platform.service.DomainEvents;
 
 /**
- * 
  * Service that exposes ACL metadata management operations.
- * 
  */
 @RequiredArgsConstructor
 public class AclAdministrationService {
@@ -33,6 +35,7 @@ public class AclAdministrationService {
     private final AclSidRepository sidRepository;
     private final AclObjectIdentityRepository objectIdentityRepository;
     private final AclEntryRepository entryRepository;
+    private final ObjectProvider<DomainEvents> domainEventsProvider; 
 
     public List<AclClassDto> listClasses() {
         return classRepository.findAll().stream()
@@ -46,15 +49,6 @@ public class AclAdministrationService {
         return toDto(classRepository.save(entity));
     }
 
-    /**
-     * 주어진 ID에 해당하는 클래스를 삭제합니다.
-     *
-     * <p>해당 ID를 가진 클래스 엔티티가 존재하면 영구적으로 삭제하며, 반환값은 없습니다.
-     *
-     * @param id 삭제할 클래스의 식별자
-     * @throws IllegalArgumentException 전달된 id가 null인 경우 발생할 수 있습니다.
-     * @throws org.springframework.dao.EmptyResultDataAccessException 해당 id에 해당하는 엔티티가 존재하지 않을 경우 발생할 수 있습니다.
-     */
     public void deleteClass(Long id) {
         classRepository.deleteById(id);
     }
@@ -123,7 +117,10 @@ public class AclAdministrationService {
         entry.setGranting(request.isGranting());
         entry.setAuditSuccess(request.isAuditSuccess());
         entry.setAuditFailure(request.isAuditFailure());
-        return toDto(entryRepository.save(entry));
+        AclEntryDto dto = toDto(entryRepository.save(entry));
+         domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit(new DomainPolicyRefreshEvent())); 
+        return dto;
     }
 
     public void deleteEntry(Long id) {

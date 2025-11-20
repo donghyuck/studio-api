@@ -10,17 +10,21 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.event.EventListener;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Implementation of {@link DomainPolicyRegistry} that only merges policies
- * provided by {@link DomainPolicyContributor} beans (e.g., database-backed ACLs).
+ * provided by {@link DomainPolicyContributor} beans (e.g., database-backed
+ * ACLs).
  */
 @Slf4j
 public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
 
-    private final Map<String, AclProperties.DomainPolicy> merged = new HashMap<>();
+    private final ObjectProvider<java.util.List<DomainPolicyContributor>> contributors;
+
+    private volatile Map<String, AclProperties.DomainPolicy> merged = Collections.emptyMap();
 
     /**
      * Creates a strategy that merges policies coming from contributors only.
@@ -28,13 +32,26 @@ public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
      * @param contributors provider for the list of contributors
      */
     public DomainPolicyRegistryImpl(ObjectProvider<java.util.List<DomainPolicyContributor>> contributors) {
+        this.contributors = contributors;
+        refresh();
+    }
+
+    @EventListener
+    public void refresh(DomainPolicyRefreshEvent event) {
+        refresh();
+    }
+
+    private synchronized void refresh() {
+        Map<String, AclProperties.DomainPolicy> next = new HashMap<>();
         var list = Optional.ofNullable(contributors)
                 .map(ObjectProvider::getIfAvailable)
                 .orElse(Collections.emptyList());
         for (DomainPolicyContributor c : list) {
             Map<String, AclProperties.DomainPolicy> m = mSafe(c.contribute());
-            m.forEach((k, v) -> merged.merge(norm(k), freezeDomain(copyDomain(v)), this::deepMerge));
+            m.forEach((k, v) -> next.merge(norm(k), freezeDomain(copyDomain(v)), this::deepMerge));
         }
+
+        merged = Collections.unmodifiableMap(next);
 
         if (log.isDebugEnabled()) {
             log.debug("Domain policies merged: {}", merged.keySet());
@@ -46,8 +63,9 @@ public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
      */
     @Override
     public List<String> requiredRoles(String resource, String action) {
+        Map<String, AclProperties.DomainPolicy> snapshot = merged;
         Parsed p = parse(resource);
-        var dp = Optional.ofNullable(merged.get(norm(p.domain))).orElse(null);
+        var dp = Optional.ofNullable(snapshot.get(norm(p.domain))).orElse(null);
         if (dp == null)
             return Collections.emptyList();
 

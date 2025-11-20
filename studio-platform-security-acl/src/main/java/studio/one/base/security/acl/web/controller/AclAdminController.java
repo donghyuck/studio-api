@@ -85,6 +85,16 @@ public class AclAdminController {
         return ok(ApiResponse.ok());
     }
 
+    @PreAuthorize("@endpointAuthz.can('security:acl','delete')")
+    @DeleteMapping("/classes")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ResponseEntity<ApiResponse<Void>> deleteClasses(@RequestBody List<Long> ids) {
+        if (ids != null && !ids.isEmpty()) {
+            ids.forEach(administrationService::deleteClass);
+        }
+        return ok(ApiResponse.ok());
+    }
+
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/sids")
     public ResponseEntity<ApiResponse<List<AclSidDto>>> sids() {
@@ -130,6 +140,7 @@ public class AclAdminController {
         administrationService.deleteObjectIdentity(id);
         return ok(ApiResponse.ok());
     }
+
 
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/entries")

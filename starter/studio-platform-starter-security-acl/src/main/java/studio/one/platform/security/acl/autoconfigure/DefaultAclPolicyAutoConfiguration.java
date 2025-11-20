@@ -55,7 +55,7 @@ import studio.one.platform.util.LogUtils;
 @Slf4j
 public class DefaultAclPolicyAutoConfiguration {
 
-    private static final String FEATURE_NAME = "Security - Acl";
+    protected static final String FEATURE_NAME = "Security - Acl";
 
     @Bean
     @ConditionalOnMissingBean
