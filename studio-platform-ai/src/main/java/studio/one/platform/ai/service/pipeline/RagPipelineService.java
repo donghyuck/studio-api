@@ -1,8 +1,18 @@
 package studio.one.platform.ai.service.pipeline;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import io.github.resilience4j.retry.Retry;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Supplier;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+
+import com.github.benmanes.caffeine.cache.Cache;
+
+import io.github.resilience4j.retry.Retry;
 import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -17,15 +27,8 @@ import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
 @Service
+@ConditionalOnProperty(prefix = "studio.ai", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class RagPipelineService {
 
     private final EmbeddingPort embeddingPort;
@@ -73,7 +76,7 @@ public class RagPipelineService {
                         result.document().content(),
                         result.document().metadata(),
                         result.score()))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private List<Double> embedWithCache(String text) {
