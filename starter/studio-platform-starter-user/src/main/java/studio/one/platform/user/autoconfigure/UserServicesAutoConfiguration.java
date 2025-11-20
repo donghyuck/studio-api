@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -108,13 +109,14 @@ public class UserServicesAutoConfiguration {
                         @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
                         ApplicationRoleRepository roleRepo,
                         ApplicationGroupRoleRepository groupRoleRepo,
-                        ApplicationUserRoleRepository userRoleRepo) {
+                        ApplicationUserRoleRepository userRoleRepo,
+                       @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(ApplicationRoleServiceImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
                 return new ApplicationRoleServiceImpl(roleRepo, groupRoleRepo, userRoleRepo, jdbcTemplate,
-                                i18nProvider);
+                                domainEventsProvider, i18nProvider);
         }
 
         @Bean(name = ApplicationCompanyService.SERVICE_NAME)

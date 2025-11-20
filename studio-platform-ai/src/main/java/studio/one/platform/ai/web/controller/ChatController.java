@@ -8,6 +8,7 @@ import java.util.Objects;
 import javax.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,6 +38,7 @@ public class ChatController {
     }
 
     @PostMapping
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) { 
         ChatResponse response = chatPort.chat(toDomainChatRequest(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(response)));

@@ -10,6 +10,7 @@ import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -47,6 +48,7 @@ public class VectorController {
     }
 
     @PostMapping
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<Void>> upsert(@Valid @RequestBody VectorUpsertRequestDto request) {
         VectorStorePort store = requireVectorStore();
         List<VectorDocument> documents = request.documents().stream()
@@ -57,6 +59,7 @@ public class VectorController {
     }
 
     @PostMapping("/search")
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(
             @Valid @RequestBody VectorSearchRequestDto request) {
         VectorStorePort store = requireVectorStore();

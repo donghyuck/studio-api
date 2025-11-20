@@ -12,6 +12,9 @@ import org.springframework.security.acls.domain.BasePermission;
  */
 public class DefaultAclPermissionMapper implements AclPermissionMapper {
 
+    private static final int DOWNLOAD_MASK = 1 << 5;
+    private static final int UPLOAD_MASK = 1 << 6;
+
     @Override
     public EnumSet<AclAction> map(int mask) {
         EnumSet<AclAction> actions = EnumSet.noneOf(AclAction.class);
@@ -30,6 +33,14 @@ public class DefaultAclPermissionMapper implements AclPermissionMapper {
         if ((mask & BasePermission.READ.getMask()) != 0) {
             actions.add(AclAction.READ);
         }
+        if ((mask & DOWNLOAD_MASK) != 0) {
+            actions.add(AclAction.DOWNLOAD);
+            actions.add(AclAction.READ); // download implies read
+        }
+        if ((mask & UPLOAD_MASK) != 0) {
+            actions.add(AclAction.UPLOAD);
+            actions.add(AclAction.WRITE); // upload implies write
+        }
         // 2. 파생 규칙
         // ADMIN 은 모든 액션을 포함한다고 가정
         if (actions.contains(AclAction.ADMIN)) {
@@ -37,6 +48,8 @@ public class DefaultAclPermissionMapper implements AclPermissionMapper {
             actions.add(AclAction.READ);
             actions.add(AclAction.CREATE);
             actions.add(AclAction.DELETE);
+            actions.add(AclAction.DOWNLOAD);
+            actions.add(AclAction.UPLOAD);
         }
         // WRITE 권한이 있으면 최소 READ 도 있다고 보는 규칙을 적용하고 싶다면:
         if (actions.contains(AclAction.WRITE)) {

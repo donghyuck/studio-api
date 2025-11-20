@@ -6,6 +6,7 @@ import java.util.Objects;
 import javax.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,6 +34,7 @@ public class EmbeddingController {
     }
 
     @PostMapping
+    @PreAuthorize("@endpointAuthz.can('services:ai_embedding','write')")
     public ResponseEntity<ApiResponse<EmbeddingResponseDto>> embed(@Valid @RequestBody EmbeddingRequestDto request) {
         EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(request.texts()));
         return ResponseEntity.ok(ApiResponse.ok(new EmbeddingResponseDto(toEmbeddingVectors(response))));

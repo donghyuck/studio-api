@@ -58,7 +58,10 @@ public class SecurityAclWebAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AclPolicySynchronizationService aclPolicySynchronizationService(AclPolicySeeder seeder, ObjectProvider<I18n> i18nProvider) {
+    public AclPolicySynchronizationService aclPolicySynchronizationService(
+            AclPolicySeeder seeder,
+            org.springframework.context.ApplicationEventPublisher eventPublisher,
+            ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
@@ -66,7 +69,7 @@ public class SecurityAclWebAutoConfiguration {
                 LogUtils.blue(AclPolicySynchronizationService.class, true),
                 LogUtils.red(State.CREATED.toString())));
 
-        return new AclPolicySynchronizationServiceImpl(seeder);
+        return new AclPolicySynchronizationServiceImpl(seeder, eventPublisher);
     }
 
     @Bean

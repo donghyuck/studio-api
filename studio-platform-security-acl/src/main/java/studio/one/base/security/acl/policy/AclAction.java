@@ -10,7 +10,9 @@ public enum AclAction {
     WRITE(BasePermission.WRITE.getMask()),
     CREATE(BasePermission.CREATE.getMask()),
     DELETE(BasePermission.DELETE.getMask()),
-    ADMIN(BasePermission.ADMINISTRATION.getMask());
+    ADMIN(BasePermission.ADMINISTRATION.getMask()),
+    DOWNLOAD(1 << 5), // /READ
+    UPLOAD(1 << 6); // READ | WRITE
 
     private final int mask;
 

@@ -57,7 +57,7 @@ public class RoleController {
     private final ApplicationUserMapper userMapper;
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('role','read')")
+    @PreAuthorize("@endpointAuthz.can('features:role','read')")
     public ResponseEntity<ApiResponse<Page<RoleDto>>> list(
             @PageableDefault(size = 15, sort = "roleId", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<Role> page = roleService.getRoles(pageable);
@@ -66,7 +66,7 @@ public class RoleController {
     }
 
     @PostMapping
-    @PreAuthorize("@endpointAuthz.can('role','write')")
+    @PreAuthorize("@endpointAuthz.can('features:role','write')")
     @Message(value = "success.role.created.named", args = { "#req.name" })
     public ResponseEntity<ApiResponse<RoleDto>> create(@Valid @RequestBody RoleDto req) {
         Role role = mapper.toEntity(req);
@@ -77,14 +77,14 @@ public class RoleController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("@endpointAuthz.can('role','read')")
+    @PreAuthorize("@endpointAuthz.can('features:role','read')")
     public ResponseEntity<ApiResponse<RoleDto>> get(@PathVariable Long id) {
         Role role = roleService.getRoleById(id);
         return ok(ApiResponse.ok(mapper.toDto(role)));
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@endpointAuthz.can('role','write')")
+    @PreAuthorize("@endpointAuthz.can('features:role','write')")
     @Message(value = "success.role.updated.named", args = { "#dto.name" })
     public ResponseEntity<ApiResponse<RoleDto>> update(@PathVariable Long id, @Valid @RequestBody RoleDto dto) {
         Role updated = roleService.updateRole(id, r -> mapper.updateEntityFromDto(dto, (ApplicationRole) r));
@@ -92,14 +92,14 @@ public class RoleController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("@endpointAuthz.can('group','write')")
+    @PreAuthorize("@endpointAuthz.can('features:role','write')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         roleService.deleteRole(id);
         return ok(ApiResponse.ok());
     }
 
     @GetMapping("/{roleId}/groups")
-    @PreAuthorize("@endpointAuthz.can('role','read')")
+    @PreAuthorize("@endpointAuthz.can('features:role','read')")
     public ResponseEntity<ApiResponse<Page<GroupDto>>> findGroupsGrantedRole(
             @PathVariable Long roleId,
             @RequestParam(name = "q", required = false) String q,
@@ -109,7 +109,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/{roleId}/groups")
-    @PreAuthorize("@endpointAuthz.can('role','write')")
+    @PreAuthorize("@endpointAuthz.can('features:role','write')")
     public ResponseEntity<ApiResponse<BatchResult>> revokeRoleFromgroups(
             @PathVariable Long roleId,
             @RequestBody List<Long> groups) {
@@ -118,7 +118,7 @@ public class RoleController {
     }
 
     @GetMapping("/{roleId}/users")
-    @PreAuthorize("@endpointAuthz.can('role','read')")
+    @PreAuthorize("@endpointAuthz.can('features:role','read')")
     public ResponseEntity<ApiResponse<Page<UserDto>>> findUsersGrantedRole(
             @PathVariable Long roleId,
             @RequestParam(name = "scope", defaultValue = "direct") String scope,
@@ -129,7 +129,7 @@ public class RoleController {
     }
 
     @DeleteMapping("/{roleId}/users")
-    @PreAuthorize("@endpointAuthz.can('role','write')")
+    @PreAuthorize("@endpointAuthz.can('features:role','write')")
     public ResponseEntity<ApiResponse<BatchResult>> revokeRoleFromUsers(
             @PathVariable Long roleId,
             @RequestBody List<Long> users) {
@@ -138,7 +138,7 @@ public class RoleController {
     }
 
     @PutMapping("/{roleId}/users")
-    @PreAuthorize("@endpointAuthz.can('role','write')")
+    @PreAuthorize("@endpointAuthz.can('features:role','write')")
     public ResponseEntity<ApiResponse<BatchResult>> assignRoleFromUsers(
             @PathVariable Long roleId,
             @RequestBody List<Long> users,
