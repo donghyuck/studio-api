@@ -22,7 +22,7 @@ import studio.one.platform.ai.web.dto.EmbeddingVectorDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
-@RestController 
+@RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/embedding")
 @Validated
 public class EmbeddingController {
@@ -33,6 +33,15 @@ public class EmbeddingController {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
     }
 
+    /**
+     * 
+     * 
+     * @PostMapping @PreAuthorize("@endpointAuthz.can('services:ai_embedding','write')")
+     *              Handles embedding requests by delegating to the EmbeddingPort
+     *              and returns the embedding response.
+     * @param request the embedding request DTO containing texts to be embedded
+     * @return ResponseEntity containing ApiResponse with EmbeddingResponseDto
+     */
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_embedding','write')")
     public ResponseEntity<ApiResponse<EmbeddingResponseDto>> embed(@Valid @RequestBody EmbeddingRequestDto request) {
