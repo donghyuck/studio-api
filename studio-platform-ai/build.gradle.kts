@@ -29,6 +29,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework:spring-jdbc")
+     implementation("org.springframework.boot:spring-boot-starter-security")
+     
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}")
 

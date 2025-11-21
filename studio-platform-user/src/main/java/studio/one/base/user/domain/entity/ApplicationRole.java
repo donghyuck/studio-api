@@ -64,7 +64,9 @@ import studio.one.base.user.domain.model.Role;
 @AllArgsConstructor
 public class ApplicationRole implements Role {
 
-	@Id @EqualsAndHashCode.Include @ToString.Include
+	@Id
+	@EqualsAndHashCode.Include
+	@ToString.Include
 	@Column(name = "ROLE_ID", nullable = false)
 	@GeneratedValue( // tell persistence provider that value of 'id' will be generated
 			strategy = GenerationType.IDENTITY // use RDBMS unique id generator
