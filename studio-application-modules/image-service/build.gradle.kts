@@ -4,9 +4,6 @@ plugins {
     id("io.spring.dependency-management")
     id("maven-publish")        
 }
-
-group = project.findProperty("buildModulesGroup") as String
-
 tasks.named<Jar>("jar") {
     enabled = true
     archiveClassifier.set("")        
@@ -22,5 +19,4 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
-    implementation(project(":starter:studio-platform-starter-security")) 
 }
