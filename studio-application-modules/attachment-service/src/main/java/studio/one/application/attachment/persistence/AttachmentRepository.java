@@ -1,5 +1,5 @@
 package studio.one.application.attachment.persistence;
-
+import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import java.util.List;
 import java.util.Optional;
@@ -10,15 +10,15 @@ public interface AttachmentRepository {
 
     public static final String SERVICE_NAME = "components:attachment-repository";
 
-    Attachment save(Attachment attachment);
+    Attachment save(ApplicationAttachment attachment);
 
-    Optional<Attachment> findById(Long id);
+    Optional<ApplicationAttachment> findById(Long id);
 
-    void delete(Attachment attachment);
+    void delete(ApplicationAttachment attachment);
 
-    List<Attachment> findByObjectTypeAndObjectId(int objectType, Long objectId);
+    List<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId);
 
-    Page<Attachment> findByObjectTypeAndObjectId(int objectType, Long objectId, Pageable pageable);
+    Page<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId, Pageable pageable);
 
-    Page<Attachment> findAll(Pageable pageable);
+    Page<ApplicationAttachment> findAll(Pageable pageable);
 }
