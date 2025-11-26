@@ -21,14 +21,11 @@
 
 package studio.one.application.attachment.domain.model;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Date;
+import java.time.Instant;
 import java.util.Map;
 
-import studio.one.platform.domain.model.TypeObject;
 import studio.one.platform.domain.model.PropertyAware;
-import java.time.Instant;
+import studio.one.platform.domain.model.TypeObject;
 
 public interface Attachment extends PropertyAware, TypeObject {
 
@@ -40,9 +37,9 @@ public interface Attachment extends PropertyAware, TypeObject {
 
 	public void setName(String name);
 
-	public int getSize();
+	public long getSize();
 
-	public void setSize(int size);
+	public void setSize(long size);
 
 	public String getContentType();
 

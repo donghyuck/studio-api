@@ -28,6 +28,8 @@ dependencies {
     implementation(project(":starter:studio-platform-starter-objectstorage")) 
     implementation(project(":starter:studio-platform-starter-objectstorage-aws")) 
     implementation(project(":starter:studio-application-starter-avatar"))
+    implementation(project(":starter:studio-application-starter-attachment"))
+
 
     // platform modules
     

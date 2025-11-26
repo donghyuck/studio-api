@@ -22,5 +22,5 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
-    implementation(project(":starter:studio-platform-starter-security")) 
+    implementation(project(":studio-platform-security")) 
 }

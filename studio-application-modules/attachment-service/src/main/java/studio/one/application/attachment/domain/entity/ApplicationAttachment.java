@@ -57,10 +57,10 @@ public class ApplicationAttachment implements Attachment {
     private String name;
 
     @Column(name = "FILE_SIZE", nullable = false)
-    private int size;
+    private long size;
 
     @CreatedBy
-    @JoinColumn(name = "CREATED_BY", nullable = false)
+    @Column(name = "CREATED_BY", nullable = false)
     private long createdBy;
 
     @CreatedDate
