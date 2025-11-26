@@ -38,7 +38,6 @@ import studio.one.application.avatar.replica.FileReplicaStore;
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.avatar.service.impl.AvatarImageFilesystemReplicaService;
 import studio.one.application.avatar.service.impl.AvatarImageServiceImpl;
-import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;

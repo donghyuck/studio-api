@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 
 @Data
 @Entity
-@Table(name = "TB_APPLICATIOIN_ATTACHMENT_DATA")
+@Table(name = "TB_APPLICATION_ATTACHMENT_DATA")
 @NoArgsConstructor
 @AllArgsConstructor
 public class ApplicationAttachmentData {
