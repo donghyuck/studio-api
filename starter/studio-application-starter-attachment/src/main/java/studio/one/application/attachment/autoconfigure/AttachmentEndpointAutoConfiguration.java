@@ -20,6 +20,8 @@
  */
 
 package studio.one.application.attachment.autoconfigure;
+
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,6 +33,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.controller.AttachmentController;
+import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
@@ -38,18 +42,18 @@ import studio.one.platform.util.LogUtils;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-11-26
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-11-26  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
-
 
 @Configuration
 @AutoConfigureAfter(AttachmentAutoConfiguration.class)
@@ -65,14 +69,17 @@ public class AttachmentEndpointAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(AttachmentController.class)
-    AttachmentController attachmentController(AttachmentService attachmentService) {
+    AttachmentController attachmentController(AttachmentService attachmentService,
+           @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService<?, ?> userService, ApplicationUserMapper userMapper) {
+
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                 AttachmentAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(AttachmentService.class, true),
                 LogUtils.blue(AttachmentController.class, true),
                 props.getWeb().getBasePath(),
                 "CRUD"));
-        return new AttachmentController(attachmentService);
+
+        return new AttachmentController(attachmentService, userService, userMapper);
     }
 
 }

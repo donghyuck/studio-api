@@ -30,7 +30,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
-import studio.one.base.security.userdetails.ApplicationUserDetails;
+import studio.one.application.web.dto.AttachmentDto;
+import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.domain.model.User;
+import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.web.dto.UserDto;
+import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.web.dto.ApiResponse;
@@ -42,10 +47,12 @@ import studio.one.platform.web.dto.ApiResponse;
 public class AttachmentController {
 
     private final AttachmentService attachmentService;
+    private final ApplicationUserService<?, ?> userService;
+    private final ApplicationUserMapper userMapper;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@endpointAuthz.can('features:attachment','upload')")
-    public ResponseEntity<ApiResponse<Attachment>> upload(
+    public ResponseEntity<ApiResponse<AttachmentDto>> upload(
             @RequestParam("objectType") int objectType,
             @RequestParam("objectId") long objectId,
             @RequestParam("file") MultipartFile file,
@@ -57,16 +64,17 @@ public class AttachmentController {
                 file.getOriginalFilename(),
                 file.getContentType(),
                 file.getInputStream(),
-                (int) file.getSize()); 
-        return ResponseEntity.ok(ApiResponse.ok(saved));
+                (int) file.getSize());
+        AttachmentDto dto = toDto(saved);
+        return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
-    public ResponseEntity<ApiResponse<Attachment>> get(@PathVariable("attachmentId") long attachmentId)
+    public ResponseEntity<ApiResponse<AttachmentDto>> get(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        return ResponseEntity.ok(ApiResponse.ok(attachment));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")
@@ -96,7 +104,7 @@ public class AttachmentController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<Page<Attachment>>> list(
+    public ResponseEntity<ApiResponse<Page<AttachmentDto>>> list(
             @RequestParam(value = "objectType", required = false) Integer objectType,
             @RequestParam(value = "objectId", required = false) Long objectId,
             @PageableDefault Pageable pageable) {
@@ -106,16 +114,20 @@ public class AttachmentController {
         } else {
             page = attachmentService.findAttachemnts(pageable);
         }
-        return ResponseEntity.ok(ApiResponse.ok(page));
+        Page<AttachmentDto> dtoPage = page.map(this::toDto);
+        return ResponseEntity.ok(ApiResponse.ok(dtoPage));
     }
 
     @GetMapping("/objects/{objectType:[\\p{Digit}]+}/{objectId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
-    public ResponseEntity<ApiResponse<List<Attachment>>> listByObject(
+    public ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObject(
             @PathVariable int objectType,
             @PathVariable long objectId) {
         List<Attachment> attachments = attachmentService.getAttachments(objectType, objectId);
-        return ResponseEntity.ok(ApiResponse.ok(attachments));
+        List<AttachmentDto> dto = attachments.stream()
+                .map(this::toDto)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @DeleteMapping("/{attachmentId:[\\p{Digit}]+}")
@@ -125,6 +137,24 @@ public class AttachmentController {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    private AttachmentDto toDto(Attachment attachment) {
+        UserDto creator = findUserDto(attachment.getCreatedBy(), attachment.getAttachmentId());
+        return AttachmentDto.of(attachment, creator);
+    }
+
+    private UserDto findUserDto(long userId, long attachmentId) {
+        if (userId <= 0) {
+            return null;
+        }
+        try {
+            User user = userService.get(userId);
+            return userMapper.toDto(user);
+        } catch (NotFoundException e) {
+            log.warn("User {} not found for attachment {}", userId, attachmentId);
+            return null;
+        }
     }
 
     private MediaType resolveMediaType(String contentType) {

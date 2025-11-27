@@ -9,7 +9,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.util.StringUtils;
 
-import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.autoconfigure.PersistenceProperties.Type;
 import studio.one.platform.constant.PropertyKeys;
 

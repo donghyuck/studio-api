@@ -71,6 +71,11 @@ public class AttachmentFeatureProperties extends FeatureToggle {
     @Setter
     @NoArgsConstructor
     public static class Storage {
+        public enum Type {
+            filesystem,
+            database
+        }
+
         /**
          * Base directory to store attachment files. If empty, a default under the app
          * home will be used.
@@ -80,5 +85,16 @@ public class AttachmentFeatureProperties extends FeatureToggle {
          * Create directories on startup when true.
          */
         private boolean ensureDirs = true;
+
+        /**
+         * Where to store attachment binaries. filesystem keeps files on disk,
+         * database stores them in the configured attachment persistence (JPA/JDBC).
+         */
+        private Type type = Type.filesystem;
+
+        /**
+         * When storing in the database, optionally keep a local filesystem cache for faster reads.
+         */
+        private boolean cacheEnabled = false;
     }
 }

@@ -121,29 +121,6 @@ public class AvatarAutoConfiguration {
         LogUtils.blue(AvatarImageFilesystemReplicaService.class, true), LogUtils.red(State.CREATED.toString())));
         return new AvatarImageFilesystemReplicaService(delegate, replicas );
     }
-
-    // @Bean
-    // @ConditionalOnProperty( prefix = PropertyKeys.Features.PREFIX + ".avatar-image.replica.cleanup", name = "enabled", havingValue = "true")
-    // public TaskScheduler avatarCleanupScheduler(FileReplicaStore store) {
-    //     ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-    //     scheduler.setPoolSize(1);
-    //     scheduler.setThreadNamePrefix("avatar-cleanup-");
-    //     scheduler.initialize();
-    //     return scheduler;
-    // }
-
-    // @Bean
-    // @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".avatar-image.replica.cleanup", name = "enabled", havingValue = "true")
-    // public SchedulingConfigurer avatarCleanupJob(AvatarFeatureProperties props, FileReplicaStore store) {
-    //     return taskRegistrar -> taskRegistrar.addTriggerTask( 
-    //         () -> {/* walk baseDir & delete old files per ttlDays */},
-    //         ctx -> {
-    //             String cron = props.getReplica().getCleanup().getCron();
-    //             return new CronTrigger(cron).nextExecutionTime(ctx);
-    //         }
-    //     );
-    // }
-
     @Configuration
     @AutoConfigureBefore(HibernateJpaAutoConfiguration.class) 
     @ConditionalOnAvatarPersistence(PersistenceProperties.Type.jpa)
