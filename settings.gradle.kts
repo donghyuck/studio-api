@@ -23,7 +23,7 @@ dependencyResolutionManagement {
 rootProject.name = providers.gradleProperty("buildApplicationName").get()
 logger.lifecycle("🛠 ${rootProject.name} 프로젝트의 설정과 구성 정보를 정의")
 include(":studio-platform")
-include(":studio-platform-jpa")
+include(":studio-platform-data")
 include(":studio-platform-user")
 include(":studio-platform-security") 
 include(":studio-platform-security-acl") 
