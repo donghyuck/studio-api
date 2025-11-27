@@ -2,5 +2,6 @@ studio.one.platform.autoconfigure.features.i18n.I18nAutoConfiguration
 studio.one.platform.autoconfigure.perisitence.jdbc.JdbcAutoConfiguration
 studio.one.platform.autoconfigure.perisitence.jpa.JpaAuditingAutoConfiguration
 studio.one.platform.autoconfigure.features.properties.PropertiesAutoConfiguration
+studio.one.platform.autoconfigure.features.text.TextAutoConfiguration
 studio.one.platform.autoconfigure.RepositoryAutoConfiguration
 studio.one.platform.autoconfigure.WebAdviceAutoConfiguration 

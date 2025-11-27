@@ -11,9 +11,14 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -23,21 +28,19 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
-import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -49,6 +52,7 @@ public class AttachmentController {
     private final AttachmentService attachmentService;
     private final ApplicationUserService<?, ?> userService;
     private final ApplicationUserMapper userMapper;
+    private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@endpointAuthz.can('features:attachment','upload')")
@@ -75,6 +79,24 @@ public class AttachmentController {
             throws NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
+    }
+
+    @GetMapping("/{attachmentId:[\\p{Digit}]+}/text")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
+    public ResponseEntity<ApiResponse<String>> extractText(@PathVariable("attachmentId") long attachmentId)
+            throws NotFoundException, IOException {
+        FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
+        if (extractor == null) {
+            ApiResponse<String> body = ApiResponse.<String>builder()
+                    .message("Text extraction is not configured")
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
+        }
+        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        try (InputStream in = attachmentService.getInputStream(attachment)) {
+            String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
+            return ResponseEntity.ok(ApiResponse.ok(text));
+        }
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")

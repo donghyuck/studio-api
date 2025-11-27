@@ -41,7 +41,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.PersistenceProperties;
-import studio.one.platform.autoconfigure.PropertiesProperties;
 import studio.one.platform.autoconfigure.features.properties.condition.ConditionalOnPropertiesPersistence;
 import studio.one.platform.component.YamlApplicationProperties;
 import studio.one.platform.component.properties.domain.service.JdbcApplicationProperties;

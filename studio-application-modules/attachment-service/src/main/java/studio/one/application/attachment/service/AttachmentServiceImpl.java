@@ -1,34 +1,43 @@
 package studio.one.application.attachment.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import studio.one.aplication.security.util.SecurityHelper;
+import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.exception.AttachmentNotFoundException;
 import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.platform.exception.NotFoundException;
-import studio.one.aplication.security.util.SecurityHelper;
-import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
 public class AttachmentServiceImpl implements AttachmentService {
 
+    private static final String CACHE_BY_ID = "attachments.byId"; 
+
     private final AttachmentRepository attachmentRepository;
     private final FileStorage fileStorage;
 
     @Override
+    @Cacheable(cacheNames = CACHE_BY_ID, key = "#attachmentId", unless = "#result == null")
     public Attachment getAttachmentById(long attachmentId) throws NotFoundException {
         return attachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> AttachmentNotFoundException.byId(attachmentId));
@@ -93,12 +102,15 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     @Override
+    @CachePut(cacheNames = CACHE_BY_ID, key = "#attachment.attachmentId")
     public Attachment saveAttachment(Attachment attachment) {
         return attachmentRepository.save(toEntity(attachment));
-
     }
 
     @Override
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_BY_ID, key = "#attachment.attachmentId")
+    })
     public void removeAttachment(Attachment attachment) {
         fileStorage.delete(attachment);
         attachmentRepository.delete(toEntity(attachment));
@@ -110,8 +122,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     private ApplicationAttachment toEntity(Attachment attachment) {
-        if (attachment instanceof ApplicationAttachment) {
-            return (ApplicationAttachment) attachment;
+        if (attachment instanceof ApplicationAttachment attach) {
+            return attach;
         }
         ApplicationAttachment entity = new ApplicationAttachment();
         entity.setAttachmentId(attachment.getAttachmentId());

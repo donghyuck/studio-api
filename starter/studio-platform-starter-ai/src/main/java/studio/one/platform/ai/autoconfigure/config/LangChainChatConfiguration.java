@@ -1,26 +1,26 @@
 package studio.one.platform.ai.autoconfigure.config;
 
-import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
-import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder;
-import dev.langchain4j.model.openai.OpenAiChatModel;
-import lombok.extern.slf4j.Slf4j;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.adapters.chat.LangChainChatAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
-import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
-
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiAdapterProperties.class)

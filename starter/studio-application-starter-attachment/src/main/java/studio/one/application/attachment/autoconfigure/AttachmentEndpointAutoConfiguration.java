@@ -21,6 +21,7 @@
 
 package studio.one.application.attachment.autoconfigure;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -38,6 +39,7 @@ import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
+import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.util.LogUtils;
 
 /**
@@ -70,7 +72,8 @@ public class AttachmentEndpointAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(AttachmentController.class)
     AttachmentController attachmentController(AttachmentService attachmentService,
-           @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService<?, ?> userService, ApplicationUserMapper userMapper) {
+           @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService<?, ?> userService, ApplicationUserMapper userMapper, 
+           ObjectProvider<FileContentExtractionService> textExtractionProvider) {
 
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                 AttachmentAutoConfiguration.FEATURE_NAME,
@@ -79,7 +82,7 @@ public class AttachmentEndpointAutoConfiguration {
                 props.getWeb().getBasePath(),
                 "CRUD"));
 
-        return new AttachmentController(attachmentService, userService, userMapper);
+        return new AttachmentController(attachmentService, userService, userMapper, textExtractionProvider);
     }
 
 }

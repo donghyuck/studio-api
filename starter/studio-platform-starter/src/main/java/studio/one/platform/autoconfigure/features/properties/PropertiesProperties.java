@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure;
+package studio.one.platform.autoconfigure.features.properties;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
