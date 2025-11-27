@@ -22,7 +22,7 @@ dependencies {
     
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
-    implementation(project(":studio-platform-jpa")) 
+    implementation(project(":studio-platform-data")) 
     
     implementation ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
