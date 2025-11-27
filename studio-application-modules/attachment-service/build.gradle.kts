@@ -21,6 +21,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation(project(":studio-platform")) 
+    implementation(project(":studio-platform-data")) 
     implementation(project(":studio-platform-user")) 
     implementation(project(":studio-platform-security")) 
 }
