@@ -32,6 +32,11 @@ import studio.one.platform.ai.web.dto.VectorUpsertRequestDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
+/**
+ * Vector store management endpoints under {@code ${studio.ai.endpoints.base-path:/api/ai}/vectors}.
+ * Provides vector upsert and similarity search backed by {@link VectorStorePort}, generating
+ * embeddings via {@link EmbeddingPort} when raw text queries are supplied.
+ */
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/vectors")
 @Validated
@@ -47,6 +52,21 @@ public class VectorController {
         this.vectorStorePort = vectorStorePort;
     }
 
+    /**
+     * Upserts documents with precomputed embeddings.
+     * <pre>
+     * POST /api/ai/vectors
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_vector read)
+     * {
+     *   "documents": [
+     *     {"id":"doc-1","content":"raw text","metadata":{"source":"app"},"embedding":[0.1,0.2]}
+     *   ]
+     * }
+     *
+     * 200 OK with an empty {@link ApiResponse#ok(Object) data} field.
+     * </pre>
+     * Throws 503 if no {@link VectorStorePort} is configured.
+     */
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<Void>> upsert(@Valid @RequestBody VectorUpsertRequestDto request) {
@@ -58,6 +78,25 @@ public class VectorController {
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
+    /**
+     * Accepts either a raw query or an embedding and performs similarity search.
+     * <pre>
+     * POST /api/ai/vectors/search
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_vector read)
+     * {
+     *   "query": "search text",
+     *   "topK": 3
+     * }
+     *
+     * 200 OK
+     * {
+     *   "data": [
+     *     {"id":"doc-1","content":"...","metadata":{},"score":0.91}
+     *   ]
+     * }
+     * </pre>
+     * If {@code embedding} is omitted, the controller generates one via {@link EmbeddingPort}.
+     */
     @PostMapping("/search")
     @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(

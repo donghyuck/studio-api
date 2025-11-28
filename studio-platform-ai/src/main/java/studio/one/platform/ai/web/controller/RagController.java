@@ -23,6 +23,14 @@ import studio.one.platform.ai.web.dto.SearchResponse;
 import studio.one.platform.ai.web.dto.SearchResult;
 import studio.one.platform.constant.PropertyKeys;
 
+/**
+ * RAG pipeline endpoints for indexing and searching documents.
+ * <p>Base path: {@code ${studio.ai.endpoints.base-path:/api/ai}/rag}. Supports:
+ * <ul>
+ *   <li>{@code POST /index} for registering content with optional metadata.</li>
+ *   <li>{@code POST /search} for semantic lookup returning ranked results.</li>
+ * </ul>
+ */
 @RestController 
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/rag")
 @Validated
@@ -34,6 +42,20 @@ public class RagController {
         this.ragPipelineService = ragPipelineService;
     }
 
+    /**
+     * Indexes a document for later retrieval.
+     * <pre>
+     * POST /api/ai/rag/index
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read)
+     * {
+     *   "documentId": "doc-123",
+     *   "text": "Full text to embed",
+     *   "metadata": {"tenant":"acme"}
+     * }
+     *
+     * 202 Accepted with empty body.
+     * </pre>
+     */
     @PostMapping("/index")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<Void> index(@Valid @RequestBody IndexRequest request) {
@@ -42,8 +64,26 @@ public class RagController {
         return ResponseEntity.accepted().build();
     }
 
+    /**
+     * Performs a semantic search across indexed content.
+     * <pre>
+     * POST /api/ai/rag/search
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read)
+     * {
+     *   "query": "find me something",
+     *   "topK": 5
+     * }
+     *
+     * 200 OK
+     * {
+     *   "results": [
+     *     {"documentId":"doc-123","content":"...", "metadata":{}, "score":0.92}
+     *   ]
+     * }
+     * </pre>
+     */
     @PostMapping("/search")
-     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<SearchResponse> search(@Valid @RequestBody SearchRequest request) {
         List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest(request.query(), request.topK()));
         List<SearchResult> payload = results.stream()
