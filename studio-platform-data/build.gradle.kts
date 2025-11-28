@@ -13,5 +13,11 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 }
 dependencies {
     implementation(project(":studio-platform"))
+    implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa") 
+    compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
+    compileOnly("net.sourceforge.tess4j:tess4j:${property("tesseractVersion")}")
+    compileOnly("org.jsoup:jsoup:${property("jsoupVersion")}")
+    compileOnly("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    compileOnly("org.apache.poi:poi:${property("apachePoiVersion")}")
 }

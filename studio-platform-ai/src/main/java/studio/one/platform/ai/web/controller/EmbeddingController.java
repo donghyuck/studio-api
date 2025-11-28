@@ -22,6 +22,12 @@ import studio.one.platform.ai.web.dto.EmbeddingVectorDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
+/**
+ * REST API for generating embeddings with the configured model.
+ * <p>Base path is configurable via {@code studio.ai.endpoints.base-path} (default {@code /api/ai}).
+ * Endpoint: {@code POST {basePath}/embedding} returning {@link ApiResponse} containing
+ * {@link EmbeddingResponseDto}.
+ */
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/embedding")
 @Validated
@@ -34,13 +40,25 @@ public class EmbeddingController {
     }
 
     /**
-     * 
-     * 
-     * @PostMapping @PreAuthorize("@endpointAuthz.can('services:ai_embedding','write')")
-     *              Handles embedding requests by delegating to the EmbeddingPort
-     *              and returns the embedding response.
-     * @param request the embedding request DTO containing texts to be embedded
-     * @return ResponseEntity containing ApiResponse with EmbeddingResponseDto
+     * Handles vector embedding requests under {@code ${studio.ai.endpoints.base-path:/api/ai}/embedding}.
+     * <p>Typical usage:
+     * <pre>
+     * POST /api/ai/embedding
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_embedding write)
+     * {
+     *   "texts": ["hello world", "another text"]
+     * }
+     *
+     * 200 OK
+     * {
+     *   "data": {
+     *     "vectors": [
+     *       {"referenceId":"0","values":[0.1,0.2,...]}
+     *     ]
+     *   }
+     * }
+     * </pre>
+     * Provide one or more text values and receive a list of embeddings in the same order.
      */
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_embedding','write')")

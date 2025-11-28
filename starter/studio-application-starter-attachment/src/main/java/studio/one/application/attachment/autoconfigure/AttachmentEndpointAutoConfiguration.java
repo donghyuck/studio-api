@@ -28,6 +28,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 import lombok.RequiredArgsConstructor;
@@ -63,12 +64,14 @@ import studio.one.platform.util.LogUtils;
 @EnableConfigurationProperties({ AttachmentFeatureProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
         + ".attachment.web", name = "enabled", havingValue = "true")
+@ComponentScan(basePackageClasses = { AttachmentController.class })    
 @Slf4j
 public class AttachmentEndpointAutoConfiguration {
 
     private final AttachmentFeatureProperties props;
     private final I18n i18n;
 
+    
     @Bean
     @ConditionalOnMissingBean(AttachmentController.class)
     AttachmentController attachmentController(AttachmentService attachmentService,
@@ -81,7 +84,6 @@ public class AttachmentEndpointAutoConfiguration {
                 LogUtils.blue(AttachmentController.class, true),
                 props.getWeb().getBasePath(),
                 "CRUD"));
-
         return new AttachmentController(attachmentService, userService, userMapper, textExtractionProvider);
     }
 

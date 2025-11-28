@@ -1,3 +1,24 @@
+/**
+ *
+ *      Copyright 2025
+ *
+ *      Licensed under the Apache License, Version 2.0 (the 'License');
+ *      you may not use this file except in compliance with the License.
+ *      You may obtain a copy of the License at
+ *
+ *         http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *      Unless required by applicable law or agreed to in writing, software
+ *      distributed under the License is distributed on an 'AS IS' BASIS,
+ *      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *      See the License for the specific language governing permissions and
+ *      limitations under the License.
+ *
+ *      @file ChatController.java
+ *      @date 2025
+ *
+ */
+
 package studio.one.platform.ai.web.controller;
 
 import java.util.List;
@@ -26,6 +47,11 @@ import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
+/**
+ * REST controller exposing chat completions. The base path defaults to {@code /api/ai}
+ * and can be overridden with {@code studio.ai.endpoints.base-path}. Requests are
+ * delegated to {@link ChatPort} and wrapped with {@link ApiResponse}.
+ */
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/chat")
 @Validated
@@ -37,9 +63,40 @@ public class ChatController {
         this.chatPort = Objects.requireNonNull(chatPort, "chatPort");
     }
 
+    /**
+     * Chat completion endpoint under {@code ${studio.ai.endpoints.base-path:/api/ai}/chat}.
+     * <p>Usage:
+     * <pre>
+     * POST /api/ai/chat
+     * Authorization: Bearer &lt;token&gt;   (requires services:ai_chat write)
+     * {
+     *   "messages": [
+     *     {"role": "user", "content": "Hello"}
+     *   ],
+     *   "model": "gpt-4o-mini",
+     *   "temperature": 0.2,
+     *   "topP": 0.9,
+     *   "maxOutputTokens": 256,
+     *   "stopSequences": ["STOP"]
+     * }
+     *
+     * 200 OK
+     * {
+     *   "data": {
+     *     "messages": [
+     *       {"role":"assistant","content":"Hi there!"}
+     *     ],
+     *     "model": "gpt-4o-mini",
+     *     "metadata": {"provider":"vertex"}
+     *   }
+     * }
+     * </pre>
+     * Send an ordered list of chat messages; optional tuning parameters are forwarded
+     * to the configured {@link ChatPort} implementation.
+     */
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
-    public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) { 
+    public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) {
         ChatResponse response = chatPort.chat(toDomainChatRequest(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(response)));
     }
