@@ -17,6 +17,6 @@ public class TextFileParser extends AbstractFileParser {
 
     @Override
     public String parse(byte[] bytes, String contentType, String filename) throws FileParseException {
-        return new String(bytes, StandardCharsets.UTF_8);
+        return cleanText(new String(bytes, StandardCharsets.UTF_8));
     }
 }

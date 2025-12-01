@@ -13,7 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Adapter that bridges LangChain4j {@link EmbeddingModel} to the domain {@link EmbeddingPort}.
+ * Adapter that bridges LangChain4j {@link EmbeddingModel} to the domain
+ * {@link EmbeddingPort}.
  */
 public class LangChainEmbeddingAdapter implements EmbeddingPort {
 
@@ -25,7 +26,7 @@ public class LangChainEmbeddingAdapter implements EmbeddingPort {
 
     @Override
     public EmbeddingResponse embed(EmbeddingRequest request) {
-        
+
         List<TextSegment> segments = request.texts()
                 .stream()
                 .map(TextSegment::from)

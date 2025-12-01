@@ -16,7 +16,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * PgVector based implementation of {@link VectorStorePort}.
@@ -26,13 +28,14 @@ public class PgVectorStoreAdapter implements VectorStorePort {
     private static final RowMapper<VectorSearchResult> ROW_MAPPER = new RowMapper<>() {
         @Override
         public VectorSearchResult mapRow(ResultSet rs, int rowNum) throws SQLException {
-            String id = rs.getString("id");
-            String content = rs.getString("content");
+            String objectId = rs.getString("object_id");
+            String content = rs.getString("text");
             String metadataJson = rs.getString("metadata");
             double distance = rs.getDouble("distance");
             double score = 1.0d / (1.0d + distance);
             Map<String, Object> metadata = Json.read(metadataJson);
-            VectorDocument document = new VectorDocument(id, content, metadata, List.of());
+            String documentId = Objects.toString(metadata.getOrDefault("documentId", objectId), objectId);
+            VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
             return new VectorSearchResult(document, score);
         }
     };
@@ -47,14 +50,21 @@ public class PgVectorStoreAdapter implements VectorStorePort {
 
     @Override
     public void upsert(List<VectorDocument> documents) {
-        String sql = "INSERT INTO ai_documents(id, content, metadata, embedding) VALUES (:id, :content, CAST(:metadata AS jsonb), :embedding) " +
-                "ON CONFLICT (id) DO UPDATE SET content = EXCLUDED.content, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding";
+        String sql = """
+                INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
+                VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding)
+                ON CONFLICT (object_type, object_id, chunk_index)
+                DO UPDATE SET text = EXCLUDED.text, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding
+                """;
         List<MapSqlParameterSource> batch = new ArrayList<>(documents.size());
         for (VectorDocument document : documents) {
+            Map<String, Object> metadata = withDocumentId(document);
             batch.add(new MapSqlParameterSource()
-                    .addValue("id", document.id())
-                    .addValue("content", document.content())
-                    .addValue("metadata", Json.write(document.metadata()))
+                    .addValue("objectType", resolveObjectType(metadata))
+                    .addValue("objectId", resolveObjectId(metadata, document.id()))
+                    .addValue("chunkIndex", resolveChunkIndex(metadata))
+                    .addValue("text", document.content())
+                    .addValue("metadata", Json.write(metadata))
                     .addValue("embedding", toPgVector(document.embedding())));
         }
         MapSqlParameterSource[] params = batch.toArray(MapSqlParameterSource[]::new);
@@ -63,7 +73,12 @@ public class PgVectorStoreAdapter implements VectorStorePort {
 
     @Override
     public List<VectorSearchResult> search(VectorSearchRequest request) {
-        String sql = "SELECT id, content, metadata, (embedding <-> ?) AS distance FROM ai_documents ORDER BY embedding <-> ? ASC LIMIT ?";
+        String sql = """
+                SELECT object_id, text, metadata, (embedding <-> ?) AS distance
+                  FROM tb_ai_document_chunk
+                 ORDER BY embedding <-> ? ASC
+                 LIMIT ?
+                """;
         PGvector vector = toPgVector(request.embedding());
         return jdbcTemplate.query(sql, ps -> {
             ps.setObject(1, vector);
@@ -72,12 +87,60 @@ public class PgVectorStoreAdapter implements VectorStorePort {
         }, ROW_MAPPER);
     }
 
+    @Override
+    public boolean exists(String objectType, String objectId) {
+        String sql = """
+                SELECT COUNT(*)
+                  FROM tb_ai_document_chunk
+                 WHERE object_type = ? AND object_id = ?
+                """;
+
+        Integer count = jdbcTemplate.queryForObject(
+                sql,
+                Integer.class,
+                objectType,
+                objectId);
+
+        return count != null && count > 0;
+    }
+
     private static PGvector toPgVector(List<Double> embedding) {
         float[] values = new float[embedding.size()];
         for (int i = 0; i < embedding.size(); i++) {
             values[i] = embedding.get(i).floatValue();
         }
         return new PGvector(values);
+    }
+
+    private static String resolveObjectType(Map<String, Object> metadata) {
+        Object value = metadata.getOrDefault("objectType", "DEFAULT");
+        return Objects.toString(value, "DEFAULT");
+    }
+
+    private static String resolveObjectId(Map<String, Object> metadata, String fallback) {
+        Object value = metadata.get("objectId");
+        if (value != null && !Objects.toString(value, "").isBlank()) {
+            return Objects.toString(value);
+        }
+        return fallback;
+    }
+
+    private static int resolveChunkIndex(Map<String, Object> metadata) {
+        Object value = metadata.getOrDefault("chunkOrder", 0);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (Exception ex) {
+            return 0;
+        }
+    }
+
+    private static Map<String, Object> withDocumentId(VectorDocument document) {
+        Map<String, Object> metadata = new HashMap<>(document.metadata());
+        metadata.putIfAbsent("documentId", document.id());
+        return metadata;
     }
 
     private static final class Json {

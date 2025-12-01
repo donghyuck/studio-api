@@ -30,8 +30,10 @@ dependencies {
     implementation(project(":starter:studio-application-starter-avatar"))
     implementation(project(":starter:studio-application-starter-attachment"))
 
+    implementation(project(":studio-application-modules:content-embedding-pipeline"))
 
-    // platform modules
+    // platform dependencies
+    implementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     
     //implementation(project(":studio-platform-user"))  
     //implementation(project(":studio-platform-security-acl"))  

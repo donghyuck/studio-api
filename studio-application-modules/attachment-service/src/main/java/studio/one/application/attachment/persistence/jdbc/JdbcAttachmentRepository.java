@@ -157,6 +157,57 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         return page;
     }
 
+    @Override
+    public Page<ApplicationAttachment> findByNameContainingIgnoreCase(String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return Page.empty(pageable);
+        }
+        String select = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        String count = """
+                select count(*)
+                  from %s
+                 where lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        Map<String, Object> params = new HashMap<>();
+        params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
+        Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
+        loadProperties(page.getContent());
+        return page;
+    }
+
+    @Override
+    public Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(
+            int objectType, Long objectId, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findByObjectTypeAndObjectId(objectType, objectId, pageable);
+        }
+        Map<String, Object> params = new HashMap<>();
+        params.put("objectType", objectType);
+        params.put("objectId", objectId);
+        params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
+        String select = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
+                   and lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        String count = """
+                select count(*)
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
+                   and lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
+        loadProperties(page.getContent());
+        return page;
+    }
+
     private ApplicationAttachment insert(ApplicationAttachment attachment) {
         Instant now = Instant.now();
         if (attachment.getCreatedAt() == null) {

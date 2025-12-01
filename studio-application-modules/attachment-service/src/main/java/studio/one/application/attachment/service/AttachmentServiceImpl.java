@@ -50,13 +50,32 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     @Override
-    public Page<Attachment> findAttachemnts(Pageable pageable) {
+    public Page<Attachment> findAttachments(Pageable pageable) {
         Page page = attachmentRepository.findAll(pageable);
         return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
     }
 
-    public Page<Attachment> findAttachemnts(int objectType, long objectId, Pageable pageable) {
+    public Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable) {
         Page page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return Page.empty(pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository.findByNameContainingIgnoreCase(keyword, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(int objectType, long objectId, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findAttachments(objectType, objectId, pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository
+                .findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(objectType, objectId, keyword, pageable);
         return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
     }
 
