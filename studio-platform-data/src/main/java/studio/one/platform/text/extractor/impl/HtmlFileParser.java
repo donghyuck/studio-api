@@ -20,9 +20,10 @@ public class HtmlFileParser extends AbstractFileParser {
     @Override
     public String parse(byte[] bytes, String contentType, String filename) throws FileParseException {
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
-            return Jsoup
+            String text = Jsoup
                     .parse(in, StandardCharsets.UTF_8.name(), "")
                     .text();
+            return cleanText(text);
         } catch (IOException e) {
             throw new FileParseException("Failed to parse HTML: " + safeFilename(filename), e);
         }

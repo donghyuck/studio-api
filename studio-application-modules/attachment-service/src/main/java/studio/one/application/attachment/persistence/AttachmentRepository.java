@@ -1,4 +1,5 @@
 package studio.one.application.attachment.persistence;
+
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import java.util.List;
@@ -21,4 +22,9 @@ public interface AttachmentRepository {
     Page<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId, Pageable pageable);
 
     Page<ApplicationAttachment> findAll(Pageable pageable);
+
+    Page<ApplicationAttachment> findByNameContainingIgnoreCase(String keyword, Pageable pageable);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(
+            int objectType, Long objectId, String keyword, Pageable pageable);
 }

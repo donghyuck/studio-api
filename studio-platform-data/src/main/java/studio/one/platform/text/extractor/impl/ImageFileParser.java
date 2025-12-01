@@ -36,7 +36,7 @@ public class ImageFileParser extends AbstractFileParser {
             if (image == null) {
                 throw new FileParseException("Unsupported or corrupt image: " + safeFilename(filename));
             }
-            return tesseract.doOCR(image);
+            return cleanText(tesseract.doOCR(image));
         } catch (TesseractException | IOException e) {
             throw new FileParseException("Failed to parse image: " + safeFilename(filename), e);
         }

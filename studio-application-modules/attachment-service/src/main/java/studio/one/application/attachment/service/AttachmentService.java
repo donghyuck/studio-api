@@ -38,9 +38,20 @@ public interface AttachmentService {
 
 	List<Attachment> getAttachments(int objectType, long objectId);
 
-	Page<Attachment> findAttachemnts(Pageable pageable);
+	Page<Attachment> findAttachments(Pageable pageable);
 
-	Page<Attachment> findAttachemnts(int objectType, long objectId, Pageable pageable);
+	Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable);
+
+	/**
+	 * 파일명에 keyword가 포함된 첨부파일을 검색한다.
+	 */
+	Page<Attachment> findAttachments(String keyword, Pageable pageable);
+
+	/**
+	 * 특정 objectType/objectId 범위 내에서 파일명에 keyword가 포함된 첨부파일을 검색한다.
+	 */
+	Page<Attachment> findAttachments(int objectType, long objectId, String keyword, Pageable pageable);
+	
 
 	Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file);
 

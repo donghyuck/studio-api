@@ -129,12 +129,19 @@ public class AttachmentController {
     public ResponseEntity<ApiResponse<Page<AttachmentDto>>> list(
             @RequestParam(value = "objectType", required = false) Integer objectType,
             @RequestParam(value = "objectId", required = false) Long objectId,
+            @RequestParam(value = "keyword", required = false) String keyword,
             @PageableDefault Pageable pageable) {
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
-            page = attachmentService.findAttachemnts(objectType, objectId, pageable);
+            if (keyword == null || keyword.isBlank()) 
+                page = attachmentService.findAttachments(objectType, objectId, pageable);
+            else 
+                page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
         } else {
-            page = attachmentService.findAttachemnts(pageable);
+            if (keyword == null || keyword.isBlank()) 
+                page = attachmentService.findAttachments(pageable);
+            else 
+                page = attachmentService.findAttachments(keyword, pageable);
         }
         Page<AttachmentDto> dtoPage = page.map(this::toDto);
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));

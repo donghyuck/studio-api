@@ -23,6 +23,8 @@ import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
+ * 텍스트 리스트를 임베딩합니다. EmbeddingPort를 통해 임베딩 벡터를 생성합니다.
+ * 
  * REST API for generating embeddings with the configured model.
  * <p>Base path is configurable via {@code studio.ai.endpoints.base-path} (default {@code /api/ai}).
  * Endpoint: {@code POST {basePath}/embedding} returning {@link ApiResponse} containing

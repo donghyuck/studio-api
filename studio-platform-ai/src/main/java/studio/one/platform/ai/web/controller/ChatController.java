@@ -48,6 +48,8 @@ import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
+ * 채팅 요청을 받아 ChatPort로 위임 후 응답을 DTO로 반환합니다
+ * 
  * REST controller exposing chat completions. The base path defaults to {@code /api/ai}
  * and can be overridden with {@code studio.ai.endpoints.base-path}. Requests are
  * delegated to {@link ChatPort} and wrapped with {@link ApiResponse}.

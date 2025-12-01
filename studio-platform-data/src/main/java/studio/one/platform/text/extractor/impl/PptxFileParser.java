@@ -37,7 +37,7 @@ public class PptxFileParser extends AbstractFileParser {
                 }
             });
 
-            return sb.toString();
+            return cleanText(sb.toString());
 
         } catch (IOException e) {
             throw new FileParseException("Failed to parse PPTX file: " + safeFilename(filename), e);

@@ -24,6 +24,8 @@ import studio.one.platform.ai.web.dto.SearchResult;
 import studio.one.platform.constant.PropertyKeys;
 
 /**
+ * RAG 인덱싱과 검색을 처리합니다. RagPipelineService를 통해 텍스트 인덱싱 및 질의 검색을 수행합니다
+ * 
  * RAG pipeline endpoints for indexing and searching documents.
  * <p>Base path: {@code ${studio.ai.endpoints.base-path:/api/ai}/rag}. Supports:
  * <ul>

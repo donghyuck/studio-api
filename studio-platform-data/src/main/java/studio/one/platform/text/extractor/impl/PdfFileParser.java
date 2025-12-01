@@ -35,7 +35,7 @@ public class PdfFileParser extends AbstractFileParser {
             stripper.setSortByPosition(true);
             stripper.setStartPage(1);
             stripper.setEndPage(document.getNumberOfPages());
-            return stripper.getText(document);
+            return cleanText(stripper.getText(document));
         } catch (IOException e) {
             throw new FileParseException("Failed to parse PDF file: " + safeFilename(filename), e);
         }

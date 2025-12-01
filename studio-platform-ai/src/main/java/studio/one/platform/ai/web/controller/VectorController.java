@@ -1,6 +1,8 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -33,13 +36,18 @@ import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
- * Vector store management endpoints under {@code ${studio.ai.endpoints.base-path:/api/ai}/vectors}.
- * Provides vector upsert and similarity search backed by {@link VectorStorePort}, generating
+ * 벡터 업서트와 검색을 제공합니다. 벡터 스토어가 없으면 503을 발생시켜 구성 여부를 명확히 합니다.
+ * 
+ * Vector store management endpoints under
+ * {@code ${studio.ai.endpoints.base-path:/api/ai}/vectors}.
+ * Provides vector upsert and similarity search backed by
+ * {@link VectorStorePort}, generating
  * embeddings via {@link EmbeddingPort} when raw text queries are supplied.
  */
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/vectors")
 @Validated
+@Slf4j
 public class VectorController {
 
     private final EmbeddingPort embeddingPort;
@@ -54,6 +62,7 @@ public class VectorController {
 
     /**
      * Upserts documents with precomputed embeddings.
+     * 
      * <pre>
      * POST /api/ai/vectors
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_vector read)
@@ -65,21 +74,32 @@ public class VectorController {
      *
      * 200 OK with an empty {@link ApiResponse#ok(Object) data} field.
      * </pre>
+     * 
      * Throws 503 if no {@link VectorStorePort} is configured.
      */
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<Void>> upsert(@Valid @RequestBody VectorUpsertRequestDto request) {
         VectorStorePort store = requireVectorStore();
-        List<VectorDocument> documents = request.documents().stream()
-                .map(this::toVectorDocument)
-                .toList();
+        if (request.documents() == null || request.documents().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "documents must not be empty");
+        }
+        int expectedDim = request.documents().get(0).embedding().size();
+        if (expectedDim <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "embedding size must be positive");
+        }
+        List<VectorDocument> documents = new ArrayList<>(request.documents().size());
+        for (VectorDocumentDto dto : request.documents()) {
+            List<Double> embedding = normalizeEmbedding(dto.embedding(), expectedDim);
+            documents.add(toVectorDocument(dto, embedding));
+        }
         store.upsert(documents);
         return ResponseEntity.ok(ApiResponse.ok(null));
     }
 
     /**
      * Accepts either a raw query or an embedding and performs similarity search.
+     * 
      * <pre>
      * POST /api/ai/vectors/search
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_vector read)
@@ -95,12 +115,15 @@ public class VectorController {
      *   ]
      * }
      * </pre>
-     * If {@code embedding} is omitted, the controller generates one via {@link EmbeddingPort}.
+     * 
+     * If {@code embedding} is omitted, the controller generates one via
+     * {@link EmbeddingPort}.
      */
     @PostMapping("/search")
     @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(
             @Valid @RequestBody VectorSearchRequestDto request) {
+
         VectorStorePort store = requireVectorStore();
         List<Double> queryEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
@@ -111,11 +134,13 @@ public class VectorController {
         return ResponseEntity.ok(ApiResponse.ok(payload));
     }
 
-    private VectorDocument toVectorDocument(VectorDocumentDto dto) {
+    private VectorDocument toVectorDocument(VectorDocumentDto dto, List<Double> embedding) {
         Map<String, Object> metadata = dto.metadata() == null
-                ? Collections.emptyMap()
-                : Map.copyOf(dto.metadata());
-        return new VectorDocument(dto.id(), dto.content(), metadata, List.copyOf(dto.embedding()));
+                ? new HashMap<>()
+                : new HashMap<>(dto.metadata());
+        metadata.putIfAbsent("objectType", "api"); // pgvector schema requires object_type
+        metadata.putIfAbsent("chunkOrder", 0); // chunk_index 기본값
+        return new VectorDocument(dto.id(), dto.content(), metadata, embedding);
     }
 
     private List<Double> resolveEmbedding(VectorSearchRequestDto request) {
@@ -126,7 +151,32 @@ public class VectorController {
             throw new IllegalArgumentException("Either query text or embedding values must be provided");
         }
         EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(List.of(request.query())));
+        log.debug("embedding {} -> {}", request.query(), response.vectors().size());
         return List.copyOf(response.vectors().get(0).values());
+    }
+
+    private List<Double> normalizeEmbedding(List<Double> embedding, int expectedDim) {
+        if (embedding == null || embedding.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "embedding cannot be empty");
+        }
+        if (embedding.size() != expectedDim) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "embedding dimension mismatch: expected " + expectedDim + " but got " + embedding.size());
+        }
+        double normSq = 0.0d;
+        for (Double v : embedding) {
+            double val = v == null ? 0.0d : v;
+            normSq += val * val;
+        }
+        double norm = Math.sqrt(normSq);
+        if (norm == 0.0d) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "embedding norm must be > 0");
+        }
+        List<Double> normalized = new ArrayList<>(embedding.size());
+        for (Double v : embedding) {
+            normalized.add((v == null ? 0.0d : v) / norm);
+        }
+        return normalized;
     }
 
     private VectorSearchResultDto toVectorSearchResultDto(VectorSearchResult result) {
