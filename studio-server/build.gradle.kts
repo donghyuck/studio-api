@@ -34,7 +34,9 @@ dependencies {
 
     // platform dependencies
     implementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
-    
+    implementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    implementation("org.apache.poi:poi:${property("apachePoiVersion")}")
+
     //implementation(project(":studio-platform-user"))  
     //implementation(project(":studio-platform-security-acl"))  
     // srping starters

@@ -3,8 +3,10 @@ package studio.one.platform.text.extractor.impl;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.text.extractor.FileParser;
 
+@Slf4j
 public abstract class AbstractFileParser implements FileParser {
 
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}&&[^\r\n\t]]");
@@ -18,22 +20,23 @@ public abstract class AbstractFileParser implements FileParser {
         return s != null ? s.toLowerCase(Locale.ROOT) : "";
     }
 
-    protected boolean hasExtension(String filename, String... exts) {
+    protected boolean hasExtension(String filename, String... exts) { 
         if (filename == null)
             return false;
         String lower = lower(filename);
         for (String ext : exts) {
+            log.debug("filename={}, ext={} -> {}", lower, ext, lower.endsWith(ext));
             if (lower.endsWith(ext))
                 return true;
         }
         return false;
     }
 
-    protected boolean isContentType(String contentType, String... types) {
+    protected boolean isContentType(String contentType, String... types) {   
         if (contentType == null)
             return false;
         String lower = lower(contentType);
-        for (String t : types) {
+        for (String t : types) { 
             if (lower.startsWith(t)) {
                 return true;
             }
@@ -55,5 +58,15 @@ public abstract class AbstractFileParser implements FileParser {
         normalized = CONTROL_CHARS.matcher(normalized).replaceAll("");
         normalized = MULTI_BLANK_LINES.matcher(normalized).replaceAll("\n\n");
         return normalized.trim();
+    }
+
+    /**
+     * 지원 여부를 디버깅할 때 사용. DEBUG 레벨에서만 출력된다.
+     */
+    protected void debugSupports(String parserName, String contentType, String filename, boolean result) {
+        if (log.isDebugEnabled()) {
+            log.debug("Parser={} supports? {} (contentType='{}', filename='{}')",
+                    parserName, result, contentType, filename);
+        }
     }
 }
