@@ -18,6 +18,8 @@ public class DocxFileParser extends AbstractFileParser {
 
     @Override
     public boolean supports(String contentType, String filename) {
+
+        
         if (isContentType(contentType, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
             return true;
         return hasExtension(filename, ".docx");
