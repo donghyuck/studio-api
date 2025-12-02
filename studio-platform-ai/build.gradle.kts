@@ -29,7 +29,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework:spring-jdbc")
-     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-security")
      
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}")
@@ -41,7 +41,8 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
 
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
-    
+    implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
+
     runtimeOnly("org.postgresql:postgresql:${property("postgresqlVersion")}")
     
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -31,6 +31,9 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 @ConditionalOnProperty(prefix = "studio.ai", name = "enabled", havingValue = "true", matchIfMissing = false)
 public class RagPipelineService {
 
+    private static final double HYBRID_VECTOR_WEIGHT = 0.7;
+    private static final double HYBRID_LEXICAL_WEIGHT = 0.3;
+
     private final EmbeddingPort embeddingPort;
     private final VectorStorePort vectorStorePort;
     private final TextChunker textChunker;
@@ -42,6 +45,7 @@ public class RagPipelineService {
                               TextChunker textChunker,
                               Cache<String, List<Double>> embeddingCache,
                               Retry retry) {
+                                
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
         this.textChunker = Objects.requireNonNull(textChunker, "textChunker");
@@ -69,7 +73,41 @@ public class RagPipelineService {
     public List<RagSearchResult> search(RagSearchRequest request) {
         List<Double> queryEmbedding = embedWithCache(request.query());
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
-        List<VectorSearchResult> results = vectorStorePort.search(searchRequest);
+        List<VectorSearchResult> results = vectorStorePort.hybridSearch(
+                request.query(),
+                searchRequest,
+                HYBRID_VECTOR_WEIGHT,
+                HYBRID_LEXICAL_WEIGHT);
+        return results.stream()
+                .map(result -> new RagSearchResult(
+                        result.document().id(),
+                        result.document().content(),
+                        result.document().metadata(),
+                        result.score()))
+                .toList();
+    }
+
+    public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
+        List<Double> queryEmbedding = embedWithCache(request.query());
+        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
+        List<VectorSearchResult> results = vectorStorePort.hybridSearchByObject(
+                request.query(),
+                objectType,
+                objectId,
+                searchRequest,
+                HYBRID_VECTOR_WEIGHT,
+                HYBRID_LEXICAL_WEIGHT);
+        return results.stream()
+                .map(result -> new RagSearchResult(
+                        result.document().id(),
+                        result.document().content(),
+                        result.document().metadata(),
+                        result.score()))
+                .toList();
+    }
+
+    public List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit) {
+        List<VectorSearchResult> results = vectorStorePort.listByObject(objectType, objectId, limit);
         return results.stream()
                 .map(result -> new RagSearchResult(
                         result.document().id(),

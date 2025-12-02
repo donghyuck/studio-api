@@ -6,7 +6,7 @@ import java.util.List;
 /**
  * DTO for searching the vector store.
  */
-public record VectorSearchRequestDto(
+public record VectorSearchRequestDto( 
         String query,
         List<Double> embedding,
         @Min(value = 1, message = "topK must be at least 1") Integer topK
