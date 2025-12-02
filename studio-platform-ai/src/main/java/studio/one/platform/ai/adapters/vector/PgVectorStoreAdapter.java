@@ -74,17 +74,113 @@ public class PgVectorStoreAdapter implements VectorStorePort {
     @Override
     public List<VectorSearchResult> search(VectorSearchRequest request) {
         String sql = """
-                SELECT object_id, text, metadata, (embedding <-> ?) AS distance
+                SELECT object_id, text, metadata, (embedding <-> :vector) AS distance
                   FROM tb_ai_document_chunk
-                 ORDER BY embedding <-> ? ASC
-                 LIMIT ?
+                 ORDER BY embedding <-> :vector ASC
+                 LIMIT :limit
                 """;
         PGvector vector = toPgVector(request.embedding());
-        return jdbcTemplate.query(sql, ps -> {
-            ps.setObject(1, vector);
-            ps.setObject(2, vector);
-            ps.setInt(3, request.topK());
-        }, ROW_MAPPER);
+        return namedParameterJdbcTemplate.query(sql, new MapSqlParameterSource()
+                .addValue("vector", vector)
+                .addValue("limit", request.topK()), ROW_MAPPER);
+    }
+
+    @Override
+    public List<VectorSearchResult> searchByObject(String objectType, String objectId, VectorSearchRequest request) {
+        String sql = """
+                SELECT object_id, text, metadata, (embedding <-> :vector) AS distance
+                  FROM tb_ai_document_chunk
+                 WHERE (:objectType IS NULL OR object_type = :objectType)
+                   AND (:objectId IS NULL OR object_id = :objectId)
+                 ORDER BY embedding <-> :vector ASC
+                 LIMIT :limit
+                """;
+        PGvector vector = toPgVector(request.embedding());
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", (objectType == null || objectType.isBlank()) ? null : objectType)
+                .addValue("objectId", (objectId == null || objectId.isBlank()) ? null : objectId)
+                .addValue("vector", vector)
+                .addValue("limit", request.topK());
+
+        return namedParameterJdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            String objId = rs.getString("object_id");
+            String content = rs.getString("text");
+            String metadataJson = rs.getString("metadata");
+            double distance = rs.getDouble("distance");
+            double score = 1.0d / (1.0d + distance);
+            Map<String, Object> metadata = Json.read(metadataJson);
+            String documentId = Objects.toString(metadata.getOrDefault("documentId", objId), objId);
+            VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
+            return new VectorSearchResult(document, score);
+        });
+    }
+
+    @Override
+    public List<VectorSearchResult> hybridSearch(String query, VectorSearchRequest request, double vectorWeight,
+            double lexicalWeight) {
+        String sql = """
+                SELECT object_id, text, metadata,
+                       (embedding <-> :vector) AS distance,
+                       ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)) AS bm25,
+                       ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+                  FROM tb_ai_document_chunk
+                 ORDER BY hybrid ASC
+                 LIMIT :limit
+                """;
+        PGvector vector = toPgVector(request.embedding());
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("vector", vector)
+                .addValue("query", query)
+                .addValue("vectorWeight", vectorWeight)
+                .addValue("lexicalWeight", lexicalWeight)
+                .addValue("limit", request.topK());
+        return namedParameterJdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            String objId = rs.getString("object_id");
+            String content = rs.getString("text");
+            String metadataJson = rs.getString("metadata");
+            double distance = rs.getDouble("distance");
+            double score = 1.0d / (1.0d + distance);
+            Map<String, Object> metadata = Json.read(metadataJson);
+            String documentId = Objects.toString(metadata.getOrDefault("documentId", objId), objId);
+            VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
+            return new VectorSearchResult(document, score);
+        });
+    }
+
+    @Override
+    public List<VectorSearchResult> hybridSearchByObject(String query, String objectType, String objectId,
+            VectorSearchRequest request, double vectorWeight, double lexicalWeight) {
+        String sql = """
+                SELECT object_id, text, metadata,
+                       (embedding <-> :vector) AS distance,
+                       ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)) AS bm25,
+                       ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+                  FROM tb_ai_document_chunk
+                 WHERE (:objectType IS NULL OR object_type = :objectType)
+                   AND (:objectId IS NULL OR object_id = :objectId)
+                 ORDER BY hybrid ASC
+                 LIMIT :limit
+                """;
+        PGvector vector = toPgVector(request.embedding());
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("vector", vector)
+                .addValue("query", query)
+                .addValue("vectorWeight", vectorWeight)
+                .addValue("lexicalWeight", lexicalWeight)
+                .addValue("objectType", (objectType == null || objectType.isBlank()) ? null : objectType)
+                .addValue("objectId", (objectId == null || objectId.isBlank()) ? null : objectId)
+                .addValue("limit", request.topK());
+        return namedParameterJdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            String objId = rs.getString("object_id");
+            String content = rs.getString("text");
+            String metadataJson = rs.getString("metadata");
+            double distance = rs.getDouble("distance");
+            double score = 1.0d / (1.0d + distance);
+            Map<String, Object> metadata = Json.read(metadataJson);
+            String documentId = Objects.toString(metadata.getOrDefault("documentId", objId), objId);
+            VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
+            return new VectorSearchResult(document, score);
+        });
     }
 
     @Override
@@ -102,6 +198,32 @@ public class PgVectorStoreAdapter implements VectorStorePort {
                 objectId);
 
         return count != null && count > 0;
+    }
+
+    @Override
+    public List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
+        String sql = """
+                SELECT object_id, text, metadata
+                  FROM tb_ai_document_chunk
+                 WHERE object_type = :objectType AND object_id = :objectId
+                 ORDER BY chunk_index
+                 LIMIT :limit
+                """;
+        int rowLimit = limit == null || limit <= 0 ? Integer.MAX_VALUE : limit;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId)
+                .addValue("limit", rowLimit);
+
+        return namedParameterJdbcTemplate.query(sql, params, (rs, rowNum) -> {
+            String objId = rs.getString("object_id");
+            String content = rs.getString("text");
+            String metadataJson = rs.getString("metadata");
+            Map<String, Object> metadata = Json.read(metadataJson);
+            String documentId = Objects.toString(metadata.getOrDefault("documentId", objId), objId);
+            VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
+            return new VectorSearchResult(document, 1.0d);
+        });
     }
 
     private static PGvector toPgVector(List<Double> embedding) {
