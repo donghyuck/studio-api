@@ -97,12 +97,14 @@ public class JdbcAutoConfiguration {
 
         List<String> locs = jdbcProperties.getSql().getLocations();
         boolean usingDefault = (locs == null || locs.isEmpty());
+ 
+
         List<String> resolvedLocations = usingDefault
-                ? List.of("classpath*:sql/*.sqlset.xml")
+                ? List.of("classpath*:sql/*-sqlset.xml")
                 : locs;
 
         if (usingDefault) {
-            log.info("[SqlQueryFactory] No SQL locations configured. Using default: classpath*:sql/*.sqlset.xml");
+            log.info("[SqlQueryFactory] No SQL locations configured. Using default: classpath*:sql/*-sqlset.xml");
         } else {
             log.info("[SqlQueryFactory] SQL locations configured: {}", resolvedLocations);
         }

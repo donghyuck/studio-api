@@ -12,6 +12,7 @@ import studio.one.platform.ai.autoconfigure.config.LangChainChatConfiguration;
 import studio.one.platform.ai.autoconfigure.config.LangChainEmbeddingConfiguration;
 import studio.one.platform.ai.autoconfigure.config.PromptConfiguration;
 import studio.one.platform.ai.autoconfigure.config.VectorStoreConfiguration;
+import studio.one.platform.ai.autoconfigure.config.KeywordExtractorConfiguration;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
@@ -29,7 +30,8 @@ import studio.one.platform.constant.PropertyKeys;
                 AiProviderRegistryConfiguration.class,
                 RagPipelineConfiguration.class,
                 VectorStoreConfiguration.class,
-                PromptConfiguration.class
+                PromptConfiguration.class,
+                KeywordExtractorConfiguration.class
 })
 @ComponentScan(basePackageClasses = { ChatController.class, EmbeddingController.class, VectorController.class, AiInfoController.class })
 public class AiAutoConfiguration {

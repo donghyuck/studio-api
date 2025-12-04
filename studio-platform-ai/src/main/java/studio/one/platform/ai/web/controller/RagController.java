@@ -52,7 +52,9 @@ public class RagController {
      * {
      *   "documentId": "doc-123",
      *   "text": "Full text to embed",
-     *   "metadata": {"tenant":"acme"}
+     *   "metadata": {"tenant":"acme"},
+     *   "keywords": ["optional", "user provided", "keywords"],
+     *   "useLlmKeywordExtraction": true
      * }
      *
      * 202 Accepted with empty body.
@@ -62,7 +64,14 @@ public class RagController {
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<Void> index(@Valid @RequestBody IndexRequest request) {
         Map<String, Object> metadata = request.metadata() == null ? Map.of() : request.metadata();
-        ragPipelineService.index(new RagIndexRequest(request.documentId(), request.text(), metadata));
+        List<String> keywords = request.keywords() == null ? List.of() : request.keywords();
+        boolean useLlmKeywords = Boolean.TRUE.equals(request.useLlmKeywordExtraction());
+        ragPipelineService.index(new RagIndexRequest(
+                request.documentId(),
+                request.text(),
+                metadata,
+                keywords,
+                useLlmKeywords));
         return ResponseEntity.accepted().build();
     }
 

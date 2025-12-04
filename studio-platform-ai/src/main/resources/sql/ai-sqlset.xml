@@ -34,8 +34,8 @@
         <![CDATA[
         SELECT object_id, text, metadata,
                (embedding <-> :vector) AS distance,
-               ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)) AS bm25,
-               ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+               ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
+               ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
           FROM tb_ai_document_chunk
          ORDER BY hybrid ASC
          LIMIT :limit
@@ -46,8 +46,8 @@
         <![CDATA[
         SELECT object_id, text, metadata,
                (embedding <-> :vector) AS distance,
-               ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)) AS bm25,
-               ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+               ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
+               ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
           FROM tb_ai_document_chunk
          WHERE (:objectType IS NULL OR object_type = :objectType)
            AND (:objectId IS NULL OR object_id = :objectId)

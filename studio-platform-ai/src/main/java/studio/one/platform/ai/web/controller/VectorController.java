@@ -52,6 +52,9 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 public class VectorController {
 
+    private static final double HYBRID_VECTOR_WEIGHT = 0.7;
+    private static final double HYBRID_LEXICAL_WEIGHT = 0.3;
+
     private final EmbeddingPort embeddingPort;
     @Nullable
     private final VectorStorePort vectorStorePort; 
@@ -119,8 +122,9 @@ public class VectorController {
      * }
      * </pre>
      * 
-     * If {@code embedding} is omitted, the controller generates one via
-     * {@link EmbeddingPort}.
+     * Options:
+     * - If {@code embedding} is omitted, the controller generates one via {@link EmbeddingPort}.
+     * - Set {@code hybrid=true} to use BM25+vector hybrid search (requires {@code query} text).
      */
     @PostMapping("/search")
     @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
@@ -130,7 +134,7 @@ public class VectorController {
         VectorStorePort store = requireVectorStore();
         List<Double> queryEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
-        List<VectorSearchResult> results = store.search(searchRequest);
+        List<VectorSearchResult> results = executeSearch(store, request, searchRequest);
         List<VectorSearchResultDto> payload = results.stream()
                 .map(this::toVectorSearchResultDto)
                 .toList();
@@ -158,6 +162,18 @@ public class VectorController {
         EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(List.of(request.query())));
         log.debug("embedding {} -> {}", request.query(), response.vectors().size());
         return List.copyOf(response.vectors().get(0).values());
+    }
+
+    private List<VectorSearchResult> executeSearch(VectorStorePort store, VectorSearchRequestDto request,
+            VectorSearchRequest searchRequest) {
+        boolean useHybrid = Boolean.TRUE.equals(request.hybrid());
+        if (!useHybrid) {
+            return store.search(searchRequest);
+        }
+        if (request.query() == null || request.query().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hybrid search requires a query string");
+        }
+        return store.hybridSearch(request.query(), searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT);
     }
 
     private List<Double> normalizeEmbedding(List<Double> embedding, int expectedDim) {
