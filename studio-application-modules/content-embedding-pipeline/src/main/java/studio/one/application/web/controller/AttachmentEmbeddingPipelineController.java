@@ -204,7 +204,9 @@ public class AttachmentEmbeddingPipelineController {
             String objectType = resolveObjectType(request);
             String objectId = resolveObjectId(request, attachmentId);
             Map<String, Object> metadata = buildMetadata(request, attachment, objectType, objectId);
-            ragPipeline.index(new RagIndexRequest(documentId, text, metadata));
+            List<String> keywords = request != null && request.keywords() != null ? request.keywords() : List.of();
+            boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction()); 
+            ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords));
         }
         return ResponseEntity.accepted().build();
     }

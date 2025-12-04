@@ -25,6 +25,7 @@ import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.keyword.KeywordExtractor;
 
 import java.time.Duration;
 import java.util.List;
@@ -47,6 +48,9 @@ class RagPipelineServiceTest {
     @Mock
     private TextChunker textChunker;
 
+    @Mock
+    private KeywordExtractor keywordExtractor;
+
     private Cache<String, List<Double>> cache;
     private Retry retry;
 
@@ -60,7 +64,7 @@ class RagPipelineServiceTest {
     void setUp() {
         cache = Caffeine.newBuilder().build();
         retry = Retry.of("test", RetryConfig.custom().maxAttempts(1).waitDuration(Duration.ZERO).build());
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry);
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry, keywordExtractor);
     }
 
     @Test
@@ -81,6 +85,23 @@ class RagPipelineServiceTest {
         assertThat(document.metadata()).containsEntry("author", "test");
         assertThat(document.metadata()).containsEntry("chunkOrder", 0);
         assertThat(document.embedding()).containsExactly(0.1, 0.2, 0.3);
+    }
+
+    @Test
+    void shouldExtractKeywordsWithLlmWhenEnabled() {
+        RagIndexRequest request = new RagIndexRequest("doc-kw", "hello world", Map.of(), List.of(), true);
+        when(textChunker.chunk("doc-kw", "hello world"))
+                .thenReturn(List.of(new TextChunk("doc-kw-0", "hello world")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-kw-0", List.of(0.1, 0.2, 0.3)))));
+        when(keywordExtractor.extract("hello world")).thenReturn(List.of("hello", "world"));
+
+        ragPipelineService.index(request);
+
+        verify(keywordExtractor).extract("hello world");
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        VectorDocument document = documentsCaptor.getValue().get(0);
+        assertThat(document.metadata()).containsEntry("keywords", List.of("hello", "world"));
     }
 
     @Test

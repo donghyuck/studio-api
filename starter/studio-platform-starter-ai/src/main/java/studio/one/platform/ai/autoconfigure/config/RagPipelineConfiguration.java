@@ -19,6 +19,7 @@ import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
+import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -84,7 +85,8 @@ public class RagPipelineConfiguration {
 
         @Bean
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
-                        TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry) {
+                        TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
+                        ObjectProvider<KeywordExtractor> keywordExtractorProvider) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
@@ -92,7 +94,7 @@ public class RagPipelineConfiguration {
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
                 return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
-                                embeddingRetry);
+                                embeddingRetry, keywordExtractorProvider.getIfAvailable());
         }
 
 }
