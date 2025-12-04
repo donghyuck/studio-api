@@ -9,6 +9,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapter;
+import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapterV2;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -32,6 +33,6 @@ public class VectorStoreConfiguration {
                 LogUtils.green(PgVectorStoreAdapter.class, true),
                 LogUtils.red(State.CREATED.toString())));
 
-        return new PgVectorStoreAdapter(jdbcTemplate);
+        return new PgVectorStoreAdapterV2(jdbcTemplate);
     }
 }

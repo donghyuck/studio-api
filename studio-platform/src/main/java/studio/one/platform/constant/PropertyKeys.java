@@ -15,10 +15,9 @@ import lombok.NoArgsConstructor;
 public class PropertyKeys {
 
     private static final String ENABLED_VALUE_STRING = ".enabled";
-    private static final String FAIL_IF_MISSING_VALUE_STRING = ".fail-if-missing"; 
+    private static final String FAIL_IF_MISSING_VALUE_STRING = ".fail-if-missing";
     private static final String PERSISTENCE_STRING = ".persistence";
     private static final String TYPE_VALUE_STRING = ".type";
-
 
     /**
      * Contains main application property keys.
@@ -36,6 +35,11 @@ public class PropertyKeys {
     public static final class Persistence {
         public static final String PREFIX = Main.PREFIX + PERSISTENCE_STRING;
         public static final String TYPE = PREFIX + TYPE_VALUE_STRING;
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Jdbc {
+            public static final String PREFIX = Persistence.PREFIX + ".jdbc";
+        }
 
         /**
          * Contains JPA related property keys.
@@ -69,7 +73,7 @@ public class PropertyKeys {
             public static final class Repository {
                 public static final String PREFIX = SecurityAcl.PREFIX + ".repository-packages";
             }
-            
+
             @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
             public static final class Admin {
                 public static final String PREFIX = SecurityAcl.PREFIX + ".admin";
@@ -268,11 +272,10 @@ public class PropertyKeys {
 
         @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
         public static final class Endpoints {
-
             public static final String PREFIX = AI.PREFIX + ".endpoints";
             public static final String BASE_PATH = PREFIX + ".base-path";
-            
+
         }
 
-    }    
+    }
 }

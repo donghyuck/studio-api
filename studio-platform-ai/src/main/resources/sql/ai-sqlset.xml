@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlset name="ai-vector" namespace="ai.vector" description="PgVector SQLs">
+
+    <sql-query id="upsertChunk">
+        <![CDATA[
+        INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
+        VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding)
+        ON CONFLICT (object_type, object_id, chunk_index)
+        DO UPDATE SET text = EXCLUDED.text, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding
+        ]]>
+    </sql-query>
+
+    <sql-query id="search">
+        <![CDATA[
+        SELECT object_id, text, metadata, (embedding <-> :vector) AS distance
+          FROM tb_ai_document_chunk
+         ORDER BY embedding <-> :vector ASC
+         LIMIT :limit
+        ]]>
+    </sql-query>
+
+    <sql-query id="searchByObject">
+        <![CDATA[
+        SELECT object_id, text, metadata, (embedding <-> :vector) AS distance
+          FROM tb_ai_document_chunk
+         WHERE (:objectType IS NULL OR object_type = :objectType)
+           AND (:objectId IS NULL OR object_id = :objectId)
+         ORDER BY embedding <-> :vector ASC
+         LIMIT :limit
+        ]]>
+    </sql-query>
+
+    <sql-query id="hybridSearch">
+        <![CDATA[
+        SELECT object_id, text, metadata,
+               (embedding <-> :vector) AS distance,
+               ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)) AS bm25,
+               ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+          FROM tb_ai_document_chunk
+         ORDER BY hybrid ASC
+         LIMIT :limit
+        ]]>
+    </sql-query>
+
+    <sql-query id="hybridSearchByObject">
+        <![CDATA[
+        SELECT object_id, text, metadata,
+               (embedding <-> :vector) AS distance,
+               ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)) AS bm25,
+               ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+          FROM tb_ai_document_chunk
+         WHERE (:objectType IS NULL OR object_type = :objectType)
+           AND (:objectId IS NULL OR object_id = :objectId)
+         ORDER BY hybrid ASC
+         LIMIT :limit
+        ]]>
+    </sql-query>
+
+    <sql-query id="exists">
+        <![CDATA[
+        SELECT COUNT(*)
+          FROM tb_ai_document_chunk
+         WHERE object_type = ? AND object_id = ?
+        ]]>
+    </sql-query>
+
+    <sql-query id="listByObject">
+        <![CDATA[
+        SELECT object_id, text, metadata
+          FROM tb_ai_document_chunk
+         WHERE object_type = :objectType AND object_id = :objectId
+         ORDER BY chunk_index
+         LIMIT :limit
+        ]]>
+    </sql-query>
+
+</sqlset>

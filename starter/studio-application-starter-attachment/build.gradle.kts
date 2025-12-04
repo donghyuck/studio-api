@@ -4,6 +4,7 @@ plugins {
     id("io.spring.dependency-management")
     id("maven-publish")
 }
+group = project.findProperty("buildStarterGroup") as String
 description = "Starter for using Studio Application Module Attachment Service"
 tasks.named<Jar>("jar") {
     enabled = true

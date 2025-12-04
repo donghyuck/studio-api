@@ -4,7 +4,7 @@ plugins {
     id("io.spring.dependency-management")
     id("maven-publish")
 }
-description = "Starter for using Studio Platform User"
+description = "Starter for using Studio Platform Security"
 tasks.named<Jar>("jar") {
     enabled = true
     archiveClassifier.set("")

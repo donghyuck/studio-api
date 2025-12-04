@@ -4,7 +4,7 @@ plugins {
     id("io.spring.dependency-management")
     id("maven-publish")
 }
-description = "Starter for using Studio Platform Security Acl"
+description = "Starter for using Studio Platform AI"
 tasks.named<Jar>("jar") {
     enabled = true
     archiveClassifier.set("")
