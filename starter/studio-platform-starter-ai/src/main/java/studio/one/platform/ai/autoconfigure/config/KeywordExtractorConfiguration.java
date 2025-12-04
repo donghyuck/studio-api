@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.keyword.LlmKeywordExtractor;
+import studio.one.platform.ai.service.prompt.PromptManager;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -27,13 +28,13 @@ public class KeywordExtractorConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(KeywordExtractor.class)
-    public KeywordExtractor keywordExtractor(ChatPort chatPort) {
+    public KeywordExtractor keywordExtractor(PromptManager promptManager, ChatPort chatPort) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(LlmKeywordExtractor.class, true),
                 LogUtils.green(ChatPort.class, true),
                 LogUtils.red(State.CREATED.toString())));
-        return new LlmKeywordExtractor(chatPort);
+        return new LlmKeywordExtractor(promptManager, chatPort);
     }
 }
