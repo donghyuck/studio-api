@@ -4,6 +4,7 @@ plugins {
     id("io.spring.dependency-management")
     id("maven-publish")        
 }
+group = project.findProperty("buildModulesGroup") as String
 tasks.named<Jar>("jar") {
     enabled = true
     archiveClassifier.set("")        

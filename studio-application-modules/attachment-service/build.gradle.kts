@@ -6,7 +6,6 @@ plugins {
 }
 
 group = project.findProperty("buildModulesGroup") as String
-
 tasks.named<Jar>("jar") {
     enabled = true
     archiveClassifier.set("")        

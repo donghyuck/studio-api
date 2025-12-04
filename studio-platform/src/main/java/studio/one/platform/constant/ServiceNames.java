@@ -35,21 +35,24 @@ public class ServiceNames {
 
     public static final String PREFIX = "components";
 
-    public static final String APPLICATION_PROPERTIES = PREFIX + ":foundation:application-properties";
-
-    public static final String REPOSITORY = PREFIX + ":foundation:repository";
-
+    public static final String APPLICATION_PROPERTIES = PREFIX + ":foundation:application-properties"; 
+    public static final String REPOSITORY = PREFIX + ":foundation:repository"; 
     public static final String I18N = PREFIX + ":foundation:i18n";
 
-    public static final String JDBC_TEMPLATE = PREFIX + ":foundation:jdbc-template";
-    public static final String NAMED_JDBC_TEMPLATE = PREFIX + ":foundation:named-jdbc-template";
+    public static final String JDBC_TEMPLATE = PREFIX + ":data:jdbc-template";
+    public static final String NAMED_JDBC_TEMPLATE = PREFIX + ":data:named-jdbc-template";
+    public static final String SQL_QUERY = PREFIX + ":data:sql-query";
+    public static final String SQL_QUERY_CONFIGURATION = SQL_QUERY + ":configuration";
+    public static final String SQL_QUERY_FACTORY = SQL_QUERY + ":factory";
+    public static final String SQL_QUERY_CLIENT = SQL_QUERY + ":client";
+    public static final String SQL_QUERY_DEPLOY= SQL_QUERY + ":deploy";
+
+
 
     public static final String I18N_MESSAGE_SOURCE = I18N + ":message-source";
-    
     public static final String I18N_MESSAGE_ACCESSOR = I18N + ":message-accessor";
 
     public static final String JASYPT_MESSAGE_ACCESSOR = PREFIX + ":jasypt:message-accessor";
-
     public static final String JASYPT_MESSAGE_SOURCE = PREFIX + ":jasypt:message-source";
 
     public static final String AUTHENTICATION_MANAGER = PREFIX + ":security:authentication-manager";
