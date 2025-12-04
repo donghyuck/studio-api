@@ -16,6 +16,7 @@ import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
+import studio.one.platform.ai.service.prompt.PromptManager;
 
 /**
  * LLM 기반 키워드 추출기. 입력 텍스트에서 5~10개의 핵심 키워드를 JSON 배열로 받아 파싱한다.
@@ -25,12 +26,14 @@ import studio.one.platform.ai.core.chat.ChatResponse;
 @Slf4j
 public class LlmKeywordExtractor implements KeywordExtractor {
 
-    private static final String SYSTEM_PROMPT = """
+    private static final String TEMPLATE_NAME = "keyword-extraction";
+    private static final String FALLBACK_PROMPT = """
             You are a professional keyword extractor.
             Extract 5-10 concise, noun-centric keywords that best represent the following text.
             Respond with a JSON array of strings only (no code fences, no additional commentary).
             """;
 
+    private final PromptManager promptManager;
     private final ChatPort chatPort;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -39,8 +42,9 @@ public class LlmKeywordExtractor implements KeywordExtractor {
         if (text == null || text.isBlank()) {
             return List.of();
         }
+        String systemPrompt = resolvePrompt();
         try {
-            ChatResponse response = chatPort.chat(buildRequest(text));
+            ChatResponse response = chatPort.chat(buildRequest(text, systemPrompt));
             String raw = response.messages().get(response.messages().size() - 1).content();
             return parseKeywords(raw);
         } catch (Exception ex) {
@@ -49,10 +53,19 @@ public class LlmKeywordExtractor implements KeywordExtractor {
         }
     }
 
-    private ChatRequest buildRequest(String text) {
+    private String resolvePrompt() {
+        try {
+            return promptManager.getRawPrompt(TEMPLATE_NAME);
+        } catch (Exception ex) {
+            log.warn("Failed to load keyword extraction prompt '{}', using fallback. cause={}", TEMPLATE_NAME, ex.toString());
+            return FALLBACK_PROMPT;
+        }
+    }
+
+    private ChatRequest buildRequest(String text, String systemPrompt) {
         return ChatRequest.builder()
                 .messages(List.of(
-                        ChatMessage.system(SYSTEM_PROMPT),
+                        ChatMessage.system(systemPrompt),
                         ChatMessage.user(trimToLength(text, 4000))))
                 .build();
     }

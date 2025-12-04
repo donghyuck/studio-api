@@ -109,6 +109,13 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return namedParameterJdbcTemplate.query(searchByObjectSql, params, ROW_MAPPER);
     }
 
+    /**
+     * 벡터 유사도(semantic similarity) 와 텍스트 기반 검색 점수(lexical relevance) 를 하나의
+     * 점수(hybrid) 로 결합해, Semantic + Lexical 하이브리드 검색을 구현.
+     * - Semantic Similarity Score (거리 기반).
+     * - PostgreSQL Full Text Search(FTS) 정규화 점수 을 활용 query 와 keywords 비교. 키워드가 문서 동사/명사와 잘 맞으면 점수 증가
+     * 
+     */
     @Override
     public List<VectorSearchResult> hybridSearch(String query, VectorSearchRequest request, double vectorWeight,
             double lexicalWeight) {
