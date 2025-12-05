@@ -14,24 +14,21 @@
  *      See the License for the specific language governing permissions and
  *      limitations under the License.
  *
- *      @file RefreshToken.java
+ *      @file PasswordResetToken.java
  *      @date 2025
  *
  */
 
-package studio.one.base.security.jwt.refresh.domain.entity;
+package studio.one.base.security.jwt.reset.domain;
 
 import java.time.Instant;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
-import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Index;
-import javax.persistence.JoinColumn;
-import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -45,14 +42,14 @@ import lombok.Setter;
 /**
  *
  * @author  donghyuck, son
- * @since 2025-09-30
+ * @since 2025-12-05
  * @version 1.0
  *
  * <pre> 
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
- * 2025-09-30  donghyuck, son: 최초 생성.
+ * 2025-12-05  donghyuck, son: 최초 생성.
  * </pre>
  */
 
@@ -63,45 +60,35 @@ import lombok.Setter;
 @Builder
 @Entity
 @Table(
-  name = "TB_APPLICATION_REFRESH_TOKEN",
-  indexes = {
-    @Index(name = "IX_REFRESH_USER", columnList = "USER_ID"),
-    @Index(name = "IX_REFRESH_EXPIRES", columnList = "EXPIRES_AT")
-  },
-  uniqueConstraints = {
-    @UniqueConstraint(name = "UX_REFRESH_SELECTOR", columnNames = "SELECTOR")
-  }
+    name = "TB_APPLICATION_PASSWORD_RESET_TOKEN",
+    indexes = {
+        @Index(name = "IX_PW_RESET_USER", columnList = "USER_ID"),
+        @Index(name = "IX_PW_RESET_EXPIRES", columnList = "EXPIRES_AT")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "UX_PW_RESET_TOKEN", columnNames = "TOKEN")
+    }
 )
-public class RefreshToken {
+public class PasswordResetToken {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    Long id;
+    private Long id;
 
     @Column(name = "USER_ID", nullable = false)
     private Long userId;
 
-    /** 토큰 조회용 public id (예: UUID). 유니크 인덱스 */
-    @Column(name = "SELECTOR", nullable = false, length = 50)
-    private String selector;
-
-    /** verifier 의 BCrypt 해시(약 60자). */
-    @Column(name = "VERIFIER_HASH", nullable = false, length = 100)
-    private String verifierHash;
+    @Column(name = "TOKEN", nullable = false, unique = true, length = 200)
+    private String token;
 
     @Column(name = "EXPIRES_AT", nullable = false)
     private Instant expiresAt;
 
     @Builder.Default
-    @Column(name = "REVOKED", nullable = false)
-    private boolean revoked = false;
+    @Column(name = "USED", nullable = false)
+    private boolean used = false;
 
     @Builder.Default
     @Column(name = "CREATED_AT", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
-
-    /** 회전 시 새 토큰 id (선택) */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "REPLACED_BY_ID")
-    private RefreshToken replacedBy;
 }

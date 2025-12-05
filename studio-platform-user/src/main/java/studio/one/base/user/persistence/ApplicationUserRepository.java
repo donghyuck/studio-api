@@ -22,6 +22,8 @@ public interface ApplicationUserRepository {
 
     Optional<UserIdOnly> findFirstByUsernameIgnoreCase(String username);
 
+    Optional<ApplicationUser> findByEmail(String email);
+
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);

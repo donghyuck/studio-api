@@ -121,6 +121,20 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
     }
 
     @Override
+    public Optional<ApplicationUser> findByEmail(String email) {
+        String sql = """
+                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
+                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
+                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
+                  from TB_APPLICATION_USER
+                 where lower(EMAIL) = lower(:email)
+                """;
+        Optional<ApplicationUser> result = queryOptional(sql, Map.of("email", email), USER_ROW_MAPPER);
+        result.ifPresent(this::loadProperties);
+        return result;
+    }
+
+    @Override
     public Optional<UserIdOnly> findFirstByUsernameIgnoreCase(String username) {
         String sql = "select USER_ID from TB_APPLICATION_USER where lower(USERNAME) = lower(:username)";
         return queryOptional(sql, Map.of("username", username),

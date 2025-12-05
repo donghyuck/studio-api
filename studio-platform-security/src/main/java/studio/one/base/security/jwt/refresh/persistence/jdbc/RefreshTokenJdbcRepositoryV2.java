@@ -9,18 +9,18 @@ import java.util.Optional;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.lang.Nullable;
 
 import studio.one.base.security.jwt.refresh.domain.entity.RefreshToken;
 import studio.one.base.security.jwt.refresh.persistence.RefreshTokenRepository;
+import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 /**
- * JDBC implementation of {@link RefreshTokenRepository}.
+ * JDBC implementation backed by sqlset-stored statements.
  */
-public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
-
-    private static final String TABLE = "TB_APPLICATION_REFRESH_TOKEN";
+public class RefreshTokenJdbcRepositoryV2 implements RefreshTokenRepository {
 
     private static final RowMapper<RefreshToken> ROW_MAPPER = (rs, rowNum) -> RefreshToken.builder()
             .id(rs.getLong("ID"))
@@ -33,14 +33,19 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
             .replacedBy(mapReplacedBy(rs.getObject("REPLACED_BY_ID", Long.class)))
             .build();
 
-    private final NamedParameterJdbcTemplate namedTemplate;
-    private final SimpleJdbcInsert insert;
+    @SqlStatement("security.refreshToken.insert")
+    private String insertSql;
 
-    public RefreshTokenJdbcRepository(NamedParameterJdbcTemplate namedTemplate) {
-        this.namedTemplate = namedTemplate;
-        this.insert = new SimpleJdbcInsert(namedTemplate.getJdbcTemplate())
-                .withTableName(TABLE)
-                .usingGeneratedKeyColumns("ID");
+    @SqlStatement("security.refreshToken.update")
+    private String updateSql;
+
+    @SqlStatement("security.refreshToken.findBySelector")
+    private String findBySelectorSql;
+
+    private final NamedParameterJdbcTemplate template;
+
+    public RefreshTokenJdbcRepositoryV2(NamedParameterJdbcTemplate template) {
+        this.template = template;
     }
 
     @Override
@@ -53,42 +58,31 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
 
     @Override
     public Optional<RefreshToken> findBySelector(String selector) {
-        String sql = """
-                select ID, USER_ID, SELECTOR, VERIFIER_HASH,
-                       EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID
-                  from %s
-                 where SELECTOR = :selector
-                """.formatted(TABLE);
-        return namedTemplate.query(sql, Map.of("selector", selector), ROW_MAPPER).stream().findFirst();
+        return template.query(findBySelectorSql, Map.of("selector", selector), ROW_MAPPER).stream().findFirst();
     }
 
     private RefreshToken insert(RefreshToken token) {
         Instant now = token.getCreatedAt() == null ? Instant.now() : token.getCreatedAt();
         token.setCreatedAt(now);
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("USER_ID", token.getUserId())
-                .addValue("SELECTOR", token.getSelector())
-                .addValue("VERIFIER_HASH", token.getVerifierHash())
-                .addValue("EXPIRES_AT", Timestamp.from(token.getExpiresAt()))
-                .addValue("REVOKED", token.isRevoked())
-                .addValue("CREATED_AT", Timestamp.from(now))
-                .addValue("REPLACED_BY_ID", token.getReplacedBy() != null ? token.getReplacedBy().getId() : null);
-        Number key = insert.executeAndReturnKey(params);
-        token.setId(key.longValue());
+                .addValue("userId", token.getUserId())
+                .addValue("selector", token.getSelector())
+                .addValue("verifierHash", token.getVerifierHash())
+                .addValue("expiresAt", Timestamp.from(token.getExpiresAt()))
+                .addValue("revoked", token.isRevoked())
+                .addValue("createdAt", Timestamp.from(now))
+                .addValue("replacedById", token.getReplacedBy() != null ? token.getReplacedBy().getId() : null);
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        template.update(insertSql, params, keyHolder, new String[] { "ID" });
+        Number key = keyHolder.getKey();
+        if (key != null) {
+            token.setId(key.longValue());
+        }
         return token;
     }
 
     private RefreshToken update(RefreshToken token) {
-        String sql = """
-                update %s
-                   set USER_ID = :userId,
-                       SELECTOR = :selector,
-                       VERIFIER_HASH = :verifierHash,
-                       EXPIRES_AT = :expiresAt,
-                       REVOKED = :revoked,
-                       REPLACED_BY_ID = :replacedById
-                 where ID = :id
-                """.formatted(TABLE);
+        String sql = updateSql;
         Map<String, Object> params = new HashMap<>();
         params.put("userId", token.getUserId());
         params.put("selector", token.getSelector());
@@ -97,7 +91,7 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
         params.put("revoked", token.isRevoked());
         params.put("replacedById", token.getReplacedBy() != null ? token.getReplacedBy().getId() : null);
         params.put("id", token.getId());
-        namedTemplate.update(sql, params);
+        template.update(sql, params);
         return token;
     }
 
