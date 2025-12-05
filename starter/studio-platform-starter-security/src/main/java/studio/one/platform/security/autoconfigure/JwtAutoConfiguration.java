@@ -31,7 +31,7 @@ import studio.one.base.security.jwt.JwtTokenProvider;
 import studio.one.base.security.jwt.refresh.HashedRefreshTokenStore;
 import studio.one.base.security.jwt.refresh.RefreshTokenStore;
 import studio.one.base.security.jwt.refresh.persistence.RefreshTokenRepository;
-import studio.one.base.security.jwt.refresh.persistence.jdbc.RefreshTokenJdbcRepository;
+import studio.one.base.security.jwt.refresh.persistence.jdbc.RefreshTokenJdbcRepositoryV2;
 import studio.one.base.security.jwt.refresh.persistence.jpa.RefreshTokenJpaRepository;
 import studio.one.base.security.web.controller.JwtAuthController;
 import studio.one.base.security.web.controller.JwtRefreshController;
@@ -52,10 +52,12 @@ import studio.one.platform.util.LogUtils;
 @AutoConfigureAfter(SecurityAutoConfiguration.class)
 @RequiredArgsConstructor
 @Slf4j
-public class JwtSecurtyAutoConfiguration {
+public class JwtAutoConfiguration {
 
     private static final String FEATURE_NAME = "Security - Jwt";
-    private static final String DEFAULT_JPA_ENTITY_PACKAGE = RefreshTokenStore.class.getPackageName();
+    private static final String[] DEFAULT_JPA_ENTITY_PACKAGES = {
+            RefreshTokenStore.class.getPackageName()
+    };
 
     private final SecurityProperties securityProperties;
 
@@ -91,15 +93,14 @@ public class JwtSecurtyAutoConfiguration {
     @Bean
     @ConditionalOnClass({ RefreshTokenStore.class })
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX
-            + ".jwt", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX + ".jwt", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RefreshTokenStore refreshTokenStore(
             RefreshTokenRepository refreshTokenRepository,
             Clock jwtClock,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         JwtProperties props = securityProperties.getJwt();
-        boolean isJdbc = refreshTokenRepository instanceof RefreshTokenJdbcRepository;
+        boolean isJdbc = refreshTokenRepository instanceof RefreshTokenJdbcRepositoryV2;
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(RefreshTokenStore.class, true), LogUtils.red(State.CREATED.toString())));
 
@@ -107,7 +108,7 @@ public class JwtSecurtyAutoConfiguration {
                 FEATURE_NAME,
                 LogUtils.blue(AccountLockService.class, true),
                 "RefreshTokenRepository",
-                LogUtils.green(isJdbc ? RefreshTokenJdbcRepository.class : RefreshTokenJpaRepository.class, true)));
+                LogUtils.green(isJdbc ? RefreshTokenJdbcRepositoryV2.class : RefreshTokenJpaRepository.class, true)));
         return new HashedRefreshTokenStore(refreshTokenRepository, jwtClock, props);
     }
 
@@ -157,9 +158,9 @@ public class JwtSecurtyAutoConfiguration {
         static BeanDefinitionRegistryPostProcessor jwtEntityScanRegistrar(Environment env, I18n i18n) {
             String entityKey = PropertyKeys.Security.Jwt.PREFIX + ".entity-packages";
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, FEATURE_NAME, entityKey,
-                    DEFAULT_JPA_ENTITY_PACKAGE));
+                    String.join(", ", DEFAULT_JPA_ENTITY_PACKAGES)));
             return EntityScanRegistrarSupport.entityScanRegistrar(entityKey + ".entity-packages",
-                    DEFAULT_JPA_ENTITY_PACKAGE);
+                    DEFAULT_JPA_ENTITY_PACKAGES);
         }
     }
 
@@ -167,7 +168,7 @@ public class JwtSecurtyAutoConfiguration {
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnJwtPersistence(PersistenceProperties.Type.jpa)
-    @EnableJpaRepositories(basePackageClasses = {RefreshTokenJpaRepository.class})
+    @EnableJpaRepositories(basePackageClasses = { RefreshTokenJpaRepository.class })
     static class JpaWiring {
 
     }
@@ -179,8 +180,9 @@ public class JwtSecurtyAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(RefreshTokenRepository.class)
         RefreshTokenRepository refreshTokenJdbcRepository(NamedParameterJdbcTemplate template) {
-            return new RefreshTokenJdbcRepository(template);
+            return new RefreshTokenJdbcRepositoryV2(template);
         }
+
     }
 
     private String getModeString(JwtProperties props) {

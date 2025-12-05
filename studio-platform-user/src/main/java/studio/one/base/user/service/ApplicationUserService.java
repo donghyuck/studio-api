@@ -61,6 +61,8 @@ public interface ApplicationUserService<T extends User, R extends Role> {
     User get(Long userId);
 
     Optional<T> findByUsername(String username);
+    
+    Optional<T> findByEmail(String email);
 
     Long findIdByUsername(String username);
 

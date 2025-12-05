@@ -1,5 +1,6 @@
 studio.one.platform.security.autoconfigure.SecurityAutoConfiguration 
-studio.one.platform.security.autoconfigure.JwtSecurtyAutoConfiguration
+studio.one.platform.security.autoconfigure.JwtAutoConfiguration
 studio.one.platform.security.autoconfigure.SecurityWebAdviceAutoConfiguration
 studio.one.platform.security.autoconfigure.LoginFailureAuditAutoConfiguration
 studio.one.platform.security.autoconfigure.AccountLockAutoConfiguration
+studio.one.platform.security.autoconfigure.AccountPasswordResetAutoConfiguration

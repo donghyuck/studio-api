@@ -116,6 +116,11 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return userRepo.findByUsername(username);
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public Optional<ApplicationUser> findByEmail(String email) {
+        return userRepo.findByEmail(email);
+    }
+
     @Transactional
     public ApplicationUser create(ApplicationUser user) {
         user.setUserId(null);

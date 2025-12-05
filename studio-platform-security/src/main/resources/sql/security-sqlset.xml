@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlset name="security" namespace="security" description="Security SQLs"> 
+
+    <sql id="refreshToken.insert">
+        <![CDATA[
+        insert into TB_APPLICATION_REFRESH_TOKEN
+            (USER_ID, SELECTOR, VERIFIER_HASH, EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID)
+        values
+            (:userId, :selector, :verifierHash, :expiresAt, :revoked, :createdAt, :replacedById)
+        returning ID
+        ]]>
+    </sql>
+
+    <sql id="refreshToken.update">
+        <![CDATA[
+        update TB_APPLICATION_REFRESH_TOKEN
+           set USER_ID       = :userId,
+               SELECTOR      = :selector,
+               VERIFIER_HASH = :verifierHash,
+               EXPIRES_AT    = :expiresAt,
+               REVOKED       = :revoked,
+               REPLACED_BY_ID = :replacedById
+         where ID = :id
+        ]]>
+    </sql>
+
+    <sql id="refreshToken.findBySelector">
+        <![CDATA[
+        select ID, USER_ID, SELECTOR, VERIFIER_HASH,
+               EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID
+          from TB_APPLICATION_REFRESH_TOKEN
+         where SELECTOR = :selector
+        ]]>
+    </sql>
+
+    <sql id="passwordResetToken.insert">
+        <![CDATA[
+        insert into TB_APPLICATION_PASSWORD_RESET_TOKEN
+            (USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT)
+        values
+            (:userId, :token, :expiresAt, :used, :createdAt)
+        returning ID
+        ]]>
+    </sql>
+
+    <sql id="passwordResetToken.update">
+        <![CDATA[
+        update TB_APPLICATION_PASSWORD_RESET_TOKEN
+           set USER_ID    = :userId,
+               TOKEN      = :token,
+               EXPIRES_AT = :expiresAt,
+               USED       = :used
+         where ID = :id
+        ]]>
+    </sql>
+
+    <sql id="passwordResetToken.findByToken">
+        <![CDATA[
+        select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
+          from TB_APPLICATION_PASSWORD_RESET_TOKEN
+         where TOKEN = :token
+        ]]>
+    </sql>
+
+</sqlset>

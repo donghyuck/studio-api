@@ -123,6 +123,7 @@ public class PropertyKeys {
             public static final String PREFIX = Security.PREFIX + ".auth";
             public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
             public static final String LOCK = PREFIX + ".lock";
+            public static final String PASSWORD_RESET = PREFIX + ".password-reset";
         }
 
         /**

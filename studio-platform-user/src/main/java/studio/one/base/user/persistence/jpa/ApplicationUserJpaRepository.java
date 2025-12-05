@@ -25,6 +25,10 @@ public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationU
     Optional<ApplicationUser> findByUsername(String username);
 
     @Override
+    @Query("select u from ApplicationUser u where lower(u.email) = lower(:email)")
+    Optional<ApplicationUser> findByEmail(@Param("email") String email);
+
+    @Override
     boolean existsByUsername(String username);
 
     @Override
