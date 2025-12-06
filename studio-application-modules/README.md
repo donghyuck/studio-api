@@ -1,17 +1,31 @@
-응용프로그램을 위한 추가 모듈 프로젝트
+응용프로그램을 위한 추가 모듈 모음. 각 모듈은 starter 의존성을 통해 자동구성이 제공된다.
 
-## Avatar 사용 가이드
-- 의존성 추가: `studio-application-modules/avatar-service` 모듈을 포함하거나 starter 사용 시 `studio-application-starter-avatar` 추가.
-- 기능 활성화: `features.avatar-image.enabled=true`.
-- 저장소 선택: `features.avatar-image.persistence=jpa`(기본) 또는 `jdbc`.
-- 파일 저장: DB에 메타/데이터 저장, 필요 시 replica 파일 시스템 사용. 기본 경로는 repo 기반, 직접 지정하려면 `features.avatar-image.replica.base-dir=/var/app/avatars`.
-- API/서비스: `AvatarImageService` 빈을 주입받아 `upload`, `replaceData`, `setPrimary` 등 메서드 사용. 사용자 정보는 `ApplicationUserService`를 통해 처리됨.
+## Avatar 서비스
+- 의존성: `studio-application-modules/avatar-service` 또는 `studio-application-starter-avatar`.
+- 활성화: `studio.features.avatar-image.enabled=true`.
+- 저장소: `studio.features.avatar-image.persistence=jpa|jdbc`(기본 jpa), 파일 복제 경로는 `studio.features.avatar-image.replica.base-dir` 로 지정.
+- 사용법: `AvatarImageService` 로 `upload`, `replaceData`, `setPrimary` 등을 호출. 사용자 정보는 `ApplicationUserService`로 처리.
 
-## Attachment 사용 가이드
-- 의존성 추가: `studio-application-modules/attachment-service` 모듈을 포함하거나 starter 사용 시 `studio-application-starter-attachment` 추가.
-- 기능 활성화: `features.attachment.enabled=true`.
-- 저장소 타입:
-  - 파일 시스템: `features.attachment.storage.type=filesystem` (기본), 경로는 `features.attachment.storage.base-dir`로 지정, 없으면 임시 경로.
-  - 데이터베이스: `features.attachment.storage.type=database` + `features.attachment.persistence=jpa|jdbc`. DB 선택 시 `TB_APPLICATION_ATTACHMENT_DATA` 테이블 사용.
-  - DB 사용 시 파일 캐시: `features.attachment.storage.cache-enabled=true` 설정 후 `storage.base-dir`로 캐시 경로 지정 가능.
-- 서비스 사용: `AttachmentService` 빈의 `createAttachment`, `getInputStream`, `removeAttachment` 등을 통해 메타/파일을 관리.
+## Attachment 서비스
+- 의존성: `studio-application-modules/attachment-service` 또는 `studio-application-starter-attachment`.
+- 활성화: `studio.features.attachment.enabled=true` (+ REST 사용 시 `studio.features.attachment.web.enabled=true`).
+- 저장소 옵션:
+  - 파일 시스템: `studio.features.attachment.storage.type=filesystem` (기본), 경로는 `studio.features.attachment.storage.base-dir`, 없으면 tmp/attachments.
+  - 데이터베이스: `studio.features.attachment.storage.type=database` + `studio.features.attachment.persistence=jpa|jdbc`, BLOB 테이블 `TB_APPLICATION_ATTACHMENT_DATA` 사용.
+  - DB + 캐시: `studio.features.attachment.storage.cache-enabled=true` 로 로컬 파일 캐시 활성화.
+- API/서비스: `AttachmentService` 로 생성/조회/삭제/스트림 조회, REST 컨트롤러는 `/api/mgmt/attachments`(또는 `studio.features.attachment.web.base-path`) 이하 업로드·다운로드·검색 제공.
+
+## Content Embedding Pipeline
+- 역할: 첨부파일 텍스트를 추출하고 임베딩을 생성해 벡터 스토어에 업서트하거나 RAG 인덱스를 구축하는 파이프라인 API.
+- 의존성: `studio-application-modules/content-embedding-pipeline` + `studio-application-modules/attachment-service` + `studio-platform-ai` (임베딩/벡터/RAG 포트).
+- 전제 조건:
+  - 텍스트 추출기(`FileContentExtractionService`) 빈
+  - 임베딩 프로바이더(`EmbeddingPort`) 빈
+  - 벡터 스토어(`VectorStorePort`)가 있어야 저장 가능, 없으면 임베딩만 반환
+  - RAG 사용 시 `RagPipelineService` 빈 필요
+- 엔드포인트(기본 `studio.features.attachment.web.base-path`, 예: `/api/mgmt/attachments`):
+  - `GET /{id}/embedding?storeVector=true|false`: 텍스트 추출 후 임베딩 생성, storeVector=true 시 벡터 스토어 업서트.
+  - `GET /{id}/embedding/exists`: 해당 첨부 벡터 존재 여부 확인.
+  - `POST /{id}/rag/index`: 추출 텍스트를 RAG 인덱스에 등록(메타데이터/키워드 옵션 포함).
+  - `POST /rag/search`: RAG 인덱스 검색.
+- 권한: 컨트롤러는 attachment 스코프 인가(`features:attachment` write/read)와 동일하게 동작. 빈이 없을 경우 501(NOT_IMPLEMENTED)로 안내 응답.
