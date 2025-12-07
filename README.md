@@ -82,3 +82,12 @@ studio:
 - 스타터 요약: `starter/README.md`
 - 애플리케이션 모듈 가이드: `studio-application-modules/README.md`
 - 첨부 모듈 상세: `studio-application-modules/attachment-service/README.md`
+
+## 사용자 도메인 커스터마이즈 가이드
+기본 `ApplicationUser` 대신 커스텀 User 구현을 쓰려면 다음 단계를 따른다.
+- 엔티티/리포지토리 스캔을 별도 패키지로 지정: `studio.features.user.entity-packages`, `repository-packages`, `jdbc-repository-packages`를 커스텀 경로로 설정해 기본 엔티티와 분리한다.
+- 리포지토리 교체: `ApplicationUserRepository` 인터페이스를 구현한 커스텀 JPA/JDBC 리포지토리를 빈으로 제공하면 기본 구현은 `@ConditionalOnMissingBean`으로 등록되지 않는다.
+- Mutator 교체: 비밀번호/잠금/활성화 필드 접근을 커스텀 엔티티에 맞추려면 `UserMutator<YourUser>` 빈을 등록해 기본 `ApplicationUserMutator`를 대체한다.
+- 서비스/매퍼 교체: 기본 `ApplicationUserServiceImpl`가 `ApplicationUser`에 묶여 있으므로, 필요 시 같은 인터페이스를 구현한 서비스를 제공하거나 매퍼(`ApplicationUserMapper`)를 커스텀 엔티티용으로 `@Primary`로 등록한다.
+- 스캔 분리나 제외 필터로 충돌 방지: 기존 패키지와 겹치지 않는 루트 패키지를 사용하고, 필요 시 `@EnableJpaRepositories`/`@ComponentScan`의 `excludeFilters`로 기본 스캔에서 제외한다.
+- 제외 프로퍼티: `studio.features.user.exclude-entity-packages`, `...exclude-repository-packages`, `...exclude-jdbc-repository-packages`에 정규식 패턴을 넣으면 해당 패턴과 매칭되는 엔티티/리포지토리 빈 등록을 건너뛸 수 있다.

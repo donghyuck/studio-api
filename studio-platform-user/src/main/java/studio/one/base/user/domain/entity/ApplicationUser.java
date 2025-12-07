@@ -22,11 +22,8 @@
 package studio.one.base.user.domain.entity;
 
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 
-import javax.persistence.CascadeType;
 import javax.persistence.CollectionTable;
 import javax.persistence.Column;
 import javax.persistence.ElementCollection;
@@ -40,7 +37,6 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.MapKeyColumn;
-import javax.persistence.OneToMany;
 import javax.persistence.Table;
 import javax.persistence.UniqueConstraint;
 
@@ -70,7 +66,7 @@ import studio.one.base.user.domain.model.User;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
-@ToString 
+@ToString
 public class ApplicationUser implements User {
 
 	@Id // tell persistence provider 'id' is primary key
@@ -147,15 +143,6 @@ public class ApplicationUser implements User {
 	public boolean isAnonymous() {
 		return this.userId == -1L;
 	}
-
-	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-	@Builder.Default
-	private Set<ApplicationGroupMembership> memberships = new HashSet<>();
-
-	@OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-	@JsonIgnore
-	@Builder.Default
-	private Set<ApplicationUserRole> userRoles = new HashSet<>();
 
 	@javax.persistence.PrePersist
 	void onCreate() {

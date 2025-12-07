@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.user.domain.entity.ApplicationGroup;
@@ -22,6 +23,7 @@ import studio.one.base.user.domain.model.UserIdOnly;
 import studio.one.base.user.persistence.ApplicationUserRepository;
 
 @Repository
+@ConditionalOnMissingBean(ApplicationUserRepository.class)
 public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements ApplicationUserRepository {
 
     private static final String TABLE = "TB_APPLICATION_USER";

@@ -11,6 +11,8 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.MapsId;
 import javax.persistence.Table;
+import javax.persistence.AttributeOverride;
+import javax.persistence.AttributeOverrides;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,12 +31,11 @@ import studio.one.base.user.constant.JpaEntityNames;
 public class ApplicationGroupMembership implements Serializable {
 
     @EmbeddedId
+    @AttributeOverrides({
+            @AttributeOverride(name = "userId", column = @Column(name = "USER_ID")),
+            @AttributeOverride(name = "groupId", column = @Column(name = "GROUP_ID"))
+    })
     private ApplicationGroupMembershipId id;
-
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @MapsId("userId") 
-    @JoinColumn(name = "USER_ID", referencedColumnName = "USER_ID", nullable = false)
-    private ApplicationUser user;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @MapsId("groupId") 
@@ -49,11 +50,10 @@ public class ApplicationGroupMembership implements Serializable {
     private String joinedBy;
 
 
-    public static ApplicationGroupMembership of(ApplicationGroup group, ApplicationUser user, String joinedBy) {
+    public static ApplicationGroupMembership of(ApplicationGroup group, Long userId, String joinedBy) {
         ApplicationGroupMembership m = new ApplicationGroupMembership();
         m.setGroup(group);
-        m.setUser(user);
-        m.setId(new ApplicationGroupMembershipId(group.getGroupId(), user.getUserId()));
+        m.setId(new ApplicationGroupMembershipId(group.getGroupId(), userId));
         m.setJoinedBy(joinedBy);
         return m;
     }

@@ -34,20 +34,20 @@ public interface ApplicationGroupMembershipJpaRepository
   Page<ApplicationGroupMembership> findAllByGroupId(@Param("groupId") Long groupId, Pageable pageable);
 
   @Override
-  @Query(value = "select gm from ApplicationGroupMembership gm where gm.user.userId = :userId",
-      countQuery = "select count(gm) from ApplicationGroupMembership gm where gm.user.userId = :userId")
+  @Query(value = "select gm from ApplicationGroupMembership gm where gm.id.userId = :userId",
+      countQuery = "select count(gm) from ApplicationGroupMembership gm where gm.id.userId = :userId")
   Page<ApplicationGroupMembership> findAllByUserId(@Param("userId") Long userId, Pageable pageable);
 
   @Override
   @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query("delete from ApplicationGroupMembership m " +
-      "where m.group.groupId = :groupId and m.user.userId in :userIds")
+      "where m.group.groupId = :groupId and m.id.userId in :userIds")
   int deleteByGroupIdAndUserIds(@Param("groupId") Long groupId, @Param("userIds") Collection<Long> userIds);
 
   @Override
-  @Query("select m.user.userId " +
+  @Query("select m.id.userId " +
       "from ApplicationGroupMembership m " +
-      "where m.group.groupId = :groupId and m.user.userId in :userIds")
+      "where m.group.groupId = :groupId and m.id.userId in :userIds")
   List<Long> findExistingUserIdsInGroup(@Param("groupId") Long groupId,
       @Param("userIds") Collection<Long> userIds);
 

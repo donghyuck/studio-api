@@ -30,6 +30,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Lazy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,28 +65,29 @@ import studio.one.platform.util.LogUtils;
 @RequiredArgsConstructor
 @EnableConfigurationProperties({ AttachmentFeatureProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
-        + ".attachment.web", name = "enabled", havingValue = "true")
-@ComponentScan(basePackageClasses = { AttachmentController.class })    
+                + ".attachment.web", name = "enabled", havingValue = "true")
+@ComponentScan(basePackageClasses = { AttachmentController.class })
 @Slf4j
 public class AttachmentEndpointAutoConfiguration {
 
-    private final AttachmentFeatureProperties props;
-    private final I18n i18n;
+        private final AttachmentFeatureProperties props;
+        private final I18n i18n;
 
-    
-    @Bean
-    @ConditionalOnMissingBean(AttachmentController.class)
-    AttachmentController attachmentController(AttachmentService attachmentService,
-           @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService<?, ?> userService, ApplicationUserMapper userMapper, 
-           ObjectProvider<FileContentExtractionService> textExtractionProvider) {
+        @Bean
+        @Lazy
+        @ConditionalOnMissingBean(AttachmentController.class)
+        AttachmentController attachmentController(AttachmentService attachmentService,
+                        ApplicationUserService userService,
+                        ApplicationUserMapper userMapper,
+                        ObjectProvider<FileContentExtractionService> textExtractionProvider) {
 
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
-                AttachmentAutoConfiguration.FEATURE_NAME,
-                LogUtils.blue(AttachmentService.class, true),
-                LogUtils.blue(AttachmentController.class, true),
-                props.getWeb().getBasePath(),
-                "CRUD"));
-        return new AttachmentController(attachmentService, userService, userMapper, textExtractionProvider);
-    }
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
+                                AttachmentAutoConfiguration.FEATURE_NAME,
+                                LogUtils.blue(AttachmentService.class, true),
+                                LogUtils.blue(AttachmentController.class, true),
+                                props.getWeb().getBasePath(),
+                                "CRUD"));
+                return new AttachmentController(attachmentService, userService, userMapper, textExtractionProvider);
+        }
 
 }

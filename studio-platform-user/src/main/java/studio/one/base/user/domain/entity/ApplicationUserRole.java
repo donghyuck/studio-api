@@ -10,6 +10,8 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.MapsId;
 import javax.persistence.Table;
+import javax.persistence.AttributeOverride;
+import javax.persistence.AttributeOverrides;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -20,7 +22,7 @@ import studio.one.base.user.constant.JpaEntityNames;
 
 @Getter
 @Setter
-@Entity(name= JpaEntityNames.User.Role.ENTITY)
+@Entity(name = JpaEntityNames.User.Role.ENTITY)
 @Table(name = "TB_APPLICATION_USER_ROLES")
 @NoArgsConstructor
 @AllArgsConstructor
@@ -28,12 +30,11 @@ import studio.one.base.user.constant.JpaEntityNames;
 public class ApplicationUserRole {
 
     @EmbeddedId
+    @AttributeOverrides({
+            @AttributeOverride(name = "userId", column = @Column(name = "USER_ID")),
+            @AttributeOverride(name = "roleId", column = @Column(name = "ROLE_ID"))
+    })
     private ApplicationUserRoleId id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("userId")
-    @JoinColumn(name = "USER_ID")
-    private ApplicationUser user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("roleId")
@@ -46,4 +47,12 @@ public class ApplicationUserRole {
 
     @Column(name = "ASSIGNED_BY")
     private String assignedBy;
+
+    public static ApplicationUserRole of(Long userId, ApplicationRole role, String assignedBy) {
+        ApplicationUserRole ur = new ApplicationUserRole();
+        ur.setId(new ApplicationUserRoleId(userId, role.getRoleId()));
+        ur.setRole(role);
+        ur.setAssignedBy(assignedBy);
+        return ur;
+    }
 }

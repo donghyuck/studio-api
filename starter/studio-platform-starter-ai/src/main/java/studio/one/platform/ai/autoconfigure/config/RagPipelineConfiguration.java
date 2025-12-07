@@ -83,7 +83,7 @@ public class RagPipelineConfiguration {
                 return Retry.of("embedding", config);
         }
 
-        @Bean
+        @Bean(RagPipelineService.SERVICE_NAME)
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
                         TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider) {

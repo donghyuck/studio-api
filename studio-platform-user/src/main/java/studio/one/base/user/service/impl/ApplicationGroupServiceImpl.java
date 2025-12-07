@@ -30,7 +30,6 @@ import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.exception.GroupNotFoundException;
-import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
@@ -44,7 +43,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@Service
+@Service(ApplicationGroupService.SERVICE_NAME)
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
@@ -97,11 +96,10 @@ public class ApplicationGroupServiceImpl
     @Override
     public void addMember(Long groupId, Long userId, @Nullable String joinedBy) {
         ApplicationGroup g = groupRepo.findById(groupId).orElseThrow(() -> GroupNotFoundException.byId(groupId));
-        ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
         ApplicationGroupMembershipId id = new ApplicationGroupMembershipId(groupId, userId);
         if (!membershipRepo.existsById(id)) {
             membershipRepo
-                    .save(ApplicationGroupMembership.builder().id(id).group(g).user(u).joinedBy(joinedBy).build());
+                    .save(ApplicationGroupMembership.builder().id(id).group(g).joinedBy(joinedBy).build());
         }
     }
 

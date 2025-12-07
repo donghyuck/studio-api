@@ -11,7 +11,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.CacheManager;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,9 +29,11 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.service.impl.ApplicationCompanyServiceImpl;
 import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
 import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
+import studio.one.base.user.service.impl.ApplicationUserMutator;
 import studio.one.base.user.service.impl.ApplicationUserServiceImpl;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
@@ -61,10 +62,16 @@ public class UserServicesAutoConfiguration {
                 return Clock.systemUTC();
         }
 
+        @Bean
+        @ConditionalOnMissingBean(UserMutator.class)
+        public UserMutator<?> userMutator() {
+                return new ApplicationUserMutator();
+        }
+
         @Bean(name = ApplicationUserService.SERVICE_NAME)
         @ConditionalOnClass(ApplicationUserRepository.class)
         @ConditionalOnMissingBean(ApplicationUserService.class)
-        public ApplicationUserService<?, ?> applicationUserService(
+        public ApplicationUserService applicationUserService(
                         @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
                         ApplicationUserRepository userRepo,
                         ApplicationRoleRepository roleRepo,
@@ -74,14 +81,16 @@ public class UserServicesAutoConfiguration {
                         ApplicationGroupRoleRepository groupRoleRepo,
                         ObjectProvider<PasswordEncoder> passwordEncoder,
                         @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider,
-                        Clock clock) {
+                        Clock clock,
+                        ObjectProvider<UserMutator<?>> userMutatorProvider) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(ApplicationUserServiceImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
                 return new ApplicationUserServiceImpl(userRepo, roleRepo, groupRepo, userRoleRepo, membershipRepo,
-                                jdbcTemplate, passwordEncoder, domainEventsProvider, clock, i18nProvider);
+                                jdbcTemplate, passwordEncoder, domainEventsProvider, clock, i18nProvider,
+                                (UserMutator) userMutatorProvider.getIfAvailable(ApplicationUserMutator::new));
         }
 
         @Bean(name = ApplicationGroupService.SERVICE_NAME)
@@ -110,7 +119,7 @@ public class UserServicesAutoConfiguration {
                         ApplicationRoleRepository roleRepo,
                         ApplicationGroupRoleRepository groupRoleRepo,
                         ApplicationUserRoleRepository userRoleRepo,
-                       @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider) {
+                        @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(ApplicationRoleServiceImpl.class, true),

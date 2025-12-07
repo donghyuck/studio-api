@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.HashSet;
 
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Status;
@@ -58,8 +57,6 @@ final class JdbcUserMapper {
         }
 
         user.setProperties(new HashMap<>());
-        user.setMemberships(new HashSet<>());
-        user.setUserRoles(new HashSet<>());
         return user;
     }
 }

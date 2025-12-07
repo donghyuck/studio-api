@@ -4,7 +4,6 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Repository;
 import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
-import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 
 @Repository
@@ -34,10 +32,6 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         ApplicationGroup group = new ApplicationGroup();
         group.setGroupId(id.getGroupId());
         membership.setGroup(group);
-
-        ApplicationUser user = new ApplicationUser();
-        user.setUserId(id.getUserId());
-        membership.setUser(user);
 
         Timestamp joinedAt = rs.getTimestamp("JOINED_AT");
         membership.setJoinedAt(joinedAt == null ? LocalDateTime.now() : joinedAt.toLocalDateTime());

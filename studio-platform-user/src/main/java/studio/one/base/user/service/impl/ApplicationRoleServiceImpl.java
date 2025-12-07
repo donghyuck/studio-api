@@ -36,7 +36,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@Service
+@Service(ApplicationRoleService.SERVICE_NAME)
 @RequiredArgsConstructor
 @Transactional
 @Slf4j

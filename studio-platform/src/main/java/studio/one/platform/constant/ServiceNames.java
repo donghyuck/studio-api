@@ -33,11 +33,17 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
 public class ServiceNames {
 
-    public static final String PREFIX = "components";
+    public static final String PREFIX = "components"; 
 
-    public static final String APPLICATION_PROPERTIES = PREFIX + ":foundation:application-properties"; 
-    public static final String REPOSITORY = PREFIX + ":foundation:repository"; 
-    public static final String I18N = PREFIX + ":foundation:i18n";
+    @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+    public static final class Featrues {
+        public static final String PREFIX = "features";
+
+    }
+
+    public static final String APPLICATION_PROPERTIES = Featrues.PREFIX + ":foundation:application-properties"; 
+    public static final String REPOSITORY = Featrues.PREFIX  + ":foundation:repository"; 
+    public static final String I18N = Featrues.PREFIX  + ":foundation:i18n";
 
     public static final String JDBC_TEMPLATE = PREFIX + ":data:jdbc-template";
     public static final String NAMED_JDBC_TEMPLATE = PREFIX + ":data:named-jdbc-template";
@@ -52,30 +58,30 @@ public class ServiceNames {
     public static final String I18N_MESSAGE_SOURCE = I18N + ":message-source";
     public static final String I18N_MESSAGE_ACCESSOR = I18N + ":message-accessor";
 
-    public static final String JASYPT_MESSAGE_ACCESSOR = PREFIX + ":jasypt:message-accessor";
-    public static final String JASYPT_MESSAGE_SOURCE = PREFIX + ":jasypt:message-source";
+    public static final String JASYPT_MESSAGE_ACCESSOR = Featrues.PREFIX  + ":jasypt:message-accessor";
+    public static final String JASYPT_MESSAGE_SOURCE = Featrues.PREFIX  + ":jasypt:message-source";
 
-    public static final String AUTHENTICATION_MANAGER = PREFIX + ":security:authentication-manager";
+    public static final String AUTHENTICATION_MANAGER = Featrues.PREFIX + ":security:authentication-manager";
 
-    public static final String USER_DETAILS_SERVICE = PREFIX + ":security:user-details-service";
+    public static final String USER_DETAILS_SERVICE = Featrues.PREFIX  + ":security:user-details-service";
 
-    public static final String PASSWORD_ENCODER = PREFIX + ":security:password-encoder";
+    public static final String PASSWORD_ENCODER = Featrues.PREFIX  + ":security:password-encoder";
 
-    public static final String JWT_TOKEN_PROVIDER = PREFIX + ":security:jwt-token-provider";
+    public static final String JWT_TOKEN_PROVIDER = Featrues.PREFIX  + ":security:jwt-token-provider";
 
-    public static final String CORS_CONFIGURATION_SOURCE = PREFIX + ":security:cors-configuration-source";
+    public static final String CORS_CONFIGURATION_SOURCE = Featrues.PREFIX  + ":security:cors-configuration-source";
 
-    public static final String DOMAIN_POLICY_REGISTRY = PREFIX + ":security:domain-policy-registry";
+    public static final String DOMAIN_POLICY_REGISTRY = Featrues.PREFIX  + ":security:domain-policy-registry";
 
     public static final String DOMAIN_ENDPOINT_AUTHZ = "endpointAuthz";
 
-    public static final String SECURITY_AUDIT_LOGIN_FAILURE_LOG_RETENTION_JOB = PREFIX + ":security:audit:login-failure-log-retention-job";
-    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EVENT_LISTENER = PREFIX + ":security:audit:login-failure-event-listener"; 
-    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EVENT_PUBLISHER = PREFIX + ":security:audit:login-failure-event-publisher";
-    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR = PREFIX + ":security:audit:login-failure-executor"; 
-    public static final String SECURITY_AUDIT_LOGIN_SUCCESS_EVENT_LISTENER = PREFIX + ":security:audit:login-success-event-listener";
-    public static final String SECURITY_ACCOUNT_LOCK_SERVICE = PREFIX + ":security:account-lock-service";
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_LOG_RETENTION_JOB = Featrues.PREFIX  + ":security:audit:login-failure-log-retention-job";
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EVENT_LISTENER = Featrues.PREFIX  + ":security:audit:login-failure-event-listener"; 
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EVENT_PUBLISHER = Featrues.PREFIX  + ":security:audit:login-failure-event-publisher";
+    public static final String SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR = Featrues.PREFIX  + ":security:audit:login-failure-executor"; 
+    public static final String SECURITY_AUDIT_LOGIN_SUCCESS_EVENT_LISTENER = Featrues.PREFIX  + ":security:audit:login-success-event-listener";
+    public static final String SECURITY_ACCOUNT_LOCK_SERVICE = Featrues.PREFIX  + ":security:account-lock-service";
 
-    public static final String CLOUD_PREFIX = PREFIX + ":cloud";
+    public static final String CLOUD_PREFIX = Featrues.PREFIX  + ":cloud";
 
 }

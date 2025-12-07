@@ -53,16 +53,17 @@ import studio.one.platform.util.LogUtils;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-11-11
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-11-11  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 @Configuration
@@ -106,54 +107,56 @@ public class UserEndpointsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX  + ".group", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
+            + ".group", name = "enabled", havingValue = "true")
     public GroupController groupEndpoint(
-        ApplicationGroupService svc, 
-        ApplicationGroupMapper groupMapper,
-        ApplicationUserMapper userMapper,
-        ApplicationRoleMapper roleMapper) {
+            ApplicationGroupService svc,
+            ApplicationGroupMapper groupMapper,
+            ApplicationUserMapper userMapper,
+            ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationGroupService.class, true),
                 LogUtils.blue(GroupController.class, true),
                 webProperties.normalizedBasePath() + "/groups", LogUtils.blue("ACL-managed")));
         return new GroupController(svc, groupMapper, userMapper, roleMapper);
     }
- 
+
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".user", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
+            + ".user", name = "enabled", havingValue = "true")
     public UserController userEndpoint(
-        ApplicationUserService svc, 
-        ApplicationUserMapper mapper,  
-        ApplicationRoleMapper roleMapper) {
+            ApplicationUserService svc,
+            ApplicationUserMapper mapper,
+            ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserController.class, true),
                 webProperties.normalizedBasePath() + "/users",
                 LogUtils.blue("ACL-managed")));
-        return new UserController(svc, mapper, roleMapper) ;
+        return new UserController(svc, mapper, roleMapper);
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".role", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
+            + ".role", name = "enabled", havingValue = "true")
     public RoleController roleEndpoint(
-        ApplicationRoleService svc, 
-        ApplicationRoleMapper mapper,
-        ApplicationGroupMapper gmapper, 
-        ApplicationUserMapper umapper
-        ) {
+            ApplicationRoleService svc,
+            ApplicationRoleMapper mapper,
+            ApplicationGroupMapper gmapper,
+            ApplicationUserMapper umapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue(ApplicationRoleService.class, true),
                 LogUtils.blue(RoleController.class, true),
-                webProperties.normalizedBasePath() + "/roles", 
+                webProperties.normalizedBasePath() + "/roles",
                 LogUtils.blue("ACL-managed")));
         return new RoleController(svc, mapper, gmapper, umapper);
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX , name = "enabled", havingValue = "true", matchIfMissing = true )
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
     public MeController selfEndpoint(
-        ApplicationUserService svc, 
-        ApplicationUserMapper mapper) {
+            ApplicationUserService svc,
+            ApplicationUserMapper mapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
                 LogUtils.blue("Self"),
                 LogUtils.blue(MeController.class, true),
@@ -161,5 +164,5 @@ public class UserEndpointsAutoConfiguration {
                 LogUtils.blue("ACL-managed"));
         return new MeController(svc, mapper);
     }
- 
+
 }
