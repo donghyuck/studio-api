@@ -39,18 +39,18 @@ public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationU
     @Query(
         value = "select u " +
                 "from ApplicationGroupMembership gm " +
-                "join gm.user u " +
+                "join ApplicationUser u on u.userId = gm.id.userId " +
                 "where gm.group.groupId = :groupId",
         countQuery = "select count(u) " +
                 "from ApplicationGroupMembership gm " +
-                "join gm.user u " +
+                "join ApplicationUser u on u.userId = gm.id.userId " +
                 "where gm.group.groupId = :groupId"
     )
     Page<ApplicationUser> findUsersByGroupId(@Param("groupId") Long groupId, Pageable pageable);
 
     @Override
     @Query("select u from ApplicationUser u " +
-                    "join ApplicationGroupMembership gm on gm.user = u " +
+                    "join ApplicationGroupMembership gm on gm.id.userId = u.userId " +
                     "where gm.group.groupId = :groupId")
     List<ApplicationUser> findUsersByGroupId(@Param("groupId") Long groupId);
 
@@ -70,11 +70,11 @@ public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationU
 
     // --- 유틸: 사용자 → 그룹(엔터티/ID) ---
     @Override
-    @Query("select g from ApplicationGroup g join ApplicationGroupMembership gm on gm.group = g where gm.user.userId = :userId")
+    @Query("select g from ApplicationGroup g join ApplicationGroupMembership gm on gm.group = g where gm.id.userId = :userId")
     List<ApplicationGroup> findGroupsByUserId(@Param("userId") Long userId);
 
     @Override
-    @Query("select gm.group.groupId from ApplicationGroupMembership gm where gm.user.userId = :userId")
+    @Query("select gm.group.groupId from ApplicationGroupMembership gm where gm.id.userId = :userId")
     List<Long> findGroupIdsByUserId(@Param("userId") Long userId);
 
     @Override

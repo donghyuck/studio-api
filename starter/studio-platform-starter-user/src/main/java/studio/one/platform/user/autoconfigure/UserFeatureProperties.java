@@ -49,4 +49,13 @@ public class UserFeatureProperties extends FeatureToggle {
     /** (선택) 컴포넌트 스캔 패키지들 */
     private List<String> componentPackages = List.of(DEFAULT_COMPONENT_PACKAGE);
 
+    /** (선택) 엔티티 스캔 제외 패턴 목록 (정규식) */
+    private List<String> excludeEntityPackages = List.of();
+
+    /** (선택) JPA 리포지토리 스캔 제외 패턴 목록 (정규식) */
+    private List<String> excludeRepositoryPackages = List.of();
+
+    /** (선택) JDBC 리포지토리 스캔 제외 패턴 목록 (정규식) */
+    private List<String> excludeJdbcRepositoryPackages = List.of();
+
 }

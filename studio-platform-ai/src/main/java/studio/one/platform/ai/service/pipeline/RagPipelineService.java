@@ -28,11 +28,13 @@ import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.constant.ServiceNames;
 
-@Service
+@Service(RagPipelineService.SERVICE_NAME)
 @ConditionalOnProperty(prefix = "studio.ai", name = "enabled", havingValue = "true", matchIfMissing = false)
 @Slf4j
 public class RagPipelineService {
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":ai:rag-pipelien-service";
 
     private static final double HYBRID_VECTOR_WEIGHT = 0.7;
     private static final double HYBRID_LEXICAL_WEIGHT = 0.3;
@@ -45,12 +47,12 @@ public class RagPipelineService {
     private final KeywordExtractor keywordExtractor;
 
     public RagPipelineService(EmbeddingPort embeddingPort,
-                              VectorStorePort vectorStorePort,
-                              TextChunker textChunker,
-                              Cache<String, List<Double>> embeddingCache,
-                              Retry retry,
-                              KeywordExtractor keywordExtractor) {
-                                
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor) {
+
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
         this.textChunker = Objects.requireNonNull(textChunker, "textChunker");

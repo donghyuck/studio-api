@@ -36,7 +36,6 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
@@ -130,10 +129,10 @@ public class UserController {
         public ResponseEntity<ApiResponse<UserDto>> update(@PathVariable Long id, @RequestBody UpdateUserRequest req) {
 
                 User entity = userService.get(id);
-                userMapper.updateEntityFromDto(req, (ApplicationUser) entity);
+                userMapper.updateEntityFromDto(req, entity);
                 log.debug("{}->{}", req, entity);
 
-                User updated = userService.update(id, u -> userMapper.updateEntityFromDto(req, (ApplicationUser) u));
+                User updated = userService.update(id, u -> userMapper.updateEntityFromDto(req, u));
                 return ResponseEntity.ok(ApiResponse.ok(userMapper.toDto(updated)));
         }
 

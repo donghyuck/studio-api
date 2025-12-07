@@ -31,7 +31,7 @@ import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationRoleService <T extends Role, G extends Group, U extends User>{
 
-    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-role-service";
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX  + ":user:application-role-service";
 
     Page<T> getRoles(Pageable pageable);
 

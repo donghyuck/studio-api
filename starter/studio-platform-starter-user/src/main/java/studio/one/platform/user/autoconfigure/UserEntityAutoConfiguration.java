@@ -2,29 +2,34 @@ package studio.one.platform.user.autoconfigure;
 
 import javax.persistence.EntityManagerFactory;
 
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.env.Environment;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.core.Ordered;
+import org.springframework.core.PriorityOrdered;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
-import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.service.I18n;
 import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersistence;
-import studio.one.platform.util.LogUtils;
+import java.util.List;
+import java.util.regex.Pattern;
 
 @AutoConfiguration
 @ConditionalOnClass(EnableJpaRepositories.class)
@@ -33,45 +38,123 @@ import studio.one.platform.util.LogUtils;
 @Slf4j
 @SuppressWarnings("java:S1118")
 public class UserEntityAutoConfiguration {
- 
-    @Configuration
-    @AutoConfigureBefore(HibernateJpaAutoConfiguration.class) 
-    @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
-    @SuppressWarnings("java:S1118")
-    static class EntityScanConfig {
 
         @Bean
-        static BeanDefinitionRegistryPostProcessor userEntityScanRegistrar(Environment env, I18n i18n) {  
-            final String propKey = PropertyKeys.Features.User.PREFIX + ".entity-packages";
-            final String defaultPkg = UserFeatureProperties.DEFAULT_ENTITY_PACKAGE;
-            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, "User",  propKey, defaultPkg));
-            String configured = env.getProperty(propKey);
-            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.CONFIG, "User",  propKey, configured )); 
-            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.FINISH, "User")); 
-            return EntityScanRegistrarSupport.entityScanRegistrar(
-                    PropertyKeys.Features.User.PREFIX + ".entity-packages",
-                    UserFeatureProperties.DEFAULT_ENTITY_PACKAGE);
+        static BeanDefinitionRegistryPostProcessor userRepositoryExcluder(UserFeatureProperties props) {
+                List<Pattern> patterns = buildPatterns(props.getExcludeRepositoryPackages(),
+                                props.getExcludeJdbcRepositoryPackages());
+                return new ExcludePostProcessor(patterns);
         }
-    }
 
-    @Configuration(proxyBeanMethods = false)
-    @AutoConfigureAfter(HibernateJpaAutoConfiguration.class)
-    @ConditionalOnBean(EntityManagerFactory.class)
-    @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
-    @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".repository-packages:" + UserFeatureProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
-    static class JpaWiring {
-    }
+        private static List<Pattern> buildPatterns(List<String>... lists) {
+                List<Pattern> out = new java.util.ArrayList<>();
+                if (lists != null) {
+                        for (List<String> l : lists) {
+                                if (l == null)
+                                        continue;
+                                l.stream()
+                                                .filter(s -> s != null && !s.isBlank())
+                                                .forEach(s -> {
+                                                        try {
+                                                                out.add(Pattern.compile(s.trim()));
+                                                        } catch (Exception ignored) {
+                                                                // 무효 regex는 건너뜀
+                                                        }
+                                                });
+                        }
+                }
+                return out;
+        }
 
-    @Configuration(proxyBeanMethods = false)
-    @ConditionalOnUserPersistence(PersistenceProperties.Type.jdbc)
-    @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".jdbc-repository-packages:" + UserFeatureProperties.JDBC_REPOSITORY_PACKAGE + "}")
-    static class JdbcWiring {
-    }
+        private static boolean matches(String className, List<Pattern> patterns) {
+                for (Pattern p : patterns) {
+                        if (p.matcher(className).find()) {
+                                return true;
+                        }
+                }
+                return false;
+        }
 
+        private static class ExcludePostProcessor implements BeanDefinitionRegistryPostProcessor, PriorityOrdered {
+                private final List<Pattern> patterns;
 
-    @Configuration(proxyBeanMethods = false) 
-    @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".component-packages:" + UserFeatureProperties.DEFAULT_COMPONENT_PACKAGE + "}")
-    static class UserComponentScan {
-        
-    }
+                ExcludePostProcessor(List<Pattern> patterns) {
+                        this.patterns = patterns;
+                }
+
+                @Override
+                public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) {
+                        if (patterns == null || patterns.isEmpty()) {
+                                return;
+                        }
+                        for (String name : registry.getBeanDefinitionNames()) {
+                                String className = registry.getBeanDefinition(name).getBeanClassName();
+                                if (className != null && matches(className, patterns)) {
+                                        registry.removeBeanDefinition(name);
+                                }
+                        }
+                }
+
+                @Override
+                public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
+                        // no-op
+                }
+
+                @Override
+                public int getOrder() {
+                        return Ordered.LOWEST_PRECEDENCE;
+                }
+        }
+
+        /**
+         * JPA Entity 스캔.
+         */
+        @Configuration
+        @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
+        @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
+        @SuppressWarnings("java:S1118")
+        static class EntityScanConfig {
+                @Bean
+                static BeanDefinitionRegistryPostProcessor userEntityScanRegistrar() {
+                        return EntityScanRegistrarSupport.entityScanRegistrar(
+                                        PropertyKeys.Features.User.PREFIX + ".entity-packages",
+                                        new String[] { UserFeatureProperties.DEFAULT_ENTITY_PACKAGE },
+                                        PropertyKeys.Features.User.PREFIX + ".exclude-entity-packages");
+                }
+        }
+
+        /**
+         * JPA Repository 스캔.
+         */
+        @Configuration(proxyBeanMethods = false)
+        @AutoConfigureAfter(HibernateJpaAutoConfiguration.class)
+        @ConditionalOnBean(EntityManagerFactory.class)
+        @ConditionalOnMissingBean(ApplicationUserRepository.class)
+        @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
+        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".repository-packages:"
+                        + UserFeatureProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
+        static class JpaWiring {
+        }
+
+        /**
+         * JDBC 스캔
+         */
+        @Configuration(proxyBeanMethods = false)
+        @ConditionalOnMissingBean(ApplicationUserRepository.class)
+        @ConditionalOnUserPersistence(PersistenceProperties.Type.jdbc)
+        @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".jdbc-repository-packages:"
+                        + UserFeatureProperties.JDBC_REPOSITORY_PACKAGE + "}")
+        static class JdbcWiring {
+        }
+
+        /**
+         * Service Impl 스캔
+         */
+        @Configuration(proxyBeanMethods = false)
+        @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX +
+                        ".component-packages:"
+                        + UserFeatureProperties.DEFAULT_COMPONENT_PACKAGE + "}")
+        static class UserComponentScan {
+        }
+
 }

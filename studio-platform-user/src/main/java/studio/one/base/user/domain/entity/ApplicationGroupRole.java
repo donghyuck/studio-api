@@ -23,11 +23,11 @@ import studio.one.base.user.constant.JpaEntityNames;
 
 @Getter
 @Setter
-@Entity(name=JpaEntityNames.Group.Role.ENTITY)
+@Entity(name = JpaEntityNames.Group.Role.ENTITY)
 @EntityListeners(AuditingEntityListener.class)
 @Table(name = "TB_APPLICATION_GROUP_ROLES")
 @NoArgsConstructor
-@AllArgsConstructor 
+@AllArgsConstructor
 @Builder
 public class ApplicationGroupRole {
 

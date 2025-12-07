@@ -51,7 +51,7 @@ import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationGroupService<G extends Group, R extends Role, U extends User> {
 
-    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-group-service";
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:application-group-service";
     
     // ── Group: CRUD ───────────────────────────────────────────────────────────
     /**

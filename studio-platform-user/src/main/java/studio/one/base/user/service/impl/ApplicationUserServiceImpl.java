@@ -54,6 +54,7 @@ import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.base.user.service.UserMutator;
 import studio.one.platform.component.State;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
@@ -76,6 +77,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     private final ObjectProvider<DomainEvents> domainEventsProvider;
     private final Clock clock;
     private final ObjectProvider<I18n> i18nProvider;
+    private final UserMutator<ApplicationUser> userMutator;
 
     @PostConstruct
     void initialize() {
@@ -123,13 +125,14 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
     @Transactional
     public ApplicationUser create(ApplicationUser user) {
-        user.setUserId(null);
+        userMutator.prepareForCreate(user);
         final String username = user.getUsername();
         if (userRepo.existsByUsername(username))
             throw UserAlreadyExistsException.byName(user.getUsername());
         encodePasswordIfPresent(user);
-        if (user.isEnabled())
-            user.setEnabled(Boolean.TRUE);
+        if (userMutator.isEnabled(user)) {
+            userMutator.setEnabled(user, true);
+        }
         ApplicationUser saved = userRepo.save(user);
         log.debug("User created: id={}, username={}", saved.getUserId(), saved.getUsername());
         return saved;
@@ -161,8 +164,8 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     @Transactional
     public void enable(Long userId, String actor) {
         ApplicationUser u = get(userId);
-        if (!Boolean.TRUE.equals(u.isEnabled())) {
-            u.setEnabled(true);
+        if (!Boolean.TRUE.equals(u.isEnabled())) { // preserve cache key semantics
+            userMutator.setEnabled(u, true);
             safeAudit("USER_ENABLED", userId, actor, null);
             domainEventsProvider.ifAvailable(resolved -> resolved
                     .publishAfterCommit(UserEnabledEvent.of(userId, u.getUsername(), actor, clock)));
@@ -179,7 +182,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             boolean invalidateSessions, boolean notifyUser) {
         ApplicationUser u = get(userId);
         if (!Boolean.FALSE.equals(u.isEnabled())) {
-            u.setEnabled(false);
+            userMutator.setEnabled(u, false);
             safeAudit("USER_DISABLED", userId, actor, reason);
             domainEventsProvider.ifAvailable(resolved -> resolved
                     .publishAfterCommit(UserDisabledEvent.of(userId, u.getUsername(), actor, reason, until, clock)));
@@ -212,7 +215,6 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             membershipRepo.save(ApplicationGroupMembership.builder()
                     .id(id)
                     .group(g)
-                    .user(u)
                     .joinedBy(by)
                     .build());
         }
@@ -255,14 +257,13 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     }
 
     private void encodePasswordIfPresent(ApplicationUser user) {
-        final PasswordEncoder passwordEncoder = Objects.requireNonNull(passwordEncoderProvider.getIfAvailable(),
-                "Passworc Encoder 이 없습니다.");
-        // 프로젝트 규약에 따라 둘 중 하나 사용:
-        // (A) 해시 저장 필드가 password 인 경우
-        if (StringUtils.isNotBlank(user.getPassword())) {
-            // 이미 해시인지 구분하려면 패턴 검사 추가 가능({bcrypt} or $2a$ ...)
-            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        String raw = userMutator.getPassword(user);
+        if (StringUtils.isBlank(raw)) {
+            return;
         }
+        final PasswordEncoder passwordEncoder = Objects
+                .requireNonNull(passwordEncoderProvider.getIfAvailable(), "PasswordEncoder 이 없습니다.");
+        userMutator.setPassword(user, passwordEncoder.encode(raw));
     }
 
     @Override
@@ -287,12 +288,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         ApplicationRole r = roleRepo.findById(roleId).orElseThrow(() -> RoleNotFoundException.byId(roleId));
         ApplicationUserRoleId id = new ApplicationUserRoleId(u.getUserId(), r.getRoleId());
         if (!userRoleRepo.existsById(id)) {
-            userRoleRepo.save(ApplicationUserRole.builder()
-                    .id(id)
-                    .user(u)
-                    .role(r)
-                    .assignedBy(by)
-                    .build());
+            userRoleRepo.save(ApplicationUserRole.of(u.getUserId(), r, by));
         }
     }
 
@@ -317,7 +313,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         List<Long> toRevoke = currentSet.stream()
                 .filter(id -> !desiredSet.contains(id))
                 .toList();
-        long inserted = toAssign.isEmpty() ? 0 :  assignRolesBulk(userId, toAssign, actor).getInserted();
+        long inserted = toAssign.isEmpty() ? 0 : assignRolesBulk(userId, toAssign, actor).getInserted();
         long deleted = toRevoke.isEmpty() ? 0 : userRoleRepo.deleteByUserIdAndRoleIds(userId, toRevoke);
         long skipped = toAssign.size() - inserted;
         return new BatchResult(desired.size(), inserted, skipped, deleted);

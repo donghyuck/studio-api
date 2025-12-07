@@ -3,6 +3,7 @@ package studio.one.base.user.persistence.jpa;
 import java.util.Collection;
 import java.util.List;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,103 +19,104 @@ import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 
 @Repository
+@ConditionalOnMissingBean(type = "studio.one.base.user.persistence.ApplicationUserRoleRepository")
 public interface ApplicationUserRoleJpaRepository extends JpaRepository<ApplicationUserRole, ApplicationUserRoleId>,
         ApplicationUserRoleRepository {
 
     // ---------- 기본 탐색 ----------
-    List<ApplicationUserRole> findAllByUser_UserId(Long userId);
+    List<ApplicationUserRole> findAllByIdUserId(Long userId);
 
     @Override
     default List<ApplicationUserRole> findAllByUserId(Long userId) {
-        return findAllByUser_UserId(userId);
+        return findAllByIdUserId(userId);
     }
 
-    Page<ApplicationUserRole> findAllByUser_UserId(Long userId, Pageable pageable);
+    Page<ApplicationUserRole> findAllByIdUserId(Long userId, Pageable pageable);
 
     @Override
     default Page<ApplicationUserRole> findAllByUserId(Long userId, Pageable pageable) {
-        return findAllByUser_UserId(userId, pageable);
+        return findAllByIdUserId(userId, pageable);
     }
 
-    List<ApplicationUserRole> findAllByRole_RoleId(Long roleId);
+    List<ApplicationUserRole> findAllByIdRoleId(Long roleId);
 
     @Override
     default List<ApplicationUserRole> findAllByRoleId(Long roleId) {
-        return findAllByRole_RoleId(roleId);
+        return findAllByIdRoleId(roleId);
     }
 
-    Page<ApplicationUserRole> findAllByRole_RoleId(Long roleId, Pageable pageable);
+    Page<ApplicationUserRole> findAllByIdRoleId(Long roleId, Pageable pageable);
 
     @Override
     default Page<ApplicationUserRole> findAllByRoleId(Long roleId, Pageable pageable) {
-        return findAllByRole_RoleId(roleId, pageable);
+        return findAllByIdRoleId(roleId, pageable);
     }
 
-    boolean existsByUser_UserIdAndRole_RoleId(Long userId, Long roleId);
+    boolean existsByIdUserIdAndIdRoleId(Long userId, Long roleId);
 
     @Override
     default boolean existsByUserIdAndRoleId(Long userId, Long roleId) {
-        return existsByUser_UserIdAndRole_RoleId(userId, roleId);
+        return existsByIdUserIdAndIdRoleId(userId, roleId);
     }
 
     @Override
     @Modifying
-    @Query("delete from ApplicationUserRole ur where ur.user.userId = :userId and ur.role.roleId = :roleId")
+    @Query("delete from ApplicationUserRole ur where ur.id.userId = :userId and ur.id.roleId = :roleId")
     int deleteByUserIdAndRoleId(@Param("userId") Long userId, @Param("roleId") Long roleId);
 
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from ApplicationUserRole ur where ur.user.userId = :userId and ur.role.roleId in :roleIds")
+    @Query("delete from ApplicationUserRole ur where ur.id.userId = :userId and ur.id.roleId in :roleIds")
     int deleteByUserIdAndRoleIds(@Param("userId") Long userId, @Param("roleIds") Collection<Long> roleIds);
 
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from ApplicationUserRole ur where ur.user.userId in :userIds and ur.role.roleId = :roleId")
+    @Query("delete from ApplicationUserRole ur where ur.id.userId in :userIds and ur.id.roleId = :roleId")
     int deleteByUserIdsAndRoleId(@Param("userIds") Collection<Long> userIds, @Param("roleId") Long roleId);
 
     // ---------- 사용자 → 역할 목록 ----------
     @Override
     @Query(value = "select r from ApplicationRole r " +
             " join ApplicationUserRole ur on ur.role = r " +
-            " where ur.user.userId = :userId",
+            " where ur.id.userId = :userId",
         countQuery = "select count(r) from ApplicationRole r " +
                     " join ApplicationUserRole ur on ur.role = r " +
-                    " where ur.user.userId = :userId")
+                    " where ur.id.userId = :userId")
     Page<ApplicationRole> findRolesByUserId(@Param("userId") Long userId, Pageable pageable);
 
     @Override
     @Query("select r from ApplicationRole r " +
             " join ApplicationUserRole ur on ur.role = r " +
-            " where ur.user.userId = :userId")
+            " where ur.id.userId = :userId")
     List<ApplicationRole> findRolesByUserId(@Param("userId") Long userId);
 
     // 필요한 경우: ID만 빠르게
     @Override
-    @Query("select ur.role.roleId from ApplicationUserRole ur where ur.user.userId = :userId")
+    @Query("select ur.id.roleId from ApplicationUserRole ur where ur.id.userId = :userId")
     List<Long> findRoleIdsByUserId(@Param("userId") Long userId);
 
     // ---------- 역할 → 사용자 목록 ----------
     @Override
     @Query(value = "select u from ApplicationUser u " +
-            " join ApplicationUserRole ur on ur.user = u " +
-            " where ur.role.roleId = :roleId",
+            " join ApplicationUserRole ur on ur.id.userId = u.userId " +
+            " where ur.id.roleId = :roleId",
         countQuery = "select count(u) from ApplicationUser u " +
-                    " join ApplicationUserRole ur on ur.user = u " +
-                    " where ur.role.roleId = :roleId")
+                    " join ApplicationUserRole ur on ur.id.userId = u.userId " +
+                    " where ur.id.roleId = :roleId")
     Page<ApplicationUser> findUsersByRoleId(@Param("roleId") Long roleId, Pageable pageable);
 
     @Override
     @Query("select u from ApplicationUser u " +
-            " join ApplicationUserRole ur on ur.user = u " +
-            " where ur.role.roleId = :roleId")
+            " join ApplicationUserRole ur on ur.id.userId = u.userId " +
+            " where ur.id.roleId = :roleId")
     List<ApplicationUser> findUsersByRoleId(@Param("roleId") Long roleId);
 
     @Override
     @Query("""
               select distinct u
                 from ApplicationUser u
-                join ApplicationUserRole ur on ur.user = u
-               where ur.role.roleId = :roleId
+                join ApplicationUserRole ur on ur.id.userId = u.userId
+               where ur.id.roleId = :roleId
                  and (
                       :q is null
                    or lower(u.username) like lower(concat('%', :q, '%'))
@@ -131,7 +133,7 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
     @Query("""
             select distinct u
                 from ApplicationUser u
-                join ApplicationGroupMembership gm on gm.user = u
+                join ApplicationGroupMembership gm on gm.id.userId = u.userId
                 join ApplicationGroupRole gr       on gr.group = gm.group
             where gr.role.roleId = :roleId
                 and (

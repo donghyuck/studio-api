@@ -52,7 +52,7 @@ import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationUserService<T extends User, R extends Role> {
 
-    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-user-service";
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:application-user-service";
 
     Page<T> findAll(Pageable pageable);
 
@@ -61,7 +61,7 @@ public interface ApplicationUserService<T extends User, R extends Role> {
     User get(Long userId);
 
     Optional<T> findByUsername(String username);
-    
+
     Optional<T> findByEmail(String email);
 
     Long findIdByUsername(String username);

@@ -30,6 +30,17 @@ public interface ApplicationUserMapper {
     @Mapping(target = "password", ignore = true)
     void updateEntityFromDto(UpdateUserRequest dto, @org.mapstruct.MappingTarget ApplicationUser entity);
 
+    /**
+     * Fallback for non-ApplicationUser implementations.
+     */
+    default void updateEntityFromDto(UpdateUserRequest dto, @org.mapstruct.MappingTarget User entity) {
+        if (entity instanceof ApplicationUser appUser) {
+            updateEntityFromDto(dto, appUser);
+        } else {
+            throw new IllegalArgumentException("Unsupported user type: " + entity.getClass());
+        }
+    }
+
     @Mapping(target = "creationDate", source = "creationDate")
     @Mapping(target = "modifiedDate", source = "modifiedDate")
     UserDto toDto(User entity);

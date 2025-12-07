@@ -62,7 +62,14 @@ import lombok.NoArgsConstructor;
 public final class EntityScanRegistrarSupport {
      
     public static BeanDefinitionRegistryPostProcessor entityScanRegistrar(String propertyKey, String... defaults) {
-        return new Registrar(propertyKey, defaults);
+        return new Registrar(propertyKey, defaults, null);
+    }
+
+    public static BeanDefinitionRegistryPostProcessor entityScanRegistrar(
+            String includeKey,
+            String[] defaults,
+            String excludeKey) {
+        return new Registrar(includeKey, defaults, excludeKey);
     }
 
     private static final class Registrar
@@ -70,9 +77,14 @@ public final class EntityScanRegistrarSupport {
 
         private final String key;
         private final String[] defaults;
+        private final String excludeKey;
         private Environment env;
 
-        Registrar(String key, String[] defaults) { this.key = key; this.defaults = defaults != null ? defaults : new String[0]; }
+        Registrar(String key, String[] defaults, String excludeKey) {
+            this.key = key;
+            this.defaults = defaults != null ? defaults : new String[0];
+            this.excludeKey = excludeKey;
+        }
 
         @Override public void setEnvironment(Environment environment) { this.env = environment; }
         @Override public int getOrder() { return Ordered.HIGHEST_PRECEDENCE; }
@@ -80,6 +92,12 @@ public final class EntityScanRegistrarSupport {
         @Override
         public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) throws BeansException {
             Set<String> pkgs = resolvePackages(env, key, defaults);
+            if (excludeKey != null) {
+                Set<String> excludes = resolvePackages(env, excludeKey, new String[0]);
+                if (!excludes.isEmpty()) {
+                    pkgs.removeIf(pkg -> matchesAny(pkg, excludes));
+                }
+            }
             if (!pkgs.isEmpty()) {
                 // 여러 모듈에서 호출돼도 누적 등록됨
                 EntityScanPackages.register(registry, pkgs.toArray(new String[0]));
@@ -106,6 +124,19 @@ public final class EntityScanRegistrarSupport {
                 String t = s.trim();
                 if (!t.isEmpty()) set.add(t);
             }
+        }
+
+        private static boolean matchesAny(String value, Set<String> patterns) {
+            for (String pattern : patterns) {
+                try {
+                    if (value.matches(pattern)) {
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                    // 잘못된 정규식은 무시
+                }
+            }
+            return false;
         }
     }
 }

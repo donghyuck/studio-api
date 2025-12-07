@@ -20,17 +20,17 @@ public interface ApplicationGroupJpaRepository extends JpaRepository<Application
     @Override
     @Query(value = "select g from ApplicationGroup g " +
                     "join ApplicationGroupMembership gm on gm.group = g " +
-                    "where gm.user.userId = :userId",
+                    "where gm.id.userId = :userId",
         countQuery = "select count(g) from ApplicationGroup g " +
                     "join ApplicationGroupMembership gm on gm.group = g " +
-                    "where gm.user.userId = :userId")
+                    "where gm.id.userId = :userId")
     Page<ApplicationGroup> findGroupsByUserId(@Param("userId") Long userId, Pageable pageable);
 
     // 사용자 → 그룹 (List)
     @Override
     @Query("select g from ApplicationGroup g " +
                     "join ApplicationGroupMembership gm on gm.group = g " +
-                    "where gm.user.userId = :userId")
+                    "where gm.id.userId = :userId")
     List<ApplicationGroup> findGroupsByUserId(@Param("userId") Long userId);
 
     @Override
@@ -40,7 +40,7 @@ public interface ApplicationGroupJpaRepository extends JpaRepository<Application
             "        count(allm) as memberCount " +
             "from ApplicationGroup g " +
             "join ApplicationGroupMembership gm " +
-            "on gm.group = g and gm.user.userId = :userId " +
+            "on gm.group = g and gm.id.userId = :userId " +
             "left join ApplicationGroupMembership allm " +
             "on allm.group = g " +
             "group by g.groupId, g.name " +

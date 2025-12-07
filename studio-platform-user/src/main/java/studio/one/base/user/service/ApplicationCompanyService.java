@@ -28,6 +28,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.entity.ApplicationCompany;
+import studio.one.platform.constant.ServiceNames;
 /**
  *
  * @author  donghyuck, son
@@ -45,7 +46,7 @@ import studio.one.base.user.domain.entity.ApplicationCompany;
 
 public interface ApplicationCompanyService {
 
-    public static final String SERVICE_NAME = "components:application-company-service";
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:application-company-service";
 
     ApplicationCompany get(Long companyId);
 

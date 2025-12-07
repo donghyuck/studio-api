@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.user.domain.entity.ApplicationRole;
@@ -25,6 +26,7 @@ import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 
 @Repository
+@ConditionalOnMissingBean(type = "studio.one.base.user.persistence.ApplicationUserRoleRepository")
 public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implements ApplicationUserRoleRepository {
 
     private static final Map<String, String> USER_SORT_COLUMNS = Map.of(
@@ -38,10 +40,6 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         ApplicationUserRole userRole = new ApplicationUserRole();
         ApplicationUserRoleId id = new ApplicationUserRoleId(rs.getLong("USER_ID"), rs.getLong("ROLE_ID"));
         userRole.setId(id);
-
-        ApplicationUser user = new ApplicationUser();
-        user.setUserId(id.getUserId());
-        userRole.setUser(user);
 
         ApplicationRole role = new ApplicationRole();
         role.setRoleId(id.getRoleId());
@@ -286,7 +284,7 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         ApplicationUserRoleId id = userRole.getId();
         if (id == null) {
             id = new ApplicationUserRoleId(
-                    userRole.getUser() != null ? userRole.getUser().getUserId() : null,
+                    userRole.getId() != null ? userRole.getId().getUserId() : null,
                     userRole.getRole() != null ? userRole.getRole().getRoleId() : null);
             userRole.setId(id);
         }
@@ -329,7 +327,7 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                     ApplicationUserRoleId id = ur.getId();
                     if (id == null) {
                         id = new ApplicationUserRoleId(
-                                ur.getUser() != null ? ur.getUser().getUserId() : null,
+                                ur.getId() != null ? ur.getId().getUserId() : null,
                                 ur.getRole() != null ? ur.getRole().getRoleId() : null);
                         ur.setId(id);
                     }

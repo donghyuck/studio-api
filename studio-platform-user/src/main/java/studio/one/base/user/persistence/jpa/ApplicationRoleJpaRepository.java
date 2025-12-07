@@ -28,17 +28,17 @@ public interface ApplicationRoleJpaRepository extends JpaRepository<ApplicationR
     @Override
     @Query("select r from ApplicationRole r " +
            "join ApplicationUserRole ur on ur.role = r " +
-           "where ur.user.userId = :userId")
+           "where ur.id.userId = :userId")
     List<ApplicationRole> findRolesByUserId(@Param("userId") Long userId);
 
     @Override
     @Query(
       value = "select r from ApplicationRole r " +
               "join ApplicationUserRole ur on ur.role = r " +
-              "where ur.user.userId = :userId",
+              "where ur.id.userId = :userId",
       countQuery = "select count(r) from ApplicationRole r " +
                    "join ApplicationUserRole ur on ur.role = r " +
-                   "where ur.user.userId = :userId"
+                   "where ur.id.userId = :userId"
     )
     Page<ApplicationRole> findRolesByUserId(@Param("userId") Long userId, Pageable pageable);
 
@@ -69,9 +69,9 @@ public interface ApplicationRoleJpaRepository extends JpaRepository<ApplicationR
     // 사용자가 속한 그룹과 사용자에게 부여된 권한을 한번에 조회
     @Override
     @Query("select distinct r from ApplicationRole r " +
-           "where r in (select ur.role from ApplicationUserRole ur where ur.user.userId = :userId) " +
-           "   or r in (select gr.role from ApplicationGroupRole gr " +
-           "            where gr.group in (select gm.group from ApplicationGroupMembership gm where gm.user.userId = :userId))")
+           "where r in (select ur.role from ApplicationUserRole ur where ur.id.userId = :userId) " +
+            "   or r in (select gr.role from ApplicationGroupRole gr " +
+            "            where gr.group in (select gm.group from ApplicationGroupMembership gm where gm.id.userId = :userId))")
     List<ApplicationRole> findEffectiveRolesByUserId(@Param("userId") Long userId);
 
     /* ======================================================================
