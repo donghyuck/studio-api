@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -38,7 +39,9 @@ public abstract class AbstractAvatarController {
         StreamingResponseBody responseBody = new StreamingResponseBody() {
             @Override
             public void writeTo(OutputStream out) throws IOException {
-                IOUtils.copy(input, out);
+                try (InputStream in = input) {
+                    IOUtils.copy(in, out);
+                }
             }
         };
         var headers = new HttpHeaders();
@@ -48,25 +51,28 @@ public abstract class AbstractAvatarController {
         } else {
             headers.setContentType(MediaType.IMAGE_JPEG);
         }
-        if (StringUtils.isNotBlank(filename)) {
+        String safeFilename = sanitizeFilename(filename);
+        if (StringUtils.isNotBlank(safeFilename)) {
             ContentDisposition cd = ContentDisposition
                     .inline() // attachment()로 바꾸면 다운로드 강제
-                    .filename(filename, StandardCharsets.UTF_8) // RFC 5987: filename*
+                    .filename(safeFilename, StandardCharsets.UTF_8) // RFC 5987: filename*
                     .build();
             headers.setContentDisposition(cd);
         }
-        headers.setContentLength(contentLength);
+        if (contentLength != null && contentLength > 0) {
+            headers.setContentLength(contentLength);
+        }
         return new ResponseEntity<>(responseBody, headers, HttpStatus.OK);
     }
 
     private ResponseEntity<StreamingResponseBody> newStreamingResponseEntity(HttpStatus status, String contentType, Resource resource) throws IOException {
         if (resource.exists()) {
-            InputStream input = resource.getInputStream();
-            int length = input.available();
             StreamingResponseBody responseBody = new StreamingResponseBody() {
                 @Override
                 public void writeTo(OutputStream out) throws IOException {
-                    IOUtils.copy(input, out);
+                    try (InputStream in = resource.getInputStream()) {
+                        IOUtils.copy(in, out);
+                    }
                 }
             };
             var headers = new HttpHeaders();
@@ -76,16 +82,28 @@ public abstract class AbstractAvatarController {
             } else {
                 headers.setContentType(MediaType.IMAGE_JPEG);
             }
-            headers.setContentLength(length);
-            if (StringUtils.isNotBlank(resource.getFilename())) {
+            long length = resource.contentLength();
+            if (length > 0) {
+                headers.setContentLength(length);
+            }
+            String safeFilename = sanitizeFilename(resource.getFilename());
+            if (StringUtils.isNotBlank(safeFilename)) {
                 ContentDisposition cd = ContentDisposition
                         .inline() // attachment()로 바꾸면 다운로드 강제
-                        .filename(resource.getFilename(), StandardCharsets.UTF_8) // RFC 5987: filename*
+                        .filename(safeFilename, StandardCharsets.UTF_8) // RFC 5987: filename*
                         .build();
                 headers.setContentDisposition(cd);
             }
             return new ResponseEntity<>(responseBody, headers, status);
         }
         return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+    }
+
+    protected String sanitizeFilename(@Nullable String filename) {
+        return Optional.ofNullable(filename)
+                .map(org.springframework.util.StringUtils::getFilename)
+                .map(name -> name.replace("\\", "").replace("/", ""))
+                .filter(StringUtils::isNotBlank)
+                .orElse(null);
     }
 }

@@ -10,8 +10,11 @@ import java.util.concurrent.TimeUnit;
 import org.springframework.http.CacheControl;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.util.StringUtils;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,7 +41,10 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.user-base:/api/mgmt/users}")
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class AvatarController extends AbstractAvatarController {
+
+    private static final long MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB 상한
 
     private final AvatarImageService<User> avatarImageService;
 
@@ -49,22 +55,45 @@ public class AvatarController extends AbstractAvatarController {
      * @return
      */
     @GetMapping("/{userId:[\\p{Digit}]+}/avatars")
+    @PreAuthorize("@endpointAuthz.can('features:avatar-image','read')")
     public ResponseEntity<ApiResponse<List<AvatarImage>>> list(@PathVariable Long userId) {
+        if (userId == null || userId <= 0) {
+            return badRequest("Invalid userId");
+        }
         var list = avatarImageService.findAllByUser(toUser(userId));
         return ok(ApiResponse.ok(list));
     }
 
     @PostMapping(value = "/{userId:[\\p{Digit}]+}/avatars", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("@endpointAuthz.can('features:avatar-image','write')")
     public ResponseEntity<ApiResponse<AvatarImageDto>> uploadImage(
             @PathVariable Long userId,
             @RequestParam(value = "primary", defaultValue = "true", required = false) Boolean primary,
             @AuthenticationPrincipal UserDetails principal,
             @RequestParam MultipartFile file) throws IOException {
 
+        if (userId == null || userId <= 0) {
+            return badRequest("Invalid userId");
+        }
+        if (file == null || file.isEmpty()) {
+            return badRequest("File is empty");
+        }
+        if (file.getSize() > MAX_IMAGE_SIZE_BYTES) {
+            return badRequest("File too large");
+        }
+        String sanitizedName = sanitizeFilename(file.getOriginalFilename());
+        if (!StringUtils.hasText(sanitizedName)) {
+            return badRequest("Invalid file name");
+        }
+        String contentType = file.getContentType();
+        if (!StringUtils.hasText(contentType) || !contentType.toLowerCase().startsWith("image/")) {
+            return badRequest("Only image content types are allowed");
+        }
+
         var meta = new AvatarImage();
         meta.setUserId(userId);
-        meta.setFileName(file.getOriginalFilename());
-        meta.setContentType(file.getContentType());
+        meta.setFileName(sanitizedName);
+        meta.setContentType(contentType);
         meta.setFileSize(file.getSize());
         meta.setPrimaryImage(primary);
         try (var src = ImageSources.of(file)) {
@@ -75,6 +104,9 @@ public class AvatarController extends AbstractAvatarController {
 
     @GetMapping("/{userId:[\\p{Digit}]+}/avatars/exists")
     public ResponseEntity<ApiResponse<AvatarPresenceDto>> avatarCount(@PathVariable Long userId) {
+        if (userId == null || userId <= 0) {
+            return badRequest("Invalid userId");
+        }
         long count = avatarImageService.countByUser(toUser(userId));
         avatarImageService.findPrimaryByUser(toUser(userId));
         Optional<AvatarImage> primary = avatarImageService.findPrimaryByUser(toUser(userId));
@@ -93,13 +125,20 @@ public class AvatarController extends AbstractAvatarController {
      * 사용자 대표 아바타 이미지 다운로드
      */
     @GetMapping("/{userId:[\\p{Digit}]+}/avatars/primary")
+    @PreAuthorize("@endpointAuthz.can('features:avatar-image','read')")
     public ResponseEntity<StreamingResponseBody> downloadPrimaryImage(
             @PathVariable("userId") Long userId,
             @RequestParam(value = "width", defaultValue = "0", required = false) Integer width,
             @RequestParam(value = "height", defaultValue = "0", required = false) Integer height) throws IOException {
 
-        if (userId <= 0) {
+        if (userId == null || userId <= 0) {
             return notAavaliable();
+        }
+        if (width != null && width < 0) {
+            width = 0;
+        }
+        if (height != null && height < 0) {
+            height = 0;
         }
         var primaryOpt = avatarImageService.findPrimaryByUser(toUser(userId));
         if (primaryOpt.isEmpty())
@@ -121,9 +160,13 @@ public class AvatarController extends AbstractAvatarController {
      * @return
      */
     @PutMapping("/{userId:[\\p{Digit}]+}/avatars/{avatarImageId:[\\p{Digit}]+}/primary")
+    @PreAuthorize("@endpointAuthz.can('features:avatar-image','write')")
     public ResponseEntity<ApiResponse<Void>> setPrimary(
             @PathVariable("userId") Long userId,
             @PathVariable("avatarImageId") Long avatarImageId) {
+        if (userId == null || userId <= 0 || avatarImageId == null || avatarImageId <= 0) {
+            return badRequest("Invalid identifier");
+        }
         var imgOpt = avatarImageService.findById(avatarImageId);
         if (imgOpt.isPresent()) {
             AvatarImage image = imgOpt.get();
@@ -142,9 +185,13 @@ public class AvatarController extends AbstractAvatarController {
      * @return
      */
     @DeleteMapping("/{userId:[\\p{Digit}]+}/avatars/{avatarImageId:[\\p{Digit}]+}")
+    @PreAuthorize("@endpointAuthz.can('features:avatar-image','write')")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable("userId") Long userId,
             @PathVariable("avatarImageId") Long avatarImageId) {
+        if (userId == null || userId <= 0 || avatarImageId == null || avatarImageId <= 0) {
+            return badRequest("Invalid identifier");
+        }
         var imgOpt = avatarImageService.findById(avatarImageId);
         if (imgOpt.isPresent()) {
             AvatarImage image = imgOpt.get();
@@ -155,4 +202,8 @@ public class AvatarController extends AbstractAvatarController {
         return ok(ApiResponse.ok());
     }
 
+    private <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.<T>builder().message(message).build());
+    }
 }

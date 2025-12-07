@@ -201,6 +201,26 @@ public class PgVectorStoreAdapter implements VectorStorePort {
     }
 
     @Override
+    public Map<String, Object> getMetadata(String objectType, String objectId) {
+        String sql = """
+                SELECT metadata
+                  FROM tb_ai_document_chunk
+                 WHERE object_type = :objectType AND object_id = :objectId
+                 ORDER BY chunk_index
+                 LIMIT 1
+                """;
+        List<Map<String, Object>> rows = namedParameterJdbcTemplate.query(sql,
+                new MapSqlParameterSource()
+                        .addValue("objectType", objectType)
+                        .addValue("objectId", objectId),
+                (rs, rowNum) -> Json.read(rs.getString("metadata")));
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        return rows.get(0) == null ? Map.of() : Map.copyOf(rows.get(0));
+    }
+
+    @Override
     public List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
         String sql = """
                 SELECT object_id, text, metadata

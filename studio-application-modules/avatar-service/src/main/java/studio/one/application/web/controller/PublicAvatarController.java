@@ -30,6 +30,15 @@ public class PublicAvatarController extends AbstractAvatarController {
             @RequestParam(value = "width", defaultValue = "0", required = false) Integer width,
             @RequestParam(value = "height", defaultValue = "0", required = false) Integer height) throws IOException {
         
+        if (username == null || username.isBlank()) {
+            return notAavaliable();
+        }
+        if (width != null && width < 0) {
+            width = 0;
+        }
+        if (height != null && height < 0) {
+            height = 0;
+        }
         var primaryOpt = avatarImageService.findPrimaryByUsername(username);        
         if (primaryOpt.isEmpty()) return notAavaliable();
         var meta = primaryOpt.get();
