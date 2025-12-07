@@ -58,4 +58,12 @@ public interface VectorStorePort {
     default List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
         throw new UnsupportedOperationException("listByObject is not implemented");
     }
+
+    /**
+     * objectType/objectId에 대한 메타데이터를 조회한다.
+     * 구현체는 필요한 경우 chunk_index 순으로 첫 번째 레코드를 사용하거나 통합 메타를 반환한다.
+     */
+    default Map<String, Object> getMetadata(String objectType, String objectId) {
+        throw new UnsupportedOperationException("getMetadata is not implemented");
+    }
 }

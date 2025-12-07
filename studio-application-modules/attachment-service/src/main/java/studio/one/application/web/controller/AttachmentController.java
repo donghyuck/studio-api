@@ -19,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,7 +48,10 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.base-path:/api/mgmt/attachments}")
 @RequiredArgsConstructor
 @Slf4j
+@Validated
 public class AttachmentController {
+
+    private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
 
     private final AttachmentService attachmentService;
     private final ApplicationUserService<?, ?> userService;
@@ -62,11 +66,26 @@ public class AttachmentController {
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails principal) throws IOException {
 
+        if (file == null || file.isEmpty()) {
+            return badRequest("File is empty");
+        }
+        if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
+            return badRequest("File too large");
+        }
+        if (file.getSize() > Integer.MAX_VALUE) {
+            return badRequest("File size exceeds supported limit");
+        }
+        String sanitizedName = sanitizeFilename(file.getOriginalFilename());
+        if (!StringUtils.hasText(sanitizedName)) {
+            return badRequest("Invalid file name");
+        }
+        String contentType = resolveMediaTypeString(file.getContentType());
+
         Attachment saved = attachmentService.createAttachment(
                 objectType,
                 objectId,
-                file.getOriginalFilename(),
-                file.getContentType(),
+                sanitizedName,
+                contentType,
                 file.getInputStream(),
                 (int) file.getSize());
         AttachmentDto dto = toDto(saved);
@@ -126,6 +145,7 @@ public class AttachmentController {
     }
 
     @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
     public ResponseEntity<ApiResponse<Page<AttachmentDto>>> list(
             @RequestParam(value = "objectType", required = false) Integer objectType,
             @RequestParam(value = "objectId", required = false) Long objectId,
@@ -195,5 +215,27 @@ public class AttachmentController {
         } catch (Exception ignored) {
             return MediaType.APPLICATION_OCTET_STREAM;
         }
+    }
+
+    private String resolveMediaTypeString(String contentType) {
+        return resolveMediaType(contentType).toString();
+    }
+
+    private String sanitizeFilename(String original) {
+        if (!StringUtils.hasText(original)) {
+            return null;
+        }
+        String cleaned = org.springframework.util.StringUtils.getFilename(original);
+        if (!StringUtils.hasText(cleaned)) {
+            return null;
+        }
+        return cleaned.replace("\\", "").replace("/", "");
+    }
+
+    private <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
+        ApiResponse<T> body = ApiResponse.<T>builder()
+                .message(message)
+                .build();
+        return ResponseEntity.badRequest().body(body);
     }
 }

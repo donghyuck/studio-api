@@ -36,8 +36,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -51,16 +51,17 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
-import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
+import studio.one.platform.ai.web.dto.EmbeddingVectorDto;
 import studio.one.platform.ai.web.dto.SearchRequest;
 import studio.one.platform.ai.web.dto.SearchResponse;
 import studio.one.platform.ai.web.dto.SearchResult;
-import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
-import studio.one.platform.ai.web.dto.EmbeddingVectorDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.service.I18n;
 import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -92,6 +93,7 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
+    private final ObjectProvider<I18n> i18nProvider;
 
     /**
      * 첨부파일 텍스트를 추출해 임베딩을 생성하고, 구성된 경우 벡터 스토어에 업서트한다.
@@ -118,6 +120,13 @@ public class AttachmentEmbeddingPipelineController {
     public ResponseEntity<ApiResponse<EmbeddingResponseDto>> embed(@PathVariable("attachmentId") long attachmentId,
             @RequestParam(name = "storeVector", defaultValue = "true") boolean storeVector)
             throws NotFoundException, IOException {
+
+        if (attachmentId <= 0) {
+            ApiResponse<EmbeddingResponseDto> body = ApiResponse.<EmbeddingResponseDto>builder()
+                    .message("attachmentId must be positive")
+                    .build();
+            return ResponseEntity.badRequest().body(body);
+        }
 
         FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
         if (extractor == null) {
@@ -171,6 +180,12 @@ public class AttachmentEmbeddingPipelineController {
     @PreAuthorize("@endpointAuthz.can('features:attachment','write')")
     public ResponseEntity<ApiResponse<Boolean>> exists(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException {
+        if (attachmentId <= 0) {
+            ApiResponse<Boolean> body = ApiResponse.<Boolean>builder()
+                    .message("attachmentId must be positive")
+                    .build();
+            return ResponseEntity.badRequest().body(body);
+        }
         VectorStorePort vectorStore = vectorStoreProvider.getIfAvailable();
         if (vectorStore == null) {
             ApiResponse<Boolean> body = ApiResponse.<Boolean>builder()
@@ -185,6 +200,35 @@ public class AttachmentEmbeddingPipelineController {
     }
 
     /**
+     * 첨부파일 벡터 메타데이터 조회.
+     */
+    @GetMapping("/{attachmentId:[\\p{Digit}]+}/rag/metadata")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> metadata(@PathVariable("attachmentId") long attachmentId)
+            throws NotFoundException {
+        if (attachmentId <= 0) {
+            ApiResponse<Map<String, Object>> body = ApiResponse.<Map<String, Object>>builder()
+                    .message("attachmentId must be positive")
+                    .build();
+            return ResponseEntity.badRequest().body(body);
+        }
+        VectorStorePort vectorStore = vectorStoreProvider.getIfAvailable();
+        if (vectorStore == null) {
+            ApiResponse<Map<String, Object>> body = ApiResponse.<Map<String, Object>>builder()
+                    .message("Vector store is not configured")
+                    .build();
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
+        }
+        // 첨부 존재 확인
+        attachmentService.getAttachmentById(attachmentId);
+        Map<String, Object> metadata = vectorStore.getMetadata("attachment", String.valueOf(attachmentId));
+        return ResponseEntity.ok(ApiResponse.ok(metadata));
+    }
+
+    
+
+
+    /**
      * 첨부파일 내용을 RAG 인덱스에 등록한다.
      */
     @PostMapping("/{attachmentId:[\\p{Digit}]+}/rag/index")
@@ -192,6 +236,9 @@ public class AttachmentEmbeddingPipelineController {
     public ResponseEntity<Void> ragIndex(@PathVariable("attachmentId") long attachmentId,
             @RequestBody(required = false) AttachmentRagIndexRequestDto request)
             throws NotFoundException, IOException {
+        if (attachmentId <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
         RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
         FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
         if (ragPipeline == null || extractor == null) {
@@ -220,6 +267,9 @@ public class AttachmentEmbeddingPipelineController {
         RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
         if (ragPipeline == null) {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        }
+        if (request == null || request.query() == null || request.query().isBlank()) {
+            return ResponseEntity.badRequest().build();
         }
         List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(request.query(), request.topK()));
         List<SearchResult> payload = results.stream()

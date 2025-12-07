@@ -65,6 +65,9 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     @SqlStatement("ai.vector.listByObject")
     private String listByObjectSql;
 
+    @SqlStatement("ai.vector.metadataByObject")
+    private String metadataByObjectSql;
+
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
     private final JdbcTemplate jdbcTemplate;
 
@@ -170,6 +173,19 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
             VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
             return new VectorSearchResult(document, 1.0d);
         });
+    }
+
+    @Override
+    public Map<String, Object> getMetadata(String objectType, String objectId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId);
+        List<Map<String, Object>> rows = namedParameterJdbcTemplate.query(metadataByObjectSql, params,
+                (rs, rowNum) -> Json.read(rs.getString("metadata")));
+        if (rows == null || rows.isEmpty()) {
+            return Map.of();
+        }
+        return rows.get(0) == null ? Map.of() : Map.copyOf(rows.get(0));
     }
 
     private static PGvector toPgVector(List<Double> embedding) {
