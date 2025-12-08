@@ -1,5 +1,8 @@
 # Studio One Platform
 
+[![release](https://img.shields.io/badge/release-1.0-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
+[![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
+
 모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다.
 
 ## 레포지토리 구성
@@ -91,3 +94,12 @@ studio:
 - 서비스/매퍼 교체: 기본 `ApplicationUserServiceImpl`가 `ApplicationUser`에 묶여 있으므로, 필요 시 같은 인터페이스를 구현한 서비스를 제공하거나 매퍼(`ApplicationUserMapper`)를 커스텀 엔티티용으로 `@Primary`로 등록한다.
 - 스캔 분리나 제외 필터로 충돌 방지: 기존 패키지와 겹치지 않는 루트 패키지를 사용하고, 필요 시 `@EnableJpaRepositories`/`@ComponentScan`의 `excludeFilters`로 기본 스캔에서 제외한다.
 - 제외 프로퍼티: `studio.features.user.exclude-entity-packages`, `...exclude-repository-packages`, `...exclude-jdbc-repository-packages`에 정규식 패턴을 넣으면 해당 패턴과 매칭되는 엔티티/리포지토리 빈 등록을 건너뛸 수 있다.
+- 샘플 모듈: `studio-application-modules/custom-user-service`에는 `CustomUser` 엔티티, JPA/JDBC 리포지토리, `CustomUserMutator`, `CustomUserAutoConfiguration`이 포함되어 있다. 이 모듈을 의존성에 추가하고 `studio.features.user.*` 설정을 커스텀 패키지로 지정하면 기본 사용자 구현 없이 커스텀 User가 등록된다.
+
+### 커스텀 User 엔티티/테이블 설계 필수 항목
+- 인터페이스 필드: `userId`, `username`(유니크), `name/firstName/lastName`, `password`(hash 저장), `email`(유니크), `enabled`, `external`, `status`(enum), `failedAttempts`, `lastFailedAt`, `accountLockedUntil`, `creationDate`, `modifiedDate`, `nameVisible`, `emailVisible`, `properties(Map<String,String>)`.
+- 테이블 예시:
+  - `TB_APPLICATION_USER`(또는 커스텀 명): PK `USER_ID`(IDENTITY), `USERNAME` UNIQUE, `EMAIL` UNIQUE, `PASSWORD_HASH`, `USER_ENABLED`, `USER_EXTERNAL`, `STATUS`(INT), `FAILED_ATTEMPTS`, `LAST_FAILED_AT`, `ACCOUNT_LOCKED_UNTIL`, `CREATION_DATE`, `MODIFIED_DATE`, `NAME_VISIBLE`, `EMAIL_VISIBLE`, 기타 이름 필드.
+  - `TB_APPLICATION_USER_PROPERTY`(선택): `USER_ID`, `PROPERTY_NAME`, `PROPERTY_VALUE` (USER_ID+PROPERTY_NAME PK).
+  - 역할/그룹 매핑: `TB_APPLICATION_USER_ROLES`(USER_ID, ROLE_ID), `TB_APPLICATION_GROUP_MEMBERS`(GROUP_ID, USER_ID) 등은 User 엔티티를 ID 기반으로 연결.
+- JDBC/JPA 구현 모두 동일한 스키마 전제로 작성되어 있으니 커스텀 테이블을 사용할 때는 리포지토리 쿼리도 함께 조정한다.
