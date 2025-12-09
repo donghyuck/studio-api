@@ -1,19 +1,24 @@
 package studio.one.application.mail.service.impl;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ByteArrayOutputStream;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.Properties;
+
+import org.springframework.stereotype.Service;
+
+import com.sun.mail.imap.IMAPFolder;
+import com.sun.mail.imap.IMAPStore;
 
 import jakarta.mail.FetchProfile;
 import jakarta.mail.Flags;
@@ -24,22 +29,19 @@ import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.mail.internet.MimeUtility;
-
-import com.sun.mail.imap.IMAPFolder;
-import com.sun.mail.imap.IMAPStore;
-
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.config.ImapProperties;
-import studio.one.application.mail.domain.model.DefaultMailMessage;
-import studio.one.application.mail.domain.model.MailMessage;
 import studio.one.application.mail.domain.model.DefaultMailAttachment;
+import studio.one.application.mail.domain.model.DefaultMailMessage;
 import studio.one.application.mail.domain.model.MailAttachment;
+import studio.one.application.mail.domain.model.MailMessage;
 import studio.one.application.mail.service.MailAttachmentService;
 import studio.one.application.mail.service.MailMessageService;
-import studio.one.application.mail.service.MailSyncService;
 import studio.one.application.mail.service.MailSyncLogService;
+import studio.one.application.mail.service.MailSyncService;
 
 @Slf4j
+@Service(MailSyncService.SERVICE_NAME)
 public class ImapMailSyncService implements MailSyncService {
 
     private final ImapProperties properties;

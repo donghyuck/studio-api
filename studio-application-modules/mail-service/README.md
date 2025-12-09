@@ -7,7 +7,7 @@ IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다.
 - **MailAttachmentService**: 첨부 저장/조회(JPA: `JpaMailAttachmentService`, JDBC: `JdbcMailAttachmentService`).
 - **MailSyncService (ImapMailSyncService)**: IMAP에서 메시지/첨부를 가져와 upsert.
 - **MailSyncLogService**: 동기화 이력 기록/조회(JPA/JDBC).
-- **MailController**: REST API(`/api/mgmt/mail` 기본) 제공 — 단건 조회(`GET /{mailId}`), 수동 동기화(`POST /sync`), 동기화 이력 조회(`GET /sync/logs`).
+- **MailController**: REST API(`/api/mgmt/mail` 기본) 제공 — 단건 조회(`GET /{mailId}`), 페이지 조회(`GET /?page=&size=`), 수동 동기화(`POST /sync`), 동기화 이력 조회(`GET /sync/logs`, `GET /sync/logs/page`).
 - **도메인/엔티티**: `MailMessage`/`MailMessageEntity`, `MailAttachment`/`MailAttachmentEntity`(본문/첨부/헤더/프로퍼티).
 - **SQL/DDL**: `sql/mail-sqlset.xml`, `schema/postgres/V0.8.0__create_mail_tables.sql`.
 
@@ -40,7 +40,7 @@ studio:
 1. 의존성 추가: `starter/studio-application-starter-mail`.
 2. IMAP 설정(host/port/user/password)과 `studio.persistence.type` 을 지정.
 3. 애플리케이션에서 `MailSyncService` 빈을 주입해 `sync()` 를 호출하거나 스케줄링한다.
-4. REST 사용 시 `studio.features.mail.web.enabled=true` 로 컨트롤러를 노출한다. 동기화 결과는 `GET /sync/logs` 로 확인한다.
+4. REST 사용 시 `studio.features.mail.web.enabled=true` 로 컨트롤러를 노출한다. 동기화 결과는 `GET /sync/logs` 또는 `GET /sync/logs/page` 로 확인한다.
 
 ## 저장 모델
 - **TB_APPLICATION_MAIL_MESSAGE**: `MAIL_ID`(PK), `FOLDER`+`UID`(UNIQUE), `MESSAGE_ID`, `SUBJECT`, 주소(From/To/Cc/Bcc), `SENT_AT`, `RECEIVED_AT`, `FLAGS`, `BODY`, `CREATED_AT`, `UPDATED_AT`.

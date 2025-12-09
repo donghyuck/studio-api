@@ -50,7 +50,7 @@ public class MailAutoConfiguration {
     @EntityScan(basePackageClasses = { MailMessageEntity.class, MailAttachmentEntity.class })
     static class MailJpaConfig { }
 
-    @Bean
+    @Bean(MailMessageService.SERVICE_NAME)
     @ConditionalOnMissingBean(MailMessageService.class)
     public MailMessageService mailMessageService(
             MailFeatureProperties mailFeatureProperties,
@@ -76,7 +76,7 @@ public class MailAutoConfiguration {
         throw new IllegalStateException("Unsupported persistence type for mail service: " + type);
     }
 
-    @Bean
+    @Bean(MailAttachmentService.SERVICE_NAME)
     @ConditionalOnMissingBean(MailAttachmentService.class)
     public MailAttachmentService mailAttachmentService(
             MailFeatureProperties mailFeatureProperties,
@@ -102,7 +102,7 @@ public class MailAutoConfiguration {
         throw new IllegalStateException("Unsupported persistence type for mail attachment service: " + type);
     }
 
-    @Bean
+    @Bean(MailSyncLogService.SERVICE_NAME)
     @ConditionalOnMissingBean(MailSyncLogService.class)
     public MailSyncLogService mailSyncLogService(
             MailFeatureProperties mailFeatureProperties,

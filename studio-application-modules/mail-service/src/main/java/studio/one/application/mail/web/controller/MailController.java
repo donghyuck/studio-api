@@ -1,20 +1,25 @@
 package studio.one.application.mail.web.controller;
 
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.application.mail.service.MailAttachmentService;
 import studio.one.application.mail.service.MailMessageService;
-import studio.one.application.mail.service.MailSyncService;
 import studio.one.application.mail.service.MailSyncLogService;
+import studio.one.application.mail.service.MailSyncService;
 import studio.one.application.mail.web.dto.MailMessageDto;
 import studio.one.application.mail.web.dto.MailSyncLogDto;
 import studio.one.platform.constant.PropertyKeys;
@@ -40,6 +45,15 @@ public class MailController {
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
+    @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:mail','read')")
+    public ResponseEntity<ApiResponse<Page<MailMessageDto>>> list(
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<MailMessageDto> dtoPage = mailMessageService.page(pageable)
+                .map(m -> MailMessageDto.from(m, List.of()));
+        return ResponseEntity.ok(ApiResponse.ok(dtoPage));
+    }
+
     @PostMapping("/sync")
     @PreAuthorize("@endpointAuthz.can('features:mail','write')")
     public ResponseEntity<ApiResponse<Integer>> sync() {
@@ -55,5 +69,13 @@ public class MailController {
                 .map(MailSyncLogDto::from)
                 .toList();
         return ResponseEntity.ok(ApiResponse.ok(logs));
+    }
+
+    @GetMapping("/sync/logs/page")
+    @PreAuthorize("@endpointAuthz.can('features:mail','read')")
+    public ResponseEntity<ApiResponse<Page<MailSyncLogDto>>> pagedLogs(
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<MailSyncLogDto> dtoPage = mailSyncLogService.page(pageable).map(MailSyncLogDto::from);
+        return ResponseEntity.ok(ApiResponse.ok(dtoPage));
     }
 }
