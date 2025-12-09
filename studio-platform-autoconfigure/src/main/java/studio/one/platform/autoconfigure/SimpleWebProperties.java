@@ -3,7 +3,7 @@ package studio.one.platform.autoconfigure;
 import lombok.Getter;
 import lombok.Setter;
 
-@Getter @Setter
+@Getter @Setter 
 public class SimpleWebProperties {
     
     private boolean enabled = false;

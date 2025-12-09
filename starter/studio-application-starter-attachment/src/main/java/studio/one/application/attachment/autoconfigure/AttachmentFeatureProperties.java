@@ -35,16 +35,17 @@ import studio.one.platform.constant.PropertyKeys;
 
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-11-26
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-11-26  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 
 @ConfigurationProperties(prefix = PropertyKeys.Features.PREFIX + ".attachment")
@@ -93,7 +94,8 @@ public class AttachmentFeatureProperties extends FeatureToggle {
         private Type type = Type.filesystem;
 
         /**
-         * When storing in the database, optionally keep a local filesystem cache for faster reads.
+         * When storing in the database, optionally keep a local filesystem cache for
+         * faster reads.
          */
         private boolean cacheEnabled = false;
     }

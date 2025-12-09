@@ -17,7 +17,6 @@ dependencies {
     implementation(project(":studio-platform-autoconfigure")) 
     implementation(project(":starter:studio-platform-starter")) 
     api(project(":studio-platform-ai")) 
-    
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")

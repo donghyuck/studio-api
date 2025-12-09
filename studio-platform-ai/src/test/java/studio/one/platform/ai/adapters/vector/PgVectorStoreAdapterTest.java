@@ -38,16 +38,19 @@ class PgVectorStoreAdapterTest {
         this.jdbcTemplate = new JdbcTemplate(dataSource);
         this.adapter = new PgVectorStoreAdapter(jdbcTemplate);
         jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS vector");
-        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS ai_documents (" +
-                "id varchar(255) PRIMARY KEY, " +
-                "content text NOT NULL, " +
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS tb_ai_document_chunk (" +
+                "object_type varchar(255) NOT NULL, " +
+                "object_id varchar(255) NOT NULL, " +
+                "chunk_index int NOT NULL, " +
+                "text text NOT NULL, " +
                 "metadata jsonb, " +
-                "embedding vector NOT NULL)");
+                "embedding vector NOT NULL, " +
+                "PRIMARY KEY (object_type, object_id, chunk_index))");
     }
 
     @BeforeEach
     void clean() {
-        jdbcTemplate.execute("TRUNCATE ai_documents");
+        jdbcTemplate.execute("TRUNCATE tb_ai_document_chunk");
     }
 
     @Test

@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlset name="mail" namespace="data.mail" description="Mail message SQLs">
+
+    <sql id="insert">
+        <![CDATA[
+        insert into TB_APPLICATION_MAIL_MESSAGE
+            (FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+             SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT)
+        values
+            (:folder, :uid, :messageId, :subject, :fromAddress, :toAddress, :ccAddress, :bccAddress,
+             :sentAt, :receivedAt, :flags, :body, :createdAt, :updatedAt)
+        returning MAIL_ID
+        ]]>
+    </sql>
+
+    <sql id="update">
+        <![CDATA[
+        update TB_APPLICATION_MAIL_MESSAGE
+           set FOLDER       = :folder,
+               UID          = :uid,
+               MESSAGE_ID   = :messageId,
+               SUBJECT      = :subject,
+               FROM_ADDRESS = :fromAddress,
+               TO_ADDRESS   = :toAddress,
+               CC_ADDRESS   = :ccAddress,
+               BCC_ADDRESS  = :bccAddress,
+               SENT_AT      = :sentAt,
+               RECEIVED_AT  = :receivedAt,
+               FLAGS        = :flags,
+               BODY         = :body,
+               UPDATED_AT   = :updatedAt
+         where MAIL_ID      = :mailId
+        ]]>
+    </sql>
+
+    <sql id="findByUid">
+        <![CDATA[
+        select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+               SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_MAIL_MESSAGE
+         where FOLDER = :folder
+           and UID = :uid
+        ]]>
+    </sql>
+
+    <sql id="findByMessageId">
+        <![CDATA[
+        select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+               SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_MAIL_MESSAGE
+         where MESSAGE_ID = :messageId
+        ]]>
+    </sql>
+
+    <sql id="findById">
+        <![CDATA[
+        select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+               SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_MAIL_MESSAGE
+         where MAIL_ID = :mailId
+        ]]>
+    </sql>
+
+    <sql id="deleteProperties">
+        <![CDATA[
+        delete from TB_APPLICATION_MAIL_PROPERTY
+         where MAIL_ID = :mailId
+        ]]>
+    </sql>
+
+    <sql id="insertProperty">
+        <![CDATA[
+        insert into TB_APPLICATION_MAIL_PROPERTY
+            (MAIL_ID, PROPERTY_NAME, PROPERTY_VALUE)
+        values
+            (:mailId, :name, :value)
+        ]]>
+    </sql>
+
+    <sql id="findProperties">
+        <![CDATA[
+        select PROPERTY_NAME, PROPERTY_VALUE
+          from TB_APPLICATION_MAIL_PROPERTY
+         where MAIL_ID = :mailId
+        ]]>
+    </sql>
+
+    <sql id="deleteAttachmentsByMail">
+        <![CDATA[
+        delete from TB_APPLICATION_MAIL_ATTACHMENT
+         where MAIL_ID = :mailId
+        ]]>
+    </sql>
+
+    <sql id="insertAttachment">
+        <![CDATA[
+        insert into TB_APPLICATION_MAIL_ATTACHMENT
+            (MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT)
+        values
+            (:mailId, :filename, :contentType, :size, :content, :createdAt, :updatedAt)
+        ]]>
+    </sql>
+
+    <sql id="findAttachmentsByMail">
+        <![CDATA[
+        select ATTACHMENT_ID, MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_MAIL_ATTACHMENT
+         where MAIL_ID = :mailId
+        ]]>
+    </sql>
+
+    <sql id="syncLog.insert">
+        <![CDATA[
+        insert into TB_APPLICATION_MAIL_SYNC_LOG
+            (STARTED_AT, STATUS, TRIGGERED_BY)
+        values
+            (:startedAt, :status, :triggeredBy)
+        returning LOG_ID
+        ]]>
+    </sql>
+
+    <sql id="syncLog.update">
+        <![CDATA[
+        update TB_APPLICATION_MAIL_SYNC_LOG
+           set FINISHED_AT = :finishedAt,
+               PROCESSED = :processed,
+               SUCCEEDED = :succeeded,
+               FAILED = :failed,
+               STATUS = :status,
+               MESSAGE = :message
+         where LOG_ID = :logId
+        ]]>
+    </sql>
+
+    <sql id="syncLog.recent">
+        <![CDATA[
+        select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
+          from TB_APPLICATION_MAIL_SYNC_LOG
+         order by STARTED_AT desc
+         limit :limit
+        ]]>
+    </sql>
+
+</sqlset>

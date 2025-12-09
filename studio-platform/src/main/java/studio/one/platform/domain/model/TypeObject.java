@@ -6,6 +6,5 @@ public interface TypeObject {
     public static final long UNKNOWN_OBJECT_ID = -1L;
 
     public abstract int getObjectType();
-
     public abstract long getObjectId();
 }
