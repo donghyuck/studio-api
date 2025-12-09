@@ -15,7 +15,6 @@ import javax.persistence.Id;
 import javax.persistence.JoinColumn;
 import javax.persistence.MapKeyColumn;
 import javax.persistence.Table;
-import javax.persistence.Lob;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -70,7 +69,6 @@ public class MailMessageEntity implements MailMessage {
     @Column(name = "FLAGS")
     private String flags;
 
-    @Lob
     @Column(name = "BODY")
     private String body;
 

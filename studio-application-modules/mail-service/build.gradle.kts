@@ -22,5 +22,5 @@ dependencies {
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
     implementation(project(":studio-platform-data"))
-    implementation("com.sun.mail:jakarta.mail:2.0.1")
+    implementation("com.sun.mail:javax.mail:1.6.2")
 }
