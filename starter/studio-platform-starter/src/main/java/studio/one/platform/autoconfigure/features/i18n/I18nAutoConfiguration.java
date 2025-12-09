@@ -99,7 +99,7 @@ public class I18nAutoConfiguration {
         return (idx >= 0) ? raw.substring(0, idx) : raw;      
     }
     private String featureString(String raw) {
-        Matcher m = Pattern.compile("features:([^:]+):.*").matcher(raw);
+        Matcher m = Pattern.compile(ServiceNames.Featrues.PREFIX+":([^:]+):.*").matcher(raw);
         return m.matches() ? m.group(1).toUpperCase(Locale.ROOT) : "Unknown";
     }
 }

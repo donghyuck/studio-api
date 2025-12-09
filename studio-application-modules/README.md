@@ -29,3 +29,10 @@
   - `POST /{id}/rag/index`: 추출 텍스트를 RAG 인덱스에 등록(메타데이터/키워드 옵션 포함).
   - `POST /rag/search`: RAG 인덱스 검색.
 - 권한: 컨트롤러는 attachment 스코프 인가(`features:attachment` write/read)와 동일하게 동작. 빈이 없을 경우 501(NOT_IMPLEMENTED)로 안내 응답.
+
+## Mail 서비스
+- 의존성: `studio-application-modules/mail-service` 또는 `studio-application-starter-mail`.
+- 활성화: `studio.features.mail.enabled=true`.
+- 저장소: `studio.features.mail.persistence=jpa|jdbc` (전역 `studio.persistence.type` 미설정 시 기본 jpa).
+- IMAP 설정: `studio.features.mail.imap.*` 로 호스트/포트/계정/동시성/본문·첨부 크기 제한을 지정.
+- REST: `studio.features.mail.web.enabled=true` 시 `/api/mgmt/mail` 기본 경로에 컨트롤러 노출(`GET /{mailId}`, `POST /sync`, `GET /sync/logs`).

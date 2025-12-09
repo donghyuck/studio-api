@@ -5,6 +5,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 
+import javax.transaction.Transactional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.jwt.reset.domain.PasswordResetToken;
@@ -25,6 +27,7 @@ public class PasswordResetService {
 
     public static final String SERVICE_NAME = ServiceNames.PREFIX + ":security:password-reset-service";
 
+    @Transactional
     public void requestReset(String email) {
         userService.findByEmail(email).ifPresent(user -> {
             createAndSendToken(user);
@@ -50,6 +53,7 @@ public class PasswordResetService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
+    @Transactional
     public void resetPassword(String token, String newPassword) {
         PasswordResetToken tokenEntity = tokenRepository.findByToken(token)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid token"));

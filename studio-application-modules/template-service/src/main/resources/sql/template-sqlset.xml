@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlset name="template" namespace="data.template" description="Template SQLs">
+
+    <sql id="insert">
+        <![CDATA[
+        insert into TB_APPLICATION_TEMPLATE
+            (OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT)
+        values
+            (:objectType, :objectId, :name, :displayName, :description, :subject, :body, :createdBy, :updatedBy, :createdAt, :updatedAt)
+        returning TEMPLATE_ID
+        ]]>
+    </sql>
+
+    <sql id="update">
+        <![CDATA[
+        update TB_APPLICATION_TEMPLATE
+           set OBJECT_TYPE  = :objectType,
+               OBJECT_ID    = :objectId,
+               NAME         = :name,
+               DISPLAY_NAME = :displayName,
+               DESCRIPTION  = :description,
+               SUBJECT      = :subject,
+               BODY         = :body,
+               UPDATED_BY   = :updatedBy,
+               UPDATED_AT   = :updatedAt
+         where TEMPLATE_ID = :templateId
+        ]]>
+    </sql>
+
+    <sql id="findById">
+        <![CDATA[
+        select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
+               SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_TEMPLATE
+         where TEMPLATE_ID = :templateId
+        ]]>
+    </sql>
+
+    <sql id="findByName">
+        <![CDATA[
+        select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
+               SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_TEMPLATE
+         where NAME = :name
+        ]]>
+    </sql>
+
+    <sql id="delete">
+        <![CDATA[
+        delete from TB_APPLICATION_TEMPLATE
+         where TEMPLATE_ID = :templateId
+        ]]>
+    </sql>
+
+    <sql id="deleteProperties">
+        <![CDATA[
+        delete from TB_APPLICATION_TEMPLATE_PROPERTY
+         where TEMPLATE_ID = :templateId
+        ]]>
+    </sql>
+
+    <sql id="insertProperty">
+        <![CDATA[
+        insert into TB_APPLICATION_TEMPLATE_PROPERTY
+            (TEMPLATE_ID, PROPERTY_NAME, PROPERTY_VALUE)
+        values
+            (:templateId, :name, :value)
+        ]]>
+    </sql>
+
+    <sql id="findProperties">
+        <![CDATA[
+        select PROPERTY_NAME, PROPERTY_VALUE
+          from TB_APPLICATION_TEMPLATE_PROPERTY
+         where TEMPLATE_ID = :templateId
+        ]]>
+    </sql>
+
+</sqlset>
