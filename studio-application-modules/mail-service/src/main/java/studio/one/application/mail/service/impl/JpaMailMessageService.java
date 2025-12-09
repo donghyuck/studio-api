@@ -3,6 +3,10 @@ package studio.one.application.mail.service.impl;
 import java.time.Instant;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import studio.one.application.mail.domain.entity.MailMessageEntity;
@@ -12,6 +16,7 @@ import studio.one.application.mail.service.MailMessageService;
 import studio.one.platform.exception.NotFoundException;
 
 @Transactional
+@Service(MailMessageService.SERVICE_NAME )
 public class JpaMailMessageService implements MailMessageService {
 
     private final MailMessageRepository repository;
@@ -47,6 +52,13 @@ public class JpaMailMessageService implements MailMessageService {
         }
         entity.setUpdatedAt(now);
         return repository.save(entity);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MailMessage> page(Pageable pageable) {
+        Pageable safe = PageRequest.of(Math.max(0, pageable.getPageNumber()), Math.max(1, pageable.getPageSize()));
+        return repository.findAll(safe).map(m -> (MailMessage) m);
     }
 
     private MailMessageEntity toEntity(MailMessage message) {

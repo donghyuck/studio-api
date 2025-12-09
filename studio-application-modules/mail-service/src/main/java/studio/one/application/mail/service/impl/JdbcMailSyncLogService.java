@@ -6,19 +6,26 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import studio.one.application.mail.domain.model.DefaultMailSyncLog;
 import studio.one.application.mail.domain.model.MailSyncLog;
 import studio.one.application.mail.service.MailSyncLogService;
+import studio.one.platform.data.jdbc.PagingJdbcTemplate;
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Transactional
+@Service(MailSyncLogService.SERVICE_NAME)
 public class JdbcMailSyncLogService implements MailSyncLogService {
 
     @SqlStatement("data.mail.syncLog.insert")
@@ -29,6 +36,12 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
 
     @SqlStatement("data.mail.syncLog.recent")
     private String recentSql;
+
+    @SqlStatement("data.mail.syncLog.countAll")
+    private String countSql;
+
+    @SqlStatement("data.mail.syncLog.findPage")
+    private String findPageSql;
 
     private static final RowMapper<MailSyncLog> ROW_MAPPER = (rs, rowNum) -> {
         DefaultMailSyncLog log = new DefaultMailSyncLog();
@@ -47,9 +60,11 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
     };
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final PagingJdbcTemplate pagingJdbcTemplate;
 
     public JdbcMailSyncLogService(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.pagingJdbcTemplate = new PagingJdbcTemplate(jdbcTemplate.getJdbcTemplate().getDataSource());
     }
 
     @Override
@@ -91,5 +106,16 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
                 .stream()
                 .limit(limit <= 0 ? 50 : limit)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MailSyncLog> page(Pageable pageable) {
+        int pageIndex = Math.max(0, pageable.getPageNumber());
+        int pageSize = Math.max(1, pageable.getPageSize());
+        int offset = pageIndex * pageSize;
+        List<MailSyncLog> content = pagingJdbcTemplate.queryPage(findPageSql, offset, pageSize, ROW_MAPPER);
+        long total = jdbcTemplate.queryForObject(countSql, Map.of(), Long.class);
+        return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize), total);
     }
 }

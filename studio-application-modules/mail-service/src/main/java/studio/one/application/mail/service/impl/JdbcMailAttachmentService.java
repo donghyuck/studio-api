@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import studio.one.application.mail.domain.model.DefaultMailAttachment;
@@ -17,6 +18,7 @@ import studio.one.application.mail.service.MailAttachmentService;
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Transactional
+@Service(MailAttachmentService.SERVICE_NAME)
 public class JdbcMailAttachmentService implements MailAttachmentService {
 
     @SqlStatement("data.mail.insertAttachment")

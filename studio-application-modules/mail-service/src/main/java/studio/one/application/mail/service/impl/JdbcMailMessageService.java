@@ -7,20 +7,27 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import studio.one.application.mail.domain.model.DefaultMailMessage;
 import studio.one.application.mail.domain.model.MailMessage;
 import studio.one.application.mail.service.MailMessageService;
+import studio.one.platform.data.jdbc.PagingJdbcTemplate;
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.exception.NotFoundException;
 
 @Transactional
+@Service( MailMessageService.SERVICE_NAME)
 public class JdbcMailMessageService implements MailMessageService {
 
     @SqlStatement("data.mail.insert")
@@ -37,6 +44,12 @@ public class JdbcMailMessageService implements MailMessageService {
 
     @SqlStatement("data.mail.findById")
     private String findByIdSql;
+
+    @SqlStatement("data.mail.countAll")
+    private String countAllSql;
+
+    @SqlStatement("data.mail.findPage")
+    private String findPageSql;
 
     @SqlStatement("data.mail.deleteProperties")
     private String deletePropertiesSql;
@@ -72,9 +85,11 @@ public class JdbcMailMessageService implements MailMessageService {
     };
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
+    private final PagingJdbcTemplate pagingJdbcTemplate;
 
     public JdbcMailMessageService(NamedParameterJdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.pagingJdbcTemplate = new PagingJdbcTemplate(jdbcTemplate.getJdbcTemplate().getDataSource());
     }
 
     @Override
@@ -120,6 +135,17 @@ public class JdbcMailMessageService implements MailMessageService {
             return insert(message);
         }
         return update(message);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MailMessage> page(Pageable pageable) {
+        int pageIndex = Math.max(0, pageable.getPageNumber());
+        int pageSize = Math.max(1, pageable.getPageSize());
+        int offset = pageIndex * pageSize;
+        List<MailMessage> content = pagingJdbcTemplate.queryPage(findPageSql, offset, pageSize, ROW_MAPPER);
+        long total = jdbcTemplate.queryForObject(countAllSql, Map.of(), Long.class);
+        return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize), total);
     }
 
     private MailMessage insert(MailMessage message) {
