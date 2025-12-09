@@ -20,15 +20,15 @@ import org.springframework.stereotype.Service;
 import com.sun.mail.imap.IMAPFolder;
 import com.sun.mail.imap.IMAPStore;
 
-import jakarta.mail.FetchProfile;
-import jakarta.mail.Flags;
-import jakarta.mail.Folder;
-import jakarta.mail.Message;
-import jakarta.mail.MessagingException;
-import jakarta.mail.Session;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.internet.MimeUtility;
+import javax.mail.FetchProfile;
+import javax.mail.Flags;
+import javax.mail.Folder;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Session;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeUtility;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.config.ImapProperties;
 import studio.one.application.mail.domain.model.DefaultMailAttachment;
@@ -147,7 +147,7 @@ public class ImapMailSyncService implements MailSyncService {
         target.setUpdatedAt(Instant.now());
     }
 
-    private String joinAddresses(jakarta.mail.Address[] addresses) {
+    private String joinAddresses(javax.mail.Address[] addresses) {
         if (addresses == null || addresses.length == 0) {
             return null;
         }
@@ -187,13 +187,13 @@ public class ImapMailSyncService implements MailSyncService {
         if (content instanceof String) {
             return truncateBody((String) content);
         }
-        if (content instanceof jakarta.mail.Multipart multipart) {
+        if (content instanceof javax.mail.Multipart multipart) {
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < multipart.getCount(); i++) {
                 var bodyPart = multipart.getBodyPart(i);
                 String disposition = bodyPart.getDisposition();
                 boolean isAttachment = disposition != null
-                        && disposition.equalsIgnoreCase(jakarta.mail.Part.ATTACHMENT);
+                        && disposition.equalsIgnoreCase(javax.mail.Part.ATTACHMENT);
                 Object partContent = bodyPart.getContent();
                 if (isAttachment || bodyPart.getFileName() != null) {
                     MailAttachment attachment = new DefaultMailAttachment();

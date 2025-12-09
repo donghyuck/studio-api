@@ -18,11 +18,13 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import studio.one.application.mail.domain.model.MailAttachment;
 
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @Entity
 @Table(name = "TB_APPLICATION_MAIL_ATTACHMENT")
@@ -51,7 +53,8 @@ public class MailAttachmentEntity implements MailAttachment {
     private long size;
 
     @Lob
-    @Column(name = "CONTENT")
+    @javax.persistence.Basic(fetch = FetchType.LAZY)
+    @Column(name = "CONTENT", columnDefinition = "BYTEA")
     private byte[] content;
 
     @CreatedDate
@@ -61,4 +64,6 @@ public class MailAttachmentEntity implements MailAttachment {
     @LastModifiedDate
     @Column(name = "UPDATED_AT")
     private Instant updatedAt;
+
+    // Lombok @Getter/@Setter covers content byte[]; kept lazy to avoid eager loading
 }

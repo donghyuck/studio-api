@@ -20,6 +20,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-mail")
+    //implementation("com.sun.mail:javax.mail:1.6.2")
 
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
