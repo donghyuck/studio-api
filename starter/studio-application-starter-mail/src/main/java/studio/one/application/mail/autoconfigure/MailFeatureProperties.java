@@ -8,6 +8,7 @@ import org.springframework.validation.annotation.Validated;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.application.mail.config.ImapProperties;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
@@ -25,11 +26,20 @@ public class MailFeatureProperties extends FeatureToggle {
     @NotNull
     private ImapProperties imap = new ImapProperties();
 
-    private SimpleWebProperties web = new SimpleWebProperties();
+    private Web web = new Web();
     
     public studio.one.platform.autoconfigure.PersistenceProperties.Type resolvePersistence(
             studio.one.platform.autoconfigure.PersistenceProperties.Type globalDefault) {
         return super.resolvePersistence(globalDefault);
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Web extends SimpleWebProperties {
+
+        boolean sse = false;
+
     }
 
 }

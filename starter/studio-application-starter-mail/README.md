@@ -37,6 +37,8 @@ studio:
 - `POST /sync`: IMAP 수동 동기화 요청(비동기) → `logId` 반환 (권한 `features:mail/write`)
 - `GET /sync/logs?limit=50` 또는 `GET /sync/logs/page?page=&size=`: 최근 동기화 이력 조회 (권한 `features:mail/read`)
 - `GET /sync/stream`: SSE 스트림으로 동기화 완료 이벤트 수신 (권한 `features:mail/read`)
+- 동시 실행 방지: 이미 동기화 중이면 409(`error.mail.sync.in-progress`) 반환
+- 중복 UID/파싱 오류 메일은 건너뛰고 실패 건수에 집계됨
 
 ## 의존성
 - `studio-application-modules:mail-service`

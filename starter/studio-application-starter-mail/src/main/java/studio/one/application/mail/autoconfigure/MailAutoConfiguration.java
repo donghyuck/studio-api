@@ -35,7 +35,9 @@ import studio.one.application.mail.service.impl.JpaMailAttachmentService;
 import studio.one.application.mail.service.impl.JpaMailMessageService;
 import studio.one.application.mail.service.impl.JpaMailSyncLogService;
 import studio.one.application.mail.web.controller.MailController;
+import studio.one.application.mail.web.controller.MailSseController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
+import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.mail.autoconfigure.condition.ConditionalOnMailPersistence;
 
@@ -155,8 +157,21 @@ public class MailAutoConfiguration {
     }
 
     @Configuration
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
-            prefix = PropertyKeys.Features.PREFIX + ".mail.web", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty( prefix = PropertyKeys.Features.PREFIX + ".mail.web", name = "enabled", havingValue = "true", matchIfMissing = true)
     @Import(MailController.class)
-    static class MailWebConfig { }
+    static class MailWebConfig { 
+
+    }
+
+    @Configuration
+    @ConditionalOnProperties(
+    prefix = PropertyKeys.Features.PREFIX + ".mail.web",
+    value = {
+        @ConditionalOnProperties.Property( name = "enabled", havingValue = "true", matchIfMissing = true),
+        @ConditionalOnProperties.Property( name = "sse", havingValue = "true", matchIfMissing = true)    
+    })
+    @Import(MailSseController.class)
+    static class MailWebSseConfig { 
+
+    }    
 }

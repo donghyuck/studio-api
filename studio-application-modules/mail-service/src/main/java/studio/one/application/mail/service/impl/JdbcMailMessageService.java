@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -59,6 +61,23 @@ public class JdbcMailMessageService implements MailMessageService {
 
     @SqlStatement("data.mail.findProperties")
     private String findPropertiesSql;
+
+    private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
+            Map.entry("mailId", "MAIL_ID"),
+            Map.entry("folder", "FOLDER"),
+            Map.entry("uid", "UID"),
+            Map.entry("messageId", "MESSAGE_ID"),
+            Map.entry("subject", "SUBJECT"),
+            Map.entry("fromAddress", "FROM_ADDRESS"),
+            Map.entry("toAddress", "TO_ADDRESS"),
+            Map.entry("ccAddress", "CC_ADDRESS"),
+            Map.entry("bccAddress", "BCC_ADDRESS"),
+            Map.entry("sentAt", "SENT_AT"),
+            Map.entry("receivedAt", "RECEIVED_AT"),
+            Map.entry("flags", "FLAGS"),
+            Map.entry("body", "BODY"),
+            Map.entry("createdAt", "CREATED_AT"),
+            Map.entry("updatedAt", "UPDATED_AT"));
 
     private static final RowMapper<MailMessage> ROW_MAPPER = (rs, rowNum) -> {
         DefaultMailMessage message = new DefaultMailMessage();
@@ -143,9 +162,13 @@ public class JdbcMailMessageService implements MailMessageService {
         int pageIndex = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.max(1, pageable.getPageSize());
         int offset = pageIndex * pageSize;
-        List<MailMessage> content = pagingJdbcTemplate.queryPage(findPageSql, offset, pageSize, ROW_MAPPER);
+        Sort sortToUse = pageable.getSort().isSorted()
+                ? pageable.getSort()
+                : Sort.by(Sort.Order.desc("mailId"));
+        String orderedQuery = findPageSql + buildOrderByClause(sortToUse, "mailId", SORT_COLUMNS);
+        List<MailMessage> content = pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER);
         long total = jdbcTemplate.queryForObject(countAllSql, Map.of(), Long.class);
-        return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize), total);
+        return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
     }
 
     private MailMessage insert(MailMessage message) {
@@ -226,5 +249,45 @@ public class JdbcMailMessageService implements MailMessageService {
 
     private Timestamp toTimestamp(Instant instant) {
         return instant == null ? null : Timestamp.from(instant);
+    }
+
+    private String buildOrderByClause(Sort sort, String defaultProperty, Map<String, String> propertyToColumn) {
+        Sort sortToUse = (sort == null || sort.isUnsorted())
+                ? Sort.by(Sort.Order.desc(defaultProperty))
+                : sort;
+        StringBuilder orderBy = new StringBuilder(" order by ");
+        boolean first = true;
+        for (Sort.Order order : sortToUse) {
+            if (!first) {
+                orderBy.append(", ");
+            }
+            first = false;
+            String column = resolveColumn(order.getProperty(), propertyToColumn, defaultProperty);
+            orderBy.append(column).append(order.isAscending() ? " asc" : " desc");
+        }
+        return orderBy.toString();
+    }
+
+    private String resolveColumn(String property, Map<String, String> mapping, String defaultProperty) {
+        if (property != null && mapping != null && mapping.containsKey(property)) {
+            return mapping.get(property);
+        }
+        if (property == null || property.isBlank()) {
+            return mapping != null && mapping.containsKey(defaultProperty)
+                    ? mapping.get(defaultProperty)
+                    : toSnakeUpper(defaultProperty);
+        }
+        String snake = toSnakeUpper(property);
+        if (mapping != null && mapping.containsKey(defaultProperty)) {
+            return mapping.get(defaultProperty);
+        }
+        return snake;
+    }
+
+    private String toSnakeUpper(String property) {
+        return property
+                .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
+                .replace('-', '_')
+                .toUpperCase(Locale.ROOT);
     }
 }

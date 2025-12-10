@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,7 +63,12 @@ public class JpaMailSyncLogService implements MailSyncLogService {
     @Override
     @Transactional(readOnly = true)
     public Page<MailSyncLog> page(Pageable pageable) {
-        Pageable safe = PageRequest.of(Math.max(0, pageable.getPageNumber()), Math.max(1, pageable.getPageSize()));
+        int pageIndex = Math.max(0, pageable.getPageNumber());
+        int pageSize = Math.max(1, pageable.getPageSize());
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort()
+                : Sort.by(Sort.Order.desc("logId"));
+        Pageable safe = PageRequest.of(pageIndex, pageSize, sort);
         return repository.findAll(safe).map(l -> (MailSyncLog) l);
     }
 
