@@ -72,7 +72,6 @@
         select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
                SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
           from TB_APPLICATION_MAIL_MESSAGE
-         order by MAIL_ID desc
         ]]>
     </sql>
 
@@ -166,7 +165,6 @@
         <![CDATA[
         select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
           from TB_APPLICATION_MAIL_SYNC_LOG
-         order by STARTED_AT desc
         ]]>
     </sql>
 

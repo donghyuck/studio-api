@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,7 +58,12 @@ public class JpaMailMessageService implements MailMessageService {
     @Override
     @Transactional(readOnly = true)
     public Page<MailMessage> page(Pageable pageable) {
-        Pageable safe = PageRequest.of(Math.max(0, pageable.getPageNumber()), Math.max(1, pageable.getPageSize()));
+        int pageIndex = Math.max(0, pageable.getPageNumber());
+        int pageSize = Math.max(1, pageable.getPageSize());
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort()
+                : Sort.by(Sort.Order.desc("mailId"));
+        Pageable safe = PageRequest.of(pageIndex, pageSize, sort);
         return repository.findAll(safe).map(m -> (MailMessage) m);
     }
 

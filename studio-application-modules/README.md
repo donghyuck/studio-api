@@ -35,4 +35,5 @@
 - 활성화: `studio.features.mail.enabled=true`.
 - 저장소: `studio.features.mail.persistence=jpa|jdbc` (전역 `studio.persistence.type` 미설정 시 기본 jpa).
 - IMAP 설정: `studio.features.mail.imap.*` 로 호스트/포트/계정/동시성/본문·첨부 크기 제한을 지정.
-- REST: `studio.features.mail.web.enabled=true` 시 `/api/mgmt/mail` 기본 경로에 컨트롤러 노출(`GET /{mailId}`, `POST /sync`, `GET /sync/logs`).
+- REST: `studio.features.mail.web.enabled=true` 시 `/api/mgmt/mail` 기본 경로에 컨트롤러 노출(`GET /{mailId}`, `POST /sync`, `GET /sync/logs`, `GET /sync/logs/page`).
+- SSE: 동기화 상태 스트림을 분리된 컨트롤러(`/sync/stream`)로 제공하며, `studio.features.mail.web.sse=true|false`(기본 true)로 노출 여부를 제어.

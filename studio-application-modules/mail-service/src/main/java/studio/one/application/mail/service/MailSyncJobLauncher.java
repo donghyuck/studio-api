@@ -23,7 +23,7 @@ public class MailSyncJobLauncher {
         } finally {
             try {
                 MailSyncLogDto dto = MailSyncLogDto.from(mailSyncLogService.get(logId));
-                mailSyncNotifier.notify(dto);
+                mailSyncNotifier.notifyLog(dto);
             } catch (Exception notifyEx) {
                 log.debug("Failed to notify sync completion for log {}: {}", logId, notifyEx.getMessage());
             }

@@ -42,6 +42,8 @@ studio:
 2. IMAP 설정(host/port/user/password)과 `studio.persistence.type` 을 지정.
 3. 애플리케이션에서 `MailSyncService` 빈을 주입해 `sync()` 를 호출하거나 스케줄링한다.
 4. REST 사용 시 `studio.features.mail.web.enabled=true` 로 컨트롤러를 노출한다. 동기화는 `POST /sync` 로 트리거하고 `logId` 를 받아 `/sync/logs`/`/sync/logs/page` 또는 `SSE(/sync/stream)` 로 상태/완료 이벤트를 확인한다.
+5. 동시 실행 방지: 이미 동기화 중이면 `error.mail.sync.in-progress`(409) 응답이 반환된다.
+6. 중복 UID(고유 제약)나 파싱 오류가 있는 메일/파트는 건너뛰고 실패 건수에만 반영된다(작업은 계속 진행).
 
 ### Vue 예시: 동기화 요청 + SSE 수신
 ```ts
@@ -76,6 +78,7 @@ function subscribeMailSync(onMessage: (payload: any) => void) {
 //   }
 // });
 // onUnmounted(() => stop());
+// 참고: 동시 실행 시 서버가 409(error.mail.sync.in-progress)를 반환할 수 있으므로 호출부에서 처리 필요
 ```
 
 ## 저장 모델
