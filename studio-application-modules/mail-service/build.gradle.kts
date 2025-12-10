@@ -19,8 +19,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-user")) 
-    implementation(project(":studio-platform-data"))
-    implementation("com.sun.mail:javax.mail:1.6.2")
+    implementation(project(":studio-platform-data")) 
 }

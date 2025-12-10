@@ -23,6 +23,7 @@ import studio.one.application.mail.domain.model.MailSyncLog;
 import studio.one.application.mail.service.MailSyncLogService;
 import studio.one.platform.data.jdbc.PagingJdbcTemplate;
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
+import studio.one.platform.exception.NotFoundException;
 
 @Transactional
 @Service(MailSyncLogService.SERVICE_NAME)
@@ -42,6 +43,9 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
 
     @SqlStatement("data.mail.syncLog.findPage")
     private String findPageSql;
+
+    @SqlStatement("data.mail.syncLog.findById")
+    private String findByIdSql;
 
     private static final RowMapper<MailSyncLog> ROW_MAPPER = (rs, rowNum) -> {
         DefaultMailSyncLog log = new DefaultMailSyncLog();
@@ -117,5 +121,15 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
         List<MailSyncLog> content = pagingJdbcTemplate.queryPage(findPageSql, offset, pageSize, ROW_MAPPER);
         long total = jdbcTemplate.queryForObject(countSql, Map.of(), Long.class);
         return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize), total);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MailSyncLog get(long logId) {
+        MailSyncLog log = jdbcTemplate.query(findByIdSql, Map.of("logId", logId), ROW_MAPPER)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> NotFoundException.of("mailSyncLog", logId));
+        return log;
     }
 }

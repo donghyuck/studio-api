@@ -2,6 +2,7 @@ package studio.one.platform.text.extractor;
 
 import org.springframework.http.HttpStatus;
 
+import studio.one.platform.error.ErrorType;
 import studio.one.platform.exception.PlatformRuntimeException;
 
 /**
@@ -10,14 +11,19 @@ import studio.one.platform.exception.PlatformRuntimeException;
 public class FileParseException extends PlatformRuntimeException {
 
     private static final long serialVersionUID = 1L;
-    private static final String DEFAULT_CODE = "error.file.parse";
-    private static final HttpStatus DEFAULT_STATUS = HttpStatus.BAD_REQUEST;
 
-    public FileParseException(String message) {
-        super(DEFAULT_CODE, DEFAULT_STATUS, message);
+    private static final ErrorType TYPE = ErrorType.of("error.text.file.parse", HttpStatus.INTERNAL_SERVER_ERROR );
+
+    public FileParseException(String message, Object... args) {
+        super(TYPE, message, args);
     }
 
-    public FileParseException(String message, Throwable cause) {
-        super(DEFAULT_CODE, DEFAULT_STATUS, message, cause);
+    public FileParseException(String message, Throwable cause, Object... args) {
+        super(TYPE, null, message, args);
+        initCause(cause);
+    }
+
+    public static FileParseException of(Object... args) {
+        return new FileParseException(TYPE.getId(), args);
     }
 }

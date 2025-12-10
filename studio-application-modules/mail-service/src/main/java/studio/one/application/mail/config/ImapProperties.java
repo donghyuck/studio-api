@@ -48,4 +48,9 @@ public class ImapProperties {
      */
     @Min(1)
     private long maxBodyBytes = 1 * 1024 * 1024; // 1MB
+
+    /**
+     * 동기화 후 서버에서 메일을 삭제할지 여부 (기본: false).
+     */
+    private boolean deleteAfterFetch = false;
 }

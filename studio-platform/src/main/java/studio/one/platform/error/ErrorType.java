@@ -64,6 +64,10 @@ public interface ErrorType {
         return Severity.ERROR;
     }
 
+    static ErrorType of(String id) {
+        return of(id, HttpStatus.INTERNAL_SERVER_ERROR, Severity.ERROR);
+    }
+
     /**
      * Creates a new {@code ErrorType} with the specified ID and status, and a
      * default severity of {@link Severity#ERROR}.

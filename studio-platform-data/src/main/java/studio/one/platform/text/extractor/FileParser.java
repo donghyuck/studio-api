@@ -21,9 +21,6 @@
 
 package studio.one.platform.text.extractor;
 
-import java.io.File;
-import java.io.InputStream;
-
 /**
  * 문서에서 테스트를 추출하는 파서 인터페이스
  * 

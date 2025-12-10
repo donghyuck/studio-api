@@ -14,12 +14,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.application.mail.service.MailAttachmentService;
 import studio.one.application.mail.service.MailMessageService;
 import studio.one.application.mail.service.MailSyncLogService;
 import studio.one.application.mail.service.MailSyncService;
+import studio.one.application.mail.service.MailSyncJobLauncher;
+import studio.one.application.mail.service.MailSyncNotifier;
 import studio.one.application.mail.web.dto.MailMessageDto;
 import studio.one.application.mail.web.dto.MailSyncLogDto;
 import studio.one.platform.constant.PropertyKeys;
@@ -33,8 +36,9 @@ public class MailController {
 
     private final MailMessageService mailMessageService;
     private final MailAttachmentService mailAttachmentService;
-    private final MailSyncService mailSyncService;
     private final MailSyncLogService mailSyncLogService;
+    private final MailSyncJobLauncher mailSyncJobLauncher;
+    private final MailSyncNotifier mailSyncNotifier;
 
     @GetMapping("/{mailId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:mail','read')")
@@ -56,9 +60,10 @@ public class MailController {
 
     @PostMapping("/sync")
     @PreAuthorize("@endpointAuthz.can('features:mail','write')")
-    public ResponseEntity<ApiResponse<Integer>> sync() {
-        int processed = mailSyncService.sync();
-        return ResponseEntity.ok(ApiResponse.ok(processed));
+    public ResponseEntity<ApiResponse<Long>> sync() {
+        var log = mailSyncLogService.start("manual");
+        mailSyncJobLauncher.launch(log.getLogId());
+        return ResponseEntity.ok(ApiResponse.ok(log.getLogId()));
     }
 
     @GetMapping("/sync/logs")
@@ -77,5 +82,12 @@ public class MailController {
             @PageableDefault(size = 20) Pageable pageable) {
         Page<MailSyncLogDto> dtoPage = mailSyncLogService.page(pageable).map(MailSyncLogDto::from);
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));
+    }
+
+    @GetMapping("/sync/stream")
+    @PreAuthorize("@endpointAuthz.can('features:mail','read')")
+    public SseEmitter stream() {
+        // default timeout 30 minutes
+        return mailSyncNotifier.register(30 * 60 * 1000L);
     }
 }

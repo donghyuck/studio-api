@@ -14,6 +14,7 @@ import javax.persistence.Lob;
 import javax.persistence.ManyToOne;
 import javax.persistence.Table;
 
+import org.hibernate.annotations.Type;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -55,6 +56,7 @@ public class MailAttachmentEntity implements MailAttachment {
     @Lob
     @javax.persistence.Basic(fetch = FetchType.LAZY)
     @Column(name = "CONTENT", columnDefinition = "BYTEA")
+    @Type(type = "org.hibernate.type.BinaryType")
     private byte[] content;
 
     @CreatedDate

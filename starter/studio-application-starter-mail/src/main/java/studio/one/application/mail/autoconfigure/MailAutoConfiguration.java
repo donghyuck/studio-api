@@ -23,8 +23,10 @@ import studio.one.application.mail.persistence.repository.MailMessageRepository;
 import studio.one.application.mail.persistence.repository.MailSyncLogRepository;
 import studio.one.application.mail.service.MailAttachmentService;
 import studio.one.application.mail.service.MailMessageService;
+import studio.one.application.mail.service.MailSyncJobLauncher;
 import studio.one.application.mail.service.MailSyncService;
 import studio.one.application.mail.service.MailSyncLogService;
+import studio.one.application.mail.service.MailSyncNotifier;
 import studio.one.application.mail.service.impl.ImapMailSyncService;
 import studio.one.application.mail.service.impl.JdbcMailAttachmentService;
 import studio.one.application.mail.service.impl.JdbcMailMessageService;
@@ -128,6 +130,12 @@ public class MailAutoConfiguration {
         throw new IllegalStateException("Unsupported persistence type for mail sync log service: " + type);
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public MailSyncNotifier mailSyncNotifier() {
+        return new MailSyncNotifier();
+    }
+
     @Bean(MailSyncService.SERVICE_NAME)
     @ConditionalOnMissingBean(MailSyncService.class)
     public MailSyncService mailSyncService(MailFeatureProperties properties,
@@ -136,6 +144,14 @@ public class MailAutoConfiguration {
             MailSyncLogService mailSyncLogService) {
         ImapProperties imap = properties.getImap();
         return new ImapMailSyncService(imap, mailMessageService, mailAttachmentService, mailSyncLogService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public MailSyncJobLauncher mailSyncJobLauncher(MailSyncService mailSyncService,
+            MailSyncLogService mailSyncLogService,
+            MailSyncNotifier mailSyncNotifier) {
+        return new MailSyncJobLauncher(mailSyncService, mailSyncLogService, mailSyncNotifier);
     }
 
     @Configuration

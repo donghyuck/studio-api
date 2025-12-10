@@ -65,4 +65,12 @@ public class JpaMailSyncLogService implements MailSyncLogService {
         Pageable safe = PageRequest.of(Math.max(0, pageable.getPageNumber()), Math.max(1, pageable.getPageSize()));
         return repository.findAll(safe).map(l -> (MailSyncLog) l);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public MailSyncLog get(long logId) {
+        return repository.findById(logId)
+                .map(l -> (MailSyncLog) l)
+                .orElseThrow(() -> studio.one.platform.exception.NotFoundException.of("mailSyncLog", logId));
+    }
 }

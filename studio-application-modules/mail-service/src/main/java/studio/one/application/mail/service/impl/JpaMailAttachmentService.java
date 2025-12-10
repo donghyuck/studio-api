@@ -31,7 +31,7 @@ public class JpaMailAttachmentService implements MailAttachmentService {
         Instant now = Instant.now();
         List<MailAttachmentEntity> entities = attachments.stream()
                 .map(att -> toEntity(att, mailId, now))
-                .collect(Collectors.toList());
+                .toList();
         repository.saveAll(entities);
     }
 
