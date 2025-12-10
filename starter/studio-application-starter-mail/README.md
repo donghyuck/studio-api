@@ -26,6 +26,7 @@ studio:
         concurrency: 4
         max-attachment-bytes: 10485760
         max-body-bytes: 1048576
+        delete-after-fetch: false      # true 시 동기화 후 서버에서 메일 삭제(READ_WRITE 모드)
   persistence:
     type: jpa                   # 글로벌 기본값 (mail.persistence 미설정 시)
 ```
@@ -33,8 +34,9 @@ studio:
 ## REST 엔드포인트 (기본 base-path: `/api/mgmt/mail`)
 - `GET /{mailId}`: 메일 + 첨부 메타 조회 (권한 `features:mail/read`)
 - `GET /` : 메일 목록 페이지 조회(`page`,`size`) (권한 `features:mail/read`)
-- `POST /sync`: IMAP 수동 동기화 실행 (권한 `features:mail/write`)
+- `POST /sync`: IMAP 수동 동기화 요청(비동기) → `logId` 반환 (권한 `features:mail/write`)
 - `GET /sync/logs?limit=50` 또는 `GET /sync/logs/page?page=&size=`: 최근 동기화 이력 조회 (권한 `features:mail/read`)
+- `GET /sync/stream`: SSE 스트림으로 동기화 완료 이벤트 수신 (권한 `features:mail/read`)
 
 ## 의존성
 - `studio-application-modules:mail-service`

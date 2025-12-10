@@ -170,4 +170,12 @@
         ]]>
     </sql>
 
+    <sql id="syncLog.findById">
+        <![CDATA[
+        select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
+          from TB_APPLICATION_MAIL_SYNC_LOG
+         where LOG_ID = :logId
+        ]]>
+    </sql>
+
 </sqlset>

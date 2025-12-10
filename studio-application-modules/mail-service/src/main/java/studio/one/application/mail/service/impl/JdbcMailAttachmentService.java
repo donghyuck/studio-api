@@ -67,7 +67,7 @@ public class JdbcMailAttachmentService implements MailAttachmentService {
                         .addValue("content", att.getContent())
                         .addValue("createdAt", toTimestamp(att.getCreatedAt(), now))
                         .addValue("updatedAt", Timestamp.from(now)))
-                .collect(Collectors.toList());
+                .toList();
         jdbcTemplate.batchUpdate(insertAttachmentSql, batch.toArray(new MapSqlParameterSource[0]));
     }
 

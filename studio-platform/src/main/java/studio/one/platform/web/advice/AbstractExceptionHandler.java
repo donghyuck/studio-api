@@ -28,9 +28,11 @@ import studio.one.platform.web.dto.ProblemDetails;
 @Slf4j
 public abstract class AbstractExceptionHandler {
 
-    protected static final MediaType PROBLEM_JSON = new MediaType("application", "problem+json", StandardCharsets.UTF_8);
+    protected static final MediaType PROBLEM_JSON = new MediaType("application", "problem+json",
+            StandardCharsets.UTF_8);
 
-    private static final Set<String> SENSITIVE_FIELDS = Set.of("password", "newPassword", "confirmPassword", "token", "refreshToken", "secret", "clientSecret");
+    private static final Set<String> SENSITIVE_FIELDS = Set.of("password", "newPassword", "confirmPassword", "token",
+            "refreshToken", "secret", "clientSecret");
 
     /**
      * Creates a base {@link ProblemDetails.ProblemDetailsBuilder} with common
@@ -73,19 +75,27 @@ public abstract class AbstractExceptionHandler {
      * @param ex     the exception
      * @param code   the error code
      */
-        protected void logByStatus(HttpStatus status, Throwable ex, String code) {
+    protected void logByStatus(HttpStatus status, Throwable ex, String code) {
         String traceId = MDC.get("traceId");
         String msg = "Handled exception: code={}, status={}, traceId={}";
-        if (status.is5xxServerError()) { log.error(msg, code, status.value(), traceId, ex); return; }
-        if (status==HttpStatus.UNAUTHORIZED || status==HttpStatus.FORBIDDEN) {
-            log.warn(msg + ", reason={}", code, status.value(), traceId, ex.getMessage()); return;
+        if (status.is5xxServerError()) {
+            log.error(msg, code, status.value(), traceId, ex);
+            return;
         }
-        if (status==HttpStatus.BAD_REQUEST || status==HttpStatus.UNPROCESSABLE_ENTITY ||
-            status==HttpStatus.METHOD_NOT_ALLOWED || status==HttpStatus.NOT_ACCEPTABLE ||
-            status==HttpStatus.CONFLICT) {
-            log.info(msg + ", reason={}", code, status.value(), traceId, ex.getMessage()); return;
+        if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
+            log.warn(msg + ", reason={}", code, status.value(), traceId, ex.getMessage());
+            return;
         }
-        if (status.is4xxClientError()) { log.debug(msg + ", reason={}", code, status.value(), traceId, ex.getMessage()); return; }
+        if (status == HttpStatus.BAD_REQUEST || status == HttpStatus.UNPROCESSABLE_ENTITY ||
+                status == HttpStatus.METHOD_NOT_ALLOWED || status == HttpStatus.NOT_ACCEPTABLE ||
+                status == HttpStatus.CONFLICT) {
+            log.info(msg + ", reason={}", code, status.value(), traceId, ex.getMessage());
+            return;
+        }
+        if (status.is4xxClientError()) {
+            log.debug(msg + ", reason={}", code, status.value(), traceId, ex.getMessage());
+            return;
+        }
         log.warn(msg + ", reason={}", code, status.value(), traceId, ex.getMessage());
     }
 

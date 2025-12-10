@@ -24,13 +24,33 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.error.ErrorType;
 import studio.one.platform.exception.PlatformException;
+import studio.one.platform.exception.PlatformRuntimeException;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.web.dto.ProblemDetails;
 
 /**
- * A global exception handler for the application that handles various types of
- * exceptions and returns a standardized {@link ProblemDetails} response.
+ * 전역 예외 처리기로 다양한 예외를 받아 표준 {@link ProblemDetails} 응답으로 변환한다.
+ *
+ * <p>응답 구성 흐름(추출 → 변환):
+ * <ul>
+ *   <li>{@link PlatformException}/{@link PlatformRuntimeException} 에서 {@link ErrorType} 추출
+ *       (코드, 기본 HTTP 상태, 심각도 포함).</li>
+ *   <li>HTTP 상태 결정: {@code type.getStatus()} 우선, 없으면 핸들러 기본값/500 사용.</li>
+ *   <li>상세 메시지: {@code type.getId()}(예: {@code error.user.not-found})를
+ *       {@link I18nUtils#safeGet} 로 args와 함께 조회.</li>
+ *   <li>{@code baseProblem(status, req)} 로 RFC7807 기본 필드(status/title/path) 세팅 후 추가:
+ *       <ul>
+ *         <li>{@code type}: 에러 코드가 포함된 URN (예: {@code urn:error:error.user.not-found})</li>
+ *         <li>{@code code}: i18n 키/에러 코드</li>
+ *         <li>{@code detail}: 지역화된 메시지</li>
+ *         <li>{@code traceId}: MDC("traceId") 값이 있으면 포함</li>
+ *         <li>{@code violations}: 검증 실패 시 필드/코드/메시지(민감값 마스킹)</li>
+ *       </ul>
+ *   </li>
+ *   <li>로그: {@code logByStatus} 로 상태에 맞는 레벨로 기록.</li>
+ *   <li>응답: {@code withContentType(status, body)} 로 일관된 Content-Type 제공.</li>
+ * </ul>
  *
  * @author donghyuck, son
  * @since 2025-08-12
@@ -52,6 +72,23 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
      */
     @ExceptionHandler(PlatformException.class)
     public ResponseEntity<ProblemDetails> handlePlatform(PlatformException ex, HttpServletRequest req) {
+        ErrorType type = ex.getType();
+        HttpStatus status = (type.getStatus() != null) ? type.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
+        String code = type.getId(); // i18n key (ex: error.user.notFound.id)
+        String detail = I18nUtils.safeGet(i18n, code, ex.getArgs());
+        String traceId = MDC.get("traceId");
+        ProblemDetails body = baseProblem(status, req)
+                .type("urn:error:" + code)
+                .detail(detail)
+                .traceId(traceId)
+                .code(code)
+                .build();
+        logByStatus(status, ex, code);
+        return withContentType(status, body);
+    }
+
+    @ExceptionHandler(PlatformRuntimeException.class)
+    public ResponseEntity<ProblemDetails> handlePlatform(PlatformRuntimeException ex, HttpServletRequest req) {
         ErrorType type = ex.getType();
         HttpStatus status = (type.getStatus() != null) ? type.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
         String code = type.getId(); // i18n key (ex: error.user.notFound.id)

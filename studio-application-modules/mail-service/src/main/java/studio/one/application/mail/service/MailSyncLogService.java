@@ -18,4 +18,6 @@ public interface MailSyncLogService {
     List<MailSyncLog> recent(int limit);
 
     Page<MailSyncLog> page(Pageable pageable);
+
+    MailSyncLog get(long logId);
 }
