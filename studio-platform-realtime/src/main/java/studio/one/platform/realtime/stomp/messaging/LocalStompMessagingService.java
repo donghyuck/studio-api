@@ -19,16 +19,17 @@
  *
  */
 
-package studio.one.platform.realtime.service;
+package studio.one.platform.realtime.stomp.messaging;
 
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.realtime.config.RealtimeStompProperties;
-import studio.one.platform.realtime.model.RealtimeEnvelope;
-import studio.one.platform.realtime.model.RealtimePayload;
+import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
+import studio.one.platform.realtime.stomp.domain.model.RealtimeEnvelope;
+import studio.one.platform.realtime.stomp.domain.model.RealtimePayload;
 
 /**
  *
@@ -46,6 +47,7 @@ import studio.one.platform.realtime.model.RealtimePayload;
 
 @Slf4j
 @RequiredArgsConstructor
+@Service
 public class LocalStompMessagingService implements RealtimeMessagingService {
 
     private final SimpMessagingTemplate template;

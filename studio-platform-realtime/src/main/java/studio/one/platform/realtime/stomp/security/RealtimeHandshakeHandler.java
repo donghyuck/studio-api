@@ -1,4 +1,4 @@
-package studio.one.platform.realtime.service;
+package studio.one.platform.realtime.stomp.security;
 
 import java.security.Principal;
 import java.util.List;
@@ -11,8 +11,8 @@ import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
 import studio.one.base.security.jwt.JwtTokenProvider;
-import studio.one.platform.realtime.config.RealtimeStompProperties;
 
 /**
  * WebSocket Handshake 시 JWT를 통한 Principal 주입을 처리한다.
@@ -64,7 +64,10 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
     }
 
     private record SimplePrincipal(String name) implements Principal {
-        @Override public String getName() { return name; }
+        @Override
+        public String getName() {
+            return name;
+        }
     }
 
     private Principal allowOrAnonymous(String name,

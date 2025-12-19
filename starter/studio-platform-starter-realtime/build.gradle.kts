@@ -16,7 +16,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies { 
     implementation(project(":studio-platform-autoconfigure"))
     implementation(project(":starter:studio-platform-starter"))
-    api(project(":studio-platform-realtime")) 
+    implementation(project(":studio-platform-realtime")) 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-websocket")
     implementation("org.springframework.boot:spring-boot-starter-validation")

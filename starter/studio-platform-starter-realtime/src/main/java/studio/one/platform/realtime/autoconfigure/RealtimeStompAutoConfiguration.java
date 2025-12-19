@@ -14,88 +14,69 @@
  *      See the License for the specific language governing permissions and
  *      limitations under the License.
  *
- *      @file RealtimeWebSocketAutoConfiguration.java
+ *      @file RealtimeStompAutoConfiguration.java
  *      @date 2025
  *
  */
 
 package studio.one.platform.realtime.autoconfigure;
 
-import java.util.List;
-
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.messaging.simp.config.MessageBrokerRegistry;
-import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
-import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
-import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.server.HandshakeInterceptor;
 import org.springframework.web.socket.server.support.HttpSessionHandshakeInterceptor;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; 
-import studio.one.platform.realtime.config.RealtimeStompProperties;
-import studio.one.platform.realtime.model.RealtimeEnvelope;
-import studio.one.platform.realtime.service.LocalStompMessagingService;
-import studio.one.platform.realtime.service.RealtimeMessagingService;
-import studio.one.platform.realtime.service.RealtimeRedisSubscriber;
-import studio.one.platform.realtime.service.RealtimeHandshakeHandler;
+import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.autoconfigure.I18nKeys;
+import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
+import studio.one.platform.realtime.stomp.domain.model.RealtimeEnvelope;
+import studio.one.platform.realtime.stomp.messaging.LocalStompMessagingService;
+import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
+import studio.one.platform.realtime.stomp.redis.RealtimeRedisSubscriber;
+import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
+import studio.one.platform.service.I18n;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
 
-@Configuration
-@EnableWebSocketMessageBroker
+@AutoConfiguration
 @EnableConfigurationProperties(RealtimeStompProperties.class)
-@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false) 
+@ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
+        + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
-public class RealtimeWebSocketAutoConfiguration implements WebSocketMessageBrokerConfigurer {
+public class RealtimeStompAutoConfiguration {
 
+    protected static final String FEATURE_NAME = "Realtime";
+    private final ObjectProvider<I18n> i18nProvider;
     private final RealtimeStompProperties properties;
-    private final RealtimeHandshakeHandler handshakeHandler;
-    private final List<HandshakeInterceptor> handshakeInterceptors;
 
-    @Override
-    public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.enableSimpleBroker(properties.getTopicPrefix(), properties.getUserPrefix());
-        registry.setApplicationDestinationPrefixes(properties.getAppDestinationPrefix());
-        registry.setUserDestinationPrefix(properties.getUserPrefix());
-    }
-
-    @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) {
-        var endpoint = registry.addEndpoint(properties.getEndpoint())
-                .addInterceptors(handshakeInterceptors.toArray(new HandshakeInterceptor[0]))
-                .setHandshakeHandler(handshakeHandler);
-        if (properties.getAllowedOrigins() != null) {
-            endpoint.setAllowedOrigins(properties.getAllowedOrigins().toArray(new String[0]));
-        }
-        if (properties.isSockJs()) {
-            endpoint.withSockJS();
-        }
-    }
-
-    @Bean(name = RealtimeMessagingService.SERVICE_NAME )
+    @Bean(name = RealtimeMessagingService.SERVICE_NAME)
+    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RealtimeMessagingService realtimeMessagingService(
             org.springframework.messaging.simp.SimpMessagingTemplate template,
             ObjectProvider<org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope>> redisTemplate) {
-        return new LocalStompMessagingService( template, properties, redisTemplate.getIfAvailable());
+        return new LocalStompMessagingService(template, properties, redisTemplate.getIfAvailable());
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "studio.realtime", name = "redis-enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "redis-enabled", havingValue = "true")
     @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(org.springframework.data.redis.connection.RedisConnectionFactory.class)
     public org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope> realtimeRedisTemplate(
             org.springframework.data.redis.connection.RedisConnectionFactory connectionFactory) {
-            org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope> template = new org.springframework.data.redis.core.RedisTemplate<>();
-        
+        org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope> template = new org.springframework.data.redis.core.RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
-
-        org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer<RealtimeEnvelope> serializer = new org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer<>( RealtimeEnvelope.class);
+        org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer<RealtimeEnvelope> serializer = new org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer<>(
+                RealtimeEnvelope.class);
         com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         mapper.findAndRegisterModules();
         serializer.setObjectMapper(mapper);
@@ -106,7 +87,7 @@ public class RealtimeWebSocketAutoConfiguration implements WebSocketMessageBroke
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "studio.realtime", name = "redis-enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "redis-enabled", havingValue = "true")
     @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(org.springframework.data.redis.connection.RedisConnectionFactory.class)
     public org.springframework.data.redis.listener.RedisMessageListenerContainer realtimeRedisListenerContainer(
             org.springframework.data.redis.connection.RedisConnectionFactory connectionFactory,
@@ -117,20 +98,36 @@ public class RealtimeWebSocketAutoConfiguration implements WebSocketMessageBroke
         container.setConnectionFactory(connectionFactory);
         container.addMessageListener(new RealtimeRedisSubscriber(redisTemplate, messagingService, objectMapper),
                 new org.springframework.data.redis.listener.PatternTopic(properties.getRedisChannel()));
+
         return container;
     }
 
-    @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:handshake-interceptor" )
+    @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:jwt-handshake-handler")
     @ConditionalOnMissingBean(RealtimeHandshakeHandler.class)
-    public RealtimeHandshakeHandler handshakeHandler( ObjectProvider<studio.one.base.security.jwt.JwtTokenProvider> provider) {
+    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public RealtimeHandshakeHandler handshakeHandler(
+            ObjectProvider<studio.one.base.security.jwt.JwtTokenProvider> provider) {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                RealtimeStompAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue(RealtimeHandshakeHandler.class, true),  
+                LogUtils.red(State.CREATED.toString())));
         return new RealtimeHandshakeHandler(properties, provider.getIfAvailable());
     }
 
-    
-    @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:handshake-interceptor")
-    @ConditionalOnMissingBean( name = ServiceNames.Featrues.PREFIX + ":realtime:handshake-interceptor")
+    @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:session-handshake-interceptor")
+    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnMissingBean(name = ServiceNames.Featrues.PREFIX + ":realtime:session-handshake-interceptor")
     public HandshakeInterceptor realtimeHandshakeInterceptor() {
- 
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
+                RealtimeStompAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue(HandshakeInterceptor.class, true),
+                LogUtils.green(HttpSessionHandshakeInterceptor.class, true),
+                LogUtils.red(State.CREATED.toString())));
+
         return new HttpSessionHandshakeInterceptor();
     }
+
 }

@@ -19,7 +19,7 @@
  *
  */
 
-package studio.one.platform.realtime.model;
+package studio.one.platform.realtime.stomp.domain.model;
 
 import java.time.Instant;
 import java.util.UUID;

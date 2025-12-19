@@ -19,11 +19,11 @@
  *
  */
 
-package studio.one.platform.realtime.service;
+package studio.one.platform.realtime.stomp.messaging;
 
 import studio.one.platform.constant.ServiceNames;
-import studio.one.platform.realtime.model.RealtimeEnvelope;
-import studio.one.platform.realtime.model.RealtimePayload;
+import studio.one.platform.realtime.stomp.domain.model.RealtimeEnvelope;
+import studio.one.platform.realtime.stomp.domain.model.RealtimePayload;
 
 /**
  *

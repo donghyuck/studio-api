@@ -19,7 +19,7 @@
  *
  */
 
-package studio.one.platform.realtime.model;
+package studio.one.platform.realtime.stomp.domain.model;
 
 /**
  * 실시간 전송에 사용되는 DTO 마커 인터페이스.
