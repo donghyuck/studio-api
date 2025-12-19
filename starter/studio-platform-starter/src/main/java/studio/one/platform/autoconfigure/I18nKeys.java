@@ -59,6 +59,7 @@ public class I18nKeys {
                 private static final String ENABLED = P + "enabled";
                 public static final String DISABLED = P + "disabled";
                 public static final String DETAILS = P + "details";
+                public static final String DETAILS_2 = P + "details2";
                 public static final String INIT = P + "init";
                 public static final String DEPENDS_ON = P + "depends-on";
             }

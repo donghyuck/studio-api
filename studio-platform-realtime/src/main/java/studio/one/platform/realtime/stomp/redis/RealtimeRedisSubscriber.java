@@ -19,7 +19,7 @@
  *
  */
 
-package studio.one.platform.realtime.service;
+package studio.one.platform.realtime.stomp.redis;
 
 import java.util.Map;
 
@@ -32,8 +32,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.realtime.model.RealtimeEnvelope;
-import studio.one.platform.realtime.model.RealtimePayload;
+import studio.one.platform.realtime.stomp.domain.model.RealtimeEnvelope;
+import studio.one.platform.realtime.stomp.domain.model.RealtimePayload;
+import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
 
 /**
  *
@@ -50,7 +51,7 @@ import studio.one.platform.realtime.model.RealtimePayload;
  */
 
 @Slf4j
-@RequiredArgsConstructor
+@RequiredArgsConstructor 
 public class RealtimeRedisSubscriber implements MessageListener {
 
     private final RedisTemplate<String, RealtimeEnvelope> redisTemplate;

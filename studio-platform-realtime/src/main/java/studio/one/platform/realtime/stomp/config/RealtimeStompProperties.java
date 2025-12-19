@@ -19,7 +19,7 @@
  *
  */
 
-package studio.one.platform.realtime.config;
+package studio.one.platform.realtime.stomp.config;
 
 import java.util.List;
 
