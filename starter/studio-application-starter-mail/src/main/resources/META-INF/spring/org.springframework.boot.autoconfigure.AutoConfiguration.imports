@@ -1,1 +1,2 @@
 studio.one.application.mail.autoconfigure.MailAutoConfiguration
+studio.one.application.mail.autoconfigure.MailStompNotifierAutoConfiguration

@@ -21,7 +21,6 @@
 
 package studio.one.platform.realtime.stomp.messaging;
 
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
@@ -52,7 +51,7 @@ public class LocalStompMessagingService implements RealtimeMessagingService {
 
     private final SimpMessagingTemplate template;
     private final RealtimeStompProperties properties;
-    private final RedisTemplate<String, RealtimeEnvelope> redisTemplate;
+    private final Object redisTemplate;
 
     @Override
     public void sendToTopic(String destination, RealtimePayload payload) {
@@ -75,8 +74,9 @@ public class LocalStompMessagingService implements RealtimeMessagingService {
 
         // Redis 연계 시: 모든 노드(자기 자신 포함)는 Subscriber 경로로만 전송해 중복을 피한다.
         if (redisRequested && hasRedis) {
-            redisTemplate.convertAndSend(properties.getRedisChannel(), envelope);
-            return;
+            if (publishWithRedis(envelope)) {
+                return;
+            }
         }
 
         // Redis 설정이 true지만 빈이 없으면 로컬로 fallback
@@ -86,6 +86,18 @@ public class LocalStompMessagingService implements RealtimeMessagingService {
 
         // Redis 비활성: 현재 노드로 직접 전송
         dispatchLocal(envelope, payload);
+    }
+
+    private boolean publishWithRedis(RealtimeEnvelope envelope) {
+        try {
+            java.lang.reflect.Method method = redisTemplate.getClass()
+                    .getMethod("convertAndSend", String.class, Object.class);
+            method.invoke(redisTemplate, properties.getRedisChannel(), envelope);
+            return true;
+        } catch (Exception ex) {
+            log.warn("Redis publish failed. fallback to local send: {}", ex.getMessage());
+            return false;
+        }
     }
 
     private void dispatchLocal(RealtimeEnvelope envelope, RealtimePayload payload) {

@@ -37,17 +37,21 @@ Client
 ```yaml
 studio:
   realtime:
-    enabled: true
-    endpoint: /ws              # STOMP 엔드포인트
-    app-destination-prefix: /app
-    topic-prefix: /topic
-    user-prefix: /user
-    allowed-origins:           # CORS 허용 오리진
-      - "*"
-    sock-js: true              # SockJS fallback 사용 여부
-    jwt-enabled: false         # JwtDecoder 사용 시 true
-    redis-enabled: false       # Redis Pub/Sub 사용 시 true
-    redis-channel: studio:realtime:events
+    stomp:
+      enabled: true
+      endpoint: /ws              # STOMP 엔드포인트
+      app-destination-prefix: /app
+      topic-prefix: /topic
+      user-prefix: /user
+      allowed-origins:           # CORS 허용 오리진
+        - "*"
+      sock-js: true              # SockJS fallback 사용 여부
+      jwt-enabled: false         # JwtDecoder 사용 시 true
+      redis-enabled: false       # Redis Pub/Sub 사용 시 true
+      redis-channel: studio:realtime:events
+
+> 참고: `studio.realtime.stomp.redis-enabled` 를 명시적으로 `false` 로 설정하면
+> Redis auto-configuration 이 제외되어(연결 시도 포함) Redis 관련 오류를 방지한다.
 ```
 
 ## 사용법
@@ -94,9 +98,39 @@ public class DemoController {
    });
    ```
 
-## 메일 모듈 연동 아이디어
-- 메일 동기화 완료 시 `RealtimeMessagingService.sendToTopic("/mail/sync", MailSyncLogDto)` 로 브로드캐스트하면 클라이언트가 STOMP 구독을 통해 즉시 완료 알림을 받을 수 있다.
-- 다중 노드 환경에서는 `realtime.redis-enabled=true` 설정 후 `RealtimeEnvelopes.toTopic("/mail/sync", payload)` 를 `publish()` 로 보내 Redis Pub/Sub를 통해 모든 노드로 브로드캐스트할 수 있다.
+## 메일 모듈 연동
+- 메일 모듈은 완료 알림 전송 방식을 `SSE` 또는 `STOMP` 중 선택 가능.
+- STOMP 선택 시 realtime 모듈의 `RealtimeMessagingService` 를 사용해 토픽으로 전송한다.
+
+### 설정 예시 (메일)
+```yaml
+studio:
+  features:
+    mail:
+      web:
+        notify: stomp          # sse | stomp
+        stomp-destination: /mail-sync
+```
+
+### 클라이언트 구독 예시
+- 예: `topic-prefix=/topic` 이면 구독 경로는 `/topic/mail-sync`.
+
+### Vue(STOMP) 수신 예시
+```js
+import SockJS from 'sockjs-client';
+import Stomp from 'stompjs';
+
+const socket = new SockJS('/ws');
+const stomp = Stomp.over(socket);
+
+stomp.connect({}, () => {
+  stomp.subscribe('/topic/mail-sync', (message) => {
+    const payload = JSON.parse(message.body);
+    // payload.log 에 MailSyncLogDto 가 들어 있음
+    console.log('mail sync completed', payload.log);
+  });
+});
+```
 
 ## 제약사항 / 사용 규칙
 - **Payload는 DTO만**: 모든 페이로드 DTO는 `RealtimePayload` 를 구현해야 하며, 엔티티/도메인 모델 직접 전송은 금지.

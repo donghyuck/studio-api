@@ -21,10 +21,9 @@
 
 package studio.one.platform.realtime.autoconfigure;
 
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -39,10 +38,8 @@ import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
-import studio.one.platform.realtime.stomp.domain.model.RealtimeEnvelope;
 import studio.one.platform.realtime.stomp.messaging.LocalStompMessagingService;
 import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
-import studio.one.platform.realtime.stomp.redis.RealtimeRedisSubscriber;
 import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
@@ -50,8 +47,7 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @EnableConfigurationProperties(RealtimeStompProperties.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
-        + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
 public class RealtimeStompAutoConfiguration {
@@ -64,42 +60,13 @@ public class RealtimeStompAutoConfiguration {
     @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RealtimeMessagingService realtimeMessagingService(
             org.springframework.messaging.simp.SimpMessagingTemplate template,
-            ObjectProvider<org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope>> redisTemplate) {
-        return new LocalStompMessagingService(template, properties, redisTemplate.getIfAvailable());
-    }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "redis-enabled", havingValue = "true")
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(org.springframework.data.redis.connection.RedisConnectionFactory.class)
-    public org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope> realtimeRedisTemplate(
-            org.springframework.data.redis.connection.RedisConnectionFactory connectionFactory) {
-        org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope> template = new org.springframework.data.redis.core.RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
-        org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer<RealtimeEnvelope> serializer = new org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer<>(
-                RealtimeEnvelope.class);
-        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
-        mapper.findAndRegisterModules();
-        serializer.setObjectMapper(mapper);
-        template.setKeySerializer(new org.springframework.data.redis.serializer.StringRedisSerializer());
-        template.setValueSerializer(serializer);
-        template.afterPropertiesSet();
-        return template;
-    }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "redis-enabled", havingValue = "true")
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnBean(org.springframework.data.redis.connection.RedisConnectionFactory.class)
-    public org.springframework.data.redis.listener.RedisMessageListenerContainer realtimeRedisListenerContainer(
-            org.springframework.data.redis.connection.RedisConnectionFactory connectionFactory,
-            org.springframework.data.redis.core.RedisTemplate<String, RealtimeEnvelope> redisTemplate,
-            RealtimeMessagingService messagingService,
-            com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
-        org.springframework.data.redis.listener.RedisMessageListenerContainer container = new org.springframework.data.redis.listener.RedisMessageListenerContainer();
-        container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(new RealtimeRedisSubscriber(redisTemplate, messagingService, objectMapper),
-                new org.springframework.data.redis.listener.PatternTopic(properties.getRedisChannel()));
-
-        return container;
+            ObjectProvider<BeanFactory> beanFactoryProvider) {
+        BeanFactory beanFactory = beanFactoryProvider.getIfAvailable();
+        Object redisTemplate = null;
+        if (beanFactory != null && beanFactory.containsBean("realtimeRedisTemplate")) {
+            redisTemplate = beanFactory.getBean("realtimeRedisTemplate");
+        }
+        return new LocalStompMessagingService(template, properties, redisTemplate);
     }
 
     @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:jwt-handshake-handler")
@@ -110,7 +77,7 @@ public class RealtimeStompAutoConfiguration {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                 RealtimeStompAutoConfiguration.FEATURE_NAME,
-                LogUtils.blue(RealtimeHandshakeHandler.class, true),  
+                LogUtils.blue(RealtimeHandshakeHandler.class, true),
                 LogUtils.red(State.CREATED.toString())));
         return new RealtimeHandshakeHandler(properties, provider.getIfAvailable());
     }

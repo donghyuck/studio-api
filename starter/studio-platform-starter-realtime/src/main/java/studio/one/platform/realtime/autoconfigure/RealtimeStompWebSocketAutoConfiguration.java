@@ -23,7 +23,6 @@ package studio.one.platform.realtime.autoconfigure;
 
 import java.util.List;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -42,28 +41,24 @@ import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
 @AutoConfiguration
 @EnableWebSocketMessageBroker
 @EnableConfigurationProperties(RealtimeStompProperties.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
-        + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX  + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
 public class RealtimeStompWebSocketAutoConfiguration implements WebSocketMessageBrokerConfigurer {
-
     private final RealtimeStompProperties properties;
     private final RealtimeHandshakeHandler handshakeHandler;
     private final List<HandshakeInterceptor> handshakeInterceptors;
-
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker(properties.getTopicPrefix(), properties.getUserPrefix());
         registry.setApplicationDestinationPrefixes(properties.getAppDestinationPrefix());
         registry.setUserDestinationPrefix(properties.getUserPrefix());
     }
-
     @Override
-    public void registerStompEndpoints(StompEndpointRegistry registry) { 
+    public void registerStompEndpoints(StompEndpointRegistry registry) {
         var endpoint = registry.addEndpoint(properties.getEndpoint())
-         .addInterceptors(handshakeInterceptors.toArray(new HandshakeInterceptor[0]))
-         .setHandshakeHandler(handshakeHandler);
+                .addInterceptors(handshakeInterceptors.toArray(new HandshakeInterceptor[0]))
+                .setHandshakeHandler(handshakeHandler);
         if (properties.getAllowedOrigins() != null) {
             endpoint.setAllowedOrigins(properties.getAllowedOrigins().toArray(new String[0]));
         }

@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.application.mail.service.MailSyncNotifier;
+import studio.one.application.mail.service.SseMailSyncNotifier;
 import studio.one.platform.constant.PropertyKeys;
 
 @RestController
@@ -17,7 +17,7 @@ import studio.one.platform.constant.PropertyKeys;
 @Validated
 public class MailSseController {
     
-    private final MailSyncNotifier mailSyncNotifier;
+    private final SseMailSyncNotifier mailSyncNotifier;
 
     @GetMapping("/sync/stream")
     @PreAuthorize("@endpointAuthz.can('features:mail','read')")

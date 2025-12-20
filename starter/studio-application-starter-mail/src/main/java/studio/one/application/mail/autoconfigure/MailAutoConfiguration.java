@@ -12,6 +12,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Condition;
+import org.springframework.context.annotation.ConditionContext;
+import org.springframework.core.env.Environment;
+import org.springframework.core.type.AnnotatedTypeMetadata;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -27,6 +31,7 @@ import studio.one.application.mail.service.MailSyncJobLauncher;
 import studio.one.application.mail.service.MailSyncService;
 import studio.one.application.mail.service.MailSyncLogService;
 import studio.one.application.mail.service.MailSyncNotifier;
+import studio.one.application.mail.service.SseMailSyncNotifier;
 import studio.one.application.mail.service.impl.ImapMailSyncService;
 import studio.one.application.mail.service.impl.JdbcMailAttachmentService;
 import studio.one.application.mail.service.impl.JdbcMailMessageService;
@@ -42,7 +47,8 @@ import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.mail.autoconfigure.condition.ConditionalOnMailPersistence;
 
 @AutoConfiguration
-@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".mail", name = "enabled", havingValue = "true", matchIfMissing = true)
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
+        + ".mail", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties({ MailFeatureProperties.class, PersistenceProperties.class })
 public class MailAutoConfiguration {
 
@@ -52,7 +58,8 @@ public class MailAutoConfiguration {
     @ConditionalOnMailPersistence(PersistenceProperties.Type.jpa)
     @EnableJpaRepositories(basePackageClasses = { MailMessageRepository.class, MailAttachmentRepository.class })
     @EntityScan(basePackageClasses = { MailMessageEntity.class, MailAttachmentEntity.class })
-    static class MailJpaConfig { }
+    static class MailJpaConfig {
+    }
 
     @Bean(MailMessageService.SERVICE_NAME)
     @ConditionalOnMissingBean(MailMessageService.class)
@@ -73,7 +80,8 @@ public class MailAutoConfiguration {
         if (type == PersistenceProperties.Type.jdbc) {
             NamedParameterJdbcTemplate jdbc = jdbcProvider.getIfAvailable();
             if (jdbc == null) {
-                throw new IllegalStateException("JDBC persistence selected but NamedParameterJdbcTemplate is not available");
+                throw new IllegalStateException(
+                        "JDBC persistence selected but NamedParameterJdbcTemplate is not available");
             }
             return new JdbcMailMessageService(jdbc);
         }
@@ -92,14 +100,16 @@ public class MailAutoConfiguration {
         if (type == PersistenceProperties.Type.jpa) {
             MailAttachmentRepository repo = jpaRepositoryProvider.getIfAvailable();
             if (repo == null) {
-                throw new IllegalStateException("JPA persistence selected but MailAttachmentRepository is not available");
+                throw new IllegalStateException(
+                        "JPA persistence selected but MailAttachmentRepository is not available");
             }
             return new JpaMailAttachmentService(repo);
         }
         if (type == PersistenceProperties.Type.jdbc) {
             NamedParameterJdbcTemplate jdbc = jdbcProvider.getIfAvailable();
             if (jdbc == null) {
-                throw new IllegalStateException("JDBC persistence selected but NamedParameterJdbcTemplate is not available");
+                throw new IllegalStateException(
+                        "JDBC persistence selected but NamedParameterJdbcTemplate is not available");
             }
             return new JdbcMailAttachmentService(jdbc);
         }
@@ -125,17 +135,12 @@ public class MailAutoConfiguration {
         if (type == PersistenceProperties.Type.jdbc) {
             NamedParameterJdbcTemplate jdbc = jdbcProvider.getIfAvailable();
             if (jdbc == null) {
-                throw new IllegalStateException("JDBC persistence selected but NamedParameterJdbcTemplate is not available");
+                throw new IllegalStateException(
+                        "JDBC persistence selected but NamedParameterJdbcTemplate is not available");
             }
             return new JdbcMailSyncLogService(jdbc);
         }
         throw new IllegalStateException("Unsupported persistence type for mail sync log service: " + type);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public MailSyncNotifier mailSyncNotifier() {
-        return new MailSyncNotifier();
     }
 
     @Bean(MailSyncService.SERVICE_NAME)
@@ -156,22 +161,46 @@ public class MailAutoConfiguration {
         return new MailSyncJobLauncher(mailSyncService, mailSyncLogService, mailSyncNotifier);
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    @org.springframework.context.annotation.Conditional(MailSseCondition.class)
+    public SseMailSyncNotifier mailSyncNotifier() {
+        return new SseMailSyncNotifier();
+    }
+
     @Configuration
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty( prefix = PropertyKeys.Features.PREFIX + ".mail.web", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
+            + ".mail.web", name = "enabled", havingValue = "true", matchIfMissing = true)
     @Import(MailController.class)
-    static class MailWebConfig { 
+    static class MailWebConfig {
 
     }
 
     @Configuration
-    @ConditionalOnProperties(
-    prefix = PropertyKeys.Features.PREFIX + ".mail.web",
-    value = {
-        @ConditionalOnProperties.Property( name = "enabled", havingValue = "true", matchIfMissing = true),
-        @ConditionalOnProperties.Property( name = "sse", havingValue = "true", matchIfMissing = true)    
+    @ConditionalOnProperties(prefix = PropertyKeys.Features.PREFIX + ".mail.web", value = {
+            @ConditionalOnProperties.Property(name = "enabled", havingValue = "true", matchIfMissing = true)
     })
+    @org.springframework.context.annotation.Conditional(MailSseCondition.class)
     @Import(MailSseController.class)
-    static class MailWebSseConfig { 
+    static class MailWebSseConfig {
 
-    }    
+    }
+
+    static class MailSseCondition implements Condition {
+
+        @Override
+        public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
+            Environment env = context.getEnvironment();
+            String prefix = PropertyKeys.Features.PREFIX + ".mail.web.";
+            String sse = env.getProperty(prefix + "sse");
+            if (sse != null) {
+                return Boolean.parseBoolean(sse);
+            }
+            String notify = env.getProperty(prefix + "notify");
+            if (notify != null) {
+                return "sse".equalsIgnoreCase(notify);
+            }
+            return true;
+        }
+    }
 }

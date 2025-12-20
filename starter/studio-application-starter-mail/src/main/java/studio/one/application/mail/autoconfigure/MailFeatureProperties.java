@@ -27,7 +27,7 @@ public class MailFeatureProperties extends FeatureToggle {
     private ImapProperties imap = new ImapProperties();
 
     private Web web = new Web();
-    
+
     public studio.one.platform.autoconfigure.PersistenceProperties.Type resolvePersistence(
             studio.one.platform.autoconfigure.PersistenceProperties.Type globalDefault) {
         return super.resolvePersistence(globalDefault);
@@ -38,7 +38,21 @@ public class MailFeatureProperties extends FeatureToggle {
     @NoArgsConstructor
     public static class Web extends SimpleWebProperties {
 
-        boolean sse = false;
+        public enum NotifyTransport {
+            sse,
+            stomp
+        }
+
+        private NotifyTransport notify = NotifyTransport.sse;
+        private Boolean sse;
+        private String stompDestination = "/mail-sync";
+
+        public NotifyTransport resolveNotify() {
+            if (sse != null) {
+                return sse ? NotifyTransport.sse : NotifyTransport.stomp;
+            }
+            return notify == null ? NotifyTransport.sse : notify;
+        }
 
     }
 
