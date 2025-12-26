@@ -15,11 +15,11 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 }
 dependencies {
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    //implementation ("org.springframework.data:spring-data-commons")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly ("org.springframework.data:spring-data-commons")
+    compileOnly("org.springframework.boot:spring-boot-starter-security")
+    compileOnly("org.springframework.boot:spring-boot-starter-validation")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     api("commons-io:commons-io:${project.findProperty("apacheCommonsIoVersion")}") 
     api("org.apache.commons:commons-lang3:${project.findProperty("apacheCommonsLang3Version")}")
 }

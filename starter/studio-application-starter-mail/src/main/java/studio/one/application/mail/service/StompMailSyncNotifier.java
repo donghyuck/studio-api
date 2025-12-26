@@ -4,15 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.autoconfigure.MailFeatureProperties;
 import studio.one.application.mail.realtime.MailSyncLogPayload;
-import studio.one.application.mail.web.dto.MailSyncLogDto;
-
-import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
-
+import studio.one.application.mail.web.dto.MailSyncLogDto; 
 @Slf4j
 @RequiredArgsConstructor
 public class StompMailSyncNotifier implements MailSyncNotifier {
 
-    private final RealtimeMessagingService messagingService;
+    private final studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService messagingService;
     private final MailFeatureProperties properties;
 
     @Override

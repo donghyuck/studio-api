@@ -14,8 +14,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 
 import studio.one.application.mail.service.MailSyncNotifier;
 import studio.one.application.mail.service.StompMailSyncNotifier;
-import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
+import studio.one.platform.constant.PropertyKeys; 
 
 @AutoConfiguration
 @EnableConfigurationProperties(MailFeatureProperties.class)
@@ -27,9 +26,9 @@ public class MailStompNotifierAutoConfiguration {
     @ConditionalOnMissingBean(MailSyncNotifier.class)
     @org.springframework.context.annotation.Conditional(MailStompCondition.class)
     public MailSyncNotifier mailSyncNotifier(
-            ObjectProvider<RealtimeMessagingService> messagingServiceProvider,
+            ObjectProvider<studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService> messagingServiceProvider,
             MailFeatureProperties properties) {
-        RealtimeMessagingService messagingService = messagingServiceProvider.getIfAvailable();
+        studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService messagingService = messagingServiceProvider.getIfAvailable();
         if (messagingService == null) {
             throw new IllegalStateException(
                     "Mail notify transport is STOMP but RealtimeMessagingService is not available");

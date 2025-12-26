@@ -25,6 +25,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -53,8 +55,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.env.MutablePropertySources;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.ClassUtils;
 import org.springframework.web.context.ServletContextAware;
 import org.springframework.web.context.support.ServletContextResource;
 
@@ -110,8 +111,13 @@ import studio.one.platform.util.LogUtils;
 public class RepositoryImpl implements Repository, DomainEvents, ServletContextAware {
 
 	private static final String LOGO = "META-INF/logo";
+	private static final String TX_SYNC_MANAGER = "org.springframework.transaction.support.TransactionSynchronizationManager";
+	private static final String TX_SYNC = "org.springframework.transaction.support.TransactionSynchronization";
+	private static final String TX_IS_ACTIVE = "isActualTransactionActive";
+	private static final String TX_REGISTER = "registerSynchronization";
 
 	private AtomicBoolean initialized = new AtomicBoolean(false);
+	private volatile boolean txSyncAvailable = false;
 
 	private Resource rootResource = null;
 
@@ -285,6 +291,12 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 			logEnvironmentProperties(abstractEnvironment);
 		}
 
+		ClassLoader cl = getClass().getClassLoader();
+		txSyncAvailable = ClassUtils.isPresent(TX_SYNC_MANAGER, cl) && ClassUtils.isPresent(TX_SYNC, cl);
+		if (!txSyncAvailable) {
+			log.warn(LogUtils.red("Transaction synchronization API not found. publishAfterCommit will publish immediately."));
+		}
+
 		state = State.INITIALIZED;
 		log.info(LogUtils.format(i18n, MessageCodes.Info.COMPONENT_STATE, LogUtils.blue(getClass(), true),
 				LogUtils.red(state.toString())));
@@ -399,16 +411,31 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 	 */
 	@Override
 	public void publishAfterCommit(Object event) {
-		
-		if (TransactionSynchronizationManager.isActualTransactionActive()) {
-			// 현재 트랜잭션 커밋 후에 발행
-			TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-				@Override
-				public void afterCommit() {
-					applicationEventPublisher.publishEvent(event);
-				}
-			});
-		} else { 
+		if (!txSyncAvailable) {
+			applicationEventPublisher.publishEvent(event);
+			return;
+		}
+
+		try {
+			ClassLoader cl = getClass().getClassLoader();
+			Class<?> mgrClass = Class.forName(TX_SYNC_MANAGER, false, cl);
+			Class<?> syncClass = Class.forName(TX_SYNC, false, cl);
+			Method isActive = mgrClass.getMethod(TX_IS_ACTIVE);
+			boolean active = Boolean.TRUE.equals(isActive.invoke(null));
+			if (active) {
+				Object syncProxy = Proxy.newProxyInstance(cl, new Class<?>[] { syncClass }, (proxy, method, args) -> {
+					if ("afterCommit".equals(method.getName())) {
+						applicationEventPublisher.publishEvent(event);
+					}
+					return null;
+				});
+				Method register = mgrClass.getMethod(TX_REGISTER, syncClass);
+				register.invoke(null, syncProxy);
+			} else {
+				applicationEventPublisher.publishEvent(event);
+			}
+		} catch (ReflectiveOperationException | RuntimeException ex) {
+			log.warn("Transaction synchronization API not available. Publishing event immediately.", ex);
 			applicationEventPublisher.publishEvent(event);
 		}
 	}

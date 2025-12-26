@@ -10,17 +10,16 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import freemarker.template.Configuration;
 import freemarker.template.TemplateException;
+import studio.one.application.template.domain.entity.TemplateEntity;
+import studio.one.application.template.domain.model.Template;
 import studio.one.application.template.persistence.repository.TemplateRepository;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.platform.exception.NotFoundException;
-import studio.one.application.template.domain.entity.TemplateEntity;
-import studio.one.application.template.domain.model.Template;
 
 @Service(TemplatesService.SERVICE_NAME)
 @Transactional
