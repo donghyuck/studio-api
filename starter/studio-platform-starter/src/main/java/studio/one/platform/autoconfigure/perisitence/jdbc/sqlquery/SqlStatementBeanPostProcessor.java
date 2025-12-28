@@ -1,8 +1,5 @@
 package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;

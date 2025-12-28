@@ -13,7 +13,7 @@ import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 
-@Repository
+@Repository(ApplicationGroupRepository.SERVICE_NAME)
 public interface ApplicationGroupJpaRepository extends JpaRepository<ApplicationGroup, Long>, ApplicationGroupRepository {
 
     // 사용자 → 그룹 (Page)

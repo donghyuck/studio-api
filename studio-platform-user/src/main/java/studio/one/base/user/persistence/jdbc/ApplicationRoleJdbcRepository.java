@@ -20,7 +20,7 @@ import org.springframework.stereotype.Repository;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
 
-@Repository
+@Repository(ApplicationRoleRepository.SERVICE_NAME)
 public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements ApplicationRoleRepository {
 
     private static final String TABLE = "TB_APPLICATION_ROLE";

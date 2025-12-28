@@ -9,8 +9,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import studio.one.base.user.domain.entity.ApplicationRole;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationRoleRepository {
+
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:role-repository";
+
 
     Page<ApplicationRole> findAll(Pageable pageable);
 

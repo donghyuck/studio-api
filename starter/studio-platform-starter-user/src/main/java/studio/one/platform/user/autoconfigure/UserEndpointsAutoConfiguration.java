@@ -69,12 +69,11 @@ import studio.one.platform.util.LogUtils;
 @Configuration
 @EnableConfigurationProperties(WebProperties.class)
 @AutoConfigureAfter(UserServicesAutoConfiguration.class)
-@ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
+@ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.PREFIX, name = "enabled", havingValue = "true" , matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
 public class UserEndpointsAutoConfiguration {
-
-    private static final String FEATURE_NAME = "User";
+ 
     private final WebProperties webProperties;
     private final I18n i18n;
 
@@ -107,14 +106,13 @@ public class UserEndpointsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
-            + ".group", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".group", name = "enabled", havingValue = "true", matchIfMissing = true)
     public GroupController groupEndpoint(
             ApplicationGroupService svc,
             ApplicationGroupMapper groupMapper,
             ApplicationUserMapper userMapper,
             ApplicationRoleMapper roleMapper) {
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationGroupService.class, true),
                 LogUtils.blue(GroupController.class, true),
                 webProperties.normalizedBasePath() + "/groups", LogUtils.blue("ACL-managed")));
@@ -122,13 +120,12 @@ public class UserEndpointsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
-            + ".user", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".user", name = "enabled", havingValue = "true", matchIfMissing = true )
     public UserController userEndpoint(
             ApplicationUserService svc,
             ApplicationUserMapper mapper,
             ApplicationRoleMapper roleMapper) {
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserController.class, true),
                 webProperties.normalizedBasePath() + "/users",
@@ -137,14 +134,13 @@ public class UserEndpointsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX
-            + ".role", name = "enabled", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX  + ".role", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RoleController roleEndpoint(
             ApplicationRoleService svc,
             ApplicationRoleMapper mapper,
             ApplicationGroupMapper gmapper,
             ApplicationUserMapper umapper) {
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationRoleService.class, true),
                 LogUtils.blue(RoleController.class, true),
                 webProperties.normalizedBasePath() + "/roles",
@@ -157,7 +153,7 @@ public class UserEndpointsAutoConfiguration {
     public MeController selfEndpoint(
             ApplicationUserService svc,
             ApplicationUserMapper mapper) {
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue("Self"),
                 LogUtils.blue(MeController.class, true),
                 webProperties.getSelf().getPath()),

@@ -25,7 +25,7 @@ import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 
-@Repository
+@Repository(ApplicationGroupRoleRepository.SERVICE_NAME)
 public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository implements ApplicationGroupRoleRepository {
 
     private static final Map<String, String> GROUP_SORT_COLUMNS = Map.of(

@@ -7,8 +7,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.entity.ApplicationCompany;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationCompanyRepository {
+
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:company-repository";
 
     Page<ApplicationCompany> findAll(Pageable pageable);
 

@@ -9,8 +9,10 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationGroupMembershipRepository {
+public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:group-membership-repository";
 
   interface GroupCount {
 

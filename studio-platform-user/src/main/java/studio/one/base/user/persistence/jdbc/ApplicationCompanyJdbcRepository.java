@@ -19,7 +19,7 @@ import org.springframework.stereotype.Repository;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 
-@Repository
+@Repository(ApplicationCompanyRepository.SERVICE_NAME)
 public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository implements ApplicationCompanyRepository {
 
     private static final String TABLE = "TB_APPLICATION_COMPANY";

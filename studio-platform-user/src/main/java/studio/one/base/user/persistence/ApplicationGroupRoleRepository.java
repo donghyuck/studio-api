@@ -11,8 +11,11 @@ import studio.one.base.user.domain.entity.ApplicationGroupRole;
 import studio.one.base.user.domain.entity.ApplicationGroupRoleId;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.domain.entity.ApplicationRole;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationGroupRoleRepository {
+
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:group-role-repository";
 
     List<ApplicationRole> findRolesByGroupId(Long groupId);
 

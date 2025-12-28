@@ -16,7 +16,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.user.domain.entity.ApplicationRole;
@@ -25,8 +24,7 @@ import studio.one.base.user.domain.entity.ApplicationUserRole;
 import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 
-@Repository
-@ConditionalOnMissingBean(type = "studio.one.base.user.persistence.ApplicationUserRoleRepository")
+@Repository(ApplicationUserRoleRepository.SERVICE_NAME)
 public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implements ApplicationUserRoleRepository {
 
     private static final Map<String, String> USER_SORT_COLUMNS = Map.of(

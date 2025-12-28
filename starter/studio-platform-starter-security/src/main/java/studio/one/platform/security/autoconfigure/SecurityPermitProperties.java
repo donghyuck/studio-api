@@ -21,6 +21,8 @@
 
 package studio.one.platform.security.autoconfigure;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,6 +53,6 @@ import lombok.Setter;
 @Getter
 @Setter
 public class SecurityPermitProperties {
-    private List<String> permitAll;
-    private Map<String, List<String>> role;
+    private List<String> permitAll = new ArrayList<>();
+    private Map<String, List<String>> role = new HashMap<>();
 }

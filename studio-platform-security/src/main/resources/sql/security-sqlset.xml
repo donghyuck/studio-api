@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sqlset name="security" namespace="security" description="Security SQLs"> 
-
     <sql id="refreshToken.insert">
         <![CDATA[
         insert into TB_APPLICATION_REFRESH_TOKEN
@@ -10,7 +9,6 @@
         returning ID
         ]]>
     </sql>
-
     <sql id="refreshToken.update">
         <![CDATA[
         update TB_APPLICATION_REFRESH_TOKEN

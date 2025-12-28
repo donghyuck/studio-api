@@ -6,6 +6,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -53,7 +54,7 @@ import studio.one.platform.util.LogUtils;
 @Slf4j
 public class UserServicesAutoConfiguration {
 
-        private static final String FEATURE_NAME = "User";
+        protected static final String FEATURE_NAME = "User";
         private final ObjectProvider<I18n> i18nProvider;
 
         @Bean
@@ -141,12 +142,12 @@ public class UserServicesAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(UserCacheEvictListener.class)
-        @ConditionalOnClass(CacheManager.class)
-        UserCacheEvictListener userCacheEvictListener(CacheManager cacheManager) {
-                I18n i18n = I18nUtils.resolve(i18nProvider);
+        @ConditionalOnBean(CacheManager.class)
+        UserCacheEvictListener userCacheEvictListener(ObjectProvider<CacheManager> cacheManager) {
+                I18n i18n = I18nUtils.resolve(i18nProvider); 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(UserCacheEvictListener.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new UserCacheEvictListener(cacheManager);
+                return new UserCacheEvictListener(cacheManager.getIfAvailable());
         }
 }

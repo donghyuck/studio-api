@@ -17,9 +17,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.support.MessageSourceAccessor;
+import org.springframework.context.support.MessageSourceAccessor; 
 import org.springframework.stereotype.Service;
-
+import org.springframework.stereotype.Repository;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.I18nProperties;
@@ -85,6 +85,13 @@ public class I18nAutoConfiguration {
             I18n i18n = I18nUtils.resolve(i18nProvider);
             String[] serviceBeanNames = bf.getBeanNamesForAnnotation(Service.class);
             for (String beanName : serviceBeanNames) {
+                Object obj = bf.getBean(beanName);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, featureString(beanName),
+                        LogUtils.blue(simpleClassName(obj)),
+                        LogUtils.red(State.CREATED.toString())));
+            }
+            String[] repositoryBeanNames = bf.getBeanNamesForAnnotation(Repository.class);
+            for (String beanName : repositoryBeanNames) {
                 Object obj = bf.getBean(beanName);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, featureString(beanName),
                         LogUtils.blue(simpleClassName(obj)),

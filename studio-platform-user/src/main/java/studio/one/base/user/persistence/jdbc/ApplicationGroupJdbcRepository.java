@@ -22,7 +22,7 @@ import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 
-@Repository
+@Repository(ApplicationGroupRepository.SERVICE_NAME)
 public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implements ApplicationGroupRepository {
 
     private static final String TABLE = "TB_APPLICATION_GROUP";

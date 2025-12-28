@@ -18,7 +18,7 @@ import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 
-@Repository
+@Repository(ApplicationGroupRoleRepository.SERVICE_NAME)
 public interface ApplicationGroupRoleJpaRepository extends JpaRepository<ApplicationGroupRole, ApplicationGroupRoleId>,
     ApplicationGroupRoleRepository {
 

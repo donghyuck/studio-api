@@ -56,8 +56,7 @@ import studio.one.platform.constant.PropertyKeys;
 public class SecurityProperties {
 
     private boolean enabled = false;
-    private boolean failIfMissing = true;
-
+    private boolean failIfMissing = true; 
     private String defaultRole;
 
     // PBKDF2 관련 설정
@@ -65,6 +64,9 @@ public class SecurityProperties {
     private int pbkdf2Iterations = 185000;
     private int pbkdf2HashWidth = 256;
     private String[] defaultRoles = new String[] {};
+    
+    private final FormLoginProperties formLogin = new FormLoginProperties();
+    private final LogoutProperties logout = new LogoutProperties();
 
     private CorsProperties cors = new CorsProperties();
     private JwtProperties jwt = new JwtProperties();

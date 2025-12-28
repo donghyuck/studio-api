@@ -9,8 +9,11 @@ import org.springframework.data.domain.Pageable;
 import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.UserIdOnly;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationUserRepository {
+
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:user-repository";
 
     Page<ApplicationUser> findAll(Pageable pageable);
 

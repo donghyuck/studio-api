@@ -22,6 +22,7 @@
 
 package studio.one.platform.security.autoconfigure;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import lombok.Getter;
@@ -56,12 +57,11 @@ import lombok.Setter;
 @Setter
 public class CorsProperties {
     private boolean enabled = true;
-    private List<String> allowedOrigins;
-    private List<String> allowedOriginPatterns;
-    private List<String> allowedMethods;
-    private List<String> allowedHeaders;
-    private List<String> exposedHeaders;
-    private Boolean allowCredentials;
-    private Long maxAge;
-
+    private List<String> allowedOrigins = new ArrayList<>();
+    private List<String> allowedOriginPatterns = new ArrayList<>();
+    private List<String> allowedMethods = List.of("GET", "POST", "PUT", "DELETE", "OPTIONS");
+    private List<String> allowedHeaders = List.of("*");
+    private List<String> exposedHeaders = new ArrayList<>();
+    private Boolean allowCredentials = true;
+    private Long maxAge = 3600L;
 }

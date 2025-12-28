@@ -58,7 +58,7 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 @Setter
 public class JwtProperties implements JwtConfig {
 
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     private String secret;
 
@@ -92,7 +92,6 @@ public class JwtProperties implements JwtConfig {
     @Getter
     @Setter
     public static class Endpoints {
-
         private boolean loginEnabled = true;
         private boolean refreshEnabled = true;
         private String basePath = "/api/auth";

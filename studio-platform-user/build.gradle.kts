@@ -14,13 +14,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 val mapstructVersion: String = project.findProperty("mapstructVersion") as String? ?: "0.11.5"
 dependencies {
-    implementation("org.springframework.boot:spring-boot-starter")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
-    implementation("org.springframework.boot:spring-boot-starter-security")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation(project(":studio-platform")) 
-    implementation ("org.mapstruct:mapstruct:$mapstructVersion")
+    compileOnly("org.springframework.boot:spring-boot-starter")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    compileOnly("org.springframework.boot:spring-boot-starter-security")
+    compileOnly("org.springframework.boot:spring-boot-starter-validation")
+    compileOnly(project(":studio-platform")) 
+    compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 }

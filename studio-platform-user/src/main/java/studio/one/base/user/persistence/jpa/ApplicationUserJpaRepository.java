@@ -18,7 +18,7 @@ import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.UserIdOnly;
 import studio.one.base.user.persistence.ApplicationUserRepository;
 
-@Repository
+@Repository(ApplicationUserRepository.SERVICE_NAME)
 public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationUser, Long>, ApplicationUserRepository {
 
     @Override

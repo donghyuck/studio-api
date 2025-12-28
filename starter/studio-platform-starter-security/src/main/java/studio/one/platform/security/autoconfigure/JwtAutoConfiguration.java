@@ -48,7 +48,7 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @EnableConfigurationProperties({ SecurityProperties.class, PersistenceProperties.class })
-@ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
 @AutoConfigureAfter(SecurityAutoConfiguration.class)
 @RequiredArgsConstructor
 @Slf4j

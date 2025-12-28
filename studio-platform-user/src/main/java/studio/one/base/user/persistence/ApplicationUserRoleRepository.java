@@ -10,8 +10,11 @@ import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.entity.ApplicationUserRole;
 import studio.one.base.user.domain.entity.ApplicationUserRoleId;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationUserRoleRepository {
+
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:user-role-repository";
 
     List<ApplicationUserRole> findAllByUserId(Long userId);
 

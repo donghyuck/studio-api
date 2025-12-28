@@ -170,6 +170,9 @@ public class XmlStatementBuilder extends AbstractBuilder {
 		List<SqlNode> contents = parseDynamicTags(context);
 		MixedSqlNode rootSqlNode = new MixedSqlNode(contents);
 		SqlSource sqlSource = new DynamicSqlSource(rootSqlNode, parameterMappings, resultrMappings);
-		builderAssistant.addMappedStatement(idToUse, descriptionToUse, sqlSource, statementType, fetchSize, timeout);
+		var mapped = builderAssistant.addMappedStatement(idToUse, descriptionToUse, sqlSource, statementType, fetchSize, timeout);
+		if (log.isDebugEnabled()) {
+			log.debug("Registered SQL statement: {}", mapped.getId());
+		}
 	}
 }

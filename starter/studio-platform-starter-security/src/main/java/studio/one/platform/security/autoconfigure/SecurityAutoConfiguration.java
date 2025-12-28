@@ -222,7 +222,7 @@ import studio.one.platform.util.LogUtils;
 @SuppressWarnings("java:S1118")
 public class SecurityAutoConfiguration {
 
-        private static final String FEATURE_NAME = "Security";
+        protected static final String FEATURE_NAME = "Security";
 
         /**
          * PasswordEncoder 빈을 정의합니다.
@@ -283,6 +283,9 @@ public class SecurityAutoConfiguration {
                 return new DelegatingPasswordEncoder(idForEncode, encoders);
         }
 
+        /*
+        * CORS 설정을 위한 CorsConfigurationSource 빈을 정의합니다.
+         */
         @Primary
         @Bean(name = ServiceNames.CORS_CONFIGURATION_SOURCE)
         @ConditionalOnMissingBean(name = ServiceNames.CORS_CONFIGURATION_SOURCE)
@@ -349,6 +352,12 @@ public class SecurityAutoConfiguration {
                 return source;
         }
 
+        /**
+         * AuthenticationErrorHandler 빈을 정의합니다. 이클래스는 인증 오류 처리를 담당합니다.
+         * @param objectMapper
+         * @param i18nProvider
+         * @return
+         */
         @Bean
         @ConditionalOnMissingBean
         @ConditionalOnClass({ AuthenticationErrorHandler.class })
@@ -380,6 +389,13 @@ public class SecurityAutoConfiguration {
                                 .build();
         }
 
+        /**
+         * UserDetailsService 빈을 정의합니다.
+         * @param userService
+         * @param accountLockService
+         * @param i18nProvider
+         * @return
+         */
         @Bean(ServiceNames.USER_DETAILS_SERVICE)
         @ConditionalOnMissingBean(ApplicationUserDetailsService.class)
         @ConditionalOnClass({ ApplicationUserService.class })

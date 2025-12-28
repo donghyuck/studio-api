@@ -1,43 +1,52 @@
 package studio.one.platform.user.autoconfigure;
 
+import java.time.Clock;
+import java.util.List;
+import java.util.regex.Pattern;
+
 import javax.persistence.EntityManagerFactory;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.BeanDefinitionRegistry;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.FilterType;
 import org.springframework.core.Ordered;
 import org.springframework.core.PriorityOrdered;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.persistence.ApplicationUserRepository;
+import studio.one.base.user.domain.event.listener.UserCacheEvictListener;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
+import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.service.I18n;
 import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersistence;
-import java.util.List;
-import java.util.regex.Pattern;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
-@ConditionalOnClass(EnableJpaRepositories.class)
 @EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @Slf4j
-@SuppressWarnings("java:S1118")
+@RequiredArgsConstructor
 public class UserEntityAutoConfiguration {
+        protected static final String FEATURE_NAME = "User";
+        private final ObjectProvider<I18n> i18nProvider;
 
         @Bean
         static BeanDefinitionRegistryPostProcessor userRepositoryExcluder(UserFeatureProperties props) {
@@ -129,10 +138,8 @@ public class UserEntityAutoConfiguration {
         @Configuration(proxyBeanMethods = false)
         @AutoConfigureAfter(HibernateJpaAutoConfiguration.class)
         @ConditionalOnBean(EntityManagerFactory.class)
-        @ConditionalOnMissingBean(ApplicationUserRepository.class)
         @ConditionalOnUserPersistence(PersistenceProperties.Type.jpa)
-        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".repository-packages:"
-                        + UserFeatureProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
+        @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".repository-packages:" + UserFeatureProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
         static class JpaWiring {
         }
 
@@ -140,21 +147,35 @@ public class UserEntityAutoConfiguration {
          * JDBC 스캔
          */
         @Configuration(proxyBeanMethods = false)
-        @ConditionalOnMissingBean(ApplicationUserRepository.class)
         @ConditionalOnUserPersistence(PersistenceProperties.Type.jdbc)
-        @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".jdbc-repository-packages:"
-                        + UserFeatureProperties.JDBC_REPOSITORY_PACKAGE + "}")
+        @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".jdbc-repository-packages:" + UserFeatureProperties.JDBC_REPOSITORY_PACKAGE + "}")
         static class JdbcWiring {
+
         }
 
         /**
          * Service Impl 스캔
          */
         @Configuration(proxyBeanMethods = false)
-        @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX +
-                        ".component-packages:"
-                        + UserFeatureProperties.DEFAULT_COMPONENT_PACKAGE + "}")
+        @ComponentScan(basePackages = "${" + PropertyKeys.Features.User.PREFIX + ".component-packages:"  + UserFeatureProperties.DEFAULT_COMPONENT_PACKAGE + "}")
         static class UserComponentScan {
+
         }
 
+        @Bean
+        @ConditionalOnMissingBean
+        public Clock jwtClock() {
+                return Clock.systemUTC();
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(UserCacheEvictListener.class)
+        @ConditionalOnBean(CacheManager.class)
+        UserCacheEvictListener userCacheEvictListener(CacheManager cacheManager) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(UserCacheEvictListener.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new UserCacheEvictListener(cacheManager);
+        }
 }

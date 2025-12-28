@@ -12,7 +12,7 @@ import org.springframework.stereotype.Repository;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 
-@Repository
+@Repository(ApplicationCompanyRepository.SERVICE_NAME)
 public interface ApplicationCompanyJpaRepository extends JpaRepository<ApplicationCompany, Long>, ApplicationCompanyRepository {
 
     @Override

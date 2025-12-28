@@ -15,6 +15,8 @@ import studio.one.platform.constant.PropertyKeys;
 @ConfigurationProperties(prefix = PropertyKeys.Features.User.Web.PREFIX)
 public class WebProperties {
 
+    private boolean enabled = false; 
+
     /** 공통 베이스 경로 (예: /api/mgmt) */
     @NotBlank
     private String basePath = "/api/mgmt";

@@ -20,7 +20,7 @@ import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 
-@Repository
+@Repository(ApplicationGroupMembershipRepository.SERVICE_NAME)
 public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         implements ApplicationGroupMembershipRepository {
 

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Repository;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
 
-@Repository
+@Repository(ApplicationRoleRepository.SERVICE_NAME)
 public interface ApplicationRoleJpaRepository extends JpaRepository<ApplicationRole, Long>, ApplicationRoleRepository {
 
     @Override

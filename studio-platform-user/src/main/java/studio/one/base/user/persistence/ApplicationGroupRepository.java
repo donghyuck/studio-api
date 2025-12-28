@@ -8,8 +8,12 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
+import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationGroupRepository {
+
+    public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:repository:group-repository";
+
 
     Page<ApplicationGroup> findAll(Pageable pageable);
 

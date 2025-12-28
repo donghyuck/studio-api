@@ -18,7 +18,7 @@ import studio.one.base.user.domain.entity.ApplicationUserRole;
 import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 
-@Repository
+@Repository(ApplicationUserRoleRepository.SERVICE_NAME)
 @ConditionalOnMissingBean(type = "studio.one.base.user.persistence.ApplicationUserRoleRepository")
 public interface ApplicationUserRoleJpaRepository extends JpaRepository<ApplicationUserRole, ApplicationUserRoleId>,
         ApplicationUserRoleRepository {
