@@ -90,6 +90,82 @@ public class AuthFacade {
 - 로그인 실패 이벤트 리스너가 감사 로그를 기록한다.
 - 계정 잠금은 `AccountLockService`를 통해 실패 횟수와 잠금 시간을 관리한다.
 
+## 웹 응용프로그램 적용 가이드
+스타터가 자동 구성해주더라도, 실제 웹 애플리케이션에서는 보안 필터 체인과 사용자 정보 제공을 직접 연결해야 한다.
+
+### 1) 필수 의존성/빈 준비
+- `studio-platform-starter-security` 의존성 추가
+- 사용자 기능을 사용할 경우 `studio-platform-starter-user` 의존성 추가
+- `UserDetailsService` 빈이 반드시 있어야 한다
+  - user 스타터 사용 시 자동 제공됨
+  - 커스텀 사용자 저장소를 쓰면 직접 구현/등록해야 함
+
+### 2) 필수 프로퍼티 설정
+최소 설정 예시:
+```yaml
+studio:
+  security:
+    enabled: true
+    jwt:
+      enabled: true
+      secret: "change-me"
+      issuer: "my-app"
+      endpoints:
+        base-path: /api/auth
+        login-enabled: true
+        refresh-enabled: true
+```
+
+### 3) SecurityFilterChain 구성 클래스 추가
+SecurityFilterChain은 애플리케이션의 보안 필터 흐름, 인증/인가 정책, 예외 처리 방식을 결정한다.  
+스타터는 필요한 빈을 제공하지만, 실제 요청 경로/허용 정책은 앱마다 달라 직접 구성해야 한다.  
+JWT 필터/예외 처리/권한 정책을 직접 구성해야 한다. 아래는 최소 구성 예시이다.
+```java
+@Configuration
+@RequiredArgsConstructor
+public class SecurityFilterConfig {
+
+    private final SecurityProperties securityProperties;
+
+    @Bean
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            AuthenticationManager authenticationManager,
+            JwtTokenProvider jwtTokenProvider,
+            @Qualifier(ServiceNames.USER_DETAILS_SERVICE) UserDetailsService userDetailsService,
+            AuthenticationErrorHandler authenticationErrorHandler,
+            CorsConfigurationSource corsConfigurationSource) throws Exception {
+
+        JwtAuthenticationFilter jwtFilter = new JwtAuthenticationFilter(
+                securityProperties.getJwt().getEndpoints().getBasePath(),
+                jwtTokenProvider,
+                userDetailsService,
+                authenticationErrorHandler);
+
+        return http
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .authorizeHttpRequests(authz -> {
+                    authz.antMatchers(securityProperties.getJwt().getEndpoints().getBasePath() + "/login").permitAll();
+                    authz.antMatchers(securityProperties.getJwt().getEndpoints().getBasePath() + "/refresh").permitAll();
+                    authz.anyRequest().authenticated();
+                })
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler(new ApplicationAccessDeniedHandler(authenticationErrorHandler))
+                        .authenticationEntryPoint(new ApplicationAuthenticationEntryPoint(authenticationErrorHandler)))
+                .authenticationManager(authenticationManager)
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
+    }
+}
+```
+실제 프로젝트에서는 `studio-server/src/main/java/studio/server/config/SecurityFilterConfig.java`를 참고해도 된다.
+
+### 4) 스키마 준비
+JWT/리프레시/비밀번호 재설정 토큰 저장을 사용하면 아래 스키마가 필요하다.
+- `studio-platform-security/src/main/resources/schema/postgres/V0.5.0__create_jwt_tables.sql`
+
 ## 참고
 - 사용자 테이블은 `studio-platform-user` 모듈의 `TB_APPLICATION_USER`를 사용한다.
 - REST 컨트롤러는 스타터 설정에서 활성화된다.
