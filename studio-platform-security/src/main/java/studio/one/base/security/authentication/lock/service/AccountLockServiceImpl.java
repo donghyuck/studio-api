@@ -83,18 +83,18 @@ public class AccountLockServiceImpl implements AccountLockService {
         final boolean lockingEnabled = isEnabled();
         final Instant now = Instant.now(clock);
 
-        log.debug("[LOCK] failed login for '{}': enabled={}, maxAttempts={}, window={}, lockDuration={}",
-                username, lockingEnabled, maxAttempts, window, lockDuration);
-
+        boolean useWindow = useWindow();
         boolean withinWindow = false;
-        if (useWindow()) {
+        if (useWindow) {
             Instant lastFailedAt = accountLockRepository.findLastFailedAt(username);
             if (lastFailedAt != null) {
                 withinWindow = Duration.between(lastFailedAt, now).compareTo(window) <= 0;
             }
         }
+        log.debug("[LOCK] failed login for '{}': enabled={}, maxAttempts={}, window={}, windowEnabled={}, withinWindow={}, lockDuration={}",
+                username, lockingEnabled, maxAttempts, window, useWindow, withinWindow, lockDuration);
 
-        if (!withinWindow) {
+        if (useWindow && !withinWindow) {
             accountLockRepository.resetLockState(username);
         }
 

@@ -31,7 +31,6 @@ public class SecurityWebAdviceAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, SecurityAutoConfiguration.FEATURE_NAME,
                                 LogUtils.blue(SecurityExceptionHandler.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-
         return new SecurityExceptionHandler(accountLockService, clock.getIfAvailable(), i18n); 
     }
 }

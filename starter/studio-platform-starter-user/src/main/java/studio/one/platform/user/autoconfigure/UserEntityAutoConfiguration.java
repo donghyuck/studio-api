@@ -45,13 +45,13 @@ import studio.one.platform.util.LogUtils;
 @Slf4j
 @RequiredArgsConstructor
 public class UserEntityAutoConfiguration {
+        
         protected static final String FEATURE_NAME = "User";
         private final ObjectProvider<I18n> i18nProvider;
 
         @Bean
         static BeanDefinitionRegistryPostProcessor userRepositoryExcluder(UserFeatureProperties props) {
-                List<Pattern> patterns = buildPatterns(props.getExcludeRepositoryPackages(),
-                                props.getExcludeJdbcRepositoryPackages());
+                List<Pattern> patterns = buildPatterns(props.getExcludeRepositoryPackages(), props.getExcludeJdbcRepositoryPackages());
                 return new ExcludePostProcessor(patterns);
         }
 

@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -33,8 +34,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.security.authentication.AuthenticationEventPublisher;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -54,10 +59,12 @@ import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 import studio.one.base.security.userdetails.ApplicationUserDetailsService;
 import studio.one.base.user.service.ApplicationUserService;
+
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.security.authz.AllowAllEndpointAuthorization;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -283,8 +290,18 @@ public class SecurityAutoConfiguration {
                 return new DelegatingPasswordEncoder(idForEncode, encoders);
         }
 
+        @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
+        @ConditionalOnMissingBean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
+        public AllowAllEndpointAuthorization endpointAuthorizationFallback(ObjectProvider<I18n> i18nProvider) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.warn(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(AllowAllEndpointAuthorization.class, true),
+                                LogUtils.red("FALLBACK_ALLOW_ALL")));
+                return new AllowAllEndpointAuthorization();
+        }
+
         /*
-        * CORS 설정을 위한 CorsConfigurationSource 빈을 정의합니다.
+         * CORS 설정을 위한 CorsConfigurationSource 빈을 정의합니다.
          */
         @Primary
         @Bean(name = ServiceNames.CORS_CONFIGURATION_SOURCE)
@@ -354,6 +371,7 @@ public class SecurityAutoConfiguration {
 
         /**
          * AuthenticationErrorHandler 빈을 정의합니다. 이클래스는 인증 오류 처리를 담당합니다.
+         * 
          * @param objectMapper
          * @param i18nProvider
          * @return
@@ -371,31 +389,42 @@ public class SecurityAutoConfiguration {
                 return new AuthenticationErrorHandler(objectMapper, i18n);
         }
 
-        @Bean(ServiceNames.AUTHENTICATION_MANAGER)
-        @ConditionalOnMissingBean
+        @Bean
+        @ConditionalOnMissingBean(DaoAuthenticationProvider.class)
+        public DaoAuthenticationProvider daoAuthenticationProvider(
+                        @Qualifier(ServiceNames.USER_DETAILS_SERVICE) UserDetailsService uds,
+                        @Qualifier(ServiceNames.PASSWORD_ENCODER) PasswordEncoder pe) {
+
+                DaoAuthenticationProvider p = new DaoAuthenticationProvider();
+                p.setUserDetailsService(uds);
+                p.setPasswordEncoder(pe);
+                return p;
+        }
+
+        @Bean(name = ServiceNames.AUTHENTICATION_MANAGER)
+        @ConditionalOnMissingBean(AuthenticationManager.class)
         public AuthenticationManager authenticationManager(
-                        HttpSecurity http,
-                        @Qualifier(ServiceNames.USER_DETAILS_SERVICE) UserDetailsService userDetailsService,
-                        PasswordEncoder passwordEncoder,
-                        ObjectProvider<I18n> i18nProvider) throws Exception {
+                        DaoAuthenticationProvider daoProvider,
+                        AuthenticationEventPublisher eventPublisher,
+                        ObjectProvider<I18n> i18nProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(AuthenticationManager.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return http.getSharedObject(AuthenticationManagerBuilder.class)
-                                .userDetailsService(userDetailsService)
-                                .passwordEncoder(passwordEncoder)
-                                .and()
-                                .build();
+                ProviderManager pm = new ProviderManager(daoProvider);
+                pm.setAuthenticationEventPublisher(eventPublisher);
+                return pm;
         }
 
         /**
          * UserDetailsService 빈을 정의합니다.
+         * 
          * @param userService
          * @param accountLockService
          * @param i18nProvider
          * @return
          */
+        @Primary
         @Bean(ServiceNames.USER_DETAILS_SERVICE)
         @ConditionalOnMissingBean(ApplicationUserDetailsService.class)
         @ConditionalOnClass({ ApplicationUserService.class })

@@ -33,13 +33,13 @@ public class RefreshTokenJdbcRepositoryV2 implements RefreshTokenRepository {
             .replacedBy(mapReplacedBy(rs.getObject("REPLACED_BY_ID", Long.class)))
             .build();
 
-    @SqlStatement("security.refreshToken.insert")
+    @SqlStatement("security.refreshTokenInsert")
     private String insertSql;
 
-    @SqlStatement("security.refreshToken.update")
+    @SqlStatement("security.refreshTokenUpdate")
     private String updateSql;
 
-    @SqlStatement("security.refreshToken.findBySelector")
+    @SqlStatement("security.refreshTokenFindBySelector")
     private String findBySelectorSql;
 
     private final NamedParameterJdbcTemplate template;

@@ -30,13 +30,13 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
             .createdAt(rs.getTimestamp("CREATED_AT").toInstant())
             .build();
 
-    @SqlStatement("security.passwordResetToken.insert")
+    @SqlStatement("security.passwordResetTokenInsert")
     private String insertSql;
 
-    @SqlStatement("security.passwordResetToken.update")
+    @SqlStatement("security.passwordResetTokenUpdate")
     private String updateSql;
 
-    @SqlStatement("security.passwordResetToken.findByToken")
+    @SqlStatement("security.passwordResetTokenFindByToken")
     private String findByTokenSql;
 
     private final NamedParameterJdbcTemplate template;

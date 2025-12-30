@@ -5,6 +5,7 @@ import java.time.Clock;
 import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -63,8 +64,7 @@ public class JwtAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX
-            + ".jwt", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX  + ".jwt", name = "enabled", havingValue = "true", matchIfMissing = true)
     public Clock jwtClock(ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
@@ -122,6 +122,7 @@ public class JwtAutoConfiguration {
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<RefreshTokenStore> storeProvider,
             ObjectProvider<I18n> i18nProvider) {
+
         I18n i18n = I18nUtils.resolve(i18nProvider);
         JwtProperties props = securityProperties.getJwt();
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,

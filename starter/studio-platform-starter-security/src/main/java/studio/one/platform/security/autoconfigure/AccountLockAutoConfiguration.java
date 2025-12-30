@@ -54,14 +54,13 @@ public class AccountLockAutoConfiguration {
 
                 PersistenceProperties.Type globalPersistence = persistenceProperties.getType();
                 PersistenceProperties.Type lockPersistence = properties.resolvePersistence(globalPersistence); 
-                if (lockPersistence == PersistenceProperties.Type.jpa
+                boolean explicitLockPersistence = properties.getPersistence() != null;
+                if (explicitLockPersistence
+                                && lockPersistence == PersistenceProperties.Type.jpa
                                 && globalPersistence != PersistenceProperties.Type.jpa) {
-                        throw new IllegalStateException(
-                                        """
-                                                        Account lock persistence is set to JPA but studio.persistence.type=%s. \
-                                                        Enable JPA persistence for the user module or change security.auth.lock.persistence to jdbc."""
-                                                        .formatted(globalPersistence));
-                } 
+                                        
+                        log.warn("Account lock persistence is set to JPA while studio.persistence.type={}; ensure JPA is configured." + LogUtils.red("studio.features.user.persistence must be configured as jpa") , globalPersistence);
+                }
                 boolean isJdbc = accountLockRepository instanceof AccountLockJdbcRepository; 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(AccountLockService.class, true), LogUtils.red(State.CREATED.toString())));

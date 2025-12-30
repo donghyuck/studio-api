@@ -31,22 +31,22 @@ import studio.one.platform.exception.NotFoundException;
 @Service(MailSyncLogService.SERVICE_NAME)
 public class JdbcMailSyncLogService implements MailSyncLogService {
 
-    @SqlStatement("data.mail.syncLog.insert")
+    @SqlStatement("data.mail.syncLogInsert")
     private String insertSql;
 
-    @SqlStatement("data.mail.syncLog.update")
+    @SqlStatement("data.mail.syncLogUpdate")
     private String updateSql;
 
-    @SqlStatement("data.mail.syncLog.recent")
+    @SqlStatement("data.mail.syncLogRecent")
     private String recentSql;
 
-    @SqlStatement("data.mail.syncLog.countAll")
+    @SqlStatement("data.mail.syncLogCountAll")
     private String countSql;
 
-    @SqlStatement("data.mail.syncLog.findPage")
+    @SqlStatement("data.mail.syncLogFindPage")
     private String findPageSql;
 
-    @SqlStatement("data.mail.syncLog.findById")
+    @SqlStatement("data.mail.syncLogFindById")
     private String findByIdSql;
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(

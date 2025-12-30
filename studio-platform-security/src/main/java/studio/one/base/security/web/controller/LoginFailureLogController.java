@@ -45,18 +45,20 @@ import studio.one.base.security.web.dto.LoginFailureLogDto;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
+
 /**
  *
- * @author  donghyuck, son
+ * @author donghyuck, son
  * @since 2025-12-05
  * @version 1.0
  *
- * <pre> 
+ *          <pre>
+ *  
  * << 개정이력(Modification Information) >>
  *   수정일        수정자           수정내용
  *  ---------    --------    ---------------------------
  * 2025-12-05  donghyuck, son: 최초 생성.
- * </pre>
+ *          </pre>
  */
 @RestController
 @RequiredArgsConstructor
@@ -77,14 +79,16 @@ public class LoginFailureLogController {
             @RequestParam(required = false) String failureType,
             Pageable pageable) {
         OffsetDateTime truncated = to;
-        if (truncated != null)
-            truncated.plusDays(1).truncatedTo(ChronoUnit.DAYS);
+        if (truncated != null){
+            truncated = to.truncatedTo(ChronoUnit.DAYS).plusDays(1);
+        }  
         var q = LoginFailQuery.builder()
                 .from(from).to(truncated)
                 .usernameLike(usernameLike)
                 .ipEquals(ipEquals)
                 .failureType(failureType)
                 .build();
+
         return ok(ApiResponse.ok(service.find(q, pageable).map(mapper::toDto)));
     }
 

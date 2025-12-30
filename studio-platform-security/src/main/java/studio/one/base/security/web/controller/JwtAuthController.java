@@ -89,13 +89,16 @@ public class JwtAuthController  extends AbstractTokenController {
                 token.setDetails(ClientRequestDetails.from(http));
                 http.setAttribute("login.username", request.getUsername());
                 
-                UserDetails details = userDetailsService.loadUserByUsername(request.getUsername());
+                // UserDetails details = userDetailsService.loadUserByUsername(request.getUsername());
+                // log.debug("presentedPassword : {} , (P@sswOrd!), {}", token.getCredentials().toString(), StringUtils.equals("P@sswOrd!", token.getCredentials().toString()));
+                // log.debug("encoding: {}" , passwordEncoder.encode(token.getCredentials().toString()));
+                // log.debug("saved password : {}", details.getPassword());
+                // log.debug("password matches : {}", passwordEncoder.matches(token.getCredentials().toString(), details.getPassword()));
 
-                log.debug("presentedPassword : {} , (P@sswOrd!), {}", token.getCredentials().toString(), StringUtils.equals("P@sswOrd!", token.getCredentials().toString()));
-                log.debug("encoding: {}" , passwordEncoder.encode(token.getCredentials().toString()));
-                log.debug("saved password : {}", details.getPassword());
-                log.debug("password matches : {}", passwordEncoder.matches(token.getCredentials().toString(), details.getPassword()));
-
+                // String stack = java.util.Arrays.stream(Thread.currentThread().getStackTrace())
+                //         .map(StackTraceElement::toString)
+                //         .collect(java.util.stream.Collectors.joining("\n"));
+                // log.info("Auth stack:\n{}", stack);
                 Authentication authentication = authenticationManager.authenticate(token); 
 
                 String accessToken = jwtTokenProvider.generateToken(authentication);

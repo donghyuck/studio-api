@@ -2,6 +2,7 @@ package studio.one.platform.autoconfigure.perisitence.jdbc;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
@@ -14,7 +15,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
@@ -32,6 +32,7 @@ import studio.one.platform.data.sqlquery.builder.xml.XmlSqlSetBuilder;
 import studio.one.platform.data.sqlquery.factory.SqlQueryFactory;
 import studio.one.platform.data.sqlquery.factory.SqlQueryFactoryBuilder;
 import studio.one.platform.data.sqlquery.factory.impl.SqlQueryFactoryImpl;
+import studio.one.platform.data.sqlquery.mapping.MappedStatement;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -66,8 +67,7 @@ public class JdbcAutoConfiguration {
                 LogUtils.blue(NamedParameterJdbcTemplate.class, true), LogUtils.red(State.CREATED.toString())));
         return new NamedParameterJdbcTemplate(jdbcTemplate);
     }
-
-    @Scope("singleton")
+ 
     @Bean(ServiceNames.SQL_QUERY_CONFIGURATION)
     @ConditionalOnProperty(prefix = PropertyKeys.Persistence.Jdbc.PREFIX
             + ".sql-query", name = "enabled", havingValue = "true", matchIfMissing = true)
@@ -79,30 +79,29 @@ public class JdbcAutoConfiguration {
                 LogUtils.red(State.CREATED.toString())));
         return new studio.one.platform.data.sqlquery.factory.Configuration(i18nProvider);
     }
-
-    @Scope("singleton")
+ 
     @Bean(ServiceNames.SQL_QUERY_FACTORY)
     @ConditionalOnProperty(prefix = PropertyKeys.Persistence.Jdbc.PREFIX
             + ".sql-query", name = "enabled", havingValue = "true", matchIfMissing = true)
     @ConditionalOnClass(name = "freemarker.template.Configuration")
-    SqlQueryFactory sqlQueryFactory(JdbcProperties jdbcProperties) {
-        SqlQueryFactoryImpl impl = (SqlQueryFactoryImpl) SqlQueryFactoryBuilder.build(sqlQueryConfiguration());
+    SqlQueryFactory sqlQueryFactory(
+        JdbcProperties jdbcProperties,
+        @Qualifier(ServiceNames.SQL_QUERY_CONFIGURATION) studio.one.platform.data.sqlquery.factory.Configuration sqlQueryConfiguration) {
+        SqlQueryFactory impl =  SqlQueryFactoryBuilder.build(sqlQueryConfiguration);
+        
         I18n i18n = I18nUtils.resolve(i18nProvider);
+
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(SqlQueryFactoryImpl.class, true),
                 LogUtils.red(State.CREATED.toString())));
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(SqlQueryFactoryImpl.class, true),
-                LogUtils.red(State.INITIALIZING.toString())));
-
+                LogUtils.red(State.INITIALIZING.toString()))); 
         List<String> locs = jdbcProperties.getSql().getLocations();
-        boolean usingDefault = (locs == null || locs.isEmpty());
- 
-
+        boolean usingDefault = (locs == null || locs.isEmpty()); 
         List<String> resolvedLocations = usingDefault
                 ? List.of("classpath*:sql/*-sqlset.xml")
-                : locs;
-
+                : locs; 
         if (usingDefault) {
             log.info("[SqlQueryFactory] No SQL locations configured. Using default: classpath*:sql/*-sqlset.xml");
         } else {
@@ -115,7 +114,7 @@ public class JdbcAutoConfiguration {
         return impl;
     }
 
-    private void loadSql(SqlQueryFactoryImpl impl, List<String> resolvedLocations) {
+    private void loadSql(SqlQueryFactory impl, List<String> resolvedLocations) {
         studio.one.platform.data.sqlquery.factory.Configuration config = impl.getConfiguration();
         ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
         for (String locationPattern : resolvedLocations) {
@@ -148,6 +147,15 @@ public class JdbcAutoConfiguration {
             } catch (IOException e) {
                 log.error("[SqlQueryFactory] Resource resolution error for pattern: {}", locationPattern, e);
             }
+        }
+        List<String> queryKeys = config.getMappedStatements().stream()
+                .map(MappedStatement::getId)
+                .sorted()
+                .collect(Collectors.toList());
+        if (queryKeys.isEmpty()) {
+            log.warn("[SqlQueryFactory] No SQL query keys registered.");
+        } else {
+            log.info("[SqlQueryFactory] Registered SQL query keys ({}): {}", queryKeys.size(), queryKeys);
         }
     }
 

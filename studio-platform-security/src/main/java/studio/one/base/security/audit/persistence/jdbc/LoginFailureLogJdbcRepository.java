@@ -12,17 +12,17 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
 import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
 import studio.one.base.security.audit.service.LoginFailQuery;
+import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Repository
 public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository {
-
-    private static final String TABLE = "tb_login_failure_log";
 
     private static final RowMapper<LoginFailureLog> ROW_MAPPER = (rs, rowNum) -> LoginFailureLog.builder()
             .id(rs.getLong("id"))
@@ -35,13 +35,27 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
             .build();
 
     private final NamedParameterJdbcTemplate template;
-    private final SimpleJdbcInsert insert;
+
+    @SqlStatement("security.loginFailureLogInsert")
+    private String insertSql;
+
+    @SqlStatement("security.loginFailureLogUpdate")
+    private String updateSql;
+
+    @SqlStatement("security.loginFailureLogDeleteOlderThan")
+    private String deleteOlderThanSql;
+
+    @SqlStatement("security.loginFailureLogCountByUsernameSince")
+    private String countByUsernameSinceSql;
+
+    @SqlStatement("security.loginFailureLogCountSearchBase")
+    private String countSearchBaseSql;
+
+    @SqlStatement("security.loginFailureLogSearchBase")
+    private String searchBaseSql;
 
     public LoginFailureLogJdbcRepository(NamedParameterJdbcTemplate template) {
         this.template = template;
-        this.insert = new SimpleJdbcInsert(template.getJdbcTemplate())
-                .withTableName(TABLE)
-                .usingGeneratedKeyColumns("id");
     }
 
     @Override
@@ -54,14 +68,12 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
 
     @Override
     public long deleteOlderThan(Instant cutoff) {
-        String sql = "delete from " + TABLE + " where occurred_at < :cutoff";
-        return template.update(sql, Map.of("cutoff", Timestamp.from(cutoff)));
+        return template.update(deleteOlderThanSql, Map.of("cutoff", Timestamp.from(cutoff)));
     }
 
     @Override
     public long countByUsernameSince(String username, Instant since) {
-        String sql = "select count(*) from " + TABLE + " where username = :username and occurred_at >= :since";
-        Long count = template.queryForObject(sql, Map.of(
+        Long count = template.queryForObject(countByUsernameSinceSql, Map.of(
                 "username", username,
                 "since", Timestamp.from(since)), Long.class);
         return count == null ? 0L : count;
@@ -71,7 +83,7 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
     public Page<LoginFailureLog> search(LoginFailQuery query, Pageable pageable) {
         Map<String, Object> params = new HashMap<>();
         String where = buildWhereClause(query, params);
-        String countSql = "select count(*) from " + TABLE + where;
+        String countSql = countSearchBaseSql + where;
         long total = template.queryForObject(countSql, params, Long.class);
         if (total == 0) {
             return Page.empty(pageable);
@@ -81,8 +93,7 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
             params.put("limit", pageable.getPageSize());
             params.put("offset", pageable.getOffset());
         }
-        String dataSql = "select id, username, remote_ip, user_agent, failure_type, message, occurred_at "
-                + "from " + TABLE + where + order;
+        String dataSql = searchBaseSql + where + order;
         if (!pageable.isUnpaged()) {
             dataSql += " limit :limit offset :offset";
         }
@@ -99,23 +110,17 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
                 .addValue("failure_type", log.getFailureType())
                 .addValue("message", log.getMessage())
                 .addValue("occurred_at", Timestamp.from(occurred));
-        Number key = insert.executeAndReturnKey(params);
-        log.setId(key.longValue());
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        template.update(insertSql, params, keyHolder, new String[] { "id" });
+        Number key = keyHolder.getKey();
+        if (key != null) {
+            log.setId(key.longValue());
+        }
         log.setOccurredAt(occurred);
         return log;
     }
 
     private LoginFailureLog update(LoginFailureLog log) {
-        String sql = """
-                update %s
-                   set username = :username,
-                       remote_ip = :remote_ip,
-                       user_agent = :user_agent,
-                       failure_type = :failure_type,
-                       message = :message,
-                       occurred_at = :occurred_at
-                 where id = :id
-                """.formatted(TABLE);
         Map<String, Object> params = new HashMap<>();
         params.put("username", log.getUsername());
         params.put("remote_ip", log.getRemoteIp());
@@ -124,7 +129,7 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
         params.put("message", log.getMessage());
         params.put("occurred_at", Timestamp.from(log.getOccurredAt()));
         params.put("id", log.getId());
-        template.update(sql, params);
+        template.update(updateSql, params);
         return log;
     }
 

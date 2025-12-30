@@ -46,6 +46,7 @@ public class PasswordResetController {
     }
 
     public record PasswordResetRequest(String email) {
+        
     }
 
     public record PasswordResetConfirmRequest(String token, String password) {

@@ -123,7 +123,7 @@
         ]]>
     </sql>
 
-    <sql id="syncLog.insert">
+    <sql id="syncLogInsert">
         <![CDATA[
         insert into TB_APPLICATION_MAIL_SYNC_LOG
             (STARTED_AT, STATUS, TRIGGERED_BY)
@@ -133,7 +133,7 @@
         ]]>
     </sql>
 
-    <sql id="syncLog.update">
+    <sql id="syncLogUpdate">
         <![CDATA[
         update TB_APPLICATION_MAIL_SYNC_LOG
            set FINISHED_AT = :finishedAt,
@@ -146,7 +146,7 @@
         ]]>
     </sql>
 
-    <sql id="syncLog.recent">
+    <sql id="syncLogRecent">
         <![CDATA[
         select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
           from TB_APPLICATION_MAIL_SYNC_LOG
@@ -155,20 +155,20 @@
         ]]>
     </sql>
 
-    <sql id="syncLog.countAll">
+    <sql id="syncLogCountAll">
         <![CDATA[
         select count(*) from TB_APPLICATION_MAIL_SYNC_LOG
         ]]>
     </sql>
 
-    <sql id="syncLog.findPage">
+    <sql id="syncLogFindPage">
         <![CDATA[
         select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
           from TB_APPLICATION_MAIL_SYNC_LOG
         ]]>
     </sql>
 
-    <sql id="syncLog.findById">
+    <sql id="syncLogFindById">
         <![CDATA[
         select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
           from TB_APPLICATION_MAIL_SYNC_LOG
