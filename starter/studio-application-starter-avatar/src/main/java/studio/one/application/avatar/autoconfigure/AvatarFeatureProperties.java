@@ -28,9 +28,10 @@ public class AvatarFeatureProperties extends FeatureToggle {
     @Setter
     @NoArgsConstructor
     public static class Api {
-        private String userBase = "/api/mgmt/users";
+        private String mgmtBase = "/api/mgmt/users";
         /** 공개(permitAll) prefix */
         private String publicBase = "/api/users";
+        private String selfBase = "/api/me/avatar";
     }
 
     @Getter

@@ -169,6 +169,40 @@ public class AvatarImageServiceImpl implements AvatarImageService<User> {
     }
 
     @Override
+    public AvatarImage updateMetadata(AvatarImage imageMeta, String fileName, Boolean primaryImage) {
+        Objects.requireNonNull(imageMeta, "imageMeta");
+
+        AvatarImage entity = requireEntity(imageMeta.getId());
+        if (StringUtils.isNotBlank(fileName)) {
+            entity.setFileName(fileName);
+        }
+
+        if (primaryImage != null) {
+            if (Boolean.TRUE.equals(primaryImage)) {
+                if (!Boolean.TRUE.equals(entity.isPrimaryImage())) {
+                    entity.setPrimaryImage(true);
+                    unsetOthersPrimary(entity.getUserId(), entity.getId());
+                }
+            } else if (Boolean.TRUE.equals(entity.isPrimaryImage())) {
+                entity.setPrimaryImage(false);
+                imageRepo.save(entity);
+                var altOpt = imageRepo.findByUserIdOrderByCreationDateDesc(entity.getUserId()).stream()
+                        .filter(it -> !it.getId().equals(entity.getId()))
+                        .findFirst();
+                if (altOpt.isPresent()) {
+                    AvatarImage alt = altOpt.get();
+                    alt.setPrimaryImage(true);
+                    imageRepo.save(alt);
+                } else {
+                    entity.setPrimaryImage(true);
+                }
+            }
+        }
+
+        return imageRepo.save(entity);
+    }
+
+    @Override
     public void setPrimary(AvatarImage imageMeta) {
         AvatarImage e = requireEntity(imageMeta.getId());
         if (!Boolean.TRUE.equals(e.isPrimaryImage())) {

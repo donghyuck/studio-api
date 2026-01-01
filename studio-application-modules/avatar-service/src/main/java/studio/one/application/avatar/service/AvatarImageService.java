@@ -73,6 +73,8 @@ public interface AvatarImageService<U extends User> {
 
     AvatarImage replaceData(AvatarImage image, ImageSource source) throws IOException;
 
+    AvatarImage updateMetadata(AvatarImage image, String fileName, Boolean primaryImage);
+
     void setPrimary(AvatarImage image);
 
     void remove(AvatarImage image);

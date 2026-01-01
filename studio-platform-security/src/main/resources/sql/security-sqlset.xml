@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sqlset name="security" namespace="security" description="Security SQLs"> 
-    <sql id="refreshToken.insert">
+    <sql id="refreshTokenInsert">
         <![CDATA[
         insert into TB_APPLICATION_REFRESH_TOKEN
             (USER_ID, SELECTOR, VERIFIER_HASH, EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID)
@@ -9,7 +9,7 @@
         returning ID
         ]]>
     </sql>
-    <sql id="refreshToken.update">
+    <sql id="refreshTokenUpdate">
         <![CDATA[
         update TB_APPLICATION_REFRESH_TOKEN
            set USER_ID       = :userId,
@@ -22,7 +22,7 @@
         ]]>
     </sql>
 
-    <sql id="refreshToken.findBySelector">
+    <sql id="refreshTokenFindBySelector">
         <![CDATA[
         select ID, USER_ID, SELECTOR, VERIFIER_HASH,
                EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID
@@ -31,7 +31,7 @@
         ]]>
     </sql>
 
-    <sql id="passwordResetToken.insert">
+    <sql id="passwordResetTokenInsert">
         <![CDATA[
         insert into TB_APPLICATION_PASSWORD_RESET_TOKEN
             (USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT)
@@ -41,7 +41,7 @@
         ]]>
     </sql>
 
-    <sql id="passwordResetToken.update">
+    <sql id="passwordResetTokenUpdate">
         <![CDATA[
         update TB_APPLICATION_PASSWORD_RESET_TOKEN
            set USER_ID    = :userId,
@@ -52,11 +52,115 @@
         ]]>
     </sql>
 
-    <sql id="passwordResetToken.findByToken">
+    <sql id="passwordResetTokenFindByToken">
         <![CDATA[
         select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
           from TB_APPLICATION_PASSWORD_RESET_TOKEN
          where TOKEN = :token
+        ]]>
+    </sql>
+
+    <sql id="loginFailureLogInsert">
+        <![CDATA[
+        insert into TB_LOGIN_FAILURE_LOG
+            (USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT)
+        values
+            (:username, :remote_ip::inet, :user_agent, :failure_type, :message, :occurred_at)
+        returning ID
+        ]]>
+    </sql>
+
+    <sql id="loginFailureLogUpdate">
+        <![CDATA[
+        update TB_LOGIN_FAILURE_LOG
+           set USERNAME = :username,
+               REMOTE_IP = :remote_ip::inet,
+               USER_AGENT = :user_agent,
+               FAILURE_TYPE = :failure_type,
+               MESSAGE = :message,
+               OCCURRED_AT = :occurred_at
+         where ID = :id
+        ]]>
+    </sql>
+
+    <sql id="loginFailureLogDeleteOlderThan">
+        <![CDATA[
+        delete from TB_LOGIN_FAILURE_LOG
+         where OCCURRED_AT < :cutoff
+        ]]>
+    </sql>
+
+    <sql id="loginFailureLogCountByUsernameSince">
+        <![CDATA[
+        select count(*)
+          from TB_LOGIN_FAILURE_LOG
+         where USERNAME = :username
+           and OCCURRED_AT >= :since
+        ]]>
+    </sql>
+
+    <sql id="loginFailureLogCountSearchBase">
+        <![CDATA[
+        select count(*)
+          from TB_LOGIN_FAILURE_LOG
+        ]]>
+    </sql>
+
+    <sql id="loginFailureLogSearchBase">
+        <![CDATA[
+        select ID, USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT
+          from TB_LOGIN_FAILURE_LOG
+        ]]>
+    </sql>
+
+    <sql id="accountLockBumpFailedAttempts">
+        <![CDATA[
+        update TB_APPLICATION_USER
+           set FAILED_ATTEMPTS = FAILED_ATTEMPTS + 1,
+               LAST_FAILED_AT = :now
+         where USERNAME = :username
+        ]]>
+    </sql>
+
+    <sql id="accountLockLockUntil">
+        <![CDATA[
+        update TB_APPLICATION_USER
+           set ACCOUNT_LOCKED_UNTIL = :until
+         where USERNAME = :username
+        ]]>
+    </sql>
+
+    <sql id="accountLockResetLockState">
+        <![CDATA[
+        update TB_APPLICATION_USER
+           set FAILED_ATTEMPTS    = 0,
+               LAST_FAILED_AT     = null,
+               ACCOUNT_LOCKED_UNTIL = null
+         where USERNAME = :username
+        ]]>
+    </sql>
+
+    <sql id="accountLockFindFailedAttempts">
+        <![CDATA[
+        select FAILED_ATTEMPTS
+          from TB_APPLICATION_USER
+         where USERNAME = :username
+        ]]>
+    </sql>
+
+    <sql id="accountLockFindLastFailedAt">
+        <![CDATA[
+        select LAST_FAILED_AT
+          from TB_APPLICATION_USER
+         where USERNAME = :username
+        ]]>
+    </sql>
+
+    <sql id="accountLockFindAccountLockedUntil">
+        <![CDATA[
+        select ACCOUNT_LOCKED_UNTIL
+          from TB_APPLICATION_USER
+         where USERNAME = :username
         ]]>
     </sql>
 

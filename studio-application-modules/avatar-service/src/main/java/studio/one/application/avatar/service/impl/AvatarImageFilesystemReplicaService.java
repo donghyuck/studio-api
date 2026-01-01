@@ -181,6 +181,11 @@ public class AvatarImageFilesystemReplicaService implements AvatarImageService<U
     }
 
     @Override
+    public AvatarImage updateMetadata(AvatarImage image, String fileName, Boolean primaryImage) {
+        return delegate.updateMetadata(image, fileName, primaryImage);
+    }
+
+    @Override
     public void setPrimary(AvatarImage image) {
         delegate.setPrimary(image); // 캐시는 영향 없음
     }

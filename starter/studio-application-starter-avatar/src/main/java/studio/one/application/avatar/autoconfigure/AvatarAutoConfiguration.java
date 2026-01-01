@@ -58,7 +58,7 @@ import studio.one.platform.util.LogUtils;
 @Slf4j
 public class AvatarAutoConfiguration {
 
-    private static final String FEATURE_NAME = "Avatar"; 
+    protected static final String FEATURE_NAME = "Avatar"; 
 
     private final AvatarFeatureProperties avatarFeatureProperties;
     private final PersistenceProperties persistenceProperties;
