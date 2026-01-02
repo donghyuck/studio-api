@@ -145,6 +145,42 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
     }
 
     @Override
+    public List<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId,
+            long createdBy) {
+        String sql = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
+                 order by ATTACHMENT_ID
+                """.formatted(TABLE);
+        Map<String, Object> params = Map.of("objectType", objectType, "objectId", objectId, "createdBy", createdBy);
+        List<ApplicationAttachment> attachments = namedTemplate.query(sql, params, ATTACHMENT_ROW_MAPPER);
+        loadProperties(attachments);
+        return attachments;
+    }
+
+    @Override
+    public Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId,
+            long createdBy, Pageable pageable) {
+        Map<String, Object> params = Map.of("objectType", objectType, "objectId", objectId, "createdBy", createdBy);
+        String select = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
+                """.formatted(TABLE);
+        String count = """
+                select count(*)
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
+                """.formatted(TABLE);
+        Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
+        loadProperties(page.getContent());
+        return page;
+    }
+
+    @Override
     public Page<ApplicationAttachment> findAll(Pageable pageable) {
         String select = """
                 select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
@@ -201,6 +237,81 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
                 select count(*)
                   from %s
                  where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
+                   and lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
+        loadProperties(page.getContent());
+        return page;
+    }
+
+    @Override
+    public Page<ApplicationAttachment> findByCreatedBy(long createdBy, Pageable pageable) {
+        String select = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where CREATED_BY = :createdBy
+                """.formatted(TABLE);
+        String count = """
+                select count(*)
+                  from %s
+                 where CREATED_BY = :createdBy
+                """.formatted(TABLE);
+        Map<String, Object> params = Map.of("createdBy", createdBy);
+        Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
+        loadProperties(page.getContent());
+        return page;
+    }
+
+    @Override
+    public Page<ApplicationAttachment> findByCreatedByAndNameContainingIgnoreCase(
+            long createdBy, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findByCreatedBy(createdBy, pageable);
+        }
+        Map<String, Object> params = new HashMap<>();
+        params.put("createdBy", createdBy);
+        params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
+        String select = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where CREATED_BY = :createdBy
+                   and lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        String count = """
+                select count(*)
+                  from %s
+                 where CREATED_BY = :createdBy
+                   and lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
+        loadProperties(page.getContent());
+        return page;
+    }
+
+    @Override
+    public Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedByAndNameContainingIgnoreCase(
+            int objectType, Long objectId, long createdBy, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy, pageable);
+        }
+        Map<String, Object> params = new HashMap<>();
+        params.put("objectType", objectType);
+        params.put("objectId", objectId);
+        params.put("createdBy", createdBy);
+        params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
+        String select = """
+                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
+                       CREATED_BY, CREATED_AT, UPDATED_AT
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
+                   and lower(FILE_NAME) like :keyword
+                """.formatted(TABLE);
+        String count = """
+                select count(*)
+                  from %s
+                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
                    and lower(FILE_NAME) like :keyword
                 """.formatted(TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);

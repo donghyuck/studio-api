@@ -169,8 +169,7 @@ public class MailAutoConfiguration {
     }
 
     @Configuration
-    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
-            + ".mail.web", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX  + ".mail.web", name = "enabled", havingValue = "true", matchIfMissing = true)
     @Import(MailController.class)
     static class MailWebConfig {
 

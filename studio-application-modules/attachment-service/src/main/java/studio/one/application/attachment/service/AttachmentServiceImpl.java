@@ -50,6 +50,13 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     @Override
+    public List<Attachment> getAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy) {
+        return attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy).stream()
+                .map(e -> (Attachment) e)
+                .toList();
+    }
+
+    @Override
     public Page<Attachment> findAttachments(Pageable pageable) {
         Page page = attachmentRepository.findAll(pageable);
         return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
@@ -57,6 +64,42 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     public Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable) {
         Page page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByCreator(long createdBy, Pageable pageable) {
+        Page page = attachmentRepository.findByCreatedBy(createdBy, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByCreator(long createdBy, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findAttachmentsByCreator(createdBy, pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository.findByCreatedByAndNameContainingIgnoreCase(
+                createdBy, keyword, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByObjectAndCreator(
+            int objectType, long objectId, long createdBy, Pageable pageable) {
+        Page page = attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy,
+                pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByObjectAndCreator(
+            int objectType, long objectId, long createdBy, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findAttachmentsByObjectAndCreator(objectType, objectId, createdBy, pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository
+                .findByObjectTypeAndObjectIdAndCreatedByAndNameContainingIgnoreCase(
+                        objectType, objectId, createdBy, keyword, pageable);
         return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
     }
 

@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
@@ -35,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
+import studio.one.base.security.userdetails.ApplicationUserDetails;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.web.dto.UserDto;
@@ -45,11 +47,12 @@ import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.base-path:/api/mgmt/attachments}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.me-base-path:/api/me/attachments}")
 @RequiredArgsConstructor
 @Slf4j
 @Validated
-public class AttachmentController {
+@PreAuthorize("isAuthenticated()")
+public class MeAttachmentController {
 
     private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
 
@@ -59,13 +62,13 @@ public class AttachmentController {
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("@endpointAuthz.can('features:attachment','upload')")
     public ResponseEntity<ApiResponse<AttachmentDto>> upload(
             @RequestParam("objectType") int objectType,
             @RequestParam("objectId") long objectId,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails principal) throws IOException {
 
+        requireUserId(principal);
         if (file == null || file.isEmpty()) {
             return badRequest("File is empty");
         }
@@ -93,17 +96,22 @@ public class AttachmentController {
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
-    public ResponseEntity<ApiResponse<AttachmentDto>> get(@PathVariable("attachmentId") long attachmentId)
-            throws NotFoundException {
+    public ResponseEntity<ApiResponse<AttachmentDto>> get(
+            @PathVariable("attachmentId") long attachmentId,
+            @AuthenticationPrincipal UserDetails principal) throws NotFoundException {
+        long userId = requireUserId(principal);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        if (attachment.getCreatedBy() != userId) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/text")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
-    public ResponseEntity<ApiResponse<String>> extractText(@PathVariable("attachmentId") long attachmentId)
-            throws NotFoundException, IOException {
+    public ResponseEntity<ApiResponse<String>> extractText(
+            @PathVariable("attachmentId") long attachmentId,
+            @AuthenticationPrincipal UserDetails principal) throws NotFoundException, IOException {
+        long userId = requireUserId(principal);
         FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
         if (extractor == null) {
             ApiResponse<String> body = ApiResponse.<String>builder()
@@ -112,6 +120,9 @@ public class AttachmentController {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
         }
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        if (attachment.getCreatedBy() != userId) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         try (InputStream in = attachmentService.getInputStream(attachment)) {
             String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
             return ResponseEntity.ok(ApiResponse.ok(text));
@@ -119,10 +130,14 @@ public class AttachmentController {
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','download')")
-    public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
-            throws IOException, NotFoundException {
+    public ResponseEntity<StreamingResponseBody> download(
+            @PathVariable("attachmentId") long attachmentId,
+            @AuthenticationPrincipal UserDetails principal) throws IOException, NotFoundException {
+        long userId = requireUserId(principal);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        if (attachment.getCreatedBy() != userId) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         InputStream in = attachmentService.getInputStream(attachment);
         StreamingResponseBody body = out -> {
             try (in) {
@@ -145,34 +160,39 @@ public class AttachmentController {
     }
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
     public ResponseEntity<ApiResponse<Page<AttachmentDto>>> list(
             @RequestParam(value = "objectType", required = false) Integer objectType,
             @RequestParam(value = "objectId", required = false) Long objectId,
             @RequestParam(value = "keyword", required = false) String keyword,
+            @AuthenticationPrincipal UserDetails principal,
             @PageableDefault Pageable pageable) {
+        long userId = requireUserId(principal);
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
-            if (keyword == null || keyword.isBlank()) 
-                page = attachmentService.findAttachments(objectType, objectId, pageable);
-            else 
-                page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
+            if (keyword == null || keyword.isBlank()) {
+                page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, pageable);
+            } else {
+                page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, keyword,
+                        pageable);
+            }
         } else {
-            if (keyword == null || keyword.isBlank()) 
-                page = attachmentService.findAttachments(pageable);
-            else 
-                page = attachmentService.findAttachments(keyword, pageable);
+            if (keyword == null || keyword.isBlank()) {
+                page = attachmentService.findAttachmentsByCreator(userId, pageable);
+            } else {
+                page = attachmentService.findAttachmentsByCreator(userId, keyword, pageable);
+            }
         }
         Page<AttachmentDto> dtoPage = page.map(this::toDto);
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));
     }
 
     @GetMapping("/objects/{objectType:[\\p{Digit}]+}/{objectId:[\\p{Digit}]+}")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
     public ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObject(
             @PathVariable int objectType,
-            @PathVariable long objectId) {
-        List<Attachment> attachments = attachmentService.getAttachments(objectType, objectId);
+            @PathVariable long objectId,
+            @AuthenticationPrincipal UserDetails principal) {
+        long userId = requireUserId(principal);
+        List<Attachment> attachments = attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, userId);
         List<AttachmentDto> dto = attachments.stream()
                 .map(this::toDto)
                 .toList();
@@ -180,12 +200,26 @@ public class AttachmentController {
     }
 
     @DeleteMapping("/{attachmentId:[\\p{Digit}]+}")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','delete')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable("attachmentId") long attachmentId)
-            throws NotFoundException, IOException {
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable("attachmentId") long attachmentId,
+            @AuthenticationPrincipal UserDetails principal) throws NotFoundException, IOException {
+        long userId = requireUserId(principal);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        if (attachment.getCreatedBy() != userId) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    private long requireUserId(UserDetails principal) {
+        if (principal instanceof ApplicationUserDetails<?> aud) {
+            Long userId = aud.getUserId();
+            if (userId != null && userId > 0) {
+                return userId;
+            }
+        }
+        throw new AuthenticationCredentialsNotFoundException("No authenticated user");
     }
 
     private AttachmentDto toDto(Attachment attachment) {

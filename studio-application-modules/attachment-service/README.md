@@ -1,5 +1,4 @@
 # Attachment Service
-
 첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, 개발자는 저장소 타입과 노출 경로를 설정 값으로 제어할 수 있다.
 
 ## 구성 요소

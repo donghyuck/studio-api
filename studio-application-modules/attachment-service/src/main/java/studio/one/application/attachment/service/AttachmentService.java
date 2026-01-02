@@ -38,9 +38,20 @@ public interface AttachmentService {
 
 	List<Attachment> getAttachments(int objectType, long objectId);
 
+	List<Attachment> getAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy);
+
 	Page<Attachment> findAttachments(Pageable pageable);
 
 	Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable);
+
+	Page<Attachment> findAttachmentsByCreator(long createdBy, Pageable pageable);
+
+	Page<Attachment> findAttachmentsByCreator(long createdBy, String keyword, Pageable pageable);
+
+	Page<Attachment> findAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy, Pageable pageable);
+
+	Page<Attachment> findAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy, String keyword,
+			Pageable pageable);
 
 	/**
 	 * 파일명에 keyword가 포함된 첨부파일을 검색한다.

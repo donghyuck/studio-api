@@ -21,10 +21,23 @@ public interface AttachmentRepository {
 
     Page<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId, Pageable pageable);
 
+    List<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId, long createdBy);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId, long createdBy,
+            Pageable pageable);
+
     Page<ApplicationAttachment> findAll(Pageable pageable);
 
     Page<ApplicationAttachment> findByNameContainingIgnoreCase(String keyword, Pageable pageable);
 
     Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(
             int objectType, Long objectId, String keyword, Pageable pageable);
+
+    Page<ApplicationAttachment> findByCreatedBy(long createdBy, Pageable pageable);
+
+    Page<ApplicationAttachment> findByCreatedByAndNameContainingIgnoreCase(long createdBy, String keyword,
+            Pageable pageable);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedByAndNameContainingIgnoreCase(
+            int objectType, Long objectId, long createdBy, String keyword, Pageable pageable);
 }

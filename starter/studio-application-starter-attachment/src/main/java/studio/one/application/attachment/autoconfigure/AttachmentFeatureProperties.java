@@ -66,6 +66,7 @@ public class AttachmentFeatureProperties extends FeatureToggle {
     public static class Web {
         private boolean enabled = false;
         private String basePath = "/api/mgmt/attachments";
+        private String meBasePath = "/api/me/attachments";
     }
 
     @Getter

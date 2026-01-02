@@ -59,7 +59,6 @@ import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 import studio.one.base.security.userdetails.ApplicationUserDetailsService;
 import studio.one.base.user.service.ApplicationUserService;
-
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;

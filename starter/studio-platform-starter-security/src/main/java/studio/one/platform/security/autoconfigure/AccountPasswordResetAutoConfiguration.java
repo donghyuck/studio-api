@@ -121,7 +121,7 @@ public class AccountPasswordResetAutoConfiguration {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, FEATURE_NAME,
-                LogUtils.blue("Password Reset Controller", true),
+                LogUtils.blue("Password Reset Controller"),
                 LogUtils.blue(PasswordResetController.class, true),
                 props.getWeb().getBasePath(), "CRUD"));
 

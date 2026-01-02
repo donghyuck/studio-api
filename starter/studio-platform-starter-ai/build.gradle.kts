@@ -14,8 +14,8 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 }
 
 dependencies {  
-    implementation(project(":studio-platform-autoconfigure")) 
-    implementation(project(":starter:studio-platform-starter")) 
+    compileOnly(project(":studio-platform-autoconfigure")) 
+    compileOnly(project(":starter:studio-platform-starter")) 
     api(project(":studio-platform-ai")) 
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
@@ -31,5 +31,4 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
-
 }

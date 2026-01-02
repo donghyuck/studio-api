@@ -15,6 +15,8 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 dependencies {  
     compileOnly(project(":studio-platform-autoconfigure")) 
+    compileOnly(project(":studio-platform")) 
+    compileOnly(project(":studio-platform-data")) 
     compileOnly(project(":starter:studio-platform-starter"))
     compileOnly(project(":studio-platform-user"))
     api(project(":studio-platform-security"))

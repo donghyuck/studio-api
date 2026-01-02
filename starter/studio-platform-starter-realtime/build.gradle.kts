@@ -12,15 +12,14 @@ tasks.named<Jar>("jar") {
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
-
 dependencies { 
-    implementation(project(":studio-platform-autoconfigure"))
-    implementation(project(":starter:studio-platform-starter"))
-    implementation(project(":studio-platform-realtime")) 
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-websocket")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
+    compileOnly(project(":studio-platform-autoconfigure"))
+    compileOnly(project(":starter:studio-platform-starter"))
+    compileOnly(project(":studio-platform-security"))  
+    api(project(":studio-platform-realtime")) 
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-websocket")
+    compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-redis")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
-    compileOnly(project(":studio-platform-security"))  
 }
