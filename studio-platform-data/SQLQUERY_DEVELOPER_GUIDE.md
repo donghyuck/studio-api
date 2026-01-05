@@ -8,7 +8,7 @@
 - `queryForList`, `queryForObject`, `executeUpdate`, `call`
 - `setStartIndex`/`setMaxResults` 기반 페이징
 - MyBatis 스타일 동적 SQL 노드
-- `@SqlMapper`/`@SqlStatement` 기반 정적 매핑
+- `@SqlMapper`/`@SqlStatement`/`@SqlBoundStatement` 기반 정적 매핑
 
 `SqlQueryFactoryImpl`과 `DirectoryScanner`가 `sql` 디렉터리를 주기적으로 스캔해
 신규/변경 스테이트먼트를 반영한다.
@@ -83,6 +83,20 @@ public interface UserSqlMapper {
 SqlQueryFactory factory = new SqlQueryFactoryImpl(dataSource, repository);
 UserSqlMapper mapper = factory.getMapper(UserSqlMapper.class);
 List<UserDto> page = mapper.selectPage(0, 20);
+```
+
+## BoundSql 주입
+필드 또는 단일 파라미터 세터에 `@SqlBoundStatement`를 붙이면 `BoundSql`이 주입된다.
+
+```java
+public class UserRepository {
+    @SqlBoundStatement("user.select.page")
+    private BoundSql selectPage;
+
+    public BoundSql getSelectPage() {
+        return selectPage;
+    }
+}
 ```
 
 ## 페이징 참고

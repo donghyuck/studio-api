@@ -11,6 +11,7 @@ import org.springframework.util.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.data.sqlquery.SqlQuery;
+import studio.one.platform.data.sqlquery.annotation.SqlBoundStatement;
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.data.sqlquery.factory.SqlQueryFactory;
 import studio.one.platform.data.sqlquery.mapping.BoundSql;
@@ -51,6 +52,21 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
 
     private void injectFields(Object bean) {
         ReflectionUtils.doWithFields(bean.getClass(), field -> {
+            SqlBoundStatement boundStatement = AnnotatedElementUtils.findMergedAnnotation(field, SqlBoundStatement.class);
+            if (boundStatement != null && StringUtils.hasText(boundStatement.value())) {
+                BoundSql boundSql = resolveBoundSql(boundStatement.value());
+                if (!BoundSql.class.isAssignableFrom(field.getType())) {
+                    throw new IllegalStateException("@SqlBoundStatement requires BoundSql target type: "
+                            + field.getDeclaringClass().getName() + "." + field.getName());
+                }
+                ReflectionUtils.makeAccessible(field);
+                ReflectionUtils.setField(field, bean, boundSql);
+                if (log.isDebugEnabled()) {
+                    log.debug("Injected BoundSql statement '{}' into {}.{}", boundStatement.value(),
+                            bean.getClass().getSimpleName(), field.getName());
+                }
+                return;
+            }
             SqlStatement annotation = AnnotatedElementUtils.findMergedAnnotation(field, SqlStatement.class);
             if (annotation == null || !StringUtils.hasText(annotation.value())) {
                 return;
@@ -68,6 +84,25 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
 
     private void injectMethods(Object bean) {
         ReflectionUtils.doWithMethods(bean.getClass(), method -> {
+            SqlBoundStatement boundStatement = AnnotatedElementUtils.findMergedAnnotation(method, SqlBoundStatement.class);
+            if (boundStatement != null && StringUtils.hasText(boundStatement.value())) {
+                if (method.getParameterCount() != 1) {
+                    return;
+                }
+                Class<?> parameterType = method.getParameterTypes()[0];
+                if (!BoundSql.class.isAssignableFrom(parameterType)) {
+                    throw new IllegalStateException("@SqlBoundStatement requires BoundSql parameter type: "
+                            + method.toGenericString());
+                }
+                BoundSql boundSql = resolveBoundSql(boundStatement.value());
+                ReflectionUtils.makeAccessible(method);
+                ReflectionUtils.invokeMethod(method, bean, boundSql);
+                if (log.isDebugEnabled()) {
+                    log.debug("Injected BoundSql statement '{}' via {}.{}()", boundStatement.value(),
+                            bean.getClass().getSimpleName(), method.getName());
+                }
+                return;
+            }
             SqlStatement annotation = AnnotatedElementUtils.findMergedAnnotation(method, SqlStatement.class);
             if (annotation == null || method.getParameterCount() != 1 || !StringUtils.hasText(annotation.value())) {
                 return;
@@ -81,7 +116,8 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
                 log.debug("Injected SQL statement '{}' via {}.{}()", annotation.value(),
                         bean.getClass().getSimpleName(), method.getName());
             }
-        }, method -> AnnotatedElementUtils.hasAnnotation(method, SqlStatement.class));
+        }, method -> AnnotatedElementUtils.hasAnnotation(method, SqlStatement.class)
+                || AnnotatedElementUtils.hasAnnotation(method, SqlBoundStatement.class));
     }
 
     private BoundSql resolveBoundSql(String statementId) {

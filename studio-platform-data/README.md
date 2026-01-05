@@ -3,7 +3,7 @@
 데이터/콘텐츠 계층에서 바로 쓸 수 있는 도구 모음이다. JDBC 페이징, SQL-XML 매퍼, 파일 텍스트 추출기, DB 기반 애플리케이션 프로퍼티 저장소, JPA 진단 유틸을 한 모듈에 묶어 제공한다.
 
 ## 주요 기능
-- SQL-XML 매퍼: `@SqlMapper`/`@SqlStatement` 인터페이스와 `SqlQueryFactory`가 XML `sql` 디렉터리의 스테이트먼트를 읽어와 동적 바인딩·페이징·프로시저 호출을 처리한다.
+- SQL-XML 매퍼: `@SqlMapper`/`@SqlStatement`/`@SqlBoundStatement` 인터페이스와 `SqlQueryFactory`가 XML `sql` 디렉터리의 스테이트먼트를 읽어와 동적 바인딩·페이징·프로시저 호출을 처리한다.
 - JDBC 페이징: `PagingJdbcTemplate`가 DB 종류에 따라 `LIMIT/OFFSET`/`ROWNUM`/`TOP` 등을 자동 적용하는 `PaginationDialectResolver`를 내장한다.
 - 파일 텍스트 추출: `FileContentExtractionService`와 `FileParserFactory`가 PDFBox, POI, Jsoup, Tesseract 기반 파서를 통해 PDF/DOCX/PPTX/HTML/TXT/이미지에서 본문을 뽑아낸다.
 - 애플리케이션 프로퍼티 저장소: `JpaApplicationProperties`/`JdbcApplicationProperties`가 DB 테이블(`TB_APPLICATION_PROPERTY`)을 Map 형태로 노출하고 변경 이벤트를 퍼블리시한다.
@@ -11,7 +11,7 @@
 
 ## 구성 요소 상세
 - **SQL 매퍼 레이어**  
-  `SqlQuery` 인터페이스는 `queryForList/queryForObject/executeUpdate/call` 등을 제공하며, `setStartIndex/setMaxResults`로 페이징 값을 전달한다. `SqlQueryFactoryImpl`과 `DirectoryScanner`가 `sql` 디렉터리의 XML을 주기적으로 스캔하여 새/변경 스테이트먼트를 반영한다. XML은 MyBatis 스타일의 동적 노드를 지원하며, `@SqlMapper`/`@SqlStatement`로 정적 매핑도 가능하다.
+  `SqlQuery` 인터페이스는 `queryForList/queryForObject/executeUpdate/call` 등을 제공하며, `setStartIndex/setMaxResults`로 페이징 값을 전달한다. `SqlQueryFactoryImpl`과 `DirectoryScanner`가 `sql` 디렉터리의 XML을 주기적으로 스캔하여 새/변경 스테이트먼트를 반영한다. XML은 MyBatis 스타일의 동적 노드를 지원하며, `@SqlMapper`/`@SqlStatement`/`@SqlBoundStatement`로 정적 매핑도 가능하다.
 - **DB 페이징 유틸**  
   `PagingJdbcTemplate`는 데이터소스에서 DB 타입을 추론해 적합한 `PaginationDialect`(Postgres, MySQL, Oracle, SQL Server 등)를 선택하고, 동일한 SQL에 페이징을 적용해 실행한다.
 - **텍스트 추출 파서**  
@@ -39,6 +39,17 @@
 
         @SqlStatement("user.select.page")
         List<UserDto> selectPage(int startIndex, int maxResults);
+    }
+    ```
+  - `BoundSql` 주입 예시:
+    ```java
+    public class UserRepository {
+        @SqlBoundStatement("user.select.page")
+        private BoundSql selectPage;
+
+        public BoundSql selectPage() {
+            return selectPage;
+        }
     }
     ```
     ```java
