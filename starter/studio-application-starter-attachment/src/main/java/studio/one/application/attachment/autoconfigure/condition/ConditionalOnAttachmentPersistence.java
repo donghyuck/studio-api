@@ -27,9 +27,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import org.springframework.context.annotation.Conditional;
+import org.springframework.core.annotation.AliasFor;
 
 import studio.one.platform.autoconfigure.PersistenceProperties;
+import studio.one.platform.autoconfigure.features.condition.ConditionalOnFeaturePersistence;
 
 /**
  *
@@ -48,8 +49,9 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@Conditional(OnAttachmentPersistenceCondition.class)
+@ConditionalOnFeaturePersistence(feature = "attachment")
 public @interface ConditionalOnAttachmentPersistence {
 
+    @AliasFor(annotation = ConditionalOnFeaturePersistence.class, attribute = "value")
     PersistenceProperties.Type value();
 }

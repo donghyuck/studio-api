@@ -6,9 +6,10 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import org.springframework.context.annotation.Conditional;
+import org.springframework.core.annotation.AliasFor;
 
 import studio.one.platform.autoconfigure.PersistenceProperties;
+import studio.one.platform.autoconfigure.features.condition.ConditionalOnFeaturePersistence;
 
 /**
  * Activates configuration elements only when the User feature resolves to the specified
@@ -17,7 +18,8 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@Conditional(OnPropertiesPersistenceCondition.class)
+@ConditionalOnFeaturePersistence(feature = "application-properties")
 public @interface ConditionalOnPropertiesPersistence {
+    @AliasFor(annotation = ConditionalOnFeaturePersistence.class, attribute = "value")
     PersistenceProperties.Type value();
 }
