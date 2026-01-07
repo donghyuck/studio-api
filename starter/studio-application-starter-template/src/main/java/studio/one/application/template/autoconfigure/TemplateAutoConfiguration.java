@@ -137,7 +137,17 @@ public class TemplateAutoConfiguration {
         }
         freemarker.template.Configuration configuration = configurationProvider.getIfAvailable();
         if (configuration != null) {
-            return new FreemarkerTemplateBuilder(servletContext, () -> configuration);
+            return new FreemarkerTemplateBuilder(servletContext, new FreeMarkerConfig() {
+                @Override
+                public freemarker.template.Configuration getConfiguration() {
+                    return configuration;
+                }
+
+                @Override
+                public freemarker.ext.jsp.TaglibFactory getTaglibFactory() {
+                    return null;
+                }
+            });
         }
         return new FreemarkerTemplateBuilder(servletContext, null);
     }

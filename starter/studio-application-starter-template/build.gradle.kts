@@ -21,5 +21,6 @@ dependencies {
     api(project(":studio-application-modules:template-service"))
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly ("org.freemarker:freemarker:2.3.32")  
 }
