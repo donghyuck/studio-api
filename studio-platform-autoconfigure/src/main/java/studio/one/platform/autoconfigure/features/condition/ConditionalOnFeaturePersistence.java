@@ -30,5 +30,5 @@ public @interface ConditionalOnFeaturePersistence {
     /**
      * Expected persistence type.
      */
-    PersistenceProperties.Type value();
+    PersistenceProperties.Type value() default PersistenceProperties.Type.jpa;
 }

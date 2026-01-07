@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import freemarker.template.TemplateException;
 import studio.one.application.template.domain.model.Template;
 import studio.one.platform.constant.ServiceNames;
@@ -23,6 +26,10 @@ public interface TemplatesService {
 	public void saveOrUpdate(Template template);
 
 	public void remove(Template template) throws IOException;
+
+	public Page<Template> page(Pageable pageable);
+
+	public Page<Template> page(Pageable pageable, String query, String fields);
 
 	public String processBody(Template template, Map<String, Object> model) throws IOException, TemplateException ;
 

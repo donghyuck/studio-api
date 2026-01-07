@@ -24,6 +24,22 @@ public class TemplateDto {
     Instant updatedAt;
     Map<String, String> properties;
 
+    public static TemplateDto summary(Template template) {
+        return TemplateDto.builder()
+                .templateId(template.getTemplateId())
+                .objectType(template.getObjectType())
+                .objectId(template.getObjectId())
+                .name(template.getName())
+                .displayName(template.getDisplayName())
+                .description(template.getDescription())
+                .subject(template.getSubject())
+                .createdBy(template.getCreatedBy())
+                .updatedBy(template.getUpdatedBy())
+                .createdAt(template.getCreatedAt())
+                .updatedAt(template.getUpdatedAt())
+                .build();
+    }
+
     public static TemplateDto from(Template template) {
         return TemplateDto.builder()
                 .templateId(template.getTemplateId())

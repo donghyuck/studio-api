@@ -7,7 +7,12 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -59,6 +65,19 @@ public class TemplateController {
     public ResponseEntity<ApiResponse<TemplateDto>> get(@PathVariable long templateId) throws NotFoundException {
         Template template = templatesService.getTemplates(templateId);
         return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(template)));
+    }
+
+    @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:template','read')")
+    public ResponseEntity<ApiResponse<Page<TemplateDto>>> list(
+            @PageableDefault(size = 20, sort = "templateId", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(name = "q", required = false) String query,
+            @RequestParam(name = "fields", required = false) String fields) {
+        validateFields(fields);
+        Page<TemplateDto> page = templatesService.page(pageable, query, fields).map(TemplateDto::summary);
+        return ResponseEntity.ok()
+                .header("X-Template-Search-Fields", SearchFields.allowedCsv())
+                .body(ApiResponse.ok(page));
     }
 
     @GetMapping("/name/{name}")
@@ -133,6 +152,28 @@ public class TemplateController {
                 return new java.io.ByteArrayInputStream(new byte[0]);
             }
             return new java.io.ByteArrayInputStream(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+    }
+
+    private void validateFields(String fields) {
+        if (fields == null || fields.isBlank()) {
+            return;
+        }
+        for (String raw : fields.split(",")) {
+            String field = raw.trim();
+            if (!field.isEmpty() && !SearchFields.ALLOWED.contains(field)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Unsupported fields value. Allowed: " + SearchFields.allowedCsv());
+            }
+        }
+    }
+
+    private static final class SearchFields {
+        private static final java.util.List<String> ALLOWED = java.util.List.of(
+                "name", "displayName", "description", "subject", "body");
+
+        private static String allowedCsv() {
+            return String.join(",", ALLOWED);
         }
     }
 }

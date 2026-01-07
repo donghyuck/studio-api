@@ -1,4 +1,4 @@
-package studio.one.application.template.domain.entity;
+package studio.one.application.template.persistence.jpa.entity;
 
 import java.time.Instant;
 import java.util.Map;

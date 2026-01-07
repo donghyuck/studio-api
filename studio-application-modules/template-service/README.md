@@ -3,7 +3,7 @@
 도메인 객체(`objectType`/`objectId`)에 연결된 제목·본문 텍스트 템플릿을 저장하고 FreeMarker로 렌더링하는 모듈이다. `studio-application-starter-template` 의존성을 추가하면 JPA/JDBC 구현과 REST 엔드포인트가 자동 등록된다.
 
 ## 구성 요소
-- **TemplatesService**: 템플릿 생성·조회·수정·삭제와 제목/본문 렌더링을 담당(JPA: `JpaTemplatesService`, JDBC: `JdbcTemplatesService`).
+- **TemplatesService**: 템플릿 생성·조회·수정·삭제와 제목/본문 렌더링을 담당(퍼시스턴스 구현은 `TemplatePersistenceRepository`가 책임).
 - **TemplateController**: CRUD 및 렌더링 REST API 제공. 경로는 `studio.features.template.web.base-path` (기본 `/api/mgmt/templates`).
 - **TemplateEntity/DefaultTemplate**: 템플릿 도메인 모델. `properties` 맵으로 임의 속성 저장.
 - **FreemarkerTemplateBuilder**: 서블릿 컨텍스트/정적 모델을 포함해 FreeMarker 템플릿 처리 유틸리티.
@@ -24,7 +24,7 @@ studio:
     type: jpa                  # jpa | jdbc (template.persistence 미설정 시 사용)
 ```
 
-- `persistence.type` 에 따라 JPA(`TemplateRepository`) 또는 JDBC 구현을 선택한다.
+- `persistence.type` 에 따라 JPA(`TemplateJpaRepository`) 또는 JDBC 구현을 선택한다.
 - 웹을 켜면 `TemplateController` 가 등록되며, `@endpointAuthz.can('features:template','<action>')` 스코프로 보호된다.
 
 ## REST API (기본 base-path: `/api/mgmt/templates`)

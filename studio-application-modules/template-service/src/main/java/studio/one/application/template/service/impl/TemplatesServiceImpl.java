@@ -3,36 +3,31 @@ package studio.one.application.template.service.impl;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
-import freemarker.template.Configuration;
 import freemarker.template.TemplateException;
-import studio.one.application.template.domain.entity.TemplateEntity;
+import studio.one.application.template.domain.model.DefaultTemplate;
 import studio.one.application.template.domain.model.Template;
-import studio.one.application.template.persistence.repository.TemplateRepository;
+import studio.one.application.template.persistence.TemplatePersistenceRepository;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.platform.exception.NotFoundException;
 
-@Service(TemplatesService.SERVICE_NAME)
 @Transactional
-public class JpaTemplatesService implements TemplatesService {
+public class TemplatesServiceImpl implements TemplatesService {
 
-    private final TemplateRepository templateRepository;
-    private final Configuration configuration;
+    private final TemplatePersistenceRepository templateRepository;
+    private final FreemarkerTemplateBuilder templateBuilder;
 
-    public JpaTemplatesService(TemplateRepository templateRepository,
-            ObjectProvider<Configuration> configurationProvider) {
+    public TemplatesServiceImpl(TemplatePersistenceRepository templateRepository,
+            FreemarkerTemplateBuilder templateBuilder) {
         this.templateRepository = templateRepository;
-        this.configuration = Optional.ofNullable(configurationProvider.getIfAvailable())
-                .orElseGet(() -> new Configuration(Configuration.VERSION_2_3_32));
+        this.templateBuilder = templateBuilder;
     }
 
     @Transactional(readOnly = true)
@@ -52,39 +47,43 @@ public class JpaTemplatesService implements TemplatesService {
     @Override
     public Template createGenericTemplates(int objectType, long objectId, String name, String displayName,
             String description, String subject, InputStream file) throws IOException {
-        TemplateEntity entity = new TemplateEntity();
-        entity.setObjectType(objectType);
-        entity.setObjectId(objectId);
-        entity.setName(name);
-        entity.setDisplayName(displayName);
-        entity.setDescription(description);
-        entity.setSubject(subject);
-        entity.setBody(readBody(file));
-        Instant now = Instant.now();
-        entity.setCreatedAt(now);
-        entity.setUpdatedAt(now);
-        entity.setCreatedBy(0L);
-        entity.setUpdatedBy(0L);
-        return templateRepository.save(entity);
+        DefaultTemplate template = new DefaultTemplate();
+        template.setObjectType(objectType);
+        template.setObjectId(objectId);
+        template.setName(name);
+        template.setDisplayName(displayName);
+        template.setDescription(description);
+        template.setSubject(subject);
+        template.setBody(readBody(file));
+        template.setCreatedAt(Instant.now());
+        template.setUpdatedAt(template.getCreatedAt());
+        template.setCreatedBy(0L);
+        template.setUpdatedBy(0L);
+        return templateRepository.save(template);
     }
 
     @Override
     public void saveOrUpdate(Template template) {
-        TemplateEntity entity = toEntity(template);
-        Instant now = Instant.now();
-        if (entity.getCreatedAt() == null) {
-            entity.setCreatedAt(now);
-        }
-        entity.setUpdatedAt(now);
-        templateRepository.save(entity);
+        templateRepository.save(template);
     }
 
     @Override
     public void remove(Template template) throws IOException {
-        templateRepository.delete(toEntity(template));
+        templateRepository.deleteById(template.getTemplateId());
     }
 
     @Override
+    public Page<Template> page(Pageable pageable) {
+        return templateRepository.page(pageable);
+    }
+
+    @Override
+    public Page<Template> page(Pageable pageable, String query, String fields) {
+        return templateRepository.page(pageable, query, fields);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public String processBody(Template template, Map<String, Object> model) throws IOException, TemplateException {
         if (template == null || template.getBody() == null) {
             return null;
@@ -93,6 +92,7 @@ public class JpaTemplatesService implements TemplatesService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String processSubject(Template template, Map<String, Object> model) throws IOException, TemplateException {
         if (template == null || template.getSubject() == null) {
             return null;
@@ -100,33 +100,12 @@ public class JpaTemplatesService implements TemplatesService {
         return processTemplate("subject-" + template.getName(), template.getSubject(), model);
     }
 
-    private TemplateEntity toEntity(Template template) {
-        if (template instanceof TemplateEntity entity) {
-            return entity;
-        }
-        TemplateEntity entity = new TemplateEntity();
-        entity.setTemplateId(template.getTemplateId());
-        entity.setObjectType(template.getObjectType());
-        entity.setObjectId(template.getObjectId());
-        entity.setName(template.getName());
-        entity.setDisplayName(template.getDisplayName());
-        entity.setDescription(template.getDescription());
-        entity.setSubject(template.getSubject());
-        entity.setBody(template.getBody());
-        entity.setCreatedBy(template.getCreatedBy());
-        entity.setUpdatedBy(template.getUpdatedBy());
-        entity.setCreatedAt(template.getCreatedAt());
-        entity.setUpdatedAt(template.getUpdatedAt());
-        entity.setProperties(template.getProperties());
-        return entity;
-    }
-
     private String processTemplate(String templateName, String templateSource, Map<String, Object> model)
             throws IOException, TemplateException {
         freemarker.template.Template fmTemplate = new freemarker.template.Template(templateName, templateSource,
-                configuration);
-        StringWriter writer = new StringWriter();
-        fmTemplate.process(model, writer);
+                templateBuilder.getConfiguration());
+        java.io.StringWriter writer = new java.io.StringWriter();
+        templateBuilder.processTemplate(fmTemplate, model, writer);
         return writer.toString();
     }
 

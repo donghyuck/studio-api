@@ -45,6 +45,20 @@
         ]]>
     </sql>
 
+    <sql id="countAll">
+        <![CDATA[
+        select count(*) from TB_APPLICATION_TEMPLATE
+        ]]>
+    </sql>
+
+    <sql id="findPage">
+        <![CDATA[
+        select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
+               SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
+          from TB_APPLICATION_TEMPLATE
+        ]]>
+    </sql>
+
     <sql id="delete">
         <![CDATA[
         delete from TB_APPLICATION_TEMPLATE

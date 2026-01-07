@@ -2,11 +2,15 @@ package studio.one.application.mail.service.impl;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -20,6 +24,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import studio.one.application.mail.domain.model.DefaultMailMessage;
 import studio.one.application.mail.domain.model.MailMessage;
@@ -159,16 +164,74 @@ public class JdbcMailMessageService implements MailMessageService {
     @Override
     @Transactional(readOnly = true)
     public Page<MailMessage> page(Pageable pageable) {
+        return page(pageable, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MailMessage> page(Pageable pageable, String query, String fields) {
         int pageIndex = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.max(1, pageable.getPageSize());
         int offset = pageIndex * pageSize;
         Sort sortToUse = pageable.getSort().isSorted()
                 ? pageable.getSort()
                 : Sort.by(Sort.Order.desc("mailId"));
-        String orderedQuery = findPageSql + buildOrderByClause(sortToUse, "mailId", SORT_COLUMNS);
-        List<MailMessage> content = pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER);
-        long total = jdbcTemplate.queryForObject(countAllSql, Map.of(), Long.class);
+        boolean hasQuery = StringUtils.hasText(query);
+        Set<String> resolvedFields = resolveFields(fields);
+        String whereClause = hasQuery ? buildWhereClause(resolvedFields) : "";
+        String orderedQuery = findPageSql + whereClause + buildOrderByClause(sortToUse, "mailId", SORT_COLUMNS);
+        Object[] args = buildKeywordArgs(query, resolvedFields);
+        List<MailMessage> content = hasQuery
+                ? pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER, args)
+                : pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER);
+        long total = hasQuery
+                ? jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, args, Long.class)
+                : jdbcTemplate.queryForObject(countAllSql, Map.of(), Long.class);
         return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
+    }
+
+    private Object[] buildKeywordArgs(String query, Set<String> fields) {
+        if (!StringUtils.hasText(query)) {
+            return new Object[0];
+        }
+        String needle = "%" + query.trim().toLowerCase() + "%";
+        List<Object> args = new ArrayList<>();
+        for (int i = 0; i < fields.size(); i++) {
+            args.add(needle);
+        }
+        return args.toArray();
+    }
+
+    private String buildWhereClause(Set<String> fields) {
+        if (fields.isEmpty()) {
+            return "";
+        }
+        StringBuilder where = new StringBuilder(" where ");
+        boolean first = true;
+        for (String field : fields) {
+            String column = resolveColumn(field, SORT_COLUMNS, field);
+            if (!first) {
+                where.append(" or ");
+            }
+            first = false;
+            where.append("lower(coalesce(").append(column).append(", '')) like ?");
+        }
+        return where.toString();
+    }
+
+    private Set<String> resolveFields(String fields) {
+        Map<String, String> allowed = new LinkedHashMap<>(SORT_COLUMNS);
+        allowed.put("body", "BODY");
+        Set<String> selected = new LinkedHashSet<>();
+        if (StringUtils.hasText(fields)) {
+            for (String raw : fields.split(",")) {
+                String field = raw.trim();
+                if (allowed.containsKey(field)) {
+                    selected.add(field);
+                }
+            }
+        }
+        return selected.isEmpty() ? allowed.keySet() : selected;
     }
 
     private MailMessage insert(MailMessage message) {

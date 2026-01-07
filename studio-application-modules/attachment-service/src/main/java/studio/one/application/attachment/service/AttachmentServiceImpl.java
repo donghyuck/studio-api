@@ -66,7 +66,7 @@ public class AttachmentServiceImpl implements AttachmentService {
         Page page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
         return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
     }
-
+s
     @Override
     public Page<Attachment> findAttachmentsByCreator(long createdBy, Pageable pageable) {
         Page page = attachmentRepository.findByCreatedBy(createdBy, pageable);

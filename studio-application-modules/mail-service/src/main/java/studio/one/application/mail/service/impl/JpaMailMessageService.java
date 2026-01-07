@@ -6,9 +6,17 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
+
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import studio.one.application.mail.domain.entity.MailMessageEntity;
 import studio.one.application.mail.domain.model.MailMessage;
@@ -58,13 +66,54 @@ public class JpaMailMessageService implements MailMessageService {
     @Override
     @Transactional(readOnly = true)
     public Page<MailMessage> page(Pageable pageable) {
+        return page(pageable, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MailMessage> page(Pageable pageable, String query, String fields) {
         int pageIndex = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.max(1, pageable.getPageSize());
         Sort sort = pageable.getSort().isSorted()
                 ? pageable.getSort()
                 : Sort.by(Sort.Order.desc("mailId"));
         Pageable safe = PageRequest.of(pageIndex, pageSize, sort);
+        if (StringUtils.hasText(query)) {
+            String needle = query.trim().toLowerCase(Locale.ROOT);
+            Specification<MailMessageEntity> spec = buildSearchSpec(needle, resolveFields(fields));
+            return repository.findAll(spec, safe).map(m -> (MailMessage) m);
+        }
         return repository.findAll(safe).map(m -> (MailMessage) m);
+    }
+
+    private Specification<MailMessageEntity> buildSearchSpec(String needle, Set<String> fields) {
+        return (root, query, cb) -> {
+            String like = "%" + needle + "%";
+            var predicates = new ArrayList<>();
+            for (String field : fields) {
+                var path = root.get(field).as(String.class);
+                var lowered = cb.lower(cb.coalesce(path, ""));
+                predicates.add(cb.like(lowered, like));
+            }
+            return cb.or(predicates.toArray(new javax.persistence.criteria.Predicate[0]));
+        };
+    }
+
+    private Set<String> resolveFields(String fields) {
+        Set<String> allowed = new LinkedHashSet<>(Arrays.asList(
+                "subject", "fromAddress", "toAddress", "ccAddress", "bccAddress",
+                "messageId", "folder", "body"));
+        if (!StringUtils.hasText(fields)) {
+            return allowed;
+        }
+        Set<String> selected = new LinkedHashSet<>();
+        for (String raw : fields.split(",")) {
+            String field = raw.trim();
+            if (allowed.contains(field)) {
+                selected.add(field);
+            }
+        }
+        return selected.isEmpty() ? allowed : selected;
     }
 
     private MailMessageEntity toEntity(MailMessage message) {

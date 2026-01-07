@@ -21,4 +21,6 @@ public interface MailMessageService {
     MailMessage saveOrUpdate(MailMessage message);
 
     Page<MailMessage> page(Pageable pageable);
+
+    Page<MailMessage> page(Pageable pageable, String query, String fields);
 }

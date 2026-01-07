@@ -21,8 +21,6 @@
 
 package studio.one.application.template.autoconfigure;
 
-import java.util.Optional;
-
 import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -38,12 +36,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.web.servlet.view.freemarker.FreeMarkerConfig;
+import org.springframework.web.context.WebApplicationContext;
 
-import studio.one.application.template.domain.entity.TemplateEntity;
-import studio.one.application.template.persistence.repository.TemplateRepository;
+import studio.one.application.template.persistence.jpa.entity.TemplateEntity;
+import studio.one.application.template.persistence.jdbc.TemplateJdbcRepository;
+import studio.one.application.template.persistence.jpa.repo.TemplateJpaPersistenceRepository;
+import studio.one.application.template.persistence.jpa.repo.TemplateJpaRepository;
+import studio.one.application.template.service.impl.FreemarkerTemplateBuilder;
 import studio.one.application.template.service.TemplatesService;
-import studio.one.application.template.service.impl.JdbcTemplatesService;
-import studio.one.application.template.service.impl.JpaTemplatesService;
+import studio.one.application.template.service.impl.TemplatesServiceImpl;
 import studio.one.application.template.web.controller.TemplateController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
@@ -74,53 +76,70 @@ public class TemplateAutoConfiguration {
     @ConditionalOnClass(EntityManagerFactory.class)
     @ConditionalOnBean(name = "entityManagerFactory")
     @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jpa)
-    @EnableJpaRepositories(basePackageClasses = TemplateRepository.class)
+    @EnableJpaRepositories(basePackageClasses = TemplateJpaRepository.class)
     @EntityScan(basePackageClasses = TemplateEntity.class)
     static class TemplateJpaConfig {
     }
 
-    @Bean(TemplatesService.SERVICE_NAME)
-    @ConditionalOnMissingBean(JpaTemplatesService.class)
+    @Bean
+    @ConditionalOnMissingBean(TemplateJpaPersistenceRepository.class)
     @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jpa)
-    public JpaTemplatesService jpaTemplatesService(
-            TemplateRepository templateRepository,
-            ObjectProvider<freemarker.template.Configuration> configurationProvider) {
-        return new JpaTemplatesService(templateRepository, configurationProvider);
-    }
-
-    @Bean(TemplatesService.SERVICE_NAME)
-    @ConditionalOnMissingBean(JdbcTemplatesService.class)
-    @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jdbc)
-    public JdbcTemplatesService jdbcTemplatesService(
-            NamedParameterJdbcTemplate jdbcTemplate,
-            ObjectProvider<freemarker.template.Configuration> configurationProvider) {
-        return new JdbcTemplatesService(jdbcTemplate, Optional.of(configurationProvider.getIfAvailable()));
+    public TemplateJpaPersistenceRepository templateJpaPersistenceRepository(
+            TemplateJpaRepository templateRepository) {
+        return new TemplateJpaPersistenceRepository(templateRepository);
     }
 
     @Bean
-    @ConditionalOnMissingBean(studio.one.application.template.service.TemplatesService.class)
-    public studio.one.application.template.service.TemplatesService templatesService(
+    @ConditionalOnMissingBean(TemplateJdbcRepository.class)
+    @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jdbc)
+    public TemplateJdbcRepository templateJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+        return new TemplateJdbcRepository(jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TemplatesService.class)
+    public TemplatesServiceImpl templatesService(
             TemplateFeatureProperties templateFeatureProperties,
             PersistenceProperties persistenceProperties,
-            ObjectProvider<JpaTemplatesService> jpaProvider,
-            ObjectProvider<JdbcTemplatesService> jdbcProvider) {
+            ObjectProvider<TemplateJpaPersistenceRepository> jpaProvider,
+            ObjectProvider<TemplateJdbcRepository> jdbcProvider,
+            FreemarkerTemplateBuilder templateBuilder) {
 
         PersistenceProperties.Type type = templateFeatureProperties.resolvePersistence(persistenceProperties.getType());
         if (type == PersistenceProperties.Type.jpa) {
-            JpaTemplatesService jpa = jpaProvider.getIfAvailable();
+            TemplateJpaPersistenceRepository jpa = jpaProvider.getIfAvailable();
             if (jpa == null) {
-                throw new IllegalStateException("JPA persistence selected but JpaTemplatesService is not available");
+                throw new IllegalStateException("JPA persistence selected but TemplateJpaPersistenceRepository is not available");
             }
-            return jpa;
+            return new TemplatesServiceImpl(jpa, templateBuilder);
         }
         if (type == PersistenceProperties.Type.jdbc) {
-            JdbcTemplatesService jdbc = jdbcProvider.getIfAvailable();
+            TemplateJdbcRepository jdbc = jdbcProvider.getIfAvailable();
             if (jdbc == null) {
-                throw new IllegalStateException("JDBC persistence selected but JdbcTemplatesService is not available");
+                throw new IllegalStateException("JDBC persistence selected but TemplateJdbcRepository is not available");
             }
-            return jdbc;
+            return new TemplatesServiceImpl(jdbc, templateBuilder);
         }
         throw new IllegalStateException("Unsupported persistence type for template service: " + type);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(FreemarkerTemplateBuilder.class)
+    public FreemarkerTemplateBuilder freemarkerTemplateBuilder(
+            ObjectProvider<FreeMarkerConfig> freeMarkerConfigProvider,
+            ObjectProvider<freemarker.template.Configuration> configurationProvider,
+            ObjectProvider<WebApplicationContext> webContextProvider) {
+        WebApplicationContext context = webContextProvider.getIfAvailable();
+        javax.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
+        FreeMarkerConfig freeMarkerConfig = freeMarkerConfigProvider.getIfAvailable();
+        if (freeMarkerConfig != null) {
+            return new FreemarkerTemplateBuilder(servletContext, freeMarkerConfig);
+        }
+        freemarker.template.Configuration configuration = configurationProvider.getIfAvailable();
+        if (configuration != null) {
+            return new FreemarkerTemplateBuilder(servletContext, () -> configuration);
+        }
+        return new FreemarkerTemplateBuilder(servletContext, null);
     }
 
     @Configuration

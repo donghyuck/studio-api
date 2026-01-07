@@ -50,8 +50,10 @@ public class MailController {
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:mail','read')")
     public ResponseEntity<ApiResponse<Page<MailMessageDto>>> list(
-            @PageableDefault(size = 20, sort = "mailId", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<MailMessageDto> dtoPage = mailMessageService.page(pageable)
+            @PageableDefault(size = 20, sort = "mailId", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(name = "q", required = false) String query,
+            @RequestParam(name = "fields", required = false) String fields) {
+        Page<MailMessageDto> dtoPage = mailMessageService.page(pageable, query, fields)
                 .map(m -> MailMessageDto.from(m, List.of()));
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));
     }
