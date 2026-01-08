@@ -17,7 +17,7 @@ import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.PropertyKeys;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.public-base:/api/users}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.public-base:/api/profile}")
 @RequiredArgsConstructor
 @Slf4j
 public class PublicAvatarController extends AbstractAvatarController {
@@ -40,6 +40,29 @@ public class PublicAvatarController extends AbstractAvatarController {
             height = 0;
         }
         var primaryOpt = avatarImageService.findPrimaryByUsername(username);        
+        if (primaryOpt.isEmpty()) return notAavaliable();
+        var meta = primaryOpt.get();
+        var inOpt = avatarImageService.openDataStream(meta);
+        if (inOpt.isEmpty()) return notAavaliable();
+        return newStreamingResponseEntity(meta.getContentType(), meta.getFileSize().intValue(), meta.getFileName(), inOpt.get() );
+    }
+
+    @GetMapping("/{userId:[\\p{Digit}]+}/avatar")
+    public ResponseEntity<StreamingResponseBody> downloadUserAvatarImageByUserId(
+            @PathVariable("userId") Long userId,
+            @RequestParam(value = "width", defaultValue = "0", required = false) Integer width,
+            @RequestParam(value = "height", defaultValue = "0", required = false) Integer height) throws IOException {
+
+        if (userId == null || userId <= 0) {
+            return notAavaliable();
+        }
+        if (width != null && width < 0) {
+            width = 0;
+        }
+        if (height != null && height < 0) {
+            height = 0;
+        }
+        var primaryOpt = avatarImageService.findPrimaryByUser(toUser(userId));
         if (primaryOpt.isEmpty()) return notAavaliable();
         var meta = primaryOpt.get();
         var inOpt = avatarImageService.openDataStream(meta);
