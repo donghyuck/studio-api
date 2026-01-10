@@ -14,6 +14,9 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import studio.one.application.template.domain.model.Template;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.web.dto.TemplateDto;
+import studio.one.base.security.userdetails.ApplicationUserDetails;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.web.dto.ApiResponse;
@@ -44,8 +48,10 @@ public class TemplateController {
 
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('features:template','write')")
-    public ResponseEntity<ApiResponse<TemplateDto>> create(@Valid @RequestBody TemplateRequest request)
-            throws IOException {
+    public ResponseEntity<ApiResponse<TemplateDto>> create(
+            @Valid @RequestBody TemplateRequest request,
+            @AuthenticationPrincipal UserDetails principal) throws IOException {
+        long userId = requireUserId(principal);
         Template created = templatesService.createGenericTemplates(
                 request.objectType(),
                 request.objectId(),
@@ -54,10 +60,12 @@ public class TemplateController {
                 request.description(),
                 request.subject(),
                 request.bodyInputStream());
+        created.setCreatedBy(userId);
+        created.setUpdatedBy(userId);
         if (request.properties() != null) {
             created.setProperties(request.properties());
-            templatesService.saveOrUpdate(created);
         }
+        templatesService.saveOrUpdate(created);
         return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(created)));
     }
 
@@ -92,7 +100,9 @@ public class TemplateController {
     @PreAuthorize("@endpointAuthz.can('features:template','write')")
     public ResponseEntity<ApiResponse<TemplateDto>> update(
             @PathVariable long templateId,
-            @Valid @RequestBody TemplateRequest request) throws NotFoundException {
+            @Valid @RequestBody TemplateRequest request,
+            @AuthenticationPrincipal UserDetails principal) throws NotFoundException {
+        long userId = requireUserId(principal);
         Template existing = templatesService.getTemplates(templateId);
         existing.setObjectType(request.objectType());
         existing.setObjectId(request.objectId());
@@ -102,15 +112,20 @@ public class TemplateController {
         existing.setSubject(request.subject());
         existing.setBody(request.body());
         existing.setProperties(request.properties());
+        existing.setUpdatedBy(userId);
         templatesService.saveOrUpdate(existing);
         return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(existing)));
     }
 
     @DeleteMapping("/{templateId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:template','delete')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable long templateId)
-            throws NotFoundException, IOException {
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable long templateId,
+            @AuthenticationPrincipal UserDetails principal) throws NotFoundException, IOException {
+        long userId = requireUserId(principal);
         Template template = templatesService.getTemplates(templateId);
+        template.setUpdatedBy(userId);
+        templatesService.saveOrUpdate(template);
         templatesService.remove(template);
         return ResponseEntity.ok(ApiResponse.ok());
     }
@@ -167,6 +182,16 @@ public class TemplateController {
                         "Unsupported fields value. Allowed: " + SearchFields.allowedCsv());
             }
         }
+    }
+
+    private long requireUserId(UserDetails principal) {
+        if (principal instanceof ApplicationUserDetails<?> aud) {
+            Long userId = aud.getUserId();
+            if (userId != null && userId > 0) {
+                return userId;
+            }
+        }
+        throw new AuthenticationCredentialsNotFoundException("No authenticated user");
     }
 
     private static final class SearchFields {

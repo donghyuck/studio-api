@@ -22,4 +22,5 @@ dependencies {
     compileOnly(project(":studio-platform"))  
     compileOnly(project(":studio-platform-data")) 
     compileOnly(project(":studio-platform-user")) 
+    compileOnly(project(":studio-platform-security")) 
 }

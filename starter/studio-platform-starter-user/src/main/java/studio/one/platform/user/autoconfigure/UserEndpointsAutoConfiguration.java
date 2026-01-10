@@ -36,6 +36,7 @@ import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.web.controller.GroupController;
 import studio.one.base.user.web.controller.MeController;
+import studio.one.base.user.web.controller.PublicUserController;
 import studio.one.base.user.web.controller.RoleController;
 import studio.one.base.user.web.controller.UserController;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
@@ -131,6 +132,19 @@ public class UserEndpointsAutoConfiguration {
                 webProperties.normalizedBasePath() + "/users",
                 LogUtils.blue("ACL-managed")));
         return new UserController(svc, mapper, roleMapper);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".public", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public PublicUserController publicUserEndpoint(
+            ApplicationUserService svc,
+            ApplicationUserMapper mapper) {
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue(ApplicationUserService.class, true),
+                LogUtils.blue(PublicUserController.class, true),
+                "/api/public/users",
+                "R"));
+        return new PublicUserController(svc, mapper);
     }
 
     @Bean

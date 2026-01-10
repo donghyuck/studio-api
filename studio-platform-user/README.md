@@ -54,6 +54,17 @@ JPA/JDBC 구현을 모두 포함하며, 스타터 모듈에서 자동 구성된�
 ## 웹 계층
 컨트롤러/DTO/매퍼를 제공한다. REST 노출 여부는 스타터 설정에서 제어한다.
 
+### 공개용 사용자 조회
+사용자 모듈 직접 의존성을 줄이기 위해 공개용 기본 정보 API를 제공한다.
+이 엔드포인트는 `nameVisible`, `emailVisible` 플래그를 반영해 공개 가능한 값만 반환한다.
+
+- `GET /api/public/users/{id}` → `UserPublicDto`
+
+관리자/내부용 기본 조회는 기존 관리 엔드포인트에서 제공한다.
+
+- `GET /api/mgmt/users/basic/{id}` → `UserBasicDto`
+- `GET /api/mgmt/users/basic` → `Page<UserBasicDto>`
+
 ## ERD (개념)
 ```text
 TB_APPLICATION_USER (USER_ID) ──< TB_APPLICATION_USER_ROLES >── (ROLE_ID) TB_APPLICATION_ROLE

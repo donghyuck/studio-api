@@ -12,7 +12,9 @@ import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.UpdateUserRequest;
+import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UserDto;
+import studio.one.base.user.web.dto.UserPublicDto;
 
 @Mapper(componentModel = "spring", uses = {
         TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)
@@ -46,5 +48,15 @@ public interface ApplicationUserMapper {
     UserDto toDto(User entity);
 
     List<UserDto> toDtos(List<User> entities);
+
+    UserBasicDto toBasicDto(User entity);
+
+    List<UserBasicDto> toBasicDtos(List<User> entities);
+
+    @Mapping(target = "name", expression = "java(entity.isNameVisible() ? entity.getName() : null)")
+    @Mapping(target = "email", expression = "java(entity.isEmailVisible() ? entity.getEmail() : null)")
+    UserPublicDto toPublicDto(User entity);
+
+    List<UserPublicDto> toPublicDtos(List<User> entities);
     
 }

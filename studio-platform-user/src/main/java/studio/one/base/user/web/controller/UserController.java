@@ -44,6 +44,7 @@ import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
 import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UpdateUserRequest;
 import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
@@ -97,6 +98,15 @@ public class UserController {
                 return ok(ApiResponse.ok(dtoPage));
         }
 
+        @GetMapping("/basic")
+        @PreAuthorize("@endpointAuthz.can('features:user','read')")
+        public ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(
+                        @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
+                Page<User> page = userService.findAll(pageable);
+                Page<UserBasicDto> dtoPage = page.map(userMapper::toBasicDto);
+                return ok(ApiResponse.ok(dtoPage));
+        }
+
         @GetMapping("/find")
         @PreAuthorize("@endpointAuthz.can('features:user','read')")
         public ResponseEntity<ApiResponse<Page<UserDto>>> find(
@@ -122,6 +132,13 @@ public class UserController {
         public ResponseEntity<ApiResponse<UserDto>> get(@PathVariable Long id) {
                 var user = userService.get(id);
                 return ResponseEntity.ok(ApiResponse.ok(userMapper.toDto(user)));
+        }
+
+        @GetMapping("/basic/{id}")
+        @PreAuthorize("@endpointAuthz.can('features:user','read')")
+        public ResponseEntity<ApiResponse<UserBasicDto>> getBasic(@PathVariable Long id) {
+                var user = userService.get(id);
+                return ResponseEntity.ok(ApiResponse.ok(userMapper.toBasicDto(user)));
         }
 
         @PutMapping("/{id}")
