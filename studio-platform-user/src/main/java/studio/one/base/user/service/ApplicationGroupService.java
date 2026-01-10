@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
 
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
@@ -94,6 +95,8 @@ public interface ApplicationGroupService<G extends Group, R extends Role, U exte
     Page<G> getGroups(Pageable pageable);
 
     Page<G> getGroupsWithMemberCount(Pageable pageable);
+
+    Page<G> getGroupsWithMemberCount(@Nullable String q, Pageable pageable);
 
     // ── Membership: Add / Remove ────────────────────────────────────────────
     /**

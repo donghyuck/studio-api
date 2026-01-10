@@ -22,6 +22,17 @@ public interface ApplicationRoleJpaRepository extends JpaRepository<ApplicationR
     Optional<ApplicationRole> findByName(String name);
 
     @Override
+    @Query(value = "select r from ApplicationRole r " +
+                   "where (:q is null or :q = '' " +
+                   "or lower(r.name) like lower(concat('%', :q, '%')) " +
+                   "or lower(r.description) like lower(concat('%', :q, '%')))",
+        countQuery = "select count(r) from ApplicationRole r " +
+                     "where (:q is null or :q = '' " +
+                     "or lower(r.name) like lower(concat('%', :q, '%')) " +
+                     "or lower(r.description) like lower(concat('%', :q, '%')))")
+    Page<ApplicationRole> search(@Param("q") String q, Pageable pageable);
+
+    @Override
     boolean existsByName(String name);
 
     // 사용자 직접 롤

@@ -37,6 +37,8 @@ public interface ApplicationRoleService <T extends Role, G extends Group, U exte
 
     List<T> getRoles();
 
+    Page<T> search(@Nullable String q, Pageable pageable);
+
     /**
      * 롤 단건 조회
      */

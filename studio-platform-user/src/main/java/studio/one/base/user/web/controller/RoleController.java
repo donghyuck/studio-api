@@ -4,6 +4,9 @@ import static org.springframework.http.ResponseEntity.ok;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.validation.Valid;
 
@@ -41,6 +44,7 @@ import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
+import studio.one.base.user.web.util.RequestParamUtils;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.annotation.Message;
 import studio.one.platform.web.dto.ApiResponse;
@@ -55,14 +59,34 @@ public class RoleController {
     private final ApplicationRoleMapper mapper;
     private final ApplicationGroupMapper groupMapper;
     private final ApplicationUserMapper userMapper;
+    private static final List<String> ALLOWED_FIELDS = List.of(
+            "roleId",
+            "name",
+            "description",
+            "creationDate",
+            "modifiedDate");
+    private static final String ALLOWED_FIELDS_HEADER = RequestParamUtils.allowedFieldsHeader(ALLOWED_FIELDS);
+    private static final Set<String> ALLOWED_FIELDS_LOWER = ALLOWED_FIELDS.stream()
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+    private static final Set<String> DEFAULT_FIELDS = Set.of("name");
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:role','read')")
     public ResponseEntity<ApiResponse<Page<RoleDto>>> list(
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @RequestParam(value = "fields", required = false) Optional<String> fields,
             @PageableDefault(size = 15, sort = "roleId", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<Role> page = roleService.getRoles(pageable);
+        String keyword = RequestParamUtils.normalizeQuery(q).orElse(null);
+        Page<Role> page = roleService.search(keyword, pageable);
         Page<RoleDto> dtoPage = page.map(mapper::toDto);
-        return ok(ApiResponse.ok(dtoPage));
+        Set<String> selected = parseFields(fields.orElse(null));
+        if (!selected.isEmpty()) {
+            dtoPage = dtoPage.map(dto -> selectFields(dto, selected));
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Fields-Allowed", ALLOWED_FIELDS_HEADER);
+        return ResponseEntity.ok().headers(headers).body(ApiResponse.ok(dtoPage));
     }
 
     @PostMapping
@@ -104,7 +128,8 @@ public class RoleController {
             @PathVariable Long roleId,
             @RequestParam(name = "q", required = false) String q,
             @PageableDefault(size = 15, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        var page = roleService.findGroupsGrantedRole(roleId, q, pageable).map(groupMapper::toDto);
+        String keyword = RequestParamUtils.normalizeQuery(Optional.ofNullable(q)).orElse(null);
+        var page = roleService.findGroupsGrantedRole(roleId, keyword, pageable).map(groupMapper::toDto);
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
@@ -124,7 +149,8 @@ public class RoleController {
             @RequestParam(name = "scope", defaultValue = "direct") String scope,
             @RequestParam(name = "q", required = false) String q,
             @PageableDefault(size = 15, sort = "username", direction = Sort.Direction.ASC) Pageable pageable) {
-        var page = roleService.findUsersGrantedRole(roleId, scope, q, pageable).map(userMapper::toDto);
+        String keyword = RequestParamUtils.normalizeQuery(Optional.ofNullable(q)).orElse(null);
+        var page = roleService.findUsersGrantedRole(roleId, scope, keyword, pageable).map(userMapper::toDto);
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
@@ -145,6 +171,20 @@ public class RoleController {
             @AuthenticationPrincipal UserDetails principal) { 
         var result = roleService.assignRoleToUsers(users, roleId, principal.getUsername(), java.time.OffsetDateTime.now());
         return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    private static Set<String> parseFields(String raw) {
+        return RequestParamUtils.parseFields(raw, ALLOWED_FIELDS_LOWER, DEFAULT_FIELDS);
+    }
+
+    private static RoleDto selectFields(RoleDto dto, Set<String> fields) {
+        return RoleDto.builder()
+                .roleId(fields.contains("roleid") ? dto.getRoleId() : null)
+                .name(fields.contains("name") ? dto.getName() : null)
+                .description(fields.contains("description") ? dto.getDescription() : null)
+                .creationDate(fields.contains("creationdate") ? dto.getCreationDate() : null)
+                .modifiedDate(fields.contains("modifieddate") ? dto.getModifiedDate() : null)
+                .build();
     }
 
 }

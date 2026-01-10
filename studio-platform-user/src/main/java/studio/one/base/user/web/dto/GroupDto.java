@@ -69,7 +69,8 @@ public class GroupDto {
 
     OffsetDateTime modifiedDate;
 
-    int roleCount = 0;
+    @Builder.Default
+    Integer roleCount = 0;
 
     Long memberCount ; 
 

@@ -49,6 +49,7 @@ import studio.one.base.user.web.dto.UpdateUserRequest;
 import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
+import studio.one.base.user.web.util.RequestParamUtils;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -91,9 +92,13 @@ public class UserController {
 
         @GetMapping
         @PreAuthorize("@endpointAuthz.can('features:user','read')")
-        public ResponseEntity<ApiResponse<Page<UserDto>>> list(
+        public ResponseEntity<ApiResponse<Page<UserDto>>> list( 
+                        @RequestParam(value = "q", required = false) Optional<String> q,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<User> page = userService.findAll(pageable);
+
+                Page<User> page = RequestParamUtils.normalizeQuery(q)
+                                .map(value -> userService.findByNameOrUsernameOrEmail(value, pageable))
+                                .orElseGet(() -> userService.findAll(pageable));
                 Page<UserDto> dtoPage = page.map(userMapper::toDto);
                 return ok(ApiResponse.ok(dtoPage));
         }
@@ -101,8 +106,11 @@ public class UserController {
         @GetMapping("/basic")
         @PreAuthorize("@endpointAuthz.can('features:user','read')")
         public ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(
+                        @RequestParam(value = "q", required = false) Optional<String> q,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<User> page = userService.findAll(pageable);
+                Page<User> page = RequestParamUtils.normalizeQuery(q)
+                                .map(value -> userService.findByNameOrUsernameOrEmail(value, pageable))
+                                .orElseGet(() -> userService.findAll(pageable));
                 Page<UserBasicDto> dtoPage = page.map(userMapper::toBasicDto);
                 return ok(ApiResponse.ok(dtoPage));
         }
@@ -114,13 +122,14 @@ public class UserController {
                         @RequestParam(value = "requireQuery", required = false, defaultValue = "true") boolean requireQuery,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
 
-                if (q.isEmpty() && requireQuery)
+                Optional<String> keyword = RequestParamUtils.normalizeQuery(q);
+                if (keyword.isEmpty() && requireQuery)
                         return ok(ApiResponse.ok(Page.empty(pageable)));
                 Page<User> page;
-                if (q.isEmpty()) {
+                if (keyword.isEmpty()) {
                         page = userService.findAll(pageable);
                 } else {
-                        page = userService.findByNameOrUsernameOrEmail(q.get(), pageable);
+                        page = userService.findByNameOrUsernameOrEmail(keyword.get(), pageable);
                 }
                 Page<UserDto> dtoPage = page.map(userMapper::toDto);
 

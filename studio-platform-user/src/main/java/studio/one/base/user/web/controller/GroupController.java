@@ -28,6 +28,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import javax.validation.Valid;
 
@@ -49,6 +51,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -64,6 +67,7 @@ import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
+import studio.one.base.user.web.util.RequestParamUtils;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -92,14 +96,37 @@ public class GroupController {
     private final ApplicationGroupMapper groupMapper;
     private final ApplicationUserMapper userMapper;
     private final ApplicationRoleMapper roleMapper;
+    private static final List<String> ALLOWED_FIELDS = List.of(
+            "groupId",
+            "name",
+            "description",
+            "properties",
+            "creationDate",
+            "modifiedDate",
+            "roleCount",
+            "memberCount");
+    private static final String ALLOWED_FIELDS_HEADER = RequestParamUtils.allowedFieldsHeader(ALLOWED_FIELDS);
+    private static final Set<String> ALLOWED_FIELDS_LOWER = ALLOWED_FIELDS.stream()
+            .map(String::toLowerCase)
+            .collect(Collectors.toSet());
+    private static final Set<String> DEFAULT_FIELDS = Set.of("name");
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
     public ResponseEntity<ApiResponse<Page<GroupDto>>> list(
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @RequestParam(value = "fields", required = false) Optional<String> fields,
             @PageableDefault(size = 15, sort = "groupId", direction = Sort.Direction.DESC) Pageable pageable) {
-        Page<Group> page = groupService.getGroupsWithMemberCount(pageable);
+        String keyword = RequestParamUtils.normalizeQuery(q).orElse(null);
+        Page<Group> page = groupService.getGroupsWithMemberCount(keyword, pageable);
         Page<GroupDto> dtoPage = page.map(groupMapper::toDto);
-        return ok(ApiResponse.ok(dtoPage));
+        Set<String> selected = parseFields(fields.orElse(null));
+        if (!selected.isEmpty()) {
+            dtoPage = dtoPage.map(dto -> selectFields(dto, selected));
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Fields-Allowed", ALLOWED_FIELDS_HEADER);
+        return ResponseEntity.ok().headers(headers).body(ApiResponse.ok(dtoPage));
     }
 
     @GetMapping("/{id}")
@@ -187,6 +214,23 @@ public class GroupController {
             @RequestBody List<Long> userList) {
         int result = groupService.removeMembers(id, userList);
         return ok(ApiResponse.ok(result));
+    }
+
+    private static Set<String> parseFields(String raw) {
+        return RequestParamUtils.parseFields(raw, ALLOWED_FIELDS_LOWER, DEFAULT_FIELDS);
+    }
+
+    private static GroupDto selectFields(GroupDto dto, Set<String> fields) {
+        return GroupDto.builder()
+                .groupId(fields.contains("groupid") ? dto.getGroupId() : null)
+                .name(fields.contains("name") ? dto.getName() : null)
+                .description(fields.contains("description") ? dto.getDescription() : null)
+                .properties(fields.contains("properties") ? dto.getProperties() : null)
+                .creationDate(fields.contains("creationdate") ? dto.getCreationDate() : null)
+                .modifiedDate(fields.contains("modifieddate") ? dto.getModifiedDate() : null)
+                .roleCount(fields.contains("rolecount") ? dto.getRoleCount() : null)
+                .memberCount(fields.contains("membercount") ? dto.getMemberCount() : null)
+                .build();
     }
 
 }

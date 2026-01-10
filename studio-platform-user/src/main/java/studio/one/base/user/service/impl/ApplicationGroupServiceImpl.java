@@ -310,7 +310,13 @@ public class ApplicationGroupServiceImpl
 
     @Transactional(readOnly = true)
     public Page<ApplicationGroup> getGroupsWithMemberCount(Pageable pageable) {
-        return groupRepo.findGroupsWithMemberCountByName(null, pageable)
+        return getGroupsWithMemberCount(null, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ApplicationGroup> getGroupsWithMemberCount(String q, Pageable pageable) {
+        return groupRepo.findGroupsWithMemberCountByName(q, pageable)
                 .map(p -> {
                     ApplicationGroup g = p.getEntity();
                     g.setMemberCount(p.getMemberCount() == null ? 0L : p.getMemberCount().longValue());

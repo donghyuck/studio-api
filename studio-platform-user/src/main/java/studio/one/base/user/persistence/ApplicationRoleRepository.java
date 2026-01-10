@@ -20,6 +20,8 @@ public interface ApplicationRoleRepository {
 
     List<ApplicationRole> findAll(Sort sort);
 
+    Page<ApplicationRole> search(String keyword, Pageable pageable);
+
     Optional<ApplicationRole> findById(Long roleId);
 
     Optional<ApplicationRole> findByName(String name);

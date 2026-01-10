@@ -68,6 +68,20 @@ public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements
     }
 
     @Override
+    public Page<ApplicationRole> search(String keyword, Pageable pageable) {
+        String select = "select ROLE_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE from " + TABLE +
+                " where (:q is null or :q = '' " +
+                "or lower(NAME) like lower(concat('%', :q, '%')) " +
+                "or lower(DESCRIPTION) like lower(concat('%', :q, '%')))";
+        String count = "select count(*) from " + TABLE +
+                " where (:q is null or :q = '' " +
+                "or lower(NAME) like lower(concat('%', :q, '%')) " +
+                "or lower(DESCRIPTION) like lower(concat('%', :q, '%')))";
+        return queryPage(select, count, Map.of("q", keyword), pageable, ROLE_ROW_MAPPER, "ROLE_ID desc",
+                ROLE_SORT_COLUMNS);
+    }
+
+    @Override
     public Optional<ApplicationRole> findById(Long roleId) {
         String sql = """
                 select ROLE_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE

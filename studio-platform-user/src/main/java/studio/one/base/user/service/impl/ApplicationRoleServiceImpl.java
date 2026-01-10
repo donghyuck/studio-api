@@ -64,6 +64,15 @@ public class ApplicationRoleServiceImpl
 
     @Override
     @Transactional(Transactional.TxType.SUPPORTS)
+    public Page<ApplicationRole> search(@Nullable String q, Pageable pageable) {
+        if (q == null || q.isBlank()) {
+            return roleRepo.findAll(pageable);
+        }
+        return roleRepo.search(q, pageable);
+    }
+
+    @Override
+    @Transactional(Transactional.TxType.SUPPORTS)
     public List<ApplicationRole> getRoles() {
         return roleRepo.findAll(Sort.by("name").ascending());
     }
