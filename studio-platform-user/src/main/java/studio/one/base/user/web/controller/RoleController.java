@@ -69,7 +69,7 @@ public class RoleController {
     private static final Set<String> ALLOWED_FIELDS_LOWER = ALLOWED_FIELDS.stream()
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
-    private static final Set<String> DEFAULT_FIELDS = Set.of("name");
+    private static final Set<String> DEFAULT_FIELDS = ALLOWED_FIELDS_LOWER;
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:role','read')")

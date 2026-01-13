@@ -83,7 +83,6 @@ public class UserController {
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         public ResponseEntity<ApiResponse<Long>> register(@Valid @RequestBody CreateUserRequest request,
                         HttpServletRequest http) {
-
                 User created = userService.create(userMapper.toEntity(request));
                 URI location = ServletUriComponentsBuilder.fromRequestUri(http).path("/{id}")
                                 .buildAndExpand(created.getUserId()).toUri();
@@ -92,7 +91,7 @@ public class UserController {
 
         @GetMapping
         @PreAuthorize("@endpointAuthz.can('features:user','read')")
-        public ResponseEntity<ApiResponse<Page<UserDto>>> list( 
+        public ResponseEntity<ApiResponse<Page<UserDto>>> list(
                         @RequestParam(value = "q", required = false) Optional<String> q,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
 

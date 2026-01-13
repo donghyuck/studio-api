@@ -100,16 +100,16 @@ public class GroupController {
             "groupId",
             "name",
             "description",
-            "properties",
             "creationDate",
             "modifiedDate",
-            "roleCount",
+            "properties", 
+            "roleCount", 
             "memberCount");
     private static final String ALLOWED_FIELDS_HEADER = RequestParamUtils.allowedFieldsHeader(ALLOWED_FIELDS);
     private static final Set<String> ALLOWED_FIELDS_LOWER = ALLOWED_FIELDS.stream()
             .map(String::toLowerCase)
             .collect(Collectors.toSet());
-    private static final Set<String> DEFAULT_FIELDS = Set.of("name");
+    private static final Set<String> DEFAULT_FIELDS = ALLOWED_FIELDS_LOWER;
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
@@ -175,14 +175,14 @@ public class GroupController {
             @AuthenticationPrincipal UserDetails actor) {
         if (actor == null) {
             throw new AuthenticationCredentialsNotFoundException("No authenticated user");
-        } 
+        }
         List<Long> desired = Optional.ofNullable(roles).orElseGet(Collections::emptyList)
-        .stream()
-        .map(RoleDto::getRoleId)
-        .filter(Objects::nonNull)
-        .distinct().toList(); 
-        BatchResult result =  groupService.updateGroupRolesBulk(id, desired, actor.getUsername());
-        log.debug("batch : {}" , result);
+                .stream()
+                .map(RoleDto::getRoleId)
+                .filter(Objects::nonNull)
+                .distinct().toList();
+        BatchResult result = groupService.updateGroupRolesBulk(id, desired, actor.getUsername());
+        log.debug("batch : {}", result);
         return ok(ApiResponse.ok());
     }
 

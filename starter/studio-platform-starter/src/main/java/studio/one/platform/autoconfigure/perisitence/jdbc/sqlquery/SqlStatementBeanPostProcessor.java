@@ -12,14 +12,16 @@ import org.springframework.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.data.sqlquery.SqlQuery;
 import studio.one.platform.data.sqlquery.annotation.SqlBoundStatement;
+import studio.one.platform.data.sqlquery.annotation.SqlMappedStatement;
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.data.sqlquery.factory.SqlQueryFactory;
 import studio.one.platform.data.sqlquery.mapping.BoundSql;
+import studio.one.platform.data.sqlquery.mapping.MappedStatement;
 
 /**
- * Injects SQL text or {@link BoundSql} into fields/setters annotated with
- * {@link SqlStatement}. Keeps existing beans untouched if the factory is not
- * present.
+ * Injects SQL text, {@link BoundSql}, or {@link MappedStatement} into fields/setters
+ * annotated with {@link SqlStatement}. Keeps existing beans untouched if the factory
+ * is not present.
  */
 @Slf4j
 public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFactoryAware, Ordered {
@@ -52,6 +54,22 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
 
     private void injectFields(Object bean) {
         ReflectionUtils.doWithFields(bean.getClass(), field -> {
+            SqlMappedStatement mappedStatement = AnnotatedElementUtils.findMergedAnnotation(field,
+                    SqlMappedStatement.class);
+            if (mappedStatement != null && StringUtils.hasText(mappedStatement.value())) {
+                if (!MappedStatement.class.isAssignableFrom(field.getType())) {
+                    throw new IllegalStateException("@SqlMappedStatement requires MappedStatement target type: "
+                            + field.getDeclaringClass().getName() + "." + field.getName());
+                }
+                MappedStatement statement = resolveMappedStatement(mappedStatement.value());
+                ReflectionUtils.makeAccessible(field);
+                ReflectionUtils.setField(field, bean, statement);
+                if (log.isDebugEnabled()) {
+                    log.debug("Injected MappedStatement '{}' into {}.{}", mappedStatement.value(),
+                            bean.getClass().getSimpleName(), field.getName());
+                }
+                return;
+            }
             SqlBoundStatement boundStatement = AnnotatedElementUtils.findMergedAnnotation(field, SqlBoundStatement.class);
             if (boundStatement != null && StringUtils.hasText(boundStatement.value())) {
                 BoundSql boundSql = resolveBoundSql(boundStatement.value());
@@ -84,6 +102,26 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
 
     private void injectMethods(Object bean) {
         ReflectionUtils.doWithMethods(bean.getClass(), method -> {
+            SqlMappedStatement mappedStatement = AnnotatedElementUtils.findMergedAnnotation(method,
+                    SqlMappedStatement.class);
+            if (mappedStatement != null && StringUtils.hasText(mappedStatement.value())) {
+                if (method.getParameterCount() != 1) {
+                    return;
+                }
+                Class<?> parameterType = method.getParameterTypes()[0];
+                if (!MappedStatement.class.isAssignableFrom(parameterType)) {
+                    throw new IllegalStateException("@SqlMappedStatement requires MappedStatement parameter type: "
+                            + method.toGenericString());
+                }
+                MappedStatement statement = resolveMappedStatement(mappedStatement.value());
+                ReflectionUtils.makeAccessible(method);
+                ReflectionUtils.invokeMethod(method, bean, statement);
+                if (log.isDebugEnabled()) {
+                    log.debug("Injected MappedStatement '{}' via {}.{}()", mappedStatement.value(),
+                            bean.getClass().getSimpleName(), method.getName());
+                }
+                return;
+            }
             SqlBoundStatement boundStatement = AnnotatedElementUtils.findMergedAnnotation(method, SqlBoundStatement.class);
             if (boundStatement != null && StringUtils.hasText(boundStatement.value())) {
                 if (method.getParameterCount() != 1) {
@@ -117,13 +155,18 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
                         bean.getClass().getSimpleName(), method.getName());
             }
         }, method -> AnnotatedElementUtils.hasAnnotation(method, SqlStatement.class)
-                || AnnotatedElementUtils.hasAnnotation(method, SqlBoundStatement.class));
+                || AnnotatedElementUtils.hasAnnotation(method, SqlBoundStatement.class)
+                || AnnotatedElementUtils.hasAnnotation(method, SqlMappedStatement.class));
     }
 
     private BoundSql resolveBoundSql(String statementId) {
         SqlQuery sqlQuery = sqlQueryFactory.createSqlQuery();
         
         return sqlQuery.getBoundSql(statementId);
+    }
+
+    private MappedStatement resolveMappedStatement(String statementId) {
+        return sqlQueryFactory.getConfiguration().getMappedStatement(statementId);
     }
 
     private Object adapt(BoundSql boundSql, Class<?> targetType) {

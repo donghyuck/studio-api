@@ -8,7 +8,7 @@
 - `queryForList`, `queryForObject`, `executeUpdate`, `call`
 - `setStartIndex`/`setMaxResults` 기반 페이징
 - MyBatis 스타일 동적 SQL 노드
-- `@SqlMapper`/`@SqlStatement`/`@SqlBoundStatement` 기반 정적 매핑
+- `@SqlMapper`/`@SqlStatement`/`@SqlBoundStatement`/`@SqlMappedStatement` 기반 정적 매핑
 
 `SqlQueryFactoryImpl`과 `DirectoryScanner`가 `sql` 디렉터리를 주기적으로 스캔해
 신규/변경 스테이트먼트를 반영한다.
@@ -31,13 +31,13 @@ src/main/resources/
 
 ```xml
 <sqlset namespace="user">
-  <select id="select.byId">
+  <select id="selectById">
     SELECT id, name, email
     FROM tb_user
     WHERE id = #{id}
   </select>
 
-  <select id="select.page">
+  <select id="selectPage">
     SELECT id, name, email
     FROM tb_user
     ORDER BY created_at DESC
@@ -45,7 +45,12 @@ src/main/resources/
 </sqlset>
 ```
 
-전체 스테이트먼트 키는 `user.select.byId`, `user.select.page` 형태가 된다.
+스테이트먼트 키 규칙:
+- id에 점(.)이 포함되어 있으면 네임스페이스를 붙이지 않고 그대로 사용한다.
+- id에 점이 없으면 `namespace.id`로 보정된다.
+예: id가 `select.byId`이면 키는 `select.byId`, id가 `select`이면 키는 `user.select`.
+
+주의: id에 점을 포함해 저장했는데 호출 시 `namespace.id` 형태로 찾으면 내부적으로 매칭되지 않아 “쿼리를 찾지 못함” 오류가 발생한다.
 
 ## SqlQuery 직접 사용
 팩토리를 생성한 뒤 `SqlQuery`를 사용한다.
@@ -55,12 +60,12 @@ SqlQueryFactory factory = new SqlQueryFactoryImpl(dataSource, repository);
 SqlQuery sqlQuery = factory.getSqlQuery();
 
 Map<String, Object> row = sqlQuery
-    .queryForObject("user.select.byId", Map.of("id", 10));
+    .queryForObject("user.selectById", Map.of("id", 10));
 
 List<Map<String, Object>> rows = sqlQuery
     .setStartIndex(0)
     .setMaxResults(20)
-    .queryForList("user.select.page");
+    .queryForList("user.selectPage");
 ```
 
 ## 매퍼 인터페이스 사용
@@ -69,10 +74,10 @@ List<Map<String, Object>> rows = sqlQuery
 ```java
 @SqlMapper("user-sqlset.xml")
 public interface UserSqlMapper {
-    @SqlStatement("user.select.byId")
+    @SqlStatement("user.selectById")
     Map<String, Object> selectById(long id);
 
-    @SqlStatement("user.select.page")
+    @SqlStatement("user.selectPage")
     List<UserDto> selectPage(int startIndex, int maxResults);
 }
 ```
@@ -90,11 +95,25 @@ List<UserDto> page = mapper.selectPage(0, 20);
 
 ```java
 public class UserRepository {
-    @SqlBoundStatement("user.select.page")
+    @SqlBoundStatement("user.selectPage")
     private BoundSql selectPage;
 
     public BoundSql getSelectPage() {
         return selectPage;
+    }
+}
+```
+
+## MappedStatement 주입
+동적 쿼리 생성을 위해 필드 또는 단일 파라미터 세터에 `@SqlMappedStatement`를 붙이면 `MappedStatement`가 주입된다.
+
+```java
+public class UserRepository {
+    @SqlMappedStatement("user.selectPage")
+    private MappedStatement selectPage;
+
+    public String buildPageSql(Map<String, Object> params, Map<String, Object> additional) {
+        return selectPage.getBoundSql(params, additional).getSql();
     }
 }
 ```
