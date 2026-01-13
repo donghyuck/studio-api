@@ -19,8 +19,10 @@ package studio.one.platform.data.sqlquery.mapping;
 import java.util.Map;
 
 public interface SqlSource {
-    
+
     BoundSql getBoundSql(Object parameterObject);
-    
+
     BoundSql getBoundSql(Object parameterObject, Map<String, Object> additionalParameters);
+
+    BoundSql getBoundSqlFromCachedSql(String cachedSql, Object parameterObject);
 }

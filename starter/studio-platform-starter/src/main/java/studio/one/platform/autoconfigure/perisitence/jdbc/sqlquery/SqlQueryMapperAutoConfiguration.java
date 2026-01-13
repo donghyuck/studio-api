@@ -9,6 +9,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import studio.one.platform.autoconfigure.JdbcProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.data.sqlquery.factory.SqlQueryFactory;
 
@@ -21,7 +22,9 @@ public class SqlQueryMapperAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SqlStatementBeanPostProcessor sqlStatementBeanPostProcessor() {
-        return new SqlStatementBeanPostProcessor();
+    public SqlStatementBeanPostProcessor sqlStatementBeanPostProcessor(JdbcProperties jdbcProperties) {
+        SqlStatementBeanPostProcessor processor = new SqlStatementBeanPostProcessor();
+        processor.setFailFast(jdbcProperties.getSql().isFailFast());
+        return processor;
     }
 }

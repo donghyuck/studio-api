@@ -27,6 +27,7 @@ import studio.one.platform.data.sqlquery.mapping.MappedStatement;
 public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFactoryAware, Ordered {
 
     private SqlQueryFactory sqlQueryFactory;
+    private boolean failFast = true;
 
     @Override
     public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
@@ -160,12 +161,14 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
     }
 
     private BoundSql resolveBoundSql(String statementId) {
+        validateStatementExists(statementId);
         SqlQuery sqlQuery = sqlQueryFactory.createSqlQuery();
         
         return sqlQuery.getBoundSql(statementId);
     }
 
     private MappedStatement resolveMappedStatement(String statementId) {
+        validateStatementExists(statementId);
         return sqlQueryFactory.getConfiguration().getMappedStatement(statementId);
     }
 
@@ -177,5 +180,21 @@ public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFac
             return boundSql.getSql();
         }
         throw new IllegalStateException("Unsupported @SqlStatement target type: " + targetType.getName());
+    }
+
+    private void validateStatementExists(String statementId) {
+        if (!failFast) {
+            return;
+        }
+        if (!StringUtils.hasText(statementId)) {
+            throw new IllegalStateException("Statement id must not be empty.");
+        }
+        if (!sqlQueryFactory.getConfiguration().hasStatement(statementId)) {
+            throw new IllegalStateException("Mapped statement not found: " + statementId);
+        }
+    }
+
+    public void setFailFast(boolean failFast) {
+        this.failFast = failFast;
     }
 }

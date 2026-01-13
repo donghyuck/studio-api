@@ -16,13 +16,21 @@
 
 package studio.one.platform.data.sqlquery.mapping;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import studio.one.platform.data.sqlquery.factory.Configuration;
 
 public class MappedStatement {
+
+	private static final int DEFAULT_SQL_CACHE_SIZE = 256;
+	private static final Logger log = LoggerFactory.getLogger(MappedStatement.class);
 
 	public static class Builder {
 
@@ -90,6 +98,8 @@ public class MappedStatement {
 
 	private String description;
 
+	private volatile SqlTextCache sqlTextCache;
+
 	public BoundSql getBoundSql(Object parameterObject) {
 		return sqlSource.getBoundSql(parameterObject);		
 	}
@@ -99,12 +109,51 @@ public class MappedStatement {
 			.filter(Map.class::isInstance)
 			.map(map -> (Map<String, Object>) map)
 			.orElseGet(() -> {
+				if (additionalParameters == null) {
+					return Collections.emptyMap();
+				}
 				Map<String, Object> defaultParams = new HashMap<>();
 				defaultParams.put("additional_parameter", additionalParameters);
 				return defaultParams;
 			});
 	
 		return sqlSource.getBoundSql(parameterObject, params);
+	}
+
+	public BoundSql getBoundSqlCached(Object parameterObject, Object additionalParameters, Object cacheKey) {
+		if (cacheKey == null) {
+			return getBoundSql(parameterObject, additionalParameters);
+		}
+		String cachedSql = getSqlTextCache().get(cacheKey);
+		if (cachedSql != null) {
+			if (log.isDebugEnabled()) {
+				log.debug("MappedStatement cache hit: id={}, key={}", id, cacheKey);
+			}
+			return buildCachedBoundSql(cachedSql, parameterObject);
+		}
+		long startNanos = System.nanoTime();
+		BoundSql boundSql = getBoundSql(parameterObject, additionalParameters);
+		getSqlTextCache().put(cacheKey, boundSql.getSql());
+		if (log.isDebugEnabled()) {
+			long elapsedMicros = (System.nanoTime() - startNanos) / 1_000;
+			log.debug("MappedStatement cache miss: id={}, key={}, buildMicros={}", id, cacheKey, elapsedMicros);
+		}
+		return boundSql;
+	}
+
+	private BoundSql buildCachedBoundSql(String cachedSql, Object parameterObject) {
+		return sqlSource.getBoundSqlFromCachedSql(cachedSql, parameterObject);
+	}
+
+	private SqlTextCache getSqlTextCache() {
+		if (sqlTextCache == null) {
+			synchronized (this) {
+				if (sqlTextCache == null) {
+					sqlTextCache = new SqlTextCache(DEFAULT_SQL_CACHE_SIZE);
+				}
+			}
+		}
+		return sqlTextCache;
 	}
 
 	public Configuration getConfiguration() {
@@ -137,5 +186,29 @@ public class MappedStatement {
 
 	public Integer getTimeout() {
 		return timeout;
+	}
+
+	private static class SqlTextCache {
+
+		private final Map<Object, String> cache;
+
+		SqlTextCache(int maxSize) {
+			this.cache = Collections.synchronizedMap(new LinkedHashMap<Object, String>(16, 0.75f, true) {
+				private static final long serialVersionUID = 1L;
+
+				@Override
+				protected boolean removeEldestEntry(Map.Entry<Object, String> eldest) {
+					return size() > maxSize;
+				}
+			});
+		}
+
+		String get(Object key) {
+			return cache.get(key);
+		}
+
+		void put(Object key, String sql) {
+			cache.put(key, sql);
+		}
 	}
 }

@@ -22,6 +22,7 @@ public class JdbcProperties {
     @Setter
     public static class SqlProps {
         private boolean enabled = true;
+        private boolean failFast = true;
         private List<String> locations = new ArrayList<>();
         private DeployProperties deploy = new DeployProperties();
     }

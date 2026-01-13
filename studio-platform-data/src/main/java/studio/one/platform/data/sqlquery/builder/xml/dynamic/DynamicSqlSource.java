@@ -62,4 +62,8 @@ public class DynamicSqlSource implements SqlSource {
 		// 3. 최종 쿼리를 리턴한다.
 		return new BoundSql(context.getSql(), parameterMappings, parameterObject, resultMappings);
 	}
+
+	public BoundSql getBoundSqlFromCachedSql(String cachedSql, Object parameterObject) {
+		return new BoundSql(cachedSql, parameterMappings, parameterObject, resultMappings);
+	}
 }
