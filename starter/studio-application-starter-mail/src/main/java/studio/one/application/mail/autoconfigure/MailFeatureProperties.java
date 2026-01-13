@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.application.mail.config.ImapProperties;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
-import studio.one.platform.autoconfigure.SimpleWebProperties;
+import studio.one.platform.autoconfigure.WebEndpointProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @ConfigurationProperties(prefix = PropertyKeys.Features.PREFIX + ".mail")
@@ -36,7 +36,7 @@ public class MailFeatureProperties extends FeatureToggle {
     @Getter
     @Setter
     @NoArgsConstructor
-    public static class Web extends SimpleWebProperties {
+    public static class Web extends WebEndpointProperties {
 
         public enum NotifyTransport {
             sse,

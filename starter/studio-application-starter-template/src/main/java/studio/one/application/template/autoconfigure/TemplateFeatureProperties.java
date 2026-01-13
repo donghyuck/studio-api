@@ -9,7 +9,7 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
-import studio.one.platform.autoconfigure.SimpleWebProperties;
+import studio.one.platform.autoconfigure.WebEndpointProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @ConfigurationProperties(prefix = PropertyKeys.Features.PREFIX + ".template")
@@ -20,6 +20,6 @@ import studio.one.platform.constant.PropertyKeys;
 public class TemplateFeatureProperties extends FeatureToggle {
 
     @Valid
-    private SimpleWebProperties web = new SimpleWebProperties();
+    private WebEndpointProperties web = new WebEndpointProperties();
  
 }

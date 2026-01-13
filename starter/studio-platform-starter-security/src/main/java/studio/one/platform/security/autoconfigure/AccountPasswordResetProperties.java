@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
 import studio.one.platform.autoconfigure.PersistenceProperties;
-import studio.one.platform.autoconfigure.SimpleWebProperties;
+import studio.one.platform.autoconfigure.WebEndpointProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @Getter
@@ -17,7 +17,7 @@ import studio.one.platform.constant.PropertyKeys;
 public class AccountPasswordResetProperties extends FeatureToggle {
 
     private String resetPasswordUrl;
-    private SimpleWebProperties web = new SimpleWebProperties();
+    private WebEndpointProperties web = new WebEndpointProperties();
 
     public PersistenceProperties.Type resolvePersistence(PersistenceProperties.Type globalDefault) {
         if (getPersistence() != null) {
