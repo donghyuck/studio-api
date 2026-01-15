@@ -52,7 +52,6 @@ public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
         }
 
         merged = Collections.unmodifiableMap(next);
-
         if (log.isDebugEnabled()) {
             log.debug("Domain policies merged: {}", merged.keySet());
         }

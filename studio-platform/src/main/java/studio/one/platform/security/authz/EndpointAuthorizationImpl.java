@@ -29,9 +29,7 @@ public class EndpointAuthorizationImpl {
     
     private static final String ADMIN = "ADMIN";
     private static final String ROLE_PREFIX = "ROLE_";
-
     private final DomainPolicyRegistry registry;
-
     private final EndpointModeGuard modeGuard;
 
     // ===== SpEL API =====

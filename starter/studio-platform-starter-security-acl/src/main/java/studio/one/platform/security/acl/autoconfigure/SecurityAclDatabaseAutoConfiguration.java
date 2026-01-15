@@ -51,13 +51,14 @@ import studio.one.base.security.acl.policy.AclResourceMapper;
 import studio.one.base.security.acl.policy.DatabaseAclDomainPolicyContributor;
 import studio.one.base.security.acl.policy.DefaultAclPermissionMapper;
 import studio.one.base.security.acl.policy.SimpleAclResourceMapper;
-import studio.one.base.security.acl.service.AclPermissionService;
+import studio.one.base.security.acl.service.DefaultAclPermissionService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.security.authz.AllowAllEndpointModeGuard;
+import studio.one.platform.security.authz.acl.AclPermissionService;
 import studio.one.platform.security.authz.DomainPolicyContributor;
 import studio.one.platform.security.authz.DomainPolicyRegistry;
 import studio.one.platform.security.authz.DomainPolicyRegistryImpl;
@@ -196,7 +197,11 @@ public class SecurityAclDatabaseAutoConfiguration {
                 return new AllowAllEndpointModeGuard();
         }
 
-        /** SpEL: @endpointAuthz.can('domain','component','action') */
+        /** 
+         * ServiceNames.DOMAIN_ENDPOINT_AUTHZ 이름으로 등록되어 동작.
+         * 
+         * SpEL: @endpointAuthz.can('domain','component','action') 
+         * */
         @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
         @ConditionalOnBean({ DomainPolicyRegistry.class, EndpointModeGuard.class })
         @ConditionalOnMissingBean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
@@ -228,9 +233,9 @@ public class SecurityAclDatabaseAutoConfiguration {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                                 FEATURE_NAME,
-                                LogUtils.blue(AclPermissionService.class, true),
+                                LogUtils.blue(DefaultAclPermissionService.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new AclPermissionService(aclService);
+                return new DefaultAclPermissionService(aclService);
         }
         @Configuration(proxyBeanMethods = false)
         @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)

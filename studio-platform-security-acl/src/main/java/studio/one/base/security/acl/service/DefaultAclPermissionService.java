@@ -15,21 +15,24 @@ import org.springframework.util.Assert;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.security.authz.acl.AclPermissionService;
 
 /**
  * Convenience service for managing object level ACL entries.
  */
 @Slf4j
 @RequiredArgsConstructor
-public class AclPermissionService {
+public class DefaultAclPermissionService implements AclPermissionService {
 
     private final MutableAclService aclService;
 
+    @Override
     public MutableAcl grantPermission(Class<?> domainType, Serializable identifier, Sid sid, Permission permission) {
         ObjectIdentity identity = new ObjectIdentityImpl(domainType, identifier);
         return grantPermission(identity, sid, permission);
     }
 
+    @Override
     public MutableAcl grantPermission(ObjectIdentity identity, Sid sid, Permission permission) {
         Assert.notNull(identity, "identity must not be null");
         Assert.notNull(sid, "sid must not be null");
@@ -42,11 +45,13 @@ public class AclPermissionService {
         return updated;
     }
 
+    @Override
     public MutableAcl revokePermission(Class<?> domainType, Serializable identifier, Sid sid, Permission permission) {
         ObjectIdentity identity = new ObjectIdentityImpl(domainType, identifier);
         return revokePermission(identity, sid, permission);
     }
 
+    @Override
     public MutableAcl revokePermission(ObjectIdentity identity, Sid sid, Permission permission) {
         Assert.notNull(identity, "identity must not be null");
         Assert.notNull(sid, "sid must not be null");
@@ -73,11 +78,13 @@ public class AclPermissionService {
         return acl;
     }
 
+    @Override
     public void deleteAcl(Class<?> domainType, Serializable identifier) {
         ObjectIdentity identity = new ObjectIdentityImpl(domainType, identifier);
         deleteAcl(identity);
     }
 
+    @Override
     public void deleteAcl(ObjectIdentity identity) {
         Assert.notNull(identity, "identity must not be null");
         aclService.deleteAcl(identity, true);
