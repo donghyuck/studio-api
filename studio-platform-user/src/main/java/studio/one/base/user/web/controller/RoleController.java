@@ -72,7 +72,7 @@ public class RoleController {
     private static final Set<String> DEFAULT_FIELDS = ALLOWED_FIELDS_LOWER;
 
     @GetMapping
-    @PreAuthorize("@c.can('features:role','read')")
+    @PreAuthorize("@endpointAuthz.can('features:role','read')")
     public ResponseEntity<ApiResponse<Page<RoleDto>>> list(
             @RequestParam(value = "q", required = false) Optional<String> q,
             @RequestParam(value = "fields", required = false) Optional<String> fields,
