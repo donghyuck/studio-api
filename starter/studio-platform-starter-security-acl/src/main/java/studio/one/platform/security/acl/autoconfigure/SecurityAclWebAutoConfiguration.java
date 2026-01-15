@@ -29,6 +29,7 @@ import org.springframework.context.annotation.Configuration;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.acl.policy.AclPolicySeeder;
+import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
 import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
 import studio.one.base.security.acl.policy.AclPolicySynchronizationServiceImpl;
 import studio.one.base.security.acl.web.controller.AclSyncController;
@@ -36,6 +37,7 @@ import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.security.authz.acl.AclMetricsRecorder;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -59,7 +61,9 @@ public class SecurityAclWebAutoConfiguration {
     @ConditionalOnMissingBean
     public AclPolicySynchronizationService aclPolicySynchronizationService(
             AclPolicySeeder seeder,
-            org.springframework.context.ApplicationEventPublisher eventPublisher,
+            AclPolicyRefreshPublisher refreshPublisher,
+            ObjectProvider<AclMetricsRecorder> metricsRecorderProvider,
+            ObjectProvider<SecurityAclProperties> propertiesProvider,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -68,7 +72,11 @@ public class SecurityAclWebAutoConfiguration {
                 LogUtils.blue(AclPolicySynchronizationService.class, true),
                 LogUtils.red(State.CREATED.toString())));
 
-        return new AclPolicySynchronizationServiceImpl(seeder, eventPublisher);
+        return new AclPolicySynchronizationServiceImpl(
+                seeder,
+                refreshPublisher,
+                metricsRecorderProvider.getIfAvailable(AclMetricsRecorder::noop),
+                propertiesProvider.getIfAvailable(SecurityAclProperties::new).isAuditEnabled());
     }
 
     @Bean

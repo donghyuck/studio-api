@@ -49,7 +49,7 @@ public class AclSyncController {
     @PostMapping("/sync/defaults")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public ResponseEntity<Void> syncDefaults() {
-        synchronizationService.ifAvailable(svc -> policies.forEach(svc::synchronize));
+        synchronizationService.ifAvailable(svc -> svc.synchronizeAll(policies));
         return ResponseEntity.noContent().build();
     }
 }

@@ -38,6 +38,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
@@ -45,13 +46,18 @@ import org.springframework.security.acls.model.MutableAclService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.security.acl.persistence.AclClassRepository;
 import studio.one.base.security.acl.persistence.AclEntryRepository;
+import studio.one.base.security.acl.persistence.AclObjectIdentityRepository;
+import studio.one.base.security.acl.persistence.AclSidRepository;
 import studio.one.base.security.acl.policy.AclPermissionMapper;
 import studio.one.base.security.acl.policy.AclResourceMapper;
+import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
 import studio.one.base.security.acl.policy.DatabaseAclDomainPolicyContributor;
 import studio.one.base.security.acl.policy.DefaultAclPermissionMapper;
 import studio.one.base.security.acl.policy.SimpleAclResourceMapper;
 import studio.one.base.security.acl.service.DefaultAclPermissionService;
+import studio.one.base.security.acl.service.RepositoryAclPermissionService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -64,9 +70,12 @@ import studio.one.platform.security.authz.DomainPolicyRegistry;
 import studio.one.platform.security.authz.DomainPolicyRegistryImpl;
 import studio.one.platform.security.authz.EndpointAuthorizationImpl;
 import studio.one.platform.security.authz.EndpointModeGuard;
+import studio.one.platform.security.authz.acl.AclMetricsRecorder;
+import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
+import studio.one.platform.security.acl.metrics.MicrometerAclMetricsRecorder;
 
 /**
  * Auto-configuration that exposes the database ACL repositories and
@@ -216,6 +225,32 @@ public class SecurityAclDatabaseAutoConfiguration {
                 return new EndpointAuthorizationImpl(registry, endpointModeGuard);
         }
 
+        @Bean
+        @ConditionalOnClass(io.micrometer.core.instrument.MeterRegistry.class)
+        @ConditionalOnMissingBean(AclMetricsRecorder.class)
+        public AclMetricsRecorder micrometerAclMetricsRecorder(
+                        io.micrometer.core.instrument.MeterRegistry meterRegistry,
+                        SecurityAclProperties properties) {
+                if (!properties.isMetricsEnabled()) {
+                        return AclMetricsRecorder.noop();
+                }
+                return new MicrometerAclMetricsRecorder(meterRegistry);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(AclMetricsRecorder.class)
+        public AclMetricsRecorder aclMetricsRecorder() {
+                return AclMetricsRecorder.noop();
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        public AclPolicyRefreshPublisher aclPolicyRefreshPublisher(
+                        ObjectProvider<DomainEvents> domainEventsProvider,
+                        ObjectProvider<ApplicationEventPublisher> applicationEventPublisher) {
+                return new AclPolicyRefreshPublisher(domainEventsProvider, applicationEventPublisher);
+        }
+
         /**
          * 존재하는 MutableAclService를 감싸 권한 조회/부여 등의 고수준 서비스를 제공. MutableAclService가
          * 클래스패스·빈 모두에 있을 때만 생성
@@ -227,15 +262,58 @@ public class SecurityAclDatabaseAutoConfiguration {
         @Bean
         @ConditionalOnClass(MutableAclService.class)
         @ConditionalOnBean(MutableAclService.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX, name = "use-spring-acl", havingValue = "true")
         @ConditionalOnMissingBean
         public AclPermissionService aclPermissionService(MutableAclService aclService,
+                        AclPolicyRefreshPublisher refreshPublisher,
+                        ObjectProvider<AclMetricsRecorder> metricsRecorderProvider,
+                        ObjectProvider<AclEntryRepository> entryRepositoryProvider,
+                        ObjectProvider<AclObjectIdentityRepository> objectIdentityRepositoryProvider,
+                        ObjectProvider<AclClassRepository> classRepositoryProvider,
+                        ObjectProvider<AclSidRepository> sidRepositoryProvider,
+                        SecurityAclProperties properties,
                         ObjectProvider<I18n> i18nProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                                 FEATURE_NAME,
                                 LogUtils.blue(DefaultAclPermissionService.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new DefaultAclPermissionService(aclService);
+                return new DefaultAclPermissionService(
+                                aclService,
+                                metricsRecorderProvider.getIfAvailable(AclMetricsRecorder::noop),
+                                refreshPublisher,
+                                entryRepositoryProvider.getIfAvailable(),
+                                objectIdentityRepositoryProvider.getIfAvailable(),
+                                classRepositoryProvider.getIfAvailable(),
+                                sidRepositoryProvider.getIfAvailable(),
+                                properties.isAuditEnabled());
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(AclPermissionService.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX, name = "use-spring-acl", havingValue = "false", matchIfMissing = true)
+        public AclPermissionService repositoryAclPermissionService(
+                        AclClassRepository classRepository,
+                        AclSidRepository sidRepository,
+                        AclObjectIdentityRepository objectIdentityRepository,
+                        AclEntryRepository entryRepository,
+                        AclPolicyRefreshPublisher refreshPublisher,
+                        ObjectProvider<AclMetricsRecorder> metricsRecorderProvider,
+                        SecurityAclProperties properties,
+                        ObjectProvider<I18n> i18nProvider) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                                FEATURE_NAME,
+                                LogUtils.blue(RepositoryAclPermissionService.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new RepositoryAclPermissionService(
+                                classRepository,
+                                sidRepository,
+                                objectIdentityRepository,
+                                entryRepository,
+                                refreshPublisher,
+                                metricsRecorderProvider.getIfAvailable(AclMetricsRecorder::noop),
+                                properties.isAuditEnabled());
         }
         @Configuration(proxyBeanMethods = false)
         @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
@@ -256,6 +334,56 @@ public class SecurityAclDatabaseAutoConfiguration {
         @EnableJpaRepositories(basePackages = "${" + PropertyKeys.Security.Acl.REPOSITORY_PACKAGES + ":" + SecurityAclProperties.DEFAULT_REPOSITORY_PACKAGE + "}")
         static class JpaWiring {
 
+        }
+
+        @Configuration(proxyBeanMethods = false)
+        @ConditionalOnClass(org.springframework.cache.CacheManager.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX, name = "use-spring-acl", havingValue = "true")
+        static class AclCacheConfig {
+
+                @Bean
+                @ConditionalOnMissingBean
+                public org.springframework.security.acls.domain.AclAuthorizationStrategy aclAuthorizationStrategy(
+                                SecurityAclProperties properties) {
+                        String adminRole = (properties.getAdminRole() == null || properties.getAdminRole().isBlank())
+                                        ? "ROLE_ADMIN"
+                                        : properties.getAdminRole();
+                        return new org.springframework.security.acls.domain.AclAuthorizationStrategyImpl(
+                                        new org.springframework.security.core.authority.SimpleGrantedAuthority(adminRole));
+                }
+
+                @Bean
+                @ConditionalOnMissingBean
+                public org.springframework.security.acls.model.PermissionGrantingStrategy permissionGrantingStrategy() {
+                        return new org.springframework.security.acls.domain.DefaultPermissionGrantingStrategy(
+                                        new org.springframework.security.acls.domain.ConsoleAuditLogger());
+                }
+
+                @Bean
+                @ConditionalOnBean(org.springframework.cache.CacheManager.class)
+                @ConditionalOnMissingBean(org.springframework.security.acls.model.AclCache.class)
+                public org.springframework.security.acls.model.AclCache aclCache(
+                                org.springframework.cache.CacheManager cacheManager,
+                                org.springframework.security.acls.model.PermissionGrantingStrategy permissionGrantingStrategy,
+                                org.springframework.security.acls.domain.AclAuthorizationStrategy aclAuthorizationStrategy,
+                                SecurityAclProperties properties) {
+                        String cacheName = (properties.getCacheName() == null || properties.getCacheName().isBlank())
+                                        ? "aclCache"
+                                        : properties.getCacheName();
+                        org.springframework.cache.Cache cache = cacheManager.getCache(cacheName);
+                        if (cache == null) {
+                                cache = new org.springframework.cache.concurrent.ConcurrentMapCache(cacheName);
+                        }
+                        return new org.springframework.security.acls.domain.SpringCacheBasedAclCache(
+                                        cache, permissionGrantingStrategy, aclAuthorizationStrategy);
+                }
+
+                @Bean
+                @ConditionalOnBean(org.springframework.security.acls.model.AclCache.class)
+                public studio.one.base.security.acl.policy.AclCacheInvalidationListener aclCacheInvalidationListener(
+                                ObjectProvider<org.springframework.security.acls.model.AclCache> aclCacheProvider) {
+                        return new studio.one.base.security.acl.policy.AclCacheInvalidationListener(aclCacheProvider);
+                }
         }
 
 }

@@ -18,6 +18,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly ("org.springframework.data:spring-data-commons")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
+    compileOnly("org.springframework.security:spring-security-acl")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     api("commons-io:commons-io:${project.findProperty("apacheCommonsIoVersion")}") 

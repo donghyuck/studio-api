@@ -22,4 +22,5 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.security:spring-security-acl")
+    compileOnly("io.micrometer:micrometer-core")
 }

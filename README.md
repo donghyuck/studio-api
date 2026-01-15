@@ -19,7 +19,7 @@ studio-platform-user/            # 사용자/그룹/역할/회사 도메인
 
 ## 주요 모듈
 - **studio-platform**: 공통 유틸, 도메인 베이스, 예외/텍스트/웹 지원.
-- **studio-platform-security / security-acl**: JWT 인증, 계정 잠금, 로그인 감사, ACL 기반 인가.
+- **studio-platform-security / security-acl**: JWT 인증, 계정 잠금, 로그인 감사, ACL 기반 인가. ACL 권한 조작 API는 `studio.one.platform.security.authz.acl.AclPermissionService` 인터페이스로 노출.
 - **studio-platform-user**: 사용자/그룹/역할/회사 도메인, `/api/mgmt` 사용자 관리 REST.
 - **studio-platform-ai**: 임베딩/벡터스토어/RAG 포트와 REST 컨트롤러.
 - **studio-application-modules**
@@ -38,6 +38,22 @@ dependencies {
     implementation(project(":starter:studio-platform-starter-security")) // 보안
     implementation(project(":starter:studio-platform-starter-user"))     // 사용자
     implementation(project(":starter:studio-application-starter-attachment")) // 첨부
+}
+```
+
+## ACL 외부 사용 가이드
+- 외부 모듈에서는 `studio.one.platform.security.authz.acl.AclPermissionService` 인터페이스만 의존한다.
+- 구현은 `studio-platform-security-acl`에 있으며 자동 구성 시 주입된다.
+- 대량 revoke는 `revokePermissions(...)`로 한 번에 처리할 수 있다.
+- Micrometer가 클래스패스에 있으면 ACL 메트릭(`acl.operation.*`)이 자동 수집된다.
+```java
+@RequiredArgsConstructor
+class ForumAclAdminController {
+    private final studio.one.platform.security.authz.acl.AclPermissionService aclPermissionService;
+
+    public void grant(ObjectIdentity identity, Sid sid, Permission permission) {
+        aclPermissionService.grantPermission(identity, sid, permission);
+    }
 }
 ```
 
@@ -69,6 +85,11 @@ studio:
         enabled: true
     security-acl:
       enabled: true
+      cache-name: aclCache
+      admin-role: ROLE_ADMIN
+      use-spring-acl: false
+      metrics-enabled: true
+      audit-enabled: true
   ai:
     enabled: true
     default-provider: openai

@@ -1,11 +1,11 @@
 package studio.one.base.security.acl.service;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
-import org.springframework.beans.factory.ObjectProvider;
-
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.acl.domain.entity.AclClassEntity;
 import studio.one.base.security.acl.domain.entity.AclEntryEntity;
 import studio.one.base.security.acl.domain.entity.AclObjectIdentityEntity;
@@ -22,20 +22,23 @@ import studio.one.base.security.acl.web.dto.AclObjectIdentityDto;
 import studio.one.base.security.acl.web.dto.AclObjectIdentityRequest;
 import studio.one.base.security.acl.web.dto.AclSidDto;
 import studio.one.base.security.acl.web.dto.AclSidRequest;
-import studio.one.platform.security.authz.DomainPolicyRefreshEvent;
-import studio.one.platform.service.DomainEvents;
+import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
+import studio.one.platform.security.authz.acl.AclMetricsRecorder;
 
 /**
  * Service that exposes ACL metadata management operations.
  */
 @RequiredArgsConstructor
+@Slf4j
 public class AclAdministrationService {
 
     private final AclClassRepository classRepository;
     private final AclSidRepository sidRepository;
     private final AclObjectIdentityRepository objectIdentityRepository;
     private final AclEntryRepository entryRepository;
-    private final ObjectProvider<DomainEvents> domainEventsProvider; 
+    private final AclPolicyRefreshPublisher refreshPublisher;
+    private final AclMetricsRecorder metricsRecorder;
+    private final boolean auditEnabled;
 
     public List<AclClassDto> listClasses() {
         return classRepository.findAll().stream()
@@ -105,6 +108,7 @@ public class AclAdministrationService {
     }
 
     public AclEntryDto createEntry(AclEntryRequest request) {
+        long started = System.nanoTime();
         AclEntryEntity entry = new AclEntryEntity();
         AclObjectIdentityEntity objectIdentity = objectIdentityRepository.findById(request.getObjectIdentityId())
                 .orElseThrow(() -> new IllegalArgumentException("objectIdentityId"));
@@ -118,13 +122,23 @@ public class AclAdministrationService {
         entry.setAuditSuccess(request.isAuditSuccess());
         entry.setAuditFailure(request.isAuditFailure());
         AclEntryDto dto = toDto(entryRepository.save(entry));
-         domainEventsProvider.ifAvailable(
-                resolved -> resolved.publishAfterCommit(new DomainPolicyRefreshEvent())); 
+        refreshPublisher.publishAfterCommit();
+        metricsRecorder.record("admin_entry_create", Duration.ofNanos(System.nanoTime() - started), 1);
+        if (auditEnabled && log.isInfoEnabled()) {
+        log.info("ACL_AUDIT action=admin_entry_create entryId={} objectIdentityId={} sidId={}",
+                dto.getId(), dto.getObjectIdentityId(), dto.getSidId());
+        }
         return dto;
     }
 
     public void deleteEntry(Long id) {
+        long started = System.nanoTime();
         entryRepository.deleteById(id);
+        refreshPublisher.publishAfterCommit();
+        metricsRecorder.record("admin_entry_delete", Duration.ofNanos(System.nanoTime() - started), 1);
+        if (auditEnabled && log.isInfoEnabled()) {
+            log.info("ACL_AUDIT action=admin_entry_delete entryId={}", id);
+        }
     }
 
     private AclClassDto toDto(AclClassEntity entity) {

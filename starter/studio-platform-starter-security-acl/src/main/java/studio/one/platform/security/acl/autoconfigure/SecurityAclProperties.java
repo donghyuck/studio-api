@@ -73,4 +73,29 @@ public class SecurityAclProperties extends FeatureToggle {
      * names.
      */
     private Set<String> domainIndicators = Set.of("*", "__domain__", "__root__");
+
+    /**
+     * Cache name used when building the ACL cache.
+     */
+    private String cacheName = "aclCache";
+
+    /**
+     * Admin role used by the ACL authorization strategy.
+     */
+    private String adminRole = "ROLE_ADMIN";
+
+    /**
+     * Enables metrics recording for ACL operations.
+     */
+    private boolean metricsEnabled = true;
+
+    /**
+     * Enables audit logging for ACL changes.
+     */
+    private boolean auditEnabled = true;
+
+    /**
+     * When true, prefer Spring ACL (MutableAclService) based permission service.
+     */
+    private boolean useSpringAcl = false;
 }

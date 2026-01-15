@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import studio.one.base.security.acl.domain.entity.AclEntryEntity;
+import studio.one.base.security.acl.domain.entity.AclObjectIdentityEntity;
 import studio.one.base.security.acl.domain.entity.AclSidEntity;
 
 /**
@@ -48,4 +49,32 @@ public interface AclEntryRepository extends JpaRepository<AclEntryEntity, Long> 
     @Transactional
     @Query("delete from AclEntryEntity e where e.sid = :sid")
     void deleteBySid(@Param("sid") AclSidEntity sid);
+
+    List<AclEntryEntity> findByAclObjectIdentity_IdOrderByAceOrderAsc(Long objectIdentityId);
+
+    @Query("""
+            select e.mask from AclEntryEntity e
+            where e.aclObjectIdentity = :objectIdentity
+              and e.sid = :sid
+              and e.granting = true
+              and e.mask in :masks
+            """)
+    List<Integer> findMasksByObjectIdentityAndSid(
+            @Param("objectIdentity") AclObjectIdentityEntity objectIdentity,
+            @Param("sid") AclSidEntity sid,
+            @Param("masks") List<Integer> masks);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            delete from AclEntryEntity e
+            where e.aclObjectIdentity = :objectIdentity
+              and e.sid = :sid
+              and e.granting = true
+              and e.mask in :masks
+            """)
+    int deleteByObjectIdentityAndSidAndMaskIn(
+            @Param("objectIdentity") AclObjectIdentityEntity objectIdentity,
+            @Param("sid") AclSidEntity sid,
+            @Param("masks") List<Integer> masks);
 }

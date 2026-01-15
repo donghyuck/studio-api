@@ -1,7 +1,6 @@
 package studio.one.platform.security.acl.autoconfigure;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +12,7 @@ import studio.one.base.security.acl.persistence.AclClassRepository;
 import studio.one.base.security.acl.persistence.AclEntryRepository;
 import studio.one.base.security.acl.persistence.AclObjectIdentityRepository;
 import studio.one.base.security.acl.persistence.AclSidRepository;
+import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
 import studio.one.base.security.acl.service.AclAdministrationService;
 import studio.one.base.security.acl.web.controller.AclActionController;
 import studio.one.base.security.acl.web.controller.AclAdminController;
@@ -20,8 +20,7 @@ import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.constant.ServiceNames;
-import studio.one.platform.service.DomainEvents;
+import studio.one.platform.security.authz.acl.AclMetricsRecorder;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -43,13 +42,17 @@ public class SecurityAclAdminAutoConfiguration {
             AclSidRepository sidRepository,
             AclObjectIdentityRepository identityRepository,
             AclEntryRepository entryRepository,
-            @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider,
+            AclPolicyRefreshPublisher refreshPublisher,
+            ObjectProvider<AclMetricsRecorder> metricsRecorderProvider,
+            ObjectProvider<SecurityAclProperties> propertiesProvider,
             ObjectProvider<I18n> i18nProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, DefaultAclPolicyAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(AclAdministrationService.class, true), LogUtils.red(State.CREATED.toString())));
         return new AclAdministrationService(classRepository, sidRepository, identityRepository, entryRepository,
-                domainEventsProvider);
+                refreshPublisher,
+                metricsRecorderProvider.getIfAvailable(AclMetricsRecorder::noop),
+                propertiesProvider.getIfAvailable(SecurityAclProperties::new).isAuditEnabled());
     }
 
     @Bean
