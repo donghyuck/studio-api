@@ -13,7 +13,11 @@ import org.springframework.security.acls.model.Permission;
 import org.springframework.security.acls.model.Sid;
 import org.springframework.util.Assert;
 
+import studio.one.platform.constant.ServiceNames;
+
 public interface AclPermissionService {
+
+    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":security:acl:acl-permission-service";
 
     MutableAcl grantPermission(Class<?> domainType, Serializable identifier, Sid sid, Permission permission);
 
