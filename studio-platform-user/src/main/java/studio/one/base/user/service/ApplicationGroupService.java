@@ -32,7 +32,6 @@ import org.springframework.lang.Nullable;
 
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.ServiceNames;
 
 /**
@@ -50,7 +49,7 @@ import studio.one.platform.constant.ServiceNames;
  */
 
 
-public interface ApplicationGroupService<G extends Group, R extends Role, U extends User> {
+public interface ApplicationGroupService<G extends Group, R extends Role> {
 
     public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:application-group-service";
     
@@ -128,7 +127,7 @@ public interface ApplicationGroupService<G extends Group, R extends Role, U exte
      * @param pageable
      * @return
      */
-    Page<U> getMembers(Long groupId, Pageable pageable);
+    Page<Long> getMembers(Long groupId, Pageable pageable);
 
 
     // ── Roles: Assign / Revoke / Read ────────────────────────────────────────

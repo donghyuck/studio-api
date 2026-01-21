@@ -7,12 +7,13 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
+import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -26,16 +27,15 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.application.template.domain.model.Template;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.web.dto.TemplateDto;
-import studio.one.base.security.userdetails.ApplicationUserDetails;
+import studio.one.platform.identity.*;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -185,7 +185,7 @@ public class TemplateController {
     }
 
     private long requireUserId(UserDetails principal) {
-        if (principal instanceof ApplicationUserDetails<?> aud) {
+        if (principal instanceof ApplicationPrincipal aud) {
             Long userId = aud.getUserId();
             if (userId != null && userId > 0) {
                 return userId;

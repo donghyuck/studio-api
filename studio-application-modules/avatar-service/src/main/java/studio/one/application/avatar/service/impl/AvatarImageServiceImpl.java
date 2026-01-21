@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -19,44 +20,34 @@ import studio.one.application.avatar.domain.entity.AvatarImageData;
 import studio.one.application.avatar.persistence.AvatarImageDataRepository;
 import studio.one.application.avatar.persistence.AvatarImageRepository;
 import studio.one.application.avatar.service.AvatarImageService;
-import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.model.User;
-import studio.one.base.user.service.ApplicationUserService;
+import studio.one.platform.identity.IdentityService;
 import studio.one.platform.mediaio.ImageSource;
 
 @Slf4j
 @RequiredArgsConstructor
 @Transactional
-public class AvatarImageServiceImpl implements AvatarImageService<User> {
+public class AvatarImageServiceImpl implements AvatarImageService {
 
     private final AvatarImageRepository imageRepo;
     private final AvatarImageDataRepository dataRepo;
-    private final ApplicationUserService<User, Role> userService;
+    private final ObjectProvider<IdentityService> identityServiceProvider;
 
     /* ---------- Query ---------- */
-    private long getUserId(User user) {
-        if (user == null)
-            throw new IllegalArgumentException("user must not be null");
-        Long id = user.getUserId();
-        if (id != null && id > 0L)
-            return id;
-        String username = StringUtils.trimToEmpty(user.getUsername());
-        if (StringUtils.isEmpty(username))
-            throw new IllegalArgumentException("userId is null/invalid and username is empty");
-        return userService.findIdByUsername(username);
-    }
-
     @Override
     @Transactional(readOnly = true)
-    public List<AvatarImage> findAllByUser(User user) { 
-        Long userId = getUserId(user);
+    public List<AvatarImage> findAllByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
         return imageRepo.findByUserIdOrderByCreationDateDesc(userId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public long countByUser(User user) {
-        Long userId = getUserId(user);
+    public long countByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
         return imageRepo.countByUserId(userId);
     }
 
@@ -68,19 +59,25 @@ public class AvatarImageServiceImpl implements AvatarImageService<User> {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<AvatarImage> findPrimaryByUser(User user) {
-        Long userId = getUserId(user);
+    public Optional<AvatarImage> findPrimaryByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
         return imageRepo.findFirstByUserIdAndPrimaryImageTrueOrderByCreationDateDesc(userId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Optional<AvatarImage> findPrimaryByUsername(String username) {
-        return Optional.ofNullable(username)
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .flatMap(userService::findByUsername)
-                .map(u -> u.getUserId())
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
+            return Optional.empty();
+        }
+        return identityService.findByUsername(username.trim())
+                .map(user -> user.userId())
                 .flatMap(imageRepo::findFirstByUserIdAndPrimaryImageTrueOrderByCreationDateDesc);
     }
 
@@ -104,7 +101,7 @@ public class AvatarImageServiceImpl implements AvatarImageService<User> {
     /* ---------- Command ---------- */
 
     @Override
-    public AvatarImage upload(AvatarImage metaLike, ImageSource source, User actor) throws IOException {
+    public AvatarImage upload(AvatarImage metaLike, ImageSource source) throws IOException {
         Objects.requireNonNull(metaLike, "meta");
         Objects.requireNonNull(source, "source");
 

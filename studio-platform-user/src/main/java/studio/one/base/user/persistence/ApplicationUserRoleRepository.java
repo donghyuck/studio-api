@@ -7,7 +7,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.entity.ApplicationRole;
-import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.entity.ApplicationUserRole;
 import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.platform.constant.ServiceNames;
@@ -38,13 +37,13 @@ public interface ApplicationUserRoleRepository {
 
     List<Long> findRoleIdsByUserId(Long userId);
 
-    Page<ApplicationUser> findUsersByRoleId(Long roleId, Pageable pageable);
+    Page<Long> findUserIdsByRoleId(Long roleId, Pageable pageable);
 
-    List<ApplicationUser> findUsersByRoleId(Long roleId);
+    List<Long> findUserIdsByRoleId(Long roleId);
 
-    Page<ApplicationUser> findUsersByRoleId(Long roleId, String keyword, Pageable pageable);
+    Page<Long> findUserIdsByRoleId(Long roleId, String keyword, Pageable pageable);
 
-    Page<ApplicationUser> findUsersByRoleIdViaGroup(Long roleId, String keyword, Pageable pageable);
+    Page<Long> findUserIdsByRoleIdViaGroup(Long roleId, String keyword, Pageable pageable);
 
     ApplicationUserRole save(ApplicationUserRole userRole);
 

@@ -27,6 +27,8 @@ public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:
 
   Page<ApplicationGroupMembership> findAllByUserId(Long userId, Pageable pageable);
 
+  Page<Long> findUserIdsByGroupId(Long groupId, Pageable pageable);
+
   List<GroupCount> countMembersByGroupIds(Collection<Long> groupIds);
 
   int deleteByGroupIdAndUserIds(Long groupId, Collection<Long> userIds);

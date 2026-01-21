@@ -230,6 +230,7 @@ public class PropertyKeys {
             public static final String PREFIX = Features.PREFIX + ".user";
             public static final String ENABLED = PREFIX + ENABLED_VALUE_STRING;
             public static final String FAIL_IF_MISSING = PREFIX + FAIL_IF_MISSING_VALUE_STRING;
+            public static final String USE_DEFAULT = PREFIX + ".use-default";
 
             /**
              * Contains user web feature property keys.

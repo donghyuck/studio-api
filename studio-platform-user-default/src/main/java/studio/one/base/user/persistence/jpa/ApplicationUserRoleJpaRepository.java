@@ -97,23 +97,21 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
 
     // ---------- 역할 → 사용자 목록 ----------
     @Override
-    @Query(value = "select u from ApplicationUser u " +
+    @Query(value = "select u.userId from ApplicationUser u " +
             " join ApplicationUserRole ur on ur.id.userId = u.userId " +
             " where ur.id.roleId = :roleId",
         countQuery = "select count(u) from ApplicationUser u " +
                     " join ApplicationUserRole ur on ur.id.userId = u.userId " +
                     " where ur.id.roleId = :roleId")
-    Page<ApplicationUser> findUsersByRoleId(@Param("roleId") Long roleId, Pageable pageable);
+    Page<Long> findUserIdsByRoleId(@Param("roleId") Long roleId, Pageable pageable);
 
     @Override
-    @Query("select u from ApplicationUser u " +
-            " join ApplicationUserRole ur on ur.id.userId = u.userId " +
-            " where ur.id.roleId = :roleId")
-    List<ApplicationUser> findUsersByRoleId(@Param("roleId") Long roleId);
+    @Query("select ur.id.userId from ApplicationUserRole ur where ur.id.roleId = :roleId")
+    List<Long> findUserIdsByRoleId(@Param("roleId") Long roleId);
 
     @Override
     @Query("""
-              select distinct u
+              select distinct u.userId
                 from ApplicationUser u
                 join ApplicationUserRole ur on ur.id.userId = u.userId
                where ur.id.roleId = :roleId
@@ -124,14 +122,14 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
                    or lower(u.email) like lower(concat('%', :q, '%'))
                  )
     """)
-    Page<ApplicationUser> findUsersByRoleId(
+    Page<Long> findUserIdsByRoleId(
             @Param("roleId") Long roleId,
             @Param("q") String q,
             Pageable pageable);
 
     @Override
     @Query("""
-            select distinct u
+            select distinct u.userId
                 from ApplicationUser u
                 join ApplicationGroupMembership gm on gm.id.userId = u.userId
                 join ApplicationGroupRole gr       on gr.group = gm.group
@@ -143,7 +141,7 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
                 or lower(u.email)    like :q
                 )
     """)
-    Page<ApplicationUser> findUsersByRoleIdViaGroup(@Param("roleId") Long roleId,
+    Page<Long> findUserIdsByRoleIdViaGroup(@Param("roleId") Long roleId,
             @Param("q") String q,
             Pageable pageable);
 }

@@ -58,17 +58,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.web.dto.GroupDto;
 import studio.one.base.user.web.dto.RoleDto;
-import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
-import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.base.user.web.util.RequestParamUtils;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserDto;
+import studio.one.platform.identity.UserRef;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
@@ -92,10 +92,10 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 public class GroupController {
 
-    private final ApplicationGroupService<Group, Role, User> groupService;
+    private final ApplicationGroupService<Group, Role> groupService;
     private final ApplicationGroupMapper groupMapper;
-    private final ApplicationUserMapper userMapper;
     private final ApplicationRoleMapper roleMapper;
+    private final org.springframework.beans.factory.ObjectProvider<IdentityService> identityServiceProvider;
     private static final List<String> ALLOWED_FIELDS = List.of(
             "groupId",
             "name",
@@ -193,8 +193,8 @@ public class GroupController {
             @PathVariable Long id,
             @PageableDefault(size = 15, direction = Sort.Direction.DESC) Pageable pageable) {
         Group group = groupService.getById(id);
-        Page<User> page = groupService.getMembers(group.getGroupId(), pageable);
-        Page<UserDto> dtoPage = page.map(userMapper::toDto);
+        Page<Long> page = groupService.getMembers(group.getGroupId(), pageable);
+        Page<UserDto> dtoPage = page.map(this::toUserDto);
         return ok(ApiResponse.ok(dtoPage));
     }
 
@@ -214,6 +214,23 @@ public class GroupController {
             @RequestBody List<Long> userList) {
         int result = groupService.removeMembers(id, userList);
         return ok(ApiResponse.ok(result));
+    }
+
+    private UserDto toUserDto(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
+            return new UserDto(userId, null);
+        }
+        return identityService.findById(userId)
+                .map(this::toUserDto)
+                .orElseGet(() -> new UserDto(userId, null));
+    }
+
+    private UserDto toUserDto(UserRef userRef) {
+        return new UserDto(userRef.userId(), userRef.username());
     }
 
     private static Set<String> parseFields(String raw) {

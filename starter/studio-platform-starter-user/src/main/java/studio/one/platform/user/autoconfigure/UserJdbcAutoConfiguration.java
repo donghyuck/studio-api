@@ -1,6 +1,7 @@
 package studio.one.platform.user.autoconfigure;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -15,7 +16,7 @@ import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersist
 
 @AutoConfiguration
 @EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
-@ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
+@ConditionalOnExpression("${" + PropertyKeys.Features.User.ENABLED + ":true} && ${" + PropertyKeys.Features.User.USE_DEFAULT + ":true}")
 @Slf4j
 public class UserJdbcAutoConfiguration {
 

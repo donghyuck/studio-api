@@ -20,13 +20,17 @@ import studio.one.platform.constant.PropertyKeys;
 @EqualsAndHashCode(callSuper = true)
 public class UserFeatureProperties extends FeatureToggle {
 
+    // 기본 구현 모듈(studio-platform-user-default)의 JPA 리포지토리 패키지
     public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jpa";
 
     /** JDBC 구현 패키지 경로 (필요 시 repository-packages에 설정) */
+    // 기본 구현 모듈(studio-platform-user-default)의 JDBC 리포지토리 패키지
     public static final String JDBC_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jdbc";
 
+    // 기본 구현 모듈(studio-platform-user-default)의 엔터티 패키지
     public static final String DEFAULT_ENTITY_PACKAGE = "studio.one.base.user.domain.entity";
 
+    // 기본 구현 모듈(studio-platform-user-default)의 서비스 구현 패키지
     public static final String DEFAULT_COMPONENT_PACKAGE = "studio.one.base.user.service.impl";
 
     /** 멀티 EMF/Tx 환경 대비 기본 빈 이름 디폴트 */
@@ -57,5 +61,11 @@ public class UserFeatureProperties extends FeatureToggle {
 
     /** (선택) JDBC 리포지토리 스캔 제외 패턴 목록 (정규식) */
     private List<String> excludeJdbcRepositoryPackages = List.of();
+
+    /**
+     * 기본 구현(studio-platform-user-default)을 사용할지 여부.
+     * 커스텀 구현을 사용하는 경우 false로 두고 자체 구현/컨트롤러를 등록한다.
+     */
+    private boolean useDefault = true;
 
 }

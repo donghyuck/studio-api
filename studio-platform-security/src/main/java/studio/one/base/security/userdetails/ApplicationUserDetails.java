@@ -29,6 +29,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import lombok.Getter;
 import studio.one.base.user.domain.model.User;
+import studio.one.platform.identity.ApplicationPrincipal;
 
 /**
  *
@@ -45,7 +46,7 @@ import studio.one.base.user.domain.model.User;
  */
 
 @Getter 
-public class ApplicationUserDetails<T extends User> implements UserDetails {
+public class ApplicationUserDetails<T extends User> implements UserDetails, ApplicationPrincipal {
 
     private  final transient T domainUser;
 
@@ -105,5 +106,15 @@ public class ApplicationUserDetails<T extends User> implements UserDetails {
 
     public String getName() {
         return domainUser.getName();
+    }
+
+    @Override
+    public java.util.Set<String> getRoles() {
+        if (authorities == null) {
+            return java.util.Collections.emptySet();
+        }
+        return authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
     }
 }

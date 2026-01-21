@@ -19,7 +19,11 @@ public interface ApplicationUserRepository {
 
     Optional<ApplicationUser> findById(Long userId);
 
+    Optional<ApplicationUser> findEnabledById(Long userId);
+
     Optional<ApplicationUser> findByUsername(String username);
+
+    Optional<ApplicationUser> findEnabledByUsername(String username);
 
     Optional<ApplicationUser> findByUsernameForUpdate(String username);
 

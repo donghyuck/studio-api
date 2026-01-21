@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Map;
 
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.base.user.web.dto.UserDto;
+import studio.one.platform.identity.UserDto;
 
 public record AttachmentDto(
     

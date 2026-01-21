@@ -67,11 +67,12 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
-
+import studio.one.platform.identity.*;
 /**
  *
  * @author donghyuck, son
@@ -163,6 +164,7 @@ public class AttachmentAutoConfiguration {
     public AttachmentService attachmentService(
             AttachmentRepository attachmentRepository,
             FileStorage fileStorage,
+            ObjectProvider<PrincipalResolver> principalResolverProvider,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -171,7 +173,7 @@ public class AttachmentAutoConfiguration {
                 LogUtils.blue(AttachmentServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
         log.info("{} service ready with repository: {}", AttachmentService.class.getSimpleName(),
                 LogUtils.green(attachmentRepository instanceof JdbcAttachmentRepository ? "JDBC" : "JPA"));
-        return new AttachmentServiceImpl(attachmentRepository, fileStorage);
+        return new AttachmentServiceImpl(attachmentRepository, fileStorage, principalResolverProvider);
     }
 
     private String resolveBaseDir(AttachmentFeatureProperties.Storage storage, Repository repository) {

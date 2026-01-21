@@ -22,7 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.domain.entity.ApplicationRole;
-import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.exception.RoleNotFoundException;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
@@ -41,13 +40,13 @@ import studio.one.platform.util.LogUtils;
 @Transactional
 @Slf4j
 public class ApplicationRoleServiceImpl
-        implements ApplicationRoleService<ApplicationRole, ApplicationGroup, ApplicationUser> {
+        implements ApplicationRoleService<ApplicationRole, ApplicationGroup> {
 
     private final ApplicationRoleRepository roleRepo;
     private final ApplicationGroupRoleRepository groupRoleRepo;
     private final ApplicationUserRoleRepository userRoleRepo;
     private final JdbcTemplate jdbcTemplate;
-    private final ObjectProvider<DomainEvents> domainEventsProvider; 
+    private final ObjectProvider<DomainEvents> domainEventsProvider;
     private final ObjectProvider<I18n> i18nProvider;
 
     @PostConstruct
@@ -155,13 +154,13 @@ public class ApplicationRoleServiceImpl
     }
 
     @Override
-    public Page<ApplicationUser> findUsersGrantedRole(Long roleId, String scope, String q, Pageable pageable) {
+    public Page<Long> findUsersGrantedRole(Long roleId, String scope, String q, Pageable pageable) {
         final String s = scope == null ? "effective" : scope.toLowerCase();
         final String keyword = blankToNull(q);
         return switch (s) {
-            case "direct" -> userRoleRepo.findUsersByRoleId(roleId, keyword, pageable);
-            case "group" -> userRoleRepo.findUsersByRoleIdViaGroup(roleId, keyword, pageable);
-            default -> userRoleRepo.findUsersByRoleId(roleId, keyword, pageable); // 간단 구현
+            case "direct" -> userRoleRepo.findUserIdsByRoleId(roleId, keyword, pageable);
+            case "group" -> userRoleRepo.findUserIdsByRoleIdViaGroup(roleId, keyword, pageable);
+            default -> userRoleRepo.findUserIdsByRoleId(roleId, keyword, pageable); // 간단 구현
         };
     }
 
@@ -172,9 +171,9 @@ public class ApplicationRoleServiceImpl
     private void publishEvent(RoleUpdatedEvent.Action action, String roleName, String previousName) {
         if (roleName == null || roleName.isBlank())
             return;
-        log.debug("{} -> {} : {}.", previousName, roleName, action.toString());    
+        log.debug("{} -> {} : {}.", previousName, roleName, action.toString());
         domainEventsProvider.ifAvailable(
-                resolved -> resolved.publishAfterCommit( RoleUpdatedEvent.of(action, roleName.trim(), previousName))); 
+                resolved -> resolved.publishAfterCommit(RoleUpdatedEvent.of(action, roleName.trim(), previousName)));
     }
 
     @Override

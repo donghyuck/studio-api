@@ -53,6 +53,8 @@ import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.exception.JwtTokenException;
+import studio.one.base.security.userdetails.ApplicationUserDetails;
+import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.service.I18n;
 
 /**
@@ -104,6 +106,8 @@ public class JwtTokenProvider {
     public static final String HEADER_STRING = "Authorization";
 
     private static final String AUTHORITIES_KEY = "authorities";
+    private static final String CLAIM_USER_ID = "uid";
+    private static final String CLAIM_USERNAME = "uname";
 
     /**
      * JwtTokenProvider 생성자
@@ -184,35 +188,55 @@ public class JwtTokenProvider {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
+        Long userId = resolveUserId(authentication);
+        String username = resolveUsername(authentication);
         Instant now = clock.instant();
         Instant exp = now.plus(accessTtl);
-        return Jwts.builder()
-                .subject(authentication.getName())
+        var builder = Jwts.builder()
+                .subject(StringUtils.defaultIfBlank(authentication.getName(), username))
                 .claim(claimAuthorities, authorities)
                 .issuer(issuer)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp))
-                .signWith(secretKey, Jwts.SIG.HS256)
-                .compact();
+                .signWith(secretKey, Jwts.SIG.HS256);
+        if (userId != null) {
+            builder.claim(CLAIM_USER_ID, userId);
+        }
+        if (StringUtils.isNotBlank(username)) {
+            builder.claim(CLAIM_USERNAME, username);
+        }
+        return builder.compact();
     }
 
     public String generateRefreshToken(Authentication authentication) {
         Instant now = clock.instant();
         Instant exp = now.plus(refreshTtl);
-        return Jwts.builder()
-                .subject(authentication.getName())
+        Long userId = resolveUserId(authentication);
+        String username = resolveUsername(authentication);
+        var builder = Jwts.builder()
+                .subject(StringUtils.defaultIfBlank(authentication.getName(), username))
                 .issuer(issuer)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(exp))
-                .signWith(secretKey, Jwts.SIG.HS256)
-                .compact();
+                .signWith(secretKey, Jwts.SIG.HS256);
+        if (userId != null) {
+            builder.claim(CLAIM_USER_ID, userId);
+        }
+        if (StringUtils.isNotBlank(username)) {
+            builder.claim(CLAIM_USERNAME, username);
+        }
+        return builder.compact();
     }
 
     public Authentication getAuthentication(String token, UserDetailsService userDetailsService, boolean refresh) {
         Claims claims = parser.parseSignedClaims(token).getPayload();
-        log.debug("claims subject {} ", claims.getSubject());
+        String subject = StringUtils.defaultIfBlank(claims.getSubject(), extractUsername(claims));
+        log.debug("claims subject {} ", subject);
+        if (StringUtils.isBlank(subject)) {
+            throw JwtTokenException.invalid(token);
+        }
         // Jwts.parser().verifyWith(secretKey).build()
-        UserDetails details = userDetailsService.loadUserByUsername(claims.getSubject());
+        UserDetails details = userDetailsService.loadUserByUsername(subject);
         Collection<? extends GrantedAuthority> authorities = null;
         if (refresh) {
             // 리프레시 토큰은 권한 정보가 없으므로 빈 컬렉션 사용
@@ -230,12 +254,41 @@ public class JwtTokenProvider {
 
     public String getUsername(String token) {
         try {
-            return parser
-                    .parseSignedClaims(token)
-                    .getPayload().getSubject();
+            Claims claims = parser.parseSignedClaims(token).getPayload();
+            return StringUtils.defaultIfBlank(claims.getSubject(), extractUsername(claims));
         } catch (JwtException | IllegalArgumentException e) {
             throw JwtTokenException.invalid(token);
         }
+    }
+
+    private Long resolveUserId(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof ApplicationUserDetails<?> aud) {
+            return aud.getUserId();
+        }
+        if (principal instanceof ApplicationPrincipal ap) {
+            return ap.getUserId();
+        }
+        return null;
+    }
+
+    private String resolveUsername(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof ApplicationUserDetails<?> aud) {
+            return aud.getUsername();
+        }
+        if (principal instanceof ApplicationPrincipal ap) {
+            return ap.getUsername();
+        }
+        return authentication.getName();
+    }
+
+    private String extractUsername(Claims claims) {
+        Object value = claims.get(CLAIM_USERNAME);
+        if (value == null) {
+            value = claims.get("username");
+        }
+        return (value != null) ? String.valueOf(value) : null;
     }
 
     public boolean validateToken(String token) {

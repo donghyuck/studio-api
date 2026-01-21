@@ -20,6 +20,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly(project(":studio-platform")) 
+    compileOnly(project(":studio-platform-identity"))
     compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")

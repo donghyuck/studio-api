@@ -7,7 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 import studio.one.application.avatar.domain.entity.AvatarImage;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.mediaio.ImageSource;
 import studio.one.platform.mediaio.ImageSources;
@@ -24,10 +23,8 @@ import studio.one.platform.mediaio.ImageSources;
  * - "대표 이미지"는 primary 로 명확히 표현
  * - ID/username 기반 조회 모두 지원
  *
- * @param <U> 사용자 타입 (도메인 User 엔티티)
  */
-
-public interface AvatarImageService<U extends User> {
+public interface AvatarImageService {
 
     public static final String SERVICE_NAME = ServiceNames.PREFIX + ":application-avatar-service";
   
@@ -38,10 +35,10 @@ public interface AvatarImageService<U extends User> {
      * ===============================
      */
     /** 해당 사용자의 모든 아바타 메타 목록(최신순 등 구현체 정책에 따름) */
-    List<AvatarImage> findAllByUser(U user);
+    List<AvatarImage> findAllByUserId(Long userId);
 
     /** 해당 사용자의 총 아바타 개수 */
-    long countByUser(U user);
+    long countByUserId(Long userId);
 
     /** 아바타 ID로 메타 조회 */
     Optional<AvatarImage> findById(Long avatarImageId);
@@ -50,7 +47,7 @@ public interface AvatarImageService<U extends User> {
     Optional<AvatarImage> findPrimaryByUsername(String username);
 
     /** 사용자 기준 대표(primary) 아바타 메타 조회 */
-    Optional<AvatarImage> findPrimaryByUser(U user);
+    Optional<AvatarImage> findPrimaryByUserId(Long userId);
 
     /** 아바타 원본 데이터 스트림 (호출 측에서 반드시 close 필요) */
     Optional<InputStream> openDataStream(AvatarImage image) throws IOException;
@@ -63,11 +60,11 @@ public interface AvatarImageService<U extends User> {
      * Command
      * ===============================
      */
-    AvatarImage upload(AvatarImage meta, ImageSource source, U actor) throws IOException;
+    AvatarImage upload(AvatarImage meta, ImageSource source) throws IOException;
 
-    default AvatarImage upload(AvatarImage meta, Path file, U actor) throws IOException {
+    default AvatarImage upload(AvatarImage meta, Path file) throws IOException {
         try (ImageSource src = ImageSources.of(file)) {
-            return upload(meta, src, actor);
+            return upload(meta, src);
         }
     }
 

@@ -34,6 +34,11 @@ public interface ApplicationGroupMembershipJpaRepository
   Page<ApplicationGroupMembership> findAllByGroupId(@Param("groupId") Long groupId, Pageable pageable);
 
   @Override
+  @Query(value = "select gm.id.userId from ApplicationGroupMembership gm where gm.id.groupId = :groupId",
+      countQuery = "select count(gm) from ApplicationGroupMembership gm where gm.id.groupId = :groupId")
+  Page<Long> findUserIdsByGroupId(@Param("groupId") Long groupId, Pageable pageable);
+
+  @Override
   @Query(value = "select gm from ApplicationGroupMembership gm where gm.id.userId = :userId",
       countQuery = "select count(gm) from ApplicationGroupMembership gm where gm.id.userId = :userId")
   Page<ApplicationGroupMembership> findAllByUserId(@Param("userId") Long userId, Pageable pageable);

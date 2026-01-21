@@ -12,7 +12,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,7 +33,6 @@ import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.web.dto.AvatarImageDto;
 import studio.one.application.web.dto.AvatarImageMetaUpdateRequest;
 import studio.one.application.web.dto.AvatarPresenceDto;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.mediaio.ImageSources;
 import studio.one.platform.mediaio.util.ImageResize;
@@ -50,26 +48,24 @@ public class MeAvatarController extends AbstractAvatarController {
 
     private static final long MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB 상한
 
-    private final AvatarImageService<User> avatarImageService;
+    private final AvatarImageService avatarImageService;
 
     @GetMapping("")
     public ResponseEntity<ApiResponse<List<AvatarImage>>> list(
-            @AuthenticationPrincipal UserDetails principal) {
-        Long userId = getPrincipalUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
         if (userId == null || userId <= 0) {
             return forbidden("Forbidden");
         }
-        var list = avatarImageService.findAllByUser(toUser(userId));
+        var list = avatarImageService.findAllByUserId(userId);
         return ok(ApiResponse.ok(list));
     }
 
     @PostMapping(value = "", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<AvatarImageDto>> uploadImage(
             @RequestParam(value = "primary", defaultValue = "true", required = false) Boolean primary,
-            @AuthenticationPrincipal UserDetails principal,
+            @AuthenticationPrincipal(expression = "userId") Long userId,
             @RequestParam MultipartFile file) throws IOException {
 
-        Long userId = getPrincipalUserId(principal);
         if (userId == null || userId <= 0) {
             return forbidden("Forbidden");
         }
@@ -95,20 +91,19 @@ public class MeAvatarController extends AbstractAvatarController {
         meta.setFileSize(file.getSize());
         meta.setPrimaryImage(primary);
         try (var src = ImageSources.of(file)) {
-            var saved = avatarImageService.upload(meta, src, toUser(userId));
+            var saved = avatarImageService.upload(meta, src);
             return ok(ApiResponse.ok(AvatarImageDto.of(saved)));
         }
     }
 
     @GetMapping("/exists")
     public ResponseEntity<ApiResponse<AvatarPresenceDto>> avatarCount(
-            @AuthenticationPrincipal UserDetails principal) {
-        Long userId = getPrincipalUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
         if (userId == null || userId <= 0) {
             return forbidden("Forbidden");
         }
-        long count = avatarImageService.countByUser(toUser(userId));
-        Optional<AvatarImage> primary = avatarImageService.findPrimaryByUser(toUser(userId));
+        long count = avatarImageService.countByUserId(userId);
+        Optional<AvatarImage> primary = avatarImageService.findPrimaryByUserId(userId);
         AvatarPresenceDto dto = new AvatarPresenceDto(
                 count > 0,
                 (int) count,
@@ -122,11 +117,10 @@ public class MeAvatarController extends AbstractAvatarController {
 
     @GetMapping("/primary")
     public ResponseEntity<StreamingResponseBody> downloadPrimaryImage(
-            @AuthenticationPrincipal UserDetails principal,
+            @AuthenticationPrincipal(expression = "userId") Long userId,
             @RequestParam(value = "width", defaultValue = "0", required = false) Integer width,
             @RequestParam(value = "height", defaultValue = "0", required = false) Integer height) throws IOException {
 
-        Long userId = getPrincipalUserId(principal);
         if (userId == null || userId <= 0) {
             return notAavaliable();
         }
@@ -136,7 +130,7 @@ public class MeAvatarController extends AbstractAvatarController {
         if (height != null && height < 0) {
             height = 0;
         }
-        var primaryOpt = avatarImageService.findPrimaryByUser(toUser(userId));
+        var primaryOpt = avatarImageService.findPrimaryByUserId(userId);
         if (primaryOpt.isEmpty())
             return notAavaliable();
 
@@ -151,8 +145,7 @@ public class MeAvatarController extends AbstractAvatarController {
     @PutMapping("/{avatarImageId:[\\p{Digit}]+}/primary")
     public ResponseEntity<ApiResponse<Void>> setPrimary(
             @PathVariable("avatarImageId") Long avatarImageId,
-            @AuthenticationPrincipal UserDetails principal) {
-        Long userId = getPrincipalUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
         if (userId == null || userId <= 0 || avatarImageId == null || avatarImageId <= 0) {
             return badRequest("Invalid identifier");
         }
@@ -169,8 +162,7 @@ public class MeAvatarController extends AbstractAvatarController {
     @DeleteMapping("/{avatarImageId:[\\p{Digit}]+}")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable("avatarImageId") Long avatarImageId,
-            @AuthenticationPrincipal UserDetails principal) {
-        Long userId = getPrincipalUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
         if (userId == null || userId <= 0 || avatarImageId == null || avatarImageId <= 0) {
             return badRequest("Invalid identifier");
         }
@@ -190,8 +182,7 @@ public class MeAvatarController extends AbstractAvatarController {
             @RequestParam("width") Integer width,
             @RequestParam("height") Integer height,
             @RequestParam(value = "fit", defaultValue = "CONTAIN") String fit,
-            @AuthenticationPrincipal UserDetails principal) throws IOException {
-        Long userId = getPrincipalUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException {
         if (userId == null || userId <= 0) {
             return forbidden("Forbidden");
         }
@@ -203,8 +194,7 @@ public class MeAvatarController extends AbstractAvatarController {
             @PathVariable("avatarImageId") Long avatarImageId,
             @RequestParam("width") Integer width,
             @RequestParam("height") Integer height,
-            @AuthenticationPrincipal UserDetails principal) throws IOException {
-        Long userId = getPrincipalUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException {
         if (userId == null || userId <= 0) {
             return forbidden("Forbidden");
         }
@@ -214,9 +204,8 @@ public class MeAvatarController extends AbstractAvatarController {
     @PutMapping("/{avatarImageId:[\\p{Digit}]+}/meta")
     public ResponseEntity<ApiResponse<AvatarImageDto>> updateMeta(
             @PathVariable("avatarImageId") Long avatarImageId,
-            @AuthenticationPrincipal UserDetails principal,
+            @AuthenticationPrincipal(expression = "userId") Long userId,
             @RequestBody AvatarImageMetaUpdateRequest req) {
-        Long userId = getPrincipalUserId(principal);
         if (userId == null || userId <= 0 || avatarImageId == null || avatarImageId <= 0) {
             return badRequest("Invalid identifier");
         }

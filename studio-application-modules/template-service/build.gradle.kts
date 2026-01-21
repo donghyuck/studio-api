@@ -21,6 +21,7 @@ dependencies {
     compileOnly ("org.freemarker:freemarker:2.3.32")  
     compileOnly(project(":studio-platform"))  
     compileOnly(project(":studio-platform-data")) 
+    compileOnly(project(":studio-platform-identity")) 
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-security")) 
 }

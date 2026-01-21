@@ -16,8 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,12 +33,11 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
-import studio.one.base.user.domain.model.User;
-import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.web.dto.UserDto;
-import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserDto;
+import studio.one.platform.identity.UserRef;
 import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -54,8 +51,7 @@ public class AttachmentController {
     private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
 
     private final AttachmentService attachmentService;
-    private final ApplicationUserService userService;
-    private final ApplicationUserMapper userMapper;
+    private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -63,8 +59,7 @@ public class AttachmentController {
     public ResponseEntity<ApiResponse<AttachmentDto>> upload(
             @RequestParam("objectType") int objectType,
             @RequestParam("objectId") long objectId,
-            @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal UserDetails principal) throws IOException {
+            @RequestParam("file") MultipartFile file) throws IOException {
 
         if (file == null || file.isEmpty()) {
             return badRequest("File is empty");
@@ -197,13 +192,20 @@ public class AttachmentController {
         if (userId <= 0) {
             return null;
         }
-        try {
-            User user = userService.get(userId);
-            return userMapper.toDto(user);
-        } catch (NotFoundException e) {
-            log.warn("User {} not found for attachment {}", userId, attachmentId);
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
             return null;
         }
+        return identityService.findById(userId)
+                .map(this::toUserDto)
+                .orElseGet(() -> {
+                    log.warn("User {} not found for attachment {}", userId, attachmentId);
+                    return null;
+                });
+    }
+
+    private UserDto toUserDto(UserRef userRef) {
+        return new UserDto(userRef.userId(), userRef.username());
     }
 
     private MediaType resolveMediaType(String contentType) {

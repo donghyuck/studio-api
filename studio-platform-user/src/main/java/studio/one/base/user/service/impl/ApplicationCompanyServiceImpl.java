@@ -30,7 +30,7 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
 
     private final ApplicationCompanyRepository companyRepo;
 
-       private final ObjectProvider<I18n> i18nProvider;
+    private final ObjectProvider<I18n> i18nProvider;
 
     @PostConstruct
     void initialize() {
@@ -39,7 +39,8 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
                 LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZED.toString())));
     }
 
-    @Override @Transactional(readOnly = true)
+    @Override
+    @Transactional(readOnly = true)
     public ApplicationCompany get(Long companyId) {
         return companyRepo.findById(companyId)
                 .orElseThrow(() -> new NotFoundException("Company", companyId));
@@ -63,7 +64,8 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
         companyRepo.deleteById(companyId);
     }
 
-    @Override @Transactional(readOnly = true)
+    @Override
+    @Transactional(readOnly = true)
     public Page<ApplicationCompany> search(String q, Pageable pageable) {
         return companyRepo.search(q, pageable);
     }

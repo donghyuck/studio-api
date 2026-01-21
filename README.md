@@ -14,13 +14,15 @@ studio-platform-ai/              # AI 포트/서비스/컨트롤러
 studio-platform-autoconfigure/   # 공통 자동 구성
 studio-platform-data/            # 데이터 액세스 공통
 studio-platform-security(+acl)/  # 보안 + ACL
-studio-platform-user/            # 사용자/그룹/역할/회사 도메인
+studio-platform-user/            # 사용자/그룹/역할/회사 도메인 (계약)
+studio-platform-user-default/    # 사용자 기본 구현 (엔터티/리포지토리/서비스/컨트롤러)
 ```
 
 ## 주요 모듈
 - **studio-platform**: 공통 유틸, 도메인 베이스, 예외/텍스트/웹 지원.
 - **studio-platform-security / security-acl**: JWT 인증, 계정 잠금, 로그인 감사, ACL 기반 인가. ACL 권한 조작 API는 `studio.one.platform.security.authz.acl.AclPermissionService` 인터페이스로 노출.
-- **studio-platform-user**: 사용자/그룹/역할/회사 도메인, `/api/mgmt` 사용자 관리 REST.
+- **studio-platform-user**: 사용자/그룹/역할/회사 도메인 계약.
+- **studio-platform-user-default**: 기본 사용자 엔터티/리포지토리/서비스/컨트롤러 구현.
 - **studio-platform-ai**: 임베딩/벡터스토어/RAG 포트와 REST 컨트롤러.
 - **studio-application-modules**
   - `attachment-service`: 첨부 메타/바이너리 저장, 업로드/다운로드/검색 REST.

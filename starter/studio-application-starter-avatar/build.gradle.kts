@@ -15,7 +15,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 }
 
 dependencies { 
-    compileOnly(project(":studio-platform-user"))
+    compileOnly(project(":studio-platform-identity"))
     compileOnly(project(":studio-platform-autoconfigure"))
     compileOnly(project(":starter:studio-platform-starter"))
     api(project(":studio-application-modules:avatar-service"))

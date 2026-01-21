@@ -23,7 +23,9 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-mail")
 
     compileOnly(project(":studio-platform")) 
+    compileOnly(project(":studio-platform-identity"))
     compileOnly(project(":studio-platform-user")) 
+    compileOnly(project(":studio-platform-user-default"))
     compileOnly(project(":studio-platform-data")) 
     
     compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")

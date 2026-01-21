@@ -35,14 +35,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.controller.AttachmentController;
-import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.web.mapper.ApplicationUserMapper;
+
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.identity.IdentityService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.util.LogUtils;
-
+import studio.one.platform.identity.*;
 /**
  *
  * @author donghyuck, son
@@ -75,8 +75,7 @@ public class AttachmentEndpointAutoConfiguration {
         @Lazy
         @ConditionalOnMissingBean(AttachmentController.class)
         AttachmentController attachmentController(AttachmentService attachmentService,
-                        ApplicationUserService userService,
-                        ApplicationUserMapper userMapper,
+                        ObjectProvider<IdentityService> identityServiceProvider,
                         ObjectProvider<FileContentExtractionService> textExtractionProvider) {
 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
@@ -85,7 +84,7 @@ public class AttachmentEndpointAutoConfiguration {
                                 LogUtils.blue(AttachmentController.class, true),
                                 props.getWeb().getBasePath(),
                                 "CRUD"));
-                return new AttachmentController(attachmentService, userService, userMapper, textExtractionProvider);
+                return new AttachmentController(attachmentService, identityServiceProvider, textExtractionProvider);
         }
 
 }

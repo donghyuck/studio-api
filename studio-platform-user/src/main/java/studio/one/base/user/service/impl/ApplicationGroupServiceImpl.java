@@ -27,14 +27,12 @@ import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
 import studio.one.base.user.domain.entity.ApplicationGroupRole;
 import studio.one.base.user.domain.entity.ApplicationGroupRoleId;
 import studio.one.base.user.domain.entity.ApplicationRole;
-import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.exception.GroupNotFoundException;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
-import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.platform.component.State;
@@ -48,10 +46,9 @@ import studio.one.platform.util.LogUtils;
 @Transactional
 @Slf4j
 public class ApplicationGroupServiceImpl
-        implements ApplicationGroupService<ApplicationGroup, ApplicationRole, ApplicationUser> {
+        implements ApplicationGroupService<ApplicationGroup, ApplicationRole> {
 
     private final ApplicationGroupRepository groupRepo;
-    private final ApplicationUserRepository userRepo;
     private final ApplicationRoleRepository roleRepo;
     private final ApplicationGroupMembershipRepository membershipRepo;
     private final ApplicationGroupRoleRepository groupRoleRepo;
@@ -276,8 +273,8 @@ public class ApplicationGroupServiceImpl
     // --- 조회 ---
     @Override
     @Transactional(readOnly = true)
-    public Page<ApplicationUser> getMembers(Long groupId, Pageable pageable) {
-        return userRepo.findUsersByGroupId(groupId, pageable);
+    public Page<Long> getMembers(Long groupId, Pageable pageable) {
+        return membershipRepo.findUserIdsByGroupId(groupId, pageable);
     }
 
     @Override

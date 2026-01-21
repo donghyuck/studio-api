@@ -18,7 +18,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,13 +35,11 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
-import studio.one.base.security.userdetails.ApplicationUserDetails;
-import studio.one.base.user.domain.model.User;
-import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.web.dto.UserDto;
-import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserDto;
+import studio.one.platform.identity.UserRef;
 import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -57,8 +54,7 @@ public class MeAttachmentController {
     private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
 
     private final AttachmentService attachmentService;
-    private final ApplicationUserService userService;
-    private final ApplicationUserMapper userMapper;
+    private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -66,9 +62,9 @@ public class MeAttachmentController {
             @RequestParam("objectType") int objectType,
             @RequestParam("objectId") long objectId,
             @RequestParam("file") MultipartFile file,
-            @AuthenticationPrincipal UserDetails principal) throws IOException {
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException {
 
-        requireUserId(principal);
+        requireUserId(userId);
         if (file == null || file.isEmpty()) {
             return badRequest("File is empty");
         }
@@ -98,10 +94,10 @@ public class MeAttachmentController {
     @GetMapping("/{attachmentId:[\\p{Digit}]+}")
     public ResponseEntity<ApiResponse<AttachmentDto>> get(
             @PathVariable("attachmentId") long attachmentId,
-            @AuthenticationPrincipal UserDetails principal) throws NotFoundException {
-        long userId = requireUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws NotFoundException {
+        long resolvedUserId = requireUserId(userId);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        if (attachment.getCreatedBy() != userId) {
+        if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
@@ -110,8 +106,8 @@ public class MeAttachmentController {
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/text")
     public ResponseEntity<ApiResponse<String>> extractText(
             @PathVariable("attachmentId") long attachmentId,
-            @AuthenticationPrincipal UserDetails principal) throws NotFoundException, IOException {
-        long userId = requireUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws NotFoundException, IOException {
+        long resolvedUserId = requireUserId(userId);
         FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
         if (extractor == null) {
             ApiResponse<String> body = ApiResponse.<String>builder()
@@ -120,7 +116,7 @@ public class MeAttachmentController {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
         }
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        if (attachment.getCreatedBy() != userId) {
+        if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         try (InputStream in = attachmentService.getInputStream(attachment)) {
@@ -132,10 +128,10 @@ public class MeAttachmentController {
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")
     public ResponseEntity<StreamingResponseBody> download(
             @PathVariable("attachmentId") long attachmentId,
-            @AuthenticationPrincipal UserDetails principal) throws IOException, NotFoundException {
-        long userId = requireUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException, NotFoundException {
+        long resolvedUserId = requireUserId(userId);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        if (attachment.getCreatedBy() != userId) {
+        if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         InputStream in = attachmentService.getInputStream(attachment);
@@ -164,22 +160,22 @@ public class MeAttachmentController {
             @RequestParam(value = "objectType", required = false) Integer objectType,
             @RequestParam(value = "objectId", required = false) Long objectId,
             @RequestParam(value = "keyword", required = false) String keyword,
-            @AuthenticationPrincipal UserDetails principal,
+            @AuthenticationPrincipal(expression = "userId") Long userId,
             @PageableDefault Pageable pageable) {
-        long userId = requireUserId(principal);
+        long resolvedUserId = requireUserId(userId);
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
             if (keyword == null || keyword.isBlank()) {
-                page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, pageable);
+                page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId, pageable);
             } else {
-                page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, keyword,
+                page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId, keyword,
                         pageable);
             }
         } else {
             if (keyword == null || keyword.isBlank()) {
-                page = attachmentService.findAttachmentsByCreator(userId, pageable);
+                page = attachmentService.findAttachmentsByCreator(resolvedUserId, pageable);
             } else {
-                page = attachmentService.findAttachmentsByCreator(userId, keyword, pageable);
+                page = attachmentService.findAttachmentsByCreator(resolvedUserId, keyword, pageable);
             }
         }
         Page<AttachmentDto> dtoPage = page.map(this::toDto);
@@ -190,9 +186,9 @@ public class MeAttachmentController {
     public ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObject(
             @PathVariable int objectType,
             @PathVariable long objectId,
-            @AuthenticationPrincipal UserDetails principal) {
-        long userId = requireUserId(principal);
-        List<Attachment> attachments = attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, userId);
+            @AuthenticationPrincipal(expression = "userId") Long userId) {
+        long resolvedUserId = requireUserId(userId);
+        List<Attachment> attachments = attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId);
         List<AttachmentDto> dto = attachments.stream()
                 .map(this::toDto)
                 .toList();
@@ -202,22 +198,19 @@ public class MeAttachmentController {
     @DeleteMapping("/{attachmentId:[\\p{Digit}]+}")
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable("attachmentId") long attachmentId,
-            @AuthenticationPrincipal UserDetails principal) throws NotFoundException, IOException {
-        long userId = requireUserId(principal);
+            @AuthenticationPrincipal(expression = "userId") Long userId) throws NotFoundException, IOException {
+        long resolvedUserId = requireUserId(userId);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        if (attachment.getCreatedBy() != userId) {
+        if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
-    private long requireUserId(UserDetails principal) {
-        if (principal instanceof ApplicationUserDetails<?> aud) {
-            Long userId = aud.getUserId();
-            if (userId != null && userId > 0) {
-                return userId;
-            }
+    private long requireUserId(Long userId) {
+        if (userId != null && userId > 0) {
+            return userId;
         }
         throw new AuthenticationCredentialsNotFoundException("No authenticated user");
     }
@@ -231,13 +224,20 @@ public class MeAttachmentController {
         if (userId <= 0) {
             return null;
         }
-        try {
-            User user = userService.get(userId);
-            return userMapper.toDto(user);
-        } catch (NotFoundException e) {
-            log.warn("User {} not found for attachment {}", userId, attachmentId);
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
             return null;
         }
+        return identityService.findById(userId)
+                .map(this::toUserDto)
+                .orElseGet(() -> {
+                    log.warn("User {} not found for attachment {}", userId, attachmentId);
+                    return null;
+                });
+    }
+
+    private UserDto toUserDto(UserRef userRef) {
+        return new UserDto(userRef.userId(), userRef.username());
     }
 
     private MediaType resolveMediaType(String contentType) {

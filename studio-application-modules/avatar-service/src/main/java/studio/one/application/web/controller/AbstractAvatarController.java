@@ -20,27 +20,17 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import studio.one.application.avatar.domain.entity.AvatarImage;
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.web.dto.AvatarImageDto;
-import studio.one.base.security.userdetails.ApplicationUserDetails;
-import studio.one.base.user.domain.entity.ApplicationUser;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.mediaio.ImageSources;
 import studio.one.platform.mediaio.util.ImageResize;
 import studio.one.platform.mediaio.util.MediaTypeUtil;
 import studio.one.platform.web.dto.ApiResponse;
 
 public abstract class AbstractAvatarController {
-
-    protected User toUser(Long userId) {
-        ApplicationUser user = new ApplicationUser();
-        user.setUserId(userId);
-        return user;
-    }
 
     protected ResponseEntity<StreamingResponseBody> notAavaliable() throws IOException {
         ClassPathResource resource = new ClassPathResource("assets/images/no-avatar.png");
@@ -119,13 +109,6 @@ public abstract class AbstractAvatarController {
                 .orElse(null);
     }
 
-    protected Long getPrincipalUserId(UserDetails principal) {
-        if (principal instanceof ApplicationUserDetails<?> aud) {
-            return aud.getUserId();
-        }
-        return null;
-    }
-
     protected ImageResize.Fit parseFit(String raw) {
         if (!org.springframework.util.StringUtils.hasText(raw)) {
             return ImageResize.Fit.CONTAIN;
@@ -154,7 +137,7 @@ public abstract class AbstractAvatarController {
     }
 
     protected ResponseEntity<ApiResponse<AvatarImageDto>> transformImage(
-            AvatarImageService<User> avatarImageService,
+            AvatarImageService avatarImageService,
             Long userId,
             Long avatarImageId,
             Integer width,

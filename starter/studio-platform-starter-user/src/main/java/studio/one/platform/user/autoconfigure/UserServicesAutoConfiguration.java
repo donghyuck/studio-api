@@ -15,6 +15,8 @@ import org.springframework.cache.CacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +26,8 @@ import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
-import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
+import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
@@ -41,6 +43,7 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.identity.IdentityService;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
@@ -64,6 +67,17 @@ public class UserServicesAutoConfiguration {
         }
 
         @Bean
+        @ConditionalOnMissingBean(name = IdentityService.SERVICE_NAME)
+        @ConditionalOnExpression("${" + PropertyKeys.Features.User.ENABLED + ":true} && ${" + PropertyKeys.Features.User.USE_DEFAULT + ":true}")
+        public ApplicationRunner identityServiceWarning(ObjectProvider<IdentityService> identityServiceProvider) {
+                return args -> {
+                        if (identityServiceProvider.getIfAvailable() == null) {
+                                log.warn("IdentityService bean is missing; provide a custom implementation or include studio-platform-user-default.");
+                        }
+                };
+        }
+
+        @Bean
         @ConditionalOnMissingBean(UserMutator.class)
         public UserMutator<?> userMutator() {
                 return new ApplicationUserMutator();
@@ -71,6 +85,7 @@ public class UserServicesAutoConfiguration {
 
         @Bean(name = ApplicationUserService.SERVICE_NAME)
         @ConditionalOnClass(ApplicationUserRepository.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         @ConditionalOnMissingBean(ApplicationUserService.class)
         public ApplicationUserService applicationUserService(
                         @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
@@ -97,10 +112,10 @@ public class UserServicesAutoConfiguration {
         @Bean(name = ApplicationGroupService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationGroupService.class)
         @ConditionalOnClass({ ApplicationGroupRepository.class })
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public ApplicationGroupService applicationGroupService(
                         @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
                         ApplicationGroupRepository groupRepo,
-                        ApplicationUserRepository userRepo,
                         ApplicationRoleRepository userRoleRepo,
                         ApplicationGroupMembershipRepository membershipRepo,
                         ApplicationGroupRoleRepository groupRoleRepo) {
@@ -108,13 +123,14 @@ public class UserServicesAutoConfiguration {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(ApplicationGroupServiceImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new ApplicationGroupServiceImpl(groupRepo, userRepo, userRoleRepo, membershipRepo, groupRoleRepo,
+                return new ApplicationGroupServiceImpl(groupRepo, userRoleRepo, membershipRepo, groupRoleRepo,
                                 jdbcTemplate, i18nProvider);
         }
 
         @Bean(name = ApplicationRoleService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationRoleRepository.class)
         @ConditionalOnClass({ ApplicationRoleRepository.class })
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public ApplicationRoleService applicationRoleService(
                         @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate,
                         ApplicationRoleRepository roleRepo,
@@ -132,6 +148,7 @@ public class UserServicesAutoConfiguration {
         @Bean(name = ApplicationCompanyService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationCompanyService.class)
         @ConditionalOnClass({ ApplicationCompanyRepository.class })
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public ApplicationCompanyService applicationCompanyService(ApplicationCompanyRepository companyRepo) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,

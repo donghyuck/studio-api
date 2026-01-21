@@ -62,7 +62,11 @@ public interface ApplicationUserService<T extends User, R extends Role> {
 
     Optional<T> findByUsername(String username);
 
+    Optional<T> findEnabledByUsername(String username);
+
     Optional<T> findByEmail(String email);
+
+    Optional<T> findEnabledById(Long userId);
 
     Long findIdByUsername(String username);
 

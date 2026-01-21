@@ -92,6 +92,21 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
     }
 
     @Override
+    public Optional<ApplicationUser> findEnabledById(Long userId) {
+        String sql = """
+                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
+                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
+                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
+                  from TB_APPLICATION_USER
+                 where USER_ID = :userId
+                   and USER_ENABLED = true
+                """;
+        Optional<ApplicationUser> result = queryOptional(sql, Map.of("userId", userId), USER_ROW_MAPPER);
+        result.ifPresent(this::loadProperties);
+        return result;
+    }
+
+    @Override
     public Optional<ApplicationUser> findByUsername(String username) {
         String sql = """
                 select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
@@ -99,6 +114,21 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
                        FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_USER
                  where lower(USERNAME) = lower(:username)
+                """;
+        Optional<ApplicationUser> result = queryOptional(sql, Map.of("username", username), USER_ROW_MAPPER);
+        result.ifPresent(this::loadProperties);
+        return result;
+    }
+
+    @Override
+    public Optional<ApplicationUser> findEnabledByUsername(String username) {
+        String sql = """
+                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
+                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
+                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
+                  from TB_APPLICATION_USER
+                 where lower(USERNAME) = lower(:username)
+                   and USER_ENABLED = true
                 """;
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("username", username), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);

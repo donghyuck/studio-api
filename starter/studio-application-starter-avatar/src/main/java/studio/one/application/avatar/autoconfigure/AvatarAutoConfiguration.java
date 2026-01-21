@@ -38,14 +38,13 @@ import studio.one.application.avatar.replica.FileReplicaStore;
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.avatar.service.impl.AvatarImageFilesystemReplicaService;
 import studio.one.application.avatar.service.impl.AvatarImageServiceImpl;
-import studio.one.base.user.domain.model.User;
-import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.platform.identity.IdentityService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
 import studio.one.platform.util.I18nUtils;
@@ -65,10 +64,10 @@ public class AvatarAutoConfiguration {
 
     @Bean(name = AvatarImageService.SERVICE_NAME )
     @ConditionalOnMissingBean(name = AvatarImageService.SERVICE_NAME )
-    public AvatarImageService<User> avatarImageService( 
+    public AvatarImageService avatarImageService(
             AvatarImageRepository avatarImageRepository,
             AvatarImageDataRepository avatarImageDataRepository, 
-            @Qualifier(ApplicationUserService.SERVICE_NAME) ApplicationUserService userService,
+            ObjectProvider<IdentityService> identityServiceProvider,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         var globalPersistence = persistenceProperties.getType();
@@ -79,7 +78,7 @@ public class AvatarAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
         LogUtils.blue(AvatarImageServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
         log.info("Using AvatarImageRepository: {}", LogUtils.green(avatarImageRepository.getClass(), true));
-        return new AvatarImageServiceImpl(avatarImageRepository, avatarImageDataRepository, userService);
+        return new AvatarImageServiceImpl(avatarImageRepository, avatarImageDataRepository, identityServiceProvider);
     }
 
     @Bean(name = FileReplicaStore.SERVICE_NAME )
@@ -112,8 +111,8 @@ public class AvatarAutoConfiguration {
     @Primary
     @Bean
     @ConditionalOnMissingBean
-    public AvatarImageService<User> avatarImageFilesystemReplicaService(
-            @Qualifier( AvatarImageService.SERVICE_NAME) AvatarImageService<User> delegate,
+    public AvatarImageService avatarImageFilesystemReplicaService(
+            @Qualifier( AvatarImageService.SERVICE_NAME) AvatarImageService delegate,
             FileReplicaStore replicas,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);

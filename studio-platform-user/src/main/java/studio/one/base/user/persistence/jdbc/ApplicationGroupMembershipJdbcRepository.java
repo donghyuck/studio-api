@@ -63,6 +63,19 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
     }
 
     @Override
+    public Page<Long> findUserIdsByGroupId(Long groupId, Pageable pageable) {
+        Map<String, Object> params = Map.of("groupId", groupId);
+        String select = """
+                select USER_ID
+                  from TB_APPLICATION_GROUP_MEMBERS
+                 where GROUP_ID = :groupId
+                """;
+        String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
+        return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "USER_ID",
+                Map.of());
+    }
+
+    @Override
     public Page<ApplicationGroupMembership> findAllByUserId(Long userId, Pageable pageable) {
         Map<String, Object> params = Map.of("userId", userId);
         String select = """

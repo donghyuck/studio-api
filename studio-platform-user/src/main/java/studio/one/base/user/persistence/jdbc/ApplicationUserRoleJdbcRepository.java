@@ -8,7 +8,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,20 +18,12 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.user.domain.entity.ApplicationRole;
-import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.domain.entity.ApplicationUserRole;
 import studio.one.base.user.domain.entity.ApplicationUserRoleId;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 
 @Repository(ApplicationUserRoleRepository.SERVICE_NAME)
 public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implements ApplicationUserRoleRepository {
-
-    private static final Map<String, String> USER_SORT_COLUMNS = Map.of(
-            "userId", "u.USER_ID",
-            "username", "u.USERNAME",
-            "name", "u.NAME",
-            "email", "u.EMAIL",
-            "creationDate", "u.CREATION_DATE");
 
     private static final RowMapper<ApplicationUserRole> USER_ROLE_ROW_MAPPER = (rs, rowNum) -> {
         ApplicationUserRole userRole = new ApplicationUserRole();
@@ -60,8 +51,6 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         role.setModifiedDate(modified == null ? null : modified.toInstant());
         return role;
     };
-
-    private static final RowMapper<ApplicationUser> USER_ROW_MAPPER = JdbcUserMapper::mapBasicUser;
 
     public ApplicationUserRoleJdbcRepository(NamedParameterJdbcTemplate namedTemplate) {
         super(namedTemplate);
@@ -192,46 +181,40 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
     }
 
     @Override
-    public Page<ApplicationUser> findUsersByRoleId(Long roleId, Pageable pageable) {
+    public Page<Long> findUserIdsByRoleId(Long roleId, Pageable pageable) {
         Map<String, Object> params = Map.of("roleId", roleId);
         String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
+                select u.USER_ID
                   from TB_APPLICATION_USER u
                   join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
                  where ur.ROLE_ID = :roleId
                 """;
-        String count = "select count(*) from TB_APPLICATION_USER_ROLES where ROLE_ID = :roleId";
-        Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_SORT_COLUMNS);
-        loadUserProperties(page.getContent());
-        return page;
-    }
-
-    @Override
-    public List<ApplicationUser> findUsersByRoleId(Long roleId) {
-        String sql = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
+        String count = """
+                select count(*)
                   from TB_APPLICATION_USER u
                   join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
                  where ur.ROLE_ID = :roleId
                 """;
-        List<ApplicationUser> users = namedTemplate.query(sql, Map.of("roleId", roleId), USER_ROW_MAPPER);
-        loadUserProperties(users);
-        return users;
+        return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "u.USER_ID", Map.of(
+                "userId", "u.USER_ID",
+                "username", "u.USERNAME",
+                "name", "u.NAME",
+                "email", "u.EMAIL"));
     }
 
     @Override
-    public Page<ApplicationUser> findUsersByRoleId(Long roleId, String keyword, Pageable pageable) {
+    public List<Long> findUserIdsByRoleId(Long roleId) {
+        String sql = "select USER_ID from TB_APPLICATION_USER_ROLES where ROLE_ID = :roleId";
+        return namedTemplate.query(sql, Map.of("roleId", roleId), (rs, rowNum) -> rs.getLong("USER_ID"));
+    }
+
+    @Override
+    public Page<Long> findUserIdsByRoleId(Long roleId, String keyword, Pageable pageable) {
         Map<String, Object> params = new HashMap<>();
         params.put("roleId", roleId);
         params.put("q", normalize(keyword));
         String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
+                select u.USER_ID
                   from TB_APPLICATION_USER u
                   join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
                  where ur.ROLE_ID = :roleId
@@ -244,20 +227,20 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                  where ur.ROLE_ID = :roleId
                    and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
                 """;
-        Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_SORT_COLUMNS);
-        loadUserProperties(page.getContent());
-        return page;
+        return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "u.USER_ID", Map.of(
+                "userId", "u.USER_ID",
+                "username", "u.USERNAME",
+                "name", "u.NAME",
+                "email", "u.EMAIL"));
     }
 
     @Override
-    public Page<ApplicationUser> findUsersByRoleIdViaGroup(Long roleId, String keyword, Pageable pageable) {
+    public Page<Long> findUserIdsByRoleIdViaGroup(Long roleId, String keyword, Pageable pageable) {
         Map<String, Object> params = new HashMap<>();
         params.put("roleId", roleId);
         params.put("q", normalize(keyword));
         String select = """
-                select distinct u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
+                select distinct u.USER_ID
                   from TB_APPLICATION_USER u
                   join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
                   join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = gm.GROUP_ID
@@ -272,9 +255,11 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                  where gr.ROLE_ID = :roleId
                    and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
                 """;
-        Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_SORT_COLUMNS);
-        loadUserProperties(page.getContent());
-        return page;
+        return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "u.USER_ID", Map.of(
+                "userId", "u.USER_ID",
+                "username", "u.USERNAME",
+                "name", "u.NAME",
+                "email", "u.EMAIL"));
     }
 
     @Override
@@ -357,21 +342,6 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                 "userId", id.getUserId(),
                 "roleId", id.getRoleId()), Boolean.class);
         return Boolean.TRUE.equals(exists);
-    }
-
-    private void loadUserProperties(List<ApplicationUser> users) {
-        List<Long> ids = users.stream()
-                .map(ApplicationUser::getUserId)
-                .filter(Objects::nonNull)
-                .toList();
-        if (ids.isEmpty()) {
-            return;
-        }
-        Map<Long, Map<String, String>> props = fetchProperties("TB_APPLICATION_USER_PROPERTY", "USER_ID", ids);
-        for (ApplicationUser user : users) {
-            Map<String, String> map = props.get(user.getUserId());
-            user.setProperties(map == null ? new HashMap<>() : new HashMap<>(map));
-        }
     }
 
     private static String normalize(String keyword) {

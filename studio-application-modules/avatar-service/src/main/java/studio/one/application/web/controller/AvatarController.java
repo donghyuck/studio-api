@@ -32,7 +32,6 @@ import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.web.dto.AvatarImageDto;
 import studio.one.application.web.dto.AvatarImageMetaUpdateRequest;
 import studio.one.application.web.dto.AvatarPresenceDto;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.mediaio.ImageSources;
 import studio.one.platform.mediaio.util.ImageResize;
@@ -47,7 +46,7 @@ public class AvatarController extends AbstractAvatarController {
 
     private static final long MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB 상한
 
-    private final AvatarImageService<User> avatarImageService;
+    private final AvatarImageService avatarImageService;
 
     /**
      * 사용자 아바타 메타 목록 조회
@@ -61,7 +60,7 @@ public class AvatarController extends AbstractAvatarController {
         if (userId == null || userId <= 0) {
             return badRequest("Invalid userId");
         }
-        var list = avatarImageService.findAllByUser(toUser(userId));
+        var list = avatarImageService.findAllByUserId(userId);
         return ok(ApiResponse.ok(list));
     }
 
@@ -97,7 +96,7 @@ public class AvatarController extends AbstractAvatarController {
         meta.setFileSize(file.getSize());
         meta.setPrimaryImage(primary);
         try (var src = ImageSources.of(file)) {
-            var saved = avatarImageService.upload(meta, src, toUser(userId));
+            var saved = avatarImageService.upload(meta, src);
             return ok(ApiResponse.ok(AvatarImageDto.of(saved)));
         }
     }
@@ -107,9 +106,8 @@ public class AvatarController extends AbstractAvatarController {
         if (userId == null || userId <= 0) {
             return badRequest("Invalid userId");
         }
-        long count = avatarImageService.countByUser(toUser(userId));
-        avatarImageService.findPrimaryByUser(toUser(userId));
-        Optional<AvatarImage> primary = avatarImageService.findPrimaryByUser(toUser(userId));
+        long count = avatarImageService.countByUserId(userId);
+        Optional<AvatarImage> primary = avatarImageService.findPrimaryByUserId(userId);
         AvatarPresenceDto dto = new AvatarPresenceDto(
                 count > 0,
                 (int)count,
@@ -140,7 +138,7 @@ public class AvatarController extends AbstractAvatarController {
         if (height != null && height < 0) {
             height = 0;
         }
-        var primaryOpt = avatarImageService.findPrimaryByUser(toUser(userId));
+        var primaryOpt = avatarImageService.findPrimaryByUserId(userId);
         if (primaryOpt.isEmpty())
             return notAavaliable();
 

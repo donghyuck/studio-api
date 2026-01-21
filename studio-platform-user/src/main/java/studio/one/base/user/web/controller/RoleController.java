@@ -35,17 +35,17 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.web.dto.GroupDto;
 import studio.one.base.user.web.dto.RoleDto;
-import studio.one.base.user.web.dto.UserDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
-import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.base.user.web.util.RequestParamUtils;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserDto;
+import studio.one.platform.identity.UserRef;
 import studio.one.platform.web.annotation.Message;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -55,10 +55,10 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 public class RoleController {
 
-    private final ApplicationRoleService<Role, Group, User> roleService;
+    private final ApplicationRoleService<Role, Group> roleService;
     private final ApplicationRoleMapper mapper;
     private final ApplicationGroupMapper groupMapper;
-    private final ApplicationUserMapper userMapper;
+    private final org.springframework.beans.factory.ObjectProvider<IdentityService> identityServiceProvider;
     private static final List<String> ALLOWED_FIELDS = List.of(
             "roleId",
             "name",
@@ -150,7 +150,7 @@ public class RoleController {
             @RequestParam(name = "q", required = false) String q,
             @PageableDefault(size = 15, sort = "username", direction = Sort.Direction.ASC) Pageable pageable) {
         String keyword = RequestParamUtils.normalizeQuery(Optional.ofNullable(q)).orElse(null);
-        var page = roleService.findUsersGrantedRole(roleId, scope, keyword, pageable).map(userMapper::toDto);
+        var page = roleService.findUsersGrantedRole(roleId, scope, keyword, pageable).map(this::toUserDto);
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
@@ -171,6 +171,23 @@ public class RoleController {
             @AuthenticationPrincipal UserDetails principal) { 
         var result = roleService.assignRoleToUsers(users, roleId, principal.getUsername(), java.time.OffsetDateTime.now());
         return ResponseEntity.ok(ApiResponse.ok(result));
+    }
+
+    private UserDto toUserDto(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
+            return new UserDto(userId, null);
+        }
+        return identityService.findById(userId)
+                .map(this::toUserDto)
+                .orElseGet(() -> new UserDto(userId, null));
+    }
+
+    private UserDto toUserDto(UserRef userRef) {
+        return new UserDto(userRef.userId(), userRef.username());
     }
 
     private static Set<String> parseFields(String raw) {

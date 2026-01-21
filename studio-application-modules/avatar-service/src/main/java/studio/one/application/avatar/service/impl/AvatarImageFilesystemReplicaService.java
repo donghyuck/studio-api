@@ -27,7 +27,6 @@ import studio.one.application.avatar.domain.entity.AvatarImage;
 import studio.one.application.avatar.replica.FileReplicaStore; // ← 패키지 확인
 import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.application.avatar.service.AvatarImageService.ThumbnailOptions;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.mediaio.ImageSource;
 import studio.one.platform.mediaio.util.ImageResize.Fit;
 
@@ -62,24 +61,23 @@ final class ReplicaPaths {
  */
 @RequiredArgsConstructor
 @Transactional
-public class AvatarImageFilesystemReplicaService implements AvatarImageService<User> {
-    // ↑ User 타입 경로는 실제 프로젝트의 User 클래스로 변경하세요.
+public class AvatarImageFilesystemReplicaService implements AvatarImageService {
 
-    private final AvatarImageService<User> delegate;
+    private final AvatarImageService delegate;
     private final FileReplicaStore replicas;
 
     /* ---------- Query (delegate + cache) ---------- */
 
     @Override
     @Transactional(readOnly = true)
-    public List<AvatarImage> findAllByUser(User user) {
-        return delegate.findAllByUser(user);
+    public List<AvatarImage> findAllByUserId(Long userId) {
+        return delegate.findAllByUserId(userId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public long countByUser(User user) {
-        return delegate.countByUser(user);
+    public long countByUserId(Long userId) {
+        return delegate.countByUserId(userId);
     }
 
     @Override
@@ -90,8 +88,8 @@ public class AvatarImageFilesystemReplicaService implements AvatarImageService<U
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<AvatarImage> findPrimaryByUser(User user) {
-        return delegate.findPrimaryByUser(user);
+    public Optional<AvatarImage> findPrimaryByUserId(Long userId) {
+        return delegate.findPrimaryByUserId(userId);
     }
 
     @Override
@@ -151,8 +149,8 @@ public class AvatarImageFilesystemReplicaService implements AvatarImageService<U
     /* ---------- Command (Write-Through) ---------- */
 
     @Override
-    public AvatarImage upload(AvatarImage meta, ImageSource source, User actor) throws IOException {
-        AvatarImage saved = delegate.upload(meta, source, actor);
+    public AvatarImage upload(AvatarImage meta, ImageSource source) throws IOException {
+        AvatarImage saved = delegate.upload(meta, source);
 
         var data = delegate.openDataStream(saved).orElse(null);
         if (data != null) {

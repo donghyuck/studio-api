@@ -13,7 +13,6 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.avatar.service.AvatarImageService;
-import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.PropertyKeys;
 
 @RestController
@@ -22,7 +21,7 @@ import studio.one.platform.constant.PropertyKeys;
 @Slf4j
 public class PublicAvatarController extends AbstractAvatarController {
     
-    private final AvatarImageService<User> avatarImageService;
+    private final AvatarImageService avatarImageService;
 
     @GetMapping("/{username}/avatar") 
     public ResponseEntity<StreamingResponseBody> downloadUserAvatarImage(
@@ -47,7 +46,7 @@ public class PublicAvatarController extends AbstractAvatarController {
         return newStreamingResponseEntity(meta.getContentType(), meta.getFileSize().intValue(), meta.getFileName(), inOpt.get() );
     }
 
-    @GetMapping("/{userId:[\\p{Digit}]+}/avatar")
+    @GetMapping(value = "/{userId:[\\p{Digit}]+}/avatar", params = "byId")
     public ResponseEntity<StreamingResponseBody> downloadUserAvatarImageByUserId(
             @PathVariable("userId") Long userId,
             @RequestParam(value = "width", defaultValue = "0", required = false) Integer width,
@@ -62,7 +61,7 @@ public class PublicAvatarController extends AbstractAvatarController {
         if (height != null && height < 0) {
             height = 0;
         }
-        var primaryOpt = avatarImageService.findPrimaryByUser(toUser(userId));
+        var primaryOpt = avatarImageService.findPrimaryByUserId(userId);
         if (primaryOpt.isEmpty()) return notAavaliable();
         var meta = primaryOpt.get();
         var inOpt = avatarImageService.openDataStream(meta);

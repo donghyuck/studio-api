@@ -4,7 +4,7 @@
 - 의존성: `studio-application-modules/avatar-service` 또는 `studio-application-starter-avatar`.
 - 활성화: `studio.features.avatar-image.enabled=true`.
 - 저장소: `studio.features.avatar-image.persistence=jpa|jdbc`(기본 jpa), 파일 복제 경로는 `studio.features.avatar-image.replica.base-dir` 로 지정.
-- 사용법: `AvatarImageService` 로 `upload`, `replaceData`, `setPrimary` 등을 호출. 사용자 정보는 `ApplicationUserService`로 처리.
+- 사용법: `AvatarImageService` 로 `upload`, `replaceData`, `setPrimary` 등을 호출. 사용자 식별자는 `userId`/`username`으로 전달.
 
 ## Attachment 서비스
 - 의존성: `studio-application-modules/attachment-service` 또는 `studio-application-starter-attachment`.

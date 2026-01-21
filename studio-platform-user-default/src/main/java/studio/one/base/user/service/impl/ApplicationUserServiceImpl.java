@@ -112,10 +112,20 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
                 .orElseThrow(() -> UserNotFoundException.byId(userId));
     }
 
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public Optional<ApplicationUser> findEnabledById(Long userId) {
+        return userRepo.findEnabledById(userId);
+    }
+
     @Cacheable(cacheNames = CacheNames.User.BY_USERNAME, key = "#username", unless = "#result == null")
     @Transactional(propagation = Propagation.SUPPORTS)
     public Optional<ApplicationUser> findByUsername(String username) {
         return userRepo.findByUsername(username);
+    }
+
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public Optional<ApplicationUser> findEnabledByUsername(String username) {
+        return userRepo.findEnabledByUsername(username);
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)

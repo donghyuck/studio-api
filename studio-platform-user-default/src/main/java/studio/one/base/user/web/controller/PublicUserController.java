@@ -33,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
+import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.web.dto.UserPublicDto;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
@@ -58,13 +59,24 @@ import studio.one.platform.constant.PropertyKeys;
 @RequestMapping("${" + PropertyKeys.Features.User.PREFIX + ".public-path:/api/users}")
 @RequiredArgsConstructor 
 @Slf4j
-public class PublicUserController {
+public class PublicUserController implements PublicUserControllerApi {
 
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper userMapper;
-    @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<UserPublicDto>> get(@PathVariable Long id) {
-        var user = userService.get(id);
+
+    @GetMapping("/{name}")
+    @Override
+    public ResponseEntity<ApiResponse<UserPublicDto>> getByName(@PathVariable("name") String name) {
+        var user = userService.findEnabledByUsername(name)
+                .orElseThrow(() -> UserNotFoundException.of(name));
+        return ok(ApiResponse.ok(userMapper.toPublicDto(user)));
+    }
+
+    @GetMapping(value = "/{id:[\\p{Digit}]+}", params = "byId")
+    @Override
+    public ResponseEntity<ApiResponse<UserPublicDto>> getById(@PathVariable("id") Long id) {
+        var user = userService.findEnabledById(id)
+                .orElseThrow(() -> UserNotFoundException.byId(id));
         return ok(ApiResponse.ok(userMapper.toPublicDto(user)));
     }
 

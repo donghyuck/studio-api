@@ -1,11 +1,11 @@
 # studio-platform-user
 
-사용자 도메인(유저/그룹/권한/회사)을 위한 핵심 모델, 서비스, 리포지토리, 웹 DTO/컨트롤러를 제공하는 모듈이다.
-JPA/JDBC 구현을 모두 포함하며, 스타터 모듈에서 자동 구성된다.
+사용자 도메인(유저/그룹/권한/회사)을 위한 핵심 모델과 서비스 인터페이스를 제공하는 모듈이다.
+직접 구현(기본 엔티티/리포지토리/서비스/컨트롤러)은 `studio-platform-user-default`로 분리된다.
 
 ## 구성 패키지
 - `studio.one.base.user.domain.entity`  
-  JPA 엔티티 집합 (ApplicationUser, ApplicationGroup, ApplicationRole, ApplicationCompany 등)
+  JPA 엔티티 집합 (ApplicationGroup, ApplicationRole, ApplicationCompany 등)
 - `studio.one.base.user.domain.model`  
   도메인 모델/Enum 및 JSON 직렬화 보조
 - `studio.one.base.user.domain.event`  
@@ -14,31 +14,17 @@ JPA/JDBC 구현을 모두 포함하며, 스타터 모듈에서 자동 구성된�
   캐시 무효화 리스너
 - `studio.one.base.user.service`  
   서비스 인터페이스 (User/Group/Role/Company)
-- `studio.one.base.user.service.impl`  
-  기본 서비스 구현
 - `studio.one.base.user.persistence`  
   리포지토리 인터페이스
-- `studio.one.base.user.persistence.jpa`  
-  JPA 리포지토리 구현
-- `studio.one.base.user.persistence.jdbc`  
-  JDBC 리포지토리 구현 및 RowMapper
-- `studio.one.base.user.web.controller`  
-  REST 컨트롤러
 - `studio.one.base.user.web.dto`  
   요청/응답 DTO
-- `studio.one.base.user.web.mapper`  
-  DTO 매퍼
 - `studio.one.base.user.exception`  
   도메인 예외
 - `studio.one.base.user.constant`  
   캐시명, 엔티티명 상수
 
 ## 영속성 구현
-동일한 리포지토리 인터페이스에 대해 JPA와 JDBC 구현을 제공한다.
-스타터 설정(`studio.features.user.persistence` 또는 전역 `studio.persistence.type`)에 따라 자동 선택된다.
-
-- JPA: `studio.one.base.user.persistence.jpa.*`
-- JDBC: `studio.one.base.user.persistence.jdbc.*`
+`studio-platform-user-default`에서 JPA/JDBC 구현을 제공한다.
 
 ## 주요 서비스
 - `ApplicationUserService`: 사용자 CRUD, 상태 변경, 비밀번호 초기화 등
@@ -52,13 +38,16 @@ JPA/JDBC 구현을 모두 포함하며, 스타터 모듈에서 자동 구성된�
 캐시 키는 `studio.one.base.user.constant.CacheNames`에 정의되어 있다.
 
 ## 웹 계층
-컨트롤러/DTO/매퍼를 제공한다. REST 노출 여부는 스타터 설정에서 제어한다.
+컨트롤러/매퍼는 `studio-platform-user-default`에서 제공한다. REST 노출 여부는 스타터 설정에서 제어한다.
 
 ### 공개용 사용자 조회
 사용자 모듈 직접 의존성을 줄이기 위해 공개용 기본 정보 API를 제공한다.
-이 엔드포인트는 `nameVisible`, `emailVisible` 플래그를 반영해 공개 가능한 값만 반환한다.
+이 엔드포인트는 `nameVisible`, `emailVisible` 플래그를 반영해 공개 가능한 값만 반환하며,
+`USER_ENABLED = true`인 사용자만 조회한다. 공개 API의 `name` 파라미터는 내부적으로
+`username` 의미로 처리한다.
 
-- `GET /api/public/users/{id}` → `UserPublicDto`
+- `GET /api/users/{name}` → `UserPublicDto` (name == username)
+- `GET /api/users/{id}?byId` → `UserPublicDto` (enabled 사용자만)
 
 관리자/내부용 기본 조회는 기존 관리 엔드포인트에서 제공한다.
 
@@ -122,7 +111,7 @@ dependencies {
 
 ### 2) 스키마 준비
 PostgreSQL 기준 스키마는 아래에 포함되어 있다.
-- `studio-platform-user/src/main/resources/schema/postgres/V0.1.0__create_user_tables.sql`
+- `studio-platform-user-default/src/main/resources/schema/postgres/V0.1.0__create_user_tables.sql`
 
 JPA를 사용한다면 마이그레이션 도구(Flyway 등)에 등록해 초기 테이블을 생성한다.
 

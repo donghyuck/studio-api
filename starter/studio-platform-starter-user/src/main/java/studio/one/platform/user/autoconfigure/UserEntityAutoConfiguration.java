@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
@@ -41,7 +42,7 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
-@ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
+@ConditionalOnExpression("${" + PropertyKeys.Features.User.ENABLED + ":true} && ${" + PropertyKeys.Features.User.USE_DEFAULT + ":true}")
 @Slf4j
 @RequiredArgsConstructor
 public class UserEntityAutoConfiguration {

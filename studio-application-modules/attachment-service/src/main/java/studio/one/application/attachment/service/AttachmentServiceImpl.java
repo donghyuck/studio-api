@@ -11,6 +11,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -18,13 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.aplication.security.util.SecurityHelper;
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.exception.AttachmentNotFoundException;
 import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.identity.ApplicationPrincipal;
+import studio.one.platform.identity.PrincipalResolver;
 
 @RequiredArgsConstructor
 @Transactional
@@ -35,6 +37,7 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     private final AttachmentRepository attachmentRepository;
     private final FileStorage fileStorage;
+    private final ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @Override
     @Cacheable(cacheNames = CACHE_BY_ID, key = "#attachmentId", unless = "#result == null")
@@ -155,9 +158,13 @@ public class AttachmentServiceImpl implements AttachmentService {
         attachment.setContentType(contentType);
         attachment.setSize(size);
         attachment.setCreatedAt(Instant.now());
-        SecurityHelper.getUser().ifPresent(u -> {
-            attachment.setCreatedBy(u.getUserId());
-        }); 
+        PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
+        if (resolver != null) {
+            ApplicationPrincipal principal = resolver.currentOrNull();
+            if (principal != null && principal.getUserId() != null) {
+                attachment.setCreatedBy(principal.getUserId());
+            }
+        }
         Attachment savedAttachment = attachmentRepository.save(attachment);
         fileStorage.save(savedAttachment, inputStream);
         return savedAttachment;
