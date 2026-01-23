@@ -1,0 +1,8 @@
+# Default objecttype definitions (empty by default).
+objecttypes:
+  - type: 2001
+    key: attachment
+    name: Attachment
+    domain: attachment
+    status: active
+    description: Default attachment object type

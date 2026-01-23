@@ -13,7 +13,7 @@ Spring Security ACL과 통합되어 권한 관리용 고수준 API를 노출합�
 - 정책 집계: `DatabaseAclDomainPolicyContributor`
 - 정책 갱신: `DomainPolicyRefreshEvent` -> `DomainPolicyRegistryImpl.refresh`
 - 권한 관리:
-  - 인터페이스: `studio.one.platform.security.authz.acl.AclPermissionService`
+  - 인터페이스: `studio.one.platform.security.acl.AclPermissionService`
   - 구현: `DefaultAclPermissionService`
 
 ## 주요 클래스
@@ -85,7 +85,7 @@ ACL 감사 로그는 INFO 레벨에서 `ACL_AUDIT` prefix로 출력됩니다.
 ## 외부 모듈 사용
 외부 모듈은 인터페이스만 의존합니다.
 ```java
-import studio.one.platform.security.authz.acl.AclPermissionService;
+import studio.one.platform.security.acl.AclPermissionService;
 ```
 `DefaultAclPermissionService`에 직접 의존하지 않습니다.
 권한 목록 조회도 `AclPermissionService.listPermissions(...)`로 통일합니다.

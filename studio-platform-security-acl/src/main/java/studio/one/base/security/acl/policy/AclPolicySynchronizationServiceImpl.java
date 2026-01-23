@@ -5,7 +5,7 @@ import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.security.authz.acl.AclMetricsRecorder;
+import studio.one.platform.security.acl.AclMetricsRecorder;
 
 /**
  * Default implementation that delegates descriptor synchronization to the seeder.

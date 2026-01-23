@@ -10,24 +10,36 @@
 starter/                         # Spring Boot 스타터 모음 (자동 구성)
 studio-application-modules/      # 애플리케이션 기능 모듈 (attachment, avatar, embedding pipeline)
 studio-platform/                 # 코어 플랫폼 라이브러리
+studio-platform-objecttype/      # objectType 레지스트리/정책/런타임 검증 구현
 studio-platform-ai/              # AI 포트/서비스/컨트롤러
 studio-platform-autoconfigure/   # 공통 자동 구성
 studio-platform-data/            # 데이터 액세스 공통
+studio-platform-identity/        # 인증/식별 추상화(계약)
 studio-platform-security(+acl)/  # 보안 + ACL
+studio-platform-realtime/        # 실시간 기능(웹소켓 등) 공통
+studio-platform-storage/         # 오브젝트 스토리지 공통
 studio-platform-user/            # 사용자/그룹/역할/회사 도메인 (계약)
 studio-platform-user-default/    # 사용자 기본 구현 (엔터티/리포지토리/서비스/컨트롤러)
 ```
 
 ## 주요 모듈
 - **studio-platform**: 공통 유틸, 도메인 베이스, 예외/텍스트/웹 지원.
-- **studio-platform-security / security-acl**: JWT 인증, 계정 잠금, 로그인 감사, ACL 기반 인가. ACL 권한 조작 API는 `studio.one.platform.security.authz.acl.AclPermissionService` 인터페이스로 노출.
+- **studio-platform-objecttype**: objectType 레지스트리/정책/업로드 검증/캐시. YAML/DB 구현 제공.
+- **studio-platform-security / security-acl**: JWT 인증, 계정 잠금, 로그인 감사, ACL 기반 인가. ACL 권한 조작 API는 `studio.one.platform.security.acl.AclPermissionService` 인터페이스로 노출.
 - **studio-platform-user**: 사용자/그룹/역할/회사 도메인 계약.
 - **studio-platform-user-default**: 기본 사용자 엔터티/리포지토리/서비스/컨트롤러 구현.
 - **studio-platform-ai**: 임베딩/벡터스토어/RAG 포트와 REST 컨트롤러.
+- **studio-platform-data**: 공통 SQL/DAO/페이징/JDBC 도구 및 i18n 기반 메시지 지원.
+- **studio-platform-autoconfigure**: 공통 Feature 토글 및 웹/보안/기능 자동 구성.
+- **studio-platform-identity**: 인증/식별 관련 계약 인터페이스.
+- **studio-platform-realtime**: 실시간 통신/알림 공통.
+- **studio-platform-storage**: 파일/오브젝트 스토리지 공통 API 및 구현.
 - **studio-application-modules**
   - `attachment-service`: 첨부 메타/바이너리 저장, 업로드/다운로드/검색 REST.
   - `avatar-service`: 사용자 아바타 이미지 관리.
   - `content-embedding-pipeline`: 첨부 텍스트 추출→임베딩→벡터 스토어 업서트/RAG 인덱스 API.
+  - `template-service`: 템플릿 관리.
+  - `mail-service`: 메일 전송/템플릿.
 
 모듈별 상세 가이드는 `studio-application-modules/README.md` 참고.
 
@@ -39,19 +51,51 @@ dependencies {
     implementation(project(":starter:studio-platform-starter"))          // 플랫폼 기본
     implementation(project(":starter:studio-platform-starter-security")) // 보안
     implementation(project(":starter:studio-platform-starter-user"))     // 사용자
+    implementation(project(":starter:studio-platform-starter-objecttype")) // objectType
     implementation(project(":starter:studio-application-starter-attachment")) // 첨부
 }
 ```
 
+## 모듈 의존 방향
+의존성은 아래 방향을 권장한다. (순환 의존 금지)
+
+```
+studio-platform
+  → studio-platform-objecttype
+  → studio-platform-data
+
+studio-platform
+  → studio-platform-security
+  → studio-platform-security-acl
+
+studio-platform
+  → studio-platform-user
+  → studio-platform-user-default
+
+studio-platform
+  → studio-platform-ai
+
+studio-platform
+  → studio-platform-realtime
+  → studio-platform-storage
+
+starter
+  → platform modules
+  → application modules
+
+application modules
+  → platform modules
+```
+
 ## ACL 외부 사용 가이드
-- 외부 모듈에서는 `studio.one.platform.security.authz.acl.AclPermissionService` 인터페이스만 의존한다.
+- 외부 모듈에서는 `studio.one.platform.security.acl.AclPermissionService` 인터페이스만 의존한다.
 - 구현은 `studio-platform-security-acl`에 있으며 자동 구성 시 주입된다.
 - 대량 revoke는 `revokePermissions(...)`로 한 번에 처리할 수 있다.
 - Micrometer가 클래스패스에 있으면 ACL 메트릭(`acl.operation.*`)이 자동 수집된다.
 ```java
 @RequiredArgsConstructor
 class ForumAclAdminController {
-    private final studio.one.platform.security.authz.acl.AclPermissionService aclPermissionService;
+    private final studio.one.platform.security.acl.AclPermissionService aclPermissionService;
 
     public void grant(ObjectIdentity identity, Sid sid, Permission permission) {
         aclPermissionService.grantPermission(identity, sid, permission);

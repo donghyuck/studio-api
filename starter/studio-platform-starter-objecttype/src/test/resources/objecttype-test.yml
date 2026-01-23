@@ -1,0 +1,12 @@
+objecttypes:
+  - type: 1001
+    key: document
+    name: Document
+    domain: document
+    status: active
+    description: Test type
+    policy:
+      key: doc-policy
+      maxFileMb: 10
+      allowedExt: "pdf,docx"
+      allowedMime: "application/pdf"

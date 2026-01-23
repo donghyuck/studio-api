@@ -2,6 +2,8 @@ package studio.one.platform.security.authz;
 
 import java.util.Map;
 
+import studio.one.platform.security.acl.AclProperties;
+
 /**
  * An interface for components that contribute domain policies to the ACL.
  *

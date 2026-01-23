@@ -1,0 +1,117 @@
+<sqlset namespace="objecttype">
+  <select id="selectByType">
+    SELECT
+      OBJECT_TYPE AS objectType,
+      CODE AS code,
+      NAME AS name,
+      DOMAIN AS domain,
+      STATUS AS status,
+      DESCRIPTION AS description,
+      CREATED_BY AS createdBy,
+      CREATED_BY_ID AS createdById,
+      CREATED_AT AS createdAt,
+      UPDATED_BY AS updatedBy,
+      UPDATED_BY_ID AS updatedById,
+      UPDATED_AT AS updatedAt
+    FROM tb_application_object_type
+    WHERE OBJECT_TYPE = #{objectType}
+  </select>
+
+  <select id="selectByCode">
+    SELECT
+      OBJECT_TYPE AS objectType,
+      CODE AS code,
+      NAME AS name,
+      DOMAIN AS domain,
+      STATUS AS status,
+      DESCRIPTION AS description,
+      CREATED_BY AS createdBy,
+      CREATED_BY_ID AS createdById,
+      CREATED_AT AS createdAt,
+      UPDATED_BY AS updatedBy,
+      UPDATED_BY_ID AS updatedById,
+      UPDATED_AT AS updatedAt
+    FROM tb_application_object_type
+    WHERE CODE = #{code}
+  </select>
+
+  <select id="searchBase">
+    SELECT
+      OBJECT_TYPE AS objectType,
+      CODE AS code,
+      NAME AS name,
+      DOMAIN AS domain,
+      STATUS AS status,
+      DESCRIPTION AS description,
+      CREATED_BY AS createdBy,
+      CREATED_BY_ID AS createdById,
+      CREATED_AT AS createdAt,
+      UPDATED_BY AS updatedBy,
+      UPDATED_BY_ID AS updatedById,
+      UPDATED_AT AS updatedAt
+    FROM tb_application_object_type
+  </select>
+
+  <select id="countBase">
+    SELECT count(*)
+    FROM tb_application_object_type
+  </select>
+
+  <update id="upsertType">
+    INSERT INTO tb_application_object_type (
+      OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{code}, #{name}, #{domain}, #{status}, #{description},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, NOW()),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, NOW())
+    )
+    ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
+      CODE = EXCLUDED.CODE,
+      NAME = EXCLUDED.NAME,
+      DOMAIN = EXCLUDED.DOMAIN,
+      STATUS = EXCLUDED.STATUS,
+      DESCRIPTION = EXCLUDED.DESCRIPTION,
+      UPDATED_BY = EXCLUDED.UPDATED_BY,
+      UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
+      UPDATED_AT = EXCLUDED.UPDATED_AT
+  </update>
+
+  <update id="upsertPolicy">
+    INSERT INTO tb_application_object_type_policy (
+      OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{maxFileMb}, #{allowedExt}, #{allowedMime}, #{policyJson},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, NOW()),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, NOW())
+    )
+    ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
+      MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,
+      ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,
+      ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,
+      POLICY_JSON = EXCLUDED.POLICY_JSON,
+      UPDATED_BY = EXCLUDED.UPDATED_BY,
+      UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
+      UPDATED_AT = EXCLUDED.UPDATED_AT
+  </update>
+
+  <select id="selectPolicyByType">
+    SELECT
+      OBJECT_TYPE AS objectType,
+      MAX_FILE_MB AS maxFileMb,
+      ALLOWED_EXT AS allowedExt,
+      ALLOWED_MIME AS allowedMime,
+      POLICY_JSON AS policyJson,
+      CREATED_BY AS createdBy,
+      CREATED_BY_ID AS createdById,
+      CREATED_AT AS createdAt,
+      UPDATED_BY AS updatedBy,
+      UPDATED_BY_ID AS updatedById,
+      UPDATED_AT AS updatedAt
+    FROM tb_application_object_type_policy
+    WHERE OBJECT_TYPE = #{objectType}
+  </select>
+</sqlset>

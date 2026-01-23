@@ -29,8 +29,8 @@ import studio.one.base.security.acl.persistence.AclEntryRepository;
 import studio.one.base.security.acl.persistence.AclObjectIdentityRepository;
 import studio.one.base.security.acl.persistence.AclSidRepository;
 import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
-import studio.one.platform.security.authz.acl.AclMetricsRecorder;
-import studio.one.platform.security.authz.acl.AclPermissionService;
+import studio.one.platform.security.acl.AclMetricsRecorder;
+import studio.one.platform.security.acl.AclPermissionService;
 
 /**
  * Repository-backed implementation that does not require MutableAclService.

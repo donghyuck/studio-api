@@ -68,8 +68,9 @@ List<Map<String, Object>> rows = sqlQuery
     .queryForList("user.selectPage");
 ```
 
-## 매퍼 인터페이스 사용
-인터페이스에 어노테이션을 붙여 스테이트먼트를 바인딩한다.
+## 매퍼 인터페이스 사용 (선택)
+인터페이스에 어노테이션을 붙여 스테이트먼트를 바인딩한다.  
+프로젝트에서는 가독성/확장성을 위해 **클래스 기반(@SqlStatement 주입) 방식**을 더 선호할 수 있다.
 
 ```java
 @SqlMapper("user-sqlset.xml")
@@ -88,6 +89,27 @@ public interface UserSqlMapper {
 SqlQueryFactory factory = new SqlQueryFactoryImpl(dataSource, repository);
 UserSqlMapper mapper = factory.getMapper(UserSqlMapper.class);
 List<UserDto> page = mapper.selectPage(0, 20);
+```
+
+## 클래스 기반 리포지토리 사용 (권장 패턴)
+`@SqlStatement`로 SQL 텍스트를 주입받고 `NamedParameterJdbcTemplate`로 실행한다.
+
+```java
+public class UserJdbcRepository {
+
+    @SqlStatement("user.selectById")
+    private String selectByIdSql;
+
+    private final NamedParameterJdbcTemplate template;
+
+    public UserJdbcRepository(NamedParameterJdbcTemplate template) {
+        this.template = template;
+    }
+
+    public Map<String, Object> findById(long id) {
+        return template.queryForMap(selectByIdSql, Map.of("id", id));
+    }
+}
 ```
 
 ## BoundSql 주입
@@ -218,6 +240,8 @@ studio:
 - `@SqlStatement`: SQL 문자열 또는 `BoundSql` 주입용 (필드/세터/매퍼 메서드).
 - `@SqlBoundStatement`: `BoundSql` 주입 전용.
 - `@SqlMappedStatement`: 동적 쿼리 생성을 위한 `MappedStatement` 주입 전용.
+  - 프로젝트에서는 `@SqlStatement`로 SQL 문자열을 주입받아 `NamedParameterJdbcTemplate`로 실행하는
+    클래스 기반 리포지토리 패턴을 선호할 수 있다.
 
 3) 동적 쿼리 생성 규칙
 - `MappedStatement.getBoundSql(params, additional)`로 동적 SQL을 생성한다.

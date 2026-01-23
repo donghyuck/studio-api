@@ -20,7 +20,7 @@ import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.security.authz.acl.AclMetricsRecorder;
+import studio.one.platform.security.acl.AclMetricsRecorder;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;

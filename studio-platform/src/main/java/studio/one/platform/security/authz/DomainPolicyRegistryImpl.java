@@ -13,6 +13,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.event.EventListener;
 
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.security.acl.AclProperties;
 
 /**
  * Implementation of {@link DomainPolicyRegistry} that only merges policies

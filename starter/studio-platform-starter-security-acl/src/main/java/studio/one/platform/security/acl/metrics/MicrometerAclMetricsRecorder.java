@@ -6,7 +6,7 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
-import studio.one.platform.security.authz.acl.AclMetricsRecorder;
+import studio.one.platform.security.acl.AclMetricsRecorder;
 
 /**
  * Micrometer-backed ACL metrics recorder.

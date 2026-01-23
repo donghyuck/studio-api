@@ -1,4 +1,4 @@
-package studio.one.platform.security.authz.acl;
+package studio.one.platform.security.acl;
 
 import java.io.Serializable;
 import java.util.Collection;

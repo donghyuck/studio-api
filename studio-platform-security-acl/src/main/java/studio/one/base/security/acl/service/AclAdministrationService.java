@@ -23,7 +23,7 @@ import studio.one.base.security.acl.web.dto.AclObjectIdentityRequest;
 import studio.one.base.security.acl.web.dto.AclSidDto;
 import studio.one.base.security.acl.web.dto.AclSidRequest;
 import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
-import studio.one.platform.security.authz.acl.AclMetricsRecorder;
+import studio.one.platform.security.acl.AclMetricsRecorder;
 
 /**
  * Service that exposes ACL metadata management operations.

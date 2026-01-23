@@ -19,7 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.acl.persistence.AclEntryRepository;
 import studio.one.base.security.acl.persistence.AclPolicyProjection;
 
-import studio.one.platform.security.authz.AclProperties;
+import studio.one.platform.security.acl.AclProperties;
 import studio.one.platform.security.authz.DomainPolicyContributor;
 
 /**

@@ -20,7 +20,7 @@
  */
 
 
-package studio.one.platform.security.authz;
+package studio.one.platform.security.acl;
 
 import java.util.Collections;
 import java.util.HashMap;
