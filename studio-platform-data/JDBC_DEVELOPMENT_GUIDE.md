@@ -1,6 +1,6 @@
-# SqlQuery 개발자 가이드
+# JDBC 개발자 가이드
 
-이 문서는 `studio-platform-data`의 SqlQuery 기반 SQL 매퍼 사용법을 설명한다.
+이 문서는 `studio-platform-data`의 JDBC/SqlQuery 기반 SQL 매퍼 사용법과 운영 규칙을 설명한다.
 
 ## 개요
 `SqlQuery`는 `classpath:/sql` 아래의 XML에 정의된 SQL 스테이트먼트를 이름으로 호출하는 핵심 인터페이스다. 다음을 지원한다.
@@ -210,6 +210,35 @@ Map<String, Object> additional = SqlParams.additional(
 - 선택 조건은 파라미터 객체(DTO)를 우선으로 전달한다.
 - 파라미터 이름은 명확하게 지정한다.
 - 동적 조각은 작게 유지해 디버깅을 쉽게 한다.
+
+## 스키마 자동 배포 (Flyway 연동)
+플랫폼은 모듈별 스키마를 `classpath:/schema/{db}` 아래에 두는 것을 권장한다.
+Flyway를 사용하는 경우 locations에 모듈 경로를 추가해 **자동 배포**할 수 있다.
+
+권장 구조(도메인 기준):
+```
+studio-platform-objecttype/src/main/resources/schema/objecttype/postgres/V0__create_objecttype_tables.sql
+studio-platform-objecttype/src/main/resources/schema/objecttype/mysql/V0__create_objecttype_tables.sql
+```
+
+예시 설정(도메인별 분리):
+```yaml
+spring:
+  flyway:
+    enabled: true
+    locations:
+      - classpath:/schema/objecttype/postgres
+      - classpath:/schema/user/postgres
+```
+
+주의:
+- `classpath:/schema/postgres`처럼 **단일 경로**만 넣으면 도메인 분리가 되지 않는다.
+- 도메인별 경로를 명시해 **도메인 단위 관리**를 유지한다.
+
+운영 팁:
+- 모듈 단위 분리를 위해 `locations`에 각 모듈의 schema 경로를 명시한다.
+- `V`/`R` prefix는 기존 규칙을 유지하되, **파일명 충돌 방지**를 위해 모듈별 네이밍을 권장한다.
+- 동일 DB에서 다수 모듈이 공존할 경우, 버전 번호 충돌을 피하려면 모듈별 버전 구간을 분리한다.
 
 ## 부팅 시 존재 검증 (Fail-fast)
 `@SqlStatement`, `@SqlBoundStatement`, `@SqlMappedStatement`는 빈 초기화 시점에

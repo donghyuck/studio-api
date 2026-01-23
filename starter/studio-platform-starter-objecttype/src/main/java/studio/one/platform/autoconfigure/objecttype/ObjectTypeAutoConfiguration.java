@@ -63,8 +63,8 @@ import studio.one.platform.objecttype.service.DefaultObjectTypeAdminService;
 import studio.one.platform.objecttype.service.DefaultObjectTypeRuntimeService;
 import studio.one.platform.objecttype.service.ObjectTypeAdminService;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.web.controller.ObjectTypeAdminController;
-import studio.one.platform.objecttype.web.controller.ObjectTypeRuntimeController;
+import studio.one.platform.objecttype.web.controller.ObjectTypeMgmtController;
+import studio.one.platform.objecttype.web.controller.ObjectTypeController;
 import org.springframework.context.annotation.Import;
 
 @AutoConfiguration
@@ -241,13 +241,13 @@ public class ObjectTypeAutoConfiguration {
 
         @Configuration
         @ConditionalOnBean(ObjectTypeRuntimeService.class)
-        @Import(ObjectTypeRuntimeController.class)
+        @Import(ObjectTypeController.class)
         static class ObjectTypeRuntimeWebConfig {
         }
 
         @Configuration
         @ConditionalOnBean(ObjectTypeAdminService.class)
-        @Import(ObjectTypeAdminController.class)
+        @Import(ObjectTypeMgmtController.class)
         static class ObjectTypeAdminWebConfig {
         }
     }

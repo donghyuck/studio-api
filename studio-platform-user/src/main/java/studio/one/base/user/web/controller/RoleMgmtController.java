@@ -53,7 +53,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/roles")
 @RequiredArgsConstructor
 @Slf4j
-public class RoleController {
+public class RoleMgmtController {
 
     private final ApplicationRoleService<Role, Group> roleService;
     private final ApplicationRoleMapper mapper;

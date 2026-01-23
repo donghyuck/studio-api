@@ -73,7 +73,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/users")
 @RequiredArgsConstructor
 @Slf4j
-public class UserController implements UserControllerApi {
+public class UserMgmtController implements UserMgmtControllerApi {
 
         private final ApplicationUserService<User, Role> userService;
         private final ApplicationUserMapper userMapper;

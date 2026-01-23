@@ -29,7 +29,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${studio.features.objecttype.web.mgmt-base-path:/api/mgmt/object-types}")
 @RequiredArgsConstructor
 @Validated
-public class ObjectTypeAdminController {
+public class ObjectTypeMgmtController {
 
     private final ObjectTypeAdminService adminService;
     private final ObjectRebindService rebindService;

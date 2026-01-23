@@ -1,6 +1,71 @@
-# 웹 응답 가이드
+# 웹 API 개발 가이드
 
 이 문서는 플랫폼 웹 레이어의 표준 응답 형식과 오류 처리 방식을 설명한다.
+
+## API Controller Naming & Endpoint Convention
+### 목적
+- 컨트롤러 클래스명만 보고도 API의 성격(관리/공개/내 계정/일반 서비스)과 보안 경계가 즉시 드러나게 한다.
+- URL Prefix와 함께 표준화하여 Security 규칙, Swagger 그룹핑, 코드 리뷰를 단순화한다.
+
+### 1) Controller Suffix 규칙
+#### 1. 관리용(운영/설정/관리자 기능)
+- **Class suffix**: `*MgmtController`
+- **URL prefix**: `/api/mgmt/**`
+
+특징:
+- 관리자 권한 필요(ROLE_ADMIN 등)
+- 가능하면 삭제(DELETE)보다 상태 변경(DISABLED/DEPRECATED) 우선
+- 설정/정책 변경 시 감사(audit) 컬럼 갱신 + 캐시 reload 제공 권장
+
+예시:
+- `ApplicationObjectTypeMgmtController`
+- `ApplicationObjectTypePolicyMgmtController`
+
+#### 2. 공개용(익명 접근 허용)
+- **Class suffix**: `*PublicController`
+- **URL prefix**: `/api/public/**`
+
+특징:
+- “정말 공개”인 기능만 배치
+- 기본적으로 ReadOnly(GET) 중심 권장
+- 쓰기 API가 필요하면 rate-limit/captcha 등 별도 보호 장치 고려
+
+예시:
+- `HealthPublicController`
+- `CatalogPublicController`
+
+#### 3. 내 계정 전용(현재 로그인한 사용자만)
+- **Class suffix**: `*MeController`
+- **URL prefix**: `/api/me/**`
+
+특징:
+- 대상은 항상 “현재 인증된 사용자”
+- Path에 userId/username을 받지 않음 (`/me/profile`, `/me/settings` 등)
+- 다른 사용자를 조회/관리하는 기능은 `*Controller` 또는 `*MgmtController`로 분리
+
+예시:
+- `UserMeController`
+- `NotificationMeController`
+
+#### 4. 일반 서비스 이용용(인증 필요/불필요 혼재 가능)
+- **Class suffix**: `*Controller`
+- **URL prefix**: `/api/**` (도메인별 `/api/forums/**` 등)
+
+특징:
+- 서비스 주요 리소스 API
+- 인증 필요 여부는 엔드포인트별로 정의(권장: prefix로 1차, annotation으로 2차)
+- Public/Me/Mgmt로 분류 가능한 경우엔 해당 컨트롤러로 옮기는 것을 우선
+
+예시:
+- `ForumController`
+- `AttachmentController`
+
+### 2) 함께 권장하는 운영 규칙
+- `*PublicController`는 가능한 GET 중심(공격면 최소화)
+- `*MeController`는 “현재 사용자”만 대상으로 하며 path 파라미터로 사용자 식별자를 받지 않는다
+- `*MgmtController`는 삭제보다 상태 변경(비활성화/폐기) 우선
+- Swagger/OpenAPI Tag를 suffix별로 고정(Mgmt, Public, Me, Api)하여 문서 탐색성을 높인다
+- SecurityFilterChain은 URL prefix 기준으로 1차 제어(`/api/mgmt/**`, `/api/me/**`, `/api/public/**`) 후, 세부 권한은 메서드 레벨로 보완한다
 
 ## 성공 응답
 성공 응답은 `ApiResponse<T>`를 사용한다.

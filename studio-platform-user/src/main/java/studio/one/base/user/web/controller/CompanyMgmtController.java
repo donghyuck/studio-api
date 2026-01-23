@@ -11,6 +11,6 @@ import studio.one.platform.constant.PropertyKeys;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/companies")
 @RequiredArgsConstructor
 @Slf4j
-public class CompanyController {
+public class CompanyMgmtController {
 
 }

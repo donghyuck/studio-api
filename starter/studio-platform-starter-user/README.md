@@ -123,7 +123,7 @@ studio:
 - `/api/self`
 
 기본 컨트롤러는 `ApplicationUserMapper`/`ApplicationUserService` 빈이 있을 때만 등록된다.
-커스텀 컨트롤러를 제공할 때는 `UserControllerApi`/`PublicUserControllerApi`/`MeControllerApi`
+커스텀 컨트롤러를 제공할 때는 `UserMgmtControllerApi`/`UserPublicControllerApi`/`UserMeControllerApi`
 인터페이스를 구현하면 기본 컨트롤러가 자동으로 비활성화된다.
 
 커스텀 사용자 구현을 사용하는 경우 기본 컨트롤러를 끄는 것을 권장한다.

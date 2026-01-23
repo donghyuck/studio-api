@@ -36,14 +36,14 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.web.controller.GroupController;
-import studio.one.base.user.web.controller.MeController;
-import studio.one.base.user.web.controller.MeControllerApi;
-import studio.one.base.user.web.controller.PublicUserController;
-import studio.one.base.user.web.controller.PublicUserControllerApi;
-import studio.one.base.user.web.controller.RoleController;
-import studio.one.base.user.web.controller.UserController;
-import studio.one.base.user.web.controller.UserControllerApi;
+import studio.one.base.user.web.controller.GroupMgmtController;
+import studio.one.base.user.web.controller.UserMeController;
+import studio.one.base.user.web.controller.UserMeControllerApi;
+import studio.one.base.user.web.controller.UserPublicController;
+import studio.one.base.user.web.controller.UserPublicControllerApi;
+import studio.one.base.user.web.controller.RoleMgmtController;
+import studio.one.base.user.web.controller.UserMgmtController;
+import studio.one.base.user.web.controller.UserMgmtControllerApi;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationGroupMapperImpl;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
@@ -114,77 +114,77 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".group", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public GroupController groupEndpoint(
+    public GroupMgmtController groupEndpoint(
             ApplicationGroupService svc,
             ApplicationGroupMapper groupMapper,
             ObjectProvider<IdentityService> identityServiceProvider,
             ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationGroupService.class, true),
-                LogUtils.blue(GroupController.class, true),
+                LogUtils.blue(GroupMgmtController.class, true),
                 webProperties.normalizedBasePath() + "/groups", LogUtils.blue("ACL-managed")));
-        return new GroupController(svc, groupMapper, roleMapper, identityServiceProvider);
+        return new GroupMgmtController(svc, groupMapper, roleMapper, identityServiceProvider);
     }
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(UserControllerApi.class)
+    @ConditionalOnMissingBean(UserMgmtControllerApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".user", name = "enabled", havingValue = "true", matchIfMissing = true )
-    public UserController userEndpoint(
+    public UserMgmtController userEndpoint(
             ApplicationUserService svc,
             ApplicationUserMapper mapper,
             ApplicationRoleMapper roleMapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
-                LogUtils.blue(UserController.class, true),
+                LogUtils.blue(UserMgmtController.class, true),
                 webProperties.normalizedBasePath() + "/users",
                 LogUtils.blue("ACL-managed")));
-        return new UserController(svc, mapper, roleMapper);
+        return new UserMgmtController(svc, mapper, roleMapper);
     }
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(PublicUserControllerApi.class)
+    @ConditionalOnMissingBean(UserPublicControllerApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".public", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public PublicUserController publicUserEndpoint(
+    public UserPublicController publicUserEndpoint(
             ApplicationUserService svc,
             ApplicationUserMapper mapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
-                LogUtils.blue(PublicUserController.class, true),
+                LogUtils.blue(UserPublicController.class, true),
                 "/api/public/users",
                 "R"));
-        return new PublicUserController(svc, mapper);
+        return new UserPublicController(svc, mapper);
     }
 
     @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX  + ".role", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public RoleController roleEndpoint(
+    public RoleMgmtController roleEndpoint(
             ApplicationRoleService svc,
             ApplicationRoleMapper mapper,
             ApplicationGroupMapper gmapper,
             ObjectProvider<IdentityService> identityServiceProvider) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationRoleService.class, true),
-                LogUtils.blue(RoleController.class, true),
+                LogUtils.blue(RoleMgmtController.class, true),
                 webProperties.normalizedBasePath() + "/roles",
                 LogUtils.blue("ACL-managed")));
-        return new RoleController(svc, mapper, gmapper, identityServiceProvider);
+        return new RoleMgmtController(svc, mapper, gmapper, identityServiceProvider);
     }
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(MeControllerApi.class)
+    @ConditionalOnMissingBean(UserMeControllerApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
-    public MeController selfEndpoint(
+    public UserMeController selfEndpoint(
             ApplicationUserService svc,
             ApplicationUserMapper mapper) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue("Self"),
-                LogUtils.blue(MeController.class, true),
+                LogUtils.blue(UserMeController.class, true),
                 webProperties.getSelf().getPath()),
                 LogUtils.blue("ACL-managed"));
-        return new MeController(svc, mapper);
+        return new UserMeController(svc, mapper);
     }
 
 }

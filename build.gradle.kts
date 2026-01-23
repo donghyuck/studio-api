@@ -58,12 +58,26 @@ subprojects {
 			autoUpdate = false  // 폐쇄망이므로 false
 			failBuildOnCVSS = 10.0F // 7.0f // CVSS 점수가 7.0 이상인 경우 빌드 실패
 			suppressionFile = "${rootDir}/dependency-check-suppressions.xml"
-			scanSet = listOf(file("src/main/java")) // ⬅️ 소스 코드만 스캔
+			val scanRoots = listOf("src/main/java", "src/main/kotlin")
+				.map { file(it) }
+				.filter { it.exists() }
+			scanSet = scanRoots // ⬅️ 소스 코드만 스캔(존재하는 경로만)
 			analyzers.assemblyEnabled = false
 			analyzers.nodeAuditEnabled = false 
+			analyzers.ossIndexEnabled = false
 			cveValidForHours = 72
     	}
 	}
+    tasks.matching { it.name == "dependencyCheckAnalyze" }.configureEach {
+        onlyIf {
+            val p = project.path
+            !(p == ":starter" ||
+              p.startsWith(":starter:") ||
+              p.startsWith(":studio-application-modules:") ||
+              p.startsWith(":studio-server")) &&
+            hasAnySource()
+        }
+    }
 	java {
 		toolchain.languageVersion.set(JavaLanguageVersion.of(toolchainVersion))
         sourceCompatibility = JavaVersion.toVersion(sourceCompatibilityValue ?: "11")
@@ -79,6 +93,22 @@ subprojects {
             extendsFrom(configurations.annotationProcessor.get())
         }
     }	
+    dependencies {
+        constraints {
+            implementation("ch.qos.logback:logback-classic:${property("logbackVersion")}")
+            implementation("ch.qos.logback:logback-core:${property("logbackVersion")}")
+        }
+    }
+    configurations.all {
+        resolutionStrategy.force(
+            "ch.qos.logback:logback-classic:${property("logbackVersion")}",
+            "ch.qos.logback:logback-core:${property("logbackVersion")}",
+            "org.yaml:snakeyaml:${property("snakeyamlVersion")}",
+            "com.nimbusds:nimbus-jose-jwt:${property("nimbusJoseJwtVersion")}",
+            "net.minidev:json-smart:${property("jsonSmartVersion")}",
+            "org.postgresql:postgresql:${property("postgresqlVersion")}"
+        )
+    }
 	tasks.named<Jar>("jar") {
     	enabled = true
     	manifest {

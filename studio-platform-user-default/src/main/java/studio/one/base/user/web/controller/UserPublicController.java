@@ -14,7 +14,7 @@
  *      See the License for the specific language governing permissions and
  *      limitations under the License.
  *
- *      @file PublicUserController.java
+ *      @file UserPublicController.java
  *      @date 2025
  *
  */
@@ -59,7 +59,7 @@ import studio.one.platform.constant.PropertyKeys;
 @RequestMapping("${" + PropertyKeys.Features.User.PREFIX + ".public-path:/api/users}")
 @RequiredArgsConstructor 
 @Slf4j
-public class PublicUserController implements PublicUserControllerApi {
+public class UserPublicController implements UserPublicControllerApi {
 
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper userMapper;

@@ -90,7 +90,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/groups")
 @RequiredArgsConstructor
 @Slf4j
-public class GroupController {
+public class GroupMgmtController {
 
     private final ApplicationGroupService<Group, Role> groupService;
     private final ApplicationGroupMapper groupMapper;

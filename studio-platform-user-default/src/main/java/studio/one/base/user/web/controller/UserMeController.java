@@ -30,7 +30,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.Self.PATH + ":/api/self}")
 @RequiredArgsConstructor
 @Slf4j
-public class MeController implements MeControllerApi {
+public class UserMeController implements UserMeControllerApi {
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper mapper;
 

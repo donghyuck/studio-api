@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import studio.one.base.user.web.dto.UserPublicDto;
 import studio.one.platform.web.dto.ApiResponse;
 
-public interface PublicUserControllerApi {
+public interface UserPublicControllerApi {
 
     ResponseEntity<ApiResponse<UserPublicDto>> getByName(String name);
 

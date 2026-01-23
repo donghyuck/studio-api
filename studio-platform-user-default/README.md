@@ -7,14 +7,14 @@
 - 엔터티: `ApplicationUser`
 - 리포지토리: `ApplicationUserRepository` + JPA/JDBC 구현
 - 서비스 구현: `ApplicationUserServiceImpl`, `ApplicationUserMutator`, `ApplicationIdentityService`
-- 웹 계층: `UserController`, `PublicUserController`, `MeController` (각각 `*ControllerApi` 구현)
+- 웹 계층: `UserMgmtController`, `UserPublicController`, `UserMeController` (각각 `*ControllerApi` 구현)
 - DTO 매퍼: `ApplicationUserMapper`
 
 ## 컨트롤러 제약
 기본 컨트롤러는 `ApplicationUserMapper`와 기본 엔터티 구조를 전제로 한다.
 따라서 **커스텀 사용자 구현을 사용하는 경우 기본 컨트롤러를 비활성화**하고
 커스텀 컨트롤러를 제공해야 한다. 기본 컨트롤러 자동 등록은
-`UserControllerApi`/`PublicUserControllerApi`/`MeControllerApi` 빈 유무로
+`UserMgmtControllerApi`/`UserPublicControllerApi`/`UserMeControllerApi` 빈 유무로
 판단하므로, 커스텀 컨트롤러는 해당 인터페이스를 구현하는 것을 권장한다.
 
 또한 기본 `ApplicationIdentityService` 구현도 default 모듈에 포함되므로,

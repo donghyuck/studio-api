@@ -23,7 +23,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${studio.features.objecttype.web.base-path:/api/object-types}")
 @RequiredArgsConstructor
 @Validated
-public class ObjectTypeRuntimeController {
+public class ObjectTypeController {
 
     private final ObjectTypeRuntimeService runtimeService;
 
