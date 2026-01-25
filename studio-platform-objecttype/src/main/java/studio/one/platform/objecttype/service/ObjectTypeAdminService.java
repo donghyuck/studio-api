@@ -7,8 +7,10 @@ import studio.one.platform.objecttype.web.dto.ObjectTypePatchRequest;
 import studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto;
 import studio.one.platform.objecttype.web.dto.ObjectTypePolicyUpsertRequest;
 import studio.one.platform.objecttype.web.dto.ObjectTypeUpsertRequest;
-
+import studio.one.platform.constant.ServiceNames;
 public interface ObjectTypeAdminService {
+
+    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":objecttype:adminservice";
 
     List<ObjectTypeDto> search(String domain, String status, String q);
 

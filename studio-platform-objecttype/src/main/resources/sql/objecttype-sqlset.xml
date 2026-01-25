@@ -1,5 +1,7 @@
-<sqlset namespace="objecttype">
-  <select id="selectByType">
+<?xml version="1.0" encoding="UTF-8"?>
+<sqlset name="objecttype" namespace="objecttype" description="Object Type SQLs"> 
+  <sql id="selectByType">
+    <![CDATA[
     SELECT
       OBJECT_TYPE AS objectType,
       CODE AS code,
@@ -14,10 +16,12 @@
       UPDATED_BY_ID AS updatedById,
       UPDATED_AT AS updatedAt
     FROM tb_application_object_type
-    WHERE OBJECT_TYPE = #{objectType}
-  </select>
+    WHERE OBJECT_TYPE = :objectType
+    ]]>
+  </sql>
 
-  <select id="selectByCode">
+  <sql id="selectByCode">
+    <![CDATA[
     SELECT
       OBJECT_TYPE AS objectType,
       CODE AS code,
@@ -32,10 +36,12 @@
       UPDATED_BY_ID AS updatedById,
       UPDATED_AT AS updatedAt
     FROM tb_application_object_type
-    WHERE CODE = #{code}
-  </select>
+    WHERE CODE = :code
+    ]]>
+  </sql>
 
-  <select id="searchBase">
+  <sql id="searchBase">
+    <![CDATA[
     SELECT
       OBJECT_TYPE AS objectType,
       CODE AS code,
@@ -50,22 +56,26 @@
       UPDATED_BY_ID AS updatedById,
       UPDATED_AT AS updatedAt
     FROM tb_application_object_type
-  </select>
+    ]]>
+  </sql>
 
-  <select id="countBase">
+  <sql id="countBase">
+    <![CDATA[
     SELECT count(*)
     FROM tb_application_object_type
-  </select>
+    ]]>
+  </sql>
 
-  <update id="upsertType">
+  <sql id="upsertType">
+    <![CDATA[
     INSERT INTO tb_application_object_type (
       OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
       UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
     ) VALUES (
-      #{objectType}, #{code}, #{name}, #{domain}, #{status}, #{description},
-      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, NOW()),
-      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, NOW())
+      :objectType, :code, :name, :domain, :status, :description,
+      :createdBy, :createdById, COALESCE(:createdAt, NOW()),
+      :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
     )
     ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
       CODE = EXCLUDED.CODE,
@@ -76,17 +86,19 @@
       UPDATED_BY = EXCLUDED.UPDATED_BY,
       UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
       UPDATED_AT = EXCLUDED.UPDATED_AT
-  </update>
+    ]]>
+  </sql>
 
-  <update id="upsertPolicy">
+  <sql id="upsertPolicy">
+    <![CDATA[
     INSERT INTO tb_application_object_type_policy (
       OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
       UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
     ) VALUES (
-      #{objectType}, #{maxFileMb}, #{allowedExt}, #{allowedMime}, #{policyJson},
-      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, NOW()),
-      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, NOW())
+      :objectType, :maxFileMb, :allowedExt, :allowedMime, :policyJson,
+      :createdBy, :createdById, COALESCE(:createdAt, NOW()),
+      :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
     )
     ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
       MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,
@@ -96,9 +108,11 @@
       UPDATED_BY = EXCLUDED.UPDATED_BY,
       UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
       UPDATED_AT = EXCLUDED.UPDATED_AT
-  </update>
+    ]]>
+  </sql>
 
-  <select id="selectPolicyByType">
+  <sql id="selectPolicyByType">
+    <![CDATA[
     SELECT
       OBJECT_TYPE AS objectType,
       MAX_FILE_MB AS maxFileMb,
@@ -112,6 +126,7 @@
       UPDATED_BY_ID AS updatedById,
       UPDATED_AT AS updatedAt
     FROM tb_application_object_type_policy
-    WHERE OBJECT_TYPE = #{objectType}
-  </select>
+    WHERE OBJECT_TYPE = :objectType
+    ]]>
+  </sql>
 </sqlset>

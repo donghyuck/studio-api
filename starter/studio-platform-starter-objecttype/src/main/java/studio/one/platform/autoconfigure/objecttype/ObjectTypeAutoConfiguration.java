@@ -21,6 +21,7 @@
 
 package studio.one.platform.autoconfigure.objecttype;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -32,7 +33,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import javax.persistence.EntityManagerFactory;
+
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.context.annotation.Primary;
 
@@ -44,6 +50,7 @@ import studio.one.platform.objecttype.yaml.YamlObjectRebindService;
 import studio.one.platform.objecttype.yaml.YamlObjectTypeRegistry;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.autoconfigure.objecttype.condition.ConditionalOnObjectTypePersistence;
+import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.objecttype.db.jdbc.JdbcObjectPolicyResolver;
 import studio.one.platform.objecttype.db.jdbc.JdbcObjectTypeRegistry;
 import studio.one.platform.objecttype.db.jdbc.ObjectTypeJdbcRepository;
@@ -59,23 +66,36 @@ import studio.one.platform.objecttype.cache.CachedObjectTypeRegistry;
 import studio.one.platform.objecttype.cache.CachedObjectRebindService;
 import studio.one.platform.objecttype.cache.CacheInvalidatable;
 import java.time.Duration;
+
+import studio.one.platform.component.State;
+import studio.one.platform.service.I18n;
+import studio.one.platform.util.I18nUtils;
+import studio.one.platform.util.LogUtils;
+
 import studio.one.platform.objecttype.service.DefaultObjectTypeAdminService;
 import studio.one.platform.objecttype.service.DefaultObjectTypeRuntimeService;
 import studio.one.platform.objecttype.service.ObjectTypeAdminService;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.web.controller.ObjectTypeMgmtController;
-import studio.one.platform.objecttype.web.controller.ObjectTypeController;
-import org.springframework.context.annotation.Import;
 
 @AutoConfiguration
 @EnableConfigurationProperties({ ObjectTypeFeatureProperties.class, ObjectTypeProperties.class })
 @ConditionalOnProperty(prefix = "studio.features.objecttype", name = "enabled", havingValue = "true")
+@RequiredArgsConstructor
+@Slf4j
 public class ObjectTypeAutoConfiguration {
+
+    protected static final String FEATURE_NAME = "OBJECT TYPE";
+    private final ObjectProvider<I18n> i18nProvider;
 
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
     public YamlObjectTypeLoader yamlObjectTypeLoader(ResourceLoader resourceLoader) {
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(YamlObjectTypeLoader.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new YamlObjectTypeLoader(resourceLoader);
     }
 
@@ -84,6 +104,11 @@ public class ObjectTypeAutoConfiguration {
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
     public ObjectTypeRegistry objectTypeRegistry(ObjectTypeProperties properties, YamlObjectTypeLoader loader) {
         YamlObjectTypeLoader.Result result = loader.load(properties.getYaml().getResource());
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(YamlObjectTypeRegistry.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new YamlObjectTypeRegistry(result.byType(), result.byKey());
     }
 
@@ -92,6 +117,11 @@ public class ObjectTypeAutoConfiguration {
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
     public ObjectPolicyResolver objectPolicyResolver(ObjectTypeProperties properties, YamlObjectTypeLoader loader) {
         YamlObjectTypeLoader.Result result = loader.load(properties.getYaml().getResource());
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(YamlObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new YamlObjectPolicyResolver(result.policies());
     }
 
@@ -99,6 +129,11 @@ public class ObjectTypeAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
     public ObjectRebindService objectRebindService() {
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(YamlObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new YamlObjectRebindService();
     }
 
@@ -109,6 +144,11 @@ public class ObjectTypeAutoConfiguration {
     public ObjectTypeRegistry cachedObjectTypeRegistry(ObjectTypeRegistry registry, ObjectTypeProperties properties) {
         Duration ttl = Duration.ofSeconds(properties.getRegistry().getCache().getTtlSeconds());
         long maxSize = properties.getRegistry().getCache().getMaxSize();
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(CachedObjectTypeRegistry.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new CachedObjectTypeRegistry(registry, ttl, maxSize);
     }
 
@@ -116,15 +156,27 @@ public class ObjectTypeAutoConfiguration {
     @Primary
     @ConditionalOnBean(ObjectPolicyResolver.class)
     @ConditionalOnProperty(prefix = "studio.objecttype.policy.cache", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public ObjectPolicyResolver cachedObjectPolicyResolver(ObjectPolicyResolver resolver, ObjectTypeProperties properties) {
+    public ObjectPolicyResolver cachedObjectPolicyResolver(ObjectPolicyResolver resolver,
+            ObjectTypeProperties properties) {
         Duration ttl = Duration.ofSeconds(properties.getPolicy().getCache().getTtlSeconds());
         long maxSize = properties.getPolicy().getCache().getMaxSize();
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(CachedObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new CachedObjectPolicyResolver(resolver, ttl, maxSize);
     }
 
-    @Bean
+    @Bean(ObjectTypeRuntimeService.SERVICE_NAME)
     @ConditionalOnMissingBean
-    public ObjectTypeRuntimeService objectTypeRuntimeService(ObjectTypeRegistry registry, ObjectPolicyResolver resolver) {
+    public ObjectTypeRuntimeService objectTypeRuntimeService(ObjectTypeRegistry registry,
+            ObjectPolicyResolver resolver) {
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(DefaultObjectTypeRuntimeService.class, true), LogUtils.red(State.CREATED.toString())));
+
         return new DefaultObjectTypeRuntimeService(registry, resolver);
     }
 
@@ -168,17 +220,29 @@ public class ObjectTypeAutoConfiguration {
     @ConditionalOnObjectTypePersistence(PersistenceProperties.Type.jpa)
     @EnableJpaRepositories(basePackageClasses = ObjectTypeJpaRepository.class)
     @EntityScan(basePackageClasses = ObjectTypeEntity.class)
+    @Slf4j
+    @RequiredArgsConstructor
     static class ObjectTypeJpaConfig {
+
+        private final ObjectProvider<I18n> i18nProvider;
 
         @Bean
         @ConditionalOnMissingBean
         public JpaObjectTypeRegistry objectTypeRegistry(ObjectTypeJpaRepository repository) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(JpaObjectTypeRegistry.class, true), LogUtils.red(State.CREATED.toString())));
             return new JpaObjectTypeRegistry(repository);
         }
 
         @Bean
         @ConditionalOnMissingBean
         public JpaObjectPolicyResolver objectPolicyResolver(ObjectTypePolicyJpaRepository repository) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(JpaObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
             return new JpaObjectPolicyResolver(repository);
         }
 
@@ -187,12 +251,20 @@ public class ObjectTypeAutoConfiguration {
         public ObjectTypeStore objectTypeStore(ObjectTypeJpaRepository typeRepository,
                 ObjectTypePolicyJpaRepository policyRepository,
                 javax.persistence.EntityManager entityManager) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(JpaObjectTypeStore.class, true), LogUtils.red(State.CREATED.toString())));
             return new JpaObjectTypeStore(typeRepository, policyRepository, entityManager);
         }
 
-        @Bean
+        @Bean(name = ObjectTypeAdminService.SERVICE_NAME)
         @ConditionalOnMissingBean
         public ObjectTypeAdminService objectTypeAdminService(ObjectTypeStore store) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(DefaultObjectTypeAdminService.class, true), LogUtils.red(State.CREATED.toString())));
             return new DefaultObjectTypeAdminService(store);
         }
     }
@@ -201,54 +273,62 @@ public class ObjectTypeAutoConfiguration {
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "db")
     @ConditionalOnClass({ PersistenceProperties.class, NamedParameterJdbcTemplate.class })
     @ConditionalOnObjectTypePersistence(PersistenceProperties.Type.jdbc)
+    @Slf4j
+    @RequiredArgsConstructor
     static class ObjectTypeJdbcConfig {
+
+        private final ObjectProvider<I18n> i18nProvider;
 
         @Bean
         @ConditionalOnMissingBean
         public ObjectTypeJdbcRepository objectTypeJdbcRepository(
                 NamedParameterJdbcTemplate template) {
+
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(ObjectTypeJdbcRepository.class, true), LogUtils.red(State.CREATED.toString())));
+
             return new ObjectTypeJdbcRepository(template);
         }
 
         @Bean
         @ConditionalOnMissingBean
         public JdbcObjectTypeRegistry objectTypeRegistry(ObjectTypeJdbcRepository repository) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(JdbcObjectTypeRegistry.class, true), LogUtils.red(State.CREATED.toString())));
             return new JdbcObjectTypeRegistry(repository);
         }
 
         @Bean
         @ConditionalOnMissingBean
         public JdbcObjectPolicyResolver objectPolicyResolver(ObjectTypeJdbcRepository repository) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(JdbcObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
             return new JdbcObjectPolicyResolver(repository);
         }
 
-        @Bean
+        @Bean(ObjectTypeStore.SERVICE_NAME)
         @ConditionalOnMissingBean
         public ObjectTypeStore objectTypeStore(ObjectTypeJdbcRepository repository) {
             return repository;
         }
 
-        @Bean
+        @Bean(ObjectTypeAdminService.SERVICE_NAME)
         @ConditionalOnMissingBean
         public ObjectTypeAdminService objectTypeAdminService(ObjectTypeStore store) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(DefaultObjectTypeAdminService.class, true), LogUtils.red(State.CREATED.toString())));
             return new DefaultObjectTypeAdminService(store);
         }
     }
 
-    @Configuration
-    @ConditionalOnProperty(prefix = "studio.features.objecttype.web", name = "enabled", havingValue = "true", matchIfMissing = false)
-    static class ObjectTypeWebConfig {
-
-        @Configuration
-        @ConditionalOnBean(ObjectTypeRuntimeService.class)
-        @Import(ObjectTypeController.class)
-        static class ObjectTypeRuntimeWebConfig {
-        }
-
-        @Configuration
-        @ConditionalOnBean(ObjectTypeAdminService.class)
-        @Import(ObjectTypeMgmtController.class)
-        static class ObjectTypeAdminWebConfig {
-        }
-    }
+    // Web config moved to ObjectTypeWebAutoConfiguration to ensure condition evaluation happens after
+    // ObjectTypeAutoConfiguration bean definitions are registered.
 }

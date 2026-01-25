@@ -7,8 +7,10 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
 import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
-
+import studio.one.platform.constant.ServiceNames;
 public interface ObjectTypeStore {
+
+    public static final String SERVICE_NAME = ServiceNames.PREFIX + ":objecttype:store";
 
     Optional<ObjectTypeRow> findByType(int objectType);
 

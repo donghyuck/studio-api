@@ -27,21 +27,32 @@ src/main/resources/
 각 XML 파일은 이름이 있는 스테이트먼트 집합을 가진다. `SqlQuery` 호출 시 이 이름을 사용한다.
 동적 노드는 MyBatis 스타일 문법을 지원한다.
 
+### XML 쿼리 파일 규칙
+- 루트는 반드시 `<sqlset>`이어야 한다.
+- 스테이트먼트 태그는 `<sql>` 또는 `<sql-query>`만 인식된다. `<select>`/`<update>`/`<insert>` 같은 태그는 파싱되지 않는다.
+- 네임스페이스는 `<sqlset namespace="...">` 또는 `name`으로 지정하며, 비어 있으면 오류가 발생한다.
+- 파일명은 `*-sqlset.xml` 규칙을 권장한다. (기본 스캔 경로: `classpath*:sql/*-sqlset.xml`)
+- SQL 본문은 가독성을 위해 `<![CDATA[ ... ]]>` 사용을 권장한다.
+
 예시:
 
 ```xml
 <sqlset namespace="user">
-  <select id="selectById">
+  <sql id="selectById">
+    <![CDATA[
     SELECT id, name, email
     FROM tb_user
     WHERE id = #{id}
-  </select>
+    ]]>
+  </sql>
 
-  <select id="selectPage">
+  <sql id="selectPage">
+    <![CDATA[
     SELECT id, name, email
     FROM tb_user
     ORDER BY created_at DESC
-  </select>
+    ]]>
+  </sql>
 </sqlset>
 ```
 
