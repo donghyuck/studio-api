@@ -21,7 +21,6 @@
 
 package studio.one.application.attachment.autoconfigure;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -38,11 +37,8 @@ import studio.one.application.web.controller.AttachmentController;
 
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.identity.IdentityService;
 import studio.one.platform.service.I18n;
-import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.util.LogUtils;
-import studio.one.platform.identity.*;
 /**
  *
  * @author donghyuck, son
@@ -74,9 +70,7 @@ public class AttachmentEndpointAutoConfiguration {
         @Bean
         @Lazy
         @ConditionalOnMissingBean(AttachmentController.class)
-        AttachmentController attachmentController(AttachmentService attachmentService,
-                        ObjectProvider<IdentityService> identityServiceProvider,
-                        ObjectProvider<FileContentExtractionService> textExtractionProvider) {
+        AttachmentController attachmentController(AttachmentService attachmentService) {
 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                                 AttachmentAutoConfiguration.FEATURE_NAME,
@@ -84,7 +78,7 @@ public class AttachmentEndpointAutoConfiguration {
                                 LogUtils.blue(AttachmentController.class, true),
                                 props.getWeb().getMgmtBasePath(),
                                 "CRUD"));
-                return new AttachmentController(attachmentService, identityServiceProvider, textExtractionProvider);
+                return new AttachmentController(attachmentService);
         }
 
 }
