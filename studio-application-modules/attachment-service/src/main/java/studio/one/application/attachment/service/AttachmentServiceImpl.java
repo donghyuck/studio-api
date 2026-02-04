@@ -154,7 +154,9 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream,
             int size) {
+
         validateObjectTypePolicy(objectType, name, contentType, size);
+        
         ApplicationAttachment attachment = new ApplicationAttachment();
         attachment.setObjectType(objectType);
         attachment.setObjectId(objectId);
@@ -162,6 +164,7 @@ public class AttachmentServiceImpl implements AttachmentService {
         attachment.setContentType(contentType);
         attachment.setSize(size);
         attachment.setCreatedAt(Instant.now());
+
         PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
         if (resolver != null) {
             ApplicationPrincipal principal = resolver.currentOrNull();

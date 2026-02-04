@@ -6,7 +6,7 @@
 - **AttachmentRepository**: 메타데이터 저장소. `JdbcAttachmentRepository`(TB_APPLICATION_ATTACHMENT, TB_APPLICATION_ATTACHMENT_PROPERTY) 또는 `AttachmentJpaRepository`로 동작.
 - **FileStorage**: 바이너리 저장소. 기본은 `LocalFileStore`; `JpaFileStore`/`JdbcFileStore`로 DB 저장 가능하며, DB 저장 시 `CachedFileStore`로 로컬 캐시 옵션 지원.
 - **엔티티**: `ApplicationAttachment`(메타데이터), `ApplicationAttachmentData`(바이너리), 속성 맵은 TB_APPLICATION_ATTACHMENT_PROPERTY에 저장.
-- **REST 컨트롤러**: `AttachmentController`(관리자/운영), `AttachmentServiceController`(서비스 간 호출), `MeAttachmentController`(로그인 사용자 전용)가 업로드/다운로드/조회/검색/삭제와 텍스트 추출 API를 제공.
+- **REST 컨트롤러**: `AttachmentMgmtController`(관리자/운영), `AttachmentController`(서비스 간 호출), `MeAttachmentController`(로그인 사용자 전용)가 업로드/다운로드/조회/검색/삭제와 텍스트 추출 API를 제공.
 - **ObjectType 정책 검증(옵션)**: `ObjectTypeRuntimeService` 빈이 존재하면 업로드 시 정책(용량/확장자/MIME)을 검증한다. 빈이 없으면 검증을 생략한다.
 
 ## 자동구성 및 프로퍼티
@@ -35,7 +35,7 @@ studio:
 - `persistence`가 `jpa` 면 `AttachmentJpaRepository` + `JpaFileStore`(database 선택 시) 사용, `jdbc` 면 `JdbcAttachmentRepository` + `JdbcFileStore`.
 - `storage.type=filesystem` → `LocalFileStore`에 바이너리 저장.
 - `storage.type=database` → 선택한 persistence 저장소에 바이너리를 넣고, `cache-enabled=true` 시 `LocalFileStore`로 읽기 캐시.
-- `web.enabled=true` 시 `AttachmentController`/`AttachmentServiceController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
+- `web.enabled=true` 시 `AttachmentMgmtController`/`AttachmentController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
 - `ObjectTypeRuntimeService` 빈이 있을 경우 업로드 시 `validateUpload`로 정책 검증을 수행한다(없으면 생략).
 
 ## REST API (기본 base-path: `/api/mgmt/attachments`)

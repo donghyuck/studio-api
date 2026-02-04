@@ -70,7 +70,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         this.jdbcTemplate = namedTemplate.getJdbcTemplate();
         this.insert = new SimpleJdbcInsert(this.jdbcTemplate)
                 .withTableName(TABLE)
-                .usingGeneratedKeyColumns("ATTACHMENT_ID");
+                // Postgres folds unquoted identifiers to lower-case; the driver will quote returning columns.
+                .usingGeneratedKeyColumns("attachment_id");
     }
 
     @Override
