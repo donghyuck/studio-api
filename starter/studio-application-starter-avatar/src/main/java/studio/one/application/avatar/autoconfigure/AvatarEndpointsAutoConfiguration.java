@@ -36,7 +36,7 @@ class AvatarEndpointsAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, AvatarAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(avatarImageService.getClass(), true),
                 LogUtils.blue(AvatarController.class, true),
-                props.getWeb().getMgmtBase(),
+                props.getWeb().getMgmtBasePath(),
                 "CRUD"));
 
         return new AvatarController(avatarImageService);
@@ -48,7 +48,7 @@ class AvatarEndpointsAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, AvatarAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(avatarImageService.getClass(), true),
                 LogUtils.blue(PublicAvatarController.class, true),
-                props.getWeb().getPublicBase(),
+                props.getWeb().getBasePath(),
                 "R"));
                 
         return new PublicAvatarController(avatarImageService);
@@ -60,7 +60,7 @@ class AvatarEndpointsAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, AvatarAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(avatarImageService.getClass(), true),
                 LogUtils.blue(MeAvatarController.class, true),
-                props.getWeb().getPublicBase(),
+                props.getWeb().getSelfBase(),
                 "CRUD"));
         return new MeAvatarController(avatarImageService);
     }

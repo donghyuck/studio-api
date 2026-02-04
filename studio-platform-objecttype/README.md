@@ -39,6 +39,11 @@ studio:
   features:
     objecttype:
       enabled: true
+      web:
+        enabled: true
+        base-path: /api/object-types
+        mgmt-base-path: /api/mgmt/object-types
+        version: "" # optional
   objecttype:
     mode: yaml          # yaml | db
     yaml:
@@ -82,6 +87,8 @@ objecttypes:
 
 ## 관리자(관리자용 API) 가이드
 관리자 API는 ObjectType/Policy를 등록/수정하기 위한 엔드포인트다.
+`studio.features.objecttype.web.enabled=true`일 때만 활성화되며,
+`studio.features.objecttype.web.mgmt-base-path`로 경로를 변경할 수 있다.
 기본적으로 보호(인증/인가)는 외부에서 처리한다.
 
 ### 엔드포인트
@@ -93,6 +100,15 @@ objecttypes:
 - `GET    /api/mgmt/object-types/{objectType}/policy`
 - `PUT    /api/mgmt/object-types/{objectType}/policy` (upsert)
 - `POST   /api/mgmt/object-types/reload` (cache evict/rebind)
+
+## 런타임(클라이언트용 API) 가이드
+런타임 API는 업로드 검증/정의 조회를 위한 엔드포인트다.
+`studio.features.objecttype.web.enabled=true`일 때만 활성화되며,
+`studio.features.objecttype.web.base-path`로 경로를 변경할 수 있다.
+
+### 엔드포인트
+- `GET    /api/object-types/{objectType}/definition`
+- `POST   /api/object-types/{objectType}/validate-upload`
 
 ### 요청 예시 (등록/수정)
 ```json

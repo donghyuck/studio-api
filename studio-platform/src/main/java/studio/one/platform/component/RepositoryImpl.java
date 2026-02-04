@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.URL;
@@ -114,6 +115,7 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 	private static final String TX_SYNC_MANAGER = "org.springframework.transaction.support.TransactionSynchronizationManager";
 	private static final String TX_SYNC = "org.springframework.transaction.support.TransactionSynchronization";
 	private static final String TX_IS_ACTIVE = "isActualTransactionActive";
+	private static final String TX_IS_SYNC_ACTIVE = "isSynchronizationActive";
 	private static final String TX_REGISTER = "registerSynchronization";
 
 	private AtomicBoolean initialized = new AtomicBoolean(false);
@@ -411,6 +413,10 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 	 */
 	@Override
 	public void publishAfterCommit(Object event) {
+		if (applicationEventPublisher == null) {
+			return;
+		}
+
 		if (!txSyncAvailable) {
 			applicationEventPublisher.publishEvent(event);
 			return;
@@ -421,22 +427,85 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 			Class<?> mgrClass = Class.forName(TX_SYNC_MANAGER, false, cl);
 			Class<?> syncClass = Class.forName(TX_SYNC, false, cl);
 			Method isActive = mgrClass.getMethod(TX_IS_ACTIVE);
+			Method isSyncActive = mgrClass.getMethod(TX_IS_SYNC_ACTIVE);
 			boolean active = Boolean.TRUE.equals(isActive.invoke(null));
-			if (active) {
+			boolean syncActive = Boolean.TRUE.equals(isSyncActive.invoke(null));
+			if (active && syncActive) {
 				Object syncProxy = Proxy.newProxyInstance(cl, new Class<?>[] { syncClass }, (proxy, method, args) -> {
+					if (method.getDeclaringClass() == Object.class) {
+						return handleObjectMethod(proxy, method, args);
+					}
 					if ("afterCommit".equals(method.getName())) {
 						applicationEventPublisher.publishEvent(event);
 					}
-					return null;
+					return defaultReturnValue(method);
 				});
 				Method register = mgrClass.getMethod(TX_REGISTER, syncClass);
 				register.invoke(null, syncProxy);
-			} else {
-				applicationEventPublisher.publishEvent(event);
+				return;
 			}
+			applicationEventPublisher.publishEvent(event);
 		} catch (ReflectiveOperationException | RuntimeException ex) {
-			log.warn("Transaction synchronization API not available. Publishing event immediately.", ex);
+			if (isSynchronizationInactiveCause(ex)) {
+				log.debug("Transaction synchronization is not active; publishing event immediately.", ex);
+			} else {
+				log.warn("Transaction synchronization API not available. Publishing event immediately.", ex);
+			}
+			txSyncAvailable = false;
 			applicationEventPublisher.publishEvent(event);
 		}
+	}
+
+	private boolean isSynchronizationInactiveCause(Throwable throwable) {
+		if (throwable instanceof InvocationTargetException && throwable.getCause() instanceof IllegalStateException) {
+			return throwable.getCause().getMessage().contains("Transaction synchronization");
+		}
+		return false;
+	}
+
+	private Object handleObjectMethod(Object proxy, Method method, Object[] args) {
+		String methodName = method.getName();
+		if ("equals".equals(methodName)) {
+			return proxy == args[0];
+		}
+		if ("hashCode".equals(methodName)) {
+			return System.identityHashCode(proxy);
+		}
+		if ("toString".equals(methodName)) {
+			return proxy.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(proxy));
+		}
+		return null;
+	}
+
+	private Object defaultReturnValue(Method method) {
+		Class<?> returnType = method.getReturnType();
+		if (!returnType.isPrimitive()) {
+			return null;
+		}
+		if (returnType == boolean.class) {
+			return false;
+		}
+		if (returnType == byte.class) {
+			return (byte) 0;
+		}
+		if (returnType == char.class) {
+			return (char) 0;
+		}
+		if (returnType == short.class) {
+			return (short) 0;
+		}
+		if (returnType == int.class) {
+			return 0;
+		}
+		if (returnType == long.class) {
+			return 0L;
+		}
+		if (returnType == float.class) {
+			return 0f;
+		}
+		if (returnType == double.class) {
+			return 0d;
+		}
+		return null;
 	}
 }

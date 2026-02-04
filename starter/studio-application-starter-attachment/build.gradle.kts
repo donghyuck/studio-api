@@ -18,6 +18,7 @@ dependencies {
     compileOnly(project(":studio-platform-autoconfigure"))
     compileOnly(project(":starter:studio-platform-starter"))
     compileOnly(project(":studio-platform-identity"))
+    compileOnly(project(":studio-platform-objecttype"))
     api(project(":studio-application-modules:attachment-service"))
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")

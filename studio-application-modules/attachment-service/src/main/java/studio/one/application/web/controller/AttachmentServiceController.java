@@ -1,18 +1,12 @@
 package studio.one.application.web.controller;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 
-import org.apache.commons.io.IOUtils;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -35,26 +29,21 @@ import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
-import studio.one.platform.identity.IdentityService;
-import studio.one.platform.identity.UserDto;
-import studio.one.platform.identity.UserRef;
-import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path:/api/mgmt/attachments}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.base-path:/api/attachments}")
 @RequiredArgsConstructor
 @Slf4j
 @Validated
-public class AttachmentController {
+public class AttachmentServiceController {
 
     private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
+
     private final AttachmentService attachmentService;
-    private final ObjectProvider<IdentityService> identityServiceProvider;
-    private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("@endpointAuthz.can('features:attachment','upload')")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-upload')")
     public ResponseEntity<ApiResponse<AttachmentDto>> upload(
             @RequestParam("objectType") int objectType,
             @RequestParam("objectId") long objectId,
@@ -82,45 +71,26 @@ public class AttachmentController {
                 contentType,
                 file.getInputStream(),
                 (int) file.getSize());
-        AttachmentDto dto = toDto(saved);
+        AttachmentDto dto = AttachmentDto.of(saved, null);
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-read')")
     public ResponseEntity<ApiResponse<AttachmentDto>> get(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
-    }
-
-    @GetMapping("/{attachmentId:[\\p{Digit}]+}/text")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
-    public ResponseEntity<ApiResponse<String>> extractText(@PathVariable("attachmentId") long attachmentId)
-            throws NotFoundException, IOException {
-        FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
-        if (extractor == null) {
-            ApiResponse<String> body = ApiResponse.<String>builder()
-                    .message("Text extraction is not configured")
-                    .build();
-            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
-        }
-        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        try (InputStream in = attachmentService.getInputStream(attachment)) {
-            String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
-            return ResponseEntity.ok(ApiResponse.ok(text));
-        }
+        return ResponseEntity.ok(ApiResponse.ok(AttachmentDto.of(attachment, null)));
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','download')")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-download')")
     public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
             throws IOException, NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        InputStream in = attachmentService.getInputStream(attachment);
         StreamingResponseBody body = out -> {
-            try (in) {
-                IOUtils.copy(in, out);
+            try (var in = attachmentService.getInputStream(attachment)) {
+                in.transferTo(out);
             }
         };
         HttpHeaders headers = new HttpHeaders();
@@ -138,73 +108,32 @@ public class AttachmentController {
                 .body(body);
     }
 
-    @GetMapping
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
-    public ResponseEntity<ApiResponse<Page<AttachmentDto>>> list(
-            @RequestParam(value = "objectType", required = false) Integer objectType,
-            @RequestParam(value = "objectId", required = false) Long objectId,
-            @RequestParam(value = "keyword", required = false) String keyword,
-            @PageableDefault Pageable pageable) {
-        Page<Attachment> page;
-        if (objectType != null && objectId != null) {
-            if (keyword == null || keyword.isBlank())
-                page = attachmentService.findAttachments(objectType, objectId, pageable);
-            else
-                page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
-        } else {
-            if (keyword == null || keyword.isBlank())
-                page = attachmentService.findAttachments(pageable);
-            else
-                page = attachmentService.findAttachments(keyword, pageable);
-        }
-        Page<AttachmentDto> dtoPage = page.map(this::toDto);
-        return ResponseEntity.ok(ApiResponse.ok(dtoPage));
-    }
-
     @GetMapping("/objects/{objectType:[\\p{Digit}]+}/{objectId:[\\p{Digit}]+}")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','read')")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-read')")
     public ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObject(
             @PathVariable int objectType,
-            @PathVariable long objectId) {
-        List<Attachment> attachments = attachmentService.getAttachments(objectType, objectId);
+            @PathVariable long objectId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @PageableDefault org.springframework.data.domain.Pageable pageable) {
+        List<Attachment> attachments;
+        if (keyword == null || keyword.isBlank()) {
+            attachments = attachmentService.findAttachments(objectType, objectId, pageable).getContent();
+        } else {
+            attachments = attachmentService.findAttachments(objectType, objectId, keyword, pageable).getContent();
+        }
         List<AttachmentDto> dto = attachments.stream()
-                .map(this::toDto)
+                .map(a -> AttachmentDto.of(a, null))
                 .toList();
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 
     @DeleteMapping("/{attachmentId:[\\p{Digit}]+}")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','delete')")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-delete')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException, IOException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
-    }
-
-    private AttachmentDto toDto(Attachment attachment) {
-        UserDto creator = findUserDto(attachment.getCreatedBy(), attachment.getAttachmentId());
-        return AttachmentDto.of(attachment, creator);
-    }
-
-    private UserDto findUserDto(long userId, long attachmentId) {
-        if (userId <= 0) {
-            return null;
-        }
-        IdentityService identityService = identityServiceProvider.getIfAvailable();
-        if (identityService == null) {
-            return null;
-        }
-        return identityService.findById(userId)
-                .map(this::toUserDto)
-                .orElseGet(() -> {
-                    log.warn("User {} not found for attachment {}", userId, attachmentId);
-                    return null;
-                });
-    }
-
-    private UserDto toUserDto(UserRef userRef) {
-        return new UserDto(userRef.userId(), userRef.username());
     }
 
     private MediaType resolveMediaType(String contentType) {
@@ -219,18 +148,21 @@ public class AttachmentController {
     }
 
     private String resolveMediaTypeString(String contentType) {
-        return resolveMediaType(contentType).toString();
+        if (!StringUtils.hasText(contentType)) {
+            return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
+        try {
+            return MediaType.parseMediaType(contentType).toString();
+        } catch (Exception ignored) {
+            return MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        }
     }
 
     private String sanitizeFilename(String original) {
         if (!StringUtils.hasText(original)) {
             return null;
         }
-        String cleaned = org.springframework.util.StringUtils.getFilename(original);
-        if (!StringUtils.hasText(cleaned)) {
-            return null;
-        }
-        return cleaned.replace("\\", "").replace("/", "");
+        return original.replace("\\", "/").replaceAll(".*/", "");
     }
 
     private <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {

@@ -81,7 +81,6 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
     @PostConstruct
     void initialize() {
-
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, "autoconfig.feature.service.details", "User",
                 LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZING.toString())));
@@ -388,6 +387,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         user.setAccountLockedUntil(null);
         encodePasswordIfPresent(user);
         safeAudit("USER_PASSWORD_RESET", userId, actor, reason);
+        userRepo.save(user);
         domainEventsProvider.ifAvailable(resolved -> resolved
                 .publishAfterCommit(UserPasswordResetEvent.of(userId, user.getUsername(), actor, clock)));
     }

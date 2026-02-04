@@ -27,6 +27,8 @@ import studio.one.application.attachment.storage.FileStorage;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
 
 @RequiredArgsConstructor
 @Transactional
@@ -38,6 +40,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final AttachmentRepository attachmentRepository;
     private final FileStorage fileStorage;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
+    private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
 
     @Override
     @Cacheable(cacheNames = CACHE_BY_ID, key = "#attachmentId", unless = "#result == null")
@@ -151,6 +154,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream,
             int size) {
+        validateObjectTypePolicy(objectType, name, contentType, size);
         ApplicationAttachment attachment = new ApplicationAttachment();
         attachment.setObjectType(objectType);
         attachment.setObjectId(objectId);
@@ -202,5 +206,14 @@ public class AttachmentServiceImpl implements AttachmentService {
         entity.setContentType(attachment.getContentType());
         entity.setSize(attachment.getSize());
         return entity;
+    }
+
+    private void validateObjectTypePolicy(int objectType, String fileName, String contentType, int sizeBytes) {
+        ObjectTypeRuntimeService runtimeService = objectTypeRuntimeServiceProvider.getIfAvailable();
+        if (runtimeService == null) {
+            return;
+        }
+        ValidateUploadRequest request = new ValidateUploadRequest(fileName, contentType, (long) sizeBytes);
+        runtimeService.validateUpload(objectType, request);
     }
 }

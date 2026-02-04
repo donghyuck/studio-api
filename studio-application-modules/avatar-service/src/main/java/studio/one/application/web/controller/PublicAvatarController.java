@@ -16,7 +16,9 @@ import studio.one.application.avatar.service.AvatarImageService;
 import studio.one.platform.constant.PropertyKeys;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.public-base:/api/profile}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX
+        + ".avatar-image.web.base-path:${" + PropertyKeys.Features.PREFIX
+        + ".avatar-image.web.public-base:/api/profile}}")
 @RequiredArgsConstructor
 @Slf4j
 public class PublicAvatarController extends AbstractAvatarController {

@@ -44,7 +44,7 @@ import studio.one.platform.text.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.me-base-path:/api/me/attachments}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.self-base:/api/me/attachments}")
 @RequiredArgsConstructor
 @Slf4j
 @Validated

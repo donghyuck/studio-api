@@ -13,7 +13,7 @@
   - 파일 시스템: `studio.features.attachment.storage.type=filesystem` (기본), 경로는 `studio.features.attachment.storage.base-dir`, 없으면 tmp/attachments.
   - 데이터베이스: `studio.features.attachment.storage.type=database` + `studio.features.attachment.persistence=jpa|jdbc`, BLOB 테이블 `TB_APPLICATION_ATTACHMENT_DATA` 사용.
   - DB + 캐시: `studio.features.attachment.storage.cache-enabled=true` 로 로컬 파일 캐시 활성화.
-- API/서비스: `AttachmentService` 로 생성/조회/삭제/스트림 조회, REST 컨트롤러는 `/api/mgmt/attachments`(또는 `studio.features.attachment.web.base-path`) 이하 업로드·다운로드·검색 제공.
+- API/서비스: `AttachmentService` 로 생성/조회/삭제/스트림 조회, REST 컨트롤러는 `/api/mgmt/attachments`(또는 `studio.features.attachment.web.mgmt-base-path`) 이하 업로드·다운로드·검색 제공.
 
 ## Content Embedding Pipeline
 - 역할: 첨부파일 텍스트를 추출하고 임베딩을 생성해 벡터 스토어에 업서트하거나 RAG 인덱스를 구축하는 파이프라인 API.
@@ -23,7 +23,7 @@
   - 임베딩 프로바이더(`EmbeddingPort`) 빈
   - 벡터 스토어(`VectorStorePort`)가 있어야 저장 가능, 없으면 임베딩만 반환
   - RAG 사용 시 `RagPipelineService` 빈 필요
-- 엔드포인트(기본 `studio.features.attachment.web.base-path`, 예: `/api/mgmt/attachments`):
+- 엔드포인트(기본 `studio.features.attachment.web.mgmt-base-path`, 예: `/api/mgmt/attachments`):
   - `GET /{id}/embedding?storeVector=true|false`: 텍스트 추출 후 임베딩 생성, storeVector=true 시 벡터 스토어 업서트.
   - `GET /{id}/embedding/exists`: 해당 첨부 벡터 존재 여부 확인.
   - `POST /{id}/rag/index`: 추출 텍스트를 RAG 인덱스에 등록(메타데이터/키워드 옵션 포함).

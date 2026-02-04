@@ -31,6 +31,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
+import studio.one.platform.autoconfigure.WebEndpointProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 /**
@@ -59,16 +60,15 @@ public class AttachmentFeatureProperties extends FeatureToggle {
     private Storage storage = new Storage();
 
     private Web web = new Web();
-
     @Getter
     @Setter
-    @NoArgsConstructor
-    public static class Web {
-        private boolean enabled = false;
-        private String basePath = "/api/mgmt/attachments";
-        private String meBasePath = "/api/me/attachments";
+    public static class Web extends WebEndpointProperties {
+        private String selfBase = "/api/me/attachments";
+        public Web() {
+            setBasePath("/api/attachments");
+            setMgmtBasePath("/api/mgmt/attachments");
+        }
     }
-
     @Getter
     @Setter
     @NoArgsConstructor

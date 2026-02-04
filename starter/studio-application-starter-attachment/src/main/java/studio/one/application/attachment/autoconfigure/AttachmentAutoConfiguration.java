@@ -68,6 +68,7 @@ import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
 import studio.one.platform.util.I18nUtils;
@@ -165,6 +166,7 @@ public class AttachmentAutoConfiguration {
             AttachmentRepository attachmentRepository,
             FileStorage fileStorage,
             ObjectProvider<PrincipalResolver> principalResolverProvider,
+            ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -173,7 +175,8 @@ public class AttachmentAutoConfiguration {
                 LogUtils.blue(AttachmentServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
         log.info("{} service ready with repository: {}", AttachmentService.class.getSimpleName(),
                 LogUtils.green(attachmentRepository instanceof JdbcAttachmentRepository ? "JDBC" : "JPA"));
-        return new AttachmentServiceImpl(attachmentRepository, fileStorage, principalResolverProvider);
+        return new AttachmentServiceImpl(attachmentRepository, fileStorage, principalResolverProvider,
+                objectTypeRuntimeServiceProvider);
     }
 
     private String resolveBaseDir(AttachmentFeatureProperties.Storage storage, Repository repository) {

@@ -10,6 +10,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
+import studio.one.platform.autoconfigure.WebEndpointProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @ConfigurationProperties(prefix = PropertyKeys.Features.PREFIX + ".avatar-image")
@@ -26,12 +27,31 @@ public class AvatarFeatureProperties extends FeatureToggle {
 
     @Getter
     @Setter
-    @NoArgsConstructor
-    public static class Api {
-        private String mgmtBase = "/api/mgmt/users";
-        /** 공개(permitAll) prefix */
-        private String publicBase = "/api/users";
+    public static class Api extends WebEndpointProperties {
         private String selfBase = "/api/me/avatar";
+
+        public Api() {
+            setBasePath("/api/users");
+            setMgmtBasePath("/api/mgmt/users");
+        }
+
+        /**
+         * 공개(permitAll) prefix (deprecated alias for basePath).
+         */
+        @Deprecated
+        public String getPublicBase() {
+            return getBasePath();
+        }
+
+        /**
+         * 공개(permitAll) prefix (deprecated alias for basePath).
+         */
+        @Deprecated
+        public void setPublicBase(String publicBase) {
+            if (publicBase != null) {
+                setBasePath(publicBase);
+            }
+        }
     }
 
     @Getter

@@ -82,7 +82,7 @@ public class AttachmentEndpointAutoConfiguration {
                                 AttachmentAutoConfiguration.FEATURE_NAME,
                                 LogUtils.blue(AttachmentService.class, true),
                                 LogUtils.blue(AttachmentController.class, true),
-                                props.getWeb().getBasePath(),
+                                props.getWeb().getMgmtBasePath(),
                                 "CRUD"));
                 return new AttachmentController(attachmentService, identityServiceProvider, textExtractionProvider);
         }

@@ -38,7 +38,9 @@ import studio.one.platform.mediaio.util.ImageResize;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".avatar-image.web.mgmt-base:/api/mgmt/users}")
+@RequestMapping("${" + PropertyKeys.Features.PREFIX
+        + ".avatar-image.web.mgmt-base-path:${" + PropertyKeys.Features.PREFIX
+        + ".avatar-image.web.mgmt-base:/api/mgmt/users}}")
 @RequiredArgsConstructor
 @Slf4j
 @Validated
