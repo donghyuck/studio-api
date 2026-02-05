@@ -61,6 +61,10 @@ import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.storage.JdbcFileStore;
 import studio.one.application.attachment.storage.JpaFileStore;
 import studio.one.application.attachment.storage.LocalFileStore;
+import studio.one.application.attachment.thumbnail.LocalThumbnailStore;
+import studio.one.application.attachment.thumbnail.ThumbnailService;
+import studio.one.application.attachment.thumbnail.ThumbnailServiceImpl;
+import studio.one.application.attachment.thumbnail.ThumbnailStorage;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
@@ -167,6 +171,7 @@ public class AttachmentAutoConfiguration {
             FileStorage fileStorage,
             ObjectProvider<PrincipalResolver> principalResolverProvider,
             ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
+            ObjectProvider<ThumbnailService> thumbnailServiceProvider,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -176,7 +181,41 @@ public class AttachmentAutoConfiguration {
         log.info("{} service ready with repository: {}", AttachmentService.class.getSimpleName(),
                 LogUtils.green(attachmentRepository instanceof JdbcAttachmentRepository ? "JDBC" : "JPA"));
         return new AttachmentServiceImpl(attachmentRepository, fileStorage, principalResolverProvider,
-                objectTypeRuntimeServiceProvider);
+                objectTypeRuntimeServiceProvider, thumbnailServiceProvider);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".attachment.thumbnail", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnMissingBean(ThumbnailStorage.class)
+    ThumbnailStorage thumbnailStorage(
+            AttachmentFeatureProperties properties,
+            ObjectProvider<Repository> repositoryProvider,
+            ObjectProvider<I18n> i18nProvider) {
+        AttachmentFeatureProperties.Thumbnail thumbnail = properties.getThumbnail();
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+
+        String baseDir = resolveThumbnailBaseDir(thumbnail, properties, repositoryProvider.getIfAvailable());
+        ensureDirectory(baseDir, thumbnail.isEnsureDirs());
+        log.info("{} thumbnail base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(LocalThumbnailStore.class, true), LogUtils.red(State.CREATED.toString())));
+        return new LocalThumbnailStore(baseDir);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".attachment.thumbnail", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnMissingBean(ThumbnailService.class)
+    ThumbnailService thumbnailService(
+            AttachmentService attachmentService,
+            ThumbnailStorage thumbnailStorage,
+            AttachmentFeatureProperties properties,
+            ObjectProvider<I18n> i18nProvider) {
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(ThumbnailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
+        AttachmentFeatureProperties.Thumbnail config = properties.getThumbnail();
+        return new ThumbnailServiceImpl(attachmentService, thumbnailStorage, config.getDefaultSize(),
+                config.getDefaultFormat());
     }
 
     private String resolveBaseDir(AttachmentFeatureProperties.Storage storage, Repository repository) {
@@ -191,6 +230,17 @@ public class AttachmentAutoConfiguration {
             }
         }
         return Paths.get(System.getProperty("java.io.tmpdir"), "attachments").toString();
+    }
+
+    private String resolveThumbnailBaseDir(
+            AttachmentFeatureProperties.Thumbnail thumbnail,
+            AttachmentFeatureProperties properties,
+            Repository repository) {
+        if (StringUtils.hasText(thumbnail.getBaseDir())) {
+            return thumbnail.getBaseDir();
+        }
+        String base = resolveBaseDir(properties.getStorage(), repository);
+        return Paths.get(base, "thumbnails").toString();
     }
 
     private void ensureDirectory(String baseDir, boolean ensureDirs) {

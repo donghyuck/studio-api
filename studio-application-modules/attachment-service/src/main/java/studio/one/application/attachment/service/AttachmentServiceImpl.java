@@ -24,6 +24,7 @@ import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.exception.AttachmentNotFoundException;
 import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.storage.FileStorage;
+import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
@@ -41,6 +42,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final FileStorage fileStorage;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
+    private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
 
     @Override
     @Cacheable(cacheNames = CACHE_BY_ID, key = "#attachmentId", unless = "#result == null")
@@ -189,6 +191,10 @@ public class AttachmentServiceImpl implements AttachmentService {
     })
     public void removeAttachment(Attachment attachment) {
         fileStorage.delete(attachment);
+        ThumbnailService thumbnailService = thumbnailServiceProvider.getIfAvailable();
+        if (thumbnailService != null) {
+            thumbnailService.deleteAll(attachment);
+        }
         attachmentRepository.delete(toEntity(attachment));
     }
 

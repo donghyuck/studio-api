@@ -26,6 +26,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
+import org.springframework.beans.factory.ObjectProvider;
+import studio.one.application.attachment.thumbnail.ThumbnailData;
+import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
@@ -41,6 +44,7 @@ public class AttachmentController {
     private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
 
     private final AttachmentService attachmentService;
+    private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@endpointAuthz.can('features:attachment','service-upload')")
@@ -103,6 +107,35 @@ public class AttachmentController {
                     .build();
             headers.setContentDisposition(cd);
         }
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
+    }
+
+    @GetMapping("/{attachmentId:[\\p{Digit}]+}/thumbnail")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-read')")
+    public ResponseEntity<StreamingResponseBody> thumbnail(
+            @PathVariable("attachmentId") long attachmentId,
+            @RequestParam(value = "size", required = false, defaultValue = "128") int size,
+            @RequestParam(value = "format", required = false, defaultValue = "png") String format)
+            throws NotFoundException {
+        ThumbnailService thumbnailService = thumbnailServiceProvider.getIfAvailable();
+        if (thumbnailService == null) {
+            return ResponseEntity.status(501).build();
+        }
+        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        var result = thumbnailService.getOrCreate(attachment, size, format);
+        if (result.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+        ThumbnailData data = result.get();
+        StreamingResponseBody body = out -> {
+            out.write(data.getBytes());
+        };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl(CacheControl.maxAge(3600, java.util.concurrent.TimeUnit.SECONDS).getHeaderValue());
+        headers.setContentType(resolveMediaType(data.getContentType()));
+        headers.setContentLength(data.getBytes().length);
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(body);

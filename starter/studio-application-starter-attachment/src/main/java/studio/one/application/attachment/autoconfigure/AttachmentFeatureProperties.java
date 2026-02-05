@@ -59,6 +59,9 @@ public class AttachmentFeatureProperties extends FeatureToggle {
     @Valid
     private Storage storage = new Storage();
 
+    @Valid
+    private Thumbnail thumbnail = new Thumbnail();
+
     private Web web = new Web();
     @Getter
     @Setter
@@ -99,5 +102,24 @@ public class AttachmentFeatureProperties extends FeatureToggle {
          * faster reads.
          */
         private boolean cacheEnabled = false;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Thumbnail {
+        private boolean enabled = true;
+        private int defaultSize = 128;
+        private String defaultFormat = "png";
+
+        /**
+         * Base directory to store thumbnail files. If empty, attachments/thumbnails
+         * under the repository or tmp will be used.
+         */
+        private String baseDir;
+        /**
+         * Create directories on startup when true.
+         */
+        private boolean ensureDirs = true;
     }
 }

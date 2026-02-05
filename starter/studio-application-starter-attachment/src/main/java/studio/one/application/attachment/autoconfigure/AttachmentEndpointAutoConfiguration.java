@@ -21,6 +21,7 @@
 
 package studio.one.application.attachment.autoconfigure;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,6 +34,7 @@ import org.springframework.context.annotation.Lazy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.controller.AttachmentController;
 
 import studio.one.platform.autoconfigure.I18nKeys;
@@ -70,7 +72,9 @@ public class AttachmentEndpointAutoConfiguration {
         @Bean
         @Lazy
         @ConditionalOnMissingBean(AttachmentController.class)
-        AttachmentController attachmentController(AttachmentService attachmentService) {
+        AttachmentController attachmentController(
+                        AttachmentService attachmentService,
+                        ObjectProvider<ThumbnailService> thumbnailServiceProvider) {
 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                                 AttachmentAutoConfiguration.FEATURE_NAME,
@@ -78,7 +82,7 @@ public class AttachmentEndpointAutoConfiguration {
                                 LogUtils.blue(AttachmentController.class, true),
                                 props.getWeb().getMgmtBasePath(),
                                 "CRUD"));
-                return new AttachmentController(attachmentService);
+                return new AttachmentController(attachmentService, thumbnailServiceProvider);
         }
 
 }

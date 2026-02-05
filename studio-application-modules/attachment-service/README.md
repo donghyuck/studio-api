@@ -23,6 +23,12 @@ studio:
         base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
         ensure-dirs: true           # 시작 시 디렉터리 생성
         cache-enabled: false        # database 사용 시 로컬 캐시 on/off
+      thumbnail:
+        enabled: true               # 썸네일 생성 기능
+        default-size: 128           # 기본 썸네일 크기(px)
+        default-format: png         # png만 지원
+        base-dir: ""                # 비우면 attachments/thumbnails 사용
+        ensure-dirs: true
       web:
         enabled: true               # REST 엔드포인트 노출 여부 (기본 false)
         base-path: /api/attachments
@@ -41,6 +47,7 @@ studio:
 ## REST API (기본 base-path: `/api/mgmt/attachments`)
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수. 권한 `features:attachment/upload`.
 - `GET /{attachmentId}`: 메타데이터 조회. 권한 `features:attachment/read`.
+- `GET /{attachmentId}/thumbnail`: 썸네일 이미지. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/text`: 텍스트 추출. `FileContentExtractionService` 빈이 있을 때만 200, 없으면 501. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/download`: 스트리밍 다운로드. 권한 `features:attachment/download`.
 - `GET /` : 페이지 목록. `objectType`, `objectId`, `keyword` 선택. (컨트롤러 상 별도 PreAuthorize 없음)
@@ -126,6 +133,15 @@ objecttypes:
 - `features:attachment/service-read` 서비스 조회/목록
 - `features:attachment/service-download` 서비스 다운로드
 - `features:attachment/service-delete` 서비스 삭제
+
+## Forums 연동 (studio-one-forums)
+- Forums 모듈은 attachment-service를 내부 라이브러리로 사용하며, 별도 Forums 엔드포인트로 첨부파일을 노출한다.
+  - `/api/forums/{forumSlug}/topics/{topicId}/posts/{postId}/attachments/...`
+- 이 Forums 첨부파일 엔드포인트는 `features:attachment/*` 스코프가 아니라 Forums 권한 시스템(Policy + ACL)으로 제어된다.
+  - `READ_ATTACHMENT`: 목록/조회/다운로드(GET)
+  - `UPLOAD_ATTACHMENT`: 업로드/삭제(POST/DELETE)
+- 따라서 “특정 사용자/익명 사용자 다운로드 차단” 같은 요구는 Forums ACL에서 `READ_ATTACHMENT`에 `DENY` 룰을 추가하는 방식으로 처리한다.
+- Forums 연동만 하는 경우에도 `studio.features.attachment.enabled=true`는 필요하지만, attachment-service REST 엔드포인트를 쓰지 않는다면 `studio.features.attachment.web.enabled=true`는 필수는 아니다.
 
 ## 데이터 모델
 - **TB_APPLICATION_ATTACHMENT**: `ATTACHMENT_ID`(PK), `OBJECT_TYPE`, `OBJECT_ID`, `FILE_NAME`, `CONTENT_TYPE`, `FILE_SIZE`, `CREATED_BY`, `CREATED_AT`, `UPDATED_AT`.
