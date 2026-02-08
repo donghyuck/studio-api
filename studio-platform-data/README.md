@@ -2,6 +2,55 @@
 
 데이터/콘텐츠 계층에서 바로 쓸 수 있는 도구 모음이다. JDBC 페이징, SQL-XML 매퍼, 파일 텍스트 추출기, DB 기반 애플리케이션 프로퍼티 저장소, JPA 진단 유틸을 한 모듈에 묶어 제공한다.
 
+## 요약
+데이터 접근 계층에서 반복되는 페이징/SQL 매핑/텍스트 추출/프로퍼티 저장을 표준화한다.
+
+## 설계
+- SQL은 XML(sqlset)로 정의하고 런타임에 바인딩한다.
+- JDBC 페이징은 DB Dialect별로 자동 적용한다.
+- 파일 텍스트 추출은 contentType/filename 기반의 파서 체인으로 처리한다.
+- 애플리케이션 프로퍼티는 DB 테이블을 Map처럼 노출한다.
+
+## 사용법
+- `SqlQueryFactoryImpl`로 `SqlQuery`를 만들고 `queryForList/queryForObject/executeUpdate` 등을 사용한다.
+- `PagingJdbcTemplate`로 DB별 페이징을 자동 적용한다.
+- `FileContentExtractionService`로 파일 텍스트를 추출한다.
+- `JpaApplicationProperties`/`JdbcApplicationProperties`로 DB 프로퍼티 저장소를 등록한다.
+
+## 확장 포인트
+- 신규 DB Dialect 추가 (`PaginationDialect`)
+- 신규 파일 파서 추가 (`FileParser`)
+- SqlMapper 스캔 경로/구현 교체 (`SqlQueryFactory`, `DirectoryScanner`)
+- 프로퍼티 저장소 구현 교체 (`ApplicationProperties`)
+
+## 설정
+- SQL XML 위치: `classpath:/sql` (기본 스캔 패턴 `sql/*-sqlset.xml`)
+- DB 프로퍼티 테이블: `TB_APPLICATION_PROPERTY`
+- OCR 사용 시 Tesseract 데이터 경로/언어 설정 필요
+
+## 환경별 예시
+- **dev**: SQL XML 디렉터리 변경이 잦으면 스캔 주기를 짧게(DirectoryScanner 기본값 조정)
+- **stage**: SQL 변경 배포 전 `sql` 리소스 검증(누락/중복 키) 체크
+- **prod**: OCR(Tesseract) 미사용 시 파서 목록에서 제외해 리소스 사용 최소화
+
+## YAML 예시
+```yaml
+studio:
+  data:
+    sql:
+      scan:
+        enabled: true
+        interval-seconds: 30
+    ocr:
+      enabled: false
+      tesseract:
+        data-path: /opt/tesseract/tessdata
+        languages: "eng,kor"
+```
+
+## ADR
+- `docs/adr/0001-sql-mapper-xml.md`
+
 ## 주요 기능
 - SQL-XML 매퍼: `@SqlMapper`/`@SqlStatement`/`@SqlBoundStatement`/`@SqlMappedStatement` 인터페이스와 `SqlQueryFactory`가 XML `sql` 디렉터리의 스테이트먼트를 읽어와 동적 바인딩·페이징·프로시저 호출을 처리한다.
 - JDBC 페이징: `PagingJdbcTemplate`가 DB 종류에 따라 `LIMIT/OFFSET`/`ROWNUM`/`TOP` 등을 자동 적용하는 `PaginationDialectResolver`를 내장한다.

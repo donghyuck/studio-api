@@ -3,6 +3,56 @@
 Spring Security 기반 인증/인가, JWT 발급/검증, 로그인 감사(audit), 계정 잠금, 비밀번호 재설정 토큰을 제공하는 모듈이다.
 JPA/JDBC 영속성 구현과 REST 컨트롤러를 포함하며, 스타터에서 자동 구성된다.
 
+## 요약
+JWT 인증/인가, 리프레시 토큰 회전, 비밀번호 재설정 토큰, 로그인 감사/계정 잠금 기능을 제공한다.
+
+## 설계
+- Spring Security 필터 체인 + JWT 기반 인증을 기본으로 한다.
+- 리프레시/리셋 토큰은 DB에 저장해 회전/만료를 관리한다.
+- 실패 로그는 감사 테이블에 기록한다.
+
+## 사용법
+- `studio-platform-starter-security` 또는 직접 의존성 추가
+- `JwtConfig` 구현체 제공
+- SecurityFilterChain에서 JWT 필터를 등록
+
+## 확장 포인트
+- `JwtConfig`/`JwtTokenProvider` 교체
+- `UserDetailsService` 커스텀 구현
+- 토큰 저장소(JPA/JDBC) 교체
+- 감사/잠금 정책 커스터마이징
+
+## 설정
+- `studio.security.enabled`
+- `studio.security.jwt.*` (secret, issuer, ttl, endpoints)
+
+## 환경별 예시
+- **dev**: JWT TTL을 짧게 두고 refresh 토큰 회전 테스트
+- **stage**: secret/issuer를 운영과 유사하게, 보안 로그 레벨은 INFO 이상
+- **prod**: refresh 토큰 만료/회전 정책 강화, 비밀번호 재설정 TTL 최소화
+
+## YAML 예시
+```yaml
+studio:
+  security:
+    enabled: true
+    jwt:
+      enabled: true
+      secret: "change-me"
+      issuer: "my-app"
+      access-ttl-seconds: 900
+      refresh-ttl-seconds: 1209600
+      endpoints:
+        base-path: /api/auth
+        login-enabled: true
+        refresh-enabled: true
+    password-reset:
+      ttl-seconds: 1800
+```
+
+## ADR
+- `docs/adr/0001-jwt-refresh-tokens.md`
+
 ## 구성 패키지
 - `studio.one.base.security.jwt`  
   JWT 생성/검증, 필터, 설정 인터페이스

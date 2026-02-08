@@ -33,6 +33,8 @@ import org.springframework.data.domain.Pageable;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.ServiceNames;
+import studio.one.base.user.web.dto.MeProfilePatchRequest;
+import studio.one.base.user.web.dto.MeProfilePutRequest;
 
 /**
  *
@@ -87,6 +89,11 @@ public interface ApplicationUserService<T extends User, R extends Role> {
             boolean revokeTokens,
             boolean invalidateSessions,
             boolean notifyUser);
+
+    // self profile update
+    T updateSelfByUsername(String username, MeProfilePatchRequest request);
+
+    T replaceSelfByUsername(String username, MeProfilePutRequest request);
 
     // paging & search
     Page<T> search(String q, Pageable pageable);

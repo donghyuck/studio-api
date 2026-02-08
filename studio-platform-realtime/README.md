@@ -2,6 +2,53 @@
 
 Spring WebSocket/STOMP 공통 모듈. 단일 의존성 추가만으로 엔드포인트, 브로커, 메시징 서비스가 자동 구성되어 다른 모듈(예: 메일 동기화 완료 알림)에 재사용할 수 있다.
 
+## 요약
+WebSocket/STOMP + Redis Pub/Sub 기반의 실시간 메시징을 공통 모듈로 제공한다.
+
+## 설계
+- STOMP는 로컬 브로커에서 처리한다.
+- 다중 노드는 Redis Pub/Sub으로 fan-out 한다.
+- 페이로드는 DTO만 허용해 직렬화/보안 위험을 줄인다.
+
+## 사용법
+- 의존성 추가 후 `RealtimeMessagingService`로 전송
+- 클라이언트는 `/ws` STOMP 엔드포인트에 연결해 `/topic` 구독
+
+## 확장 포인트
+- Redis Pub/Sub 사용 여부/채널 변경
+- JWT Principal 주입 정책 변경
+- 메시지 라우팅 규칙 변경(토픽/유저 경로)
+
+## 설정
+- `studio.realtime.stomp.*` (endpoint, prefix, redis, jwt)
+
+## 환경별 예시
+- **dev**: `redis-enabled=false`, `allowed-origins: ["*"]`로 로컬 개발 편의
+- **stage**: redis-enabled=true로 다중 노드 fan-out 검증, jwt-enabled는 필요 시 활성화
+- **prod**: redis-enabled=true 고정, allowed-origins 제한, `reject-anonymous=true` 고려
+
+## YAML 예시
+```yaml
+studio:
+  realtime:
+    stomp:
+      enabled: true
+      endpoint: /ws
+      app-destination-prefix: /app
+      topic-prefix: /topic
+      user-prefix: /user
+      allowed-origins:
+        - "https://app.example.com"
+      sock-js: true
+      jwt-enabled: true
+      reject-anonymous: true
+      redis-enabled: true
+      redis-channel: studio:realtime:events
+```
+
+## ADR
+- `docs/adr/0001-stomp-redis-realtime.md`
+
 ## 목적 (Why)
 - 멀티 서버 환경에서 비동기 작업 완료·이벤트·알림을 실시간 Push.
 - 업무 모듈이 WebSocket/STOMP/Redis 구현을 몰라도 되도록 추상화 제공.

@@ -1,39 +1,66 @@
 # studio-platform-user-default
 
-`studio-platform-user`의 기본 구현(직접 사용자 엔터티/리포지토리/서비스/컨트롤러)을 제공하는 모듈이다.
-사용자 시스템을 교체하려면 이 모듈 대신 커스텀 구현 모듈을 붙이면 된다.
+Default **implementation** of user management for the platform.
+Project-specific customizations should be made here rather than in
+`studio-platform-user`.
 
-## 포함 범위
-- 엔터티: `ApplicationUser`
-- 리포지토리: `ApplicationUserRepository` + JPA/JDBC 구현
-- 서비스 구현: `ApplicationUserServiceImpl`, `ApplicationUserMutator`, `ApplicationIdentityService`
-- 웹 계층: `UserMgmtController`, `UserPublicController`, `UserMeController` (각각 `*ControllerApi` 구현)
-- DTO 매퍼: `ApplicationUserMapper`
+## Scope
+- JPA/JDBC persistence
+- Service implementations
+- Controllers
+- Mapping logic
+- Policy decisions (validation, security, cache)
 
-## 컨트롤러 제약
-기본 컨트롤러는 `ApplicationUserMapper`와 기본 엔터티 구조를 전제로 한다.
-따라서 **커스텀 사용자 구현을 사용하는 경우 기본 컨트롤러를 비활성화**하고
-커스텀 컨트롤러를 제공해야 한다. 기본 컨트롤러 자동 등록은
-`UserMgmtControllerApi`/`UserPublicControllerApi`/`UserMeControllerApi` 빈 유무로
-판단하므로, 커스텀 컨트롤러는 해당 인터페이스를 구현하는 것을 권장한다.
+## Self Profile Update (Implementation Notes)
+Implemented in:
+- `UserMeController` (PATCH/PUT endpoints)
+- `ApplicationUserServiceImpl` (update logic)
 
-또한 기본 `ApplicationIdentityService` 구현도 default 모듈에 포함되므로,
-커스텀 사용자 구현을 사용할 때는 IdentityService도 교체 구현을 제공해야 한다.
+### Security & Policy
+- **Email uniqueness** enforced on self update (409 on conflict).
+- **Properties** update is **merge + whitelist**.
+  - Keys must match `[A-Za-z0-9_.-]{1,100}`.
+  - Keys starting with `security.`, `auth.`, `role.`, `admin.`, `permission.` are rejected.
+- **Audit** events emitted on PATCH/PUT.
 
-## 스키마
-PostgreSQL 기준 스키마는 아래에 포함되어 있다.
-- `studio-platform-user-default/src/main/resources/schema/postgres/V0.1.0__create_user_tables.sql`
+### Cache
+Self update evicts:
+- `users.byUserId`
+- `users.byUsername`
 
-## 사용 방법
-보통 `starter:studio-platform-starter-user`를 통해 자동 구성된다.
-직접 사용할 경우 아래 의존성을 추가한다.
+If additional user caches exist, add them here.
 
-```kotlin
-dependencies {
-    implementation(project(":studio-platform-user-default"))
-}
-```
+## Properties Merge Semantics
+- PATCH/PUT do **not** replace the entire properties map.
+- Incoming keys are validated and merged into existing properties.
+- If you need delete semantics, define a reserved value and handle it in
+  `mergeSafeProperties`.
 
-## 교체 포인트
-- 사용자 엔터티/리포지토리/서비스를 커스텀으로 교체하려면
-  이 모듈 대신 별도 모듈을 제공하고 `studio-platform-user` 계약만 유지한다.
+## Validation Behavior
+- PUT requires: `name`, `email`, `nameVisible`, `emailVisible`
+- PATCH accepts any subset; null fields are ignored
+
+## Performance Notes
+- PATCH/PUT do **not** load roles; response is profile-only fields
+- If roles are required for clients, add a dedicated endpoint
+
+## Error Mapping
+- Duplicate email → `UserAlreadyExistsException.byEmail(...)` (HTTP 409)
+- User not found → `UserNotFoundException.of(username)` (HTTP 404)
+
+## Customization Points
+When new fields are added:
+1) Update `ApplicationUser` entity.
+2) Update JDBC/JPA mappers.
+3) Update `ApplicationUserServiceImpl` patch/put mapping logic.
+4) Update controller DTO mapping if the field should be returned.
+
+If fields are **internal only**, keep DTO changes in this module only.
+If fields are **API-visible**, update DTO contracts in `studio-platform-user`.
+
+## Extension Pattern (Recommended)
+If policy changes are frequent, extract:
+- `UserSelfUpdatePolicy` (validation)
+- `UserSelfUpdateMapper` (field application)
+- `UserSelfUpdateHook` (before/after)
+and inject them via Spring to override per project.

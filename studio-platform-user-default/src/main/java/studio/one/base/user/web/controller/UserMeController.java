@@ -12,7 +12,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import javax.validation.Valid;
+
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,6 +27,8 @@ import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.web.dto.MeProfileDto;
+import studio.one.base.user.web.dto.MeProfilePatchRequest;
+import studio.one.base.user.web.dto.MeProfilePutRequest;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -44,6 +51,28 @@ public class UserMeController implements UserMeControllerApi {
                         () -> new org.springframework.security.core.userdetails.UsernameNotFoundException(username));
         Set<Role> roles = userService.findEffectiveRoles(user.getUserId());
         return ResponseEntity.ok(ApiResponse.ok(toDto(user, roles)));
+    }
+
+    @PatchMapping("")
+    @PreAuthorize("isAuthenticated()")
+    @Override
+    public ResponseEntity<ApiResponse<MeProfileDto>> patchMe(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody MeProfilePatchRequest request) {
+        String username = requirePrincipal(principal);
+        User updated = userService.updateSelfByUsername(username, request);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(updated, null)));
+    }
+
+    @PutMapping("")
+    @PreAuthorize("isAuthenticated()")
+    @Override
+    public ResponseEntity<ApiResponse<MeProfileDto>> putMe(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody MeProfilePutRequest request) {
+        String username = requirePrincipal(principal);
+        User updated = userService.replaceSelfByUsername(username, request);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(updated, null)));
     }
 
     private String requirePrincipal(UserDetails principal) {

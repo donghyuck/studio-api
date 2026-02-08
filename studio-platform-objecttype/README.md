@@ -4,6 +4,62 @@ objectType 레지스트리/정책/권한 라우팅을 위한 공통 구현 모�
 `studio-platform`에 정의된 계약을 구현하며, DB 기반 레지스트리와 캐시, rebind/cleanup
 라이프사이클을 제공합니다.
 
+## 요약
+objectType 메타데이터/정책/라우팅을 중앙화하고 캐시/리바인드 수명주기를 제공한다.
+
+## 설계
+- 레지스트리/정책은 캐시 레이어로 감싼다.
+- YAML 또는 DB 기반 레지스트리를 선택할 수 있다.
+- 리바인드 시 캐시를 무효화해 최신 정책을 반영한다.
+
+## 사용법
+- `ObjectTypeRegistry`로 메타데이터 조회
+- `ObjectPolicyResolver`로 정책 조회
+- `ObjectTypeRuntimeService`로 업로드 검증
+
+## 확장 포인트
+- 레지스트리 구현 교체(JDBC/JPA/YAML)
+- 정책 해석/검증 로직 커스터마이징
+- 캐시 전략(TTL, max size) 조정
+
+## 설정
+- `studio.objecttype.*` (mode, registry cache, policy cache)
+- `studio.features.objecttype.web.*` (runtime/mgmt API 노출)
+
+## 환경별 예시
+- **dev**: `mode: yaml` + 짧은 TTL로 정책 변경 즉시 확인
+- **stage**: `mode: db`로 운영과 동일 흐름 검증, 캐시 TTL 중간값
+- **prod**: 캐시 TTL을 길게, rebind 엔드포인트는 관리자만 접근
+
+## YAML 예시
+```yaml
+studio:
+  features:
+    objecttype:
+      enabled: true
+      web:
+        enabled: true
+        base-path: /api/object-types
+        mgmt-base-path: /api/mgmt/object-types
+  objecttype:
+    mode: yaml
+    yaml:
+      resource: classpath:objecttype.yml
+    registry:
+      cache:
+        enabled: true
+        ttl-seconds: 120
+        max-size: 1000
+    policy:
+      cache:
+        enabled: true
+        ttl-seconds: 120
+        max-size: 1000
+```
+
+## ADR
+- `docs/adr/0001-objecttype-registry-and-cache.md`
+
 ## 목표
 - objectType 메타데이터를 단일 레지스트리로 관리
 - 정책 평가와 권한 라우팅을 공통 방식으로 제공

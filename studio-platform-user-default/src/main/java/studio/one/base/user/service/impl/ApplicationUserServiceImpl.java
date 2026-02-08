@@ -5,9 +5,12 @@ import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.HashMap;
+import java.util.Collections;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -55,6 +58,8 @@ import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.service.UserMutator;
+import studio.one.base.user.web.dto.MeProfilePatchRequest;
+import studio.one.base.user.web.dto.MeProfilePutRequest;
 import studio.one.platform.component.State;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
@@ -196,6 +201,121 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             domainEventsProvider.ifAvailable(resolved -> resolved
                     .publishAfterCommit(UserDisabledEvent.of(userId, u.getUsername(), actor, reason, until, clock)));
         }
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#result.userId", condition = "#result != null"),
+            @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, key = "#username")
+    })
+    public ApplicationUser updateSelfByUsername(String username, MeProfilePatchRequest request) {
+        Objects.requireNonNull(request, "request");
+        ApplicationUser u = userRepo.findByUsername(username)
+                .orElseThrow(() -> UserNotFoundException.of(username));
+        applyPatch(u, request);
+        ApplicationUser saved = userRepo.save(u);
+        safeAudit("USER_SELF_PATCH", saved.getUserId(), username, null);
+        domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit(UserUpdatedEvent.of(saved.getUserId(), saved.getUsername(),
+                        username, clock)));
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#result.userId", condition = "#result != null"),
+            @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, key = "#username")
+    })
+    public ApplicationUser replaceSelfByUsername(String username, MeProfilePutRequest request) {
+        Objects.requireNonNull(request, "request");
+        ApplicationUser u = userRepo.findByUsername(username)
+                .orElseThrow(() -> UserNotFoundException.of(username));
+        applyPut(u, request);
+        ApplicationUser saved = userRepo.save(u);
+        safeAudit("USER_SELF_PUT", saved.getUserId(), username, null);
+        domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit(UserUpdatedEvent.of(saved.getUserId(), saved.getUsername(),
+                        username, clock)));
+        return saved;
+    }
+
+    private void applyPatch(ApplicationUser u, MeProfilePatchRequest req) {
+        if (req.getEmail() != null) {
+            assertEmailAvailable(u, req.getEmail());
+            u.setEmail(req.getEmail());
+        }
+        if (req.getName() != null)
+            u.setName(req.getName());
+        if (req.getNameVisible() != null)
+            u.setNameVisible(req.getNameVisible());
+        if (req.getEmailVisible() != null)
+            u.setEmailVisible(req.getEmailVisible());
+        if (req.getFirstName() != null)
+            u.setFirstName(req.getFirstName());
+        if (req.getLastName() != null)
+            u.setLastName(req.getLastName());
+        if (req.getProperties() != null)
+            mergeSafeProperties(u, req.getProperties());
+    }
+
+    private void applyPut(ApplicationUser u, MeProfilePutRequest req) {
+        u.setName(req.getName());
+        assertEmailAvailable(u, req.getEmail());
+        u.setEmail(req.getEmail());
+        u.setNameVisible(Boolean.TRUE.equals(req.getNameVisible()));
+        u.setEmailVisible(Boolean.TRUE.equals(req.getEmailVisible()));
+        if (req.getFirstName() != null)
+            u.setFirstName(req.getFirstName());
+        if (req.getLastName() != null)
+            u.setLastName(req.getLastName());
+        if (req.getProperties() != null)
+            mergeSafeProperties(u, req.getProperties());
+    }
+
+    private void mergeSafeProperties(ApplicationUser u, Map<String, String> incoming) {
+        Map<String, String> base = u.getProperties() == null ? Collections.emptyMap() : u.getProperties();
+        Map<String, String> merged = new HashMap<>(base);
+        for (Map.Entry<String, String> entry : incoming.entrySet()) {
+            String key = entry.getKey();
+            if (!isAllowedPropertyKey(key)) {
+                throw new IllegalArgumentException("Disallowed property key: " + key);
+            }
+            merged.put(key, entry.getValue());
+        }
+        u.setProperties(merged);
+    }
+
+    private void assertEmailAvailable(ApplicationUser u, String email) {
+        if (StringUtils.isBlank(email)) {
+            return;
+        }
+        String current = u.getEmail();
+        if (StringUtils.equalsIgnoreCase(current, email)) {
+            return;
+        }
+        userRepo.findByEmail(email)
+                .filter(found -> !Objects.equals(found.getUserId(), u.getUserId()))
+                .ifPresent(found -> {
+                    throw UserAlreadyExistsException.byEmail(email);
+                });
+    }
+
+    private boolean isAllowedPropertyKey(String key) {
+        if (StringUtils.isBlank(key)) {
+            return false;
+        }
+        String normalized = key.trim();
+        if (!normalized.matches("[A-Za-z0-9_.-]{1,100}")) {
+            return false;
+        }
+        String lower = normalized.toLowerCase();
+        return !(lower.startsWith("security.")
+                || lower.startsWith("auth.")
+                || lower.startsWith("role.")
+                || lower.startsWith("admin.")
+                || lower.startsWith("permission."));
     }
 
     public Page<ApplicationUser> search(String q, Pageable pageable) {
