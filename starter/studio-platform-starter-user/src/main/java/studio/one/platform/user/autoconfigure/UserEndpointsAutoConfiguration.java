@@ -36,9 +36,12 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.web.controller.GroupMgmtController;
 import studio.one.base.user.web.controller.UserMeController;
 import studio.one.base.user.web.controller.UserMeControllerApi;
+import studio.one.base.user.web.controller.UserAuthPublicController;
+import studio.one.base.user.web.controller.UserAuthPublicControllerApi;
 import studio.one.base.user.web.controller.UserPublicController;
 import studio.one.base.user.web.controller.UserPublicControllerApi;
 import studio.one.base.user.web.controller.RoleMgmtController;
@@ -53,6 +56,7 @@ import studio.one.platform.identity.IdentityService;
 import studio.one.base.user.web.mapper.ApplicationUserMapperImpl;
 import studio.one.base.user.web.mapper.TimeMapper;
 import studio.one.base.user.web.mapper.TimeMapperImpl;
+import studio.one.base.user.service.impl.PasswordPolicyValidator;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
@@ -133,13 +137,15 @@ public class UserEndpointsAutoConfiguration {
     public UserMgmtController userEndpoint(
             ApplicationUserService svc,
             ApplicationUserMapper mapper,
-            ApplicationRoleMapper roleMapper) {
+            ApplicationRoleMapper roleMapper,
+            ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserMgmtController.class, true),
                 webProperties.normalizedBasePath() + "/users",
                 LogUtils.blue("ACL-managed")));
-        return new UserMgmtController(svc, mapper, roleMapper);
+        return new UserMgmtController(svc, mapper, roleMapper,
+                passwordPolicyServiceProvider.getIfAvailable(() -> new PasswordPolicyValidator(null, i18n)));
     }
 
     @Bean
@@ -148,13 +154,29 @@ public class UserEndpointsAutoConfiguration {
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".public", name = "enabled", havingValue = "true", matchIfMissing = true)
     public UserPublicController publicUserEndpoint(
             ApplicationUserService svc,
-            ApplicationUserMapper mapper) {
+            ApplicationUserMapper mapper,
+            ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserPublicController.class, true),
                 "/api/public/users",
                 "R"));
-        return new UserPublicController(svc, mapper);
+        return new UserPublicController(svc, mapper,
+                passwordPolicyServiceProvider.getIfAvailable(() -> new PasswordPolicyValidator(null, i18n)));
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(UserAuthPublicControllerApi.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".public", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public UserAuthPublicController publicAuthUserEndpoint(
+            ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider) {
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue("PublicAuth"),
+                LogUtils.blue(UserAuthPublicController.class, true),
+                "/api/public/auth/password-policy",
+                "R"));
+        return new UserAuthPublicController(
+                passwordPolicyServiceProvider.getIfAvailable(() -> new PasswordPolicyValidator(null, i18n)));
     }
 
     @Bean
@@ -178,13 +200,15 @@ public class UserEndpointsAutoConfiguration {
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
     public UserMeController selfEndpoint(
             ApplicationUserService svc,
-            ApplicationUserMapper mapper) {
+            ApplicationUserMapper mapper,
+            ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue("Self"),
                 LogUtils.blue(UserMeController.class, true),
                 webProperties.getSelf().getPath()),
                 LogUtils.blue("ACL-managed"));
-        return new UserMeController(svc, mapper);
+        return new UserMeController(svc, mapper,
+                passwordPolicyServiceProvider.getIfAvailable(() -> new PasswordPolicyValidator(null, i18n)));
     }
 
 }

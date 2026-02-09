@@ -25,6 +25,7 @@ import org.springframework.cache.annotation.Caching;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -57,9 +58,11 @@ import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.web.dto.MeProfilePatchRequest;
 import studio.one.base.user.web.dto.MeProfilePutRequest;
+import studio.one.base.user.web.dto.MePasswordChangeRequest;
 import studio.one.platform.component.State;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
@@ -83,6 +86,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     private final Clock clock;
     private final ObjectProvider<I18n> i18nProvider;
     private final UserMutator<ApplicationUser> userMutator;
+    private final ObjectProvider<PasswordPolicyService> passwordPolicyValidatorProvider;
 
     @PostConstruct
     void initialize() {
@@ -237,6 +241,39 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         safeAudit("USER_SELF_PUT", saved.getUserId(), username, null);
         domainEventsProvider.ifAvailable(
                 resolved -> resolved.publishAfterCommit(UserUpdatedEvent.of(saved.getUserId(), saved.getUsername(),
+                        username, clock)));
+        return saved;
+    }
+
+    @Override
+    @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#result.userId", condition = "#result != null"),
+            @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, key = "#username")
+    })
+    public ApplicationUser changeSelfPasswordByUsername(String username, MePasswordChangeRequest request) {
+        Objects.requireNonNull(request, "request");
+        ApplicationUser u = userRepo.findByUsername(username)
+                .orElseThrow(() -> UserNotFoundException.of(username));
+        PasswordEncoder encoder = Objects
+                .requireNonNull(passwordEncoderProvider.getIfAvailable(), "PasswordEncoder 이 없습니다.");
+        String currentEncoded = userMutator.getPassword(u);
+        if (!encoder.matches(request.getCurrentPassword(), currentEncoded)) {
+            throw new BadCredentialsException("Invalid current password");
+        }
+        if (encoder.matches(request.getNewPassword(), currentEncoded)) {
+            throw new IllegalArgumentException("New password must be different from current password");
+        }
+        passwordPolicyValidator().validate(request.getNewPassword());
+        userMutator.setPassword(u, request.getNewPassword());
+        userMutator.setFailedAttempts(u, 0);
+        userMutator.setLastFailedAt(u, null);
+        userMutator.setAccountLockedUntil(u, null);
+        encodePasswordIfPresent(u);
+        ApplicationUser saved = userRepo.save(u);
+        safeAudit("USER_PASSWORD_CHANGE", u.getUserId(), username, null);
+        domainEventsProvider.ifAvailable(
+                resolved -> resolved.publishAfterCommit(UserUpdatedEvent.of(u.getUserId(), u.getUsername(),
                         username, clock)));
         return saved;
     }
@@ -501,6 +538,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     @Transactional
     public void resetPassword(Long userId, String rawPassword, String actor, String reason) {
         ApplicationUser user = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
+        passwordPolicyValidator().validate(rawPassword);
         user.setPassword(rawPassword);
         user.setFailedAttempts(0);
         user.setLastFailedAt(null);
@@ -510,5 +548,14 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         userRepo.save(user);
         domainEventsProvider.ifAvailable(resolved -> resolved
                 .publishAfterCommit(UserPasswordResetEvent.of(userId, user.getUsername(), actor, clock)));
+    }
+
+    private PasswordPolicyService passwordPolicyValidator() {
+        PasswordPolicyService validator = passwordPolicyValidatorProvider.getIfAvailable();
+        if (validator != null) {
+            return validator;
+        }
+        // Fallback for environments where starter-level bean registration is not applied.
+        return new PasswordPolicyValidator(null, i18nProvider.getIfAvailable());
     }
 }

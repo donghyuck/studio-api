@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
+import studio.one.base.user.web.dto.PasswordPolicyDto;
 import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.dto.UpdateUserRequest;
 import studio.one.base.user.web.dto.UserBasicDto;
@@ -45,6 +46,8 @@ public interface UserMgmtControllerApi {
     ResponseEntity<ApiResponse<UserBasicDto>> getBasic(Long id);
 
     ResponseEntity<ApiResponse<UserDto>> update(Long id, @RequestBody UpdateUserRequest req);
+
+    ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy();
 
     ResponseEntity<Void> passwordReset(Long id, UserDetails actor);
 

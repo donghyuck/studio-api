@@ -35,6 +35,9 @@ import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.web.controller.AbstractPasswordPolicyControllerSupport;
+import studio.one.base.user.web.dto.PasswordPolicyDto;
 import studio.one.base.user.web.dto.UserPublicDto;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.web.dto.ApiResponse;
@@ -59,10 +62,11 @@ import studio.one.platform.constant.PropertyKeys;
 @RequestMapping("${" + PropertyKeys.Features.User.PREFIX + ".public-path:/api/users}")
 @RequiredArgsConstructor 
 @Slf4j
-public class UserPublicController implements UserPublicControllerApi {
+public class UserPublicController extends AbstractPasswordPolicyControllerSupport implements UserPublicControllerApi {
 
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper userMapper;
+    private final PasswordPolicyService passwordPolicyService;
 
     @GetMapping("/{name}")
     @Override
@@ -78,6 +82,12 @@ public class UserPublicController implements UserPublicControllerApi {
         var user = userService.findEnabledById(id)
                 .orElseThrow(() -> UserNotFoundException.byId(id));
         return ok(ApiResponse.ok(userMapper.toPublicDto(user)));
+    }
+
+    @GetMapping("/password-policy")
+    @Override
+    public ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy() {
+        return passwordPolicyResponse(passwordPolicyService);
     }
 
 }

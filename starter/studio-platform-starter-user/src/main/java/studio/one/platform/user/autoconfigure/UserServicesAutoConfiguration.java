@@ -32,12 +32,15 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.service.impl.ApplicationCompanyServiceImpl;
 import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
 import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
 import studio.one.base.user.service.impl.ApplicationUserMutator;
+import studio.one.base.user.service.impl.PasswordPolicyValidator;
 import studio.one.base.user.service.impl.ApplicationUserServiceImpl;
+import studio.one.base.user.config.PasswordPolicyProperties;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
@@ -51,7 +54,7 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
+@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class, PasswordPolicyProperties.class })
 @AutoConfigureAfter(UserEntityAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @Slf4j
@@ -98,7 +101,8 @@ public class UserServicesAutoConfiguration {
                         ObjectProvider<PasswordEncoder> passwordEncoder,
                         @Qualifier(ServiceNames.REPOSITORY) ObjectProvider<DomainEvents> domainEventsProvider,
                         Clock clock,
-                        ObjectProvider<UserMutator<?>> userMutatorProvider) {
+                        ObjectProvider<UserMutator<?>> userMutatorProvider,
+                        ObjectProvider<PasswordPolicyService> policyValidatorProvider) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
@@ -106,7 +110,19 @@ public class UserServicesAutoConfiguration {
                                 LogUtils.red(State.CREATED.toString())));
                 return new ApplicationUserServiceImpl(userRepo, roleRepo, groupRepo, userRoleRepo, membershipRepo,
                                 jdbcTemplate, passwordEncoder, domainEventsProvider, clock, i18nProvider,
-                                (UserMutator) userMutatorProvider.getIfAvailable(ApplicationUserMutator::new));
+                                (UserMutator) userMutatorProvider.getIfAvailable(ApplicationUserMutator::new),
+                                policyValidatorProvider);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        public PasswordPolicyValidator passwordPolicyValidator(
+                        ObjectProvider<studio.one.base.user.config.PasswordPolicyProperties> propertiesProvider) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(PasswordPolicyValidator.class, true),
+                                LogUtils.red(State.CREATED.toString())));                
+                return new PasswordPolicyValidator(propertiesProvider.getIfAvailable(), i18nProvider.getIfAvailable());
         }
 
         @Bean(name = ApplicationGroupService.SERVICE_NAME)

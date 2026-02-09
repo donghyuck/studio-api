@@ -26,9 +26,13 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.web.controller.AbstractPasswordPolicyControllerSupport;
 import studio.one.base.user.web.dto.MeProfileDto;
 import studio.one.base.user.web.dto.MeProfilePatchRequest;
 import studio.one.base.user.web.dto.MeProfilePutRequest;
+import studio.one.base.user.web.dto.MePasswordChangeRequest;
+import studio.one.base.user.web.dto.PasswordPolicyDto;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -37,9 +41,10 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.Self.PATH + ":/api/self}")
 @RequiredArgsConstructor
 @Slf4j
-public class UserMeController implements UserMeControllerApi {
+public class UserMeController extends AbstractPasswordPolicyControllerSupport implements UserMeControllerApi {
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper mapper;
+    private final PasswordPolicyService passwordPolicyService;
 
     @GetMapping("")
     @PreAuthorize("isAuthenticated()")
@@ -73,6 +78,26 @@ public class UserMeController implements UserMeControllerApi {
         String username = requirePrincipal(principal);
         User updated = userService.replaceSelfByUsername(username, request);
         return ResponseEntity.ok(ApiResponse.ok(toDto(updated, null)));
+    }
+
+    @PutMapping("/password")
+    @PreAuthorize("isAuthenticated()")
+    @Override
+    public ResponseEntity<ApiResponse<Void>> changePassword(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody MePasswordChangeRequest request) {
+        String username = requirePrincipal(principal);
+        userService.changeSelfPasswordByUsername(username, request);
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    @GetMapping("/password-policy")
+    @PreAuthorize("isAuthenticated()")
+    @Override
+    public ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy(
+            @AuthenticationPrincipal UserDetails principal) {
+        requirePrincipal(principal);
+        return passwordPolicyResponse(passwordPolicyService);
     }
 
     private String requirePrincipal(UserDetails principal) {

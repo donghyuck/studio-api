@@ -20,6 +20,61 @@ Returns the authenticated user's profile.
 
 Response: `ApiResponse<MeProfileDto>`
 
+## Password Policy Guide
+Password policy is defined by configuration and enforced on:
+- **Self password change**: `PUT /api/self/password`
+- **Admin reset**: `POST /api/mgmt/users/{id}/password`
+
+### Policy Config (YAML)
+```yaml
+studio:
+  features:
+    user:
+      password-policy:
+        min-length: 8
+        max-length: 20
+        require-upper: false
+        require-lower: false
+        require-digit: false
+        require-special: false
+        allowed-specials: "!@#$%^&*"
+        allow-whitespace: false
+```
+
+### Policy Config (YAML, Realistic Example)
+```yaml
+studio:
+  features:
+    user:
+      password-policy:
+        min-length: 12
+        max-length: 64
+        require-upper: true
+        require-lower: true
+        require-digit: true
+        require-special: true
+        allowed-specials: "!@#$%^&*"
+        allow-whitespace: false
+```
+
+### Default Policy (When Not Configured)
+- min-length: **8**
+- max-length: **20**
+- require-upper/lower/digit/special: **false**
+- allowed-specials: `!@#$%^&*` (only relevant when require-special is true)
+- allow-whitespace: **false**
+
+### Policy API
+- `GET /api/mgmt/users/password-policy` (admin UI)
+- `GET /api/self/password-policy` (self UI)
+- `GET /api/public/auth/password-policy` (pre-login UI)
+
+Response: `ApiResponse<PasswordPolicyDto>`
+
+### Policy Errors
+- `error.user.password.policy` → HTTP 400  
+  `detail` contains localized reason (e.g., “최소 8자 이상…”)
+
 ### PATCH /api/self
 Partial update. Only provided fields are applied.
 
@@ -47,6 +102,20 @@ Request: `MeProfilePutRequest`
 - `properties?: Map<String, String>`
 
 Response: `ApiResponse<MeProfileDto>`
+
+### PUT /api/self/password
+Change password for the authenticated user.
+
+Request: `MePasswordChangeRequest`
+- `currentPassword` (required)
+- `newPassword` (required)
+
+Response: `ApiResponse<Void>` (OK only)
+
+### GET /api/mgmt/users/password-policy
+Returns current password policy configuration for admin UI.
+
+Response: `ApiResponse<PasswordPolicyDto>`
 
 ## Example Requests
 
@@ -84,6 +153,19 @@ Authorization: Bearer <token>
 }
 ```
 
+### PUT /api/self/password
+```http
+PUT /api/self/password
+Content-Type: application/json
+Authorization: Bearer <token>
+```
+```json
+{
+  "currentPassword": "old-password",
+  "newPassword": "new-password"
+}
+```
+
 ## Example Response
 ```json
 {
@@ -104,6 +186,7 @@ Authorization: Bearer <token>
 ## Error Types
 - `error.user.already.exists.email` → HTTP 409
 - `error.user.not.found.username` → HTTP 404
+- `error.user.password.policy` → HTTP 400
 - Validation errors → HTTP 400
 
 ## Customization Guideline

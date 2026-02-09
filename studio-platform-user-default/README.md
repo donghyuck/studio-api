@@ -23,6 +23,18 @@ Implemented in:
   - Keys starting with `security.`, `auth.`, `role.`, `admin.`, `permission.` are rejected.
 - **Audit** events emitted on PATCH/PUT.
 
+## Self Password Change (Implementation Notes)
+Implemented in:
+- `UserMeController` (PUT `/api/self/password`)
+- `ApplicationUserServiceImpl` (change logic)
+
+### Security & Policy
+- **Current password required**; mismatch throws `BadCredentialsException`.
+- **New password must differ** from current password.
+- **Password policy enforced** via `PasswordPolicyValidator`.
+- **Failed attempts/lock** are cleared on success.
+- **Audit** action: `USER_PASSWORD_CHANGE`.
+
 ### Cache
 Self update evicts:
 - `users.byUserId`

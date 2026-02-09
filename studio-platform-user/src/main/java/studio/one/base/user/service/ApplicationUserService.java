@@ -35,6 +35,7 @@ import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.base.user.web.dto.MeProfilePatchRequest;
 import studio.one.base.user.web.dto.MeProfilePutRequest;
+import studio.one.base.user.web.dto.MePasswordChangeRequest;
 
 /**
  *
@@ -94,6 +95,8 @@ public interface ApplicationUserService<T extends User, R extends Role> {
     T updateSelfByUsername(String username, MeProfilePatchRequest request);
 
     T replaceSelfByUsername(String username, MeProfilePutRequest request);
+
+    T changeSelfPasswordByUsername(String username, MePasswordChangeRequest request);
 
     // paging & search
     Page<T> search(String q, Pageable pageable);

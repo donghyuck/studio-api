@@ -40,9 +40,12 @@ import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.web.controller.AbstractPasswordPolicyControllerSupport;
 import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
+import studio.one.base.user.web.dto.PasswordPolicyDto;
 import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UpdateUserRequest;
@@ -73,11 +76,12 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/users")
 @RequiredArgsConstructor
 @Slf4j
-public class UserMgmtController implements UserMgmtControllerApi {
+public class UserMgmtController extends AbstractPasswordPolicyControllerSupport implements UserMgmtControllerApi {
 
         private final ApplicationUserService<User, Role> userService;
         private final ApplicationUserMapper userMapper;
         private final ApplicationRoleMapper roleMapper;
+        private final PasswordPolicyService passwordPolicyService;
 
         @PostMapping
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
@@ -166,6 +170,13 @@ public class UserMgmtController implements UserMgmtControllerApi {
 
                 User updated = userService.update(id, u -> userMapper.updateEntityFromDto(req, u));
                 return ResponseEntity.ok(ApiResponse.ok(userMapper.toDto(updated)));
+        }
+
+        @GetMapping("/password-policy")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy() {
+                return passwordPolicyResponse(passwordPolicyService);
         }
 
         @GetMapping("/{id}/password/reset")
