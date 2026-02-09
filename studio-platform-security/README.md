@@ -75,8 +75,7 @@ studio:
 
 ## 스키마 (PostgreSQL)
 다음 스키마 파일이 포함되어 있다.
-- `studio-platform-security/src/main/resources/schema/postgres/V0.4.0__create_audit_tables.sql`
-- `studio-platform-security/src/main/resources/schema/postgres/V0.5.0__create_jwt_tables.sql`
+- `studio-platform-security/src/main/resources/schema/security/postgres/V0__create_security_tables.sql`
 
 ## ERD (개념)
 ```text
@@ -214,7 +213,7 @@ public class SecurityFilterConfig {
 
 ### 4) 스키마 준비
 JWT/리프레시/비밀번호 재설정 토큰 저장을 사용하면 아래 스키마가 필요하다.
-- `studio-platform-security/src/main/resources/schema/postgres/V0.5.0__create_jwt_tables.sql`
+- `studio-platform-security/src/main/resources/schema/security/postgres/V0__create_security_tables.sql`
 
 ## 참고
 - 사용자 테이블은 `studio-platform-user` 모듈의 `TB_APPLICATION_USER`를 사용한다.

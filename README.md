@@ -152,6 +152,7 @@ studio:
 - 스타터 요약: `starter/README.md`
 - 애플리케이션 모듈 가이드: `studio-application-modules/README.md`
 - 첨부 모듈 상세: `studio-application-modules/attachment-service/README.md`
+- 설정 네임스페이스 가이드: `CONFIGURATION_NAMESPACE_GUIDE.md`
 
 ## 사용자 도메인 커스터마이즈 가이드
 기본 `ApplicationUser` 대신 커스텀 User 구현을 쓰려면 다음 단계를 따른다.

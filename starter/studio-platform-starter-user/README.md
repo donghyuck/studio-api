@@ -148,4 +148,4 @@ studio:
 - JDBC 모드에서는 `JdbcTemplate` 기반 리포지토리가 사용된다.
 - 기능을 끄려면 `studio.features.user.enabled=false`로 비활성화한다.
 - PostgreSQL 스키마는 `studio-platform-user-default`에 포함된다:
-  `studio-platform-user-default/src/main/resources/schema/postgres/V0.1.0__create_user_tables.sql`
+  `studio-platform-user-default/src/main/resources/schema/user/postgres/V0__create_user_tables.sql`

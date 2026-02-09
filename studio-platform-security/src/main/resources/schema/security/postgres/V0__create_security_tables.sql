@@ -1,0 +1,96 @@
+-- =================================================
+-- PACKAGE: SECURITY
+-- CREATE : 2024.9.12
+-- UPDATE :
+-- =================================================
+
+-- spring SECURITY audit for postgresql
+
+CREATE TABLE IF NOT EXISTS tb_login_failure_log (
+  id           BIGSERIAL PRIMARY KEY,
+  username     VARCHAR(150) NOT NULL,
+  remote_ip    inet,
+  user_agent   VARCHAR(512),
+  failure_type VARCHAR(128),
+  message      VARCHAR(1000),
+  occurred_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS ix_login_fail_user_time
+  ON tb_login_failure_log (username, occurred_at DESC);
+
+-- 대용량이면 BRIN 권장 (시간순 적재 가정)
+CREATE INDEX IF NOT EXISTS ix_login_fail_time_brin
+  ON tb_login_failure_log USING BRIN (occurred_at);
+CREATE INDEX IF NOT EXISTS ix_login_fail_ip
+  ON tb_login_failure_log (remote_ip);
+
+-- spring SECURITY jwt token refresh for postgresql
+CREATE TABLE IF NOT EXISTS TB_APPLICATION_REFRESH_TOKEN (
+  ID              BIGSERIAL    PRIMARY KEY,
+  USER_ID         BIGINT       NOT NULL,
+  SELECTOR        VARCHAR(50)  NOT NULL,      -- 조회용 공개 ID (예: UUID)
+  VERIFIER_HASH   VARCHAR(100) NOT NULL,      -- VERIFIER의 BCRYPT 해시(60자 내외)
+  EXPIRES_AT      TIMESTAMPTZ  NOT NULL,
+  REVOKED         BOOLEAN      NOT NULL DEFAULT FALSE,
+  CREATED_AT      TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  REPLACED_BY_ID  BIGINT       NULL,          -- 회전 시 새 토큰 ID (SELF REFERENCE)
+  CONSTRAINT UX_REFRESH_SELECTOR UNIQUE (SELECTOR),
+  CONSTRAINT FK_REFRESH_REPLACED_BY
+    FOREIGN KEY (REPLACED_BY_ID)
+    REFERENCES TB_APPLICATION_REFRESH_TOKEN (ID)
+    ON DELETE SET NULL
+);
+
+-- FK는 user 모듈과의 결합을 피하기 위해, 존재할 때만 추가한다.
+DO $$
+BEGIN
+  IF to_regclass('tb_application_user') IS NOT NULL THEN
+    BEGIN
+      ALTER TABLE TB_APPLICATION_REFRESH_TOKEN
+        ADD CONSTRAINT FK_REFRESH_USER
+        FOREIGN KEY (USER_ID)
+        REFERENCES TB_APPLICATION_USER (USER_ID)
+        ON DELETE CASCADE;
+    EXCEPTION
+      WHEN duplicate_object THEN
+        NULL;
+    END;
+  END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS IX_REFRESH_USER        ON TB_APPLICATION_REFRESH_TOKEN (USER_ID);
+CREATE INDEX IF NOT EXISTS IX_REFRESH_EXPIRES_AT  ON TB_APPLICATION_REFRESH_TOKEN (EXPIRES_AT);
+
+-- 활성 토큰 조회 최적화(부분 인덱스)
+CREATE INDEX IF NOT EXISTS IX_REFRESH_ACTIVE
+  ON TB_APPLICATION_REFRESH_TOKEN (USER_ID, EXPIRES_AT)
+  WHERE REVOKED = FALSE;
+
+-- 비밀번호 재설정 토큰
+CREATE TABLE IF NOT EXISTS TB_APPLICATION_PASSWORD_RESET_TOKEN (
+    ID           BIGSERIAL PRIMARY KEY,
+    USER_ID      BIGINT       NOT NULL,
+    TOKEN        VARCHAR(200) NOT NULL UNIQUE,
+    EXPIRES_AT   TIMESTAMPTZ  NOT NULL,
+    USED         BOOLEAN      NOT NULL DEFAULT FALSE,
+    CREATED_AT   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+  IF to_regclass('tb_application_user') IS NOT NULL THEN
+    BEGIN
+      ALTER TABLE TB_APPLICATION_PASSWORD_RESET_TOKEN
+        ADD CONSTRAINT FK_PASSWORD_RESET_USER
+        FOREIGN KEY (USER_ID)
+        REFERENCES TB_APPLICATION_USER (USER_ID)
+        ON DELETE CASCADE;
+    EXCEPTION
+      WHEN duplicate_object THEN
+        NULL;
+    END;
+  END IF;
+END
+$$;

@@ -48,4 +48,4 @@ studio:
 1. 의존성 추가: `studio-application-starter-template` (또는 모듈 직접 추가).
 2. 설정: `studio.features.template.enabled=true`, REST 사용 시 `studio.features.template.web.enabled=true` 와 `studio.persistence.type=jpa|jdbc`.
 3. 권한 스코프(`features:template/read|write|delete`)를 인가 서버/ACL에 등록.
-4. (선택) 기본 base-path가 필요에 맞게 `/api/mgmt/templates` 이외로 조정하고, DDL(`schema/postgres/V0.7.0__create_template_tables.sql`)을 적용한다.
+4. (선택) 기본 base-path가 필요에 맞게 `/api/mgmt/templates` 이외로 조정하고, DDL(`schema/template/postgres/V0__create_template_tables.sql`)을 적용한다.

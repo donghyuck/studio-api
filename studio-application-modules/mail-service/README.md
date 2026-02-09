@@ -9,7 +9,7 @@ IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다.
 - **MailSyncLogService**: 동기화 이력 기록/조회(JPA/JDBC).
 - **MailController**: REST/SSE(`/api/mgmt/mail` 기본) — 단건 조회(`GET /{mailId}`), 페이지 조회(`GET /?page=&size=`), 수동 동기화 요청(`POST /sync` → logId 반환, 비동기 실행), 동기화 이력 조회(`GET /sync/logs`, `GET /sync/logs/page`), SSE 완료 이벤트(`GET /sync/stream`).
 - **도메인/엔티티**: `MailMessage`/`MailMessageEntity`, `MailAttachment`/`MailAttachmentEntity`(본문/첨부/헤더/프로퍼티).
-- **SQL/DDL**: `sql/mail-sqlset.xml`, `schema/postgres/V0.8.0__create_mail_tables.sql`.
+- **SQL/DDL**: `sql/mail-sqlset.xml`, `schema/mail/postgres/V0__create_mail_tables.sql`.
 
 ## 설정 예시
 ```yaml

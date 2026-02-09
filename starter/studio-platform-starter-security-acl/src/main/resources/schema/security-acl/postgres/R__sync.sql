@@ -51,4 +51,3 @@ INSERT INTO acl_entry (acl_object_identity, ace_order, sid, mask, granting, audi
 SELECT object_id, ace_order, sid_id, mask, true, false, false
 FROM ordered
 ON CONFLICT (acl_object_identity, ace_order) DO NOTHING;
-
