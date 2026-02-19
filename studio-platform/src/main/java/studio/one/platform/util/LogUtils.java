@@ -4,6 +4,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import lombok.NoArgsConstructor;
+import studio.one.platform.component.State;
 import studio.one.platform.constant.Colors;
 import studio.one.platform.service.I18n;
 
@@ -139,6 +140,14 @@ public class LogUtils {
      */
     public static String yellow(String message) {
         return Colors.format(Colors.YELLOW, message);
+    }
+
+    public static String toLog(I18n i18n, String key , String feature , Class<?> clazz , State state){
+        return LogUtils.format(i18n, 
+            key, 
+            feature , 
+            LogUtils.blue(clazz, true), 
+            LogUtils.red(state.toString()));
     }
 
     public static String toLog(org.springframework.data.domain.Page<?> page) {
