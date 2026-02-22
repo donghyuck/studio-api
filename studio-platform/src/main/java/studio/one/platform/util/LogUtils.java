@@ -1,5 +1,7 @@
 package studio.one.platform.util;
 
+import java.util.Locale;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
@@ -28,6 +30,19 @@ public class LogUtils {
      */
     public static String format(I18n i18n, String code, Object... args) {
         return i18n.get(code, args);
+    }
+
+    /**
+     * Formats a log message using the given i18n instance and explicit locale.
+     *
+     * @param i18n   the i18n instance
+     * @param locale the target locale
+     * @param code   the message code
+     * @param args   the message arguments
+     * @return the formatted log message
+     */
+    public static String format(I18n i18n, Locale locale, String code, Object... args) {
+        return i18n.get(code, args, locale);
     }
 
     /**
@@ -147,6 +162,15 @@ public class LogUtils {
             key, 
             feature , 
             LogUtils.blue(clazz, true), 
+            LogUtils.red(state.toString()));
+    }
+
+    public static String toLog(I18n i18n, Locale locale, String key, String feature, Class<?> clazz, State state) {
+        return LogUtils.format(i18n,
+            locale,
+            key,
+            feature,
+            LogUtils.blue(clazz, true),
             LogUtils.red(state.toString()));
     }
 
