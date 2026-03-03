@@ -17,20 +17,48 @@ dependencies {
     } else {
         providedRuntime("org.springframework.boot:spring-boot-starter-tomcat")
     }
-     
-    // platform starters
+
+    //////////////////////////////////////////////////////////////// 
+    // Studio One Platform starters
+    // 1. studio platform starter 
     implementation(project(":starter:studio-platform-starter")) 
+
+    // 2. studio platform jasypt crypto starter
     implementation(project(":starter:studio-platform-starter-jasypt"))  
+    
+    // 3. studio platform user starter 
     implementation(project(":starter:studio-platform-starter-user")) 
+
+    // 4. studio platform security starter
     implementation(project(":starter:studio-platform-starter-security")) 
+
+    // 4. studio platform security acl starter
     implementation(project(":starter:studio-platform-starter-security-acl")) 
+
+    // 5. studio platform ai starter
     implementation(project(":starter:studio-platform-starter-ai")) 
+
+    // 6. studio platform objectstorage starter
     implementation(project(":starter:studio-platform-starter-objectstorage")) 
     implementation(project(":starter:studio-platform-starter-objectstorage-aws")) 
-    implementation(project(":starter:studio-application-starter-avatar"))
-    implementation(project(":starter:studio-application-starter-attachment"))
+    
+    // 7. studio platform realtime starter
+    implementation(project(":starter:studio-platform-starter-realtime")) 
+    implementation("org.springframework.boot:spring-boot-starter-websocket")
 
-    implementation(project(":studio-application-modules:content-embedding-pipeline"))
+    //////////////////////////////////////////////////////////////// 
+    // Studio One Application starters
+    // 
+    // 1. avatar module starter
+    implementation(project(":starter:studio-application-starter-avatar"))
+    // 2. attachment module starter
+    //implementation(project(":starter:studio-application-starter-attachment"))
+    // 3. mail moudele starter
+    implementation(project(":starter:studio-application-starter-mail"))
+    // 4. template module starter
+    implementation(project(":starter:studio-application-starter-template"))
+    // 5. embedding pipeline starter ( depends on : ai + attachment )
+    //implementation(project(":studio-application-modules:content-embedding-pipeline"))
 
     // platform dependencies
     implementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
@@ -45,11 +73,15 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.security:spring-security-crypto")
+    implementation("org.springframework.boot:spring-boot-starter-mail")
 
     // database driver
     implementation("org.postgresql:postgresql:${project.findProperty("postgresqlVersion")}")    
     implementation("org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4.1:${project.findProperty("log4jdbcLog4j2Version")}")
     implementation("org.flywaydb:flyway-core")
+
+    // 
+    //implementation ("org.freemarker:freemarker:2.3.32")
 
     // crypto
     //implementation("com.github.ulisesbocchio:jasypt-spring-boot-starter:${project.findProperty("jasyptVersion")}")
