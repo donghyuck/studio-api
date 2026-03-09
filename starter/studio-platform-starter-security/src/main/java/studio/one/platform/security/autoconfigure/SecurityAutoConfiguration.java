@@ -63,7 +63,7 @@ import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
-import studio.one.platform.security.authz.AllowAllEndpointAuthorization;
+import studio.one.platform.security.authz.DenyAllEndpointAuthorization;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -291,12 +291,12 @@ public class SecurityAutoConfiguration {
 
         @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
         @ConditionalOnMissingBean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
-        public AllowAllEndpointAuthorization endpointAuthorizationFallback(ObjectProvider<I18n> i18nProvider) {
+        public DenyAllEndpointAuthorization endpointAuthorizationFallback(ObjectProvider<I18n> i18nProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.warn(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                                LogUtils.blue(AllowAllEndpointAuthorization.class, true),
-                                LogUtils.red("FALLBACK_ALLOW_ALL")));
-                return new AllowAllEndpointAuthorization();
+                                LogUtils.blue(DenyAllEndpointAuthorization.class, true),
+                                LogUtils.red("FALLBACK_DENY_ALL")));
+                return new DenyAllEndpointAuthorization();
         }
 
         /*

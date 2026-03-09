@@ -1,0 +1,19 @@
+title = "studio-api gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow obvious documentation placeholders only"
+paths = [
+  '''(^|/).*README\.md$''',
+  '''(^|/).*SKILL\.md$'''
+]
+
+regexes = [
+  '''(?i)change-me''',
+  '''(?i)example''',
+  '''(?i)secret''',
+  '''(?i)<token>''',
+  '''(?i)encryptedvaluehere'''
+]

@@ -1,4 +1,5 @@
 studio.one.platform.security.autoconfigure.SecurityAutoConfiguration 
+studio.one.platform.security.autoconfigure.JwtSecretPresenceGuard
 studio.one.platform.security.autoconfigure.JwtAutoConfiguration
 studio.one.platform.security.autoconfigure.SecurityWebAdviceAutoConfiguration
 studio.one.platform.security.autoconfigure.LoginFailureAuditAutoConfiguration

@@ -3,6 +3,7 @@ package studio.one.application.web.controller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.commons.io.IOUtils;
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,7 +37,9 @@ import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.identity.UserDto;
 import studio.one.platform.identity.UserRef;
 import studio.one.platform.text.service.FileContentExtractionService;
@@ -51,6 +55,7 @@ public class AttachmentMgmtController {
     private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
     private final AttachmentService attachmentService;
     private final ObjectProvider<IdentityService> identityServiceProvider;
+    private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -91,6 +96,7 @@ public class AttachmentMgmtController {
     public ResponseEntity<ApiResponse<AttachmentDto>> get(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        requireAttachmentAccess(attachment);
         return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
     }
 
@@ -106,6 +112,7 @@ public class AttachmentMgmtController {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
         }
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        requireAttachmentAccess(attachment);
         try (InputStream in = attachmentService.getInputStream(attachment)) {
             String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
             return ResponseEntity.ok(ApiResponse.ok(text));
@@ -117,6 +124,7 @@ public class AttachmentMgmtController {
     public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
             throws IOException, NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        requireAttachmentAccess(attachment);
         InputStream in = attachmentService.getInputStream(attachment);
         StreamingResponseBody body = out -> {
             try (in) {
@@ -145,17 +153,39 @@ public class AttachmentMgmtController {
             @RequestParam(value = "objectId", required = false) Long objectId,
             @RequestParam(value = "keyword", required = false) String keyword,
             @PageableDefault Pageable pageable) {
+        ApplicationPrincipal principal = requirePrincipal();
+        boolean admin = isAdmin(principal);
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
-            if (keyword == null || keyword.isBlank())
-                page = attachmentService.findAttachments(objectType, objectId, pageable);
-            else
-                page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
+            if (admin) {
+                if (keyword == null || keyword.isBlank()) {
+                    page = attachmentService.findAttachments(objectType, objectId, pageable);
+                } else {
+                    page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
+                }
+            } else {
+                long userId = requireUserId(principal);
+                if (keyword == null || keyword.isBlank()) {
+                    page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, pageable);
+                } else {
+                    page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, keyword, pageable);
+                }
+            }
         } else {
-            if (keyword == null || keyword.isBlank())
-                page = attachmentService.findAttachments(pageable);
-            else
-                page = attachmentService.findAttachments(keyword, pageable);
+            if (admin) {
+                if (keyword == null || keyword.isBlank()) {
+                    page = attachmentService.findAttachments(pageable);
+                } else {
+                    page = attachmentService.findAttachments(keyword, pageable);
+                }
+            } else {
+                long userId = requireUserId(principal);
+                if (keyword == null || keyword.isBlank()) {
+                    page = attachmentService.findAttachmentsByCreator(userId, pageable);
+                } else {
+                    page = attachmentService.findAttachmentsByCreator(userId, keyword, pageable);
+                }
+            }
         }
         Page<AttachmentDto> dtoPage = page.map(this::toDto);
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));
@@ -166,7 +196,10 @@ public class AttachmentMgmtController {
     public ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObject(
             @PathVariable int objectType,
             @PathVariable long objectId) {
-        List<Attachment> attachments = attachmentService.getAttachments(objectType, objectId);
+        ApplicationPrincipal principal = requirePrincipal();
+        List<Attachment> attachments = isAdmin(principal)
+                ? attachmentService.getAttachments(objectType, objectId)
+                : attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, requireUserId(principal));
         List<AttachmentDto> dto = attachments.stream()
                 .map(this::toDto)
                 .toList();
@@ -178,8 +211,43 @@ public class AttachmentMgmtController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException, IOException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        requireAttachmentAccess(attachment);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    private void requireAttachmentAccess(Attachment attachment) {
+        ApplicationPrincipal principal = requirePrincipal();
+        if (isAdmin(principal)) {
+            return;
+        }
+        long userId = requireUserId(principal);
+        if (!Objects.equals(attachment.getCreatedBy(), userId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Forbidden attachment access");
+        }
+    }
+
+    private ApplicationPrincipal requirePrincipal() {
+        PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
+        if (resolver == null) {
+            throw new AuthenticationCredentialsNotFoundException("No principal resolver configured");
+        }
+        ApplicationPrincipal principal = resolver.currentOrNull();
+        if (principal == null) {
+            throw new AuthenticationCredentialsNotFoundException("No authenticated user");
+        }
+        return principal;
+    }
+
+    private boolean isAdmin(ApplicationPrincipal principal) {
+        return principal != null && principal.hasRole("ADMIN");
+    }
+
+    private long requireUserId(ApplicationPrincipal principal) {
+        if (principal != null && principal.getUserId() != null && principal.getUserId() > 0) {
+            return principal.getUserId();
+        }
+        throw new AuthenticationCredentialsNotFoundException("No authenticated user");
     }
 
     private AttachmentDto toDto(Attachment attachment) {

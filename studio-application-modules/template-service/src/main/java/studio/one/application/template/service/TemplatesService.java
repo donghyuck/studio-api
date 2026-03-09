@@ -18,7 +18,11 @@ public interface TemplatesService {
 
 	public Template getTemplatesByName(String name) throws NotFoundException;
 
+	public Template getTemplatesByNameAndCreator(String name, long createdBy) throws NotFoundException;
+
 	public Template getTemplates(long templateId) throws NotFoundException;
+
+	public Template getTemplates(long templateId, long createdBy) throws NotFoundException;
 
 	public Template createGenericTemplates(int objectType, long objectId, String name, String displayName,
 			String description, String subject, InputStream file) throws IOException;
@@ -29,7 +33,11 @@ public interface TemplatesService {
 
 	public Page<Template> page(Pageable pageable);
 
+	public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable);
+
 	public Page<Template> page(Pageable pageable, String query, String fields);
+
+	public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable, String query, String fields);
 
 	public String processBody(Template template, Map<String, Object> model) throws IOException, TemplateException ;
 

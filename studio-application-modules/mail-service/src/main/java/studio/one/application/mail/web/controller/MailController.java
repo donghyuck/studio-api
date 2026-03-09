@@ -8,6 +8,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,6 +43,7 @@ public class MailController {
     @GetMapping("/{mailId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:mail','read')")
     public ResponseEntity<ApiResponse<MailMessageDto>> get(@PathVariable long mailId) {
+        requireAdmin();
         var message = mailMessageService.get(mailId);
         var attachments = mailAttachmentService.findByMailId(mailId);
         MailMessageDto dto = MailMessageDto.from(message, () -> attachments);
@@ -53,6 +56,7 @@ public class MailController {
             @PageableDefault(size = 20, sort = "mailId", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(name = "q", required = false) String query,
             @RequestParam(name = "fields", required = false) String fields) {
+        requireAdmin();
         Page<MailMessageDto> dtoPage = mailMessageService.page(pageable, query, fields)
                 .map(m -> MailMessageDto.from(m, List.of()));
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));
@@ -61,6 +65,7 @@ public class MailController {
     @PostMapping("/sync")
     @PreAuthorize("@endpointAuthz.can('features:mail','write')")
     public ResponseEntity<ApiResponse<Long>> sync() {
+        requireAdmin();
         var log = mailSyncLogService.start("manual");
         mailSyncJobLauncher.launch(log.getLogId());
         return ResponseEntity.ok(ApiResponse.ok(log.getLogId()));
@@ -70,6 +75,7 @@ public class MailController {
     @PreAuthorize("@endpointAuthz.can('features:mail','read')")
     public ResponseEntity<ApiResponse<List<MailSyncLogDto>>> logs(
             @RequestParam(name = "limit", required = false, defaultValue = "50") int limit) {
+        requireAdmin();
         List<MailSyncLogDto> logs = mailSyncLogService.recent(limit).stream()
                 .map(MailSyncLogDto::from)
                 .toList();
@@ -80,8 +86,22 @@ public class MailController {
     @PreAuthorize("@endpointAuthz.can('features:mail','read')")
     public ResponseEntity<ApiResponse<Page<MailSyncLogDto>>> pagedLogs(
             @PageableDefault(size = 20, sort = "logId", direction = Sort.Direction.DESC) Pageable pageable) {
+        requireAdmin();
         Page<MailSyncLogDto> dtoPage = mailSyncLogService.page(pageable).map(MailSyncLogDto::from);
         return ResponseEntity.ok(ApiResponse.ok(dtoPage));
+    }
+
+    private void requireAdmin() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            throw new AuthenticationCredentialsNotFoundException("No authenticated user");
+        }
+        boolean isAdmin = auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .anyMatch(role -> "ROLE_ADMIN".equals(role) || "ADMIN".equals(role));
+        if (!isAdmin) {
+            throw new org.springframework.security.access.AccessDeniedException("Admin privileges required");
+        }
     }
 
 }

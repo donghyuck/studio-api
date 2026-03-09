@@ -25,4 +25,8 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-mail")
-}
+
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-security"))
+} 

@@ -11,4 +11,8 @@ public interface TemplateJpaRepository extends JpaRepository<TemplateEntity, Lon
         JpaSpecificationExecutor<TemplateEntity> {
 
     Optional<TemplateEntity> findByName(String name);
+
+    Optional<TemplateEntity> findByTemplateIdAndCreatedBy(long templateId, long createdBy);
+
+    Optional<TemplateEntity> findByNameAndCreatedBy(String name, long createdBy);
 }

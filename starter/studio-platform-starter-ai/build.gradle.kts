@@ -31,4 +31,6 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
-}
+
+    testImplementation("org.junit.jupiter:junit-jupiter")
+} 

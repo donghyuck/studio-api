@@ -25,4 +25,6 @@ dependencies {
     compileOnly("com.oracle.oci.sdk:oci-java-sdk:${project.findProperty("oracleOciSdkVersion")}")
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-objectstorage:${project.findProperty("oracleOciSdkVersion")}")
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:${project.findProperty("oracleOciSdkVersion")}")
-}
+
+    testImplementation("org.junit.jupiter:junit-jupiter")
+} 

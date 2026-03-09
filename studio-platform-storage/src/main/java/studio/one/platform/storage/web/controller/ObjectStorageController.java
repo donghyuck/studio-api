@@ -38,6 +38,8 @@ import javax.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -92,12 +94,14 @@ public class ObjectStorageController {
     @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<List<ProviderInfoDto>>> listProviders(
             @RequestParam(defaultValue = "false") boolean health) {
+        requireAdmin();
         return ok(ApiResponse.ok(catalog.list(health)));
     }
 
     @GetMapping(value = "/providers/{providerId}/buckets")
     @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<List<BucketInfo>>> listBuckets(@PathVariable String providerId) {
+        requireAdmin();
         var storage = registry.get(providerId);
         return ok(ApiResponse.ok(storage.listBuckets()));
     }
@@ -111,6 +115,7 @@ public class ObjectStorageController {
             @RequestParam(required = false, defaultValue = "/") String delimiter,
             @RequestParam(required = false) String token,
             @RequestParam(required = false, defaultValue = "200") @Min(1) @Max(1000) int size) {
+        requireAdmin();
 
         var storage = registry.get(providerId);
         var page = storage.list(bucket,
@@ -144,6 +149,7 @@ public class ObjectStorageController {
             @PathVariable String providerId,
             @PathVariable String bucket,
             @RequestParam("key") String key) {
+        requireAdmin();
         var storage = registry.get(providerId);
         var info = storage.head(bucket, key);
         return ResponseEntity.ok(ApiResponse.ok(ObjectInfoDto.from(info)));
@@ -164,6 +170,7 @@ public class ObjectStorageController {
             @RequestParam(value = "disposition", required = false) String disposition,
             @RequestParam(value = "filename", required = false) String filename,
             @RequestParam(value = "contentType", required = false) String contentType) {
+        requireAdmin();
         var storage = registry.get(providerId);
         var ttl = Duration.ofSeconds(ttlSeconds);
         String contentDisposition = buildContentDisposition(disposition, filename);
@@ -179,6 +186,7 @@ public class ObjectStorageController {
             @PathVariable String providerId,
             @PathVariable String bucket,
             @Valid @RequestBody PresignedPutRequest req) {
+        requireAdmin();
         CloudObjectStorage storage = registry.get(providerId);
         Duration ttl = Duration.ofSeconds(req.getTtlSeconds() != null ? req.getTtlSeconds() : 300L);
         URL url = storage.presignedPut(bucket, req.getKey(), ttl, req.getContentType(), req.getDisposition());
@@ -214,5 +222,18 @@ public class ObjectStorageController {
         private String contentType; 
  
         String disposition;
+    }
+
+    private void requireAdmin() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null) {
+            throw new AuthenticationCredentialsNotFoundException("No authenticated user");
+        }
+        boolean isAdmin = auth.getAuthorities() != null && auth.getAuthorities().stream()
+                .map(a -> a.getAuthority())
+                .anyMatch(role -> "ROLE_ADMIN".equals(role) || "ADMIN".equals(role));
+        if (!isAdmin) {
+            throw new org.springframework.security.access.AccessDeniedException("Admin privileges required");
+        }
     }
 }

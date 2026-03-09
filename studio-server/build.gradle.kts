@@ -106,6 +106,10 @@ tasks.getByName<org.springframework.boot.gradle.tasks.bundling.BootWar>("bootWar
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
      jvmArgs = listOf("-Dspring.profiles.active=${profile}")
      if (isDev) {
-        systemProperty("JASYPT_ENCRYPTOR_PASSWORD", project.findProperty("JASYPT_ENCRYPTOR_PASSWORD") )
+        val jasyptPassword = (project.findProperty("JASYPT_ENCRYPTOR_PASSWORD") as String?)
+            ?: System.getenv("JASYPT_ENCRYPTOR_PASSWORD")
+        if (!jasyptPassword.isNullOrBlank()) {
+            systemProperty("JASYPT_ENCRYPTOR_PASSWORD", jasyptPassword)
+        }
     }
 }

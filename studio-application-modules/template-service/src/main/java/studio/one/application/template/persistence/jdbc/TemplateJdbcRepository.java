@@ -119,8 +119,34 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
     }
 
     @Override
+    public Optional<Template> findByNameAndCreatedBy(String name, long createdBy) {
+        String sql = findByNameSql + " and CREATED_BY = :createdBy";
+        Template template = jdbcTemplate.query(sql, Map.of("name", name, "createdBy", createdBy), ROW_MAPPER)
+                .stream()
+                .findFirst()
+                .orElse(null);
+        if (template != null) {
+            template.setProperties(loadProperties(template.getTemplateId()));
+        }
+        return Optional.ofNullable(template);
+    }
+
+    @Override
     public Optional<Template> findById(long templateId) {
         Template template = jdbcTemplate.query(findByIdSql, Map.of("templateId", templateId), ROW_MAPPER)
+                .stream()
+                .findFirst()
+                .orElse(null);
+        if (template != null) {
+            template.setProperties(loadProperties(templateId));
+        }
+        return Optional.ofNullable(template);
+    }
+
+    @Override
+    public Optional<Template> findByIdAndCreatedBy(long templateId, long createdBy) {
+        String sql = findByIdSql + " and CREATED_BY = :createdBy";
+        Template template = jdbcTemplate.query(sql, Map.of("templateId", templateId, "createdBy", createdBy), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -151,7 +177,21 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
     }
 
     @Override
+    public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable) {
+        return pageByCreatedBy(createdBy, pageable, null, null);
+    }
+
+    @Override
     public Page<Template> page(Pageable pageable, String query, String fields) {
+        return pageInternal(pageable, query, fields, null);
+    }
+
+    @Override
+    public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable, String query, String fields) {
+        return pageInternal(pageable, query, fields, createdBy);
+    }
+
+    private Page<Template> pageInternal(Pageable pageable, String query, String fields, Long createdBy) {
         int pageIndex = Math.max(0, pageable.getPageNumber());
         int pageSize = Math.max(1, pageable.getPageSize());
         int offset = pageIndex * pageSize;
@@ -160,7 +200,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
                 : Sort.by(Sort.Order.desc("templateId"));
         boolean hasQuery = StringUtils.hasText(query);
         Set<String> resolvedFields = resolveFields(fields);
-        String whereClause = hasQuery ? buildWhereClause(resolvedFields) : "";
+        String whereClause = buildWhereClause(resolvedFields, hasQuery, createdBy);
         String orderedQuery = findPageSql + whereClause + buildOrderByClause(sortToUse, "templateId", SORT_COLUMNS);
         Object[] args = buildKeywordArgs(query, resolvedFields);
         List<Template> content;
@@ -176,7 +216,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
         }
         long total = hasQuery
                 ? jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, args, Long.class)
-                : jdbcTemplate.queryForObject(countAllSql, Map.of(), Long.class);
+                : jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, Long.class);
         return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
     }
 
@@ -292,11 +332,17 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
         return args.toArray();
     }
 
-    private String buildWhereClause(Set<String> fields) {
-        if (fields.isEmpty()) {
-            return "";
+    private String buildWhereClause(Set<String> fields, boolean hasQuery, Long createdBy) {
+        StringBuilder where = new StringBuilder();
+        boolean hasWhere = false;
+        if (createdBy != null) {
+            where.append(" where CREATED_BY = ").append(createdBy.longValue());
+            hasWhere = true;
         }
-        StringBuilder where = new StringBuilder(" where ");
+        if (!hasQuery || fields.isEmpty()) {
+            return where.toString();
+        }
+        where.append(hasWhere ? " and (" : " where (");
         boolean first = true;
         for (String field : fields) {
             String column = resolveColumn(field, FIELD_COLUMNS, field);
@@ -306,6 +352,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
             first = false;
             where.append("lower(coalesce(").append(column).append(", '')) like ?");
         }
+        where.append(")");
         return where.toString();
     }
 

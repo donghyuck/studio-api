@@ -7,6 +7,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,8 +35,9 @@ import lombok.RequiredArgsConstructor;
 import studio.one.application.template.domain.model.Template;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.web.dto.TemplateDto;
-import studio.one.platform.identity.*;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.identity.ApplicationPrincipal;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -45,6 +47,7 @@ import studio.one.platform.web.dto.ApiResponse;
 public class TemplateController {
 
     private final TemplatesService templatesService;
+    private final ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('features:template','write')")
@@ -72,7 +75,7 @@ public class TemplateController {
     @GetMapping("/{templateId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:template','read')")
     public ResponseEntity<ApiResponse<TemplateDto>> get(@PathVariable long templateId) throws NotFoundException {
-        Template template = templatesService.getTemplates(templateId);
+        Template template = resolveTemplate(templateId);
         return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(template)));
     }
 
@@ -83,7 +86,11 @@ public class TemplateController {
             @RequestParam(name = "q", required = false) String query,
             @RequestParam(name = "fields", required = false) String fields) {
         validateFields(fields);
-        Page<TemplateDto> page = templatesService.page(pageable, query, fields).map(TemplateDto::summary);
+        ApplicationPrincipal principal = requirePrincipal();
+        Page<TemplateDto> page = (isAdmin(principal)
+                ? templatesService.page(pageable, query, fields)
+                : templatesService.pageByCreatedBy(requireUserId(principal), pageable, query, fields))
+                .map(TemplateDto::summary);
         return ResponseEntity.ok()
                 .header("X-Template-Search-Fields", SearchFields.allowedCsv())
                 .body(ApiResponse.ok(page));
@@ -92,7 +99,10 @@ public class TemplateController {
     @GetMapping("/name/{name}")
     @PreAuthorize("@endpointAuthz.can('features:template','read')")
     public ResponseEntity<ApiResponse<TemplateDto>> getByName(@PathVariable String name) throws NotFoundException {
-        Template template = templatesService.getTemplatesByName(name);
+        ApplicationPrincipal principal = requirePrincipal();
+        Template template = isAdmin(principal)
+                ? templatesService.getTemplatesByName(name)
+                : templatesService.getTemplatesByNameAndCreator(name, requireUserId(principal));
         return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(template)));
     }
 
@@ -103,7 +113,7 @@ public class TemplateController {
             @Valid @RequestBody TemplateRequest request,
             @AuthenticationPrincipal UserDetails principal) throws NotFoundException {
         long userId = requireUserId(principal);
-        Template existing = templatesService.getTemplates(templateId);
+        Template existing = resolveTemplate(templateId);
         existing.setObjectType(request.objectType());
         existing.setObjectId(request.objectId());
         existing.setName(request.name());
@@ -123,7 +133,7 @@ public class TemplateController {
             @PathVariable long templateId,
             @AuthenticationPrincipal UserDetails principal) throws NotFoundException, IOException {
         long userId = requireUserId(principal);
-        Template template = templatesService.getTemplates(templateId);
+        Template template = resolveTemplate(templateId);
         template.setUpdatedBy(userId);
         templatesService.saveOrUpdate(template);
         templatesService.remove(template);
@@ -135,7 +145,7 @@ public class TemplateController {
     public ResponseEntity<ApiResponse<String>> renderBody(
             @PathVariable long templateId,
             @RequestBody(required = false) Map<String, Object> model) throws Exception {
-        Template template = templatesService.getTemplates(templateId);
+        Template template = resolveTemplate(templateId);
         String rendered = templatesService.processBody(template, model == null ? Map.of() : model);
         return ResponseEntity.ok(ApiResponse.ok(rendered));
     }
@@ -145,7 +155,7 @@ public class TemplateController {
     public ResponseEntity<ApiResponse<String>> renderSubject(
             @PathVariable long templateId,
             @RequestBody(required = false) Map<String, Object> model) throws Exception {
-        Template template = templatesService.getTemplates(templateId);
+        Template template = resolveTemplate(templateId);
         String rendered = templatesService.processSubject(template, model == null ? Map.of() : model);
         return ResponseEntity.ok(ApiResponse.ok(rendered));
     }
@@ -192,6 +202,36 @@ public class TemplateController {
             }
         }
         throw new AuthenticationCredentialsNotFoundException("No authenticated user");
+    }
+
+    private ApplicationPrincipal requirePrincipal() {
+        PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
+        if (resolver == null) {
+            throw new AuthenticationCredentialsNotFoundException("No principal resolver configured");
+        }
+        ApplicationPrincipal principal = resolver.currentOrNull();
+        if (principal == null) {
+            throw new AuthenticationCredentialsNotFoundException("No authenticated user");
+        }
+        return principal;
+    }
+
+    private boolean isAdmin(ApplicationPrincipal principal) {
+        return principal != null && principal.hasRole("ADMIN");
+    }
+
+    private long requireUserId(ApplicationPrincipal principal) {
+        if (principal != null && principal.getUserId() != null && principal.getUserId() > 0) {
+            return principal.getUserId();
+        }
+        throw new AuthenticationCredentialsNotFoundException("No authenticated user");
+    }
+
+    private Template resolveTemplate(long templateId) throws NotFoundException {
+        ApplicationPrincipal principal = requirePrincipal();
+        return isAdmin(principal)
+                ? templatesService.getTemplates(templateId)
+                : templatesService.getTemplates(templateId, requireUserId(principal));
     }
 
     private static final class SearchFields {

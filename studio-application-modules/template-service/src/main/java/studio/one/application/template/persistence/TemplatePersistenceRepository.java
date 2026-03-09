@@ -11,7 +11,11 @@ public interface TemplatePersistenceRepository {
 
     Optional<Template> findById(long templateId);
 
+    Optional<Template> findByIdAndCreatedBy(long templateId, long createdBy);
+
     Optional<Template> findByName(String name);
+
+    Optional<Template> findByNameAndCreatedBy(String name, long createdBy);
 
     Template save(Template template);
 
@@ -19,5 +23,9 @@ public interface TemplatePersistenceRepository {
 
     Page<Template> page(Pageable pageable);
 
+    Page<Template> pageByCreatedBy(long createdBy, Pageable pageable);
+
     Page<Template> page(Pageable pageable, String query, String fields);
+
+    Page<Template> pageByCreatedBy(long createdBy, Pageable pageable, String query, String fields);
 }

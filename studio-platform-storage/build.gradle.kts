@@ -24,4 +24,9 @@ dependencies {
     compileOnly("com.oracle.oci.sdk:oci-java-sdk:$oracleOciSdkVersion")
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-objectstorage:$oracleOciSdkVersion")
     compileOnly("com.oracle.oci.sdk:oci-java-sdk-common-httpclient-jersey:$oracleOciSdkVersion")  
-}
+
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.security:spring-security-core")
+    testImplementation(project(":studio-platform"))
+} 

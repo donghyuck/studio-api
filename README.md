@@ -109,6 +109,10 @@ class ForumAclAdminController {
 ```
 모듈은 라이브러리 형태로 배포되며, 스타터를 사용하는 애플리케이션에서 의존성을 추가해 실행한다.
 
+## 보안 설정
+- secret은 저장소에 커밋하지 않고 환경변수 또는 `~/.gradle/gradle.properties` 로만 주입한다.
+- 샘플 환경변수 목록은 [.env.example](/Users/donghyuck.son/git/studio-api/.env.example), 상세 운영 규칙과 회전 절차는 [SECURITY.md](/Users/donghyuck.son/git/studio-api/SECURITY.md) 를 참고한다.
+
 ## 기본 설정 예시
 ```yaml
 studio:

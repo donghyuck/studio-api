@@ -49,8 +49,6 @@ public interface UserMgmtControllerApi {
 
     ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy();
 
-    ResponseEntity<Void> passwordReset(Long id, UserDetails actor);
-
     ResponseEntity<Void> passwordReset(Long id, @Valid @RequestBody ChangePasswordRequest req,
             UserDetails actor);
 

@@ -502,13 +502,6 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         if (mapping != null && mapping.containsKey(property)) {
             return Optional.of(mapping.get(property));
         }
-        if (property == null || property.isBlank()) {
-            return Optional.empty();
-        }
-        String snake = property
-                .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
-                .replace('-', '_')
-                .toUpperCase(Locale.ROOT);
-        return Optional.of(snake);
+        return Optional.empty();
     }
 }

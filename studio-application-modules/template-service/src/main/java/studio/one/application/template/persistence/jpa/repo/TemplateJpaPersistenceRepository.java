@@ -30,8 +30,18 @@ public class TemplateJpaPersistenceRepository implements TemplatePersistenceRepo
     }
 
     @Override
+    public Optional<Template> findByIdAndCreatedBy(long templateId, long createdBy) {
+        return repository.findByTemplateIdAndCreatedBy(templateId, createdBy).map(t -> (Template) t);
+    }
+
+    @Override
     public Optional<Template> findByName(String name) {
         return repository.findByName(name).map(t -> (Template) t);
+    }
+
+    @Override
+    public Optional<Template> findByNameAndCreatedBy(String name, long createdBy) {
+        return repository.findByNameAndCreatedBy(name, createdBy).map(t -> (Template) t);
     }
 
     @Override
@@ -56,12 +66,29 @@ public class TemplateJpaPersistenceRepository implements TemplatePersistenceRepo
     }
 
     @Override
+    public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable) {
+        Specification<TemplateEntity> spec = (root, query, cb) -> cb.equal(root.get("createdBy"), createdBy);
+        return repository.findAll(spec, pageable).map(t -> (Template) t);
+    }
+
+    @Override
     public Page<Template> page(Pageable pageable, String query, String fields) {
         if (!StringUtils.hasText(query)) {
             return page(pageable);
         }
         String needle = query.trim().toLowerCase(java.util.Locale.ROOT);
         Specification<TemplateEntity> spec = buildSearchSpec(needle, resolveFields(fields));
+        return repository.findAll(spec, pageable).map(t -> (Template) t);
+    }
+
+    @Override
+    public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable, String query, String fields) {
+        Specification<TemplateEntity> creatorSpec = (root, q, cb) -> cb.equal(root.get("createdBy"), createdBy);
+        if (!StringUtils.hasText(query)) {
+            return repository.findAll(creatorSpec, pageable).map(t -> (Template) t);
+        }
+        String needle = query.trim().toLowerCase(java.util.Locale.ROOT);
+        Specification<TemplateEntity> spec = creatorSpec.and(buildSearchSpec(needle, resolveFields(fields)));
         return repository.findAll(spec, pageable).map(t -> (Template) t);
     }
 

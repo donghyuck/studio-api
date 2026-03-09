@@ -39,8 +39,22 @@ public class TemplatesServiceImpl implements TemplatesService {
 
     @Transactional(readOnly = true)
     @Override
+    public Template getTemplatesByNameAndCreator(String name, long createdBy) throws NotFoundException {
+        return templateRepository.findByNameAndCreatedBy(name, createdBy)
+                .orElseThrow(() -> NotFoundException.of("template", name));
+    }
+
+    @Transactional(readOnly = true)
+    @Override
     public Template getTemplates(long templateId) throws NotFoundException {
         return templateRepository.findById(templateId)
+                .orElseThrow(() -> NotFoundException.of("template", templateId));
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public Template getTemplates(long templateId, long createdBy) throws NotFoundException {
+        return templateRepository.findByIdAndCreatedBy(templateId, createdBy)
                 .orElseThrow(() -> NotFoundException.of("template", templateId));
     }
 
@@ -78,8 +92,18 @@ public class TemplatesServiceImpl implements TemplatesService {
     }
 
     @Override
+    public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable) {
+        return templateRepository.pageByCreatedBy(createdBy, pageable);
+    }
+
+    @Override
     public Page<Template> page(Pageable pageable, String query, String fields) {
         return templateRepository.page(pageable, query, fields);
+    }
+
+    @Override
+    public Page<Template> pageByCreatedBy(long createdBy, Pageable pageable, String query, String fields) {
+        return templateRepository.pageByCreatedBy(createdBy, pageable, query, fields);
     }
 
     @Override

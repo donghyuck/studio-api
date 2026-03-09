@@ -90,7 +90,7 @@ public class JwtAuthController  extends AbstractTokenController {
                 http.setAttribute("login.username", request.getUsername());
                 
                 // UserDetails details = userDetailsService.loadUserByUsername(request.getUsername());
-                // log.debug("presentedPassword : {} , (P@sswOrd!), {}", token.getCredentials().toString(), StringUtils.equals("P@sswOrd!", token.getCredentials().toString()));
+                // log.debug("presentedPassword : {} , {}", token.getCredentials().toString(), StringUtils.equals("<redacted>", token.getCredentials().toString()));
                 // log.debug("encoding: {}" , passwordEncoder.encode(token.getCredentials().toString()));
                 // log.debug("saved password : {}", details.getPassword());
                 // log.debug("password matches : {}", passwordEncoder.matches(token.getCredentials().toString(), details.getPassword()));

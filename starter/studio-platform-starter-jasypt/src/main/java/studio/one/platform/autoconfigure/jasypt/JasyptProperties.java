@@ -81,7 +81,7 @@ public class JasyptProperties extends FeatureToggle {
         private String providerName = "BC"; // Bouncy Castle 기본 제공자
 
         @Positive
-        private int keyObtentionIterations = 1000; // 기본 키 반복 횟수
+        private int keyObtentionIterations = 100000; // 기본 키 반복 횟수
 
         @Positive
         private int poolSize = 1; // 기본 풀 크기

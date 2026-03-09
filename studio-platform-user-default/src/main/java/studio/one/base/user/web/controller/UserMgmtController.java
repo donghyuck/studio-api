@@ -179,17 +179,6 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
                 return passwordPolicyResponse(passwordPolicyService);
         }
 
-        @GetMapping("/{id}/password/reset")
-        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
-        @Override
-        public ResponseEntity<Void> passwordReset(@PathVariable Long id, @AuthenticationPrincipal UserDetails actor) {
-                ChangePasswordRequest cpr = new ChangePasswordRequest();
-                cpr.setNewPassword("P@sswOrd!");
-                cpr.setReason("reset by admin.");
-                userService.resetPassword(id, cpr.getNewPassword(), requireActor(actor), cpr.getReason());
-                return ResponseEntity.noContent().build();
-        }
-
         @PostMapping("/{id}/password")
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         @Override

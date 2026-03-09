@@ -23,4 +23,10 @@ dependencies {
     compileOnly(project(":studio-platform")) 
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-data")) 
+
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.data:spring-data-commons")
+    testImplementation("org.springframework.security:spring-security-core")
+    testImplementation(project(":studio-platform"))
 }
