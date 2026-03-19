@@ -1,34 +1,28 @@
-# Merge Request
+## Summary
+- What changed:
+- Why:
 
-## Related Issue
+## Related Issues
 - Closes #
+- Related #
 
-## Why
-변경 이유를 작성합니다.
+## Change Scope
+- [ ] API contract
+- [ ] Business logic
+- [ ] DB schema/query
+- [ ] Security/permission
+- [ ] Docs/runbook
 
-## What
-주요 변경 내용을 작성합니다.
-
-- 
-- 
-- 
+## Security Impact
+- Risk:
+- Mitigation:
 
 ## Validation
-실행한 검증을 작성합니다.
+- [ ] `./gradlew -q compileJava`
+- [ ] `./gradlew test`
+- Additional checks:
 
-- [ ] build
-- [ ] test
-- [ ] manual verification
-
-## Checklist
-- [ ] working branch used or direct main change justified
-- [ ] commit message rule followed
-- [ ] issue template used and `AI-Assisted` value checked (`Yes`/`No` single selection, AI-used issue must be `Yes`)
-- [ ] no unrelated changes included
-- [ ] documentation updated if needed
-- [ ] changelog updated if needed
-- [ ] AI-assisted change reviewed by human
-
-## AI-Assisted
-- [ ] Yes
-- [ ] No
+## Deployment Notes
+- Migration/ordering:
+- Rollback plan:
+- Post-deploy checks:

@@ -44,11 +44,6 @@ Issue
 ## Issue Rules
 
 - Use the repository issue template: `.gitlab/issue_templates/default.md`
-- Select exactly one `Size` value in the issue template.
-- `Size` 기준:
-  - `Small (1)`: 단순 수정 / 단일 파일
-  - `Medium (2)`: 기능 단위 변경 / 다중 파일
-  - `Large (3)`: 구조 변경 / 복수 모듈
 - The `AI-Assisted` field in the issue template must have exactly one value selected.
 - If AI is used for issue drafting, planning, coding, or review preparation, set `AI-Assisted` to `Yes`.
 - If Issue creation is not possible, record the reason and background in the commit body or MR body.

@@ -9,10 +9,6 @@
 - 이슈/머지리퀘스트 작성 시 저장소 템플릿을 기본으로 사용한다.
   - Issue: `.gitlab/issue_templates/default.md`
   - Merge Request: `.gitlab/merge_request_templates/default.md`
-- Issue 템플릿의 `Size`는 `Small/Medium/Large` 중 정확히 하나를 체크한다.
-  - `Small (1)`: 단순 수정 / 단일 파일
-  - `Medium (2)`: 기능 단위 변경 / 다중 파일
-  - `Large (3)`: 구조 변경 / 복수 모듈
 - Issue 템플릿의 `AI-Assisted`는 `Yes/No` 중 정확히 하나를 체크한다.
   - AI 사용 작업은 반드시 `Yes`를 체크한다.
 
@@ -45,21 +41,16 @@
 - 실행한 명령과 결과를 커밋 본문 또는 PR에 남긴다.
 
 ## CHANGELOG 업데이트 규칙
-1. 아래 변경은 템플릿 저장소에서 `CHANGELOG.md`를 필수로 갱신한다.
+1. 아래 변경은 `CHANGELOG.md`를 필수로 갱신한다.
 - 기능 추가/수정, 버그 수정, 운영 스크립트 변경, 정책 변경
 - DB 관련 변경(쿼리, 스키마, 마이그레이션, 데이터 동기화 절차)
 - 검증 절차/테스트 전략 변경
 
 2. 경미한 오탈자/주석 수정만 있을 때는 생략 가능하다.
 
-3. 템플릿 저장소에서는 같은 작업 단위에서 코드 + `CHANGELOG.md`를 함께 커밋한다.
-
-4. 대상 프로젝트에는 `CHANGELOG.md`를 배포하지 않으므로, 정책 변경 이력은 대상 저장소의 커밋/MR/릴리즈 노트로 관리한다.
+3. 같은 작업 단위에서 코드 + CHANGELOG를 함께 커밋한다.
 
 ## 문서 규칙
 - `README.md`: 개요, 빠른 시작, 핵심 링크만 유지
 - 상세 정책/절차: 본 문서 또는 `docs/*` runbook에 작성
 - 중복 문서는 포인터 문서로 축소하거나 `docs/archive`로 이동
-- 정책 파일(규칙/템플릿/절차) 변경 시 `POLICY_VERSION.md`를 같은 작업 단위에서 함께 갱신한다.
-- VSCode 워크스페이스 Java snippet은 `.vscode/java.code-snippets`를 기준으로 관리한다 (`addCopyright`, `addDeveloper`).
-- 개인 VSCode 적용 템플릿/절차는 `docs/dev/vscode-snippets-guide.md`를 따른다.

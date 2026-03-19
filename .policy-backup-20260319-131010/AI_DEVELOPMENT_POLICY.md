@@ -31,11 +31,6 @@
 
 5. 이슈 템플릿 기록 원칙
 - 이슈 작성 시 `.gitlab/issue_templates/default.md`를 사용한다.
-- `Size` 항목은 `Small/Medium/Large` 중 정확히 하나만 체크한다.
-- `Size` 기준은 다음과 같다.
-  - `Small (1)`: 단순 수정 / 단일 파일
-  - `Medium (2)`: 기능 단위 변경 / 다중 파일
-  - `Large (3)`: 구조 변경 / 복수 모듈
 - `AI-Assisted` 항목은 `Yes/No` 중 정확히 하나만 체크한다.
 - AI를 사용한 작업은 반드시 `Yes`를 체크한다.
 
@@ -102,9 +97,6 @@ AI 생성 코드에 대해 다음 검사를 권장한다.
 - secret scanning
 
 ## 문서 관계(중복 방지)
-- 정책 버전 기준: `POLICY_VERSION.md`
 - 개발 참여 절차: `CONTRIBUTING.md`
 - AI 상세 규칙: `AI_DEVELOPMENT_POLICY.md` (본 문서)
 - AI 커밋 템플릿: `.gitmessage-ai-assisted.txt`
-- VSCode 워크스페이스 Java snippet 기준: `.vscode/java.code-snippets` (`addCopyright`, `addDeveloper`)
-- 개인 VSCode 적용 템플릿/절차: `docs/dev/vscode-snippets-guide.md`

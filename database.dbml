@@ -1,0 +1,459 @@
+Table "studioapi"."flyway_schema_history" {
+  "installed_rank" int4 [pk, not null]
+  "version" varchar(50)
+  "description" varchar(200) [not null]
+  "type" varchar(20) [not null]
+  "script" varchar(1000) [not null]
+  "checksum" int4
+  "installed_by" varchar(100) [not null]
+  "installed_on" timestamp [not null, default: `now()`]
+  "execution_time" int4 [not null]
+  "success" bool [not null]
+
+  Indexes {
+    success [type: btree, name: "flyway_schema_history_s_idx"]
+  }
+}
+
+Table "studioapi"."tb_application_property" {
+  "property_name" varchar(100) [pk, not null, note: '프로퍼티 이름']
+  "property_value" varchar(1024) [not null, note: '프로퍼티 값']
+  Note: '애플리케이션 전역에서 사용되는 프로퍼티'
+}
+
+Table "studioapi"."tb_application_sequencer" {
+  "sequencer_id" int4 [pk, not null, increment, note: '시퀀서 ID']
+  "name" varchar(100) [unique, not null, note: '시퀀서 이름']
+  "display_name" varchar(255) [note: '출력시 보여줄 이름']
+  "value" int4 [not null, note: '시퀀서 값']
+  Note: '애플리케이션 전역에서 사용되는 시퀀서'
+}
+
+Table "studioapi"."tb_application_user" {
+  "user_id" int8 [pk, not null, increment]
+  "username" varchar(100) [unique, not null]
+  "password_hash" varchar(256) [not null]
+  "name" varchar(100)
+  "name_visible" bool [default: true]
+  "first_name" varchar(100)
+  "last_name" varchar(100)
+  "email" varchar(100) [unique, not null]
+  "email_visible" bool [default: true]
+  "user_enabled" bool [default: true]
+  "user_external" bool [default: false]
+  "status" int4 [default: 0]
+  "creation_date" timestamptz [default: `now()`]
+  "modified_date" timestamptz [default: `now()`]
+  "account_locked_until" timestamptz
+  "last_failed_at" timestamptz
+  "failed_attempts" int4 [default: 0]
+  Note: '사용자 테이블'
+}
+
+Table "studioapi"."tb_application_user_property" {
+  "user_id" int8 [not null]
+  "property_name" varchar(100) [not null]
+  "property_value" varchar(1024) [not null]
+
+  Indexes {
+    (user_id, property_name) [pk, type: btree, name: "tb_application_user_property_pkey"]
+  }
+  Note: 'USER 프로퍼티 테이블'
+}
+
+Table "studioapi"."tb_application_role" {
+  "role_id" int8 [pk, not null, increment]
+  "name" varchar(100) [unique, not null]
+  "description" varchar(1000) [not null]
+  "creation_date" timestamptz [default: `now()`]
+  "modified_date" timestamptz [default: `now()`]
+  Note: '롤 테이블'
+}
+
+Table "studioapi"."tb_application_user_roles" {
+  "user_id" int8 [not null]
+  "role_id" int8 [not null]
+  "assigned_at" timestamptz [default: `now()`]
+  "assigned_by" varchar(100)
+
+  Indexes {
+    (user_id, role_id) [pk, type: btree, name: "tb_application_user_roles_pkey"]
+  }
+  Note: '사용자 롤 테이블'
+}
+
+Table "studioapi"."tb_application_login_token" {
+  "uuid" varchar(100) [pk, not null]
+  "username" varchar(100) [not null]
+  "token" varchar(100) [not null]
+  "last_use_date" timestamptz [not null, default: `now()`]
+  Note: '인증 정보 저장 테이블'
+}
+
+Table "studioapi"."tb_application_company" {
+  "company_id" int8 [pk, not null, increment]
+  "display_name" varchar(255) [not null]
+  "name" varchar(100) [unique, not null]
+  "domain_name" varchar(100)
+  "description" varchar(1000)
+  "creation_date" timestamptz [default: `now()`]
+  "modified_date" timestamptz [default: `now()`]
+  Note: '회사 테이블'
+}
+
+Table "studioapi"."tb_application_company_property" {
+  "company_id" int8 [not null]
+  "property_name" varchar(100) [not null]
+  "property_value" varchar(1024) [not null]
+
+  Indexes {
+    (company_id, property_name) [pk, type: btree, name: "tb_application_company_property_pkey"]
+  }
+  Note: '회사 프로퍼티 테이블'
+}
+
+Table "studioapi"."tb_application_group" {
+  "group_id" int8 [pk, not null, increment]
+  "name" varchar(255) [unique, not null]
+  "description" varchar(1000)
+  "creation_date" timestamptz [default: `now()`]
+  "modified_date" timestamptz [default: `now()`]
+  Note: '그룹 테이블'
+}
+
+Table "studioapi"."tb_application_group_property" {
+  "group_id" int8 [not null]
+  "property_name" varchar(100) [not null]
+  "property_value" varchar(1024) [not null]
+
+  Indexes {
+    (group_id, property_name) [pk, type: btree, name: "tb_application_group_property_pkey"]
+  }
+  Note: '그룹 프로퍼티 테이블'
+}
+
+Table "studioapi"."tb_application_group_roles" {
+  "group_id" int8 [not null]
+  "role_id" int8 [not null]
+  "assigned_at" timestamptz [default: `now()`]
+  "assigned_by" varchar(100)
+
+  Indexes {
+    (group_id, role_id) [pk, type: btree, name: "tb_application_group_roles_pkey"]
+  }
+  Note: '그룹 롤 테이블'
+}
+
+Table "studioapi"."tb_application_group_members" {
+  "group_id" int8 [not null]
+  "user_id" int8 [not null]
+  "joined_at" timestamptz [default: `now()`]
+  "joined_by" varchar(100)
+
+  Indexes {
+    (group_id, user_id) [pk, type: btree, name: "tb_application_group_members_pkey"]
+  }
+  Note: '그룹 멤버 테이블'
+}
+
+Table "studioapi"."tb_application_avatar_image" {
+  "avatar_image_id" int8 [pk, not null, increment]
+  "user_id" int8 [not null]
+  "primary_image" bool [default: true]
+  "file_name" varchar(255) [not null]
+  "file_size" int8 [not null]
+  "content_type" varchar(50) [not null]
+  "creation_date" timestamptz [default: `now()`]
+  "modified_date" timestamptz [default: `now()`]
+
+  Indexes {
+    user_id [type: btree, name: "tb_application_avatar_image_idx1"]
+  }
+  Note: '아바타 이미지 테이블'
+}
+
+Table "studioapi"."tb_application_avatar_image_data" {
+  "avatar_image_id" int8 [pk, not null, increment]
+  "avatar_image_data" bytea
+  Note: '아바타 이미지 데이터 테이블'
+}
+
+Table "studioapi"."acl_sid" {
+  "id" int8 [pk, not null, increment]
+  "principal" bool [not null]
+  "sid" varchar(100) [not null]
+
+  Indexes {
+    (sid, principal) [type: btree, unique, name: "unique_uk_1"]
+  }
+}
+
+Table "studioapi"."acl_class" {
+  "id" int8 [pk, not null, increment]
+  "class" varchar(100) [unique, not null]
+}
+
+Table "studioapi"."acl_object_identity" {
+  "id" int8 [pk, not null, increment]
+  "object_id_class" int8 [not null]
+  "object_id_identity" varchar(36) [not null]
+  "parent_object" int8
+  "owner_sid" int8
+  "entries_inheriting" bool [not null]
+
+  Indexes {
+    (object_id_class, object_id_identity) [type: btree, unique, name: "unique_uk_3"]
+  }
+}
+
+Table "studioapi"."acl_entry" {
+  "id" int8 [pk, not null, increment]
+  "acl_object_identity" int8 [not null]
+  "ace_order" int4 [not null]
+  "sid" int8 [not null]
+  "mask" int4 [not null]
+  "granting" bool [not null]
+  "audit_success" bool [not null]
+  "audit_failure" bool [not null]
+
+  Indexes {
+    (acl_object_identity, ace_order) [type: btree, unique, name: "unique_uk_4"]
+  }
+}
+
+Table "studioapi"."tb_login_failure_log" {
+  "id" int8 [pk, not null, increment]
+  "username" varchar(150) [not null]
+  "remote_ip" inet
+  "user_agent" varchar(512)
+  "failure_type" varchar(128)
+  "message" varchar(1000)
+  "occurred_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    remote_ip [type: btree, name: "ix_login_fail_ip"]
+    occurred_at [type: brin, name: "ix_login_fail_time_brin"]
+    (username, occurred_at) [type: btree, name: "ix_login_fail_user_time"]
+  }
+}
+
+Table "studioapi"."tb_application_attachment" {
+  "attachment_id" int8 [pk, not null, increment]
+  "object_type" int4
+  "object_id" int8
+  "content_type" varchar(255)
+  "file_name" varchar(255)
+  "file_size" int8
+  "created_by" int8 [not null]
+  "created_at" timestamptz [default: `now()`]
+  "updated_at" timestamptz [default: `now()`]
+
+  Indexes {
+    created_by [type: btree, name: "idx_tb_application_attachment_created_by"]
+    (object_type, object_id) [type: btree, name: "idx_tb_application_attachment_object"]
+  }
+  Note: '첨부파일 테이블'
+}
+
+Table "studioapi"."tb_application_attachment_data" {
+  "attachment_id" int8 [pk, not null]
+  "attachment_data" oid
+  Note: '첨부파일 데이터 테이블'
+}
+
+Table "studioapi"."tb_application_attachment_property" {
+  "attachment_id" int8 [not null]
+  "property_name" varchar(100) [not null]
+  "property_value" varchar(1024)
+
+  Indexes {
+    (attachment_id, property_name) [pk, type: btree, name: "tb_application_attachment_property_pkey"]
+  }
+  Note: '첨부파일 프로퍼티 테이블'
+}
+
+Table "studioapi"."tb_ai_document_chunk" {
+  "id" int8 [pk, not null, increment]
+  "object_type" varchar(50) [not null]
+  "object_id" varchar(100) [not null]
+  "chunk_index" int4 [not null]
+  "text" text [not null]
+  "embedding" public.vector
+  "metadata" jsonb [default: `{}`]
+  "created_at" timestamp [not null, default: `now()`]
+
+  Indexes {
+    (object_type, object_id, chunk_index) [type: btree, unique, name: "uq_ai_chunk"]
+    (object_type, object_id) [type: btree, name: "idx_ai_chunk_object"]
+    embedding [type: ivfflat, name: "idx_ai_chunk_vector"]
+  }
+}
+
+Table "studioapi"."tb_application_password_reset_token" {
+  "id" int8 [pk, not null, increment]
+  "user_id" int8 [not null]
+  "token" varchar(200) [unique, not null]
+  "expires_at" timestamptz [not null]
+  "used" bool [not null, default: false]
+  "created_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    user_id [type: btree, name: "ix_password_reset_user"]
+  }
+}
+
+Table "studioapi"."tb_application_refresh_token" {
+  "id" int8 [pk, not null, increment]
+  "user_id" int8 [not null]
+  "selector" varchar(50) [unique, not null]
+  "verifier_hash" varchar(100) [not null]
+  "expires_at" timestamptz [not null]
+  "revoked" bool [not null, default: false]
+  "created_at" timestamptz [not null, default: `now()`]
+  "replaced_by_id" int8
+
+  Indexes {
+    (user_id, expires_at) [type: btree, name: "ix_refresh_active"]
+    expires_at [type: btree, name: "ix_refresh_expires_at"]
+    user_id [type: btree, name: "ix_refresh_user"]
+  }
+}
+
+Table "studioapi"."tb_application_template" {
+  "template_id" int8 [pk, not null, increment]
+  "object_type" int4 [not null]
+  "object_id" int8 [not null]
+  "name" varchar(100) [unique, not null]
+  "display_name" varchar(255)
+  "description" text
+  "subject" text
+  "body" text
+  "created_by" int8 [not null, default: 0]
+  "updated_by" int8 [not null, default: 0]
+  "created_at" timestamptz [default: `now()`]
+  "updated_at" timestamptz [default: `now()`]
+
+  Indexes {
+    (object_type, object_id) [type: btree, name: "idx_tb_application_template_object"]
+  }
+  Note: '애플리케이션 템플릿 테이블'
+}
+
+Table "studioapi"."tb_application_template_property" {
+  "template_id" int8 [not null]
+  "property_name" varchar(100) [not null]
+  "property_value" varchar(1024)
+
+  Indexes {
+    (template_id, property_name) [pk, type: btree, name: "tb_application_template_property_pkey"]
+  }
+  Note: '애플리케이션 템플릿 프로퍼티'
+}
+
+Table "studioapi"."tb_application_mail_message" {
+  "mail_id" int8 [pk, not null, increment]
+  "folder" varchar(128) [not null]
+  "uid" int8 [not null]
+  "message_id" varchar(255)
+  "subject" text
+  "from_address" varchar(512)
+  "to_address" varchar(1024)
+  "cc_address" varchar(1024)
+  "bcc_address" varchar(1024)
+  "sent_at" timestamptz
+  "received_at" timestamptz
+  "flags" varchar(255)
+  "body" text
+  "created_at" timestamptz [default: `now()`]
+  "updated_at" timestamptz [default: `now()`]
+
+  Indexes {
+    (folder, uid) [type: btree, unique, name: "tb_application_mail_message_uidx1"]
+    message_id [type: btree, name: "idx_tb_application_mail_message_messageid"]
+  }
+  Note: 'IMAP 메일 동기화 테이블'
+}
+
+Table "studioapi"."tb_application_mail_attachment" {
+  "attachment_id" int8 [pk, not null, increment]
+  "mail_id" int8 [not null]
+  "filename" varchar(512)
+  "content_type" varchar(255)
+  "size" int8
+  "content" bytea
+  "created_at" timestamptz [default: `now()`]
+  "updated_at" timestamptz [default: `now()`]
+
+  Indexes {
+    mail_id [type: btree, name: "idx_tb_application_mail_attachment_mail"]
+  }
+  Note: 'IMAP 메일 첨부'
+}
+
+Table "studioapi"."tb_application_mail_sync_log" {
+  "log_id" int8 [pk, not null, increment]
+  "started_at" timestamptz [not null]
+  "finished_at" timestamptz
+  "processed" int4 [default: 0]
+  "succeeded" int4 [default: 0]
+  "failed" int4 [default: 0]
+  "status" varchar(50)
+  "message" varchar(1000)
+  "triggered_by" varchar(100)
+
+  Indexes {
+    started_at [type: btree, name: "idx_tb_application_mail_sync_log_started"]
+  }
+  Note: '메일 동기화 이력'
+}
+
+Table "studioapi"."tb_application_mail_property" {
+  "mail_id" int8 [not null]
+  "property_name" varchar(100) [not null]
+  "property_value" varchar(1024)
+
+  Indexes {
+    (mail_id, property_name) [pk, type: btree, name: "tb_application_mail_property_pkey"]
+  }
+  Note: 'IMAP 메일 프로퍼티'
+}
+
+Ref "foreign_fk_4":"studioapi"."acl_object_identity"."id" < "studioapi"."acl_entry"."acl_object_identity"
+
+Ref "foreign_fk_5":"studioapi"."acl_sid"."id" < "studioapi"."acl_entry"."sid"
+
+Ref "foreign_fk_1":"studioapi"."acl_object_identity"."id" < "studioapi"."acl_object_identity"."parent_object"
+
+Ref "foreign_fk_2":"studioapi"."acl_class"."id" < "studioapi"."acl_object_identity"."object_id_class"
+
+Ref "foreign_fk_3":"studioapi"."acl_sid"."id" < "studioapi"."acl_object_identity"."owner_sid"
+
+Ref "tb_application_company_property_company_id_fkey":"studioapi"."tb_application_company"."company_id" < "studioapi"."tb_application_company_property"."company_id" [delete: cascade]
+
+Ref "tb_application_group_members_group_id_fkey":"studioapi"."tb_application_group"."group_id" < "studioapi"."tb_application_group_members"."group_id" [delete: cascade]
+
+Ref "tb_application_group_members_user_id_fkey":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_group_members"."user_id" [delete: cascade]
+
+Ref "tb_application_group_property_group_id_fkey":"studioapi"."tb_application_group"."group_id" < "studioapi"."tb_application_group_property"."group_id" [delete: cascade]
+
+Ref "tb_application_group_roles_group_id_fkey":"studioapi"."tb_application_group"."group_id" < "studioapi"."tb_application_group_roles"."group_id" [delete: cascade]
+
+Ref "tb_application_group_roles_role_id_fkey":"studioapi"."tb_application_role"."role_id" < "studioapi"."tb_application_group_roles"."role_id" [delete: cascade]
+
+Ref "fk_mail_attachment":"studioapi"."tb_application_mail_message"."mail_id" < "studioapi"."tb_application_mail_attachment"."mail_id" [delete: cascade]
+
+Ref "fk_mail_property":"studioapi"."tb_application_mail_message"."mail_id" < "studioapi"."tb_application_mail_property"."mail_id" [delete: cascade]
+
+Ref "fk_password_reset_user":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_password_reset_token"."user_id" [delete: cascade]
+
+Ref "fk_refresh_replaced_by":"studioapi"."tb_application_refresh_token"."id" < "studioapi"."tb_application_refresh_token"."replaced_by_id" [delete: set null]
+
+Ref "fk_refresh_user":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_refresh_token"."user_id" [delete: cascade]
+
+Ref "fk_template_property":"studioapi"."tb_application_template"."template_id" < "studioapi"."tb_application_template_property"."template_id" [delete: cascade]
+
+Ref "tb_application_user_property_user_id_fkey":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_user_property"."user_id" [delete: cascade]
+
+Ref "tb_application_user_roles_role_id_fkey":"studioapi"."tb_application_role"."role_id" < "studioapi"."tb_application_user_roles"."role_id" [delete: cascade]
+
+Ref "tb_application_user_roles_user_id_fkey":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_user_roles"."user_id" [delete: cascade]

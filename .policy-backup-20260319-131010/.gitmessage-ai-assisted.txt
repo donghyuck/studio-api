@@ -1,0 +1,10 @@
+[ai-assisted] <type>(<scope>): <summary>
+
+Why:
+- 
+
+What:
+- 
+
+Validation:
+- 
