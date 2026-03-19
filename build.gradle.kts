@@ -65,8 +65,7 @@ subprojects {
             val p = project.path
             !(p == ":starter" ||
               p.startsWith(":starter:") ||
-              p.startsWith(":studio-application-modules:") ||
-              p.startsWith(":studio-server")) &&
+              p.startsWith(":studio-application-modules:")) &&
             hasAnySource()
         }
     }
