@@ -55,9 +55,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.security.identity.SecurityPrincipalResolver;
 import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 import studio.one.base.security.userdetails.ApplicationUserDetailsService;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -287,6 +289,12 @@ public class SecurityAutoConfiguration {
                                 LogUtils.blue(PasswordEncoder.class, true),
                                 "Algorithm", LogUtils.green(props.getAlgorithm().name())));
                 return new DelegatingPasswordEncoder(idForEncode, encoders);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(PrincipalResolver.class)
+        public PrincipalResolver principalResolver() {
+                return new SecurityPrincipalResolver();
         }
 
         @Bean(name = ServiceNames.DOMAIN_ENDPOINT_AUTHZ)
