@@ -94,7 +94,6 @@ subprojects {
         resolutionStrategy.force(
             "ch.qos.logback:logback-classic:${property("logbackVersion")}",
             "ch.qos.logback:logback-core:${property("logbackVersion")}",
-            "org.yaml:snakeyaml:${property("snakeyamlVersion")}",
             "com.nimbusds:nimbus-jose-jwt:${property("nimbusJoseJwtVersion")}",
             "net.minidev:json-smart:${property("jsonSmartVersion")}",
             "org.postgresql:postgresql:${property("postgresqlVersion")}"
