@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;

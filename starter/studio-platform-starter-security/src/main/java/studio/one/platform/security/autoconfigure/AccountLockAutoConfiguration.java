@@ -2,7 +2,7 @@ package studio.one.platform.security.autoconfigure;
 
 import java.time.Clock;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;

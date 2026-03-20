@@ -6,8 +6,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import javax.annotation.PostConstruct;
-import javax.transaction.Transactional;
+import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;

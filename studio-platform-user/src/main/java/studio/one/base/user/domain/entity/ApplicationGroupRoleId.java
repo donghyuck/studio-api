@@ -2,7 +2,7 @@ package studio.one.base.user.domain.entity;
 
 import java.io.Serializable;
 
-import javax.persistence.Embeddable;
+import jakarta.persistence.Embeddable;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
