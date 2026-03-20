@@ -2,6 +2,13 @@
 
 This guide defines YAML namespace conventions for the `studio-*` modules.
 
+## Current State
+This document contains both:
+- current keys that are already implemented in code
+- recommended target namespaces for future cleanup
+
+When they differ, the implemented key in code is authoritative until migration is completed.
+
 ## Goal
 - Keep module settings predictable across projects.
 - Avoid long and duplicated keys.
@@ -89,7 +96,9 @@ For each new module:
   - `studio.features.user.enabled`
   - `studio.features.user.persistence.*`
   - `studio.features.user.web.*`
-- Move/keep policy keys under:
+- Current code still uses:
+  - `studio.features.user.password-policy.*`
+- Long-term target:
   - `studio.user.password-policy.*`
 
 ## Key Mapping Table (Initial)
@@ -103,17 +112,38 @@ This table is the recommended migration baseline for mixed namespaces.
 | `studio.features.user.password-policy.*` | `studio.user.password-policy.*` | migrate | not started (current code uses legacy path) |
 | `studio.security.enabled` | `studio.security.enabled` | keep (global infra) | adopted |
 | `studio.security.jwt.*` | `studio.security.jwt.*` | keep (global infra) | adopted |
+| `studio.security.acl.*` | `studio.security.acl.*` | keep (global infra) | adopted |
 | `studio.persistence.*` | `studio.persistence.*` | keep (global infra) | adopted |
 | `studio.features.objecttype.enabled` | `studio.features.objecttype.enabled` | keep | adopted |
 | `studio.features.objecttype.web.*` | `studio.features.objecttype.web.*` | keep | adopted |
 | `studio.objecttype.mode` | `studio.objecttype.mode` | keep (runtime detail) | adopted |
 | `studio.objecttype.registry.cache.*` | `studio.objecttype.registry.cache.*` | keep (runtime detail) | adopted |
 | `studio.objecttype.policy.cache.*` | `studio.objecttype.policy.cache.*` | keep (runtime detail) | adopted |
-| `studio.features.realtime.enabled` | `studio.features.realtime.enabled` | keep | adopted |
+| `studio.features.realtime.enabled` | `studio.features.realtime.enabled` | keep (feature gate) | adopted |
 | `studio.realtime.stomp.*` | `studio.realtime.stomp.*` | keep (runtime detail) | adopted |
+| `studio.ai.*` | `studio.ai.*` | keep (runtime detail/global infra) | adopted |
+| `studio.features.jasypt.*` | `studio.features.jasypt.*` | keep | adopted |
 | `studio.features.attachment.enabled` | `studio.features.attachment.enabled` | keep | adopted |
 | `studio.features.attachment.web.*` | `studio.features.attachment.web.*` | keep | adopted |
 | `studio.features.attachment.storage.*` | `studio.attachment.storage.*` | migrate (optional, if detail split is adopted) | not started |
+
+## Verified Against Current Code
+- `studio.features.user.*`: implemented
+- `studio.features.user.password-policy.*`: implemented
+- `studio.security.*` and `studio.security.acl.*`: implemented
+- `studio.persistence.*`: implemented
+- `studio.features.objecttype.*` and `studio.objecttype.*`: implemented
+- `studio.features.realtime.enabled` and `studio.realtime.stomp.*`: both implemented
+- `studio.ai.*`: implemented
+- `studio.features.jasypt.*`: implemented
+- `studio.features.attachment.*`: implemented
+
+## Notes
+- Realtime is split across two layers in code today:
+  - feature gate: `studio.features.realtime.enabled`
+  - runtime detail: `studio.realtime.stomp.*`
+- User password policy has not migrated yet. Current code binds `studio.features.user.password-policy.*`.
+- Attachment storage has not migrated yet. Current code still uses `studio.features.attachment.storage.*`.
 
 ### Migration Note
 - For `migrate` rows: support both keys during transition.

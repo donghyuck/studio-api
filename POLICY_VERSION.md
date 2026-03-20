@@ -1,8 +1,8 @@
 # Policy Version
 
-- Current Version: `v1.0.0`
+- Current Version: `v1.1.0`
 - Effective Date: `2026-03-18`
-- Last Updated: `2026-03-18`
+- Last Updated: `2026-03-20`
 
 ## Versioning Rules
 - 정책 파일 구조/규칙 변경 시 버전을 갱신한다.

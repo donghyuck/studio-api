@@ -1,6 +1,8 @@
-## Summary
-- What changed:
-- Why:
+## Why
+- 
+
+## What
+- 
 
 ## Related Issues
 - Closes #
@@ -18,9 +20,20 @@
 - Mitigation:
 
 ## Validation
-- [ ] `./gradlew -q compileJava`
-- [ ] `./gradlew test`
+- Commands:
+  - 
+- Result:
+  - 
 - Additional checks:
+
+## Checklist
+- [ ] policy-compliant commit message
+- [ ] issue template used where applicable
+- [ ] AI-Assisted checked correctly
+- [ ] validation recorded
+- [ ] CI / repository verification passed
+- [ ] human review completed before merge
+- [ ] no unrelated changes included
 
 ## Deployment Notes
 - Migration/ordering:
