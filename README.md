@@ -21,8 +21,8 @@
 
 ## 기술 기준
 - Java toolchain / source compatibility: `17`
-- Spring Boot: `2.7.18`
-- Spring Dependency Management Plugin: `1.1.4`
+- Spring Boot: `3.5.9`
+- Spring Dependency Management Plugin: `1.1.7`
 - Build: `Gradle Wrapper`
 
 ## 레포지토리 구성
@@ -181,6 +181,7 @@ studio:
 - 애플리케이션 모듈 가이드: `studio-application-modules/README.md`
 - 사용자 계약: `studio-platform-user/README.md`
 - 사용자 기본 구현: `studio-platform-user-default/README.md`
+- 변경 이력: `CHANGELOG.md` (`2.x` 라인부터 새 기준으로 관리)
 - 보안 운영 규칙: `SECURITY.md`
 - 플랫폼 웹 규칙: `studio-platform/WEB_API_DEVELOPMENT_GUIDE.md`
 - 설정 네임스페이스 가이드: `CONFIGURATION_NAMESPACE_GUIDE.md`
