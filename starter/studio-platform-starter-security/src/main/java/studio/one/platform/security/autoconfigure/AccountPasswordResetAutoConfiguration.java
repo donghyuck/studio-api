@@ -20,6 +20,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +93,7 @@ public class AccountPasswordResetAutoConfiguration {
     PasswordResetService passwordResetService(
             ApplicationUserService<? extends User, ? extends Role> userService,
             PasswordResetTokenRepository repository,
+            PasswordEncoder passwordEncoder,
             MailService mailService) {
         @SuppressWarnings("unchecked")
 
@@ -100,7 +102,7 @@ public class AccountPasswordResetAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(PasswordResetService.class, true), LogUtils.red(State.CREATED.toString())));
 
-        return new PasswordResetService(casted, repository, mailService);
+        return new PasswordResetService(casted, repository, passwordEncoder, mailService);
     }
 
     @Bean(MailService.SERVICE_NAME)

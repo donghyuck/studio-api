@@ -209,7 +209,7 @@ public class SecurityFilterConfig {
     }
 }
 ```
-실제 프로젝트에서는 `studio-server/src/main/java/studio/server/config/SecurityFilterConfig.java`를 참고해도 된다.
+실제 프로젝트에서는 애플리케이션 보안 설정 클래스에서 동일한 필터 체인 구성을 참고해 적용하면 된다.
 
 ### 4) 스키마 준비
 JWT/리프레시/비밀번호 재설정 토큰 저장을 사용하면 아래 스키마가 필요하다.

@@ -52,11 +52,14 @@
         ]]>
     </sql>
 
-    <sql id="passwordResetTokenFindByToken">
+    <sql id="passwordResetTokenFindActiveByUserId">
         <![CDATA[
         select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
-          from TB_APPLICATION_PASSWORD_RESET_TOKEN
-         where TOKEN = :token
+         from TB_APPLICATION_PASSWORD_RESET_TOKEN
+         where USER_ID = :userId
+           and USED = false
+         order by CREATED_AT desc
+         limit 1
         ]]>
     </sql>
 

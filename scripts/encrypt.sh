@@ -5,7 +5,7 @@ export JASYPT_HTTP_TOKEN="${JASYPT_HTTP_TOKEN:?set JASYPT_HTTP_TOKEN}"
 curl -v -i -X  POST http://127.0.0.1:8080/internal/jasypt/encrypt \
   -H "Content-Type: application/json" \
   -H "X-JASYPT-TOKEN: ${JASYPT_HTTP_TOKEN}" \
-  -d '{"value":"hello"}' 
+  -d '{"value":"hello"}'
 
 # 복호화
 # curl -s -X POST http://127.0.0.1:8080/internal/jasypt/decrypt \

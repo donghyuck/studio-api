@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-03-20
+
+### Docs
+- `README.md` 에 Gradle wrapper JAR 누락 시 `gradle wrapper`로 복구하는 안내 추가
+- `README.md` 를 저장소 인덱스 중심으로 축약하고 `LLM_DEVELOPMENT_GUIDE.md` 를 제거해 문서 중복을 줄임
+- `README.md` 에 빠른 시작, 대표 starter 선택 기준, 자주 쓰는 secret, 모듈별 진입 포인트를 보강
+- `README.md` 에 Java 17, Spring Boot 2.7.18 등 기술 기준 버전을 명시
+- `starter/README.md` 와 `studio-application-modules/README.md` 를 인덱스형 문서 구조로 정리해 루트 README와 톤을 맞춤
+- `CONFIGURATION_NAMESPACE_GUIDE.md` 를 실제 코드 기준으로 보정해 현재 구현 키와 향후 마이그레이션 대상을 구분
+- `avatar-service`, `content-embedding-pipeline` 모듈에 최소 README를 추가해 문서 진입점을 보강
+
 ## 2026-03-09
 
 ### Security

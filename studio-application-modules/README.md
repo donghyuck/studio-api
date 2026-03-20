@@ -1,4 +1,18 @@
-응용프로그램을 위한 추가 모듈 모음. 각 모듈은 starter 의존성을 통해 자동구성이 제공된다.
+# Studio Application Modules
+
+응용프로그램 기능을 제공하는 모듈 모음이다. 직접 의존하거나 대응되는 starter를 통해 자동 구성할 수 있다.
+
+## 빠른 선택 가이드
+- 파일 업로드/다운로드와 저장소 관리가 필요하면 `attachment-service`
+- 사용자 프로필 이미지가 필요하면 `avatar-service`
+- 첨부 텍스트 추출, 임베딩, RAG 인덱싱이 필요하면 `content-embedding-pipeline`
+- 템플릿 관리가 필요하면 `template-service`
+- IMAP 동기화와 메일 조회가 필요하면 `mail-service`
+
+## 사용 원칙
+- 일반적으로는 각 모듈보다 대응되는 starter를 통해 붙이는 편이 단순하다.
+- 기능 활성화는 `studio.features.<feature>.enabled=true`로 제어한다.
+- 세부 설정, 엔드포인트, 저장소 전략은 각 모듈 README를 기준으로 본다.
 
 ## Avatar 서비스
 - 의존성: `studio-application-modules/avatar-service` 또는 `studio-application-starter-avatar`.
@@ -37,3 +51,11 @@
 - IMAP 설정: `studio.features.mail.imap.*` 로 호스트/포트/계정/동시성/본문·첨부 크기 제한을 지정.
 - REST: `studio.features.mail.web.enabled=true` 시 `/api/mgmt/mail` 기본 경로에 컨트롤러 노출(`GET /{mailId}`, `POST /sync`, `GET /sync/logs`, `GET /sync/logs/page`).
 - SSE: 동기화 상태 스트림을 분리된 컨트롤러(`/sync/stream`)로 제공하며, `studio.features.mail.web.sse=true|false`(기본 true)로 노출 여부를 제어.
+
+## 문서 바로가기
+- 루트 개요: `../README.md`
+- avatar 상세: `avatar-service/README.md`
+- content embedding pipeline 상세: `content-embedding-pipeline/README.md`
+- attachment 상세: `attachment-service/README.md`
+- mail 상세: `mail-service/README.md`
+- template 상세: `template-service/README.md`

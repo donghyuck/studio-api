@@ -3,7 +3,6 @@ plugins {
 	id("org.springframework.boot") apply false
     id("io.spring.dependency-management") apply false
 	id("org.owasp.dependencycheck") apply false
-	id("org.sonarqube") version "5.0.0.4638" apply false   
 }
 
 allprojects {
@@ -46,13 +45,6 @@ subprojects {
     apply(plugin = "java")
 	apply(plugin = "org.owasp.dependencycheck")
 
-	if (project.path !in skipPaths) {
-        plugins.apply("org.sonarqube")
-        tasks.matching { it.name == "sonarqube" }.configureEach {
-            onlyIf { hasAnySource() } // 소스가 없으면 자동 스킵
-        }
-    }
-    
 	afterEvaluate{
 		the<org.owasp.dependencycheck.gradle.extension.DependencyCheckExtension>().apply {
 			autoUpdate = false  // 폐쇄망이므로 false
@@ -73,8 +65,7 @@ subprojects {
             val p = project.path
             !(p == ":starter" ||
               p.startsWith(":starter:") ||
-              p.startsWith(":studio-application-modules:") ||
-              p.startsWith(":studio-server")) &&
+              p.startsWith(":studio-application-modules:")) &&
             hasAnySource()
         }
     }

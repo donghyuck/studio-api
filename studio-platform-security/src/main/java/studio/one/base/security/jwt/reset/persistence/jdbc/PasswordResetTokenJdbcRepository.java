@@ -49,13 +49,15 @@ public class PasswordResetTokenJdbcRepository implements PasswordResetTokenRepos
     }
 
     @Override
-    public Optional<PasswordResetToken> findByToken(String token) {
+    public Optional<PasswordResetToken> findActiveByUserId(Long userId) {
         String sql = """
                 select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
                   from %s
-                 where TOKEN = :token
+                 where USER_ID = :userId
+                   and USED = false
+                 order by CREATED_AT desc
                 """.formatted(TABLE);
-        return template.query(sql, Map.of("token", token), ROW_MAPPER).stream().findFirst();
+        return template.query(sql, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
     }
 
     private PasswordResetToken insert(PasswordResetToken token) {

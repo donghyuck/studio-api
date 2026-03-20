@@ -292,7 +292,7 @@ public class JwtTokenProvider {
     }
 
     public boolean validateToken(String token) {
-        log.debug("validate token<{}>", token);
+        log.debug("validate token");
         try {
             parser.parseSignedClaims(token);
             return true;

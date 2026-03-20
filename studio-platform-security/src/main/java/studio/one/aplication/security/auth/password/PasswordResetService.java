@@ -4,8 +4,12 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.transaction.Transactional;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,8 +24,11 @@ import studio.one.platform.constant.ServiceNames;
 @RequiredArgsConstructor
 public class PasswordResetService {
 
+    private static final Pattern TOKEN_PATTERN = Pattern.compile("^(\\d+)\\.([A-Za-z0-9_-]+)$");
+
     private final ApplicationUserService<User, Role> userService;
-    private final PasswordResetTokenRepository tokenRepository; 
+    private final PasswordResetTokenRepository tokenRepository;
+    private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final Duration tokenTtl = Duration.ofMinutes(30);
 
@@ -36,10 +43,10 @@ public class PasswordResetService {
 
     private void createAndSendToken(User user) {
         // 토큰 생성
-        String token = generateToken();
+        String token = generateToken(user.getUserId());
         PasswordResetToken entity = new PasswordResetToken();
         entity.setUserId(user.getUserId());
-        entity.setToken(token);
+        entity.setToken(passwordEncoder.encode(token));
         entity.setExpiresAt(Instant.now().plus(tokenTtl));
         entity.setUsed(false);
         tokenRepository.save(entity);
@@ -47,16 +54,20 @@ public class PasswordResetService {
         mailService.sendPasswordResetMail(user.getEmail(), token);
     }
 
-    private String generateToken() {
+    private String generateToken(Long userId) {
         byte[] bytes = new byte[32];
         new SecureRandom().nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        return userId + "." + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        PasswordResetToken tokenEntity = tokenRepository.findByToken(token)
+        Long userId = extractUserId(token);
+        PasswordResetToken tokenEntity = tokenRepository.findActiveByUserId(userId)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+        if (!passwordEncoder.matches(token, tokenEntity.getToken())) {
+            throw new IllegalArgumentException("Invalid token");
+        }
         if (tokenEntity.isUsed()) {
             throw new IllegalArgumentException("Token already used");
         }
@@ -70,9 +81,22 @@ public class PasswordResetService {
     }
 
     public boolean validateToken(String token) {
-        return tokenRepository.findByToken(token)
-                .filter(t -> !t.isUsed())
-                .filter(t -> t.getExpiresAt().isAfter(Instant.now()))
-                .isPresent();
+        try {
+            return tokenRepository.findActiveByUserId(extractUserId(token))
+                    .filter(t -> passwordEncoder.matches(token, t.getToken()))
+                    .filter(t -> !t.isUsed())
+                    .filter(t -> t.getExpiresAt().isAfter(Instant.now()))
+                    .isPresent();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private Long extractUserId(String token) {
+        Matcher matcher = TOKEN_PATTERN.matcher(token == null ? "" : token);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+        return Long.valueOf(matcher.group(1));
     }
 }

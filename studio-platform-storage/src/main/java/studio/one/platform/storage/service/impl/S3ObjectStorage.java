@@ -211,8 +211,8 @@ public class S3ObjectStorage implements CloudObjectStorage {
 
         PresignedGetObjectRequest signed = presigner.presignGetObject(req);
         URL url = signed.url();
-        log.debug("presigned PUT: s3://{}/{} (ttl={}s, contentType={}) -> {}",
-                bucketName, objectKey, ttl.getSeconds(), contentType, url);
+        log.debug("presigned GET created: s3://{}/{} (ttl={}s, contentType={})",
+                bucketName, objectKey, ttl.getSeconds(), contentType);
         return url;
     }
 
@@ -229,8 +229,8 @@ public class S3ObjectStorage implements CloudObjectStorage {
                 .build();
         PresignedPutObjectRequest signed = presigner.presignPutObject(req);
         URL url = signed.url();
-        log.debug("presigned PUT: s3://{}/{} (ttl={}s, contentType={}) -> {}",
-                bucket, key, ttl.getSeconds(), contentType, url);
+        log.debug("presigned PUT created: s3://{}/{} (ttl={}s, contentType={})",
+                bucket, key, ttl.getSeconds(), contentType);
         return url;
     }
 
