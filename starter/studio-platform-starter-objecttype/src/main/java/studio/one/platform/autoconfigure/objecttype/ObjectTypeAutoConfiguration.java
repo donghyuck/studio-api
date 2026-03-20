@@ -32,7 +32,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -250,7 +250,7 @@ public class ObjectTypeAutoConfiguration {
         @ConditionalOnMissingBean
         public ObjectTypeStore objectTypeStore(ObjectTypeJpaRepository typeRepository,
                 ObjectTypePolicyJpaRepository policyRepository,
-                javax.persistence.EntityManager entityManager) {
+                jakarta.persistence.EntityManager entityManager) {
             I18n i18n = I18nUtils.resolve(i18nProvider);
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                     ObjectTypeAutoConfiguration.FEATURE_NAME,

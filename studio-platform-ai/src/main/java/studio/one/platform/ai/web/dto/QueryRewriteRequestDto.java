@@ -1,6 +1,6 @@
 package studio.one.platform.ai.web.dto;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 요청된 질문을 검색에 적합한 형태로 리라이트하기 위한 DTO.

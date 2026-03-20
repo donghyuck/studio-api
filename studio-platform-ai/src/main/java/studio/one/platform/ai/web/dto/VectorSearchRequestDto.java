@@ -1,6 +1,6 @@
 package studio.one.platform.ai.web.dto;
 
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 import java.util.List;
 
 /**
