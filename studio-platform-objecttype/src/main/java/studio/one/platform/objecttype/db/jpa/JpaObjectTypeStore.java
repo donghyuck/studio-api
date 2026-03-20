@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -221,7 +221,7 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         return row;
     }
 
-    private void applyTypeParams(javax.persistence.Query q, ObjectTypeRow row) {
+    private void applyTypeParams(jakarta.persistence.Query q, ObjectTypeRow row) {
         q.setParameter("objectType", row.getObjectType());
         q.setParameter("code", row.getCode());
         q.setParameter("name", row.getName());
@@ -236,7 +236,7 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         q.setParameter("updatedAt", row.getUpdatedAt());
     }
 
-    private void applyPolicyParams(javax.persistence.Query q, ObjectTypePolicyRow row) {
+    private void applyPolicyParams(jakarta.persistence.Query q, ObjectTypePolicyRow row) {
         q.setParameter("objectType", row.getObjectType());
         q.setParameter("maxFileMb", row.getMaxFileMb());
         q.setParameter("allowedExt", row.getAllowedExt());

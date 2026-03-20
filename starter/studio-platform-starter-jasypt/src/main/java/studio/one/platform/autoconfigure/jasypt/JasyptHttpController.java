@@ -25,10 +25,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import java.net.InetAddress;
 import java.util.regex.Pattern;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
  
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.http.HttpStatus;

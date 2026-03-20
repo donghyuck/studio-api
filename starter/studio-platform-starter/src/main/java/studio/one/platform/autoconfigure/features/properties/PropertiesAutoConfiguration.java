@@ -98,10 +98,10 @@ public class PropertiesAutoConfiguration {
     }
 
     @Bean(name = ServiceNames.APPLICATION_PROPERTIES)
-    @ConditionalOnClass(name="javax.persistence.EntityManager")
+    @ConditionalOnClass(name="jakarta.persistence.EntityManager")
     @ConditionalOnPropertiesPersistence(PersistenceProperties.Type.jpa) 
     public ApplicationProperties jpaApplicationProperties(  
-            ObjectProvider<javax.persistence.EntityManager> emProvider,
+            ObjectProvider<jakarta.persistence.EntityManager> emProvider,
             ApplicationEventPublisher publisher,
             ObjectProvider<I18n> i18nProvider 
     ) {  

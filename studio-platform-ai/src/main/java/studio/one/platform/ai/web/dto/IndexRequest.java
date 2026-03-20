@@ -1,6 +1,6 @@
 package studio.one.platform.ai.web.dto;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
 import java.util.List;
 

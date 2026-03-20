@@ -4,7 +4,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;

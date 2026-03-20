@@ -1,6 +1,6 @@
 package studio.one.platform.ai.web.dto;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * DTO representing a chat message exchanged with an AI provider.

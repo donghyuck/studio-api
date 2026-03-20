@@ -24,21 +24,21 @@ package studio.one.base.user.domain.entity;
 import java.time.Instant;
 import java.util.Map;
 
-import javax.persistence.CollectionTable;
-import javax.persistence.Column;
-import javax.persistence.ElementCollection;
-import javax.persistence.Entity;
-import javax.persistence.EntityListeners;
-import javax.persistence.EnumType;
-import javax.persistence.Enumerated;
-import javax.persistence.FetchType;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.JoinColumn;
-import javax.persistence.MapKeyColumn;
-import javax.persistence.Table;
-import javax.persistence.UniqueConstraint;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.MapKeyColumn;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -144,7 +144,7 @@ public class ApplicationUser implements User {
 		return this.userId == -1L;
 	}
 
-	@javax.persistence.PrePersist
+	@jakarta.persistence.PrePersist
 	void onCreate() {
 		if (creationDate == null)
 			creationDate = java.time.Instant.now();
@@ -156,7 +156,7 @@ public class ApplicationUser implements User {
 			status = Status.NONE;
 	}
 
-	@javax.persistence.PreUpdate
+	@jakarta.persistence.PreUpdate
 	void onUpdate() {
 		if (modifiedDate == null)
 			modifiedDate = java.time.Instant.now();

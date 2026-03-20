@@ -2,8 +2,8 @@ package studio.one.base.user.web.dto;
 
 import java.time.OffsetDateTime;
 
-import javax.validation.constraints.FutureOrPresent;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.constraints.Size;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonInclude;

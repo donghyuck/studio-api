@@ -2,16 +2,16 @@ package studio.one.base.security.audit.domain.entity;
 
 import java.time.Instant;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.GenerationType;
-import javax.persistence.Id;
-import javax.persistence.Table;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -20,8 +20,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
  
-
-@TypeDef(name = "pg-inet", typeClass = PgInetUserType.class)
 @Entity
 @Table(name = "tb_login_failure_log")
 @Getter
@@ -38,7 +36,7 @@ public class LoginFailureLog {
   @Column(nullable = false, length = 150)
   private String username;
 
-  @Type(type = "pg-inet")
+  @JdbcTypeCode(SqlTypes.INET)
   @Column(name = "remote_ip", length = 64, columnDefinition = "inet") // ← Postgres inet
   private String remoteIp;
 

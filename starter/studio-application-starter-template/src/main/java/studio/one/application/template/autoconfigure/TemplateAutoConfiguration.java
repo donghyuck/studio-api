@@ -21,7 +21,7 @@
 
 package studio.one.application.template.autoconfigure;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -130,7 +130,7 @@ public class TemplateAutoConfiguration {
             ObjectProvider<freemarker.template.Configuration> configurationProvider,
             ObjectProvider<WebApplicationContext> webContextProvider) {
         WebApplicationContext context = webContextProvider.getIfAvailable();
-        javax.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
+        jakarta.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
         FreeMarkerConfig freeMarkerConfig = freeMarkerConfigProvider.getIfAvailable();
         if (freeMarkerConfig != null) {
             return new FreemarkerTemplateBuilder(servletContext, freeMarkerConfig);
@@ -144,7 +144,7 @@ public class TemplateAutoConfiguration {
                 }
 
                 @Override
-                public freemarker.ext.jsp.TaglibFactory getTaglibFactory() {
+                public freemarker.ext.jakarta.jsp.TaglibFactory getTaglibFactory() {
                     return null;
                 }
             });
