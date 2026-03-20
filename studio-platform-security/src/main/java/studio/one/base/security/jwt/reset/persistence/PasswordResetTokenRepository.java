@@ -36,7 +36,7 @@ public interface PasswordResetTokenRepository {
     PasswordResetToken save(PasswordResetToken token);
 
     /**
-     * Finds a token by its value.
+     * Finds the latest active token for a user.
      */
-    Optional<PasswordResetToken> findByToken(String token);
+    Optional<PasswordResetToken> findActiveByUserId(Long userId);
 }

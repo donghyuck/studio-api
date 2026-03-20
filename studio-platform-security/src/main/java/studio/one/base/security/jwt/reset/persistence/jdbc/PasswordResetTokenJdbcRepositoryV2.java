@@ -36,8 +36,8 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
     @SqlStatement("security.passwordResetTokenUpdate")
     private String updateSql;
 
-    @SqlStatement("security.passwordResetTokenFindByToken")
-    private String findByTokenSql;
+    @SqlStatement("security.passwordResetTokenFindActiveByUserId")
+    private String findActiveByUserIdSql;
 
     private final NamedParameterJdbcTemplate template;
 
@@ -54,8 +54,8 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
     }
 
     @Override
-    public Optional<PasswordResetToken> findByToken(String token) {
-        return template.query(findByTokenSql, Map.of("token", token), ROW_MAPPER).stream().findFirst();
+    public Optional<PasswordResetToken> findActiveByUserId(Long userId) {
+        return template.query(findActiveByUserIdSql, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
     }
 
     private PasswordResetToken insert(PasswordResetToken token) {

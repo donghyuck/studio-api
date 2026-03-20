@@ -16,7 +16,11 @@ public interface PasswordResetTokenJpaRepository
     @Override
     PasswordResetToken save(PasswordResetToken token);
 
+    Optional<PasswordResetToken> findFirstByUserIdAndUsedFalseOrderByCreatedAtDesc(Long userId);
+
     @Override
-    Optional<PasswordResetToken> findByToken(String token);
+    default Optional<PasswordResetToken> findActiveByUserId(Long userId) {
+        return findFirstByUserIdAndUsedFalseOrderByCreatedAtDesc(userId);
+    }
 
 }

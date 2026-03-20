@@ -44,7 +44,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
-import org.springframework.security.crypto.password.MessageDigestPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.web.cors.CorsConfiguration;
@@ -264,18 +263,13 @@ public class SecurityAutoConfiguration {
                 Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth);
                 encoders.put(PasswordEncoderProperties.Algorithm.PBKDF2.name().toLowerCase(), pbkdf2);
 
-                // 3) SHA-256 (레거시 호환용만—비권장)
-                encoders.put(PasswordEncoderProperties.Algorithm.SHA256.name().toLowerCase(),
-                                new MessageDigestPasswordEncoder("SHA-256"));
-
                 String idForEncode = PasswordEncoderProperties.Algorithm.BCRYPT.name().toLowerCase();
 
                 PasswordEncoderProperties.Algorithm alg = props.getAlgorithm();
                 if (alg == PasswordEncoderProperties.Algorithm.PBKDF2) {
                         idForEncode = PasswordEncoderProperties.Algorithm.PBKDF2.name().toLowerCase();
                 } else if (alg == PasswordEncoderProperties.Algorithm.SHA256) {
-                        log.warn(LogUtils.red(i18n.get("warn.security.password.encoder.sha256.deprecated")));
-                        idForEncode = PasswordEncoderProperties.Algorithm.SHA256.name().toLowerCase();
+                        throw new IllegalStateException("SHA256 password encoder is not allowed");
                 } else if (alg == PasswordEncoderProperties.Algorithm.CUSTOM) {
                         // 커스텀 미구현 시 안전 기본값 유지
                         idForEncode = PasswordEncoderProperties.Algorithm.BCRYPT.name().toLowerCase();
