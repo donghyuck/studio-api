@@ -40,7 +40,7 @@ dependencies {
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
 
-    runtimeOnly("org.postgresql:postgresql:${property("postgresqlVersion")}")    
+    runtimeOnly("org.postgresql:postgresql")    
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.testcontainers:postgresql:${property("testcontainersVersion")}")
