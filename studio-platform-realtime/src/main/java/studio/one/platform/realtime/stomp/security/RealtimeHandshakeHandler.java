@@ -16,8 +16,8 @@ import studio.one.base.security.jwt.JwtTokenProvider;
 
 /**
  * WebSocket Handshake 시 JWT를 통한 Principal 주입을 처리한다.
- * - jwtEnabled=false 또는 JwtTokenProvider 미존재 시 기본 Principal/익명 허용
- * - rejectAnonymous=true 이면서 사용자 정보가 없으면 연결 거부
+ * - jwtEnabled=true 이면 유효한 JWT가 필요하다.
+ * - jwtEnabled=false 일 때만 익명 Principal 허용 정책(rejectAnonymous)에 따른다.
  */
 @RequiredArgsConstructor
 @Slf4j
@@ -34,19 +34,25 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
         if (existing != null) {
             return existing;
         }
-        if (!properties.isJwtEnabled() || jwtTokenProvider == null) {
+        if (!properties.isJwtEnabled()) {
             return allowOrAnonymous(null, request, wsHandler, attributes);
+        }
+        if (jwtTokenProvider == null) {
+            throw new HandshakeFailureException("JWT-enabled WebSocket connections require a JwtTokenProvider");
         }
         try {
             String token = resolveToken(request.getHeaders());
             if (token == null || !jwtTokenProvider.validateToken(token)) {
-                return allowOrAnonymous(null, request, wsHandler, attributes);
+                throw new HandshakeFailureException("Valid JWT bearer token is required");
             }
             String name = jwtTokenProvider.getUsername(token);
-            return allowOrAnonymous(name, request, wsHandler, attributes);
+            return new SimplePrincipal(name);
         } catch (Exception ex) {
             log.debug("Handshake JWT decode failed: {}", ex.getMessage());
-            return allowOrAnonymous(null, request, wsHandler, attributes);
+            if (ex instanceof HandshakeFailureException hfe) {
+                throw hfe;
+            }
+            throw new HandshakeFailureException("JWT handshake failed", ex);
         }
     }
 

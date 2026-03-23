@@ -12,6 +12,7 @@ import studio.one.platform.constant.PropertyKeys;
 @Getter @Setter
 public class TextFeatureProperties extends FeatureToggle {
 
+    private int maxExtractBytes = 10 * 1024 * 1024;
    
     private Tesseract tesseract = new Tesseract();
 

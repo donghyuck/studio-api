@@ -27,7 +27,11 @@ dependencies {
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-user-default"))
     compileOnly(project(":studio-platform-data")) 
-    
+    testImplementation(project(":studio-platform"))
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-security")
+    testImplementation("org.mockito:mockito-core")
+
     compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
