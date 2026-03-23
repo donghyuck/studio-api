@@ -15,6 +15,8 @@
   - `Large (3)`: 구조 변경 / 복수 모듈
 - Issue 템플릿의 `AI-Assisted`는 `Yes/No` 중 정확히 하나를 체크한다.
   - AI 사용 작업은 반드시 `Yes`를 체크한다.
+- Subagent를 사용한 경우 Issue/MR에 위임 작업, 소유 범위, 통합 후 검증 주체(main author)를 기록한다.
+- Subagent를 명시하지 않으면 기존과 동일하게 main agent 기준으로 진행한다.
 
 ## 브랜치/커밋
 - 기본 브랜치: `main`
@@ -34,6 +36,8 @@
 - AI 보조 커밋은 `AI_DEVELOPMENT_POLICY.md`의 `[ai-assisted]` 규칙을 따른다.
 - AI 보조 커밋 작성 시 `.gitmessage-ai-assisted.txt` 템플릿 사용을 권장한다.
 - AI 보조 변경은 merge 전에 human review를 반드시 거친다.
+- Subagent 산출물은 main author가 통합 후 최종 검토/검증 책임을 가진다.
+- 역할별 agent를 사용할 때는 해당 단계의 템플릿을 함께 완성한다.
 
 ## 코드 변경 규칙
 - 기존 패턴/설계 의도를 우선 존중한다.

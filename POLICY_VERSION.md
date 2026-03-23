@@ -1,8 +1,8 @@
 # Policy Version
 
-- Current Version: `v1.1.0`
+- Current Version: `v1.3.0`
 - Effective Date: `2026-03-18`
-- Last Updated: `2026-03-20`
+- Last Updated: `2026-03-23`
 
 ## Versioning Rules
 - 정책 파일 구조/규칙 변경 시 버전을 갱신한다.
@@ -19,8 +19,11 @@
   - `SKILL.md`
   - `README.md`
   - `.gitmessage-ai-assisted.txt`
+  - `.codex/config.toml`
+  - `.codex/agents/*.toml`
   - `.gitlab/issue_templates/default.md`
   - `.gitlab/merge_request_templates/default.md`
+  - `docs/agents/*.md`
   - `.vscode/java.code-snippets`
   - `docs/dev/vscode-snippets-guide.md`
   - `scripts/install-policy.sh`

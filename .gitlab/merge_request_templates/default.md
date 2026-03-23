@@ -26,10 +26,18 @@
   - 
 - Additional checks:
 
+## Subagent Usage
+아래 항목은 **정확히 하나만** 체크합니다.
+- Used: [ ] No [ ] Yes
+- Delegated tasks:
+- Ownership (files/modules/tasks):
+- Main author post-integration validation:
+
 ## Checklist
 - [ ] policy-compliant commit message
 - [ ] issue template used where applicable
 - [ ] AI-Assisted checked correctly
+- [ ] subagent usage recorded (if used)
 - [ ] validation recorded
 - [ ] CI / repository verification passed
 - [ ] human review completed before merge
