@@ -47,6 +47,13 @@
 - [ ] Refactoring suggestion
 - [ ] Test case / validation checklist
 - [ ] Documentation draft
+- [ ] Subagent delegation
+
+## Subagent Usage
+subagent를 사용한 경우에만 작성합니다.
+- Delegated tasks:
+- Ownership (files/modules/tasks):
+- Main author post-integration validation:
 
 ## Analysis / Findings
 특히 유지보수/버그 작업의 경우, AI 분석 결과 또는 주요 확인 사항을 작성합니다.
