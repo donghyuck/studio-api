@@ -23,5 +23,5 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
-    compileOnly("org.springframework.boot:spring-boot-starter-validation") // javax 기반
+    implementation("org.springframework.boot:spring-boot-starter-validation")
 }

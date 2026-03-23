@@ -74,12 +74,18 @@ public class RealtimeStompAutoConfiguration {
     @ConditionalOnProperty(prefix = "studio.realtime.stomp", name = "enabled", havingValue = "true", matchIfMissing = true)
     public RealtimeHandshakeHandler handshakeHandler(
             ObjectProvider<studio.one.base.security.jwt.JwtTokenProvider> provider) {
+        studio.one.base.security.jwt.JwtTokenProvider jwtTokenProvider = provider.getIfAvailable();
+        if (properties.isJwtEnabled() && jwtTokenProvider == null) {
+            throw new IllegalStateException(
+                    "studio.realtime.stomp.jwt-enabled=true requires a JwtTokenProvider. "
+                            + "Add the security starter/module or explicitly disable JWT for realtime.");
+        }
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                 RealtimeStompAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(RealtimeHandshakeHandler.class, true),
                 LogUtils.red(State.CREATED.toString())));
-        return new RealtimeHandshakeHandler(properties, provider.getIfAvailable());
+        return new RealtimeHandshakeHandler(properties, jwtTokenProvider);
     }
 
     @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:session-handshake-interceptor")
