@@ -78,8 +78,9 @@ public class RealtimeStompProperties {
 
     /**
      * 허용 Origin.
+     * 기본값은 비어 있어 same-origin 정책을 따른다.
      */
-    private List<String> allowedOrigins = List.of("*");
+    private List<String> allowedOrigins = List.of();
 
     /**
      * SockJS 사용 여부.
@@ -88,8 +89,9 @@ public class RealtimeStompProperties {
 
     /**
      * JWT 토큰으로 Principal을 주입할지 여부 (Authorization Bearer, JwtDecoder 필요).
+     * 기본값은 true로 두어 인증된 WebSocket 연결만 허용한다.
      */
-    private boolean jwtEnabled = false;
+    private boolean jwtEnabled = true;
 
     /**
      * Redis Pub/Sub 연동 사용 여부.
@@ -102,8 +104,8 @@ public class RealtimeStompProperties {
     private String redisChannel = "studio:realtime:events";
 
     /**
-     * JWT 기반 Principal 생성 시 사용자 식별자 누락일 경우 연결 차단할지 여부 (기본: false, 즉 익명 Principal
-     * 허용).
+     * JWT 기반 Principal 생성 시 사용자 식별자 누락일 경우 연결 차단할지 여부.
+     * 기본값은 true로 두어 익명 연결을 허용하지 않는다.
      */
-    private boolean rejectAnonymous = false;
+    private boolean rejectAnonymous = true;
 }

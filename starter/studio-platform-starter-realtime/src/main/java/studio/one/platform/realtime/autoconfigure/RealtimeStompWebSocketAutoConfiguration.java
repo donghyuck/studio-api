@@ -59,7 +59,7 @@ public class RealtimeStompWebSocketAutoConfiguration implements WebSocketMessage
         var endpoint = registry.addEndpoint(properties.getEndpoint())
                 .addInterceptors(handshakeInterceptors.toArray(new HandshakeInterceptor[0]))
                 .setHandshakeHandler(handshakeHandler);
-        if (properties.getAllowedOrigins() != null) {
+        if (properties.getAllowedOrigins() != null && !properties.getAllowedOrigins().isEmpty()) {
             endpoint.setAllowedOrigins(properties.getAllowedOrigins().toArray(new String[0]));
         }
         if (properties.isSockJs()) {

@@ -106,6 +106,6 @@ public class TextAutoConfiguration {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(FileContentExtractionService.class, true), LogUtils.red(State.CREATED.toString())));
-        return new FileContentExtractionService(factory);
+        return new FileContentExtractionService(factory, props.getMaxExtractBytes());
     }
 }
