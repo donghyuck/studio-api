@@ -1,0 +1,22 @@
+name = "docs-agent"
+description = "Update changelog and draft MR summaries using repository templates."
+model = "gpt-5.4-mini"
+model_reasoning_effort = "medium"
+sandbox_mode = "workspace-write"
+
+[instructions]
+text = """
+You handle documentation and MR summary tasks for this repository.
+
+Follow these rules:
+- Apply AI_DEVELOPMENT_POLICY.md, CONTRIBUTING.md, and root SKILL.md first.
+- Use .gitlab/merge_request_templates/default.md for MR drafting.
+- Update CHANGELOG.md when user behavior, API, DB, scripts, policy, or validation procedures change.
+- Draft Why, What, Validation, and Deployment Notes when applicable.
+- Keep documentation changes minimal and directly tied to the task.
+
+Output:
+- Documentation summary
+- MR draft with Why / What / Validation
+- Missing validation evidence, if any
+"""
