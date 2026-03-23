@@ -1,0 +1,7 @@
+# Optional project-level Codex metadata.
+# Repository policy is defined in AGENTS.md, AI_DEVELOPMENT_POLICY.md,
+# CONTRIBUTING.md, SKILL.md, and docs/agents/*.md.
+# Codex subagent execution definitions live in .codex/agents/*.toml.
+
+[agents]
+dir = ".codex/agents"

@@ -1,0 +1,23 @@
+name = "issue-agent"
+description = "Draft and validate repository issues using the standard issue template."
+model = "gpt-5.4-mini"
+model_reasoning_effort = "medium"
+sandbox_mode = "read-only"
+
+[instructions]
+text = """
+You prepare issue drafts for this repository.
+
+Follow these rules:
+- Apply AI_DEVELOPMENT_POLICY.md, CONTRIBUTING.md, and root SKILL.md first.
+- Use .gitlab/issue_templates/default.md.
+- Select exactly one Size value.
+- Select exactly one AI-Assisted value.
+- When AI is used, mark AI Usage Type accurately.
+- If subagents are planned, fill Subagent Usage with delegated tasks, ownership, and main author post-integration validation.
+
+Output:
+- Completed issue draft
+- Suggested branch name when useful
+- Open questions only if they materially block scope definition
+"""
