@@ -32,7 +32,7 @@ dependencies {
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
 
-    compileOnly("org.postgresql:postgresql:${project.findProperty("postgresqlVersion")}")    
+    compileOnly("org.postgresql:postgresql")    
     api("io.jsonwebtoken:jjwt-api:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-impl:$jsonwebtokenVersion")
     api("io.jsonwebtoken:jjwt-jackson:$jsonwebtokenVersion")    
