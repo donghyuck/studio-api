@@ -14,6 +14,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 }
 
 dependencies {  
+    implementation(platform("org.springframework.ai:spring-ai-bom:1.1.2"))
     compileOnly(project(":studio-platform-autoconfigure")) 
     compileOnly(project(":starter:studio-platform-starter")) 
     api(project(":studio-platform-ai")) 
@@ -24,6 +25,7 @@ dependencies {
     compileOnly("org.springframework.security:spring-security-acl")
     
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}") 
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
     implementation("dev.langchain4j:langchain4j:${property("langchain4jVersion")}")
     implementation("dev.langchain4j:langchain4j-open-ai:${property("langchain4jVersion")}")
     implementation("dev.langchain4j:langchain4j-ollama:${property("langchain4jVersion")}")
@@ -33,4 +35,6 @@ dependencies {
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core")
+    testImplementation(project(":studio-platform"))
 } 

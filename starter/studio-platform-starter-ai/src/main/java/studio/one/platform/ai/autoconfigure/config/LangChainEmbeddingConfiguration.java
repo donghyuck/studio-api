@@ -15,6 +15,7 @@ import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
 import studio.one.platform.ai.adapters.embedding.LangChainEmbeddingAdapter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.autoconfigure.I18nKeys;
@@ -30,7 +31,8 @@ public class LangChainEmbeddingConfiguration {
 
     @Bean(name = "providerEmbeddingPorts")
     public Map<String, EmbeddingPort> embeddingPorts(AiAdapterProperties properties,
-                                                    ObjectProvider<I18n> i18nProvider) {
+                                                    ObjectProvider<I18n> i18nProvider,
+                                                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         Map<String, EmbeddingPort> ports = new LinkedHashMap<>();
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
@@ -40,8 +42,48 @@ public class LangChainEmbeddingConfiguration {
                 continue;
             }
             ports.put(entry.getKey(), createEmbedding(provider, i18n));
+            registerSpringAiEmbeddingPort(ports, entry.getKey(), provider, properties, springAiEmbeddingModelProvider);
         }
         return ports;
+    }
+
+    private static void registerSpringAiEmbeddingPort(Map<String, EmbeddingPort> ports, String providerName,
+            AiAdapterProperties.Provider provider, AiAdapterProperties properties,
+            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
+        if (!properties.getSpringAi().isEnabled() || provider.getType() != AiAdapterProperties.ProviderType.OPENAI) {
+            return;
+        }
+        if (!isSpringAiSourceProvider(providerName, properties)) {
+            return;
+        }
+        String alias = springAiAlias(providerName, properties);
+        if (properties.getProviders().containsKey(alias) && !providerName.equals(alias)) {
+            throw new IllegalStateException("Spring AI alias provider collides with configured provider: " + alias);
+        }
+        if (ports.containsKey(alias)) {
+            throw new IllegalStateException("Spring AI alias provider already exists: " + alias);
+        }
+        org.springframework.ai.embedding.EmbeddingModel embeddingModel = springAiEmbeddingModelProvider.getIfAvailable();
+        if (embeddingModel == null) {
+            throw new IllegalStateException("Spring AI embedding model bean is required when studio.ai.spring-ai.enabled=true");
+        }
+        ports.put(alias, new SpringAiEmbeddingAdapter(embeddingModel));
+    }
+
+    private static String springAiAlias(String providerName, AiAdapterProperties properties) {
+        String suffix = properties.getSpringAi().getProviderSuffix();
+        if (suffix == null || suffix.isBlank()) {
+            throw new IllegalArgumentException("studio.ai.spring-ai.provider-suffix must not be blank");
+        }
+        return providerName + suffix;
+    }
+
+    private static boolean isSpringAiSourceProvider(String providerName, AiAdapterProperties properties) {
+        String sourceProvider = properties.getSpringAi().getSourceProvider();
+        if (sourceProvider == null || sourceProvider.isBlank()) {
+            return providerName.equalsIgnoreCase(properties.getDefaultProvider());
+        }
+        return providerName.equalsIgnoreCase(sourceProvider);
     }
 
     private static EmbeddingPort createEmbedding(AiAdapterProperties.Provider provider, I18n i18n) {

@@ -4,9 +4,11 @@ import java.util.Map;
 
 import jakarta.annotation.PostConstruct;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.core.env.Environment;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +21,9 @@ import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 public class AiSecretPresenceGuard {
 
     private final AiAdapterProperties properties;
+    private final Environment environment;
+    private final ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider;
+    private final ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider;
 
     @PostConstruct
     void validate() {
@@ -37,6 +42,41 @@ public class AiSecretPresenceGuard {
                 }
             }
         }
+        validateSpringAiAliasSettings();
+    }
+
+    private void validateSpringAiAliasSettings() {
+        if (!properties.getSpringAi().isEnabled()) {
+            return;
+        }
+        String providerId = resolveSpringAiSourceProvider();
+        AiAdapterProperties.Provider provider = properties.getProviders().get(providerId);
+        if (provider == null) {
+            throw new IllegalStateException("studio.ai.spring-ai.source-provider must reference an existing provider: " + providerId);
+        }
+        if (provider.getType() != AiAdapterProperties.ProviderType.OPENAI) {
+            throw new IllegalStateException("studio.ai.spring-ai.source-provider must reference an OPENAI provider: " + providerId);
+        }
+        requireText(environment.getProperty("spring.ai.openai.api-key"),
+                "spring.ai.openai.api-key must be configured when studio.ai.spring-ai.enabled=true");
+        boolean chatEnabled = provider.getChat().isEnabled();
+        boolean embeddingEnabled = provider.getEmbedding().isEnabled();
+        if (chatEnabled && springAiChatModelProvider.getIfAvailable() == null) {
+            throw new IllegalStateException("Spring AI chat model bean is required when studio.ai.spring-ai.enabled=true");
+        }
+        if (embeddingEnabled && springAiEmbeddingModelProvider.getIfAvailable() == null) {
+            throw new IllegalStateException("Spring AI embedding model bean is required when studio.ai.spring-ai.enabled=true");
+        }
+    }
+
+    private String resolveSpringAiSourceProvider() {
+        if (StringUtils.hasText(properties.getSpringAi().getSourceProvider())) {
+            return properties.getSpringAi().getSourceProvider().toLowerCase();
+        }
+        if (StringUtils.hasText(properties.getDefaultProvider())) {
+            return properties.getDefaultProvider().toLowerCase();
+        }
+        throw new IllegalStateException("studio.ai.spring-ai.source-provider or studio.ai.default-provider must be configured");
     }
 
     private static void requireText(String value, String message) {
