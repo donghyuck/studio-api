@@ -19,7 +19,6 @@ import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
-import studio.one.platform.ai.web.controller.TokenUsageJsonComponent;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.constant.PropertyKeys;
 
@@ -67,10 +66,5 @@ public class AiWebAutoConfiguration {
             Environment environment,
             @Nullable VectorStorePort vectorStorePort) {
         return new AiInfoController(properties, environment, vectorStorePort);
-    }
-
-    @Bean
-    TokenUsageJsonComponent tokenUsageJsonComponent() {
-        return new TokenUsageJsonComponent();
     }
 }

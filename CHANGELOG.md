@@ -30,3 +30,4 @@
 - refactor(ai): narrow AI dependency ownership so web/security concerns stay with the web starter boundary.
 - refactor(ai): replace AI starter component scanning with explicit auto-configuration bean registration.
 - refactor(ai): prune unused compileOnly Spring starter dependencies from `studio-platform-starter-ai`.
+- refactor(ai): remove LangChain4j `TokenUsage` coupling from ai-web starter and normalize chat `tokenUsage` metadata shape.

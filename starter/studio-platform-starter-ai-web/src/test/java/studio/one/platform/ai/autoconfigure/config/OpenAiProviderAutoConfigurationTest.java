@@ -28,7 +28,6 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
-import studio.one.platform.ai.web.controller.TokenUsageJsonComponent;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
@@ -148,7 +147,6 @@ class OpenAiProviderAutoConfigurationTest {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
             assertThat(context).hasSingleBean(AiInfoController.class);
-            assertThat(context).hasSingleBean(TokenUsageJsonComponent.class);
 
             AiInfoController controller = context.getBean(AiInfoController.class);
 

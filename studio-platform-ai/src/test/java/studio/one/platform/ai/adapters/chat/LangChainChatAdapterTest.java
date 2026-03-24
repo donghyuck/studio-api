@@ -18,6 +18,7 @@ import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatMessageRole;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -68,7 +69,8 @@ class LangChainChatAdapterTest {
         assertThat(response.metadata()).containsEntry("responseId", "response-id");
         assertThat(response.metadata()).containsEntry("modelName", "gpt-4o-mini");
         assertThat(response.metadata().get("finishReason")).isEqualTo(FinishReason.STOP);
-        assertThat(response.metadata().get("tokenUsage")).isEqualTo(tokenUsage);
+        assertThat(response.metadata().get("tokenUsage"))
+                .isEqualTo(Map.of("inputTokens", 5L, "outputTokens", 7L, "totalTokens", 12L));
 
         verify(chatModel).chat(requestCaptor.capture());
         ChatRequest captured = requestCaptor.getValue();
