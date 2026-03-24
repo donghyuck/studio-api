@@ -187,4 +187,16 @@ class OpenAiProviderAutoConfigurationTest {
                             .hasRootCauseMessage("Exactly one enabled OPENAI provider is supported");
                 });
     }
+
+    @Test
+    void doesNotRegisterInfoControllerWhenEndpointsAreDisabled() {
+        contextRunner
+                .withPropertyValues("studio.ai.endpoints.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(AiInfoController.class);
+                    assertThat(context).hasSingleBean(ChatController.class);
+                    assertThat(context).hasSingleBean(EmbeddingController.class);
+                });
+    }
 }

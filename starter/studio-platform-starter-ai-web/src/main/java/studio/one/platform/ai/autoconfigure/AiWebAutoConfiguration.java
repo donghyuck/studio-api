@@ -57,6 +57,11 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(
+            prefix = PropertyKeys.AI.Endpoints.PREFIX,
+            name = "enabled",
+            havingValue = "true",
+            matchIfMissing = false)
     AiInfoController aiInfoController(
             AiAdapterProperties properties,
             Environment environment,
