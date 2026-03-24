@@ -28,6 +28,7 @@ public class AiSecretPresenceGuard {
     @PostConstruct
     void validate() {
         String springAiSourceProvider = properties.getSpringAi().isEnabled() ? resolveSpringAiSourceProvider() : null;
+        validateDefaultProviderSelection();
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
             String providerId = entry.getKey();
             AiAdapterProperties.Provider provider = entry.getValue();
@@ -50,6 +51,13 @@ public class AiSecretPresenceGuard {
             }
         }
         validateSpringAiAliasSettings();
+    }
+
+    private void validateDefaultProviderSelection() {
+        if (!StringUtils.hasText(properties.effectiveDefaultProvider())) {
+            throw new IllegalStateException(
+                    "studio.ai.default-provider must be configured unless studio.ai.spring-ai.enabled=true with a valid source provider");
+        }
     }
 
     private void validateSpringAiAliasSettings() {

@@ -44,7 +44,7 @@ public class AiInfoController {
         VectorInfo vectorInfo = new VectorInfo(
                 vectorStorePort != null,
                 vectorStorePort == null ? null : vectorStorePort.getClass().getSimpleName());
-        return ResponseEntity.ok(ApiResponse.ok(new AiInfoResponse(providerInfos, properties.getDefaultProvider(), vectorInfo)));
+        return ResponseEntity.ok(ApiResponse.ok(new AiInfoResponse(providerInfos, properties.effectiveDefaultProvider(), vectorInfo)));
     }
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
