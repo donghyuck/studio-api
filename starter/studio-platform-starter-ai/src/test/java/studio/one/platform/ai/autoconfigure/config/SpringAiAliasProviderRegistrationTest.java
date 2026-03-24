@@ -8,6 +8,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.mock.env.MockEnvironment;
 
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -26,11 +27,8 @@ class SpringAiAliasProviderRegistrationTest {
 
         AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
         provider.setType(AiAdapterProperties.ProviderType.OPENAI);
-        provider.setApiKey("test-key");
         provider.getChat().setEnabled(true);
-        provider.getChat().setModel("gpt-4o-mini");
         provider.getEmbedding().setEnabled(true);
-        provider.getEmbedding().setModel("text-embedding-3-small");
         properties.getProviders().put("openai", provider);
 
         LangChainChatConfiguration chatConfiguration = new LangChainChatConfiguration();
@@ -39,10 +37,16 @@ class SpringAiAliasProviderRegistrationTest {
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         beanFactory.addBean("springAiEmbeddingModel", org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class));
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.openai.api-key", "test-key")
+                .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini")
+                .withProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
 
         Map<String, ChatPort> chatPorts = chatConfiguration.chatPorts(properties, i18nProvider,
+                environment,
                 beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
         Map<String, EmbeddingPort> embeddingPorts = embeddingConfiguration.embeddingPorts(properties, i18nProvider,
+                environment,
                 beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
 
         assertThat(chatPorts).containsKeys("openai", "openai-springai");
@@ -66,17 +70,18 @@ class SpringAiAliasProviderRegistrationTest {
 
         AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
         provider.setType(AiAdapterProperties.ProviderType.OPENAI);
-        provider.setApiKey("test-key");
         provider.getChat().setEnabled(true);
-        provider.getChat().setModel("gpt-4o-mini");
         properties.getProviders().put("openai", provider);
 
         LangChainChatConfiguration chatConfiguration = new LangChainChatConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.openai.api-key", "test-key")
+                .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
-        assertThatThrownBy(() -> chatConfiguration.chatPorts(properties, i18nProvider,
+        assertThatThrownBy(() -> chatConfiguration.chatPorts(properties, i18nProvider, environment,
                 beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("provider-suffix");
@@ -92,9 +97,7 @@ class SpringAiAliasProviderRegistrationTest {
 
         AiAdapterProperties.Provider openAi = new AiAdapterProperties.Provider();
         openAi.setType(AiAdapterProperties.ProviderType.OPENAI);
-        openAi.setApiKey("test-key");
         openAi.getChat().setEnabled(true);
-        openAi.getChat().setModel("gpt-4o-mini");
         properties.getProviders().put("openai", openAi);
 
         AiAdapterProperties.Provider colliding = new AiAdapterProperties.Provider();
@@ -108,8 +111,11 @@ class SpringAiAliasProviderRegistrationTest {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.openai.api-key", "test-key")
+                .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
-        assertThatThrownBy(() -> chatConfiguration.chatPorts(properties, i18nProvider,
+        assertThatThrownBy(() -> chatConfiguration.chatPorts(properties, i18nProvider, environment,
                 beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("collides");
@@ -125,9 +131,7 @@ class SpringAiAliasProviderRegistrationTest {
 
         AiAdapterProperties.Provider openAi = new AiAdapterProperties.Provider();
         openAi.setType(AiAdapterProperties.ProviderType.OPENAI);
-        openAi.setApiKey("test-key");
         openAi.getChat().setEnabled(true);
-        openAi.getChat().setModel("gpt-4o-mini");
         properties.getProviders().put("openai", openAi);
 
         AiAdapterProperties.Provider secondOpenAi = new AiAdapterProperties.Provider();
@@ -140,8 +144,11 @@ class SpringAiAliasProviderRegistrationTest {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.openai.api-key", "test-key")
+                .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
-        Map<String, ChatPort> chatPorts = new LangChainChatConfiguration().chatPorts(properties, i18nProvider,
+        Map<String, ChatPort> chatPorts = new LangChainChatConfiguration().chatPorts(properties, i18nProvider, environment,
                 beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
 
         assertThat(chatPorts).containsKeys("openai", "openai-springai", "backup-openai");

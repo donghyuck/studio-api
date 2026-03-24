@@ -68,6 +68,14 @@ public class AiSecretPresenceGuard {
                 "spring.ai.openai.api-key must be configured when studio.ai.spring-ai.enabled=true");
         boolean chatEnabled = provider.getChat().isEnabled();
         boolean embeddingEnabled = provider.getEmbedding().isEnabled();
+        if (chatEnabled) {
+            requireText(environment.getProperty("spring.ai.openai.chat.options.model"),
+                    "spring.ai.openai.chat.options.model must be configured when studio.ai.spring-ai.enabled=true");
+        }
+        if (embeddingEnabled) {
+            requireText(environment.getProperty("spring.ai.openai.embedding.options.model"),
+                    "spring.ai.openai.embedding.options.model must be configured when studio.ai.spring-ai.enabled=true");
+        }
         if (chatEnabled && springAiChatModelProvider.getIfAvailable() == null) {
             throw new IllegalStateException("Spring AI chat model bean is required when studio.ai.spring-ai.enabled=true");
         }

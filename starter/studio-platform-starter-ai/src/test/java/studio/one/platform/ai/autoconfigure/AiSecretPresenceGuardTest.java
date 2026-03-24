@@ -76,6 +76,8 @@ class AiSecretPresenceGuardTest {
 
         MockEnvironment environment = new MockEnvironment();
         environment.setProperty("spring.ai.openai.api-key", "test-key");
+        environment.setProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
+        environment.setProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("chatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         beanFactory.addBean("embeddingModel", org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class));
@@ -85,6 +87,31 @@ class AiSecretPresenceGuardTest {
                 beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
 
         assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateRequiresSpringAiChatModelPropertyForEnabledSourceProviderChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.getSpringAi().setEnabled(true);
+        properties.getSpringAi().setSourceProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.openai.api-key", "test-key");
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("chatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThrows(IllegalStateException.class, guard::validate);
     }
 
     private static Environment environment() {
