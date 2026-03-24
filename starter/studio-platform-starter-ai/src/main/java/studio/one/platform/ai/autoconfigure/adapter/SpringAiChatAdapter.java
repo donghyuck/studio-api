@@ -8,6 +8,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 
@@ -50,7 +51,7 @@ public class SpringAiChatAdapter implements ChatPort {
             metadata.put("finishReason", response.getResult().getMetadata().getFinishReason());
         }
         if (response.getMetadata().getUsage() != null) {
-            metadata.put("tokenUsage", response.getMetadata().getUsage());
+            metadata.put("tokenUsage", toTokenUsageMap(response.getMetadata().getUsage()));
         }
         metadata.put("chatResponseMetadata", response.getMetadata());
         metadata.put("generationMetadata", response.getResult().getMetadata());
@@ -67,5 +68,13 @@ public class SpringAiChatAdapter implements ChatPort {
             case USER -> new UserMessage(message.content());
             case ASSISTANT -> new AssistantMessage(message.content());
         };
+    }
+
+    private Map<String, Integer> toTokenUsageMap(Usage usage) {
+        Map<String, Integer> values = new LinkedHashMap<>();
+        values.put("inputTokens", usage.getPromptTokens());
+        values.put("outputTokens", usage.getCompletionTokens());
+        values.put("totalTokens", usage.getTotalTokens());
+        return values;
     }
 }

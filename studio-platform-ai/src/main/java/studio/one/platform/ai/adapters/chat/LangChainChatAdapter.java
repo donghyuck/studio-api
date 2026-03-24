@@ -71,7 +71,7 @@ public class LangChainChatAdapter implements ChatPort {
             metadata.put("finishReason", providerResponse.metadata().finishReason());
         }
         if (providerResponse.metadata().tokenUsage() != null) {
-            metadata.put("tokenUsage", providerResponse.metadata().tokenUsage());
+            metadata.put("tokenUsage", toTokenUsageMap(providerResponse.metadata().tokenUsage()));
         }
 
         return new ChatResponse(responseMessages, providerResponse.metadata().modelName(), metadata);
@@ -83,5 +83,13 @@ public class LangChainChatAdapter implements ChatPort {
             case USER -> new UserMessage(message.content());
             case ASSISTANT -> AiMessage.from(message.content());
         };
+    }
+
+    private Map<String, Long> toTokenUsageMap(dev.langchain4j.model.output.TokenUsage tokenUsage) {
+        Map<String, Long> usage = new LinkedHashMap<>();
+        usage.put("inputTokens", tokenUsage.inputTokenCount() == null ? null : tokenUsage.inputTokenCount().longValue());
+        usage.put("outputTokens", tokenUsage.outputTokenCount() == null ? null : tokenUsage.outputTokenCount().longValue());
+        usage.put("totalTokens", tokenUsage.totalTokenCount() == null ? null : tokenUsage.totalTokenCount().longValue());
+        return usage;
     }
 }

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.DefaultUsage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -29,7 +30,11 @@ class SpringAiChatAdapterTest {
                         List.of(new Generation(
                                 new AssistantMessage("hello from spring ai"),
                                 ChatGenerationMetadata.builder().finishReason("stop").build())),
-                        ChatResponseMetadata.builder().id("resp-1").model("gpt-4.1-mini").build()));
+                        ChatResponseMetadata.builder()
+                                .id("resp-1")
+                                .model("gpt-4.1-mini")
+                                .usage(new DefaultUsage(5, 7))
+                                .build()));
 
         SpringAiChatAdapter adapter = new SpringAiChatAdapter(model);
 
@@ -45,6 +50,8 @@ class SpringAiChatAdapterTest {
         assertThat(response.metadata()).containsEntry("responseId", "resp-1");
         assertThat(response.metadata()).containsEntry("modelName", "gpt-4.1-mini");
         assertThat(response.metadata()).containsEntry("finishReason", "stop");
+        assertThat(response.metadata().get("tokenUsage"))
+                .isEqualTo(java.util.Map.of("inputTokens", 5, "outputTokens", 7, "totalTokens", 12));
         assertThat(response.metadata()).containsKeys("chatResponseMetadata", "generationMetadata");
     }
 
