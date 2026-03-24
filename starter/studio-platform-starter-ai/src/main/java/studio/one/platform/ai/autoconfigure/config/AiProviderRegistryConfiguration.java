@@ -37,7 +37,11 @@ public class AiProviderRegistryConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(AiProviderRegistry.class, true), LogUtils.red(State.CREATED.toString())));
 
-        return new AiProviderRegistry(properties.getDefaultProvider(), chatPorts, embeddingPorts);
+        String defaultProvider = properties.effectiveDefaultProvider();
+        if (defaultProvider == null || defaultProvider.isBlank()) {
+            throw new IllegalStateException("studio.ai.default-provider must be configured unless Spring AI alias promotion is enabled");
+        }
+        return new AiProviderRegistry(defaultProvider, chatPorts, embeddingPorts);
     }
 
     @Bean

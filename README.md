@@ -166,12 +166,27 @@ studio:
       audit-enabled: true
   ai:
     enabled: true
-    default-provider: openai
+    default-provider: openai-springai
+    spring-ai:
+      enabled: true
+      source-provider: openai
+      provider-suffix: -springai
     providers:
-      - name: openai
+      openai:
         type: OPENAI
-        api-key: ${OPENAI_API_KEY}
+        chat:
+          enabled: true
         embedding:
+          enabled: true
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
           model: text-embedding-3-small
 ```
 필요 없는 기능은 `enabled=false` 로 비활성화하고, 경로나 저장소 타입은 `studio.features.<feature>.*` 속성으로 조정한다.

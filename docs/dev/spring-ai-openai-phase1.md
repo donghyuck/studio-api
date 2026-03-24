@@ -12,6 +12,7 @@ OpenAI 경로의 런타임 설정 소유권을 `studio.ai.*`에서 `spring.ai.*`
 - `studio.ai.spring-ai.provider-suffix`는 임시 alias suffix이다.
 - `studio.ai.spring-ai.source-provider`는 Spring AI alias의 기준 provider를 지정한다.
 - source provider로 지정된 OpenAI의 LangChain base 경로도 `spring.ai.openai.*`를 읽는다.
+- `studio.ai.default-provider`를 비우면 Spring AI alias(`source-provider + provider-suffix`)가 기본 provider로 승격된다.
 
 ## 현재 권장 설정
 
@@ -82,6 +83,7 @@ source provider로 지정된 OpenAI는 base provider(`openai`)와 alias provider
 - `studio.ai.spring-ai.enabled=true`이면 `spring.ai.openai.api-key`가 반드시 있어야 한다.
 - `studio.ai.spring-ai.source-provider`는 존재하는 `OPENAI` provider를 가리켜야 한다.
 - 기본 provider가 `openai-springai`인데 chat 또는 embedding alias가 없으면 startup이 실패해야 한다.
+- `studio.ai.default-provider`가 비어 있고 Spring AI alias promotion 조건도 없으면 startup이 실패해야 한다.
 
 ## 검증
 

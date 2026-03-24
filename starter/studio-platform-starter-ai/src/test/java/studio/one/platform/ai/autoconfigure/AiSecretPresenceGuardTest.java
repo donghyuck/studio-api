@@ -34,6 +34,8 @@ class AiSecretPresenceGuardTest {
     @Test
     void validateAllowsConfiguredOllamaBaseUrl() {
         AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("ollama");
         Provider provider = new Provider();
         provider.setEnabled(true);
         provider.setType(ProviderType.OLLAMA);
@@ -52,6 +54,18 @@ class AiSecretPresenceGuardTest {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
         properties.getSpringAi().setEnabled(true);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
+                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingDefaultProviderWhenNoSpringAiPromotionExists() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
 
         AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
                 emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),

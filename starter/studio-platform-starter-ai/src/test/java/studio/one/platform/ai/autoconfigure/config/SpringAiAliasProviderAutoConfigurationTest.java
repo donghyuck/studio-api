@@ -86,6 +86,20 @@ class SpringAiAliasProviderAutoConfigurationTest {
     }
 
     @Test
+    void promotesSpringAiAliasAsEffectiveDefaultProviderWhenDefaultProviderIsOmitted() {
+        contextRunner
+                .withPropertyValues("studio.ai.default-provider=")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
+
+                    assertThat(registry.defaultProvider()).isEqualTo("openai-springai");
+                    assertThat(context.getBean(ChatPort.class)).isSameAs(registry.chatPort("openai-springai"));
+                    assertThat(context.getBean(EmbeddingPort.class)).isSameAs(registry.embeddingPort("openai-springai"));
+                });
+    }
+
+    @Test
     void routesControllerChatRequestsThroughDefaultSpringAiAlias() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
@@ -154,6 +168,7 @@ class SpringAiAliasProviderAutoConfigurationTest {
 
             AiInfoController controller = new AiInfoController(
                     context.getBean(AiAdapterProperties.class),
+                    context.getEnvironment(),
                     null);
 
             ResponseEntity<ApiResponse<AiInfoController.AiInfoResponse>> response = controller.providers();
@@ -161,6 +176,9 @@ class SpringAiAliasProviderAutoConfigurationTest {
 
             assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
             assertThat(response.getBody().getData().defaultProvider()).isEqualTo("openai-springai");
+            assertThat(response.getBody().getData().providers())
+                    .extracting(AiInfoController.ProviderInfo::name)
+                    .contains("openai", "openai-springai");
             assertThat(registry.defaultProvider()).isEqualTo("openai-springai");
             assertThat(registry.availableChatPorts()).containsKeys("openai", "openai-springai");
             assertThat(registry.availableEmbeddingPorts()).containsKeys("openai", "openai-springai");
@@ -284,8 +302,11 @@ class SpringAiAliasProviderAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
+                    assertThat(registry.defaultProvider()).isEqualTo("openai");
                     assertThat(registry.availableChatPorts()).containsKeys("openai", "openai-springai");
                     assertThat(registry.availableEmbeddingPorts()).containsKeys("openai", "openai-springai");
+                    assertThat(context.getBean(ChatPort.class)).isSameAs(registry.chatPort("openai"));
+                    assertThat(context.getBean(EmbeddingPort.class)).isSameAs(registry.embeddingPort("openai"));
                 });
     }
 }
