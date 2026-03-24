@@ -168,6 +168,7 @@ class SpringAiAliasProviderAutoConfigurationTest {
 
             AiInfoController controller = new AiInfoController(
                     context.getBean(AiAdapterProperties.class),
+                    context.getEnvironment(),
                     null);
 
             ResponseEntity<ApiResponse<AiInfoController.AiInfoResponse>> response = controller.providers();
@@ -175,6 +176,9 @@ class SpringAiAliasProviderAutoConfigurationTest {
 
             assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
             assertThat(response.getBody().getData().defaultProvider()).isEqualTo("openai-springai");
+            assertThat(response.getBody().getData().providers())
+                    .extracting(AiInfoController.ProviderInfo::name)
+                    .contains("openai", "openai-springai");
             assertThat(registry.defaultProvider()).isEqualTo("openai-springai");
             assertThat(registry.availableChatPorts()).containsKeys("openai", "openai-springai");
             assertThat(registry.availableEmbeddingPorts()).containsKeys("openai", "openai-springai");
