@@ -72,7 +72,7 @@ public class LangChainEmbeddingConfiguration {
             return createOllamaSpringAiEmbeddingPort(environment);
         }
         if (provider.getType() == AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI) {
-            return createGoogleSpringAiEmbeddingPort(environment);
+            return createGoogleSpringAiEmbeddingPort(provider, environment);
         }
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
@@ -99,11 +99,12 @@ public class LangChainEmbeddingConfiguration {
         return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
-    private static EmbeddingPort createGoogleSpringAiEmbeddingPort(Environment environment) {
+    private static EmbeddingPort createGoogleSpringAiEmbeddingPort(AiAdapterProperties.Provider provider, Environment environment) {
         String apiKey = requireText(environment.getProperty("spring.ai.google.genai.embedding.api-key"),
                 "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
         String model = requireText(environment.getProperty("spring.ai.google.genai.embedding.text.options.model"),
                 "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
+        AiAdapterProperties.GoogleEmbeddingOptions google = provider.getGoogleEmbedding();
         org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails connectionDetails =
                 org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails.builder()
                         .apiKey(apiKey)
@@ -113,6 +114,7 @@ public class LangChainEmbeddingConfiguration {
         org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions options =
                 org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.builder()
                         .model(model)
+                        .taskType(parseSpringAiGoogleTaskType(google.getTaskType()))
                         .build();
         org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel embeddingModel =
                 new org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel(connectionDetails, options);
@@ -170,5 +172,13 @@ public class LangChainEmbeddingConfiguration {
             return null;
         }
         return GoogleAiEmbeddingModel.TaskType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private static org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.TaskType parseSpringAiGoogleTaskType(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.TaskType.valueOf(
+                value.trim().toUpperCase(Locale.ROOT));
     }
 }

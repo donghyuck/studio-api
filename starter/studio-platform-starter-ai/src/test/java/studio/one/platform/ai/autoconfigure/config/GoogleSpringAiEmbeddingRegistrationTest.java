@@ -47,4 +47,43 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         assertThat(registry.defaultProvider()).isEqualTo("google");
         assertThat(registry.embeddingPort(null)).isSameAs(embeddingPorts.get("google"));
     }
+
+    @Test
+    void preservesGoogleEmbeddingTaskTypeInSpringAiOptions() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        provider.getGoogleEmbedding().setTaskType("RETRIEVAL_QUERY");
+        properties.getProviders().put("google", provider);
+
+        LangChainEmbeddingConfiguration embeddingConfiguration = new LangChainEmbeddingConfiguration();
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.google.genai.embedding.api-key", "test-key")
+                .withProperty("spring.ai.google.genai.embedding.text.options.model", "text-embedding-004");
+
+        EmbeddingPort port = embeddingConfiguration.embeddingPorts(
+                properties,
+                beanFactory.getBeanProvider(I18n.class),
+                environment,
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class)).get("google");
+
+        assertThat(port).isInstanceOf(SpringAiEmbeddingAdapter.class);
+
+        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
+        modelField.setAccessible(true);
+        Object model = modelField.get(port);
+
+        java.lang.reflect.Field optionsField = model.getClass().getDeclaredField("defaultOptions");
+        optionsField.setAccessible(true);
+        Object options = optionsField.get(model);
+
+        java.lang.reflect.Method taskTypeMethod = options.getClass().getMethod("getTaskType");
+        Object taskType = taskTypeMethod.invoke(options);
+
+        assertThat(String.valueOf(taskType)).isEqualTo("RETRIEVAL_QUERY");
+    }
 }
