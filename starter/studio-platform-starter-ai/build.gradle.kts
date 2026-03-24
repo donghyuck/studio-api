@@ -27,7 +27,6 @@ dependencies {
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}") 
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
     implementation("dev.langchain4j:langchain4j:${property("langchain4jVersion")}")
-    implementation("dev.langchain4j:langchain4j-open-ai:${property("langchain4jVersion")}")
     implementation("dev.langchain4j:langchain4j-ollama:${property("langchain4jVersion")}")
     implementation("dev.langchain4j:langchain4j-google-ai-gemini:${property("langchain4jVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")

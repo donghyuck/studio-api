@@ -13,7 +13,6 @@ import org.springframework.core.env.Environment;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder;
-import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter;
 import studio.one.platform.ai.adapters.chat.LangChainChatAdapter;
@@ -43,86 +42,38 @@ public class LangChainChatConfiguration {
             if (!provider.isEnabled() || !provider.getChat().isEnabled()) {
                 continue;
             }
-            ports.put(entry.getKey(), createChatPort(entry.getKey(), provider, properties, environment, i18n));
-            registerSpringAiChatPort(ports, entry.getKey(), provider, properties, springAiChatModelProvider);
+            ports.put(entry.getKey(), createChatPort(entry.getKey(), provider, environment, i18n, springAiChatModelProvider));
         }
         return ports;
-    }
-
-    private static void registerSpringAiChatPort(Map<String, ChatPort> ports, String providerName,
-            AiAdapterProperties.Provider provider, AiAdapterProperties properties,
-            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
-        if (!properties.getSpringAi().isEnabled() || provider.getType() != AiAdapterProperties.ProviderType.OPENAI) {
-            return;
-        }
-        if (!isSpringAiSourceProvider(providerName, properties)) {
-            return;
-        }
-        String alias = springAiAlias(providerName, properties);
-        if (properties.getProviders().containsKey(alias) && !providerName.equals(alias)) {
-            throw new IllegalStateException("Spring AI alias provider collides with configured provider: " + alias);
-        }
-        if (ports.containsKey(alias)) {
-            throw new IllegalStateException("Spring AI alias provider already exists: " + alias);
-        }
-        ports.put(alias, createSpringAiChatPort(springAiChatModelProvider));
-    }
-
-    private static String springAiAlias(String providerName, AiAdapterProperties properties) {
-        String suffix = properties.getSpringAi().getProviderSuffix();
-        if (suffix == null || suffix.isBlank()) {
-            throw new IllegalArgumentException("studio.ai.spring-ai.provider-suffix must not be blank");
-        }
-        return providerName + suffix;
-    }
-
-    private static boolean isSpringAiSourceProvider(String providerName, AiAdapterProperties properties) {
-        String sourceProvider = properties.getSpringAi().getSourceProvider();
-        if (sourceProvider == null || sourceProvider.isBlank()) {
-            return false;
-        }
-        return providerName.equalsIgnoreCase(sourceProvider);
     }
 
     private static ChatPort createSpringAiChatPort(
             ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
         org.springframework.ai.chat.model.ChatModel chatModel = springAiChatModelProvider.getIfAvailable();
         if (chatModel == null) {
-            throw new IllegalStateException("Spring AI chat model bean is required when studio.ai.spring-ai.enabled=true");
+            throw new IllegalStateException("Spring AI chat model bean is required for OPENAI provider");
         }
         return new SpringAiChatAdapter(chatModel);
     }
 
     private static ChatPort createChatPort(String providerName, AiAdapterProperties.Provider provider,
-            AiAdapterProperties properties, Environment environment, I18n i18n) {
+            Environment environment, I18n i18n,
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
         log.debug("Creating Chat Port by  {}", provider );
-        String model = resolveChatModel(providerName, provider, properties, environment);
-        String baseUrl = resolveBaseUrl(providerName, provider, properties, environment);
         ChatModel chatModel = switch (provider.getType()) {
-            case OPENAI -> OpenAiChatModel.builder()
-                    .apiKey(resolveOpenAiApiKey(providerName, properties, provider, environment))
-                    .baseUrl(baseUrl)
-                    .modelName(model)
-                    .build();
-            case GOOGLE_AI_GEMINI -> buildGoogleChat(provider, i18n, baseUrl, model);
+            case OPENAI -> null;
+            case GOOGLE_AI_GEMINI -> buildGoogleChat(provider, i18n, resolveBaseUrl(provider, environment), requireModel(provider.getChat().getModel()));
             default -> throw new IllegalArgumentException("Unsupported chat provider type: " + provider.getType());
         };
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
+            return createSpringAiChatPort(springAiChatModelProvider);
+        }
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(ChatModel.class, true),
                 LogUtils.green(chatModel.getClass(), true),
                 LogUtils.red(State.CREATED.toString())));
         return new LangChainChatAdapter(chatModel);
-    }
-
-    private static String resolveChatModel(String providerName, AiAdapterProperties.Provider provider,
-            AiAdapterProperties properties, Environment environment) {
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                && isSpringAiSourceProvider(providerName, properties)) {
-            return requireConfigured(environment.getProperty("spring.ai.openai.chat.options.model"),
-                    "spring.ai.openai.chat.options.model must be configured for source provider: " + providerName);
-        }
-        return requireModel(provider.getChat().getModel());
     }
 
     private static ChatModel buildGoogleChat(AiAdapterProperties.Provider provider, I18n i18n, String baseUrl, String model) {
@@ -136,17 +87,16 @@ public class LangChainChatConfiguration {
         return builder.build();
     }
 
-    private static String resolveBaseUrl(String providerName, AiAdapterProperties.Provider provider,
-            AiAdapterProperties properties, Environment environment) {
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                && isSpringAiSourceProvider(providerName, properties)) {
+    private static String resolveBaseUrl(AiAdapterProperties.Provider provider, Environment environment) {
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
             String configured = environment.getProperty("spring.ai.openai.base-url");
             if (StringUtils.isNotBlank(configured)) {
                 return configured;
             }
-        } else if (StringUtils.isNotBlank(provider.getBaseUrl())) {
-            return provider.getBaseUrl();
         }
+        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+            return provider.getBaseUrl();
+        } 
         return switch (provider.getType()) {
             case OPENAI -> "https://api.openai.com/v1";
             //case GOOGLE_AI_GEMINI -> "https://generativelanguage.googleapis.com/v1";
@@ -159,22 +109,5 @@ public class LangChainChatConfiguration {
             throw new IllegalArgumentException("Model name must be provided for provider chat configuration");
         }
         return model;
-    }
-
-    private static String resolveOpenAiApiKey(String providerName, AiAdapterProperties properties,
-            AiAdapterProperties.Provider provider, Environment environment) {
-        if (isSpringAiSourceProvider(providerName, properties)) {
-            return requireConfigured(environment.getProperty("spring.ai.openai.api-key"),
-                    "spring.ai.openai.api-key must be configured for source provider: " + providerName);
-        }
-        return requireConfigured(provider.getApiKey(),
-                "studio.ai.providers." + providerName + ".api-key must be configured");
-    }
-
-    private static String requireConfigured(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(message);
-        }
-        return value;
     }
 }

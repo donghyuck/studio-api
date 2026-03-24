@@ -44,44 +44,26 @@ public class AiInfoController {
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
             providerInfos.add(mapProvider(entry.getKey(), entry.getValue()));
         }
-        addSpringAiAliasProviderInfo(providerInfos);
         VectorInfo vectorInfo = new VectorInfo(
                 vectorStorePort != null,
                 vectorStorePort == null ? null : vectorStorePort.getClass().getSimpleName());
-        return ResponseEntity.ok(ApiResponse.ok(new AiInfoResponse(providerInfos, properties.effectiveDefaultProvider(), vectorInfo)));
-    }
-
-    private void addSpringAiAliasProviderInfo(List<ProviderInfo> providerInfos) {
-        String alias = properties.springAiAliasOrNull();
-        if (alias == null || properties.getProviders().containsKey(alias)) {
-            return;
-        }
-        String sourceProviderId = properties.getSpringAi().getSourceProvider();
-        if (sourceProviderId == null) {
-            return;
-        }
-        AiAdapterProperties.Provider sourceProvider = properties.getProviders().get(sourceProviderId);
-        if (sourceProvider == null || sourceProvider.getType() != AiAdapterProperties.ProviderType.OPENAI) {
-            return;
-        }
-        ProviderChannel chat = new ProviderChannel(
-                sourceProvider.getChat().isEnabled(),
-                sourceProvider.getChat().isEnabled() ? environment.getProperty("spring.ai.openai.chat.options.model") : null);
-        ProviderChannel embedding = new ProviderChannel(
-                sourceProvider.getEmbedding().isEnabled(),
-                sourceProvider.getEmbedding().isEnabled() ? environment.getProperty("spring.ai.openai.embedding.options.model") : null);
-        providerInfos.add(new ProviderInfo(
-                alias,
-                sourceProvider.getType(),
-                chat,
-                embedding,
-                environment.getProperty("spring.ai.openai.base-url")));
+        return ResponseEntity.ok(ApiResponse.ok(new AiInfoResponse(providerInfos, properties.getDefaultProvider(), vectorInfo)));
     }
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
-        String baseUrl = provider.getBaseUrl();
-        ProviderChannel chat = new ProviderChannel(provider.getChat().isEnabled(), provider.getChat().getModel());
-        ProviderChannel embedding = new ProviderChannel(provider.getEmbedding().isEnabled(), provider.getEmbedding().getModel());
+        String baseUrl = provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                ? environment.getProperty("spring.ai.openai.base-url")
+                : provider.getBaseUrl();
+        ProviderChannel chat = new ProviderChannel(
+                provider.getChat().isEnabled(),
+                provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                        ? environment.getProperty("spring.ai.openai.chat.options.model")
+                        : provider.getChat().getModel());
+        ProviderChannel embedding = new ProviderChannel(
+                provider.getEmbedding().isEnabled(),
+                provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                        ? environment.getProperty("spring.ai.openai.embedding.options.model")
+                        : provider.getEmbedding().getModel());
         return new ProviderInfo(name, provider.getType(), chat, embedding, baseUrl);
     }
 

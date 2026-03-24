@@ -166,11 +166,7 @@ studio:
       audit-enabled: true
   ai:
     enabled: true
-    default-provider: openai-springai
-    spring-ai:
-      enabled: true
-      source-provider: openai
-      provider-suffix: -springai
+    default-provider: openai
     providers:
       openai:
         type: OPENAI

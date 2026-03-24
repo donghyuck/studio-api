@@ -14,7 +14,6 @@ import org.springframework.core.env.Environment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
 import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
-import dev.langchain4j.model.openai.OpenAiEmbeddingModel;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
 import studio.one.platform.ai.adapters.embedding.LangChainEmbeddingAdapter;
@@ -43,90 +42,42 @@ public class LangChainEmbeddingConfiguration {
             if (!provider.isEnabled() || !provider.getEmbedding().isEnabled()) {
                 continue;
             }
-            ports.put(entry.getKey(), createEmbedding(entry.getKey(), provider, properties, environment, i18n));
-            registerSpringAiEmbeddingPort(ports, entry.getKey(), provider, properties, springAiEmbeddingModelProvider);
+            ports.put(entry.getKey(), createEmbedding(provider, environment, i18n, springAiEmbeddingModelProvider));
         }
         return ports;
-    }
-
-    private static void registerSpringAiEmbeddingPort(Map<String, EmbeddingPort> ports, String providerName,
-            AiAdapterProperties.Provider provider, AiAdapterProperties properties,
-            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
-        if (!properties.getSpringAi().isEnabled() || provider.getType() != AiAdapterProperties.ProviderType.OPENAI) {
-            return;
-        }
-        if (!isSpringAiSourceProvider(providerName, properties)) {
-            return;
-        }
-        String alias = springAiAlias(providerName, properties);
-        if (properties.getProviders().containsKey(alias) && !providerName.equals(alias)) {
-            throw new IllegalStateException("Spring AI alias provider collides with configured provider: " + alias);
-        }
-        if (ports.containsKey(alias)) {
-            throw new IllegalStateException("Spring AI alias provider already exists: " + alias);
-        }
-        ports.put(alias, createSpringAiEmbeddingPort(springAiEmbeddingModelProvider));
-    }
-
-    private static String springAiAlias(String providerName, AiAdapterProperties properties) {
-        String suffix = properties.getSpringAi().getProviderSuffix();
-        if (suffix == null || suffix.isBlank()) {
-            throw new IllegalArgumentException("studio.ai.spring-ai.provider-suffix must not be blank");
-        }
-        return providerName + suffix;
-    }
-
-    private static boolean isSpringAiSourceProvider(String providerName, AiAdapterProperties properties) {
-        String sourceProvider = properties.getSpringAi().getSourceProvider();
-        if (sourceProvider == null || sourceProvider.isBlank()) {
-            return false;
-        }
-        return providerName.equalsIgnoreCase(sourceProvider);
     }
 
     private static EmbeddingPort createSpringAiEmbeddingPort(
             ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
         org.springframework.ai.embedding.EmbeddingModel embeddingModel = springAiEmbeddingModelProvider.getIfAvailable();
         if (embeddingModel == null) {
-            throw new IllegalStateException("Spring AI embedding model bean is required when studio.ai.spring-ai.enabled=true");
+            throw new IllegalStateException("Spring AI embedding model bean is required for OPENAI provider");
         }
         return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
-    private static EmbeddingPort createEmbedding(String providerName, AiAdapterProperties.Provider provider,
-            AiAdapterProperties properties, Environment environment, I18n i18n) {
+    private static EmbeddingPort createEmbedding(AiAdapterProperties.Provider provider,
+            Environment environment, I18n i18n,
+            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
         log.debug("Creating Embedding Port by  {}", provider );
-        String model = resolveEmbeddingModel(providerName, provider, properties, environment);
-        String baseUrl = resolveBaseUrl(providerName, provider, properties, environment);
         EmbeddingModel embeddingModel = switch (provider.getType()) {
-            case OPENAI -> OpenAiEmbeddingModel.builder()
-                    .apiKey(resolveOpenAiApiKey(providerName, properties, provider, environment))
-                    .baseUrl(baseUrl)
-                    .modelName(model)
-                    .build();
+            case OPENAI -> null;
             case OLLAMA -> OllamaEmbeddingModel.builder()
-                    .baseUrl(baseUrl)
-                    .modelName(model)
+                    .baseUrl(resolveBaseUrl(provider, environment))
+                    .modelName(requireModel(provider.getEmbedding().getModel()))
                     .build();
-            case GOOGLE_AI_GEMINI -> buildGoogleEmbedding(provider, baseUrl, model);
+            case GOOGLE_AI_GEMINI -> buildGoogleEmbedding(provider, resolveBaseUrl(provider, environment), requireModel(provider.getEmbedding().getModel()));
             default -> throw new IllegalArgumentException("Unsupported embedding provider: " + provider.getType());
         };
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
+            return createSpringAiEmbeddingPort(springAiEmbeddingModelProvider);
+        }
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(EmbeddingModel.class, true),
                 LogUtils.green(embeddingModel.getClass(), true),
                 LogUtils.red(State.CREATED.toString())));
         return new LangChainEmbeddingAdapter(embeddingModel);
-    }
-
-    private static String resolveEmbeddingModel(String providerName, AiAdapterProperties.Provider provider,
-            AiAdapterProperties properties, Environment environment) {
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                && isSpringAiSourceProvider(providerName, properties)) {
-            return requireConfigured(environment.getProperty("spring.ai.openai.embedding.options.model"),
-                    "spring.ai.openai.embedding.options.model must be configured for source provider: " + providerName);
-        }
-        return requireModel(provider.getEmbedding().getModel());
     }
 
     private static GoogleAiEmbeddingModel buildGoogleEmbedding(AiAdapterProperties.Provider provider, String baseUrl, String model) {
@@ -143,15 +94,14 @@ public class LangChainEmbeddingConfiguration {
         return builder.build();
     }
 
-    private static String resolveBaseUrl(String providerName, AiAdapterProperties.Provider provider,
-            AiAdapterProperties properties, Environment environment) {
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                && isSpringAiSourceProvider(providerName, properties)) {
+    private static String resolveBaseUrl(AiAdapterProperties.Provider provider, Environment environment) {
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
             String configured = environment.getProperty("spring.ai.openai.base-url");
             if (StringUtils.isNotBlank(configured)) {
                 return configured;
             }
-        } else if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+        }
+        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
             return provider.getBaseUrl();
         }
         return switch (provider.getType()) {
@@ -167,23 +117,6 @@ public class LangChainEmbeddingConfiguration {
             throw new IllegalArgumentException("Model name must be provided for embedding configuration");
         }
         return model;
-    }
-
-    private static String resolveOpenAiApiKey(String providerName, AiAdapterProperties properties,
-            AiAdapterProperties.Provider provider, Environment environment) {
-        if (isSpringAiSourceProvider(providerName, properties)) {
-            return requireConfigured(environment.getProperty("spring.ai.openai.api-key"),
-                    "spring.ai.openai.api-key must be configured for source provider: " + providerName);
-        }
-        return requireConfigured(provider.getApiKey(),
-                "studio.ai.providers." + providerName + ".api-key must be configured");
-    }
-
-    private static String requireConfigured(String value, String message) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(message);
-        }
-        return value;
     }
 
     private static GoogleAiEmbeddingModel.TaskType parseTaskType(String value) {
