@@ -62,7 +62,7 @@ public class LangChainEmbeddingConfiguration {
         EmbeddingModel embeddingModel = switch (provider.getType()) {
             case OPENAI -> null;
             case OLLAMA -> null;
-            case GOOGLE_AI_GEMINI -> buildGoogleEmbedding(provider, resolveBaseUrl(provider, environment), requireModel(provider.getEmbedding().getModel()));
+            case GOOGLE_AI_GEMINI -> null;
             default -> throw new IllegalArgumentException("Unsupported embedding provider: " + provider.getType());
         };
         if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
@@ -70,6 +70,9 @@ public class LangChainEmbeddingConfiguration {
         }
         if (provider.getType() == AiAdapterProperties.ProviderType.OLLAMA) {
             return createOllamaSpringAiEmbeddingPort(environment);
+        }
+        if (provider.getType() == AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI) {
+            return createGoogleSpringAiEmbeddingPort(provider, environment);
         }
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
@@ -93,6 +96,28 @@ public class LangChainEmbeddingConfiguration {
                 .ollamaApi(ollamaApi)
                 .defaultOptions(options)
                 .build();
+        return new SpringAiEmbeddingAdapter(embeddingModel);
+    }
+
+    private static EmbeddingPort createGoogleSpringAiEmbeddingPort(AiAdapterProperties.Provider provider, Environment environment) {
+        String apiKey = requireText(environment.getProperty("spring.ai.google.genai.embedding.api-key"),
+                "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
+        String model = requireText(environment.getProperty("spring.ai.google.genai.embedding.text.options.model"),
+                "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
+        AiAdapterProperties.GoogleEmbeddingOptions google = provider.getGoogleEmbedding();
+        org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails connectionDetails =
+                org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails.builder()
+                        .apiKey(apiKey)
+                        .projectId(environment.getProperty("spring.ai.google.genai.embedding.project-id"))
+                        .location(environment.getProperty("spring.ai.google.genai.embedding.location"))
+                        .build();
+        org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions options =
+                org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.builder()
+                        .model(model)
+                        .taskType(parseSpringAiGoogleTaskType(google.getTaskType()))
+                        .build();
+        org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel embeddingModel =
+                new org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel(connectionDetails, options);
         return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
@@ -147,5 +172,13 @@ public class LangChainEmbeddingConfiguration {
             return null;
         }
         return GoogleAiEmbeddingModel.TaskType.valueOf(value.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private static org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.TaskType parseSpringAiGoogleTaskType(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.TaskType.valueOf(
+                value.trim().toUpperCase(Locale.ROOT));
     }
 }
