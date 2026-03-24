@@ -1,17 +1,38 @@
 package studio.one.platform.ai.autoconfigure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.http.ResponseEntity;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.embedding.Embedding;
 
 import studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.web.controller.AiInfoController;
+import studio.one.platform.ai.web.controller.ChatController;
+import studio.one.platform.ai.web.controller.EmbeddingController;
+import studio.one.platform.ai.web.dto.ChatMessageDto;
+import studio.one.platform.ai.web.dto.ChatRequestDto;
+import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.ai.web.dto.EmbeddingRequestDto;
+import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
 import studio.one.platform.service.I18n;
+import studio.one.platform.web.dto.ApiResponse;
 
 class SpringAiAliasProviderAutoConfigurationTest {
 
@@ -61,6 +82,88 @@ class SpringAiAliasProviderAutoConfigurationTest {
             assertThat(defaultEmbeddingPort).isSameAs(registry.embeddingPort("openai-springai"));
             assertThat(registry.chatPort("openai")).isNotSameAs(registry.chatPort("openai-springai"));
             assertThat(registry.embeddingPort("openai")).isNotSameAs(registry.embeddingPort("openai-springai"));
+        });
+    }
+
+    @Test
+    void routesControllerChatRequestsThroughDefaultSpringAiAlias() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+
+            org.springframework.ai.chat.model.ChatModel springAiChatModel =
+                    context.getBean(org.springframework.ai.chat.model.ChatModel.class);
+            when(springAiChatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
+                    .thenReturn(new org.springframework.ai.chat.model.ChatResponse(
+                            List.of(new Generation(
+                                    new AssistantMessage("hello from cutover default"),
+                                    ChatGenerationMetadata.builder().finishReason("stop").build())),
+                            ChatResponseMetadata.builder().id("resp-1").model("gpt-4.1-mini").build()));
+
+            ChatController controller = new ChatController(
+                    context.getBean(ChatPort.class),
+                    org.mockito.Mockito.mock(RagPipelineService.class));
+
+            ResponseEntity<ApiResponse<ChatResponseDto>> response = controller.chat(new ChatRequestDto(
+                    List.of(new ChatMessageDto("user", "hello")),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null));
+
+            AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
+            assertThat(context.getBean(ChatPort.class)).isSameAs(registry.chatPort("openai-springai"));
+            assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+            assertThat(response.getBody().getData().model()).isEqualTo("gpt-4.1-mini");
+            assertThat(response.getBody().getData().messages())
+                    .extracting(ChatMessageDto::content)
+                    .containsExactly("hello from cutover default");
+        });
+    }
+
+    @Test
+    void routesControllerEmbeddingRequestsThroughDefaultSpringAiAlias() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+
+            org.springframework.ai.embedding.EmbeddingModel springAiEmbeddingModel =
+                    context.getBean(org.springframework.ai.embedding.EmbeddingModel.class);
+            when(springAiEmbeddingModel.embedForResponse(anyList()))
+                    .thenReturn(new org.springframework.ai.embedding.EmbeddingResponse(List.of(
+                            new Embedding(new float[] { 1.0f, 2.0f }, 0))));
+
+            EmbeddingController controller = new EmbeddingController(context.getBean(EmbeddingPort.class));
+
+            ResponseEntity<ApiResponse<EmbeddingResponseDto>> response =
+                    controller.embed(new EmbeddingRequestDto(List.of("first")));
+
+            AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
+            assertThat(context.getBean(EmbeddingPort.class)).isSameAs(registry.embeddingPort("openai-springai"));
+            assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+            assertThat(response.getBody().getData().vectors()).hasSize(1);
+            assertThat(response.getBody().getData().vectors().get(0).referenceId()).isEqualTo("first");
+            assertThat(response.getBody().getData().vectors().get(0).values()).containsExactly(1.0, 2.0);
+        });
+    }
+
+    @Test
+    void exposesConfiguredCutoverDefaultProviderFromInfoControllerInRuntimeContext() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+
+            AiInfoController controller = new AiInfoController(
+                    context.getBean(AiAdapterProperties.class),
+                    null);
+
+            ResponseEntity<ApiResponse<AiInfoController.AiInfoResponse>> response = controller.providers();
+            AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
+
+            assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
+            assertThat(response.getBody().getData().defaultProvider()).isEqualTo("openai-springai");
+            assertThat(registry.defaultProvider()).isEqualTo("openai-springai");
+            assertThat(registry.availableChatPorts()).containsKeys("openai", "openai-springai");
+            assertThat(registry.availableEmbeddingPorts()).containsKeys("openai", "openai-springai");
         });
     }
 
