@@ -28,7 +28,8 @@ dependencies {
 - `studio-platform-starter-security`: Spring Security 기본 구성과 인증/인가 훅
 - `studio-platform-starter-security-acl`: ACL 엔티티/리포지토리 스캔과 ACL 연동
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
-- `studio-platform-starter-ai`: 임베딩, 벡터스토어, RAG 기반 구성
+- `studio-platform-starter-ai`: OpenAI/Spring AI, 벡터스토어, RAG 등 AI core 구성
+- `studio-platform-starter-ai-web`: AI HTTP endpoint와 JSON component 노출
 - `studio-platform-starter-jasypt`: Jasypt 암호화/복호화 지원
 - `studio-platform-starter-objectstorage`, `-aws`, `-oci`: 오브젝트 스토리지 공통 및 provider별 구성
 - `studio-application-starter-attachment`, `-avatar`, `-template`, `-mail`: 애플리케이션 기능 모듈 자동 구성

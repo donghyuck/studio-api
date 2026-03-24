@@ -18,10 +18,12 @@ import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAut
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.ResponseEntity;
 
+import studio.one.platform.ai.autoconfigure.AiWebAutoConfiguration;
 import studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.service.prompt.PromptManager;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
@@ -40,16 +42,20 @@ class OpenAiProviderAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))
             .withUserConfiguration(
                     AiSecretPresenceGuard.class,
+                    AiWebAutoConfiguration.class,
                     LangChainChatConfiguration.class,
                     LangChainEmbeddingConfiguration.class,
                     AiProviderRegistryConfiguration.class)
             .withBean(I18n.class, () -> (code, args, locale) -> code)
+            .withBean(RagPipelineService.class, () -> org.mockito.Mockito.mock(RagPipelineService.class))
+            .withBean(PromptManager.class, () -> org.mockito.Mockito.mock(PromptManager.class))
             .withBean(org.springframework.ai.chat.model.ChatModel.class,
                     () -> org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class))
             .withBean(org.springframework.ai.embedding.EmbeddingModel.class,
                     () -> org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class))
             .withPropertyValues(
                     "studio.ai.enabled=true",
+                    "studio.ai.endpoints.enabled=true",
                     "studio.ai.default-provider=openai",
                     "spring.ai.openai.api-key=test-key",
                     "spring.ai.openai.chat.options.model=gpt-4o-mini",
@@ -65,6 +71,9 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(context).hasSingleBean(AiProviderRegistry.class);
             assertThat(context).hasSingleBean(ChatPort.class);
             assertThat(context).hasSingleBean(EmbeddingPort.class);
+            assertThat(context).hasSingleBean(ChatController.class);
+            assertThat(context).hasSingleBean(EmbeddingController.class);
+            assertThat(context).hasSingleBean(AiInfoController.class);
 
             AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
             assertThat(registry.defaultProvider()).isEqualTo("openai");
@@ -89,9 +98,7 @@ class OpenAiProviderAutoConfigurationTest {
                                     ChatGenerationMetadata.builder().finishReason("stop").build())),
                             ChatResponseMetadata.builder().id("resp-1").model("gpt-4.1-mini").build()));
 
-            ChatController controller = new ChatController(
-                    context.getBean(ChatPort.class),
-                    org.mockito.Mockito.mock(RagPipelineService.class));
+            ChatController controller = context.getBean(ChatController.class);
 
             ResponseEntity<ApiResponse<ChatResponseDto>> response = controller.chat(new ChatRequestDto(
                     List.of(new ChatMessageDto("user", "hello")),
@@ -121,7 +128,7 @@ class OpenAiProviderAutoConfigurationTest {
                     .thenReturn(new org.springframework.ai.embedding.EmbeddingResponse(List.of(
                             new Embedding(new float[] { 1.0f, 2.0f }, 0))));
 
-            EmbeddingController controller = new EmbeddingController(context.getBean(EmbeddingPort.class));
+            EmbeddingController controller = context.getBean(EmbeddingController.class);
 
             ResponseEntity<ApiResponse<EmbeddingResponseDto>> response =
                     controller.embed(new EmbeddingRequestDto(List.of("first")));
@@ -138,10 +145,7 @@ class OpenAiProviderAutoConfigurationTest {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
 
-            AiInfoController controller = new AiInfoController(
-                    context.getBean(AiAdapterProperties.class),
-                    context.getEnvironment(),
-                    null);
+            AiInfoController controller = context.getBean(AiInfoController.class);
 
             ResponseEntity<ApiResponse<AiInfoController.AiInfoResponse>> response = controller.providers();
 
