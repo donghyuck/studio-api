@@ -13,7 +13,6 @@ import org.springframework.core.env.Environment;
 
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
-import dev.langchain4j.model.ollama.OllamaEmbeddingModel;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
 import studio.one.platform.ai.adapters.embedding.LangChainEmbeddingAdapter;
@@ -62,15 +61,15 @@ public class LangChainEmbeddingConfiguration {
         log.debug("Creating Embedding Port by  {}", provider );
         EmbeddingModel embeddingModel = switch (provider.getType()) {
             case OPENAI -> null;
-            case OLLAMA -> OllamaEmbeddingModel.builder()
-                    .baseUrl(resolveBaseUrl(provider, environment))
-                    .modelName(requireModel(provider.getEmbedding().getModel()))
-                    .build();
+            case OLLAMA -> null;
             case GOOGLE_AI_GEMINI -> buildGoogleEmbedding(provider, resolveBaseUrl(provider, environment), requireModel(provider.getEmbedding().getModel()));
             default -> throw new IllegalArgumentException("Unsupported embedding provider: " + provider.getType());
         };
         if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
             return createSpringAiEmbeddingPort(springAiEmbeddingModelProvider);
+        }
+        if (provider.getType() == AiAdapterProperties.ProviderType.OLLAMA) {
+            return createOllamaSpringAiEmbeddingPort(environment);
         }
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
@@ -78,6 +77,23 @@ public class LangChainEmbeddingConfiguration {
                 LogUtils.green(embeddingModel.getClass(), true),
                 LogUtils.red(State.CREATED.toString())));
         return new LangChainEmbeddingAdapter(embeddingModel);
+    }
+
+    private static EmbeddingPort createOllamaSpringAiEmbeddingPort(Environment environment) {
+        String model = requireText(environment.getProperty("spring.ai.ollama.embedding.options.model"),
+                "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
+        String baseUrl = environment.getProperty("spring.ai.ollama.base-url", "http://localhost:11434");
+        org.springframework.ai.ollama.api.OllamaApi ollamaApi = org.springframework.ai.ollama.api.OllamaApi.builder()
+                .baseUrl(baseUrl)
+                .build();
+        org.springframework.ai.ollama.api.OllamaEmbeddingOptions options = org.springframework.ai.ollama.api.OllamaEmbeddingOptions.builder()
+                .model(model)
+                .build();
+        org.springframework.ai.ollama.OllamaEmbeddingModel embeddingModel = org.springframework.ai.ollama.OllamaEmbeddingModel.builder()
+                .ollamaApi(ollamaApi)
+                .defaultOptions(options)
+                .build();
+        return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
     private static GoogleAiEmbeddingModel buildGoogleEmbedding(AiAdapterProperties.Provider provider, String baseUrl, String model) {
@@ -117,6 +133,13 @@ public class LangChainEmbeddingConfiguration {
             throw new IllegalArgumentException("Model name must be provided for embedding configuration");
         }
         return model;
+    }
+
+    private static String requireText(String value, String message) {
+        if (!StringUtils.isNotBlank(value)) {
+            throw new IllegalStateException(message);
+        }
+        return value;
     }
 
     private static GoogleAiEmbeddingModel.TaskType parseTaskType(String value) {

@@ -32,21 +32,42 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
-    void validateAllowsConfiguredOllamaBaseUrl() {
+    void validateAllowsConfiguredSpringAiModelForOllamaEmbedding() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
         properties.setDefaultProvider("ollama");
         Provider provider = new Provider();
         provider.setEnabled(true);
         provider.setType(ProviderType.OLLAMA);
-        provider.setBaseUrl("http://localhost:11434");
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("ollama", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.ollama.embedding.options.model", "nomic-embed-text");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
+                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingSpringAiModelForOllamaEmbedding() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("ollama");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OLLAMA);
+        provider.getEmbedding().setEnabled(true);
         properties.getProviders().put("ollama", provider);
 
         AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
                 emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
                 emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
 
-        assertDoesNotThrow(guard::validate);
+        assertThrows(IllegalStateException.class, guard::validate);
     }
 
     @Test

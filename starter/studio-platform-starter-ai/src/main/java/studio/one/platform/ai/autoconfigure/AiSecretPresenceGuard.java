@@ -39,8 +39,7 @@ public class AiSecretPresenceGuard {
                 case OPENAI -> validateOpenAiProvider(provider);
                 case GOOGLE_AI_GEMINI -> requireText(provider.getApiKey(),
                         "studio.ai.providers." + providerId + ".api-key must be configured");
-                case OLLAMA -> requireText(provider.getBaseUrl(),
-                        "studio.ai.providers." + providerId + ".base-url must be configured");
+                case OLLAMA -> validateOllamaProvider(provider);
                 default -> {
                 }
             }
@@ -82,6 +81,13 @@ public class AiSecretPresenceGuard {
         }
         if (embeddingEnabled && springAiEmbeddingModelProvider.getIfAvailable() == null) {
             throw new IllegalStateException("Spring AI embedding model bean is required for OPENAI provider");
+        }
+    }
+
+    private void validateOllamaProvider(AiAdapterProperties.Provider provider) {
+        if (provider.getEmbedding().isEnabled()) {
+            requireText(environment.getProperty("spring.ai.ollama.embedding.options.model"),
+                    "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
         }
     }
 
