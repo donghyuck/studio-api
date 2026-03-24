@@ -50,20 +50,7 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
-    void validateRequiresSpringAiSourceProviderWhenAliasModeIsEnabled() {
-        AiAdapterProperties properties = new AiAdapterProperties();
-        properties.setEnabled(true);
-        properties.getSpringAi().setEnabled(true);
-
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
-
-        assertThrows(IllegalStateException.class, guard::validate);
-    }
-
-    @Test
-    void validateRejectsMissingDefaultProviderWhenNoSpringAiPromotionExists() {
+    void validateRequiresDefaultProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
 
@@ -75,11 +62,29 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
-    void validateAllowsMissingStudioApiKeyForSpringAiSourceProvider() {
+    void validateRequiresSpringAiApiKeyForOpenAiProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
-        properties.getSpringAi().setEnabled(true);
-        properties.getSpringAi().setSourceProvider("openai");
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
+                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsOpenAiProviderWithoutLegacyStudioApiKey() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
 
         Provider provider = new Provider();
         provider.setEnabled(true);
@@ -104,11 +109,10 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
-    void validateRequiresSpringAiChatModelPropertyForEnabledSourceProviderChat() {
+    void validateRequiresSpringAiChatModelPropertyForEnabledOpenAiChat() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
-        properties.getSpringAi().setEnabled(true);
-        properties.getSpringAi().setSourceProvider("openai");
+        properties.setDefaultProvider("openai");
 
         Provider provider = new Provider();
         provider.setEnabled(true);
