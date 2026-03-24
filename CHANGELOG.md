@@ -28,3 +28,4 @@
 - refactor(ai): start splitting AI HTTP endpoints into a dedicated web starter module.
 - refactor(ai): remove remaining core bean stereotypes so AI service ownership stays in starter auto-configuration.
 - refactor(ai): narrow AI dependency ownership so web/security concerns stay with the web starter boundary.
+- refactor(ai): replace AI starter component scanning with explicit auto-configuration bean registration.
