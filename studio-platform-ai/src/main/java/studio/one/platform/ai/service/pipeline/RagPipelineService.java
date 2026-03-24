@@ -7,9 +7,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.stereotype.Service;
-
 import com.github.benmanes.caffeine.cache.Cache;
 
 import io.github.resilience4j.retry.Retry;
@@ -30,8 +27,6 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.constant.ServiceNames;
 
-@Service(RagPipelineService.SERVICE_NAME)
-@ConditionalOnProperty(prefix = "studio.ai", name = "enabled", havingValue = "true", matchIfMissing = false)
 @Slf4j
 public class RagPipelineService {
     public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":ai:rag-pipelien-service";

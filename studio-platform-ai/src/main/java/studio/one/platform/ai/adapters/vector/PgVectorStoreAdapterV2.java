@@ -14,7 +14,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.stereotype.Component;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
@@ -26,7 +25,6 @@ import studio.one.platform.data.sqlquery.annotation.SqlStatement;
  * PgVector {@link VectorStorePort} implementation backed by sqlset-defined
  * statements and {@link SqlStatement} injection.
  */
-@Component
 public class PgVectorStoreAdapterV2 implements VectorStorePort {
 
     private static final RowMapper<VectorSearchResult> ROW_MAPPER = new RowMapper<>() {
