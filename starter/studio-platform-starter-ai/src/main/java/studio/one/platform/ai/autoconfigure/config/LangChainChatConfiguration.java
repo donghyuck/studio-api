@@ -41,11 +41,7 @@ public class LangChainChatConfiguration {
             if (!provider.isEnabled() || !provider.getChat().isEnabled()) {
                 continue;
             }
-            if (isSpringAiSourceProvider(entry.getKey(), properties)) {
-                ports.put(entry.getKey(), createSpringAiChatPort(springAiChatModelProvider));
-            } else {
-                ports.put(entry.getKey(), createChatPort(provider, i18n));
-            }
+            ports.put(entry.getKey(), createChatPort(provider, i18n));
             registerSpringAiChatPort(ports, entry.getKey(), provider, properties, springAiChatModelProvider);
         }
         return ports;

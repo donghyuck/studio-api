@@ -47,6 +47,8 @@ class SpringAiAliasProviderRegistrationTest {
 
         assertThat(chatPorts).containsKeys("openai", "openai-springai");
         assertThat(embeddingPorts).containsKeys("openai", "openai-springai");
+        assertThat(chatPorts.get("openai")).isNotSameAs(chatPorts.get("openai-springai"));
+        assertThat(embeddingPorts.get("openai")).isNotSameAs(embeddingPorts.get("openai-springai"));
 
         AiProviderRegistry registry = new AiProviderRegistry("openai-springai", chatPorts, embeddingPorts);
         assertThat(registry.defaultProvider()).isEqualTo("openai-springai");

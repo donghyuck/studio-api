@@ -59,6 +59,8 @@ class SpringAiAliasProviderAutoConfigurationTest {
             assertThat(defaultEmbeddingPort).isSameAs(registry.embeddingPort(null));
             assertThat(defaultChatPort).isSameAs(registry.chatPort("openai-springai"));
             assertThat(defaultEmbeddingPort).isSameAs(registry.embeddingPort("openai-springai"));
+            assertThat(registry.chatPort("openai")).isNotSameAs(registry.chatPort("openai-springai"));
+            assertThat(registry.embeddingPort("openai")).isNotSameAs(registry.embeddingPort("openai-springai"));
         });
     }
 

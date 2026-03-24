@@ -41,11 +41,7 @@ public class LangChainEmbeddingConfiguration {
             if (!provider.isEnabled() || !provider.getEmbedding().isEnabled()) {
                 continue;
             }
-            if (isSpringAiSourceProvider(entry.getKey(), properties)) {
-                ports.put(entry.getKey(), createSpringAiEmbeddingPort(springAiEmbeddingModelProvider));
-            } else {
-                ports.put(entry.getKey(), createEmbedding(provider, i18n));
-            }
+            ports.put(entry.getKey(), createEmbedding(provider, i18n));
             registerSpringAiEmbeddingPort(ports, entry.getKey(), provider, properties, springAiEmbeddingModelProvider);
         }
         return ports;
