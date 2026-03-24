@@ -27,6 +27,7 @@ public class AiSecretPresenceGuard {
 
     @PostConstruct
     void validate() {
+        String springAiSourceProvider = properties.getSpringAi().isEnabled() ? resolveSpringAiSourceProvider() : null;
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
             String providerId = entry.getKey();
             AiAdapterProperties.Provider provider = entry.getValue();
@@ -34,7 +35,13 @@ public class AiSecretPresenceGuard {
                 continue;
             }
             switch (provider.getType()) {
-                case OPENAI, GOOGLE_AI_GEMINI -> requireText(provider.getApiKey(),
+                case OPENAI -> {
+                    if (!providerId.equalsIgnoreCase(springAiSourceProvider)) {
+                        requireText(provider.getApiKey(),
+                                "studio.ai.providers." + providerId + ".api-key must be configured");
+                    }
+                }
+                case GOOGLE_AI_GEMINI -> requireText(provider.getApiKey(),
                         "studio.ai.providers." + providerId + ".api-key must be configured");
                 case OLLAMA -> requireText(provider.getBaseUrl(),
                         "studio.ai.providers." + providerId + ".base-url must be configured");
@@ -70,13 +77,10 @@ public class AiSecretPresenceGuard {
     }
 
     private String resolveSpringAiSourceProvider() {
-        if (StringUtils.hasText(properties.getSpringAi().getSourceProvider())) {
-            return properties.getSpringAi().getSourceProvider().toLowerCase();
+        if (!StringUtils.hasText(properties.getSpringAi().getSourceProvider())) {
+            throw new IllegalStateException("studio.ai.spring-ai.source-provider must be configured when studio.ai.spring-ai.enabled=true");
         }
-        if (StringUtils.hasText(properties.getDefaultProvider())) {
-            return properties.getDefaultProvider().toLowerCase();
-        }
-        throw new IllegalStateException("studio.ai.spring-ai.source-provider or studio.ai.default-provider must be configured");
+        return properties.getSpringAi().getSourceProvider().toLowerCase();
     }
 
     private static void requireText(String value, String message) {

@@ -41,7 +41,11 @@ public class LangChainEmbeddingConfiguration {
             if (!provider.isEnabled() || !provider.getEmbedding().isEnabled()) {
                 continue;
             }
-            ports.put(entry.getKey(), createEmbedding(provider, i18n));
+            if (isSpringAiSourceProvider(entry.getKey(), properties)) {
+                ports.put(entry.getKey(), createSpringAiEmbeddingPort(springAiEmbeddingModelProvider));
+            } else {
+                ports.put(entry.getKey(), createEmbedding(provider, i18n));
+            }
             registerSpringAiEmbeddingPort(ports, entry.getKey(), provider, properties, springAiEmbeddingModelProvider);
         }
         return ports;
@@ -63,11 +67,7 @@ public class LangChainEmbeddingConfiguration {
         if (ports.containsKey(alias)) {
             throw new IllegalStateException("Spring AI alias provider already exists: " + alias);
         }
-        org.springframework.ai.embedding.EmbeddingModel embeddingModel = springAiEmbeddingModelProvider.getIfAvailable();
-        if (embeddingModel == null) {
-            throw new IllegalStateException("Spring AI embedding model bean is required when studio.ai.spring-ai.enabled=true");
-        }
-        ports.put(alias, new SpringAiEmbeddingAdapter(embeddingModel));
+        ports.put(alias, createSpringAiEmbeddingPort(springAiEmbeddingModelProvider));
     }
 
     private static String springAiAlias(String providerName, AiAdapterProperties properties) {
@@ -81,9 +81,18 @@ public class LangChainEmbeddingConfiguration {
     private static boolean isSpringAiSourceProvider(String providerName, AiAdapterProperties properties) {
         String sourceProvider = properties.getSpringAi().getSourceProvider();
         if (sourceProvider == null || sourceProvider.isBlank()) {
-            return providerName.equalsIgnoreCase(properties.getDefaultProvider());
+            return false;
         }
         return providerName.equalsIgnoreCase(sourceProvider);
+    }
+
+    private static EmbeddingPort createSpringAiEmbeddingPort(
+            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
+        org.springframework.ai.embedding.EmbeddingModel embeddingModel = springAiEmbeddingModelProvider.getIfAvailable();
+        if (embeddingModel == null) {
+            throw new IllegalStateException("Spring AI embedding model bean is required when studio.ai.spring-ai.enabled=true");
+        }
+        return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
     private static EmbeddingPort createEmbedding(AiAdapterProperties.Provider provider, I18n i18n) {

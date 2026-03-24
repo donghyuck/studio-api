@@ -74,7 +74,7 @@ public class AiAdapterProperties {
 
         /**
          * Source provider id whose logical name is used to register the Spring AI alias.
-         * If not set, the current default provider is used.
+         * Required when Spring AI alias registration is enabled.
          */
         private String sourceProvider;
 

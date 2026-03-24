@@ -21,6 +21,7 @@ class SpringAiAliasProviderRegistrationTest {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("openai");
         properties.getSpringAi().setEnabled(true);
+        properties.getSpringAi().setSourceProvider("openai");
         properties.getSpringAi().setProviderSuffix("-springai");
 
         AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
@@ -58,6 +59,7 @@ class SpringAiAliasProviderRegistrationTest {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("openai");
         properties.getSpringAi().setEnabled(true);
+        properties.getSpringAi().setSourceProvider("openai");
         properties.getSpringAi().setProviderSuffix(" ");
 
         AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
@@ -83,6 +85,7 @@ class SpringAiAliasProviderRegistrationTest {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("openai");
         properties.getSpringAi().setEnabled(true);
+        properties.getSpringAi().setSourceProvider("openai");
         properties.getSpringAi().setProviderSuffix("-springai");
 
         AiAdapterProperties.Provider openAi = new AiAdapterProperties.Provider();

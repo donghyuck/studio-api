@@ -41,7 +41,11 @@ public class LangChainChatConfiguration {
             if (!provider.isEnabled() || !provider.getChat().isEnabled()) {
                 continue;
             }
-            ports.put(entry.getKey(), createChatPort(provider, i18n));
+            if (isSpringAiSourceProvider(entry.getKey(), properties)) {
+                ports.put(entry.getKey(), createSpringAiChatPort(springAiChatModelProvider));
+            } else {
+                ports.put(entry.getKey(), createChatPort(provider, i18n));
+            }
             registerSpringAiChatPort(ports, entry.getKey(), provider, properties, springAiChatModelProvider);
         }
         return ports;
@@ -63,11 +67,7 @@ public class LangChainChatConfiguration {
         if (ports.containsKey(alias)) {
             throw new IllegalStateException("Spring AI alias provider already exists: " + alias);
         }
-        org.springframework.ai.chat.model.ChatModel chatModel = springAiChatModelProvider.getIfAvailable();
-        if (chatModel == null) {
-            throw new IllegalStateException("Spring AI chat model bean is required when studio.ai.spring-ai.enabled=true");
-        }
-        ports.put(alias, new SpringAiChatAdapter(chatModel));
+        ports.put(alias, createSpringAiChatPort(springAiChatModelProvider));
     }
 
     private static String springAiAlias(String providerName, AiAdapterProperties properties) {
@@ -81,9 +81,18 @@ public class LangChainChatConfiguration {
     private static boolean isSpringAiSourceProvider(String providerName, AiAdapterProperties properties) {
         String sourceProvider = properties.getSpringAi().getSourceProvider();
         if (sourceProvider == null || sourceProvider.isBlank()) {
-            return providerName.equalsIgnoreCase(properties.getDefaultProvider());
+            return false;
         }
         return providerName.equalsIgnoreCase(sourceProvider);
+    }
+
+    private static ChatPort createSpringAiChatPort(
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
+        org.springframework.ai.chat.model.ChatModel chatModel = springAiChatModelProvider.getIfAvailable();
+        if (chatModel == null) {
+            throw new IllegalStateException("Spring AI chat model bean is required when studio.ai.spring-ai.enabled=true");
+        }
+        return new SpringAiChatAdapter(chatModel);
     }
 
     private static ChatPort createChatPort(AiAdapterProperties.Provider provider, I18n i18n) {

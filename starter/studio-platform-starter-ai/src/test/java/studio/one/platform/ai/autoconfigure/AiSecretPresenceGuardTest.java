@@ -47,6 +47,46 @@ class AiSecretPresenceGuardTest {
         assertDoesNotThrow(guard::validate);
     }
 
+    @Test
+    void validateRequiresSpringAiSourceProviderWhenAliasModeIsEnabled() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.getSpringAi().setEnabled(true);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
+                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsMissingStudioApiKeyForSpringAiSourceProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.getSpringAi().setEnabled(true);
+        properties.getSpringAi().setSourceProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.openai.api-key", "test-key");
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("chatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
+        beanFactory.addBean("embeddingModel", org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertDoesNotThrow(guard::validate);
+    }
+
     private static Environment environment() {
         return new MockEnvironment();
     }
