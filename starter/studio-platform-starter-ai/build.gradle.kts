@@ -18,11 +18,7 @@ dependencies {
     compileOnly(project(":studio-platform-autoconfigure")) 
     compileOnly(project(":starter:studio-platform-starter")) 
     api(project(":studio-platform-ai")) 
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
-    compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
-    compileOnly("org.springframework.boot:spring-boot-starter-validation")
-    compileOnly("org.springframework.boot:spring-boot-starter-security")
-    compileOnly("org.springframework.security:spring-security-acl")
+    compileOnly("org.springframework:spring-jdbc")
     
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}") 
     implementation("org.springframework.ai:spring-ai-starter-model-openai")

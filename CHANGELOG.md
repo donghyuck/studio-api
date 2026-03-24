@@ -29,3 +29,4 @@
 - refactor(ai): remove remaining core bean stereotypes so AI service ownership stays in starter auto-configuration.
 - refactor(ai): narrow AI dependency ownership so web/security concerns stay with the web starter boundary.
 - refactor(ai): replace AI starter component scanning with explicit auto-configuration bean registration.
+- refactor(ai): prune unused compileOnly Spring starter dependencies from `studio-platform-starter-ai`.
