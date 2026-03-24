@@ -23,6 +23,7 @@ public class AiAdapterProperties {
     private String defaultProvider;
     private final Map<String, Provider> providers = new LinkedHashMap<>();
     private Endpoints endpoints = new Endpoints();
+    private SpringAi springAi = new SpringAi();
 
     @Getter
     @Setter
@@ -60,6 +61,28 @@ public class AiAdapterProperties {
     public static final class GoogleEmbeddingOptions {
         private String taskType = "RETRIEVAL_DOCUMENT";
         private String titleMetadataKey = "title";
+    }
+
+    @Getter
+    @Setter
+    @ToString
+    public static final class SpringAi {
+        /**
+         * Enables side-by-side Spring AI provider aliases for migration spike validation.
+         */
+        private boolean enabled = false;
+
+        /**
+         * Source provider id whose logical name is used to register the Spring AI alias.
+         * Required when Spring AI alias registration is enabled.
+         */
+        private String sourceProvider;
+
+        /**
+         * Suffix appended to the configured provider name when registering Spring AI ports.
+         * Example: openai -> openai-springai
+         */
+        private String providerSuffix = "-springai";
     }
 
     public enum ProviderType {

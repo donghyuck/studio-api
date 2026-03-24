@@ -14,6 +14,7 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter;
 import studio.one.platform.ai.adapters.chat.LangChainChatAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.autoconfigure.I18nKeys;
@@ -28,7 +29,9 @@ import studio.one.platform.util.LogUtils;
 public class LangChainChatConfiguration {
 
     @Bean(name = "providerChatPorts")
-    public Map<String, ChatPort> chatPorts(AiAdapterProperties properties, ObjectProvider<I18n> i18nProvider) {
+    public Map<String, ChatPort> chatPorts(AiAdapterProperties properties,
+            ObjectProvider<I18n> i18nProvider,
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         Map<String, ChatPort> ports = new LinkedHashMap<>();
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
@@ -39,8 +42,53 @@ public class LangChainChatConfiguration {
                 continue;
             }
             ports.put(entry.getKey(), createChatPort(provider, i18n));
+            registerSpringAiChatPort(ports, entry.getKey(), provider, properties, springAiChatModelProvider);
         }
         return ports;
+    }
+
+    private static void registerSpringAiChatPort(Map<String, ChatPort> ports, String providerName,
+            AiAdapterProperties.Provider provider, AiAdapterProperties properties,
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
+        if (!properties.getSpringAi().isEnabled() || provider.getType() != AiAdapterProperties.ProviderType.OPENAI) {
+            return;
+        }
+        if (!isSpringAiSourceProvider(providerName, properties)) {
+            return;
+        }
+        String alias = springAiAlias(providerName, properties);
+        if (properties.getProviders().containsKey(alias) && !providerName.equals(alias)) {
+            throw new IllegalStateException("Spring AI alias provider collides with configured provider: " + alias);
+        }
+        if (ports.containsKey(alias)) {
+            throw new IllegalStateException("Spring AI alias provider already exists: " + alias);
+        }
+        ports.put(alias, createSpringAiChatPort(springAiChatModelProvider));
+    }
+
+    private static String springAiAlias(String providerName, AiAdapterProperties properties) {
+        String suffix = properties.getSpringAi().getProviderSuffix();
+        if (suffix == null || suffix.isBlank()) {
+            throw new IllegalArgumentException("studio.ai.spring-ai.provider-suffix must not be blank");
+        }
+        return providerName + suffix;
+    }
+
+    private static boolean isSpringAiSourceProvider(String providerName, AiAdapterProperties properties) {
+        String sourceProvider = properties.getSpringAi().getSourceProvider();
+        if (sourceProvider == null || sourceProvider.isBlank()) {
+            return false;
+        }
+        return providerName.equalsIgnoreCase(sourceProvider);
+    }
+
+    private static ChatPort createSpringAiChatPort(
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
+        org.springframework.ai.chat.model.ChatModel chatModel = springAiChatModelProvider.getIfAvailable();
+        if (chatModel == null) {
+            throw new IllegalStateException("Spring AI chat model bean is required when studio.ai.spring-ai.enabled=true");
+        }
+        return new SpringAiChatAdapter(chatModel);
     }
 
     private static ChatPort createChatPort(AiAdapterProperties.Provider provider, I18n i18n) {
