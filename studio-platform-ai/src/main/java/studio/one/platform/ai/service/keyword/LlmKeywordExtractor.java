@@ -5,8 +5,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.springframework.stereotype.Component;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -21,7 +19,6 @@ import studio.one.platform.ai.service.prompt.PromptManager;
 /**
  * LLM 기반 키워드 추출기. 입력 텍스트에서 5~10개의 핵심 키워드를 JSON 배열로 받아 파싱한다.
  */
-@Component
 @RequiredArgsConstructor
 @Slf4j
 public class LlmKeywordExtractor implements KeywordExtractor {

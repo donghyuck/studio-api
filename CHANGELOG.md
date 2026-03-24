@@ -26,3 +26,4 @@
 # 2026-03-24
 
 - refactor(ai): start splitting AI HTTP endpoints into a dedicated web starter module.
+- refactor(ai): remove remaining core bean stereotypes so AI service ownership stays in starter auto-configuration.
