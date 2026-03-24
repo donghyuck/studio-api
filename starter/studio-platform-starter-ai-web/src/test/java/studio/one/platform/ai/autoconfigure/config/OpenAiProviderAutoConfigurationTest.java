@@ -28,6 +28,7 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
+import studio.one.platform.ai.web.controller.TokenUsageJsonComponent;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
@@ -88,6 +89,7 @@ class OpenAiProviderAutoConfigurationTest {
     void routesControllerChatRequestsThroughDefaultOpenAiProvider() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
+            assertThat(context).hasSingleBean(ChatController.class);
 
             org.springframework.ai.chat.model.ChatModel springAiChatModel =
                     context.getBean(org.springframework.ai.chat.model.ChatModel.class);
@@ -121,6 +123,7 @@ class OpenAiProviderAutoConfigurationTest {
     void routesControllerEmbeddingRequestsThroughDefaultOpenAiProvider() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
+            assertThat(context).hasSingleBean(EmbeddingController.class);
 
             org.springframework.ai.embedding.EmbeddingModel springAiEmbeddingModel =
                     context.getBean(org.springframework.ai.embedding.EmbeddingModel.class);
@@ -144,6 +147,8 @@ class OpenAiProviderAutoConfigurationTest {
     void exposesOpenAiFromInfoControllerInRuntimeContext() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
+            assertThat(context).hasSingleBean(AiInfoController.class);
+            assertThat(context).hasSingleBean(TokenUsageJsonComponent.class);
 
             AiInfoController controller = context.getBean(AiInfoController.class);
 
