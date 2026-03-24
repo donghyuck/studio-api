@@ -8,6 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
@@ -31,6 +32,7 @@ public class LangChainChatConfiguration {
     @Bean(name = "providerChatPorts")
     public Map<String, ChatPort> chatPorts(AiAdapterProperties properties,
             ObjectProvider<I18n> i18nProvider,
+            Environment environment,
             ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         Map<String, ChatPort> ports = new LinkedHashMap<>();
@@ -41,7 +43,7 @@ public class LangChainChatConfiguration {
             if (!provider.isEnabled() || !provider.getChat().isEnabled()) {
                 continue;
             }
-            ports.put(entry.getKey(), createChatPort(provider, i18n));
+            ports.put(entry.getKey(), createChatPort(entry.getKey(), provider, properties, environment, i18n));
             registerSpringAiChatPort(ports, entry.getKey(), provider, properties, springAiChatModelProvider);
         }
         return ports;
@@ -91,13 +93,14 @@ public class LangChainChatConfiguration {
         return new SpringAiChatAdapter(chatModel);
     }
 
-    private static ChatPort createChatPort(AiAdapterProperties.Provider provider, I18n i18n) {
+    private static ChatPort createChatPort(String providerName, AiAdapterProperties.Provider provider,
+            AiAdapterProperties properties, Environment environment, I18n i18n) {
         log.debug("Creating Chat Port by  {}", provider );
-        String model = requireModel(provider.getChat().getModel());
-        String baseUrl = resolveBaseUrl(provider);
+        String model = resolveChatModel(providerName, provider, properties, environment);
+        String baseUrl = resolveBaseUrl(providerName, provider, properties, environment);
         ChatModel chatModel = switch (provider.getType()) {
             case OPENAI -> OpenAiChatModel.builder()
-                    .apiKey(provider.getApiKey())
+                    .apiKey(resolveOpenAiApiKey(providerName, properties, provider, environment))
                     .baseUrl(baseUrl)
                     .modelName(model)
                     .build();
@@ -112,6 +115,16 @@ public class LangChainChatConfiguration {
         return new LangChainChatAdapter(chatModel);
     }
 
+    private static String resolveChatModel(String providerName, AiAdapterProperties.Provider provider,
+            AiAdapterProperties properties, Environment environment) {
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                && isSpringAiSourceProvider(providerName, properties)) {
+            return requireConfigured(environment.getProperty("spring.ai.openai.chat.options.model"),
+                    "spring.ai.openai.chat.options.model must be configured for source provider: " + providerName);
+        }
+        return requireModel(provider.getChat().getModel());
+    }
+
     private static ChatModel buildGoogleChat(AiAdapterProperties.Provider provider, I18n i18n, String baseUrl, String model) {
         GoogleAiGeminiChatModelBuilder builder = GoogleAiGeminiChatModel.builder()
                 .apiKey(provider.getApiKey())
@@ -123,8 +136,15 @@ public class LangChainChatConfiguration {
         return builder.build();
     }
 
-    private static String resolveBaseUrl(AiAdapterProperties.Provider provider) {
-        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+    private static String resolveBaseUrl(String providerName, AiAdapterProperties.Provider provider,
+            AiAdapterProperties properties, Environment environment) {
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                && isSpringAiSourceProvider(providerName, properties)) {
+            String configured = environment.getProperty("spring.ai.openai.base-url");
+            if (StringUtils.isNotBlank(configured)) {
+                return configured;
+            }
+        } else if (StringUtils.isNotBlank(provider.getBaseUrl())) {
             return provider.getBaseUrl();
         }
         return switch (provider.getType()) {
@@ -139,5 +159,22 @@ public class LangChainChatConfiguration {
             throw new IllegalArgumentException("Model name must be provided for provider chat configuration");
         }
         return model;
+    }
+
+    private static String resolveOpenAiApiKey(String providerName, AiAdapterProperties properties,
+            AiAdapterProperties.Provider provider, Environment environment) {
+        if (isSpringAiSourceProvider(providerName, properties)) {
+            return requireConfigured(environment.getProperty("spring.ai.openai.api-key"),
+                    "spring.ai.openai.api-key must be configured for source provider: " + providerName);
+        }
+        return requireConfigured(provider.getApiKey(),
+                "studio.ai.providers." + providerName + ".api-key must be configured");
+    }
+
+    private static String requireConfigured(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value;
     }
 }

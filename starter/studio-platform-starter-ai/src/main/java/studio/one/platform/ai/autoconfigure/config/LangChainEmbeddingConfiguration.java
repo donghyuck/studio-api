@@ -9,6 +9,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
@@ -32,6 +33,7 @@ public class LangChainEmbeddingConfiguration {
     @Bean(name = "providerEmbeddingPorts")
     public Map<String, EmbeddingPort> embeddingPorts(AiAdapterProperties properties,
                                                     ObjectProvider<I18n> i18nProvider,
+                                                    Environment environment,
                                                     ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         Map<String, EmbeddingPort> ports = new LinkedHashMap<>();
@@ -41,7 +43,7 @@ public class LangChainEmbeddingConfiguration {
             if (!provider.isEnabled() || !provider.getEmbedding().isEnabled()) {
                 continue;
             }
-            ports.put(entry.getKey(), createEmbedding(provider, i18n));
+            ports.put(entry.getKey(), createEmbedding(entry.getKey(), provider, properties, environment, i18n));
             registerSpringAiEmbeddingPort(ports, entry.getKey(), provider, properties, springAiEmbeddingModelProvider);
         }
         return ports;
@@ -91,13 +93,14 @@ public class LangChainEmbeddingConfiguration {
         return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
-    private static EmbeddingPort createEmbedding(AiAdapterProperties.Provider provider, I18n i18n) {
+    private static EmbeddingPort createEmbedding(String providerName, AiAdapterProperties.Provider provider,
+            AiAdapterProperties properties, Environment environment, I18n i18n) {
         log.debug("Creating Embedding Port by  {}", provider );
-        String model = requireModel(provider.getEmbedding().getModel());
-        String baseUrl = resolveBaseUrl(provider);
+        String model = resolveEmbeddingModel(providerName, provider, properties, environment);
+        String baseUrl = resolveBaseUrl(providerName, provider, properties, environment);
         EmbeddingModel embeddingModel = switch (provider.getType()) {
             case OPENAI -> OpenAiEmbeddingModel.builder()
-                    .apiKey(provider.getApiKey())
+                    .apiKey(resolveOpenAiApiKey(providerName, properties, provider, environment))
                     .baseUrl(baseUrl)
                     .modelName(model)
                     .build();
@@ -116,6 +119,16 @@ public class LangChainEmbeddingConfiguration {
         return new LangChainEmbeddingAdapter(embeddingModel);
     }
 
+    private static String resolveEmbeddingModel(String providerName, AiAdapterProperties.Provider provider,
+            AiAdapterProperties properties, Environment environment) {
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                && isSpringAiSourceProvider(providerName, properties)) {
+            return requireConfigured(environment.getProperty("spring.ai.openai.embedding.options.model"),
+                    "spring.ai.openai.embedding.options.model must be configured for source provider: " + providerName);
+        }
+        return requireModel(provider.getEmbedding().getModel());
+    }
+
     private static GoogleAiEmbeddingModel buildGoogleEmbedding(AiAdapterProperties.Provider provider, String baseUrl, String model) {
         AiAdapterProperties.GoogleEmbeddingOptions google = provider.getGoogleEmbedding();
         GoogleAiEmbeddingModel.GoogleAiEmbeddingModelBuilder builder = GoogleAiEmbeddingModel.builder()
@@ -130,8 +143,15 @@ public class LangChainEmbeddingConfiguration {
         return builder.build();
     }
 
-    private static String resolveBaseUrl(AiAdapterProperties.Provider provider) {
-        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+    private static String resolveBaseUrl(String providerName, AiAdapterProperties.Provider provider,
+            AiAdapterProperties properties, Environment environment) {
+        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI
+                && isSpringAiSourceProvider(providerName, properties)) {
+            String configured = environment.getProperty("spring.ai.openai.base-url");
+            if (StringUtils.isNotBlank(configured)) {
+                return configured;
+            }
+        } else if (StringUtils.isNotBlank(provider.getBaseUrl())) {
             return provider.getBaseUrl();
         }
         return switch (provider.getType()) {
@@ -147,6 +167,23 @@ public class LangChainEmbeddingConfiguration {
             throw new IllegalArgumentException("Model name must be provided for embedding configuration");
         }
         return model;
+    }
+
+    private static String resolveOpenAiApiKey(String providerName, AiAdapterProperties properties,
+            AiAdapterProperties.Provider provider, Environment environment) {
+        if (isSpringAiSourceProvider(providerName, properties)) {
+            return requireConfigured(environment.getProperty("spring.ai.openai.api-key"),
+                    "spring.ai.openai.api-key must be configured for source provider: " + providerName);
+        }
+        return requireConfigured(provider.getApiKey(),
+                "studio.ai.providers." + providerName + ".api-key must be configured");
+    }
+
+    private static String requireConfigured(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value;
     }
 
     private static GoogleAiEmbeddingModel.TaskType parseTaskType(String value) {

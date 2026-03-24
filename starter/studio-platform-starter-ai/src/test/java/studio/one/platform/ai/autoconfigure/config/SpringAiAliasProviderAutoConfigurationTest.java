@@ -34,11 +34,11 @@ class SpringAiAliasProviderAutoConfigurationTest {
                     "studio.ai.spring-ai.enabled=true",
                     "studio.ai.spring-ai.provider-suffix=-springai",
                     "spring.ai.openai.api-key=test-key",
+                    "spring.ai.openai.chat.options.model=gpt-4o-mini",
+                    "spring.ai.openai.embedding.options.model=text-embedding-3-small",
                     "studio.ai.providers.openai.type=OPENAI",
                     "studio.ai.providers.openai.chat.enabled=true",
-                    "studio.ai.providers.openai.chat.model=gpt-4o-mini",
-                    "studio.ai.providers.openai.embedding.enabled=true",
-                    "studio.ai.providers.openai.embedding.model=text-embedding-3-small");
+                    "studio.ai.providers.openai.embedding.enabled=true");
 
     @Test
     void usesSpringAiAliasAsDefaultProviderWhenConfigured() {
@@ -128,16 +128,28 @@ class SpringAiAliasProviderAutoConfigurationTest {
                         "studio.ai.spring-ai.source-provider=openai",
                         "studio.ai.spring-ai.enabled=true",
                         "studio.ai.spring-ai.provider-suffix=-springai",
+                        "spring.ai.openai.chat.options.model=gpt-4o-mini",
+                        "spring.ai.openai.embedding.options.model=text-embedding-3-small",
                         "studio.ai.providers.openai.type=OPENAI",
                         "studio.ai.providers.openai.chat.enabled=true",
-                        "studio.ai.providers.openai.chat.model=gpt-4o-mini",
-                        "studio.ai.providers.openai.embedding.enabled=true",
-                        "studio.ai.providers.openai.embedding.model=text-embedding-3-small")
+                        "studio.ai.providers.openai.embedding.enabled=true")
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseInstanceOf(IllegalStateException.class)
                             .hasRootCauseMessage("spring.ai.openai.api-key must be configured when studio.ai.spring-ai.enabled=true");
+                });
+    }
+
+    @Test
+    void usesSpringAiRuntimeConfigForBaseOpenAiProviderWithoutLegacyProviderValues() {
+        contextRunner
+                .withPropertyValues("studio.ai.default-provider=openai")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
+                    assertThat(registry.availableChatPorts()).containsKeys("openai", "openai-springai");
+                    assertThat(registry.availableEmbeddingPorts()).containsKeys("openai", "openai-springai");
                 });
     }
 }
