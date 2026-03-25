@@ -164,13 +164,27 @@ public class VectorController {
     private List<VectorSearchResult> executeSearch(VectorStorePort store, VectorSearchRequestDto request,
             VectorSearchRequest searchRequest) {
         boolean useHybrid = Boolean.TRUE.equals(request.hybrid());
+        boolean hasObjectFilter = hasText(request.objectType()) || hasText(request.objectId());
+        List<VectorSearchResult> results;
         if (!useHybrid) {
-            return store.search(searchRequest);
+            results = hasObjectFilter
+                    ? store.searchByObject(request.objectType(), request.objectId(), searchRequest)
+                    : store.search(searchRequest);
+            return applyMinScore(results, request.minScore());
         }
         if (request.query() == null || request.query().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hybrid search requires a query string");
         }
-        return store.hybridSearch(request.query(), searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT);
+        results = hasObjectFilter
+                ? store.hybridSearchByObject(
+                        request.query(),
+                        request.objectType(),
+                        request.objectId(),
+                        searchRequest,
+                        HYBRID_VECTOR_WEIGHT,
+                        HYBRID_LEXICAL_WEIGHT)
+                : store.hybridSearch(request.query(), searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT);
+        return applyMinScore(results, request.minScore());
     }
 
     private List<Double> normalizeEmbedding(List<Double> embedding, int expectedDim) {
@@ -205,6 +219,19 @@ public class VectorController {
                 document.content(),
                 metadata == null ? Collections.emptyMap() : Map.copyOf(metadata),
                 result.score());
+    }
+
+    private List<VectorSearchResult> applyMinScore(List<VectorSearchResult> results, Double minScore) {
+        if (minScore == null) {
+            return results;
+        }
+        return results.stream()
+                .filter(result -> result.score() >= minScore)
+                .toList();
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private VectorStorePort requireVectorStore() {
