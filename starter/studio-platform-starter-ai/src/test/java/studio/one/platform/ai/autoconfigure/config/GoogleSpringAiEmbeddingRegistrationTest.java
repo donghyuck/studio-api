@@ -27,7 +27,7 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         provider.getEmbedding().setModel("legacy-should-not-be-used");
         properties.getProviders().put("google", provider);
 
-        LangChainEmbeddingConfiguration embeddingConfiguration = new LangChainEmbeddingConfiguration();
+        ProviderEmbeddingConfiguration embeddingConfiguration = new ProviderEmbeddingConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment()
@@ -59,7 +59,7 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         provider.getGoogleEmbedding().setTaskType("RETRIEVAL_QUERY");
         properties.getProviders().put("google", provider);
 
-        LangChainEmbeddingConfiguration embeddingConfiguration = new LangChainEmbeddingConfiguration();
+        ProviderEmbeddingConfiguration embeddingConfiguration = new ProviderEmbeddingConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.google.genai.embedding.api-key", "test-key")

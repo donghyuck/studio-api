@@ -30,7 +30,7 @@ class GoogleSpringAiChatRegistrationTest {
         provider.setApiKey("test-key");
         properties.getProviders().put("google", provider);
 
-        LangChainChatConfiguration chatConfiguration = new LangChainChatConfiguration();
+        ProviderChatConfiguration chatConfiguration = new ProviderChatConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment();
@@ -62,7 +62,7 @@ class GoogleSpringAiChatRegistrationTest {
         provider.setBaseUrl("https://proxy.example.test/v1beta");
         properties.getProviders().put("google", provider);
 
-        LangChainChatConfiguration chatConfiguration = new LangChainChatConfiguration();
+        ProviderChatConfiguration chatConfiguration = new ProviderChatConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment();
