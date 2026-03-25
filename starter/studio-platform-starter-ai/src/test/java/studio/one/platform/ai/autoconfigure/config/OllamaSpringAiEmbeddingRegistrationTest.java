@@ -27,7 +27,7 @@ class OllamaSpringAiEmbeddingRegistrationTest {
         provider.getEmbedding().setModel("legacy-should-not-be-used");
         properties.getProviders().put("ollama", provider);
 
-        LangChainEmbeddingConfiguration embeddingConfiguration = new LangChainEmbeddingConfiguration();
+        ProviderEmbeddingConfiguration embeddingConfiguration = new ProviderEmbeddingConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment()

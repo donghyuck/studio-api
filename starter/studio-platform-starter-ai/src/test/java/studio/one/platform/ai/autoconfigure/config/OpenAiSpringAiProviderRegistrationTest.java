@@ -27,8 +27,8 @@ class OpenAiSpringAiProviderRegistrationTest {
         provider.getEmbedding().setEnabled(true);
         properties.getProviders().put("openai", provider);
 
-        LangChainChatConfiguration chatConfiguration = new LangChainChatConfiguration();
-        LangChainEmbeddingConfiguration embeddingConfiguration = new LangChainEmbeddingConfiguration();
+        ProviderChatConfiguration chatConfiguration = new ProviderChatConfiguration();
+        ProviderEmbeddingConfiguration embeddingConfiguration = new ProviderEmbeddingConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         beanFactory.addBean("springAiEmbeddingModel", org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class));
@@ -78,7 +78,7 @@ class OpenAiSpringAiProviderRegistrationTest {
                 .withProperty("spring.ai.openai.api-key", "test-key")
                 .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
-        Map<String, ChatPort> chatPorts = new LangChainChatConfiguration().chatPorts(
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
                 properties,
                 i18nProvider,
                 environment,

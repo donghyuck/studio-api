@@ -37,3 +37,4 @@
 - refactor(ai): remove the remaining LangChain4j embedding adapter and dead embedding wiring, keeping LangChain4j only for the Google chat path.
 - refactor(ai): migrate Google chat wiring from LangChain4j to Spring AI and remove the remaining LangChain4j chat adapter path.
 - fix(ai): preserve custom Google chat base URL when building the Spring AI Google GenAI client.
+- refactor(ai): rename provider wiring configurations to neutral names after removing LangChain4j runtime paths.

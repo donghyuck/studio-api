@@ -20,7 +20,7 @@ import studio.one.platform.util.I18nUtils;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiAdapterProperties.class)
 @Slf4j
-public class LangChainChatConfiguration {
+public class ProviderChatConfiguration {
 
     @Bean(name = "providerChatPorts")
     public Map<String, ChatPort> chatPorts(AiAdapterProperties properties,
@@ -91,23 +91,6 @@ public class LangChainChatConfiguration {
         }
         return value;
     }
-    private static String resolveBaseUrl(AiAdapterProperties.Provider provider, Environment environment) {
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
-            String configured = environment.getProperty("spring.ai.openai.base-url");
-            if (StringUtils.isNotBlank(configured)) {
-                return configured;
-            }
-        }
-        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
-            return provider.getBaseUrl();
-        } 
-        return switch (provider.getType()) {
-            case OPENAI -> "https://api.openai.com/v1";
-            //case GOOGLE_AI_GEMINI -> "https://generativelanguage.googleapis.com/v1";
-            default -> null;
-        };
-    }
-
     private static String requireModel(String model) {
         if (model == null || model.isBlank()) {
             throw new IllegalArgumentException("Model name must be provided for provider chat configuration");

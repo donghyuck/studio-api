@@ -20,7 +20,7 @@ import studio.one.platform.util.I18nUtils;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiAdapterProperties.class)
 @Slf4j
-public class LangChainEmbeddingConfiguration {
+public class ProviderEmbeddingConfiguration {
 
     @Bean(name = "providerEmbeddingPorts")
     public Map<String, EmbeddingPort> embeddingPorts(AiAdapterProperties properties,
@@ -98,24 +98,6 @@ public class LangChainEmbeddingConfiguration {
         org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel embeddingModel =
                 new org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel(connectionDetails, options);
         return new SpringAiEmbeddingAdapter(embeddingModel);
-    }
-
-    private static String resolveBaseUrl(AiAdapterProperties.Provider provider, Environment environment) {
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
-            String configured = environment.getProperty("spring.ai.openai.base-url");
-            if (StringUtils.isNotBlank(configured)) {
-                return configured;
-            }
-        }
-        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
-            return provider.getBaseUrl();
-        }
-        return switch (provider.getType()) {
-            case OPENAI -> "https://api.openai.com/v1";
-            case OLLAMA -> "http://localhost:11434";
-            case GOOGLE_AI_GEMINI -> "https://generativelanguage.googleapis.com/v1";
-            default -> null;
-        };
     }
 
     private static String requireText(String value, String message) {
