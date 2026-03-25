@@ -13,7 +13,7 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
@@ -41,7 +41,7 @@ public class AiWebAutoConfiguration {
     VectorController vectorController(
             EmbeddingPort embeddingPort,
             @Nullable VectorStorePort vectorStorePort,
-            ObjectProvider<PromptManager> promptManagerProvider) {
+            ObjectProvider<PromptRenderer> promptManagerProvider) {
         return new VectorController(embeddingPort, vectorStorePort, promptManagerProvider);
     }
 
@@ -51,7 +51,7 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    QueryRewriteController queryRewriteController(PromptManager promptManager, ChatPort chatPort) {
+    QueryRewriteController queryRewriteController(PromptRenderer promptManager, ChatPort chatPort) {
         return new QueryRewriteController(promptManager, chatPort);
     }
 

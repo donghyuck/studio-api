@@ -29,7 +29,7 @@ import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
@@ -61,7 +61,7 @@ public class VectorController {
 
     public VectorController(EmbeddingPort embeddingPort,
             @Nullable VectorStorePort vectorStorePort,
-            ObjectProvider<PromptManager> promptManagerProvicer) {
+            ObjectProvider<PromptRenderer> promptManagerProvicer) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = vectorStorePort; 
     }
