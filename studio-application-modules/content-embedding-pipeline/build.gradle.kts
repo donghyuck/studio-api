@@ -25,4 +25,14 @@ dependencies {
     compileOnly(project(":studio-platform-security"))  
     compileOnly(project(":studio-platform-ai"))  
     compileOnly(project(":studio-application-modules:attachment-service"))
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.boot:spring-boot-starter-validation")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.springframework.boot:spring-boot-starter-security")
+    testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-data"))
+    testImplementation(project(":studio-platform-ai"))
+    testImplementation(project(":studio-application-modules:attachment-service"))
 }
