@@ -23,5 +23,6 @@ dependencies {
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-security"))  
     compileOnly(project(":studio-platform-ai"))  
+    compileOnly(project(":starter:studio-platform-starter-ai-web"))
     compileOnly(project(":studio-application-modules:attachment-service"))
 }
