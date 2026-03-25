@@ -1,5 +1,11 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
 import jakarta.validation.Valid;
 
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -111,13 +117,21 @@ public class QueryRewriteController {
         String cleaned = sanitize(raw);
         try {
             JsonNode node = objectMapper.readTree(cleaned);
-            String expanded = textValue(node.get("expanded_query"), raw);
-            java.util.List<String> keywords = toList(node.get("keywords"));
-            String orig = textValue(node.get("original_query"), originalQuery);
+            List<String> keywords = normalizeKeywords(toList(node.get("keywords")));
+            String expanded = normalizeExpandedQuery(textValue(node.get("expanded_query"), ""), keywords, cleaned, originalQuery);
+            if (keywords.isEmpty()) {
+                keywords = normalizeKeywords(splitTerms(expanded));
+            }
+            if (expanded.isBlank() && !keywords.isEmpty()) {
+                expanded = String.join(", ", keywords);
+            }
+            String orig = normalizeText(textValue(node.get("original_query"), originalQuery), originalQuery);
             return new QueryRewriteResponseDto(orig, expanded, keywords, prompt, raw);
         } catch (Exception e) {
             log.warn("Failed to parse query rewrite response as JSON. Using raw text. cause={}", e.toString());
-            return new QueryRewriteResponseDto(originalQuery, cleaned, java.util.List.of(), prompt, raw);
+            List<String> keywords = normalizeKeywords(splitTerms(cleaned));
+            String expanded = normalizeExpandedQuery(cleaned, keywords, cleaned, originalQuery);
+            return new QueryRewriteResponseDto(originalQuery, expanded, keywords, prompt, raw);
         }
     }
 
@@ -165,5 +179,57 @@ public class QueryRewriteController {
             }
         });
         return list;
+    }
+
+    private String normalizeExpandedQuery(String expanded, List<String> keywords, String cleaned, String originalQuery) {
+        List<String> expandedTerms = normalizeKeywords(splitTerms(expanded));
+        if (!expandedTerms.isEmpty()) {
+            return String.join(", ", expandedTerms);
+        }
+        if (!keywords.isEmpty()) {
+            return String.join(", ", keywords);
+        }
+        String normalized = normalizeText(cleaned, originalQuery);
+        return normalized.equals(originalQuery) ? originalQuery : normalized;
+    }
+
+    private List<String> splitTerms(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        String[] parts = value.split("[,;\\n]+");
+        List<String> terms = new ArrayList<>();
+        for (String part : parts) {
+            String normalized = normalizeText(part, "");
+            if (!normalized.isBlank()) {
+                terms.add(normalized);
+            }
+        }
+        return terms;
+    }
+
+    private List<String> normalizeKeywords(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String keyword : keywords) {
+            for (String term : splitTerms(keyword)) {
+                String dedupeKey = term.toLowerCase(Locale.ROOT);
+                if (seen.add(dedupeKey)) {
+                    normalized.add(term);
+                }
+            }
+        }
+        return normalized;
+    }
+
+    private String normalizeText(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String normalized = value.trim().replaceAll("\\s+", " ");
+        return normalized.isBlank() ? fallback : normalized;
     }
 }
