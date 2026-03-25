@@ -7,12 +7,6 @@ java {
     withSourcesJar()
 }
 
-dependencyManagement {
-    imports {
-        mavenBom("io.github.resilience4j:resilience4j-bom:${property("resilience4jVersion")}")
-    }
-}
-
 val bootJar = tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar")
 bootJar.configure {
     enabled = false
@@ -33,7 +27,7 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
-    implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
 
     runtimeOnly("org.postgresql:postgresql")    

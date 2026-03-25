@@ -26,7 +26,7 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-ollama")
     implementation("org.springframework.ai:spring-ai-google-genai-embedding")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
-    implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
+    implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
