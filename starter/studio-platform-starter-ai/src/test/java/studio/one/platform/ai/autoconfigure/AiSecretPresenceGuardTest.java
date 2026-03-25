@@ -114,6 +114,25 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
+    void validateRejectsMissingChatModelForGoogleChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("google");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        provider.setApiKey("test-key");
+        properties.getProviders().put("google", provider);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
+                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
     void validateRequiresDefaultProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);

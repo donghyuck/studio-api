@@ -35,7 +35,9 @@ public class SpringAiChatAdapter implements ChatPort {
                 .map(this::toSpringAiMessage)
                 .toList();
 
-        org.springframework.ai.chat.model.ChatResponse response = chatModel.call(new Prompt(messages));
+        org.springframework.ai.chat.prompt.ChatOptions options = createChatOptions(request);
+        org.springframework.ai.chat.model.ChatResponse response = chatModel.call(
+                options == null ? new Prompt(messages) : new Prompt(messages, options));
         if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
             throw new IllegalStateException("Chat model returned an empty response");
         }
@@ -68,6 +70,10 @@ public class SpringAiChatAdapter implements ChatPort {
             case USER -> new UserMessage(message.content());
             case ASSISTANT -> new AssistantMessage(message.content());
         };
+    }
+
+    protected org.springframework.ai.chat.prompt.ChatOptions createChatOptions(ChatRequest request) {
+        return null;
     }
 
     private Map<String, Integer> toTokenUsageMap(Usage usage) {
