@@ -99,9 +99,6 @@ public class ProviderEmbeddingConfiguration {
         if (taskType != null && !taskType.isBlank()) {
             optionsBuilder.taskType(GoogleGenAiTextEmbeddingOptions.TaskType.valueOf(taskType.trim().toUpperCase(Locale.ROOT)));
         }
-        if (StringUtils.isNotBlank(google.getTitleMetadataKey())) {
-            optionsBuilder.title(google.getTitleMetadataKey());
-        }
         Client.Builder clientBuilder = Client.builder()
                 .apiKey(provider.getApiKey());
         if (StringUtils.isNotBlank(baseUrl)) {
