@@ -100,6 +100,8 @@ public class AiSecretPresenceGuard {
         if (provider.getChat().isEnabled()) {
             requireText(provider.getApiKey(),
                     "studio.ai.providers." + providerId + ".api-key must be configured for GOOGLE_AI_GEMINI chat provider");
+            requireText(provider.getChat().getModel(),
+                    "studio.ai.providers." + providerId + ".chat.model must be configured for GOOGLE_AI_GEMINI chat provider");
         }
     }
 
