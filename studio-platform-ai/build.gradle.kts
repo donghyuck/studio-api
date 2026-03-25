@@ -33,7 +33,6 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}")
     implementation("dev.langchain4j:langchain4j:${property("langchain4jVersion")}")
-    implementation("dev.langchain4j:langchain4j-ollama:${property("langchain4jVersion")}")
     implementation("dev.langchain4j:langchain4j-google-ai-gemini:${property("langchain4jVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")

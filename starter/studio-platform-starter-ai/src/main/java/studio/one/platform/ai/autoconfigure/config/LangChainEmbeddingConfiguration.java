@@ -11,17 +11,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.googleai.GoogleAiEmbeddingModel;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
-import studio.one.platform.ai.adapters.embedding.LangChainEmbeddingAdapter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
-import studio.one.platform.autoconfigure.I18nKeys;
-import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
-import studio.one.platform.util.LogUtils;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(AiAdapterProperties.class)
@@ -59,27 +53,12 @@ public class LangChainEmbeddingConfiguration {
             Environment environment, I18n i18n,
             ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider) {
         log.debug("Creating Embedding Port by  {}", provider );
-        EmbeddingModel embeddingModel = switch (provider.getType()) {
-            case OPENAI -> null;
-            case OLLAMA -> null;
-            case GOOGLE_AI_GEMINI -> null;
+        return switch (provider.getType()) {
+            case OPENAI -> createSpringAiEmbeddingPort(springAiEmbeddingModelProvider);
+            case OLLAMA -> createOllamaSpringAiEmbeddingPort(environment);
+            case GOOGLE_AI_GEMINI -> createGoogleSpringAiEmbeddingPort(provider, environment);
             default -> throw new IllegalArgumentException("Unsupported embedding provider: " + provider.getType());
         };
-        if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
-            return createSpringAiEmbeddingPort(springAiEmbeddingModelProvider);
-        }
-        if (provider.getType() == AiAdapterProperties.ProviderType.OLLAMA) {
-            return createOllamaSpringAiEmbeddingPort(environment);
-        }
-        if (provider.getType() == AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI) {
-            return createGoogleSpringAiEmbeddingPort(provider, environment);
-        }
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
-                AiProviderRegistryConfiguration.FEATURE_NAME,
-                LogUtils.blue(EmbeddingModel.class, true),
-                LogUtils.green(embeddingModel.getClass(), true),
-                LogUtils.red(State.CREATED.toString())));
-        return new LangChainEmbeddingAdapter(embeddingModel);
     }
 
     private static EmbeddingPort createOllamaSpringAiEmbeddingPort(Environment environment) {
@@ -121,20 +100,6 @@ public class LangChainEmbeddingConfiguration {
         return new SpringAiEmbeddingAdapter(embeddingModel);
     }
 
-    private static GoogleAiEmbeddingModel buildGoogleEmbedding(AiAdapterProperties.Provider provider, String baseUrl, String model) {
-        AiAdapterProperties.GoogleEmbeddingOptions google = provider.getGoogleEmbedding();
-        GoogleAiEmbeddingModel.GoogleAiEmbeddingModelBuilder builder = GoogleAiEmbeddingModel.builder()
-                .apiKey(provider.getApiKey())
-                .baseUrl(baseUrl)
-                .modelName(model)
-                .titleMetadataKey(google.getTitleMetadataKey());
-        String taskType = google.getTaskType();
-        if (taskType != null && !taskType.isBlank()) {
-            builder.taskType(GoogleAiEmbeddingModel.TaskType.valueOf(taskType.trim().toUpperCase(Locale.ROOT)));
-        }
-        return builder.build();
-    }
-
     private static String resolveBaseUrl(AiAdapterProperties.Provider provider, Environment environment) {
         if (provider.getType() == AiAdapterProperties.ProviderType.OPENAI) {
             String configured = environment.getProperty("spring.ai.openai.base-url");
@@ -153,25 +118,11 @@ public class LangChainEmbeddingConfiguration {
         };
     }
 
-    private static String requireModel(String model) {
-        if (model == null || model.isBlank()) {
-            throw new IllegalArgumentException("Model name must be provided for embedding configuration");
-        }
-        return model;
-    }
-
     private static String requireText(String value, String message) {
         if (!StringUtils.isNotBlank(value)) {
             throw new IllegalStateException(message);
         }
         return value;
-    }
-
-    private static GoogleAiEmbeddingModel.TaskType parseTaskType(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return GoogleAiEmbeddingModel.TaskType.valueOf(value.trim().toUpperCase(Locale.ROOT));
     }
 
     private static org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.TaskType parseSpringAiGoogleTaskType(String value) {
