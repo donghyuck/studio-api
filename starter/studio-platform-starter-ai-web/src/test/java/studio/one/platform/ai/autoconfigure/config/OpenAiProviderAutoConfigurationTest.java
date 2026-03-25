@@ -44,8 +44,8 @@ class OpenAiProviderAutoConfigurationTest {
             .withUserConfiguration(
                     AiSecretPresenceGuard.class,
                     AiWebAutoConfiguration.class,
-                    LangChainChatConfiguration.class,
-                    LangChainEmbeddingConfiguration.class,
+                    ProviderChatConfiguration.class,
+                    ProviderEmbeddingConfiguration.class,
                     AiProviderRegistryConfiguration.class)
             .withBean(I18n.class, () -> (code, args, locale) -> code)
             .withBean(RagPipelineService.class, () -> org.mockito.Mockito.mock(RagPipelineService.class))

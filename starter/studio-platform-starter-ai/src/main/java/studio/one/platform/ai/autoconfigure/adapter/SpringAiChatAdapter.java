@@ -10,9 +10,9 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.chat.prompt.ChatOptions;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
-import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
@@ -34,7 +34,7 @@ public class SpringAiChatAdapter implements ChatPort {
                 .map(this::toSpringAiMessage)
                 .toList();
 
-        org.springframework.ai.chat.model.ChatResponse response = chatModel.call(new Prompt(messages));
+        org.springframework.ai.chat.model.ChatResponse response = chatModel.call(new Prompt(messages, toChatOptions(request)));
         if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
             throw new IllegalStateException("Chat model returned an empty response");
         }
@@ -59,6 +59,36 @@ public class SpringAiChatAdapter implements ChatPort {
                 List.of(ChatMessage.assistant(assistant.getText())),
                 response.getMetadata().getModel() != null ? response.getMetadata().getModel() : request.model(),
                 metadata);
+    }
+
+    private ChatOptions toChatOptions(ChatRequest request) {
+        ChatOptions.Builder builder = ChatOptions.builder();
+        boolean configured = false;
+        if (request.model() != null) {
+            builder.model(request.model());
+            configured = true;
+        }
+        if (request.temperature() != null) {
+            builder.temperature(request.temperature());
+            configured = true;
+        }
+        if (request.topP() != null) {
+            builder.topP(request.topP());
+            configured = true;
+        }
+        if (request.topK() != null) {
+            builder.topK(request.topK());
+            configured = true;
+        }
+        if (request.maxOutputTokens() != null) {
+            builder.maxTokens(request.maxOutputTokens());
+            configured = true;
+        }
+        if (!request.stopSequences().isEmpty()) {
+            builder.stopSequences(request.stopSequences());
+            configured = true;
+        }
+        return configured ? builder.build() : null;
     }
 
     private Message toSpringAiMessage(ChatMessage message) {

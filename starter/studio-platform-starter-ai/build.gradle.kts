@@ -26,9 +26,9 @@ dependencies {
     
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}") 
     implementation("org.springframework.ai:spring-ai-starter-model-openai")
-    implementation("dev.langchain4j:langchain4j:${property("langchain4jVersion")}")
-    implementation("dev.langchain4j:langchain4j-ollama:${property("langchain4jVersion")}")
-    implementation("dev.langchain4j:langchain4j-google-ai-gemini:${property("langchain4jVersion")}")
+    implementation("org.springframework.ai:spring-ai-google-genai")
+    implementation("org.springframework.ai:spring-ai-google-genai-embedding")
+    implementation("org.springframework.ai:spring-ai-ollama")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")

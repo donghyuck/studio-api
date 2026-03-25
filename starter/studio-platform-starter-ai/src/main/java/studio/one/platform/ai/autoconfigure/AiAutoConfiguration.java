@@ -7,8 +7,8 @@ import org.springframework.context.annotation.Import;
 
 import studio.one.platform.ai.autoconfigure.config.AiProviderRegistryConfiguration;
 import studio.one.platform.ai.autoconfigure.config.RagPipelineConfiguration;
-import studio.one.platform.ai.autoconfigure.config.LangChainChatConfiguration;
-import studio.one.platform.ai.autoconfigure.config.LangChainEmbeddingConfiguration;
+import studio.one.platform.ai.autoconfigure.config.ProviderChatConfiguration;
+import studio.one.platform.ai.autoconfigure.config.ProviderEmbeddingConfiguration;
 import studio.one.platform.ai.autoconfigure.config.PromptConfiguration;
 import studio.one.platform.ai.autoconfigure.config.VectorStoreConfiguration;
 import studio.one.platform.ai.autoconfigure.config.KeywordExtractorConfiguration;
@@ -20,8 +20,8 @@ import studio.one.platform.constant.PropertyKeys;
 @ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
 @Import({
                 
-                LangChainEmbeddingConfiguration.class,
-                LangChainChatConfiguration.class, 
+                ProviderEmbeddingConfiguration.class,
+                ProviderChatConfiguration.class, 
                 AiProviderRegistryConfiguration.class,
                 RagPipelineConfiguration.class,
                 VectorStoreConfiguration.class,
