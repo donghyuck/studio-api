@@ -65,9 +65,14 @@ public class LangChainChatConfiguration {
         String apiKey = requireText(provider.getApiKey(),
                 "studio.ai.providers.google.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
         String model = requireModel(provider.getChat().getModel());
-        com.google.genai.Client client = com.google.genai.Client.builder()
-                .apiKey(apiKey)
-                .build();
+        com.google.genai.Client.Builder clientBuilder = com.google.genai.Client.builder()
+                .apiKey(apiKey);
+        if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+            clientBuilder.httpOptions(com.google.genai.types.HttpOptions.builder()
+                    .baseUrl(provider.getBaseUrl())
+                    .build());
+        }
+        com.google.genai.Client client = clientBuilder.build();
         org.springframework.ai.google.genai.GoogleGenAiChatOptions defaultOptions =
                 org.springframework.ai.google.genai.GoogleGenAiChatOptions.builder()
                         .model(model)

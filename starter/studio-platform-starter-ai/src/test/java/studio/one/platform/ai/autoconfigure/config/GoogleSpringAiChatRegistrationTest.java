@@ -2,6 +2,8 @@ package studio.one.platform.ai.autoconfigure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -45,5 +47,47 @@ class GoogleSpringAiChatRegistrationTest {
         AiProviderRegistry registry = new AiProviderRegistry("google", chatPorts, Map.of());
         assertThat(registry.defaultProvider()).isEqualTo("google");
         assertThat(registry.chatPort(null)).isSameAs(chatPorts.get("google"));
+    }
+
+    @Test
+    void preservesConfiguredBaseUrlForGoogleChat() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        provider.getChat().setModel("gemini-2.5-flash");
+        provider.setApiKey("test-key");
+        provider.setBaseUrl("https://proxy.example.test/v1beta");
+        properties.getProviders().put("google", provider);
+
+        LangChainChatConfiguration chatConfiguration = new LangChainChatConfiguration();
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
+        MockEnvironment environment = new MockEnvironment();
+
+        Map<String, ChatPort> chatPorts = chatConfiguration.chatPorts(
+                properties,
+                i18nProvider,
+                environment,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
+
+        GoogleSpringAiChatAdapter adapter = (GoogleSpringAiChatAdapter) chatPorts.get("google");
+        Field chatModelField = studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter.class
+                .getDeclaredField("chatModel");
+        chatModelField.setAccessible(true);
+        Object chatModel = chatModelField.get(adapter);
+
+        Field clientField = chatModel.getClass().getDeclaredField("genAiClient");
+        clientField.setAccessible(true);
+        Object client = clientField.get(chatModel);
+
+        Method baseUrlMethod = client.getClass().getDeclaredMethod("baseUrl");
+        baseUrlMethod.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        java.util.Optional<String> baseUrl = (java.util.Optional<String>) baseUrlMethod.invoke(client);
+
+        assertThat(baseUrl).contains("https://proxy.example.test/v1beta");
     }
 }
