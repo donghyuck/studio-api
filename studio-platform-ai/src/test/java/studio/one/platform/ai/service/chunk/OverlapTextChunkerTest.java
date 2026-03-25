@@ -8,10 +8,10 @@ import org.junit.jupiter.api.Test;
 
 import studio.one.platform.ai.core.chunk.TextChunk;
 
-class OverlapTextChunkerTest {
+public class OverlapTextChunkerTest {
 
     @Test
-    void splitsLongSingleParagraphIntoBoundedChunks() {
+    public void splitsLongSingleParagraphIntoBoundedChunks() {
         OverlapTextChunker chunker = new OverlapTextChunker(10, 0);
 
         List<TextChunk> chunks = chunker.chunk("doc", "abcdefghijklmnop");
@@ -23,19 +23,19 @@ class OverlapTextChunkerTest {
     }
 
     @Test
-    void splitsLongParagraphWithConfiguredOverlap() {
+    public void carriesOverlapAcrossChunkBoundary() {
         OverlapTextChunker chunker = new OverlapTextChunker(10, 3);
 
-        List<TextChunk> chunks = chunker.chunk("doc", "abcdefghijklmnop");
+        List<TextChunk> chunks = chunker.chunk("doc", "abcdef\n\nghij");
 
         assertThat(chunks).hasSize(2);
         assertThat(chunks).extracting(TextChunk::content)
-                .containsExactly("abcdefghij", "hijklmnop");
+                .containsExactly("abcdef", "def\n\nghij");
         assertThat(chunks).allMatch(chunk -> chunk.content().length() <= 10);
     }
 
     @Test
-    void keepsParagraphBoundariesWhenContentFitsWithinChunkLimit() {
+    public void keepsParagraphBoundariesWhenContentFitsWithinChunkLimit() {
         OverlapTextChunker chunker = new OverlapTextChunker(32, 4);
 
         List<TextChunk> chunks = chunker.chunk("doc", "alpha\n\nbeta");

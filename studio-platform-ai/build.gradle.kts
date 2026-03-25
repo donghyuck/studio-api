@@ -25,8 +25,6 @@ dependencies {
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
-    implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
-
     runtimeOnly("org.postgresql:postgresql")    
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito:mockito-core")
