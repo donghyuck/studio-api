@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -33,6 +34,7 @@ public class RagPipelineService {
 
     private static final double HYBRID_VECTOR_WEIGHT = 0.7;
     private static final double HYBRID_LEXICAL_WEIGHT = 0.3;
+    private static final double MIN_RELEVANCE_SCORE = 0.15;
 
     private final EmbeddingPort embeddingPort;
     private final VectorStorePort vectorStorePort;
@@ -85,37 +87,29 @@ public class RagPipelineService {
     public List<RagSearchResult> search(RagSearchRequest request) {
         List<Double> queryEmbedding = embedWithCache(request.query());
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
-        List<VectorSearchResult> results = vectorStorePort.hybridSearch(
+        List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
-                HYBRID_VECTOR_WEIGHT,
-                HYBRID_LEXICAL_WEIGHT);
-        return results.stream()
-                .map(result -> new RagSearchResult(
-                        result.document().id(),
-                        result.document().content(),
-                        result.document().metadata(),
-                        result.score()))
-                .toList();
+                query -> vectorStorePort.hybridSearch(query, searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT),
+                () -> vectorStorePort.search(searchRequest));
+        return toRagSearchResults(results);
     }
 
     public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
         List<Double> queryEmbedding = embedWithCache(request.query());
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
-        List<VectorSearchResult> results = vectorStorePort.hybridSearchByObject(
+        List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
-                objectType,
-                objectId,
                 searchRequest,
-                HYBRID_VECTOR_WEIGHT,
-                HYBRID_LEXICAL_WEIGHT);
-        return results.stream()
-                .map(result -> new RagSearchResult(
-                        result.document().id(),
-                        result.document().content(),
-                        result.document().metadata(),
-                        result.score()))
-                .toList();
+                query -> vectorStorePort.hybridSearchByObject(
+                        query,
+                        objectType,
+                        objectId,
+                        searchRequest,
+                        HYBRID_VECTOR_WEIGHT,
+                        HYBRID_LEXICAL_WEIGHT),
+                () -> vectorStorePort.searchByObject(objectType, objectId, searchRequest));
+        return toRagSearchResults(results);
     }
 
     public List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit) {
@@ -159,5 +153,74 @@ public class RagPipelineService {
         } catch (Exception ignored) {
             return List.of();
         }
+    }
+
+    private List<VectorSearchResult> searchWithFallback(
+            String query,
+            VectorSearchRequest searchRequest,
+            Function<String, List<VectorSearchResult>> hybridSearch,
+            Supplier<List<VectorSearchResult>> semanticSearch) {
+        List<VectorSearchResult> results = hybridSearch.apply(query);
+        if (hasRelevantResults(results)) {
+            return results;
+        }
+
+        String enrichedQuery = enrichQuery(query);
+        if (!enrichedQuery.equals(query)) {
+            List<VectorSearchResult> enrichedResults = hybridSearch.apply(enrichedQuery);
+            if (hasRelevantResults(enrichedResults)) {
+                return enrichedResults;
+            }
+        }
+
+        List<VectorSearchResult> semanticResults = semanticSearch.get();
+        if (hasRelevantResults(semanticResults)) {
+            return semanticResults;
+        }
+        return List.of();
+    }
+
+    private String enrichQuery(String query) {
+        if (keywordExtractor == null) {
+            return query;
+        }
+        try {
+            List<String> extracted = keywordExtractor.extract(query);
+            if (extracted == null || extracted.isEmpty()) {
+                return query;
+            }
+            List<String> uniqueTerms = new ArrayList<>();
+            uniqueTerms.add(query.trim());
+            for (String keyword : extracted) {
+                if (keyword == null || keyword.isBlank()) {
+                    continue;
+                }
+                String normalized = keyword.trim();
+                if (uniqueTerms.stream().noneMatch(normalized::equalsIgnoreCase)) {
+                    uniqueTerms.add(normalized);
+                }
+            }
+            return String.join(" ", uniqueTerms);
+        } catch (Exception ex) {
+            log.debug("Failed to extract keywords for RAG search fallback. query={}", query, ex);
+            return query;
+        }
+    }
+
+    private boolean hasRelevantResults(List<VectorSearchResult> results) {
+        if (results == null || results.isEmpty()) {
+            return false;
+        }
+        return results.stream().anyMatch(result -> result.score() >= MIN_RELEVANCE_SCORE);
+    }
+
+    private List<RagSearchResult> toRagSearchResults(List<VectorSearchResult> results) {
+        return results.stream()
+                .map(result -> new RagSearchResult(
+                        result.document().id(),
+                        result.document().content(),
+                        result.document().metadata(),
+                        result.score()))
+                .toList();
     }
 }

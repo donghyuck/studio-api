@@ -34,6 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -119,5 +121,127 @@ class RagPipelineServiceTest {
         assertThat(result.documentId()).isEqualTo("doc-1");
         assertThat(result.metadata()).containsEntry("author", "test");
         assertThat(result.score()).isEqualTo(0.9);
+    }
+
+    @Test
+    void shouldFallbackToKeywordEnrichedHybridSearchWhenInitialResultsAreLowRelevance() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of("greeting", "salutation"));
+        when(vectorStorePort.hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.05)));
+        when(vectorStorePort.hybridSearch(eq("hello greeting salutation"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-strong", "better", Map.of("source", "keyword-fallback"), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).documentId()).isEqualTo("doc-strong");
+        assertThat(results.get(0).metadata()).containsEntry("source", "keyword-fallback");
+        verify(vectorStorePort).hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+        verify(vectorStorePort).hybridSearch(eq("hello greeting salutation"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldFallbackToSemanticSearchWhenKeywordExtractionFailsAndHybridReturnsNoHits() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(keywordExtractor.extract("hello")).thenThrow(new RuntimeException("keyword failure"));
+        when(vectorStorePort.search(any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic", "semantic hit", Map.of("source", "semantic-fallback"), List.of(0.5, 0.6)), 0.7)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).documentId()).isEqualTo("doc-semantic");
+        assertThat(results.get(0).metadata()).containsEntry("source", "semantic-fallback");
+        verify(vectorStorePort, times(1)).hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+        verify(vectorStorePort).search(any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void shouldReturnEmptyWhenNoRelevantHitsRemainAfterFallbacks() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of());
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.01)));
+        when(vectorStorePort.search(any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low-semantic", "weak semantic", Map.of(), List.of(0.5, 0.6)), 0.02)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
+    void shouldFallbackToKeywordEnrichedHybridSearchWithinObjectScope() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of("greeting", "salutation"));
+        when(vectorStorePort.hybridSearchByObject(eq("hello"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.05)));
+        when(vectorStorePort.hybridSearchByObject(eq("hello greeting salutation"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-strong", "better", Map.of("source", "object-keyword-fallback"), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.searchByObject(request, "attachment", "42");
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).documentId()).isEqualTo("doc-strong");
+        assertThat(results.get(0).metadata()).containsEntry("source", "object-keyword-fallback");
+        verify(vectorStorePort).hybridSearchByObject(eq("hello"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+        verify(vectorStorePort).hybridSearchByObject(eq("hello greeting salutation"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldFallbackToSemanticSearchWithinObjectScopeWhenKeywordExtractionFails() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearchByObject(anyString(), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(keywordExtractor.extract("hello")).thenThrow(new RuntimeException("keyword failure"));
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic", "semantic hit", Map.of("source", "object-semantic-fallback"), List.of(0.5, 0.6)), 0.7)));
+
+        List<RagSearchResult> results = ragPipelineService.searchByObject(request, "attachment", "42");
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).documentId()).isEqualTo("doc-semantic");
+        assertThat(results.get(0).metadata()).containsEntry("source", "object-semantic-fallback");
+        verify(vectorStorePort, times(1)).hybridSearchByObject(eq("hello"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+        verify(vectorStorePort).searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void shouldReturnEmptyWhenObjectScopedFallbacksRemainLowRelevance() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of());
+        when(vectorStorePort.hybridSearchByObject(anyString(), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.01)));
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low-semantic", "weak semantic", Map.of(), List.of(0.5, 0.6)), 0.02)));
+
+        List<RagSearchResult> results = ragPipelineService.searchByObject(request, "attachment", "42");
+
+        assertThat(results).isEmpty();
     }
 }
