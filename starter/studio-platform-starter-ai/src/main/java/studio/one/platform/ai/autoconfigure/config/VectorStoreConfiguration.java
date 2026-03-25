@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapter;
 import studio.one.platform.ai.adapters.vector.PgVectorStoreAdapterV2;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.autoconfigure.I18nKeys;
@@ -30,7 +29,7 @@ public class VectorStoreConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(VectorStorePort.class, true),
-                LogUtils.green(PgVectorStoreAdapter.class, true),
+                LogUtils.green(PgVectorStoreAdapterV2.class, true),
                 LogUtils.red(State.CREATED.toString())));
 
         return new PgVectorStoreAdapterV2(jdbcTemplate);
