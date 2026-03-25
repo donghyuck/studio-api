@@ -7,12 +7,6 @@ java {
     withSourcesJar()
 }
 
-dependencyManagement {
-    imports {
-        mavenBom("io.github.resilience4j:resilience4j-bom:${property("resilience4jVersion")}")
-    }
-}
-
 val bootJar = tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar")
 bootJar.configure {
     enabled = false
@@ -26,16 +20,11 @@ dependencies {
     implementation(project(":studio-platform")) 
     implementation(project(":studio-platform-data")) 
     implementation("org.springframework.boot:spring-boot-starter")
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
-    compileOnly("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework:spring-jdbc")
-    compileOnly("org.springframework.boot:spring-boot-starter-security")
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.pgvector:pgvector:${property("pgvectorVersion")}")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
-    implementation("io.github.resilience4j:resilience4j-spring-boot2:${property("resilience4jVersion")}")
-    implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
-
+    implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
     runtimeOnly("org.postgresql:postgresql")    
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito:mockito-core")

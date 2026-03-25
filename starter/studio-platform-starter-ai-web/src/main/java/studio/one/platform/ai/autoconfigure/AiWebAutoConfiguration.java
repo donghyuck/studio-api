@@ -1,6 +1,5 @@
 package studio.one.platform.ai.autoconfigure;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -13,7 +12,7 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
@@ -40,9 +39,8 @@ public class AiWebAutoConfiguration {
     @Bean
     VectorController vectorController(
             EmbeddingPort embeddingPort,
-            @Nullable VectorStorePort vectorStorePort,
-            ObjectProvider<PromptManager> promptManagerProvider) {
-        return new VectorController(embeddingPort, vectorStorePort, promptManagerProvider);
+            @Nullable VectorStorePort vectorStorePort) {
+        return new VectorController(embeddingPort, vectorStorePort);
     }
 
     @Bean
@@ -51,7 +49,7 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    QueryRewriteController queryRewriteController(PromptManager promptManager, ChatPort chatPort) {
+    QueryRewriteController queryRewriteController(PromptRenderer promptManager, ChatPort chatPort) {
         return new QueryRewriteController(promptManager, chatPort);
     }
 

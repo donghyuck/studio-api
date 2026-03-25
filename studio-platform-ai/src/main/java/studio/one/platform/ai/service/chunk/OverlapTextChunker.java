@@ -75,11 +75,39 @@ public class OverlapTextChunker implements TextChunker {
         int index = 0;
 
         for (String para : paragraphs) {
-            if (current.length() + para.length() > chunkSize && current.length() > 0) {
+            String remainingParagraph = para;
+            boolean continuingParagraph = false;
+            while (!remainingParagraph.isEmpty()) {
+                String separator = current.length() == 0 || continuingParagraph ? "" : "\n\n";
+                int available = chunkSize - current.length() - separator.length();
+
+                if (available <= 0) {
+                    chunks.add(new TextChunk(buildChunkId(documentId, index++), current.toString().trim()));
+                    current = new StringBuilder(tailForOverlap(current));
+                    continuingParagraph = current.length() > 0;
+                    continue;
+                }
+
+                if (remainingParagraph.length() <= available) {
+                    current.append(separator).append(remainingParagraph);
+                    remainingParagraph = "";
+                    continuingParagraph = false;
+                    continue;
+                }
+
+                if (current.length() > 0 && !continuingParagraph) {
+                    chunks.add(new TextChunk(buildChunkId(documentId, index++), current.toString().trim()));
+                    current = new StringBuilder(tailForOverlap(current));
+                    continuingParagraph = current.length() > 0;
+                    continue;
+                }
+
+                current.append(separator).append(remainingParagraph, 0, available);
                 chunks.add(new TextChunk(buildChunkId(documentId, index++), current.toString().trim()));
                 current = new StringBuilder(tailForOverlap(current));
+                remainingParagraph = remainingParagraph.substring(available);
+                continuingParagraph = current.length() > 0;
             }
-            current.append(para).append("\n\n");
         }
 
         if (current.length() > 0) {

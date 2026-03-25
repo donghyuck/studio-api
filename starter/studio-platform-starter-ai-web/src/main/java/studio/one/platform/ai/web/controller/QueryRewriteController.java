@@ -19,7 +19,7 @@ import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.web.dto.QueryRewriteRequestDto;
 import studio.one.platform.ai.web.dto.QueryRewriteResponseDto;
 import studio.one.platform.constant.PropertyKeys;
@@ -71,7 +71,7 @@ public class QueryRewriteController {
             "{{user_query}}"
                         """;
 
-    private final PromptManager promptManager;
+    private final PromptRenderer promptManager;
     private final ChatPort chatPort;
     private final ObjectMapper objectMapper = new ObjectMapper();
 

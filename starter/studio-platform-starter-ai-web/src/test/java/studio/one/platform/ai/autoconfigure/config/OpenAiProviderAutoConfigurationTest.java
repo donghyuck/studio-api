@@ -23,7 +23,7 @@ import studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
@@ -48,7 +48,7 @@ class OpenAiProviderAutoConfigurationTest {
                     AiProviderRegistryConfiguration.class)
             .withBean(I18n.class, () -> (code, args, locale) -> code)
             .withBean(RagPipelineService.class, () -> org.mockito.Mockito.mock(RagPipelineService.class))
-            .withBean(PromptManager.class, () -> org.mockito.Mockito.mock(PromptManager.class))
+            .withBean(PromptRenderer.class, () -> org.mockito.Mockito.mock(PromptRenderer.class))
             .withBean(org.springframework.ai.chat.model.ChatModel.class,
                     () -> org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class))
             .withBean(org.springframework.ai.embedding.EmbeddingModel.class,

@@ -59,7 +59,6 @@ public class AiAdapterProperties {
     @ToString
     public static final class GoogleEmbeddingOptions {
         private String taskType = "RETRIEVAL_DOCUMENT";
-        private String titleMetadataKey = "title";
     }
 
     public enum ProviderType {

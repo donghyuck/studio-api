@@ -14,7 +14,7 @@ import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 
 /**
  * LLM 기반 키워드 추출기. 입력 텍스트에서 5~10개의 핵심 키워드를 JSON 배열로 받아 파싱한다.
@@ -30,7 +30,7 @@ public class LlmKeywordExtractor implements KeywordExtractor {
             Respond with a JSON array of strings only (no code fences, no additional commentary).
             """;
 
-    private final PromptManager promptManager;
+    private final PromptRenderer promptRenderer;
     private final ChatPort chatPort;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -52,7 +52,7 @@ public class LlmKeywordExtractor implements KeywordExtractor {
 
     private String resolvePrompt() {
         try {
-            return promptManager.getRawPrompt(TEMPLATE_NAME);
+            return promptRenderer.getRawPrompt(TEMPLATE_NAME);
         } catch (Exception ex) {
             log.warn("Failed to load keyword extraction prompt '{}', using fallback. cause={}", TEMPLATE_NAME, ex.toString());
             return FALLBACK_PROMPT;
