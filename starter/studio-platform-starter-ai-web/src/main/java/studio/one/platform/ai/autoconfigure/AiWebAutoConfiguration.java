@@ -1,6 +1,5 @@
 package studio.one.platform.ai.autoconfigure;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -40,9 +39,8 @@ public class AiWebAutoConfiguration {
     @Bean
     VectorController vectorController(
             EmbeddingPort embeddingPort,
-            @Nullable VectorStorePort vectorStorePort,
-            ObjectProvider<PromptRenderer> promptManagerProvider) {
-        return new VectorController(embeddingPort, vectorStorePort, promptManagerProvider);
+            @Nullable VectorStorePort vectorStorePort) {
+        return new VectorController(embeddingPort, vectorStorePort);
     }
 
     @Bean

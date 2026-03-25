@@ -23,14 +23,14 @@ public class OverlapTextChunkerTest {
     }
 
     @Test
-    public void carriesOverlapAcrossChunkBoundary() {
+    public void splitsLongSingleParagraphWithOverlapWithoutStalling() {
         OverlapTextChunker chunker = new OverlapTextChunker(10, 3);
 
-        List<TextChunk> chunks = chunker.chunk("doc", "abcdef\n\nghij");
+        List<TextChunk> chunks = chunker.chunk("doc", "abcdefghijklmnop");
 
         assertThat(chunks).hasSize(2);
         assertThat(chunks).extracting(TextChunk::content)
-                .containsExactly("abcdef", "def\n\nghij");
+                .containsExactly("abcdefghij", "hijklmnop");
         assertThat(chunks).allMatch(chunk -> chunk.content().length() <= 10);
     }
 

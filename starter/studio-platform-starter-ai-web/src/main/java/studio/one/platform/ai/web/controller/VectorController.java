@@ -9,7 +9,6 @@ import java.util.Objects;
 
 import jakarta.validation.Valid;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
@@ -29,7 +28,6 @@ import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
-import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
@@ -60,8 +58,7 @@ public class VectorController {
     private final VectorStorePort vectorStorePort; 
 
     public VectorController(EmbeddingPort embeddingPort,
-            @Nullable VectorStorePort vectorStorePort,
-            ObjectProvider<PromptRenderer> promptManagerProvicer) {
+            @Nullable VectorStorePort vectorStorePort) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = vectorStorePort; 
     }
