@@ -1,5 +1,45 @@
 # Changelog
 
+## 2026-03-26
+
+### 변경됨
+- `studio-platform-starter-ai`의 provider 의존성(OpenAI, Google GenAI, Ollama)을 `implementation`에서 `compileOnly`로 전환했다. 소비 애플리케이션이 필요한 provider 라이브러리를 직접 선언해야 한다.
+- Spring AI BOM을 `api(platform(...))`으로 노출하여 소비 앱이 별도 BOM 선언 없이 Spring AI 버전을 일관되게 관리할 수 있도록 했다.
+- `ProviderChatPortFactory` / `ProviderEmbeddingPortFactory` 인터페이스와 provider별 `@Configuration` 구현체를 도입했다. 각 구현체는 `@ConditionalOnClass`로 보호되어, provider 라이브러리가 classpath에 있을 때만 해당 factory가 등록된다.
+- `ProviderChatConfiguration` / `ProviderEmbeddingConfiguration`의 switch 기반 직접 참조를 제거하고, 등록된 factory를 수집하는 방식으로 교체했다. factory가 없는 provider는 조용히 제외된다.
+- `AiSecretPresenceGuard`에서 `ChatModel` / `EmbeddingModel` bean 주입을 제거했다. property 기반 검증만 유지한다.
+- `AiProviderRegistryConfiguration`에 fail-fast guard를 추가했다. `studio.ai.default-provider`에 지정된 provider가 chat port와 embedding port 모두에 없으면 시작 시점에 명확한 오류로 실패한다.
+
+### 사용 방법 (OpenAI 예시)
+```kotlin
+// build.gradle.kts
+implementation("studio-platform-starter-ai")
+implementation("org.springframework.ai:spring-ai-starter-model-openai")
+```
+```yaml
+# application.yml
+studio:
+  ai:
+    enabled: true
+    default-provider: openai
+    providers:
+      openai:
+        type: OPENAI
+        chat:
+          enabled: true
+        embedding:
+          enabled: true
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat.options.model: gpt-4o-mini
+      embedding.options.model: text-embedding-3-small
+```
+
+### 검증
+- `./gradlew :starter:studio-platform-starter-ai:build`
+
 ## 2026-03-23
 
 ### 변경됨
