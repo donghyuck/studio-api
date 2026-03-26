@@ -34,6 +34,121 @@ dependencies {
 - `studio-platform-starter-objectstorage`, `-aws`, `-oci`: 오브젝트 스토리지 공통 및 provider별 구성
 - `studio-application-starter-attachment`, `-avatar`, `-template`, `-mail`: 애플리케이션 기능 모듈 자동 구성
 
+## studio-platform-starter-ai 사용법
+
+AI 기능을 사용하려면 스타터와 함께 **필요한 provider 라이브러리를 직접 선언**해야 한다. 스타터는 provider 라이브러리를 transitive하게 제공하지 않는다.
+
+### OpenAI
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation(project(":starter:studio-platform-starter-ai"))
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
+}
+```
+
+```yaml
+# application.yml
+studio:
+  ai:
+    enabled: true
+    default-provider: openai
+    providers:
+      openai:
+        type: OPENAI
+        chat:
+          enabled: true
+        embedding:
+          enabled: true
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat.options.model: gpt-4o-mini
+      embedding.options.model: text-embedding-3-small
+```
+
+### Google GenAI (Chat)
+
+```kotlin
+dependencies {
+    implementation(project(":starter:studio-platform-starter-ai"))
+    implementation("org.springframework.ai:spring-ai-google-genai")
+}
+```
+
+```yaml
+studio:
+  ai:
+    enabled: true
+    default-provider: google
+    providers:
+      google:
+        type: GOOGLE_AI_GEMINI
+        api-key: ${GOOGLE_API_KEY}
+        chat:
+          enabled: true
+          model: gemini-2.5-flash
+```
+
+### Google GenAI (Embedding)
+
+```kotlin
+dependencies {
+    implementation(project(":starter:studio-platform-starter-ai"))
+    implementation("org.springframework.ai:spring-ai-google-genai-embedding")
+}
+```
+
+```yaml
+studio:
+  ai:
+    enabled: true
+    default-provider: google
+    providers:
+      google:
+        type: GOOGLE_AI_GEMINI
+        embedding:
+          enabled: true
+spring:
+  ai:
+    google.genai.embedding:
+      api-key: ${GOOGLE_API_KEY}
+      text.options.model: text-embedding-004
+```
+
+### Ollama (Embedding)
+
+```kotlin
+dependencies {
+    implementation(project(":starter:studio-platform-starter-ai"))
+    implementation("org.springframework.ai:spring-ai-ollama")
+}
+```
+
+```yaml
+studio:
+  ai:
+    enabled: true
+    default-provider: ollama
+    providers:
+      ollama:
+        type: OLLAMA
+        embedding:
+          enabled: true
+spring:
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding.options.model: nomic-embed-text
+```
+
+### 동작 원리
+- provider 라이브러리가 classpath에 있을 때만 해당 provider auto-configuration이 활성화된다.
+- `studio.ai.default-provider`에 지정된 provider가 활성화되지 않으면 애플리케이션 시작 시 오류로 실패한다.
+- Spring AI BOM이 `api`로 노출되므로 provider 라이브러리의 버전은 별도로 지정하지 않아도 된다.
+
 ## 문서 바로가기
 - 루트 개요: `../README.md`
 - 애플리케이션 모듈 가이드: `../studio-application-modules/README.md`

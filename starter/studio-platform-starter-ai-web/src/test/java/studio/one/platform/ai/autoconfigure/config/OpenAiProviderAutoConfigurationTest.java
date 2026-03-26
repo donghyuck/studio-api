@@ -43,6 +43,7 @@ class OpenAiProviderAutoConfigurationTest {
             .withUserConfiguration(
                     AiSecretPresenceGuard.class,
                     AiWebAutoConfiguration.class,
+                    OpenAiPortFactoryConfiguration.class,
                     ProviderChatConfiguration.class,
                     ProviderEmbeddingConfiguration.class,
                     AiProviderRegistryConfiguration.class)

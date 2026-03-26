@@ -4,17 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
 
 import studio.one.platform.ai.autoconfigure.adapter.GoogleSpringAiChatAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
-import studio.one.platform.service.I18n;
 
 class GoogleSpringAiChatRegistrationTest {
 
@@ -30,16 +29,14 @@ class GoogleSpringAiChatRegistrationTest {
         provider.setApiKey("test-key");
         properties.getProviders().put("google", provider);
 
-        ProviderChatConfiguration chatConfiguration = new ProviderChatConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
-        ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment();
 
-        Map<String, ChatPort> chatPorts = chatConfiguration.chatPorts(
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
                 properties,
-                i18nProvider,
                 environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory()));
 
         assertThat(chatPorts).containsOnlyKeys("google");
         assertThat(chatPorts.get("google")).isInstanceOf(GoogleSpringAiChatAdapter.class);
@@ -62,16 +59,14 @@ class GoogleSpringAiChatRegistrationTest {
         provider.setBaseUrl("https://proxy.example.test/v1beta");
         properties.getProviders().put("google", provider);
 
-        ProviderChatConfiguration chatConfiguration = new ProviderChatConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
-        ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment();
 
-        Map<String, ChatPort> chatPorts = chatConfiguration.chatPorts(
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
                 properties,
-                i18nProvider,
                 environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory()));
 
         GoogleSpringAiChatAdapter adapter = (GoogleSpringAiChatAdapter) chatPorts.get("google");
         Field chatModelField = studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter.class
