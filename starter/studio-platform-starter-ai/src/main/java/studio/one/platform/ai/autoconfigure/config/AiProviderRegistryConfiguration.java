@@ -41,6 +41,12 @@ public class AiProviderRegistryConfiguration {
         if (defaultProvider == null || defaultProvider.isBlank()) {
             throw new IllegalStateException("studio.ai.default-provider must be configured");
         }
+        String normalizedDefault = defaultProvider.toLowerCase(java.util.Locale.ROOT);
+        if (!chatPorts.containsKey(normalizedDefault) && !embeddingPorts.containsKey(normalizedDefault)) {
+            throw new IllegalStateException(
+                    "studio.ai.default-provider '" + defaultProvider + "' has no registered chat or embedding port. " +
+                    "Ensure the provider library is on the classpath and the provider is enabled in studio.ai.providers.");
+        }
         return new AiProviderRegistry(defaultProvider, chatPorts, embeddingPorts);
     }
 

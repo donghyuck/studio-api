@@ -4,8 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -16,23 +14,78 @@ import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties.ProviderT
 class AiSecretPresenceGuardTest {
 
     @Test
-    void validateRejectsMissingApiKeyForOpenAiProvider() {
+    void validateRequiresDefaultProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
-        Provider provider = new Provider();
-        provider.setEnabled(true);
-        provider.setType(ProviderType.OPENAI);
-        provider.setApiKey(" ");
-        properties.getProviders().put("openai", provider);
+        properties.setEnabled(true);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
 
     @Test
-    void validateAllowsConfiguredSpringAiModelForOllamaEmbedding() {
+    void validateRequiresSpringAiApiKeyForOpenAiProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRequiresSpringAiChatModelPropertyForEnabledOpenAiChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.openai.api-key", "test-key");
+        // intentionally omit spring.ai.openai.chat.options.model
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsOpenAiProviderWithFullSpringAiProperties() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.openai.api-key", "test-key");
+        environment.setProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
+        environment.setProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateAllowsConfiguredSpringAiPropertiesForOllamaEmbedding() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
         properties.setDefaultProvider("ollama");
@@ -45,15 +98,13 @@ class AiSecretPresenceGuardTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setProperty("spring.ai.ollama.embedding.options.model", "nomic-embed-text");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
 
     @Test
-    void validateRejectsMissingSpringAiModelForOllamaEmbedding() {
+    void validateRejectsMissingModelPropertyForOllamaEmbedding() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
         properties.setDefaultProvider("ollama");
@@ -63,9 +114,7 @@ class AiSecretPresenceGuardTest {
         provider.getEmbedding().setEnabled(true);
         properties.getProviders().put("ollama", provider);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -85,15 +134,13 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
         environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "text-embedding-004");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
 
     @Test
-    void validateRejectsMissingSpringAiModelForGoogleEmbedding() {
+    void validateRejectsMissingModelPropertyForGoogleEmbedding() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
         properties.setDefaultProvider("google");
@@ -105,10 +152,9 @@ class AiSecretPresenceGuardTest {
 
         MockEnvironment environment = new MockEnvironment();
         environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
+        // intentionally omit text.options.model
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -123,103 +169,15 @@ class AiSecretPresenceGuardTest {
         provider.setType(ProviderType.GOOGLE_AI_GEMINI);
         provider.getChat().setEnabled(true);
         provider.setApiKey("test-key");
+        // intentionally omit provider.getChat().setModel(...)
         properties.getProviders().put("google", provider);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
-
-        assertThrows(IllegalStateException.class, guard::validate);
-    }
-
-    @Test
-    void validateRequiresDefaultProvider() {
-        AiAdapterProperties properties = new AiAdapterProperties();
-        properties.setEnabled(true);
-
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
-
-        assertThrows(IllegalStateException.class, guard::validate);
-    }
-
-    @Test
-    void validateRequiresSpringAiApiKeyForOpenAiProvider() {
-        AiAdapterProperties properties = new AiAdapterProperties();
-        properties.setEnabled(true);
-        properties.setDefaultProvider("openai");
-
-        Provider provider = new Provider();
-        provider.setEnabled(true);
-        provider.setType(ProviderType.OPENAI);
-        provider.getChat().setEnabled(true);
-        properties.getProviders().put("openai", provider);
-
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment(),
-                emptyBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                emptyBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
-
-        assertThrows(IllegalStateException.class, guard::validate);
-    }
-
-    @Test
-    void validateAllowsOpenAiProviderWithoutLegacyStudioApiKey() {
-        AiAdapterProperties properties = new AiAdapterProperties();
-        properties.setEnabled(true);
-        properties.setDefaultProvider("openai");
-
-        Provider provider = new Provider();
-        provider.setEnabled(true);
-        provider.setType(ProviderType.OPENAI);
-        provider.getChat().setEnabled(true);
-        provider.getEmbedding().setEnabled(true);
-        properties.getProviders().put("openai", provider);
-
-        MockEnvironment environment = new MockEnvironment();
-        environment.setProperty("spring.ai.openai.api-key", "test-key");
-        environment.setProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
-        environment.setProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
-        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
-        beanFactory.addBean("chatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
-        beanFactory.addBean("embeddingModel", org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class));
-
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
-
-        assertDoesNotThrow(guard::validate);
-    }
-
-    @Test
-    void validateRequiresSpringAiChatModelPropertyForEnabledOpenAiChat() {
-        AiAdapterProperties properties = new AiAdapterProperties();
-        properties.setEnabled(true);
-        properties.setDefaultProvider("openai");
-
-        Provider provider = new Provider();
-        provider.setEnabled(true);
-        provider.setType(ProviderType.OPENAI);
-        provider.getChat().setEnabled(true);
-        properties.getProviders().put("openai", provider);
-
-        MockEnvironment environment = new MockEnvironment();
-        environment.setProperty("spring.ai.openai.api-key", "test-key");
-        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
-        beanFactory.addBean("chatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
-
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
 
     private static Environment environment() {
         return new MockEnvironment();
-    }
-
-    private static <T> ObjectProvider<T> emptyBeanProvider(Class<T> type) {
-        return new StaticListableBeanFactory().getBeanProvider(type);
     }
 }

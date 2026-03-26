@@ -4,7 +4,6 @@ import java.util.Map;
 
 import jakarta.annotation.PostConstruct;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,8 +21,6 @@ public class AiSecretPresenceGuard {
 
     private final AiAdapterProperties properties;
     private final Environment environment;
-    private final ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider;
-    private final ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider;
 
     @PostConstruct
     void validate() {
@@ -37,7 +34,7 @@ public class AiSecretPresenceGuard {
             }
             switch (provider.getType()) {
                 case OPENAI -> validateOpenAiProvider(provider);
-                case GOOGLE_AI_GEMINI -> validateGoogleEmbeddingProvider(providerId, provider);
+                case GOOGLE_AI_GEMINI -> validateGoogleProvider(providerId, provider);
                 case OLLAMA -> validateOllamaProvider(provider);
                 default -> {
                 }
@@ -65,21 +62,13 @@ public class AiSecretPresenceGuard {
     private void validateOpenAiProvider(AiAdapterProperties.Provider provider) {
         requireText(environment.getProperty("spring.ai.openai.api-key"),
                 "spring.ai.openai.api-key must be configured for OPENAI provider");
-        boolean chatEnabled = provider.getChat().isEnabled();
-        boolean embeddingEnabled = provider.getEmbedding().isEnabled();
-        if (chatEnabled) {
+        if (provider.getChat().isEnabled()) {
             requireText(environment.getProperty("spring.ai.openai.chat.options.model"),
                     "spring.ai.openai.chat.options.model must be configured for OPENAI provider");
         }
-        if (embeddingEnabled) {
+        if (provider.getEmbedding().isEnabled()) {
             requireText(environment.getProperty("spring.ai.openai.embedding.options.model"),
                     "spring.ai.openai.embedding.options.model must be configured for OPENAI provider");
-        }
-        if (chatEnabled && springAiChatModelProvider.getIfAvailable() == null) {
-            throw new IllegalStateException("Spring AI chat model bean is required for OPENAI provider");
-        }
-        if (embeddingEnabled && springAiEmbeddingModelProvider.getIfAvailable() == null) {
-            throw new IllegalStateException("Spring AI embedding model bean is required for OPENAI provider");
         }
     }
 
@@ -90,7 +79,7 @@ public class AiSecretPresenceGuard {
         }
     }
 
-    private void validateGoogleEmbeddingProvider(String providerId, AiAdapterProperties.Provider provider) {
+    private void validateGoogleProvider(String providerId, AiAdapterProperties.Provider provider) {
         if (provider.getEmbedding().isEnabled()) {
             requireText(environment.getProperty("spring.ai.google.genai.embedding.api-key"),
                     "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
