@@ -2,17 +2,16 @@ package studio.one.platform.ai.autoconfigure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
 
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
-import studio.one.platform.service.I18n;
 
 class OpenAiSpringAiProviderRegistrationTest {
 
@@ -27,23 +26,27 @@ class OpenAiSpringAiProviderRegistrationTest {
         provider.getEmbedding().setEnabled(true);
         properties.getProviders().put("openai", provider);
 
-        ProviderChatConfiguration chatConfiguration = new ProviderChatConfiguration();
-        ProviderEmbeddingConfiguration embeddingConfiguration = new ProviderEmbeddingConfiguration();
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
         beanFactory.addBean("springAiEmbeddingModel", org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class));
-        ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.openai.api-key", "test-key")
                 .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini")
                 .withProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
 
-        Map<String, ChatPort> chatPorts = chatConfiguration.chatPorts(properties, i18nProvider,
+        ProviderChatPortFactory chatFactory = new OpenAiPortFactoryConfiguration().openAiChatPortFactory();
+        ProviderEmbeddingPortFactory embeddingFactory = new OpenAiPortFactoryConfiguration().openAiEmbeddingPortFactory();
+
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
+                properties,
                 environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
-        Map<String, EmbeddingPort> embeddingPorts = embeddingConfiguration.embeddingPorts(properties, i18nProvider,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(chatFactory));
+        Map<String, EmbeddingPort> embeddingPorts = new ProviderEmbeddingConfiguration().embeddingPorts(
+                properties,
                 environment,
-                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class),
+                List.of(embeddingFactory));
 
         assertThat(chatPorts).containsOnlyKeys("openai");
         assertThat(embeddingPorts).containsOnlyKeys("openai");
@@ -73,16 +76,19 @@ class OpenAiSpringAiProviderRegistrationTest {
 
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("springAiChatModel", org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class));
-        ObjectProvider<I18n> i18nProvider = beanFactory.getBeanProvider(I18n.class);
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.openai.api-key", "test-key")
                 .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
 
+        List<ProviderChatPortFactory> factories = List.of(
+                new OpenAiPortFactoryConfiguration().openAiChatPortFactory(),
+                new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory());
+
         Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
                 properties,
-                i18nProvider,
                 environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class));
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                factories);
 
         assertThat(chatPorts).containsOnlyKeys("openai", "google");
     }
