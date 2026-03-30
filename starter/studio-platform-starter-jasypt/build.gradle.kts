@@ -18,6 +18,8 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
+    testImplementation(project(":starter:studio-platform-starter"))
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.jasypt:jasypt:1.9.3")
     implementation("org.bouncycastle:bcprov-jdk15to18:${project.findProperty("bouncycastleVersion")}")
 }

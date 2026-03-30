@@ -56,6 +56,6 @@ public class PropertyValidator {
         if (!StringUtils.hasText(name)) {
             return false;
         }
-        return SENSITIVE_PATTERN.matcher(name).matches();
+        return SENSITIVE_PATTERN.matcher(name).find();
     }
 }

@@ -23,6 +23,7 @@ package studio.one.platform.autoconfigure.jasypt;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.net.InetAddress;
+import java.security.MessageDigest;
 import java.util.regex.Pattern;
 
 import jakarta.annotation.PostConstruct;
@@ -159,6 +160,7 @@ class JasyptHttpController {
         if (expected == null || expected.isEmpty()) {
             expected = System.getenv(props.getTokenEnv());
         }
-        return expected != null && expected.equals(provided);
+        return expected != null
+                && MessageDigest.isEqual(expected.getBytes(UTF_8), provided.getBytes(UTF_8));
     }
 }
