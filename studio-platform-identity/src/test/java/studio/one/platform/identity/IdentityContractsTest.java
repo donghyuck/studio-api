@@ -2,6 +2,7 @@ package studio.one.platform.identity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,7 +22,7 @@ class IdentityContractsTest {
         assertTrue(resolved.isPresent());
         assertEquals(new UserRef(7L, "id-user", Set.of("ADMIN")), resolved.get());
         assertEquals(7L, service.lastResolvedId);
-        assertEquals(null, service.lastResolvedUsername);
+        assertNull(service.lastResolvedUsername);
     }
 
     @Test
@@ -32,7 +33,7 @@ class IdentityContractsTest {
 
         assertTrue(resolved.isPresent());
         assertEquals(new UserRef(8L, "alice", Set.of("USER")), resolved.get());
-        assertEquals(null, service.lastResolvedId);
+        assertNull(service.lastResolvedId);
         assertEquals("alice", service.lastResolvedUsername);
     }
 

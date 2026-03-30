@@ -7,7 +7,7 @@ public interface IdentityService {
     /**
      * @deprecated Use {@link IdentityConstants#SERVICE_NAME} instead.
      */
-    @Deprecated(forRemoval = false)
+    @Deprecated
     String SERVICE_NAME = IdentityConstants.SERVICE_NAME;
 
     Optional<UserRef> findById(Long userId);

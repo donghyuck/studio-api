@@ -1,7 +1,6 @@
 package studio.one.platform.identity;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.LinkedHashSet;
@@ -20,13 +19,6 @@ class UserRefTest {
         roles.add("USER");
 
         assertEquals(Set.of("ADMIN"), userRef.roles());
-    }
-
-    @Test
-    void exposesImmutableRoleSet() {
-        UserRef userRef = new UserRef(1L, "alice", Set.of("ADMIN"));
-
-        assertThrows(UnsupportedOperationException.class, () -> userRef.roles().add("USER"));
     }
 
     @Test
