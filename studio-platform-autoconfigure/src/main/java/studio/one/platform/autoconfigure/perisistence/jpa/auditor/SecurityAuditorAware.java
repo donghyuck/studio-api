@@ -1,13 +1,8 @@
 package studio.one.platform.autoconfigure.perisistence.jpa.auditor;
 
-import java.util.Optional;
-
+/**
+ * @deprecated Use {@link studio.one.platform.autoconfigure.persistence.jpa.auditor.SecurityAuditorAware} instead.
+ */
 @Deprecated(forRemoval = false)
-public class SecurityAuditorAware implements org.springframework.data.domain.AuditorAware<String> {
-  @Override public java.util.Optional<String> getCurrentAuditor() {
-    var ctx = org.springframework.security.core.context.SecurityContextHolder.getContext();
-    var auth = (ctx != null) ? ctx.getAuthentication() : null;
-    if (auth == null || !auth.isAuthenticated()) return Optional.of("anonymous");
-    return Optional.ofNullable(auth.getName());
-  }
+public class SecurityAuditorAware extends studio.one.platform.autoconfigure.persistence.jpa.auditor.SecurityAuditorAware {
 }

@@ -2,8 +2,10 @@ package studio.one.platform.autoconfigure.persistence.jpa;
 
 import java.time.Clock;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -47,18 +49,32 @@ public class JpaAuditingAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AuditorAware<String> auditorAware(JpaAuditingProperties props) {
+    public AuditorAware<String> auditorAware(
+            JpaAuditingProperties props,
+            ObjectProvider<AuditorAware<String>> externalAuditorAwares) {
         switch (props.getAuditor().getStrategy().toLowerCase()) {
             case "fixed":
                 return new FixedAuditorAware(props.getAuditor().getFixed());
             case "header":
                 return new HeaderAuditorAware(props.getAuditor().getHeader());
             case "composite":
-                return new CompositeAuditorAware(props);
+                return new CompositeAuditorAware(resolveExternalAuditors(externalAuditorAwares), props);
             case "security":
             default:
                 return new SecurityAuditorAware();
         }
+    }
+
+    private List<AuditorAware<String>> resolveExternalAuditors(ObjectProvider<AuditorAware<String>> provider) {
+        return provider.orderedStream()
+                .filter(this::isExternalAuditorAware)
+                .toList();
+    }
+
+    private boolean isExternalAuditorAware(AuditorAware<String> auditorAware) {
+        String className = auditorAware.getClass().getName();
+        return !className.startsWith("studio.one.platform.autoconfigure.persistence.jpa.auditor.")
+                && !className.startsWith("studio.one.platform.autoconfigure.perisistence.jpa.auditor.");
     }
 
 }

@@ -22,7 +22,7 @@
 - 루트 OWASP dependency-check의 `failBuildOnCVSS`를 `7.0F`로 낮춰 High 이상 취약점에서 빌드가 실패하도록 조정했다.
 - `studio-platform-data`에 `PaginationDialect` 회귀 테스트를 추가했다.
 - `studio-platform`에 `DomainPolicyRegistryImpl` 병합/정규화 회귀 테스트를 추가하고, contributor 병합 시 불변 맵을 다시 수정하던 경로를 안전하게 고쳤다.
-- `starter`와 `studio-platform-autoconfigure`에 정상 패키지명 `persistence` 경로를 추가하고, 기존 `perisitence`/`perisistence` 경로는 deprecated 호환 브리지로 유지했다.
+- `starter`의 `perisitence`와 `studio-platform-autoconfigure`의 `perisistence` 오타 패키지에 대응해 정상 패키지명 `persistence` 경로를 추가하고, 기존 경로는 deprecated 호환 브리지로 유지했다.
 - Spring Boot auto-configuration 등록 경로를 `persistence` 패키지로 전환했다.
 
 ### 검증
