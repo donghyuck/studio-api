@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
+package studio.one.platform.autoconfigure.persistence.jdbc.sqlquery;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -9,15 +9,12 @@ import java.lang.annotation.Target;
 import org.springframework.context.annotation.Import;
 
 /**
- * @deprecated Use {@link studio.one.platform.autoconfigure.persistence.jdbc.sqlquery.EnableSqlMappers} instead.
- *
  * Enables scanning for {@link studio.one.platform.data.sqlquery.annotation.SqlMapper}
  * interfaces and registers proxies backed by {@link studio.one.platform.data.sqlquery.factory.SqlQueryFactory}.
  */
 @Retention(RUNTIME)
 @Target(TYPE)
 @Import(SqlMapperRegistrar.class)
-@Deprecated(forRemoval = false)
 public @interface EnableSqlMappers {
 
     /**
