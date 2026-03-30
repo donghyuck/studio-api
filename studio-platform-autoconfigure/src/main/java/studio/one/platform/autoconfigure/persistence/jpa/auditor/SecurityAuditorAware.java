@@ -1,8 +1,7 @@
-package studio.one.platform.autoconfigure.perisistence.jpa.auditor;
+package studio.one.platform.autoconfigure.persistence.jpa.auditor;
 
 import java.util.Optional;
 
-@Deprecated(forRemoval = false)
 public class SecurityAuditorAware implements org.springframework.data.domain.AuditorAware<String> {
   @Override public java.util.Optional<String> getCurrentAuditor() {
     var ctx = org.springframework.security.core.context.SecurityContextHolder.getContext();

@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jpa;
+package studio.one.platform.autoconfigure.persistence.jpa;
 
 import java.time.Clock;
 import java.time.ZoneId;
@@ -15,17 +15,16 @@ import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 import studio.one.platform.autoconfigure.JpaAuditingProperties;
-import studio.one.platform.autoconfigure.perisistence.jpa.auditor.CompositeAuditorAware;
-import studio.one.platform.autoconfigure.perisistence.jpa.auditor.FixedAuditorAware;
-import studio.one.platform.autoconfigure.perisistence.jpa.auditor.HeaderAuditorAware;
-import studio.one.platform.autoconfigure.perisistence.jpa.auditor.SecurityAuditorAware;
+import studio.one.platform.autoconfigure.persistence.jpa.auditor.CompositeAuditorAware;
+import studio.one.platform.autoconfigure.persistence.jpa.auditor.FixedAuditorAware;
+import studio.one.platform.autoconfigure.persistence.jpa.auditor.HeaderAuditorAware;
+import studio.one.platform.autoconfigure.persistence.jpa.auditor.SecurityAuditorAware;
 import studio.one.platform.constant.PropertyKeys;
 
 @Configuration
 @EnableConfigurationProperties(JpaAuditingProperties.class)
 @ConditionalOnClass(EnableJpaAuditing.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Persistence.Jpa.Auditing.PREFIX, name = "enabled", havingValue = "true")
-@Deprecated(forRemoval = false)
 public class JpaAuditingAutoConfiguration {
 
     @Configuration

@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
+package studio.one.platform.autoconfigure.persistence.jdbc.sqlquery;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
@@ -24,7 +24,6 @@ import studio.one.platform.data.sqlquery.mapping.MappedStatement;
  * is not present.
  */
 @Slf4j
-@Deprecated(forRemoval = false)
 public class SqlStatementBeanPostProcessor implements BeanPostProcessor, BeanFactoryAware, Ordered {
 
     private SqlQueryFactory sqlQueryFactory;

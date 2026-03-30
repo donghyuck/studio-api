@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
+package studio.one.platform.autoconfigure.persistence.jdbc.sqlquery;
 
 import javax.sql.DataSource;
 
@@ -13,7 +13,6 @@ import studio.one.platform.data.sqlquery.factory.SqlQueryFactory;
 /**
  * FactoryBean that produces mapper proxies backed by {@link SqlQueryFactory}.
  */
-@Deprecated(forRemoval = false)
 public class SqlMapperFactoryBean<T> implements FactoryBean<T>, InitializingBean {
 
     private final Class<T> mapperInterface;

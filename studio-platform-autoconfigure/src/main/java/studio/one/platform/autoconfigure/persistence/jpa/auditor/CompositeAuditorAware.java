@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisistence.jpa.auditor;
+package studio.one.platform.autoconfigure.persistence.jpa.auditor;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -7,7 +7,6 @@ import java.util.Optional;
 
 import studio.one.platform.autoconfigure.JpaAuditingProperties;
 
-@Deprecated(forRemoval = false)
 public class CompositeAuditorAware implements org.springframework.data.domain.AuditorAware<String> {
     private final List<org.springframework.data.domain.AuditorAware<String>> delegates;
 

@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
+package studio.one.platform.autoconfigure.persistence.jdbc.sqlquery;
 
 import javax.sql.DataSource;
 
@@ -18,7 +18,6 @@ import studio.one.platform.data.sqlquery.factory.SqlQueryFactory;
 @ConditionalOnClass(SqlQueryFactory.class)
 @ConditionalOnBean({ DataSource.class, SqlQueryFactory.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Persistence.Jdbc.PREFIX + ".sql-query", name = "enabled", havingValue = "true", matchIfMissing = true)
-@Deprecated(forRemoval = false)
 public class SqlQueryMapperAutoConfiguration {
 
     @Bean

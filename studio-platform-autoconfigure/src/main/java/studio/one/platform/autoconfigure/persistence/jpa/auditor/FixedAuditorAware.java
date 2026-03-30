@@ -1,8 +1,7 @@
-package studio.one.platform.autoconfigure.perisistence.jpa.auditor;
+package studio.one.platform.autoconfigure.persistence.jpa.auditor;
 
 import java.util.Optional;
 
-@Deprecated(forRemoval = false)
 public class FixedAuditorAware implements org.springframework.data.domain.AuditorAware<String> {
     private final String fixed;
 

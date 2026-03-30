@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
+package studio.one.platform.autoconfigure.persistence.jdbc.sqlquery;
 
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -15,7 +15,6 @@ import org.springframework.context.annotation.Import;
 @Retention(RUNTIME)
 @Target(TYPE)
 @Import(SqlMapperRegistrar.class)
-@Deprecated(forRemoval = false)
 public @interface EnableSqlMappers {
 
     /**

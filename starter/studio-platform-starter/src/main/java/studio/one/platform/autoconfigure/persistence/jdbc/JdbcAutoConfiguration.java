@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc;
+package studio.one.platform.autoconfigure.persistence.jdbc;
 
 import java.io.IOException;
 import java.util.List;
@@ -44,7 +44,6 @@ import studio.one.platform.util.LogUtils;
 @EnableConfigurationProperties(JdbcProperties.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Persistence.Jdbc.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
 @Slf4j
-@Deprecated(forRemoval = false)
 public class JdbcAutoConfiguration {
 
     protected static final String FEATURE_NAME = "JDBC";

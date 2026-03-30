@@ -1,4 +1,4 @@
-package studio.one.platform.autoconfigure.perisitence.jdbc.sqlquery;
+package studio.one.platform.autoconfigure.persistence.jdbc.sqlquery;
 
 import java.util.List;
 import java.util.Set;
@@ -30,7 +30,6 @@ import studio.one.platform.data.sqlquery.annotation.SqlMapper;
  * {@link SqlMapperFactoryBean} instances for them.
  */
 @Slf4j
-@Deprecated(forRemoval = false)
 public class SqlMapperRegistrar implements ImportBeanDefinitionRegistrar, ResourceLoaderAware, BeanFactoryAware {
 
     private ResourceLoader resourceLoader;
