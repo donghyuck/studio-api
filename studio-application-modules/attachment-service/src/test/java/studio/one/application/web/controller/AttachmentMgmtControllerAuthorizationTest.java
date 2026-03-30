@@ -86,6 +86,19 @@ class AttachmentMgmtControllerAuthorizationTest {
     }
 
     @Test
+    void listByObjectTreatsRolePrefixedAdminAsNonAdmin() {
+        AttachmentMgmtController controller = controller();
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));
+        when(attachmentService.getAttachmentsByObjectAndCreator(12, 34L, 1L)).thenReturn(Collections.emptyList());
+
+        controller.listByObject(12, 34L);
+
+        verify(attachmentService).getAttachmentsByObjectAndCreator(12, 34L, 1L);
+    }
+
+    @Test
     void extractTextPropagatesLimitFailure() throws Exception {
         AttachmentMgmtController controller = controller();
         Attachment attachment = mock(Attachment.class);

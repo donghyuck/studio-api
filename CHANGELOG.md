@@ -49,6 +49,18 @@
 - `./gradlew :studio-application-modules:attachment-service:test --tests 'studio.one.application.attachment.service.AttachmentServiceImplTest' --tests 'studio.one.application.web.controller.AttachmentMgmtControllerAuthorizationTest'`
 - `./gradlew :studio-application-modules:attachment-service:compileJava :starter:studio-platform-starter-objecttype:compileJava`
 
+## 2026-03-30 (objecttype-attachment tests)
+
+### 변경됨
+- `studio-platform-objecttype`에 `CachedObjectRebindService` 회귀 테스트를 추가해 YAML delegate 사용 시에도 cache invalidation 동작이 유지되는지 고정했다.
+- `attachment-service`에 `AttachmentServiceImpl` 테스트를 추가해 objecttype 업로드 정책 검증 요청과 storage failure 전파 순서를 고정했다.
+- `AttachmentMgmtControllerAuthorizationTest`에 `ROLE_ADMIN` 권한이 현재는 관리자 경로로 처리되지 않는 분기 테스트를 추가했다.
+- `attachment-service` 테스트 소스셋에 `studio-platform-objecttype` 테스트 의존성을 보강했다.
+
+### 검증
+- `./gradlew :studio-platform-objecttype:test --tests 'studio.one.platform.objecttype.CachedObjectRebindServiceTest' --tests 'studio.one.platform.objecttype.ObjectTypeRuntimeServiceTest'`
+- `./gradlew :studio-application-modules:attachment-service:test --tests 'studio.one.application.attachment.service.AttachmentServiceImplTest' --tests 'studio.one.application.web.controller.AttachmentMgmtControllerAuthorizationTest'`
+
 ## 2026-03-26
 
 ### 변경됨

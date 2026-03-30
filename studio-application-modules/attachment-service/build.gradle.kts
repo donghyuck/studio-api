@@ -32,4 +32,5 @@ dependencies {
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-data"))
     testImplementation(project(":studio-platform-identity"))
+    testImplementation(project(":studio-platform-objecttype"))
 }
