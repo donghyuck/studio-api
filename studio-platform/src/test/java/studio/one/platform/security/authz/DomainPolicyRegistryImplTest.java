@@ -53,38 +53,7 @@ class DomainPolicyRegistryImplTest {
 
     @SafeVarargs
     private static ObjectProvider<List<DomainPolicyContributor>> provider(DomainPolicyContributor... contributors) {
-        List<DomainPolicyContributor> list = List.of(contributors);
-        return new ObjectProvider<>() {
-            @Override
-            public List<DomainPolicyContributor> getObject(Object... args) {
-                return list;
-            }
-
-            @Override
-            public List<DomainPolicyContributor> getIfAvailable() {
-                return list;
-            }
-
-            @Override
-            public List<DomainPolicyContributor> getIfUnique() {
-                return list;
-            }
-
-            @Override
-            public List<DomainPolicyContributor> getObject() {
-                return list;
-            }
-
-            @Override
-            public Stream<List<DomainPolicyContributor>> stream() {
-                return Stream.of(list);
-            }
-
-            @Override
-            public Stream<List<DomainPolicyContributor>> orderedStream() {
-                return stream();
-            }
-        };
+        return new FixedObjectProvider<>(List.of(contributors));
     }
 
     private static AclProperties.DomainPolicy domain(
@@ -120,5 +89,44 @@ class DomainPolicyRegistryImplTest {
         Map<K, V> map = new HashMap<>();
         map.put(key, value);
         return map;
+    }
+
+    private static final class FixedObjectProvider<T> implements ObjectProvider<T> {
+
+        private final T value;
+
+        private FixedObjectProvider(T value) {
+            this.value = value;
+        }
+
+        @Override
+        public T getObject(Object... args) {
+            return value;
+        }
+
+        @Override
+        public T getIfAvailable() {
+            return value;
+        }
+
+        @Override
+        public T getIfUnique() {
+            return value;
+        }
+
+        @Override
+        public T getObject() {
+            return value;
+        }
+
+        @Override
+        public Stream<T> stream() {
+            return Stream.of(value);
+        }
+
+        @Override
+        public Stream<T> orderedStream() {
+            return stream();
+        }
     }
 }

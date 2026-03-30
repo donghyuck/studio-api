@@ -16,6 +16,14 @@ class PaginationDialectTest {
     }
 
     @Test
+    void mysqlDialectSupportsZeroOffset() {
+        PaginationDialect dialect = new MySqlPaginationDialect();
+
+        assertThat(dialect.applyPagination("select * from sample", 0, 10))
+                .isEqualTo("select * from sample LIMIT 0, 10");
+    }
+
+    @Test
     void postgresDialectAppendsLimitThenOffset() {
         PaginationDialect dialect = new PostgresPaginationDialect();
 
