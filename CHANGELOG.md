@@ -24,6 +24,8 @@
 - `studio-platform`에 `DomainPolicyRegistryImpl` 병합/정규화 회귀 테스트를 추가하고, contributor 병합 시 불변 맵을 다시 수정하던 경로를 안전하게 고쳤다.
 - `starter`의 `perisitence`와 `studio-platform-autoconfigure`의 `perisistence` 오타 패키지에 대응해 정상 패키지명 `persistence` 경로를 추가하고, 기존 경로는 deprecated 호환 브리지로 유지했다.
 - Spring Boot auto-configuration 등록 경로를 `persistence` 패키지로 전환했다.
+- `studio-platform-identity` 계약에 principal/resolver 규약과 `UserDto` 용도를 문서화하고, identity service bean 이름 상수를 별도 상수 클래스로 분리했다.
+- `studio-platform-identity`를 순수 계약 모듈로 유지하도록 Spring Boot 플러그인을 제거했다.
 
 ### 검증
 - `./gradlew :studio-platform-autoconfigure:test --tests 'studio.one.platform.autoconfigure.perisistence.jpa.auditor.CompositeAuditorAwareTest'`
@@ -31,6 +33,8 @@
 - `./gradlew :studio-platform-data:test --tests 'studio.one.platform.data.jdbc.pagination.PaginationDialectTest'`
 - `./gradlew :studio-platform-autoconfigure:test --tests 'studio.one.platform.autoconfigure.persistence.jpa.auditor.CompositeAuditorAwareTest'`
 - `./gradlew :starter:studio-platform-starter:compileJava`
+- `./gradlew :studio-platform-identity:test`
+- `./gradlew :studio-platform-identity:build`
 
 ## 2026-03-26
 

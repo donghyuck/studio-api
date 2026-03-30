@@ -14,10 +14,11 @@ import studio.one.base.user.domain.entity.ApplicationRole;
 import studio.one.base.user.domain.entity.ApplicationUser;
 import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
+import studio.one.platform.identity.IdentityConstants;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
 
-@Service(IdentityService.SERVICE_NAME)
+@Service(IdentityConstants.SERVICE_NAME)
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ApplicationIdentityService implements IdentityService {

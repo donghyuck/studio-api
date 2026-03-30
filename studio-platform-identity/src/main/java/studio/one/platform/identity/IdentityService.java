@@ -4,7 +4,11 @@ import java.util.Optional;
 
 public interface IdentityService {
 
-    public static final String SERVICE_NAME = "features:identity:identity-service";
+    /**
+     * @deprecated Use {@link IdentityConstants#SERVICE_NAME} instead.
+     */
+    @Deprecated(forRemoval = false)
+    String SERVICE_NAME = IdentityConstants.SERVICE_NAME;
 
     Optional<UserRef> findById(Long userId);
 
