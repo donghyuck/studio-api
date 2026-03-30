@@ -93,21 +93,22 @@ public class DomainPolicyRegistryImpl implements DomainPolicyRegistry {
     // ===== 병합/정규화 =====
 
     private AclProperties.DomainPolicy deepMerge(AclProperties.DomainPolicy a, AclProperties.DomainPolicy b) {
+        AclProperties.DomainPolicy merged = copyDomain(a);
         if (b.getRoles() != null)
-            a.setRoles(mergeRoles(a.getRoles(), b.getRoles()));
+            merged.setRoles(mergeRoles(merged.getRoles(), b.getRoles()));
         if (b.getComponents() != null) {
-            if (a.getComponents() == null)
-                a.setComponents(new HashMap<>());
+            if (merged.getComponents() == null)
+                merged.setComponents(new HashMap<>());
             b.getComponents().forEach((ck, cv) -> {
                 String nck = norm(ck);
-                var existing = a.getComponents().get(nck);
+                var existing = merged.getComponents().get(nck);
                 if (existing == null)
-                    a.getComponents().put(nck, freezeComponent(copyComponent(cv)));
+                    merged.getComponents().put(nck, freezeComponent(copyComponent(cv)));
                 else if (cv.getRoles() != null)
                     existing.setRoles(mergeRoles(existing.getRoles(), cv.getRoles()));
             });
         }
-        return freezeDomain(a);
+        return freezeDomain(merged);
     }
 
     private AclProperties.DomainPolicy copyDomain(AclProperties.DomainPolicy src) {
