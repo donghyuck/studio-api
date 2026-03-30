@@ -48,7 +48,7 @@ subprojects {
 	afterEvaluate{
 		the<org.owasp.dependencycheck.gradle.extension.DependencyCheckExtension>().apply {
 			autoUpdate = false  // 폐쇄망이므로 false
-			failBuildOnCVSS = 10.0F // 7.0f // CVSS 점수가 7.0 이상인 경우 빌드 실패
+			failBuildOnCVSS = 7.0F // High 이상 취약점에서 빌드 실패
 			suppressionFile = "${rootDir}/dependency-check-suppressions.xml"
 			val scanRoots = listOf("src/main/java", "src/main/kotlin")
 				.map { file(it) }

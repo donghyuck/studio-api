@@ -13,6 +13,21 @@
 - `./gradlew :studio-platform:test --tests 'studio.one.platform.component.PropertyValidatorTest' --tests 'studio.one.platform.component.RepositoryImplTest' --tests 'studio.one.platform.web.advice.GlobalExceptionHandlerTest'`
 - `./gradlew :starter:studio-platform-starter-jasypt:test --tests 'studio.one.platform.autoconfigure.jasypt.JasyptHttpControllerTest' --tests 'studio.one.platform.autoconfigure.jasypt.JasyptPropertiesTest'`
 
+## 2026-03-30 (follow-up)
+
+### 변경됨
+- `studio-platform-autoconfigure`의 `CompositeAuditorAware`가 외부에서 주입한 `AuditorAware`를 우선 처리할 수 있도록 확장했다.
+- `CompositeAuditorAware`의 기존 security/header/fixed 기본 합성 동작은 유지했다.
+- `studio-platform-autoconfigure`에 `CompositeAuditorAware` 회귀 테스트와 테스트용 `spring-data-commons` 의존성을 추가했다.
+- 루트 OWASP dependency-check의 `failBuildOnCVSS`를 `7.0F`로 낮춰 High 이상 취약점에서 빌드가 실패하도록 조정했다.
+- `studio-platform-data`에 `PaginationDialect` 회귀 테스트를 추가했다.
+- `studio-platform`에 `DomainPolicyRegistryImpl` 병합/정규화 회귀 테스트를 추가하고, contributor 병합 시 불변 맵을 다시 수정하던 경로를 안전하게 고쳤다.
+
+### 검증
+- `./gradlew :studio-platform-autoconfigure:test --tests 'studio.one.platform.autoconfigure.perisistence.jpa.auditor.CompositeAuditorAwareTest'`
+- `./gradlew :studio-platform:test --tests 'studio.one.platform.security.authz.DomainPolicyRegistryImplTest'`
+- `./gradlew :studio-platform-data:test --tests 'studio.one.platform.data.jdbc.pagination.PaginationDialectTest'`
+
 ## 2026-03-26
 
 ### 변경됨
