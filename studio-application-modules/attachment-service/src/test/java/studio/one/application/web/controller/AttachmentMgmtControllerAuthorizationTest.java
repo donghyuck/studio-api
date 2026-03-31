@@ -77,7 +77,7 @@ class AttachmentMgmtControllerAuthorizationTest {
         AttachmentMgmtController controller = controller();
 
         when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
-        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ADMIN"));
+        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));
         when(attachmentService.getAttachments(12, 34L)).thenReturn(Collections.emptyList());
 
         controller.listByObject(12, 34L);

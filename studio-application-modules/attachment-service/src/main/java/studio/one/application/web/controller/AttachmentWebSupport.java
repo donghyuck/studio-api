@@ -1,31 +1,76 @@
 package studio.one.application.web.controller;
 
-import java.util.concurrent.TimeUnit;
+import java.io.InputStream;
 
+import org.slf4j.Logger;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-import studio.one.platform.identity.ApplicationPrincipal;
+import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.web.dto.AttachmentDto;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserDto;
+import studio.one.platform.identity.UserRef;
 import studio.one.platform.web.dto.ApiResponse;
 
 final class AttachmentWebSupport {
 
+    static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
+
     private AttachmentWebSupport() {
     }
 
-    static String sanitizeFilename(String original) {
-        if (!StringUtils.hasText(original)) {
-            return null;
+    static PreparedUpload prepareUpload(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
         }
-        String cleaned = StringUtils.getFilename(original);
-        if (!StringUtils.hasText(cleaned)) {
-            return null;
+        if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
+            throw new IllegalArgumentException("File too large");
         }
-        return cleaned.replace("\\", "").replace("/", "");
+        if (file.getSize() > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("File size exceeds supported limit");
+        }
+        String sanitizedName = sanitizeFilename(file.getOriginalFilename());
+        if (!StringUtils.hasText(sanitizedName)) {
+            throw new IllegalArgumentException("Invalid file name");
+        }
+        return new PreparedUpload(sanitizedName, resolveMediaTypeString(file.getContentType()), (int) file.getSize());
+    }
+
+    static ResponseEntity<StreamingResponseBody> downloadResponse(
+            Attachment attachment,
+            InputStream in,
+            CacheControl cacheControl) {
+        StreamingResponseBody body = out -> {
+            try (in) {
+                in.transferTo(out);
+            }
+        };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl(cacheControl.getHeaderValue());
+        headers.setContentType(resolveMediaType(attachment.getContentType()));
+        headers.setContentLength(attachment.getSize());
+        if (StringUtils.hasText(attachment.getName())) {
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(attachment.getName())
+                    .build());
+        }
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
+    }
+
+    static AttachmentDto toDto(Attachment attachment, ObjectProvider<IdentityService> identityServiceProvider, Logger log) {
+        return AttachmentDto.of(
+                attachment,
+                findUserDto(identityServiceProvider, attachment.getCreatedBy(), attachment.getAttachmentId(), log));
     }
 
     static MediaType resolveMediaType(String contentType) {
@@ -43,23 +88,15 @@ final class AttachmentWebSupport {
         return resolveMediaType(contentType).toString();
     }
 
-    static HttpHeaders downloadHeaders(String contentType, long size, String filename) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setCacheControl(CacheControl.noCache().getHeaderValue());
-        headers.setContentType(resolveMediaType(contentType));
-        headers.setContentLength(size);
-        if (StringUtils.hasText(filename)) {
-            headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
+    static String sanitizeFilename(String original) {
+        if (!StringUtils.hasText(original)) {
+            return null;
         }
-        return headers;
-    }
-
-    static HttpHeaders thumbnailHeaders(String contentType, long size) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setCacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS).getHeaderValue());
-        headers.setContentType(resolveMediaType(contentType));
-        headers.setContentLength(size);
-        return headers;
+        String cleaned = org.springframework.util.StringUtils.getFilename(original.replace("\\", "/"));
+        if (!StringUtils.hasText(cleaned)) {
+            return null;
+        }
+        return cleaned.replace("\\", "").replace("/", "");
     }
 
     static <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
@@ -69,23 +106,30 @@ final class AttachmentWebSupport {
         return ResponseEntity.badRequest().body(body);
     }
 
-    static boolean isAdmin(ApplicationPrincipal principal) {
-        return principal != null && (principal.hasRole("ADMIN") || principal.hasRole("ROLE_ADMIN"));
+    private static UserDto findUserDto(
+            ObjectProvider<IdentityService> identityServiceProvider,
+            long userId,
+            long attachmentId,
+            Logger log) {
+        if (userId <= 0) {
+            return null;
+        }
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
+            return null;
+        }
+        return identityService.findById(userId)
+                .map(AttachmentWebSupport::toUserDto)
+                .orElseGet(() -> {
+                    log.warn("User {} not found for attachment {}", userId, attachmentId);
+                    return null;
+                });
     }
 
-    static long requireUserId(ApplicationPrincipal principal) {
-        if (principal != null && principal.getUserId() != null && principal.getUserId() > 0) {
-            return principal.getUserId();
-        }
-        throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException(
-                "No authenticated user");
+    private static UserDto toUserDto(UserRef userRef) {
+        return new UserDto(userRef.userId(), userRef.username());
     }
 
-    static long requireUserId(Long userId) {
-        if (userId != null && userId > 0) {
-            return userId;
-        }
-        throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException(
-                "No authenticated user");
+    record PreparedUpload(String name, String contentType, int sizeBytes) {
     }
 }

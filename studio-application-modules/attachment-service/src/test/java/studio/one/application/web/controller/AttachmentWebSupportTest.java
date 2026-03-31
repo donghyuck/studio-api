@@ -1,10 +1,12 @@
 package studio.one.application.web.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Set;
+
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -12,28 +14,22 @@ import studio.one.platform.identity.ApplicationPrincipal;
 class AttachmentWebSupportTest {
 
     @Test
-    void sanitizeFilenameKeepsLeafNameOnly() {
-        assertEquals("report.pdf", AttachmentWebSupport.sanitizeFilename("folder/subfolder/report.pdf"));
+    void sanitizeFilenameRemovesPathSegments() {
+        assertEquals("contract.pdf", AttachmentWebSupport.sanitizeFilename("dir/subdir/contract.pdf"));
+        assertEquals("contract.pdf", AttachmentWebSupport.sanitizeFilename("dir\\subdir\\contract.pdf"));
+        assertNull(AttachmentWebSupport.sanitizeFilename(" "));
     }
 
     @Test
     void resolveMediaTypeFallsBackToOctetStream() {
-        assertEquals(MediaType.APPLICATION_OCTET_STREAM, AttachmentWebSupport.resolveMediaType("not-a-type"));
+        assertEquals(MediaType.APPLICATION_OCTET_STREAM, AttachmentWebSupport.resolveMediaType(null));
+        assertEquals(MediaType.APPLICATION_OCTET_STREAM, AttachmentWebSupport.resolveMediaType("not a type"));
     }
 
     @Test
-    void downloadHeadersIncludeDispositionAndContentLength() {
-        HttpHeaders headers = AttachmentWebSupport.downloadHeaders("text/plain", 12L, "note.txt");
-
-        assertEquals(MediaType.TEXT_PLAIN, headers.getContentType());
-        assertEquals(12L, headers.getContentLength());
-        assertTrue(headers.getContentDisposition().isAttachment());
-    }
-
-    @Test
-    void isAdminAcceptsAdminAndRoleAdmin() {
-        assertTrue(AttachmentWebSupport.isAdmin(principal("ADMIN")));
-        assertTrue(AttachmentWebSupport.isAdmin(principal("ROLE_ADMIN")));
+    void isAdminAcceptsLegacyAndSpringSecurityRoleNames() {
+        assertTrue(AttachmentAccessSupport.isAdmin(principal("ADMIN")));
+        assertTrue(AttachmentAccessSupport.isAdmin(principal("ROLE_ADMIN")));
     }
 
     private ApplicationPrincipal principal(String role) {
@@ -49,8 +45,8 @@ class AttachmentWebSupportTest {
             }
 
             @Override
-            public java.util.Set<String> getRoles() {
-                return java.util.Set.of(role);
+            public Set<String> getRoles() {
+                return Set.of(role);
             }
         };
     }
