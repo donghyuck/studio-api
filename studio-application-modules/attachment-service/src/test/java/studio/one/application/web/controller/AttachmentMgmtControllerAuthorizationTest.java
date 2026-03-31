@@ -106,7 +106,7 @@ class AttachmentMgmtControllerAuthorizationTest {
                 mock(studio.one.platform.text.extractor.FileParserFactory.class), 4);
 
         when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
-        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ADMIN"));
+        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));
         when(textExtractionProvider.getIfAvailable()).thenReturn(extractor);
         when(attachmentService.getAttachmentById(10L)).thenReturn(attachment);
         when(attachment.getName()).thenReturn("large.txt");
