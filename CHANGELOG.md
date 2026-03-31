@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-31
+
+### 변경됨
+- `attachment-service`의 `AttachmentController`, `AttachmentMgmtController`, `MeAttachmentController`가 파일명 정제, MIME 정규화, 다운로드 헤더 구성을 공통 `AttachmentWebSupport`로 공유하도록 정리했다.
+- `AttachmentMgmtController`의 관리자 판별이 `ADMIN`과 `ROLE_ADMIN`을 모두 허용하도록 보강해 Spring Security authority 표현 차이로 인한 owner 우회 오판정을 줄였다.
+- `attachment-service`에 attachment 웹 helper 회귀 테스트를 추가하고, mgmt 권한 테스트가 `ROLE_ADMIN` 경로를 검증하도록 보강했다.
+- `attachment-service`의 접근 제어 helper를 `AttachmentAccessSupport`로 분리해 principal 조회, 관리자 판별, owner 접근 검사를 컨트롤러에서 공통으로 사용하도록 정리했다.
+
+### 검증
+- `./gradlew :studio-application-modules:attachment-service:test --tests 'studio.one.application.web.controller.AttachmentAccessSupportTest' --tests 'studio.one.application.web.controller.AttachmentControllerTest' --tests 'studio.one.application.web.controller.AttachmentMgmtControllerAuthorizationTest' --tests 'studio.one.application.web.controller.AttachmentWebSupportTest' --tests 'studio.one.application.web.controller.MeAttachmentControllerTest'`
+- `./gradlew :studio-application-modules:attachment-service:compileJava`
+
 ## 2026-03-30
 
 ### 변경됨
