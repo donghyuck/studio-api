@@ -14,7 +14,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.platform.objecttype.db.jdbc.ObjectTypeJdbcRepository;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 
 public class ObjectTypeJdbcRepositoryTest {
 

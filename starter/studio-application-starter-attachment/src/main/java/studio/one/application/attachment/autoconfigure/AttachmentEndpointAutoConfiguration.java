@@ -27,7 +27,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 
@@ -62,7 +61,6 @@ import studio.one.platform.util.LogUtils;
 @EnableConfigurationProperties({ AttachmentFeatureProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
                 + ".attachment.web", name = "enabled", havingValue = "true")
-@ComponentScan(basePackageClasses = { AttachmentController.class })
 @Slf4j
 public class AttachmentEndpointAutoConfiguration {
 
