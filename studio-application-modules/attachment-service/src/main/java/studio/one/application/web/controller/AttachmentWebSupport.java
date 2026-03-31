@@ -3,6 +3,7 @@ package studio.one.application.web.controller;
 import java.io.InputStream;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -22,6 +23,7 @@ import studio.one.platform.web.dto.ApiResponse;
 
 final class AttachmentWebSupport {
 
+    private static final Logger log = LoggerFactory.getLogger(AttachmentWebSupport.class);
     static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024;
 
     private AttachmentWebSupport() {
@@ -67,7 +69,7 @@ final class AttachmentWebSupport {
                 .body(body);
     }
 
-    static AttachmentDto toDto(Attachment attachment, ObjectProvider<IdentityService> identityServiceProvider, Logger log) {
+    static AttachmentDto toDto(Attachment attachment, ObjectProvider<IdentityService> identityServiceProvider) {
         return AttachmentDto.of(
                 attachment,
                 findUserDto(identityServiceProvider, attachment.getCreatedBy(), attachment.getAttachmentId(), log));

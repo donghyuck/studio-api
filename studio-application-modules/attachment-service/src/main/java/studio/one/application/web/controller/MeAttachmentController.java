@@ -169,6 +169,6 @@ public class MeAttachmentController {
     }
 
     private AttachmentDto toDto(Attachment attachment) {
-        return AttachmentWebSupport.toDto(attachment, identityServiceProvider, log);
+        return AttachmentWebSupport.toDto(attachment, identityServiceProvider);
     }
 }
