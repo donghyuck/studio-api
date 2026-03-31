@@ -2,6 +2,7 @@ package studio.one.application.attachment.service;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
@@ -132,10 +133,12 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file) {
-        try {
-            int size = (int) file.length();
-            InputStream inputStream = new FileInputStream(file);
-            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+        try (InputStream inputStream = new FileInputStream(file)) {
+            long size = file.length();
+            if (size > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("File size exceeds supported limit");
+            }
+            return createAttachment(objectType, objectId, name, contentType, inputStream, (int) size);
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
@@ -145,8 +148,14 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream) {
         try {
-            int size = inputStream.available();
-            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+            byte[] bytes = inputStream.readAllBytes();
+            return createAttachment(
+                    objectType,
+                    objectId,
+                    name,
+                    contentType,
+                    new ByteArrayInputStream(bytes),
+                    bytes.length);
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
@@ -175,8 +184,13 @@ public class AttachmentServiceImpl implements AttachmentService {
             }
         }
         Attachment savedAttachment = attachmentRepository.save(attachment);
-        fileStorage.save(savedAttachment, inputStream);
-        return savedAttachment;
+        try {
+            fileStorage.save(savedAttachment, inputStream);
+            return savedAttachment;
+        } catch (RuntimeException e) {
+            cleanupAfterStorageFailure(savedAttachment);
+            throw e;
+        }
     }
 
     @Override
@@ -224,5 +238,20 @@ public class AttachmentServiceImpl implements AttachmentService {
         }
         ValidateUploadCommand request = new ValidateUploadCommand(fileName, contentType, (long) sizeBytes);
         runtimeService.validateUpload(objectType, request);
+    }
+
+    private void cleanupAfterStorageFailure(Attachment savedAttachment) {
+        try {
+            fileStorage.delete(savedAttachment);
+        } catch (RuntimeException cleanupException) {
+            log.warn("Attachment storage cleanup failed for id={}: {}",
+                    savedAttachment.getAttachmentId(), cleanupException.getMessage());
+        }
+        try {
+            attachmentRepository.delete(toEntity(savedAttachment));
+        } catch (RuntimeException cleanupException) {
+            log.warn("Attachment metadata cleanup failed for id={}: {}",
+                    savedAttachment.getAttachmentId(), cleanupException.getMessage());
+        }
     }
 }

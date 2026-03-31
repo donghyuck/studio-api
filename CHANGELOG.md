@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-03-31 (follow-up)
+
+### 변경됨
+- `AttachmentServiceImpl`의 `InputStream` 기반 size 계산을 `available()`에서 실제 byte materialization으로 바꿔 정확한 크기를 보장하도록 수정했다.
+- `AttachmentServiceImpl`의 `File` 기반 업로드는 입력 스트림을 try-with-resources로 닫고, 너무 큰 파일은 명시적으로 실패하도록 정리했다.
+- storage save 실패 시 best-effort로 파일/메타데이터 cleanup을 수행하도록 정리해 orphan record 가능성을 줄였다.
+- `attachment-service`에 `AttachmentServiceImpl` 회귀 테스트를 추가해 size 계산과 storage failure cleanup 경로를 고정했다.
+
+### 검증
+- `./gradlew :studio-application-modules:attachment-service:test --tests 'studio.one.application.attachment.service.AttachmentServiceImplTest'`
+- `./gradlew :studio-application-modules:attachment-service:compileJava`
+
 ## 2026-03-31
 
 ### 변경됨
