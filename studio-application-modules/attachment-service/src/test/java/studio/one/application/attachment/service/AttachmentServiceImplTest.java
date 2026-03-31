@@ -27,6 +27,7 @@ import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
 
 @ExtendWith(MockitoExtension.class)
 class AttachmentServiceImplTest {
@@ -41,8 +42,7 @@ class AttachmentServiceImplTest {
     private ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @Mock
-    @SuppressWarnings("rawtypes")
-    private ObjectProvider objectTypeRuntimeServiceProvider;
+    private ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
 
     @Mock
     private ObjectProvider<ThumbnailService> thumbnailServiceProvider;

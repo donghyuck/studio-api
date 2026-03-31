@@ -38,7 +38,8 @@ import studio.one.platform.objecttype.service.ValidateUploadCommand;
 @Slf4j
 public class AttachmentServiceImpl implements AttachmentService {
 
-    private static final String CACHE_BY_ID = "attachments.byId"; 
+    private static final String CACHE_BY_ID = "attachments.byId";
+    private static final long MAX_BUFFER_BYTES = 50L * 1024 * 1024;
 
     private final AttachmentRepository attachmentRepository;
     private final FileStorage fileStorage;
@@ -136,9 +137,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file) {
         try (InputStream inputStream = new FileInputStream(file)) {
             long size = file.length();
-            if (size > Integer.MAX_VALUE) {
-                throw new IllegalArgumentException("File size exceeds supported limit");
-            }
+            validateInputSize(size);
             return createAttachment(objectType, objectId, name, contentType, inputStream, (int) size);
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
@@ -164,6 +163,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream,
             int size) {
+        validateInputSize(size);
 
         validateObjectTypePolicy(objectType, name, contentType, size);
         
@@ -182,17 +182,15 @@ public class AttachmentServiceImpl implements AttachmentService {
                 attachment.setCreatedBy(principal.getUserId());
             }
         }
-        try (InputStream in = inputStream) {
-            Attachment savedAttachment = attachmentRepository.save(attachment);
-            try {
-                fileStorage.save(savedAttachment, in);
-                return savedAttachment;
-            } catch (RuntimeException e) {
-                cleanupAfterStorageFailure(savedAttachment, e);
-                throw e;
-            }
-        } catch (IOException e) {
-            throw new IllegalArgumentException(e.getMessage(), e);
+        Attachment savedAttachment = attachmentRepository.save(attachment);
+        try {
+            fileStorage.save(savedAttachment, inputStream);
+            return savedAttachment;
+        } catch (RuntimeException e) {
+            cleanupAfterStorageFailure(savedAttachment, e);
+            throw e;
+        } finally {
+            closeQuietly(inputStream);
         }
     }
 
@@ -253,9 +251,13 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     private int bufferToTempFile(InputStream inputStream, Path bufferedInput) throws IOException {
         try (InputStream in = inputStream; var out = Files.newOutputStream(bufferedInput)) {
-            long copied = in.transferTo(out);
-            if (copied > Integer.MAX_VALUE) {
-                throw new IllegalArgumentException("File size exceeds supported limit");
+            byte[] buffer = new byte[8192];
+            long copied = 0L;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                copied += read;
+                validateInputSize(copied);
+                out.write(buffer, 0, read);
             }
             return (int) copied;
         }
@@ -279,6 +281,23 @@ public class AttachmentServiceImpl implements AttachmentService {
             Files.deleteIfExists(bufferedInput);
         } catch (IOException ex) {
             log.debug("Failed to delete buffered upload temp file {}: {}", bufferedInput, ex.getMessage());
+        }
+    }
+
+    private void closeQuietly(InputStream inputStream) {
+        if (inputStream == null) {
+            return;
+        }
+        try {
+            inputStream.close();
+        } catch (IOException ex) {
+            log.warn("Failed to close attachment input stream cleanly: {}", ex.getMessage());
+        }
+    }
+
+    private void validateInputSize(long sizeBytes) {
+        if (sizeBytes < 0 || sizeBytes > MAX_BUFFER_BYTES || sizeBytes > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("File size exceeds supported limit");
         }
     }
 }
