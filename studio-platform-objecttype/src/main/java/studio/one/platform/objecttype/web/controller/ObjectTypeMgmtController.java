@@ -18,6 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.objecttype.lifecycle.ObjectRebindService;
 import studio.one.platform.objecttype.service.ObjectTypeAdminService;
+import studio.one.platform.objecttype.service.ObjectTypePatchCommand;
+import studio.one.platform.objecttype.service.ObjectTypePolicyUpsertCommand;
+import studio.one.platform.objecttype.service.ObjectTypeUpsertCommand;
+import studio.one.platform.objecttype.service.ObjectTypeView;
 import studio.one.platform.objecttype.web.dto.ObjectTypeDto;
 import studio.one.platform.objecttype.web.dto.ObjectTypePatchRequest;
 import studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto;
@@ -39,18 +43,20 @@ public class ObjectTypeMgmtController {
             @RequestParam(value = "domain", required = false) String domain,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "q", required = false) String q) {
-        java.util.List<ObjectTypeDto> list = adminService.search(domain, status, q);
+        java.util.List<ObjectTypeDto> list = adminService.search(domain, status, q).stream()
+                .map(this::toDto)
+                .toList();
         return ResponseEntity.ok(ApiResponse.ok(list));
     }
 
     @GetMapping("/{objectType}")
     public ResponseEntity<ApiResponse<ObjectTypeDto>> get(@PathVariable @Min(1) int objectType) {
-        return ResponseEntity.ok(ApiResponse.ok(adminService.get(objectType)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.get(objectType))));
     }
 
     @PostMapping
     public ResponseEntity<ApiResponse<ObjectTypeDto>> create(@Valid @RequestBody ObjectTypeUpsertRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(adminService.upsert(request)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.upsert(toCommand(request)))));
     }
 
     @PutMapping("/{objectType}")
@@ -62,31 +68,104 @@ public class ObjectTypeMgmtController {
                 : new ObjectTypeUpsertRequest(objectType, request.code(), request.name(), request.domain(),
                         request.status(), request.description(), request.updatedBy(), request.updatedById(),
                         request.createdBy(), request.createdById());
-        return ResponseEntity.ok(ApiResponse.ok(adminService.upsert(merged)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.upsert(toCommand(merged)))));
     }
 
     @PatchMapping("/{objectType}")
     public ResponseEntity<ApiResponse<ObjectTypeDto>> patch(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ObjectTypePatchRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(adminService.patch(objectType, request)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.patch(objectType, toCommand(request)))));
     }
 
     @GetMapping("/{objectType}/policy")
     public ResponseEntity<ApiResponse<ObjectTypePolicyDto>> getPolicy(@PathVariable @Min(1) int objectType) {
-        return ResponseEntity.ok(ApiResponse.ok(adminService.getPolicy(objectType)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.getPolicy(objectType))));
     }
 
     @PutMapping("/{objectType}/policy")
     public ResponseEntity<ApiResponse<ObjectTypePolicyDto>> upsertPolicy(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ObjectTypePolicyUpsertRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(adminService.upsertPolicy(objectType, request)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.upsertPolicy(objectType, toCommand(request)))));
     }
 
     @PostMapping("/reload")
     public ResponseEntity<ApiResponse<Void>> reload() {
         rebindService.rebind();
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    private ObjectTypeDto toDto(ObjectTypeView view) {
+        return ObjectTypeDto.builder()
+                .objectType(view.objectType())
+                .code(view.code())
+                .name(view.name())
+                .domain(view.domain())
+                .status(view.status())
+                .description(view.description())
+                .createdBy(view.createdBy())
+                .createdById(view.createdById())
+                .createdAt(view.createdAt())
+                .updatedBy(view.updatedBy())
+                .updatedById(view.updatedById())
+                .updatedAt(view.updatedAt())
+                .build();
+    }
+
+    private ObjectTypePolicyDto toDto(studio.one.platform.objecttype.service.ObjectTypePolicyView view) {
+        if (view == null) {
+            return null;
+        }
+        return ObjectTypePolicyDto.builder()
+                .objectType(view.objectType())
+                .maxFileMb(view.maxFileMb())
+                .allowedExt(view.allowedExt())
+                .allowedMime(view.allowedMime())
+                .policyJson(view.policyJson())
+                .createdBy(view.createdBy())
+                .createdById(view.createdById())
+                .createdAt(view.createdAt())
+                .updatedBy(view.updatedBy())
+                .updatedById(view.updatedById())
+                .updatedAt(view.updatedAt())
+                .build();
+    }
+
+    private ObjectTypeUpsertCommand toCommand(ObjectTypeUpsertRequest request) {
+        return new ObjectTypeUpsertCommand(
+                request.objectType(),
+                request.code(),
+                request.name(),
+                request.domain(),
+                request.status(),
+                request.description(),
+                request.updatedBy(),
+                request.updatedById(),
+                request.createdBy(),
+                request.createdById());
+    }
+
+    private ObjectTypePatchCommand toCommand(ObjectTypePatchRequest request) {
+        return new ObjectTypePatchCommand(
+                request.code(),
+                request.name(),
+                request.domain(),
+                request.status(),
+                request.description(),
+                request.updatedBy(),
+                request.updatedById());
+    }
+
+    private ObjectTypePolicyUpsertCommand toCommand(ObjectTypePolicyUpsertRequest request) {
+        return new ObjectTypePolicyUpsertCommand(
+                request.maxFileMb(),
+                request.allowedExt(),
+                request.allowedMime(),
+                request.policyJson(),
+                request.updatedBy(),
+                request.updatedById(),
+                request.createdBy(),
+                request.createdById());
     }
 }
