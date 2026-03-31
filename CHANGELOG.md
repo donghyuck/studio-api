@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-31
+
+### 변경됨
+- `attachment-service`의 웹 컨트롤러 공통 로직을 `AttachmentWebSupport`로 묶어 파일명 정제, 미디어 타입 해석, 다운로드 헤더, bad request 응답 생성을 정리했다.
+- `AttachmentMgmtController`의 관리자 판별이 `ADMIN`과 `ROLE_ADMIN` 모두를 허용하도록 정리했다.
+- `attachment-service`에 웹 컨트롤러 회귀 테스트와 공통 support 테스트를 추가했다.
+
+### 검증
+- `./gradlew -p /tmp/studio-api-issue-161 :studio-application-modules:attachment-service:test --tests 'studio.one.application.web.controller.AttachmentMgmtControllerAuthorizationTest' --tests 'studio.one.application.web.controller.AttachmentWebSupportTest'`
+
 ## 2026-03-30
 
 ### 변경됨

@@ -10,15 +10,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.CacheControl;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -66,19 +62,19 @@ public class AttachmentMgmtController {
             @RequestParam("file") MultipartFile file) throws IOException {
 
         if (file == null || file.isEmpty()) {
-            return badRequest("File is empty");
+            return AttachmentWebSupport.badRequest("File is empty");
         }
         if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
-            return badRequest("File too large");
+            return AttachmentWebSupport.badRequest("File too large");
         }
         if (file.getSize() > Integer.MAX_VALUE) {
-            return badRequest("File size exceeds supported limit");
+            return AttachmentWebSupport.badRequest("File size exceeds supported limit");
         }
-        String sanitizedName = sanitizeFilename(file.getOriginalFilename());
-        if (!StringUtils.hasText(sanitizedName)) {
-            return badRequest("Invalid file name");
+        String sanitizedName = AttachmentWebSupport.sanitizeFilename(file.getOriginalFilename());
+        if (sanitizedName == null) {
+            return AttachmentWebSupport.badRequest("Invalid file name");
         }
-        String contentType = resolveMediaTypeString(file.getContentType());
+        String contentType = AttachmentWebSupport.resolveMediaTypeString(file.getContentType());
 
         Attachment saved = attachmentService.createAttachment(
                 objectType,
@@ -131,16 +127,7 @@ public class AttachmentMgmtController {
                 IOUtils.copy(in, out);
             }
         };
-        HttpHeaders headers = new HttpHeaders();
-        headers.setCacheControl(CacheControl.noCache().getHeaderValue());
-        headers.setContentType(resolveMediaType(attachment.getContentType()));
-        headers.setContentLength(attachment.getSize());
-        if (StringUtils.hasText(attachment.getName())) {
-            ContentDisposition cd = ContentDisposition.attachment()
-                    .filename(attachment.getName())
-                    .build();
-            headers.setContentDisposition(cd);
-        }
+        var headers = AttachmentWebSupport.downloadHeaders(attachment.getContentType(), attachment.getSize(), attachment.getName());
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(body);
@@ -154,7 +141,7 @@ public class AttachmentMgmtController {
             @RequestParam(value = "keyword", required = false) String keyword,
             @PageableDefault Pageable pageable) {
         ApplicationPrincipal principal = requirePrincipal();
-        boolean admin = isAdmin(principal);
+        boolean admin = AttachmentWebSupport.isAdmin(principal);
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
             if (admin) {
@@ -164,7 +151,7 @@ public class AttachmentMgmtController {
                     page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
                 }
             } else {
-                long userId = requireUserId(principal);
+                long userId = AttachmentWebSupport.requireUserId(principal);
                 if (keyword == null || keyword.isBlank()) {
                     page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, userId, pageable);
                 } else {
@@ -179,7 +166,7 @@ public class AttachmentMgmtController {
                     page = attachmentService.findAttachments(keyword, pageable);
                 }
             } else {
-                long userId = requireUserId(principal);
+                long userId = AttachmentWebSupport.requireUserId(principal);
                 if (keyword == null || keyword.isBlank()) {
                     page = attachmentService.findAttachmentsByCreator(userId, pageable);
                 } else {
@@ -197,9 +184,9 @@ public class AttachmentMgmtController {
             @PathVariable int objectType,
             @PathVariable long objectId) {
         ApplicationPrincipal principal = requirePrincipal();
-        List<Attachment> attachments = isAdmin(principal)
+        List<Attachment> attachments = AttachmentWebSupport.isAdmin(principal)
                 ? attachmentService.getAttachments(objectType, objectId)
-                : attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, requireUserId(principal));
+                : attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, AttachmentWebSupport.requireUserId(principal));
         List<AttachmentDto> dto = attachments.stream()
                 .map(this::toDto)
                 .toList();
@@ -218,10 +205,10 @@ public class AttachmentMgmtController {
 
     private void requireAttachmentAccess(Attachment attachment) {
         ApplicationPrincipal principal = requirePrincipal();
-        if (isAdmin(principal)) {
+        if (AttachmentWebSupport.isAdmin(principal)) {
             return;
         }
-        long userId = requireUserId(principal);
+        long userId = AttachmentWebSupport.requireUserId(principal);
         if (!Objects.equals(attachment.getCreatedBy(), userId)) {
             throw new org.springframework.security.access.AccessDeniedException("Forbidden attachment access");
         }
@@ -237,17 +224,6 @@ public class AttachmentMgmtController {
             throw new AuthenticationCredentialsNotFoundException("No authenticated user");
         }
         return principal;
-    }
-
-    private boolean isAdmin(ApplicationPrincipal principal) {
-        return principal != null && principal.hasRole("ADMIN");
-    }
-
-    private long requireUserId(ApplicationPrincipal principal) {
-        if (principal != null && principal.getUserId() != null && principal.getUserId() > 0) {
-            return principal.getUserId();
-        }
-        throw new AuthenticationCredentialsNotFoundException("No authenticated user");
     }
 
     private AttachmentDto toDto(Attachment attachment) {
@@ -275,36 +251,4 @@ public class AttachmentMgmtController {
         return new UserDto(userRef.userId(), userRef.username());
     }
 
-    private MediaType resolveMediaType(String contentType) {
-        if (!StringUtils.hasText(contentType)) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-        try {
-            return MediaType.parseMediaType(contentType);
-        } catch (Exception ignored) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-    }
-
-    private String resolveMediaTypeString(String contentType) {
-        return resolveMediaType(contentType).toString();
-    }
-
-    private String sanitizeFilename(String original) {
-        if (!StringUtils.hasText(original)) {
-            return null;
-        }
-        String cleaned = org.springframework.util.StringUtils.getFilename(original);
-        if (!StringUtils.hasText(cleaned)) {
-            return null;
-        }
-        return cleaned.replace("\\", "").replace("/", "");
-    }
-
-    private <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
-        ApiResponse<T> body = ApiResponse.<T>builder()
-                .message(message)
-                .build();
-        return ResponseEntity.badRequest().body(body);
-    }
 }

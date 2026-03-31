@@ -9,16 +9,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.CacheControl;
-import org.springframework.http.ContentDisposition;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -64,21 +59,21 @@ public class MeAttachmentController {
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException {
 
-        requireUserId(userId);
+        AttachmentWebSupport.requireUserId(userId);
         if (file == null || file.isEmpty()) {
-            return badRequest("File is empty");
+            return AttachmentWebSupport.badRequest("File is empty");
         }
         if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
-            return badRequest("File too large");
+            return AttachmentWebSupport.badRequest("File too large");
         }
         if (file.getSize() > Integer.MAX_VALUE) {
-            return badRequest("File size exceeds supported limit");
+            return AttachmentWebSupport.badRequest("File size exceeds supported limit");
         }
-        String sanitizedName = sanitizeFilename(file.getOriginalFilename());
-        if (!StringUtils.hasText(sanitizedName)) {
-            return badRequest("Invalid file name");
+        String sanitizedName = AttachmentWebSupport.sanitizeFilename(file.getOriginalFilename());
+        if (sanitizedName == null) {
+            return AttachmentWebSupport.badRequest("Invalid file name");
         }
-        String contentType = resolveMediaTypeString(file.getContentType());
+        String contentType = AttachmentWebSupport.resolveMediaTypeString(file.getContentType());
 
         Attachment saved = attachmentService.createAttachment(
                 objectType,
@@ -95,7 +90,7 @@ public class MeAttachmentController {
     public ResponseEntity<ApiResponse<AttachmentDto>> get(
             @PathVariable("attachmentId") long attachmentId,
             @AuthenticationPrincipal(expression = "userId") Long userId) throws NotFoundException {
-        long resolvedUserId = requireUserId(userId);
+        long resolvedUserId = AttachmentWebSupport.requireUserId(userId);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -107,7 +102,7 @@ public class MeAttachmentController {
     public ResponseEntity<ApiResponse<String>> extractText(
             @PathVariable("attachmentId") long attachmentId,
             @AuthenticationPrincipal(expression = "userId") Long userId) throws NotFoundException, IOException {
-        long resolvedUserId = requireUserId(userId);
+        long resolvedUserId = AttachmentWebSupport.requireUserId(userId);
         FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
         if (extractor == null) {
             ApiResponse<String> body = ApiResponse.<String>builder()
@@ -129,7 +124,7 @@ public class MeAttachmentController {
     public ResponseEntity<StreamingResponseBody> download(
             @PathVariable("attachmentId") long attachmentId,
             @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException, NotFoundException {
-        long resolvedUserId = requireUserId(userId);
+        long resolvedUserId = AttachmentWebSupport.requireUserId(userId);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -140,16 +135,7 @@ public class MeAttachmentController {
                 IOUtils.copy(in, out);
             }
         };
-        HttpHeaders headers = new HttpHeaders();
-        headers.setCacheControl(CacheControl.noCache().getHeaderValue());
-        headers.setContentType(resolveMediaType(attachment.getContentType()));
-        headers.setContentLength(attachment.getSize());
-        if (StringUtils.hasText(attachment.getName())) {
-            ContentDisposition cd = ContentDisposition.attachment()
-                    .filename(attachment.getName())
-                    .build();
-            headers.setContentDisposition(cd);
-        }
+        var headers = AttachmentWebSupport.downloadHeaders(attachment.getContentType(), attachment.getSize(), attachment.getName());
         return ResponseEntity.ok()
                 .headers(headers)
                 .body(body);
@@ -162,7 +148,7 @@ public class MeAttachmentController {
             @RequestParam(value = "keyword", required = false) String keyword,
             @AuthenticationPrincipal(expression = "userId") Long userId,
             @PageableDefault Pageable pageable) {
-        long resolvedUserId = requireUserId(userId);
+        long resolvedUserId = AttachmentWebSupport.requireUserId(userId);
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
             if (keyword == null || keyword.isBlank()) {
@@ -187,7 +173,7 @@ public class MeAttachmentController {
             @PathVariable int objectType,
             @PathVariable long objectId,
             @AuthenticationPrincipal(expression = "userId") Long userId) {
-        long resolvedUserId = requireUserId(userId);
+        long resolvedUserId = AttachmentWebSupport.requireUserId(userId);
         List<Attachment> attachments = attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId);
         List<AttachmentDto> dto = attachments.stream()
                 .map(this::toDto)
@@ -199,20 +185,13 @@ public class MeAttachmentController {
     public ResponseEntity<ApiResponse<Void>> delete(
             @PathVariable("attachmentId") long attachmentId,
             @AuthenticationPrincipal(expression = "userId") Long userId) throws NotFoundException, IOException {
-        long resolvedUserId = requireUserId(userId);
+        long resolvedUserId = AttachmentWebSupport.requireUserId(userId);
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
-    }
-
-    private long requireUserId(Long userId) {
-        if (userId != null && userId > 0) {
-            return userId;
-        }
-        throw new AuthenticationCredentialsNotFoundException("No authenticated user");
     }
 
     private AttachmentDto toDto(Attachment attachment) {
@@ -240,36 +219,4 @@ public class MeAttachmentController {
         return new UserDto(userRef.userId(), userRef.username());
     }
 
-    private MediaType resolveMediaType(String contentType) {
-        if (!StringUtils.hasText(contentType)) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-        try {
-            return MediaType.parseMediaType(contentType);
-        } catch (Exception ignored) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-    }
-
-    private String resolveMediaTypeString(String contentType) {
-        return resolveMediaType(contentType).toString();
-    }
-
-    private String sanitizeFilename(String original) {
-        if (!StringUtils.hasText(original)) {
-            return null;
-        }
-        String cleaned = org.springframework.util.StringUtils.getFilename(original);
-        if (!StringUtils.hasText(cleaned)) {
-            return null;
-        }
-        return cleaned.replace("\\", "").replace("/", "");
-    }
-
-    private <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
-        ApiResponse<T> body = ApiResponse.<T>builder()
-                .message(message)
-                .build();
-        return ResponseEntity.badRequest().body(body);
-    }
 }
