@@ -1,18 +1,18 @@
 package studio.one.application.attachment.service;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,10 +22,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
-import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,113 +41,111 @@ class AttachmentServiceImplTest {
     private ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @Mock
+    @SuppressWarnings("rawtypes")
     private ObjectProvider objectTypeRuntimeServiceProvider;
 
     @Mock
     private ObjectProvider<ThumbnailService> thumbnailServiceProvider;
 
     @Test
-    void createAttachmentReadsFullStreamAndUsesExactSize() throws Exception {
+    void createAttachmentBuffersStreamInsteadOfUsingAvailable() {
         AttachmentServiceImpl service = service();
-        byte[] payload = new byte[] { 1, 2, 3, 4 };
-        InputStream input = new NoAvailableInputStream(payload);
+        AtomicInteger savedSize = new AtomicInteger();
+        AtomicInteger storedBytes = new AtomicInteger();
 
-        when(attachmentRepository.save(any())).thenAnswer(invocation -> {
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
             ApplicationAttachment attachment = invocation.getArgument(0);
-            attachment.setAttachmentId(99L);
+            attachment.setAttachmentId(91L);
+            savedSize.set((int) attachment.getSize());
             return attachment;
         });
-        when(fileStorage.save(any(), any(InputStream.class))).thenAnswer(invocation -> {
-            InputStream stored = invocation.getArgument(1);
-            assertArrayEquals(payload, stored.readAllBytes());
-            return "stored";
+        when(fileStorage.save(any(Attachment.class), any(InputStream.class))).thenAnswer(invocation -> {
+            try (InputStream in = invocation.getArgument(1)) {
+                storedBytes.set(in.readAllBytes().length);
+            }
+            return "91";
         });
 
-        ApplicationAttachment result = (ApplicationAttachment) service.createAttachment(
+        Attachment saved = service.createAttachment(
                 12,
                 34L,
-                "contract.pdf",
+                "report.pdf",
                 "application/pdf",
-                input);
+                new ZeroAvailableInputStream(new byte[] { 1, 2, 3, 4 }));
 
-        assertEquals(99L, result.getAttachmentId());
-        assertEquals(4L, result.getSize());
+        assertEquals(4, savedSize.get());
+        assertEquals(4, storedBytes.get());
+        assertEquals(4, saved.getSize());
     }
 
     @Test
-    void createAttachmentDeletesSavedRecordWhenStorageSaveFails() {
+    void createAttachmentCleansUpPartialBinaryWhenFileSaveFails() {
         AttachmentServiceImpl service = service();
-        byte[] payload = new byte[] { 9, 8, 7 };
         RuntimeException storageFailure = new RuntimeException("storage failed");
 
-        when(attachmentRepository.save(any())).thenAnswer(invocation -> {
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
             ApplicationAttachment attachment = invocation.getArgument(0);
-            attachment.setAttachmentId(77L);
+            attachment.setAttachmentId(33L);
             return attachment;
         });
-        when(fileStorage.save(any(), any(InputStream.class))).thenThrow(storageFailure);
+        when(fileStorage.save(any(Attachment.class), any(InputStream.class))).thenThrow(storageFailure);
 
         RuntimeException thrown = assertThrows(RuntimeException.class, () -> service.createAttachment(
                 12,
                 34L,
                 "report.pdf",
                 "application/pdf",
-                new ByteArrayInputStream(payload)));
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3));
 
         assertSame(storageFailure, thrown);
-        InOrder order = inOrder(attachmentRepository, fileStorage);
-        order.verify(attachmentRepository).save(any(ApplicationAttachment.class));
-        order.verify(fileStorage).save(any(ApplicationAttachment.class), any(InputStream.class));
-        order.verify(fileStorage).delete(any(ApplicationAttachment.class));
-        order.verify(attachmentRepository).delete(any(ApplicationAttachment.class));
+        InOrder inOrder = inOrder(attachmentRepository, fileStorage);
+        inOrder.verify(attachmentRepository).save(any(ApplicationAttachment.class));
+        inOrder.verify(fileStorage).save(any(Attachment.class), any(InputStream.class));
+        inOrder.verify(fileStorage).delete(any(Attachment.class));
+        verify(attachmentRepository, never()).delete(any(ApplicationAttachment.class));
     }
 
     @Test
-    void createAttachmentStillDeletesMetadataWhenStorageCleanupFails() {
+    void createAttachmentDoesNotTouchStorageWhenMetadataSaveFails() {
         AttachmentServiceImpl service = service();
-        RuntimeException storageFailure = new RuntimeException("storage failed");
+        RuntimeException metadataFailure = new RuntimeException("metadata failed");
 
-        when(attachmentRepository.save(any())).thenAnswer(invocation -> {
-            ApplicationAttachment attachment = invocation.getArgument(0);
-            attachment.setAttachmentId(77L);
-            return attachment;
-        });
-        doThrow(storageFailure).when(fileStorage).save(any(), any(InputStream.class));
-        doThrow(new RuntimeException("cleanup failed")).when(fileStorage).delete(any(ApplicationAttachment.class));
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenThrow(metadataFailure);
 
         RuntimeException thrown = assertThrows(RuntimeException.class, () -> service.createAttachment(
                 12,
                 34L,
                 "report.pdf",
                 "application/pdf",
-                new ByteArrayInputStream(new byte[] { 9, 8, 7 })));
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3));
 
-        assertSame(storageFailure, thrown);
-        verify(attachmentRepository).delete(any(ApplicationAttachment.class));
+        assertSame(metadataFailure, thrown);
+        verify(fileStorage, never()).save(any(Attachment.class), any(InputStream.class));
+        verify(fileStorage, never()).delete(any(Attachment.class));
     }
 
     @Test
-    void createAttachmentStillAttemptsMetadataCleanupWhenDeleteUsesSavedEntity() {
+    void createAttachmentWithExplicitSizePreservesProvidedSize() {
         AttachmentServiceImpl service = service();
-        RuntimeException storageFailure = new RuntimeException("storage failed");
 
-        when(attachmentRepository.save(any())).thenAnswer(invocation -> {
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
             ApplicationAttachment attachment = invocation.getArgument(0);
-            attachment.setAttachmentId(77L);
+            attachment.setAttachmentId(44L);
             return attachment;
         });
-        doThrow(storageFailure).when(fileStorage).save(any(), any(InputStream.class));
 
-        RuntimeException thrown = assertThrows(RuntimeException.class, () -> service.createAttachment(
+        Attachment saved = service.createAttachment(
                 12,
                 34L,
                 "report.pdf",
                 "application/pdf",
-                new ByteArrayInputStream(new byte[] { 9, 8, 7 })));
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3);
 
-        assertSame(storageFailure, thrown);
-        verify(fileStorage).delete(any(ApplicationAttachment.class));
-        verify(attachmentRepository).delete(any(ApplicationAttachment.class));
+        assertEquals(3L, saved.getSize());
+        verify(fileStorage).save(any(Attachment.class), any(InputStream.class));
     }
 
     private AttachmentServiceImpl service() {
@@ -159,14 +157,15 @@ class AttachmentServiceImplTest {
                 thumbnailServiceProvider);
     }
 
-    private static final class NoAvailableInputStream extends ByteArrayInputStream {
-        private NoAvailableInputStream(byte[] buf) {
-            super(buf);
+    private static final class ZeroAvailableInputStream extends ByteArrayInputStream {
+
+        private ZeroAvailableInputStream(byte[] data) {
+            super(data);
         }
 
         @Override
         public synchronized int available() {
-            throw new AssertionError("available() must not be called");
+            return 0;
         }
     }
 }

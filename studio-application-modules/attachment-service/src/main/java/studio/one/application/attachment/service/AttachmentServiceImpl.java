@@ -2,9 +2,10 @@ package studio.one.application.attachment.service;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
@@ -147,17 +148,15 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Override
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream) {
+        Path bufferedInput = null;
         try {
-            byte[] bytes = inputStream.readAllBytes();
-            return createAttachment(
-                    objectType,
-                    objectId,
-                    name,
-                    contentType,
-                    new ByteArrayInputStream(bytes),
-                    bytes.length);
+            bufferedInput = Files.createTempFile("attachment-upload-", ".bin");
+            int size = bufferToTempFile(inputStream, bufferedInput);
+            return createAttachment(objectType, objectId, name, contentType, bufferedInput.toFile(), size);
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
+        } finally {
+            deleteQuietly(bufferedInput);
         }
     }
 
@@ -183,13 +182,17 @@ public class AttachmentServiceImpl implements AttachmentService {
                 attachment.setCreatedBy(principal.getUserId());
             }
         }
-        Attachment savedAttachment = attachmentRepository.save(attachment);
-        try {
-            fileStorage.save(savedAttachment, inputStream);
-            return savedAttachment;
-        } catch (RuntimeException e) {
-            cleanupAfterStorageFailure(savedAttachment);
-            throw e;
+        try (InputStream in = inputStream) {
+            Attachment savedAttachment = attachmentRepository.save(attachment);
+            try {
+                fileStorage.save(savedAttachment, in);
+                return savedAttachment;
+            } catch (RuntimeException e) {
+                cleanupAfterStorageFailure(savedAttachment, e);
+                throw e;
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
         }
     }
 
@@ -240,18 +243,42 @@ public class AttachmentServiceImpl implements AttachmentService {
         runtimeService.validateUpload(objectType, request);
     }
 
-    private void cleanupAfterStorageFailure(Attachment savedAttachment) {
+    private Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file, int size) {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
+
+    private int bufferToTempFile(InputStream inputStream, Path bufferedInput) throws IOException {
+        try (InputStream in = inputStream; var out = Files.newOutputStream(bufferedInput)) {
+            long copied = in.transferTo(out);
+            if (copied > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("File size exceeds supported limit");
+            }
+            return (int) copied;
+        }
+    }
+
+    private void cleanupAfterStorageFailure(Attachment savedAttachment, RuntimeException original) {
         try {
             fileStorage.delete(savedAttachment);
         } catch (RuntimeException cleanupException) {
             log.warn("Attachment storage cleanup failed for id={}: {}",
                     savedAttachment.getAttachmentId(), cleanupException.getMessage());
+            original.addSuppressed(cleanupException);
+        }
+    }
+
+    private void deleteQuietly(Path bufferedInput) {
+        if (bufferedInput == null) {
+            return;
         }
         try {
-            attachmentRepository.delete(toEntity(savedAttachment));
-        } catch (RuntimeException cleanupException) {
-            log.warn("Attachment metadata cleanup failed for id={}: {}",
-                    savedAttachment.getAttachmentId(), cleanupException.getMessage());
+            Files.deleteIfExists(bufferedInput);
+        } catch (IOException ex) {
+            log.debug("Failed to delete buffered upload temp file {}: {}", bufferedInput, ex.getMessage());
         }
     }
 }
