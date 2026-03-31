@@ -29,7 +29,7 @@ import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
+import studio.one.platform.objecttype.service.ValidateUploadCommand;
 
 @RequiredArgsConstructor
 @Transactional
@@ -222,7 +222,7 @@ public class AttachmentServiceImpl implements AttachmentService {
         if (runtimeService == null) {
             return;
         }
-        ValidateUploadRequest request = new ValidateUploadRequest(fileName, contentType, (long) sizeBytes);
+        ValidateUploadCommand request = new ValidateUploadCommand(fileName, contentType, (long) sizeBytes);
         runtimeService.validateUpload(objectType, request);
     }
 }

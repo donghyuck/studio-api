@@ -36,6 +36,19 @@
 - `./gradlew :studio-platform-identity:test`
 - `./gradlew :studio-platform-identity:build`
 
+## 2026-03-31
+
+### 변경됨
+- `studio-platform-objecttype`의 `ObjectTypeRuntimeService`와 `ObjectTypeAdminService`가 `web.dto` 대신 서비스 전용 command/result 타입을 사용하도록 정리했다.
+- `ObjectTypeController`와 `ObjectTypeMgmtController`가 서비스 모델을 기존 웹 DTO로 매핑하도록 책임을 이동해 HTTP 응답 형식은 유지했다.
+- `attachment-service`의 objecttype 업로드 정책 검증 호출이 서비스 전용 `ValidateUploadCommand`를 사용하도록 변경했다.
+- `studio-platform-objecttype`에 runtime 성공 경로와 controller 매핑 회귀 테스트를 추가했다.
+
+### 검증
+- `./gradlew :studio-platform-objecttype:test --tests 'studio.one.platform.objecttype.ObjectTypeRuntimeServiceTest' --tests 'studio.one.platform.objecttype.ObjectTypeControllerTest' --tests 'studio.one.platform.objecttype.ObjectTypeMgmtControllerTest'`
+- `./gradlew :studio-application-modules:attachment-service:test --tests 'studio.one.application.attachment.service.AttachmentServiceImplTest' --tests 'studio.one.application.web.controller.AttachmentMgmtControllerAuthorizationTest'`
+- `./gradlew :studio-application-modules:attachment-service:compileJava :starter:studio-platform-starter-objecttype:compileJava`
+
 ## 2026-03-26
 
 ### 변경됨

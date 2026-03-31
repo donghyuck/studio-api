@@ -10,11 +10,6 @@ import studio.one.platform.objecttype.model.ObjectTypeMetadata;
 import studio.one.platform.objecttype.model.ObjectTypeStatus;
 import studio.one.platform.objecttype.policy.ObjectPolicyResolver;
 import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
-import studio.one.platform.objecttype.web.dto.ObjectTypeDefinitionDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypeDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto;
-import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
-import studio.one.platform.objecttype.web.dto.ValidateUploadResponse;
 
 public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService {
 
@@ -27,25 +22,22 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
     }
 
     @Override
-    public ObjectTypeDefinitionDto definition(int objectType) {
+    public ObjectTypeDefinition definition(int objectType) {
         ObjectTypeMetadata meta = registry.findByType(objectType)
                 .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
         requireActive(meta);
         ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
-        return ObjectTypeDefinitionDto.builder()
-                .type(toDto(meta))
-                .policy(toPolicyDto(policy, objectType))
-                .build();
+        return new ObjectTypeDefinition(toView(meta), toPolicyView(policy, objectType));
     }
 
     @Override
-    public ValidateUploadResponse validateUpload(int objectType, ValidateUploadRequest request) {
+    public ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request) {
         ObjectTypeMetadata meta = registry.findByType(objectType)
                 .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
         requireActive(meta);
         ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
         if (policy == null) {
-            return ValidateUploadResponse.builder().allowed(true).build();
+            return new ValidateUploadResult(true, null);
         }
         Map<String, Object> attrs = policy.getAttributes();
         Integer maxFileMb = asInt(attrs.get("maxFileMb"));
@@ -69,7 +61,7 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
                 throw PlatformRuntimeException.of(ObjectTypeErrorCodes.POLICY_VIOLATION, "allowedMime");
             }
         }
-        return ValidateUploadResponse.builder().allowed(true).build();
+        return new ValidateUploadResult(true, null);
     }
 
     private void requireActive(ObjectTypeMetadata meta) {
@@ -89,29 +81,39 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
         }
     }
 
-    private ObjectTypeDto toDto(ObjectTypeMetadata meta) {
-        return ObjectTypeDto.builder()
-                .objectType(meta.getObjectType())
-                .code(meta.getKey())
-                .name(meta.getName())
-                .domain(asString(meta.getAttributes().get("domain")))
-                .status(asString(meta.getAttributes().get("status")))
-                .description(asString(meta.getAttributes().get("description")))
-                .build();
+    private ObjectTypeView toView(ObjectTypeMetadata meta) {
+        return new ObjectTypeView(
+                meta.getObjectType(),
+                meta.getKey(),
+                meta.getName(),
+                asString(meta.getAttributes().get("domain")),
+                asString(meta.getAttributes().get("status")),
+                asString(meta.getAttributes().get("description")),
+                null,
+                0L,
+                null,
+                null,
+                0L,
+                null);
     }
 
-    private ObjectTypePolicyDto toPolicyDto(ObjectPolicy policy, int objectType) {
+    private ObjectTypePolicyView toPolicyView(ObjectPolicy policy, int objectType) {
         if (policy == null) {
             return null;
         }
         Map<String, Object> attrs = policy.getAttributes();
-        return ObjectTypePolicyDto.builder()
-                .objectType(objectType)
-                .maxFileMb(asInt(attrs.get("maxFileMb")))
-                .allowedExt(asString(attrs.get("allowedExt")))
-                .allowedMime(asString(attrs.get("allowedMime")))
-                .policyJson(asString(attrs.get("policyJson")))
-                .build();
+        return new ObjectTypePolicyView(
+                objectType,
+                asInt(attrs.get("maxFileMb")),
+                asString(attrs.get("allowedExt")),
+                asString(attrs.get("allowedMime")),
+                asString(attrs.get("policyJson")),
+                null,
+                0L,
+                null,
+                null,
+                0L,
+                null);
     }
 
     private String extension(String name) {
