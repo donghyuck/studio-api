@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
 import studio.one.platform.objecttype.model.ObjectPolicy;
 
 public class JdbcObjectPolicy implements ObjectPolicy {

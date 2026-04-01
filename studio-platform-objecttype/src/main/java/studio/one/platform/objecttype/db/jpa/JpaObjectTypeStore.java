@@ -15,8 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.util.StringUtils;
 
 import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 import studio.one.platform.objecttype.db.jpa.entity.ObjectTypeEntity;
 import studio.one.platform.objecttype.db.jpa.entity.ObjectTypePolicyEntity;
 import studio.one.platform.objecttype.db.jpa.repo.ObjectTypeJpaRepository;

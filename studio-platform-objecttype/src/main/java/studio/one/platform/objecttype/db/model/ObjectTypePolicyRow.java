@@ -1,4 +1,4 @@
-package studio.one.platform.objecttype.db.jdbc.model;
+package studio.one.platform.objecttype.db.model;
 
 import java.time.Instant;
 
@@ -7,13 +7,12 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class ObjectTypeRow {
+public class ObjectTypePolicyRow {
     private int objectType;
-    private String code;
-    private String name;
-    private String domain;
-    private String status;
-    private String description;
+    private Integer maxFileMb;
+    private String allowedExt;
+    private String allowedMime;
+    private String policyJson;
     private String createdBy;
     private long createdById;
     private Instant createdAt;

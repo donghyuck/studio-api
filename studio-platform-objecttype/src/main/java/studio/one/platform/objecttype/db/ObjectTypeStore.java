@@ -5,8 +5,8 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 import studio.one.platform.constant.ServiceNames;
 public interface ObjectTypeStore {
 

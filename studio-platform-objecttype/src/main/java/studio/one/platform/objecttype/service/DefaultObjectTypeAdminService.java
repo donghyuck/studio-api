@@ -10,8 +10,8 @@ import java.util.List;
 
 import studio.one.platform.exception.PlatformRuntimeException;
 import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 import studio.one.platform.objecttype.error.ObjectTypeErrorCodes;
 
 public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
