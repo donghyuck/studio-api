@@ -126,6 +126,25 @@ gradle wrapper
 ./gradlew :studio-application-modules:attachment-service:test
 ```
 
+## 로컬 Nexus 배포
+개발 중 로컬 Nexus에 배포할 때는 `gradle.properties`를 수정하지 말고 로컬 배포 스크립트를 사용한다.
+
+```bash
+export NEXUS_USERNAME=...
+export NEXUS_PASSWORD=...
+scripts/publish-local-nexus.sh
+```
+
+특정 모듈만 배포할 때는 Gradle task를 그대로 전달한다.
+
+```bash
+scripts/publish-local-nexus.sh :studio-platform-user:publish
+```
+
+이 스크립트는 기본적으로 `http://localhost:8081/repository/maven-releases/`와
+`http://localhost:8081/repository/maven-snapshots/`를 사용하며, repository URL과
+`nexus.allowInsecure=true` 값을 Gradle project property로 전달한다.
+
 ## 보안 설정
 - secret은 저장소에 커밋하지 않고 환경변수 또는 `~/.gradle/gradle.properties` 로만 주입한다.
 - 샘플 환경변수 목록은 [.env.example](/Users/donghyuck.son/git/studio-api/.env.example), 상세 운영 규칙과 회전 절차는 [SECURITY.md](/Users/donghyuck.son/git/studio-api/SECURITY.md) 를 참고한다.
