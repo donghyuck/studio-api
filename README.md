@@ -141,9 +141,16 @@ scripts/publish-local-nexus.sh
 scripts/publish-local-nexus.sh :studio-platform-user:publish
 ```
 
+로컬 Nexus에 같은 버전이 이미 올라가 있어 삭제 후 다시 배포해야 할 때는 대상 모듈을 명시한다.
+
+```bash
+scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
+```
+
 이 스크립트는 기본적으로 `http://localhost:8081/repository/maven-releases/`와
 `http://localhost:8081/repository/maven-snapshots/`를 사용하며, repository URL과
 `nexus.allowInsecure=true` 값을 Gradle project property로 전달한다.
+로컬 Nexus base URL이 다르면 `NEXUS_URL` 환경변수로 변경할 수 있다.
 
 ## 보안 설정
 - secret은 저장소에 커밋하지 않고 환경변수 또는 `~/.gradle/gradle.properties` 로만 주입한다.
