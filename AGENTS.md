@@ -78,6 +78,7 @@ If no subagent is specified, use the default main-agent flow with root `SKILL.md
 ## Issue Rules
 
 - Use the repository issue template: `.gitlab/issue_templates/default.md`
+- Select exactly one `Type` value in the issue template.
 - Select exactly one `Size` value in the issue template.
 - `Size` 기준:
   - `Small (1)`: 단순 수정 / 단일 파일

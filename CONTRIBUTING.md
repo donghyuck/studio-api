@@ -9,6 +9,7 @@
 - 이슈/머지리퀘스트 작성 시 저장소 템플릿을 기본으로 사용한다.
   - Issue: `.gitlab/issue_templates/default.md`
   - Merge Request: `.gitlab/merge_request_templates/default.md`
+- Issue 템플릿의 `Type`은 `Feature/Bug/Refactor/Docs/Chore` 중 정확히 하나를 체크한다.
 - Issue 템플릿의 `Size`는 `Small/Medium/Large` 중 정확히 하나를 체크한다.
   - `Small (1)`: 단순 수정 / 단일 파일
   - `Medium (2)`: 기능 단위 변경 / 다중 파일

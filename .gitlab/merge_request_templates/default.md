@@ -28,7 +28,8 @@
 
 ## Subagent Usage
 아래 항목은 **정확히 하나만** 체크합니다.
-- Used: [ ] No [ ] Yes
+- [ ] No
+- [ ] Yes
 - Delegated tasks:
 - Ownership (files/modules/tasks):
 - Main author post-integration validation:

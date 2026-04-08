@@ -1,8 +1,8 @@
 # Policy Version
 
-- Current Version: `v1.3.0`
+- Current Version: `v1.5.0`
 - Effective Date: `2026-03-18`
-- Last Updated: `2026-03-23`
+- Last Updated: `2026-04-01`
 
 ## Versioning Rules
 - 정책 파일 구조/규칙 변경 시 버전을 갱신한다.
@@ -28,3 +28,4 @@
   - `docs/dev/vscode-snippets-guide.md`
   - `scripts/install-policy.sh`
   - `scripts/update-policy.sh`
+  - `scripts/update-codex-subagents.sh`

@@ -1,6 +1,7 @@
 # Issue
 
 ## Type
+아래 항목은 **정확히 하나만** 체크합니다.
 - [ ] Feature
 - [ ] Bug
 - [ ] Refactor
