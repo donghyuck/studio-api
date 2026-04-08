@@ -10,7 +10,7 @@ import studio.one.base.user.web.dto.MePasswordChangeRequest;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.base.user.web.dto.PasswordPolicyDto;
 
-public interface UserMeControllerApi {
+public interface UserMeApi {
 
     ResponseEntity<ApiResponse<MeProfileDto>> me(UserDetails principal);
 

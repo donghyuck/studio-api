@@ -39,14 +39,14 @@ import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.web.controller.GroupMgmtController;
 import studio.one.base.user.web.controller.UserMeController;
-import studio.one.base.user.web.controller.UserMeControllerApi;
+import studio.one.base.user.web.controller.UserMeApi;
 import studio.one.base.user.web.controller.UserAuthPublicController;
-import studio.one.base.user.web.controller.UserAuthPublicControllerApi;
+import studio.one.base.user.web.controller.UserAuthPublicApi;
 import studio.one.base.user.web.controller.UserPublicController;
-import studio.one.base.user.web.controller.UserPublicControllerApi;
+import studio.one.base.user.web.controller.UserPublicApi;
 import studio.one.base.user.web.controller.RoleMgmtController;
 import studio.one.base.user.web.controller.UserMgmtController;
-import studio.one.base.user.web.controller.UserMgmtControllerApi;
+import studio.one.base.user.web.controller.UserMgmtApi;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationGroupMapperImpl;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
@@ -132,7 +132,7 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(UserMgmtControllerApi.class)
+    @ConditionalOnMissingBean(UserMgmtApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".user", name = "enabled", havingValue = "true", matchIfMissing = true )
     public UserMgmtController userEndpoint(
             ApplicationUserService svc,
@@ -150,7 +150,7 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(UserPublicControllerApi.class)
+    @ConditionalOnMissingBean(UserPublicApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".public", name = "enabled", havingValue = "true", matchIfMissing = true)
     public UserPublicController publicUserEndpoint(
             ApplicationUserService svc,
@@ -166,7 +166,7 @@ public class UserEndpointsAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(UserAuthPublicControllerApi.class)
+    @ConditionalOnMissingBean(UserAuthPublicApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".public", name = "enabled", havingValue = "true", matchIfMissing = true)
     public UserAuthPublicController publicAuthUserEndpoint(
             ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider) {
@@ -196,7 +196,7 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(UserMeControllerApi.class)
+    @ConditionalOnMissingBean(UserMeApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
     public UserMeController selfEndpoint(
             ApplicationUserService svc,

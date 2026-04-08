@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-04-08
+
+### 변경됨
+- `UserMgmtControllerApi`를 `UserMgmtApi`로 변경해 사용자 관리 엔드포인트 확장 인터페이스 이름에서 컨트롤러 구현 세부 표현을 제거했다.
+- `UserPublicControllerApi`, `UserMeControllerApi`, `UserAuthPublicControllerApi`도 같은 기준의 `UserPublicApi`, `UserMeApi`, `UserAuthPublicApi`로 정리했다.
+- 일반 사용자 정보 수정 시 기존 비밀번호 해시가 다시 인코딩되지 않도록 비밀번호 인코딩을 비밀번호 전용 변경/초기화 경로로 제한했다.
+- 일반 사용자 정보 수정 경로에서 mutator가 비밀번호 값을 변경하면 저장 전에 실패하도록 방어를 추가했다.
+- 일반 사용자 정보 수정과 비밀번호 초기화 경로를 구분하는 회귀 테스트를 추가했다.
+
+### 검증
+- `./gradlew :studio-platform-user:compileJava :studio-platform-user-default:compileJava :starter:studio-platform-starter-user:compileJava`
+- `./gradlew :studio-platform-user-default:test --tests 'studio.one.base.user.service.impl.ApplicationUserServiceImplTest'`
+- `rg "User(Mgmt|Public|AuthPublic|Me)ControllerApi|User(Mgmt|Public|AuthPublic|Me)Api" studio-platform-user studio-platform-user-default starter/studio-platform-starter-user`
+
 ## 2026-03-31 (follow-up)
 
 ### 변경됨
