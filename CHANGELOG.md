@@ -4,11 +4,13 @@
 
 ### 변경됨
 - `gradle.properties`를 수정하지 않고 로컬 Nexus로 배포할 수 있도록 `scripts/publish-local-nexus.sh`를 추가했다.
+- 로컬 Nexus에 같은 버전의 모듈이 이미 있을 때 `--delete-existing --module <gradle-path>`로 삭제 후 재배포할 수 있도록 했다.
 - README에 로컬 Nexus 배포 절차와 특정 모듈 publish 예시를 추가했다.
 
 ### 검증
 - `bash -n scripts/publish-local-nexus.sh`
 - `scripts/publish-local-nexus.sh` 환경변수 미설정 실패 경로 확인
+- `scripts/publish-local-nexus.sh --delete-existing` 모듈 미지정 실패 경로 확인
 - `git diff --check`
 
 ## 2026-04-08
