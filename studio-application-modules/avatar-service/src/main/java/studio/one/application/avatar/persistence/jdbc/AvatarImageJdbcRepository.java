@@ -33,7 +33,7 @@ public class AvatarImageJdbcRepository implements AvatarImageRepository {
         this.template = template;
         this.insert = new SimpleJdbcInsert(template.getJdbcTemplate())
                 .withTableName(TABLE)
-                .usingGeneratedKeyColumns("AVATAR_IMAGE_ID");
+                .usingGeneratedKeyColumns("avatar_image_id");
     }
 
     private static final RowMapper<AvatarImage> ROW_MAPPER = (rs, rowNum) -> AvatarImage.builder()
