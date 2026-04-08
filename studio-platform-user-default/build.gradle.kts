@@ -37,6 +37,7 @@ dependencies {
     testImplementation("org.mapstruct:mapstruct:$mapstructVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.data:spring-data-commons")
+    testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework.security:spring-security-core")
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-user"))

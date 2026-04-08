@@ -160,8 +160,11 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     public ApplicationUser update(Long userId, Consumer<ApplicationUser> mutator) {
         Objects.requireNonNull(mutator, "updater");
         ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
+        String passwordBeforeUpdate = userMutator.getPassword(u);
         mutator.accept(u);
-        encodePasswordIfPresent(u);
+        if (!Objects.equals(passwordBeforeUpdate, userMutator.getPassword(u))) {
+            throw new IllegalArgumentException("Use password-specific service methods to change passwords.");
+        }
         log.debug("[UserUpdate] username={}, failedAttempts={}, lastFailedAt={}, lockedUntil={}", u.getUsername(),
                 u.getFailedAttempts(), u.getLastFailedAt(), u.getAccountLockedUntil());
         ApplicationUser saved = userRepo.save(u);
