@@ -23,7 +23,7 @@ import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UserDto;
 import studio.one.platform.web.dto.ApiResponse;
 
-public interface UserMgmtControllerApi {
+public interface UserMgmtApi {
 
     ResponseEntity<ApiResponse<Long>> register(@Valid @RequestBody CreateUserRequest request,
             HttpServletRequest http);

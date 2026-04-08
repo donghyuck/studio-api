@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-08
+
+### 변경됨
+- `UserMgmtControllerApi`를 `UserMgmtApi`로 변경해 사용자 관리 엔드포인트 확장 인터페이스 이름에서 컨트롤러 구현 세부 표현을 제거했다.
+
+### 검증
+- `./gradlew :studio-platform-user:compileJava :studio-platform-user-default:compileJava :starter:studio-platform-starter-user:compileJava`
+- `rg "UserMgmtControllerApi|UserMgmtApi" studio-platform-user studio-platform-user-default starter/studio-platform-starter-user`
+
 ## 2026-03-31 (follow-up)
 
 ### 변경됨

@@ -46,7 +46,7 @@ import studio.one.base.user.web.controller.UserPublicController;
 import studio.one.base.user.web.controller.UserPublicControllerApi;
 import studio.one.base.user.web.controller.RoleMgmtController;
 import studio.one.base.user.web.controller.UserMgmtController;
-import studio.one.base.user.web.controller.UserMgmtControllerApi;
+import studio.one.base.user.web.controller.UserMgmtApi;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationGroupMapperImpl;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
@@ -132,7 +132,7 @@ public class UserEndpointsAutoConfiguration {
 
     @Bean
     @ConditionalOnBean({ ApplicationUserMapper.class, ApplicationUserService.class })
-    @ConditionalOnMissingBean(UserMgmtControllerApi.class)
+    @ConditionalOnMissingBean(UserMgmtApi.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".user", name = "enabled", havingValue = "true", matchIfMissing = true )
     public UserMgmtController userEndpoint(
             ApplicationUserService svc,
