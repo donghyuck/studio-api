@@ -141,7 +141,14 @@ scripts/publish-local-nexus.sh
 scripts/publish-local-nexus.sh :studio-platform-user:publish
 ```
 
-로컬 Nexus에 같은 버전이 이미 올라가 있어 삭제 후 다시 배포해야 할 때는 대상 모듈을 명시한다.
+로컬 Nexus에 같은 버전이 이미 올라가 있어 삭제 후 다시 배포해야 할 때는 `--delete-existing`을 사용한다.
+이 옵션만 지정하면 settings에 포함된 전체 모듈을 확인하고, 기존 component가 있는 경우 삭제한 뒤 기본 `publish`를 실행한다.
+
+```bash
+scripts/publish-local-nexus.sh --delete-existing
+```
+
+특정 모듈만 삭제 후 재배포할 때는 대상 모듈을 명시한다.
 
 ```bash
 scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user

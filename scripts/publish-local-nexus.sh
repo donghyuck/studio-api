@@ -14,9 +14,9 @@ Usage: scripts/publish-local-nexus.sh [options] [gradle-task-or-args...]
 Publishes to the local Nexus repositories without editing gradle.properties.
 
 Options:
-  --delete-existing       Delete the existing local Nexus component before publish.
+  --delete-existing       Delete existing local Nexus components before publish.
   --module <gradle-path>  Module to delete/publish, for example :studio-platform-user.
-                          Required with --delete-existing.
+                          If omitted with --delete-existing, all included modules are checked.
   -h, --help              Show this help message.
 
 Required environment variables:
@@ -29,6 +29,7 @@ Optional environment variables:
 Examples:
   scripts/publish-local-nexus.sh
   scripts/publish-local-nexus.sh :studio-platform-user:publish
+  scripts/publish-local-nexus.sh --delete-existing
   scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 USAGE
 }
@@ -72,6 +73,10 @@ repository_for_version() {
   fi
 }
 
+included_modules() {
+  sed -n 's/^[[:space:]]*include("\([^"]*\)").*/\1/p' settings.gradle.kts
+}
+
 delete_existing_component() {
   local module="$1"
   local version
@@ -112,6 +117,20 @@ delete_existing_component() {
   done <<< "${component_ids}"
 }
 
+delete_existing_components() {
+  local module
+
+  if [[ -n "${MODULE_PATH}" ]]; then
+    delete_existing_component "${MODULE_PATH}"
+    return
+  fi
+
+  while IFS= read -r module; do
+    [[ -z "${module}" ]] && continue
+    delete_existing_component "${module}"
+  done < <(included_modules)
+}
+
 GRADLE_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -138,11 +157,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "${DELETE_EXISTING}" == "true" && -z "${MODULE_PATH}" ]]; then
-  echo "[ERROR] --module is required with --delete-existing." >&2
-  exit 1
-fi
-
 if [[ -z "${NEXUS_USERNAME:-}" ]]; then
   echo "[ERROR] NEXUS_USERNAME is required for local Nexus publish." >&2
   exit 1
@@ -162,7 +176,7 @@ if [[ ${#GRADLE_ARGS[@]} -eq 0 ]]; then
 fi
 
 if [[ "${DELETE_EXISTING}" == "true" ]]; then
-  delete_existing_component "${MODULE_PATH}"
+  delete_existing_components
 fi
 
 exec ./gradlew \
