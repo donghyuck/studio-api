@@ -14,7 +14,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RestController
 @RequestMapping("/api/public/auth")
 @RequiredArgsConstructor
-public class UserAuthPublicController extends AbstractPasswordPolicyControllerSupport implements UserAuthPublicControllerApi {
+public class UserAuthPublicController extends AbstractPasswordPolicyControllerSupport implements UserAuthPublicApi {
 
     private final PasswordPolicyService passwordPolicyService;
 

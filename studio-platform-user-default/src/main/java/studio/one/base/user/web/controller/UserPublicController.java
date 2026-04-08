@@ -62,7 +62,7 @@ import studio.one.platform.constant.PropertyKeys;
 @RequestMapping("${" + PropertyKeys.Features.User.PREFIX + ".public-path:/api/users}")
 @RequiredArgsConstructor 
 @Slf4j
-public class UserPublicController extends AbstractPasswordPolicyControllerSupport implements UserPublicControllerApi {
+public class UserPublicController extends AbstractPasswordPolicyControllerSupport implements UserPublicApi {
 
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper userMapper;
