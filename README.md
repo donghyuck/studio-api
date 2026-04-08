@@ -128,10 +128,11 @@ gradle wrapper
 
 ## 로컬 Nexus 배포
 개발 중 로컬 Nexus에 배포할 때는 `gradle.properties`를 수정하지 말고 로컬 배포 스크립트를 사용한다.
+스크립트는 기본적으로 `.env.local`을 읽으며, 이미 셸에 설정된 환경변수는 덮어쓰지 않는다.
 
 ```bash
-export NEXUS_USERNAME=...
-export NEXUS_PASSWORD=...
+NEXUS_USERNAME=...
+NEXUS_PASSWORD=...
 scripts/publish-local-nexus.sh
 ```
 
@@ -158,6 +159,7 @@ scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 `http://localhost:8081/repository/maven-snapshots/`를 사용하며, repository URL과
 `nexus.allowInsecure=true` 값을 Gradle project property로 전달한다.
 로컬 Nexus base URL이 다르면 `NEXUS_URL` 환경변수로 변경할 수 있다.
+다른 env 파일을 쓰려면 `--env-file <path>`를 전달한다.
 
 ## 보안 설정
 - secret은 저장소에 커밋하지 않고 환경변수 또는 `~/.gradle/gradle.properties` 로만 주입한다.

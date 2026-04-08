@@ -4,6 +4,7 @@ set -euo pipefail
 LOCAL_NEXUS_RELEASES_URL="http://localhost:8081/repository/maven-releases/"
 LOCAL_NEXUS_SNAPSHOTS_URL="http://localhost:8081/repository/maven-snapshots/"
 LOCAL_NEXUS_BASE_URL="${NEXUS_URL:-http://localhost:8081}"
+ENV_FILE=".env.local"
 DELETE_EXISTING=false
 MODULE_PATH=""
 
@@ -14,6 +15,8 @@ Usage: scripts/publish-local-nexus.sh [options] [gradle-task-or-args...]
 Publishes to the local Nexus repositories without editing gradle.properties.
 
 Options:
+  --env-file <path>       Load environment variables from this file.
+                          Default: .env.local
   --delete-existing       Delete existing local Nexus components before publish.
   --module <gradle-path>  Module to delete/publish, for example :studio-platform-user.
                           If omitted with --delete-existing, all included modules are checked.
@@ -32,6 +35,44 @@ Examples:
   scripts/publish-local-nexus.sh --delete-existing
   scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 USAGE
+}
+
+load_env_file() {
+  local env_file="$1"
+  local line
+  local key
+  local value
+
+  [[ -f "${env_file}" ]] || return
+
+  while IFS= read -r line || [[ -n "${line}" ]]; do
+    [[ -z "${line}" || "${line}" == \#* ]] && continue
+    [[ "${line}" == export\ * ]] && line="${line#export }"
+    [[ "${line}" == *=* ]] || continue
+
+    key="${line%%=*}"
+    value="${line#*=}"
+    key="${key#"${key%%[![:space:]]*}"}"
+    key="${key%"${key##*[![:space:]]}"}"
+
+    if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+      continue
+    fi
+
+    if [[ -n "${!key:-}" ]]; then
+      continue
+    fi
+
+    value="${value#"${value%%[![:space:]]*}"}"
+    value="${value%"${value##*[![:space:]]}"}"
+    if [[ "${value}" == \"*\" && "${value}" == *\" ]]; then
+      value="${value:1:${#value}-2}"
+    elif [[ "${value}" == \'*\' && "${value}" == *\' ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+
+    export "${key}=${value}"
+  done < "${env_file}"
 }
 
 read_property() {
@@ -138,6 +179,14 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
+    --env-file)
+      if [[ -z "${2:-}" ]]; then
+        echo "[ERROR] --env-file requires a path." >&2
+        exit 1
+      fi
+      ENV_FILE="$2"
+      shift 2
+      ;;
     --delete-existing)
       DELETE_EXISTING=true
       shift
@@ -156,6 +205,9 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+load_env_file "${ENV_FILE}"
+LOCAL_NEXUS_BASE_URL="${NEXUS_URL:-${LOCAL_NEXUS_BASE_URL}}"
 
 if [[ -z "${NEXUS_USERNAME:-}" ]]; then
   echo "[ERROR] NEXUS_USERNAME is required for local Nexus publish." >&2
