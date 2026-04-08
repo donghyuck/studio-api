@@ -260,7 +260,7 @@ public class AttachmentAutoConfiguration {
     @SuppressWarnings("java:S1118")
     static class EntityScanConfig {
         @Bean
-        static BeanDefinitionRegistryPostProcessor entityScanRegistrar(Environment env) {
+        static BeanDefinitionRegistryPostProcessor attachmentEntityScanRegistrar(Environment env) {
             String entityKey = PropertyKeys.Features.PREFIX + ".attachment.entity-packages";
             String packageName = ApplicationAttachment.class.getPackageName();
             return EntityScanRegistrarSupport.entityScanRegistrar(entityKey, packageName);
