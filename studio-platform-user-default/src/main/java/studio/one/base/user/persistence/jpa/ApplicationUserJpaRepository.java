@@ -78,6 +78,10 @@ public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationU
     List<Long> findGroupIdsByUserId(@Param("userId") Long userId);
 
     @Override
+    @Query("select u from ApplicationUser u where u.enabled = true and u.userId = :userId")
+    Optional<ApplicationUser> findEnabledById(@Param("userId") Long userId);
+
+    @Override
     @Query(value = "select u from ApplicationUser u where u.username=:username")
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ApplicationUser> findByUsernameForUpdate(@Param("username") String username);
