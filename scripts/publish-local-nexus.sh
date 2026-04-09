@@ -120,7 +120,25 @@ nexus_api_get() {
 }
 
 included_modules() {
-  sed -n 's/^[[:space:]]*include("\([^"]*\)").*/\1/p' settings.gradle.kts
+  local raw_modules=()
+  local module
+  local prefix
+  local segment
+
+  while IFS= read -r module; do
+    [[ -z "${module}" ]] && continue
+    raw_modules+=("${module}")
+  done < <(sed -n 's/^[[:space:]]*include("\([^"]*\)").*/\1/p' settings.gradle.kts)
+
+  for module in "${raw_modules[@]}"; do
+    prefix=""
+    IFS=':' read -r -a segments <<< "${module}"
+    for segment in "${segments[@]}"; do
+      [[ -z "${segment}" ]] && continue
+      prefix="${prefix}:${segment}"
+      printf '%s\n' "${prefix}"
+    done
+  done | sort -u
 }
 
 delete_existing_component() {
