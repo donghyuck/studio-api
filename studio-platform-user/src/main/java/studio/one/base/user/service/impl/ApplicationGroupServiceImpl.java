@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.entity.ApplicationGroup;
+import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
 import studio.one.base.user.domain.entity.ApplicationGroupRole;
@@ -275,6 +276,12 @@ public class ApplicationGroupServiceImpl
     @Transactional(readOnly = true)
     public Page<Long> getMembers(Long groupId, Pageable pageable) {
         return membershipRepo.findUserIdsByGroupId(groupId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<ApplicationGroupMemberSummary> getMemberSummaries(Long groupId, @Nullable String q, Pageable pageable) {
+        return membershipRepo.findMemberSummariesByGroupId(groupId, q, pageable);
     }
 
     @Override

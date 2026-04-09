@@ -30,6 +30,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.Nullable;
 
+import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
 import studio.one.platform.constant.ServiceNames;
@@ -128,6 +129,8 @@ public interface ApplicationGroupService<G extends Group, R extends Role> {
      * @return
      */
     Page<Long> getMembers(Long groupId, Pageable pageable);
+
+    Page<ApplicationGroupMemberSummary> getMemberSummaries(Long groupId, @Nullable String q, Pageable pageable);
 
 
     // ── Roles: Assign / Revoke / Read ────────────────────────────────────────

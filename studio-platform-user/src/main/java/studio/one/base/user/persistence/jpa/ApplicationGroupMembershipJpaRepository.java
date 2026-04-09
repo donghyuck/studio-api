@@ -10,8 +10,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Repository;
 
+import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
@@ -37,6 +39,40 @@ public interface ApplicationGroupMembershipJpaRepository
   @Query(value = "select gm.id.userId from ApplicationGroupMembership gm where gm.id.groupId = :groupId",
       countQuery = "select count(gm) from ApplicationGroupMembership gm where gm.id.groupId = :groupId")
   Page<Long> findUserIdsByGroupId(@Param("groupId") Long groupId, Pageable pageable);
+
+  @Override
+  @Query(
+      value = """
+          select u.userId as userId,
+                 u.username as username,
+                 u.name as name,
+                 u.enabled as enabled
+            from ApplicationGroupMembership gm
+            join ApplicationUser u on u.userId = gm.id.userId
+           where gm.id.groupId = :groupId
+             and (
+                   :keyword is null
+                or lower(u.username) like lower(concat('%', :keyword, '%'))
+                or lower(u.name) like lower(concat('%', :keyword, '%'))
+                or lower(u.email) like lower(concat('%', :keyword, '%'))
+             )
+          """,
+      countQuery = """
+          select count(gm)
+            from ApplicationGroupMembership gm
+            join ApplicationUser u on u.userId = gm.id.userId
+           where gm.id.groupId = :groupId
+             and (
+                   :keyword is null
+                or lower(u.username) like lower(concat('%', :keyword, '%'))
+                or lower(u.name) like lower(concat('%', :keyword, '%'))
+                or lower(u.email) like lower(concat('%', :keyword, '%'))
+             )
+          """)
+  Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(
+      @Param("groupId") Long groupId,
+      @Param("keyword") @Nullable String keyword,
+      Pageable pageable);
 
   @Override
   @Query(value = "select gm from ApplicationGroupMembership gm where gm.id.userId = :userId",
