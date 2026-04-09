@@ -28,6 +28,7 @@ import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 
@@ -58,8 +59,10 @@ class UserMgmtControllerAuthorizationTest {
     void updateUserRolesRejectsMissingActor() {
         UserMgmtController controller = controller();
 
+        UpdateRolesRequest req = new UpdateRolesRequest();
+        req.setRoleIds(List.of(1L));
         assertThrows(AuthenticationCredentialsNotFoundException.class,
-                () -> controller.updateUserRoles(10L, List.of(RoleDto.builder().roleId(1L).build()), null));
+                () -> controller.updateUserRoles(10L, req, null));
     }
 
     @Test
@@ -87,12 +90,11 @@ class UserMgmtControllerAuthorizationTest {
     void updateUserRolesDelegatesDistinctRoleIds() {
         UserMgmtController controller = controller();
         UserDetails actor = User.withUsername("admin").password("n/a").authorities("ROLE_ADMIN").build();
-        RoleDto role1 = RoleDto.builder().roleId(1L).build();
-        RoleDto role2 = RoleDto.builder().roleId(1L).build();
-        RoleDto role3 = RoleDto.builder().roleId(2L).build();
+        UpdateRolesRequest req = new UpdateRolesRequest();
+        req.setRoleIds(List.of(1L, 1L, 2L));
         when(userService.updateUserRolesBulk(10L, List.of(1L, 2L), "admin")).thenReturn(new BatchResult(2, 2, 0, 0));
 
-        controller.updateUserRoles(10L, List.of(role1, role2, role3), actor);
+        controller.updateUserRoles(10L, req, actor);
 
         verify(userService).updateUserRolesBulk(10L, List.of(1L, 2L), "admin");
     }
