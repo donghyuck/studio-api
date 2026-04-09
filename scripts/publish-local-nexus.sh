@@ -114,6 +114,11 @@ repository_for_version() {
   fi
 }
 
+nexus_api_get() {
+  local url="$1"
+  curl -fsS -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" "${url}"
+}
+
 included_modules() {
   sed -n 's/^[[:space:]]*include("\([^"]*\)").*/\1/p' settings.gradle.kts
 }
@@ -125,7 +130,10 @@ delete_existing_component() {
   local artifact_id
   local repository
   local search_url
-  local component_ids
+  local continuation_token=""
+  local response
+  local component_ids=()
+  local component_id
 
   version="$(read_property "buildApplicationVersion")"
   group_id="$(group_id_for_module "${module}")"
@@ -137,25 +145,37 @@ delete_existing_component() {
     exit 1
   fi
 
-  search_url="${LOCAL_NEXUS_BASE_URL%/}/service/rest/v1/search?repository=${repository}&group=${group_id}&name=${artifact_id}&version=${version}"
-
   echo "[INFO] searching local Nexus component: ${group_id}:${artifact_id}:${version} (${repository})"
-  component_ids="$(
-    curl -fsS -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" "${search_url}" \
-      | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p'
-  )"
 
-  if [[ -z "${component_ids}" ]]; then
+  while :; do
+    search_url="${LOCAL_NEXUS_BASE_URL%/}/service/rest/v1/search?repository=${repository}&group=${group_id}&name=${artifact_id}&version=${version}"
+    if [[ -n "${continuation_token}" ]]; then
+      search_url="${search_url}&continuationToken=${continuation_token}"
+    fi
+
+    response="$(nexus_api_get "${search_url}")"
+
+    while IFS= read -r component_id; do
+      [[ -z "${component_id}" ]] && continue
+      component_ids+=("${component_id}")
+    done < <(jq -r '.items[].id // empty' <<< "${response}")
+
+    continuation_token="$(jq -r '.continuationToken // empty' <<< "${response}")"
+    [[ -n "${continuation_token}" ]] || break
+  done
+
+  if [[ ${#component_ids[@]} -eq 0 ]]; then
     echo "[INFO] no existing local Nexus component found."
     return
   fi
 
-  while IFS= read -r component_id; do
-    [[ -z "${component_id}" ]] && continue
+  for component_id in "${component_ids[@]}"; do
     echo "[INFO] deleting local Nexus component: ${component_id}"
-    curl -fsS -X DELETE -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
-      "${LOCAL_NEXUS_BASE_URL%/}/service/rest/v1/components/${component_id}"
-  done <<< "${component_ids}"
+    if ! curl -fsS -X DELETE -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" \
+      "${LOCAL_NEXUS_BASE_URL%/}/service/rest/v1/components/${component_id}"; then
+      echo "[WARN] failed to delete local Nexus component: ${component_id}" >&2
+    fi
+  done
 }
 
 delete_existing_components() {
@@ -216,6 +236,11 @@ fi
 
 if [[ -z "${NEXUS_PASSWORD:-}" ]]; then
   echo "[ERROR] NEXUS_PASSWORD is required for local Nexus publish." >&2
+  exit 1
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "[ERROR] jq is required for local Nexus publish." >&2
   exit 1
 fi
 
