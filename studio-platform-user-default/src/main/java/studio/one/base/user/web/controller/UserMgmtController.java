@@ -47,6 +47,7 @@ import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
 import studio.one.base.user.web.dto.PasswordPolicyDto;
 import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UpdateUserRequest;
 import studio.one.base.user.web.dto.UserDto;
@@ -268,14 +269,13 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         @Override
         public ResponseEntity<ApiResponse<Void>> updateUserRoles(@PathVariable Long id,
-                        @RequestBody List<RoleDto> roles,
+                        @Valid @RequestBody UpdateRolesRequest req,
                         @AuthenticationPrincipal UserDetails actor) {
                 if (actor == null) {
                         throw new AuthenticationCredentialsNotFoundException("No authenticated user");
                 }
-                List<Long> desired = Optional.ofNullable(roles).orElseGet(Collections::emptyList)
+                List<Long> desired = Optional.ofNullable(req.getRoleIds()).orElseGet(Collections::emptyList)
                                 .stream()
-                                .map(RoleDto::getRoleId)
                                 .filter(Objects::nonNull)
                                 .distinct().toList();
 
