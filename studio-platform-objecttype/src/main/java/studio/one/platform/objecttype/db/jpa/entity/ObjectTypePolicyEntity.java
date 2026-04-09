@@ -10,6 +10,9 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import studio.one.platform.objecttype.model.ObjectPolicy;
@@ -33,7 +36,8 @@ public class ObjectTypePolicyEntity implements ObjectPolicy {
     @Column(name = "allowed_mime")
     private String allowedMime;
 
-    @Column(name = "policy_json")
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "policy_json", columnDefinition = "jsonb")
     private String policyJson;
 
     @Column(name = "created_by", nullable = false)
