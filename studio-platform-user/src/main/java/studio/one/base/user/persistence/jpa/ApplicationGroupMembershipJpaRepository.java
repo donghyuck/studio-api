@@ -52,9 +52,9 @@ public interface ApplicationGroupMembershipJpaRepository
            where gm.id.groupId = :groupId
              and (
                    :keyword is null
-                or lower(u.username) like lower(concat('%', :keyword, '%'))
-                or lower(u.name) like lower(concat('%', :keyword, '%'))
-                or lower(u.email) like lower(concat('%', :keyword, '%'))
+                or lower(u.username) like lower(concat('%', CAST(:keyword AS String), '%'))
+                or lower(u.name) like lower(concat('%', CAST(:keyword AS String), '%'))
+                or lower(u.email) like lower(concat('%', CAST(:keyword AS String), '%'))
              )
           """,
       countQuery = """
@@ -64,9 +64,9 @@ public interface ApplicationGroupMembershipJpaRepository
            where gm.id.groupId = :groupId
              and (
                    :keyword is null
-                or lower(u.username) like lower(concat('%', :keyword, '%'))
-                or lower(u.name) like lower(concat('%', :keyword, '%'))
-                or lower(u.email) like lower(concat('%', :keyword, '%'))
+                or lower(u.username) like lower(concat('%', CAST(:keyword AS String), '%'))
+                or lower(u.name) like lower(concat('%', CAST(:keyword AS String), '%'))
+                or lower(u.email) like lower(concat('%', CAST(:keyword AS String), '%'))
              )
           """)
   Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(
