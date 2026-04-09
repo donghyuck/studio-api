@@ -61,6 +61,7 @@ import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.web.dto.AddMembersRequest;
+import studio.one.base.user.web.dto.GroupMemberSummaryDto;
 import studio.one.base.user.web.dto.GroupDto;
 import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.dto.UpdateRolesRequest;
@@ -197,6 +198,24 @@ public class GroupMgmtController {
         Group group = groupService.getById(id);
         Page<Long> page = groupService.getMembers(group.getGroupId(), pageable);
         Page<UserDto> dtoPage = page.map(this::toUserDto);
+        return ok(ApiResponse.ok(dtoPage));
+    }
+
+    @GetMapping("/{id}/member-summaries")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    public ResponseEntity<ApiResponse<Page<GroupMemberSummaryDto>>> memberSummaries(
+            @PathVariable Long id,
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @PageableDefault(size = 15, direction = Sort.Direction.DESC) Pageable pageable) {
+        Group group = groupService.getById(id);
+        String keyword = RequestParamUtils.normalizeQuery(q).orElse(null);
+        Page<GroupMemberSummaryDto> dtoPage = groupService.getMemberSummaries(group.getGroupId(), keyword, pageable)
+                .map(summary -> GroupMemberSummaryDto.builder()
+                        .userId(summary.getUserId())
+                        .username(summary.getUsername())
+                        .name(summary.getName())
+                        .enabled(summary.isEnabled())
+                        .build());
         return ok(ApiResponse.ok(dtoPage));
     }
 

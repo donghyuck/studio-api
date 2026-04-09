@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-04-09
+
+### 변경됨
+- 그룹 멤버 조회용 전용 읽기 API `GET /api/mgmt/groups/{id}/member-summaries`를 추가했다.
+- 그룹 멤버 summary 조회는 `userId`, `username`, `name`, `enabled`만 반환하고 `username`/`name`/`email` 기준 `q` 검색을 지원한다.
+- 기존 `GET /api/mgmt/groups/{id}/members`는 유지하고, `studio-platform-identity` 계약은 변경하지 않았다.
+- `studio-platform-user`에 그룹 멤버 summary 조회용 repository/service/controller 테스트와 최소 테스트 의존성을 추가했다.
+
+### 검증
+- `./gradlew :studio-platform-user:test`
+- `./gradlew :studio-platform-user:compileJava :studio-platform-user-default:compileJava`
+
 ## 2026-04-08 (local nexus publish)
 
 ### 변경됨

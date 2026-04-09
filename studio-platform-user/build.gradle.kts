@@ -24,4 +24,15 @@ dependencies {
     compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")
     annotationProcessor ("org.mapstruct:mapstruct-processor:$mapstructVersion")
     annotationProcessor ("org.projectlombok:lombok-mapstruct-binding:0.2.0")
+
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.mockito:mockito-junit-jupiter")
+    testImplementation("org.mapstruct:mapstruct:$mapstructVersion")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.data:spring-data-commons")
+    testImplementation("org.springframework:spring-jdbc")
+    testImplementation("org.springframework.security:spring-security-core")
+    testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-identity"))
 }
