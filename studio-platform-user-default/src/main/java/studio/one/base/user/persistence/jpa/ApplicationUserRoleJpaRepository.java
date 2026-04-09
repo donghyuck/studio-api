@@ -117,9 +117,9 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
                where ur.id.roleId = :roleId
                  and (
                       :q is null
-                   or lower(u.username) like lower(concat('%', :q, '%'))
-                   or lower(u.name) like lower(concat('%', :q, '%'))
-                   or lower(u.email) like lower(concat('%', :q, '%'))
+                   or lower(u.username) like lower(concat('%', CAST(:q AS String), '%'))
+                   or lower(u.name) like lower(concat('%', CAST(:q AS String), '%'))
+                   or lower(u.email) like lower(concat('%', CAST(:q AS String), '%'))
                  )
     """)
     Page<Long> findUserIdsByRoleId(
@@ -136,9 +136,9 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
             where gr.role.roleId = :roleId
                 and (
                     :q is null
-                or lower(u.username) like :q
-                or lower(u.name)     like :q
-                or lower(u.email)    like :q
+                or lower(u.username) like CAST(:q AS String)
+                or lower(u.name)     like CAST(:q AS String)
+                or lower(u.email)    like CAST(:q AS String)
                 )
     """)
     Page<Long> findUserIdsByRoleIdViaGroup(@Param("roleId") Long roleId,
