@@ -18,6 +18,7 @@ import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
 import studio.one.base.user.web.dto.PasswordPolicyDto;
 import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.dto.UpdateUserRequest;
 import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UserDto;
@@ -58,6 +59,6 @@ public interface UserMgmtApi {
 
     ResponseEntity<ApiResponse<List<RoleDto>>> roles(Long id, String by);
 
-    ResponseEntity<ApiResponse<Void>> updateUserRoles(Long id, @RequestBody List<RoleDto> roles,
+    ResponseEntity<ApiResponse<Void>> updateUserRoles(Long id, @RequestBody UpdateRolesRequest req,
             UserDetails actor);
 }
