@@ -69,8 +69,8 @@ public interface ApplicationGroupRoleJpaRepository extends JpaRepository<Applica
      where gr.role.roleId = :roleId
        and (
             :q is null
-         or lower(g.name) like lower(concat('%', :q, '%'))
-         or lower(g.description) like lower(concat('%', :q, '%'))
+         or lower(g.name) like lower(concat('%', CAST(:q AS String), '%'))
+         or lower(g.description) like lower(concat('%', CAST(:q AS String), '%'))
        )
     """)
     Page<ApplicationGroup> findGroupsByRoleId(
@@ -90,8 +90,8 @@ public interface ApplicationGroupRoleJpaRepository extends JpaRepository<Applica
         where gr.role.roleId = :roleId
           and (
                 :q is null
-            or lower(g.name) like lower(concat('%', :q, '%'))
-            or lower(g.description) like lower(concat('%', :q, '%'))
+            or lower(g.name) like lower(concat('%', CAST(:q AS String), '%'))
+            or lower(g.description) like lower(concat('%', CAST(:q AS String), '%'))
           )
         """,
       countQuery = """
@@ -101,8 +101,8 @@ public interface ApplicationGroupRoleJpaRepository extends JpaRepository<Applica
         where gr.role.roleId = :roleId
           and (
                 :q is null
-            or lower(g.name) like lower(concat('%', :q, '%'))
-            or lower(g.description) like lower(concat('%', :q, '%'))
+            or lower(g.name) like lower(concat('%', CAST(:q AS String), '%'))
+            or lower(g.description) like lower(concat('%', CAST(:q AS String), '%'))
           )
         """
     )
