@@ -4,4 +4,4 @@
 # Codex subagent execution definitions live in .codex/agents/*.toml.
 
 [agents]
-dir = ".codex/agents"
+#dir = ".codex/agents"
