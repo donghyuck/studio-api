@@ -60,6 +60,7 @@ import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.BatchResult;
+import studio.one.base.user.web.dto.AddMembersRequest;
 import studio.one.base.user.web.dto.GroupDto;
 import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
@@ -202,9 +203,9 @@ public class GroupMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
     public ResponseEntity<ApiResponse<Integer>> addMemberships(
             @PathVariable Long id,
-            @RequestBody List<Long> userList,
+            @Valid @RequestBody AddMembersRequest req,
             @AuthenticationPrincipal UserDetails principal) {
-        int result = groupService.addMembersBulk(id, userList, principal.getUsername(), java.time.OffsetDateTime.now());
+        int result = groupService.addMembersBulk(id, req.getUserIds(), principal.getUsername(), java.time.OffsetDateTime.now());
         return ok(ApiResponse.ok(result));
     }
 
