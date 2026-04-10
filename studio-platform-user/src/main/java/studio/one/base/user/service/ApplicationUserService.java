@@ -23,6 +23,7 @@ package studio.one.base.user.service;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -115,6 +116,17 @@ public interface ApplicationUserService<T extends User, R extends Role> {
     void joinGroup(Long userId, Long groupId, String by);
 
     void leaveGroup(Long userId, Long groupId);
+
+    // properties
+    Map<String, String> getProperties(Long userId);
+
+    Map<String, String> replaceProperties(Long userId, Map<String, String> properties);
+
+    String getProperty(Long userId, String key);
+
+    String setProperty(Long userId, String key, String value);
+
+    void deleteProperty(Long userId, String key);
 
     // effective roles
     Set<R> findEffectiveRoles(Long userId);

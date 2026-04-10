@@ -64,6 +64,7 @@ import studio.one.base.user.web.dto.MeProfilePatchRequest;
 import studio.one.base.user.web.dto.MeProfilePutRequest;
 import studio.one.base.user.web.dto.MePasswordChangeRequest;
 import studio.one.platform.component.State;
+import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
@@ -356,6 +357,73 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
                 || lower.startsWith("role.")
                 || lower.startsWith("admin.")
                 || lower.startsWith("permission."));
+    }
+
+    // ---------- 프로퍼티 관리 ----------
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, String> getProperties(Long userId) {
+        ApplicationUser u = userRepo.findById(userId).orElseThrow(() -> UserNotFoundException.byId(userId));
+        Map<String, String> props = u.getProperties();
+        return props == null ? Collections.emptyMap() : Collections.unmodifiableMap(props);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId")
+    public Map<String, String> replaceProperties(Long userId, Map<String, String> properties) {
+        Map<String, String> validated = new HashMap<>();
+        if (properties != null) {
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                if (!isAllowedPropertyKey(entry.getKey())) {
+                    throw new IllegalArgumentException("Disallowed property key: " + entry.getKey());
+                }
+                validated.put(entry.getKey(), entry.getValue());
+            }
+        }
+        ApplicationUser saved = update(userId, u -> u.setProperties(validated));
+        Map<String, String> result = saved.getProperties();
+        return result == null ? Collections.emptyMap() : Collections.unmodifiableMap(result);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getProperty(Long userId, String key) {
+        Map<String, String> props = getProperties(userId);
+        if (!props.containsKey(key)) {
+            throw new NotFoundException("Property", key);
+        }
+        return props.get(key);
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId")
+    public String setProperty(Long userId, String key, String value) {
+        if (!isAllowedPropertyKey(key)) {
+            throw new IllegalArgumentException("Disallowed property key: " + key);
+        }
+        update(userId, u -> {
+            Map<String, String> props = u.getProperties() == null
+                    ? new HashMap<>() : new HashMap<>(u.getProperties());
+            props.put(key, value);
+            u.setProperties(props);
+        });
+        return value;
+    }
+
+    @Override
+    @Transactional
+    @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId")
+    public void deleteProperty(Long userId, String key) {
+        update(userId, u -> {
+            if (u.getProperties() != null) {
+                Map<String, String> props = new HashMap<>(u.getProperties());
+                props.remove(key);
+                u.setProperties(props);
+            }
+        });
     }
 
     public Page<ApplicationUser> search(String q, Pageable pageable) {

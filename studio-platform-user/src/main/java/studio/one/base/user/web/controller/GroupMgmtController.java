@@ -26,6 +26,7 @@ import static org.springframework.http.ResponseEntity.ok;
 import java.net.URI;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -63,6 +64,7 @@ import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.web.dto.AddMembersRequest;
 import studio.one.base.user.web.dto.GroupMemberSummaryDto;
 import studio.one.base.user.web.dto.GroupDto;
+import studio.one.base.user.web.dto.PropertyDto;
 import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
@@ -93,7 +95,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/groups")
 @RequiredArgsConstructor
 @Slf4j
-public class GroupMgmtController {
+public class GroupMgmtController implements GroupMgmtApi {
 
     private final ApplicationGroupService<Group, Role> groupService;
     private final ApplicationGroupMapper groupMapper;
@@ -116,6 +118,7 @@ public class GroupMgmtController {
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
     public ResponseEntity<ApiResponse<Page<GroupDto>>> list(
             @RequestParam(value = "q", required = false) Optional<String> q,
             @RequestParam(value = "fields", required = false) Optional<String> fields,
@@ -134,6 +137,7 @@ public class GroupMgmtController {
 
     @GetMapping("/{id}")
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
     public ResponseEntity<ApiResponse<GroupDto>> get(@PathVariable Long id) {
         Group group = groupService.getById(id);
         return ok(ApiResponse.ok(groupMapper.toDto(group)));
@@ -141,6 +145,7 @@ public class GroupMgmtController {
 
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
     public ResponseEntity<ApiResponse<GroupDto>> create(@Valid @RequestBody GroupDto req) {
         Group group = groupMapper.toEntity(req);
         Group saved = groupService.createGroup(group);
@@ -152,6 +157,7 @@ public class GroupMgmtController {
 
     @PutMapping("/{id}")
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
     public ResponseEntity<ApiResponse<GroupDto>> update(@PathVariable Long id, @Valid @RequestBody GroupDto dto) {
         Group updated = groupService.updateGroup(id, g -> groupMapper.updateEntityFromDto(dto, g));
         return ok(ApiResponse.ok(groupMapper.toDto(updated)));
@@ -159,6 +165,7 @@ public class GroupMgmtController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         groupService.deleteGroup(id);
         return ok(ApiResponse.ok());
@@ -167,6 +174,7 @@ public class GroupMgmtController {
     // Roles --------------------------------------
     @GetMapping("/{id}/roles")
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
     public ResponseEntity<ApiResponse<List<RoleDto>>> roles(@PathVariable Long id) {
         List<Role> list = groupService.getRoles(id);
         return ok(ApiResponse.ok(roleMapper.toDtos(list)));
@@ -174,6 +182,7 @@ public class GroupMgmtController {
 
     @PostMapping("/{id}/roles")
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
     public ResponseEntity<ApiResponse<Void>> updateGroupRoles(@PathVariable Long id,
             @Valid @RequestBody UpdateRolesRequest req,
             @AuthenticationPrincipal UserDetails actor) {
@@ -192,6 +201,7 @@ public class GroupMgmtController {
     // Membership --------------------------------------
     @GetMapping("/{id}/members")
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
     public ResponseEntity<ApiResponse<Page<UserDto>>> members(
             @PathVariable Long id,
             @PageableDefault(size = 15, direction = Sort.Direction.DESC) Pageable pageable) {
@@ -203,6 +213,7 @@ public class GroupMgmtController {
 
     @GetMapping("/{id}/member-summaries")
     @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
     public ResponseEntity<ApiResponse<Page<GroupMemberSummaryDto>>> memberSummaries(
             @PathVariable Long id,
             @RequestParam(value = "q", required = false) Optional<String> q,
@@ -215,6 +226,7 @@ public class GroupMgmtController {
 
     @PostMapping("/{id}/members")
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
     public ResponseEntity<ApiResponse<Integer>> addMemberships(
             @PathVariable Long id,
             @Valid @RequestBody AddMembersRequest req,
@@ -225,10 +237,58 @@ public class GroupMgmtController {
 
     @DeleteMapping("/{id}/members")
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
     public ResponseEntity<ApiResponse<Integer>> removeMemberships(@PathVariable Long id,
             @Valid @RequestBody AddMembersRequest req) {
         int result = groupService.removeMembers(id, req.getUserIds());
         return ok(ApiResponse.ok(result));
+    }
+
+    // Properties --------------------------------------
+
+    @GetMapping("/{id}/properties")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
+    public ResponseEntity<ApiResponse<Map<String, String>>> getProperties(@PathVariable Long id) {
+        return ok(ApiResponse.ok(groupService.getProperties(id)));
+    }
+
+    @PutMapping("/{id}/properties")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
+    public ResponseEntity<ApiResponse<Map<String, String>>> replaceProperties(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> properties) {
+        return ok(ApiResponse.ok(groupService.replaceProperties(id, properties)));
+    }
+
+    @GetMapping("/{id}/properties/{key}")
+    @PreAuthorize("@endpointAuthz.can('features:group','read')")
+    @Override
+    public ResponseEntity<ApiResponse<PropertyDto>> getProperty(
+            @PathVariable Long id,
+            @PathVariable String key) {
+        String value = groupService.getProperty(id, key);
+        return ok(ApiResponse.ok(PropertyDto.builder().key(key).value(value).build()));
+    }
+
+    @PutMapping("/{id}/properties/{key}")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
+    public ResponseEntity<ApiResponse<PropertyDto>> setProperty(
+            @PathVariable Long id,
+            @PathVariable String key,
+            @Valid @RequestBody PropertyDto dto) {
+        String stored = groupService.setProperty(id, key, dto.getValue());
+        return ok(ApiResponse.ok(PropertyDto.builder().key(key).value(stored).build()));
+    }
+
+    @DeleteMapping("/{id}/properties/{key}")
+    @PreAuthorize("@endpointAuthz.can('features:group','write')")
+    @Override
+    public ResponseEntity<Void> deleteProperty(@PathVariable Long id, @PathVariable String key) {
+        groupService.deleteProperty(id, key);
+        return ResponseEntity.noContent().build();
     }
 
     private UserDto toUserDto(Long userId) {

@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Clock;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
@@ -119,6 +121,60 @@ class ApplicationUserServiceImplTest {
         assertEquals("{bcrypt}next-hash", user.getPassword());
         verify(passwordPolicyService).validate("NextPassword123!");
         verify(userRepo).save(user);
+    }
+
+    // ---------- property tests ----------
+
+    @Test
+    void setPropertyRejectsReservedPrefix() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service().setProperty(1L, "security.token", "val"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service().setProperty(1L, "auth.secret", "val"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service().setProperty(1L, "role.admin", "val"));
+    }
+
+    @Test
+    void setPropertyRejectsMalformedKey() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service().setProperty(1L, "bad key!", "val"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service().setProperty(1L, "", "val"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service().setProperty(1L, "a".repeat(101), "val"));
+    }
+
+    @Test
+    void replacePropertiesRejectsReservedKeyInBulk() {
+        // P1: bulk replace must enforce the same reserved-key guard as setProperty
+        Map<String, String> props = new HashMap<>();
+        props.put("theme", "dark");
+        props.put("security.token", "leaked");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service().replaceProperties(1L, props));
+
+        verify(userRepo, never()).findById(any());
+        verify(userRepo, never()).save(any());
+    }
+
+    @Test
+    void replacePropertiesAcceptsValidKeys() {
+        ApplicationUser user = ApplicationUser.builder()
+                .userId(10L)
+                .username("user")
+                .password("{bcrypt}hash")
+                .build();
+        when(userRepo.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepo.save(user)).thenReturn(user);
+
+        Map<String, String> props = Map.of("theme", "dark", "locale", "ko");
+        service().replaceProperties(10L, props);
+
+        verify(userRepo).save(user);
+        assertEquals("dark", user.getProperties().get("theme"));
+        assertEquals("ko", user.getProperties().get("locale"));
     }
 
     private ApplicationUserServiceImpl service() {

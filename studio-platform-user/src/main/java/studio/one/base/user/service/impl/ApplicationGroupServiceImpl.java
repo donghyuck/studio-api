@@ -3,8 +3,11 @@ package studio.one.base.user.service.impl;
 import java.sql.PreparedStatement;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -88,6 +91,69 @@ public class ApplicationGroupServiceImpl
     @Override
     public void deleteGroup(Long groupId) {
         groupRepo.deleteById(groupId);
+    }
+
+    // --- 프로퍼티 ---
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, String> getProperties(Long groupId) {
+        ApplicationGroup g = groupRepo.findById(groupId).orElseThrow(() -> GroupNotFoundException.byId(groupId));
+        Map<String, String> props = g.getProperties();
+        return props == null ? Collections.emptyMap() : Collections.unmodifiableMap(props);
+    }
+
+    @Override
+    public Map<String, String> replaceProperties(Long groupId, Map<String, String> properties) {
+        Map<String, String> validated = new HashMap<>();
+        if (properties != null) {
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                validateGroupPropertyKey(entry.getKey());
+                validated.put(entry.getKey(), entry.getValue());
+            }
+        }
+        ApplicationGroup saved = updateGroup(groupId, g -> g.setProperties(validated));
+        Map<String, String> result = saved.getProperties();
+        return result == null ? Collections.emptyMap() : Collections.unmodifiableMap(result);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getProperty(Long groupId, String key) {
+        Map<String, String> props = getProperties(groupId);
+        if (!props.containsKey(key)) {
+            throw new NotFoundException("Property", key);
+        }
+        return props.get(key);
+    }
+
+    @Override
+    public String setProperty(Long groupId, String key, String value) {
+        validateGroupPropertyKey(key);
+        updateGroup(groupId, g -> {
+            Map<String, String> props = g.getProperties() == null
+                    ? new HashMap<>() : new HashMap<>(g.getProperties());
+            props.put(key, value);
+            g.setProperties(props);
+        });
+        return value;
+    }
+
+    private void validateGroupPropertyKey(String key) {
+        if (key == null || !key.matches("[A-Za-z0-9_.-]{1,100}")) {
+            throw new IllegalArgumentException("Invalid property key: " + key);
+        }
+    }
+
+    @Override
+    public void deleteProperty(Long groupId, String key) {
+        updateGroup(groupId, g -> {
+            if (g.getProperties() != null) {
+                Map<String, String> props = new HashMap<>(g.getProperties());
+                props.remove(key);
+                g.setProperties(props);
+            }
+        });
     }
 
     // --- 멤버십 ---
