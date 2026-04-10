@@ -38,5 +38,6 @@ dependencies {
     testImplementation("org.testcontainers:postgresql")
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-identity"))
+    testImplementation(project(":studio-platform-user-default"))
     testRuntimeOnly("org.postgresql:postgresql")
 }

@@ -16,7 +16,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
-import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.service.ApplicationGroupService;
@@ -51,10 +50,10 @@ class GroupMgmtControllerTest {
 
         when(groupService.getById(10L)).thenReturn(group);
         when(group.getGroupId()).thenReturn(10L);
-        when(groupService.getMemberSummaries(eq(10L), eq("alice"), eq(pageable)))
+        when(groupService.getMemberSummaryDtos(eq(10L), eq("alice"), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(
-                        new Summary(1L, "alice", "Alice Kim", true),
-                        new Summary(2L, "bob", "Bob Lee", false)),
+                        GroupMemberSummaryDto.builder().userId(1L).username("alice").name("Alice Kim").enabled(true).build(),
+                        GroupMemberSummaryDto.builder().userId(2L).username("bob").name("Bob Lee").enabled(false).build()),
                         pageable,
                         2));
 
@@ -69,7 +68,7 @@ class GroupMgmtControllerTest {
         assertEquals("Alice Kim", first.getName());
         assertEquals(true, first.isEnabled());
 
-        verify(groupService).getMemberSummaries(10L, "alice", pageable);
+        verify(groupService).getMemberSummaryDtos(10L, "alice", pageable);
     }
 
     @Test
@@ -93,34 +92,11 @@ class GroupMgmtControllerTest {
 
         when(groupService.getById(10L)).thenReturn(group);
         when(group.getGroupId()).thenReturn(10L);
-        when(groupService.getMemberSummaries(eq(10L), eq(null), eq(pageable)))
+        when(groupService.getMemberSummaryDtos(eq(10L), eq(null), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         controller.memberSummaries(10L, Optional.of("   "), pageable);
 
-        verify(groupService).getMemberSummaries(10L, null, pageable);
-    }
-
-    private record Summary(Long userId, String username, String name, boolean enabled)
-            implements ApplicationGroupMemberSummary {
-        @Override
-        public Long getUserId() {
-            return userId;
-        }
-
-        @Override
-        public String getUsername() {
-            return username;
-        }
-
-        @Override
-        public String getName() {
-            return name;
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return enabled;
-        }
+        verify(groupService).getMemberSummaryDtos(10L, null, pageable);
     }
 }

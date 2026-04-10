@@ -5,6 +5,7 @@ plugins {
     id("maven-publish")
 }
 description = "Starter for using Studio Platform User"
+val mapstructVersion: String = project.findProperty("mapstructVersion") as String? ?: "0.11.5"
 tasks.named<Jar>("jar") {
     enabled = true
     archiveClassifier.set("")
@@ -23,4 +24,5 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
+    compileOnly("org.mapstruct:mapstruct:$mapstructVersion")
 }

@@ -4,12 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.domain.EntityScan;
+import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -17,8 +21,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import studio.one.base.user.domain.entity.ApplicationGroup;
 import studio.one.base.user.domain.entity.ApplicationGroupRole;
 import studio.one.base.user.domain.entity.ApplicationGroupRoleId;
+import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
 import studio.one.base.user.domain.entity.ApplicationRole;
+import studio.one.base.user.domain.entity.ApplicationUser;
 
 /**
  * Regression test: q=null 파라미터를 JPA 쿼리에 바인딩할 때 PostgreSQL이
@@ -26,7 +32,7 @@ import studio.one.base.user.domain.entity.ApplicationRole;
  *
  * CAST(:q AS String) 수정이 제거되면 이 테스트가 실패합니다.
  */
-@DataJpaTest
+@DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Testcontainers
 class ApplicationGroupRoleJpaRepositoryNullSearchTest {
@@ -127,5 +133,18 @@ class ApplicationGroupRoleJpaRepositoryNullSearchTest {
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getEntity().getName()).isEqualTo("engineering-team");
+    }
+
+    @SpringBootConfiguration
+    @EnableAutoConfiguration
+    @EntityScan(basePackageClasses = {
+            ApplicationGroup.class,
+            ApplicationGroupMembership.class,
+            ApplicationGroupRole.class,
+            ApplicationRole.class,
+            ApplicationUser.class
+    })
+    @EnableJpaRepositories(basePackageClasses = ApplicationGroupRoleJpaRepository.class)
+    static class TestBootConfig {
     }
 }
