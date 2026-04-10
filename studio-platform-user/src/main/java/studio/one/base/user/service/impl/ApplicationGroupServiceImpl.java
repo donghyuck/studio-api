@@ -105,8 +105,14 @@ public class ApplicationGroupServiceImpl
 
     @Override
     public Map<String, String> replaceProperties(Long groupId, Map<String, String> properties) {
-        ApplicationGroup saved = updateGroup(groupId, g -> g.setProperties(
-                properties == null ? new HashMap<>() : new HashMap<>(properties)));
+        Map<String, String> validated = new HashMap<>();
+        if (properties != null) {
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                validateGroupPropertyKey(entry.getKey());
+                validated.put(entry.getKey(), entry.getValue());
+            }
+        }
+        ApplicationGroup saved = updateGroup(groupId, g -> g.setProperties(validated));
         Map<String, String> result = saved.getProperties();
         return result == null ? Collections.emptyMap() : Collections.unmodifiableMap(result);
     }
@@ -123,9 +129,7 @@ public class ApplicationGroupServiceImpl
 
     @Override
     public String setProperty(Long groupId, String key, String value) {
-        if (key == null || key.isBlank()) {
-            throw new IllegalArgumentException("Property key must not be blank");
-        }
+        validateGroupPropertyKey(key);
         updateGroup(groupId, g -> {
             Map<String, String> props = g.getProperties() == null
                     ? new HashMap<>() : new HashMap<>(g.getProperties());
@@ -133,6 +137,12 @@ public class ApplicationGroupServiceImpl
             g.setProperties(props);
         });
         return value;
+    }
+
+    private void validateGroupPropertyKey(String key) {
+        if (key == null || !key.matches("[A-Za-z0-9_.-]{1,100}")) {
+            throw new IllegalArgumentException("Invalid property key: " + key);
+        }
     }
 
     @Override

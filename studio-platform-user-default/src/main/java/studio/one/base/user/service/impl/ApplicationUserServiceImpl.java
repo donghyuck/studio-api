@@ -373,8 +373,16 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     @Transactional
     @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId")
     public Map<String, String> replaceProperties(Long userId, Map<String, String> properties) {
-        ApplicationUser saved = update(userId, u -> u.setProperties(
-                properties == null ? new HashMap<>() : new HashMap<>(properties)));
+        Map<String, String> validated = new HashMap<>();
+        if (properties != null) {
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                if (!isAllowedPropertyKey(entry.getKey())) {
+                    throw new IllegalArgumentException("Disallowed property key: " + entry.getKey());
+                }
+                validated.put(entry.getKey(), entry.getValue());
+            }
+        }
+        ApplicationUser saved = update(userId, u -> u.setProperties(validated));
         Map<String, String> result = saved.getProperties();
         return result == null ? Collections.emptyMap() : Collections.unmodifiableMap(result);
     }
