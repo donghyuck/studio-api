@@ -209,13 +209,7 @@ public class GroupMgmtController {
             @PageableDefault(size = 15, direction = Sort.Direction.DESC) Pageable pageable) {
         Group group = groupService.getById(id);
         String keyword = RequestParamUtils.normalizeQuery(q).orElse(null);
-        Page<GroupMemberSummaryDto> dtoPage = groupService.getMemberSummaries(group.getGroupId(), keyword, pageable)
-                .map(summary -> GroupMemberSummaryDto.builder()
-                        .userId(summary.getUserId())
-                        .username(summary.getUsername())
-                        .name(summary.getName())
-                        .enabled(summary.isEnabled())
-                        .build());
+        Page<GroupMemberSummaryDto> dtoPage = groupService.getMemberSummaryDtos(group.getGroupId(), keyword, pageable);
         return ok(ApiResponse.ok(dtoPage));
     }
 
@@ -231,9 +225,9 @@ public class GroupMgmtController {
 
     @DeleteMapping("/{id}/members")
     @PreAuthorize("@endpointAuthz.can('features:group','write')")
-    public ResponseEntity<ApiResponse<Integer>> removeaddMemberships(@PathVariable Long id,
-            @RequestBody List<Long> userList) {
-        int result = groupService.removeMembers(id, userList);
+    public ResponseEntity<ApiResponse<Integer>> removeMemberships(@PathVariable Long id,
+            @Valid @RequestBody AddMembersRequest req) {
+        int result = groupService.removeMembers(id, req.getUserIds());
         return ok(ApiResponse.ok(result));
     }
 

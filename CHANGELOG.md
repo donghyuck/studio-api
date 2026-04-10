@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-04-10
+
+### 변경됨
+- `DELETE /groups/{id}/members`의 요청 body를 raw `List<Long>`에서 `{"userIds":[...]}` 형태의 `AddMembersRequest`로 교체해 `POST /groups/{id}/members`와 API 계약을 통일했다.
+- `GroupMgmtController`의 메서드명 오타 `removeaddMemberships`를 `removeMemberships`로 수정했다.
+- `GET /groups/{id}/member-summaries`의 `ApplicationGroupMemberSummary` → `GroupMemberSummaryDto` 매핑을 컨트롤러 인라인에서 `ApplicationGroupService.getMemberSummaryDtos()` default 메서드로 위임했다.
+- `GroupMgmtControllerTest`에 `removeMembershipsCallsServiceWithUserIds` 테스트를 추가했다.
+
+### 검증
+- `./gradlew :studio-platform-user:test`
+- `./gradlew :studio-platform-user:compileJava :studio-platform-user-default:compileJava`
+
 ## 2026-04-09
 
 ### 변경됨
