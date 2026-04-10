@@ -20,6 +20,7 @@ import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.service.ApplicationGroupService;
+import studio.one.base.user.web.dto.AddMembersRequest;
 import studio.one.base.user.web.dto.GroupMemberSummaryDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
@@ -69,6 +70,20 @@ class GroupMgmtControllerTest {
         assertEquals(true, first.isEnabled());
 
         verify(groupService).getMemberSummaries(10L, "alice", pageable);
+    }
+
+    @Test
+    void removeMembershipsCallsServiceWithUserIds() {
+        GroupMgmtController controller = new GroupMgmtController(groupService, groupMapper, roleMapper, identityServiceProvider);
+        when(groupService.removeMembers(eq(10L), eq(List.of(1L, 2L)))).thenReturn(2);
+
+        AddMembersRequest req = new AddMembersRequest();
+        req.setUserIds(List.of(1L, 2L));
+
+        var response = controller.removeMemberships(10L, req);
+
+        assertEquals(2, response.getBody().getData());
+        verify(groupService).removeMembers(10L, List.of(1L, 2L));
     }
 
     @Test

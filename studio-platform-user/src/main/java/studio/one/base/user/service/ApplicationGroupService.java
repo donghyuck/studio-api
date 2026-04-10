@@ -33,6 +33,7 @@ import org.springframework.lang.Nullable;
 import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.web.dto.GroupMemberSummaryDto;
 import studio.one.platform.constant.ServiceNames;
 
 /**
@@ -132,6 +133,14 @@ public interface ApplicationGroupService<G extends Group, R extends Role> {
 
     Page<ApplicationGroupMemberSummary> getMemberSummaries(Long groupId, @Nullable String q, Pageable pageable);
 
+    default Page<GroupMemberSummaryDto> getMemberSummaryDtos(Long groupId, @Nullable String q, Pageable pageable) {
+        return getMemberSummaries(groupId, q, pageable).map(s -> GroupMemberSummaryDto.builder()
+                .userId(s.getUserId())
+                .username(s.getUsername())
+                .name(s.getName())
+                .enabled(s.isEnabled())
+                .build());
+    }
 
     // ── Roles: Assign / Revoke / Read ────────────────────────────────────────
 
