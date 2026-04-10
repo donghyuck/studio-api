@@ -1,6 +1,7 @@
 package studio.one.base.user.web.controller;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +18,7 @@ import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
 import studio.one.base.user.web.dto.PasswordPolicyDto;
+import studio.one.base.user.web.dto.PropertyDto;
 import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.dto.UpdateUserRequest;
@@ -61,4 +63,17 @@ public interface UserMgmtApi {
 
     ResponseEntity<ApiResponse<Void>> updateUserRoles(Long id, @RequestBody UpdateRolesRequest req,
             UserDetails actor);
+
+    // Properties
+    ResponseEntity<ApiResponse<Map<String, String>>> getProperties(Long id);
+
+    ResponseEntity<ApiResponse<Map<String, String>>> replaceProperties(Long id,
+            @RequestBody Map<String, String> properties);
+
+    ResponseEntity<ApiResponse<PropertyDto>> getProperty(Long id, String key);
+
+    ResponseEntity<ApiResponse<PropertyDto>> setProperty(Long id, String key,
+            @Valid @RequestBody PropertyDto dto);
+
+    ResponseEntity<Void> deleteProperty(Long id, String key);
 }
