@@ -111,7 +111,7 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
 
     @Override
     @Query("""
-              select distinct u.userId
+              select u.userId
                 from ApplicationUser u
                 join ApplicationUserRole ur on ur.id.userId = u.userId
                where ur.id.roleId = :roleId
@@ -129,7 +129,7 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
 
     @Override
     @Query("""
-            select distinct u.userId
+            select u.userId
                 from ApplicationUser u
                 join ApplicationGroupMembership gm on gm.id.userId = u.userId
                 join ApplicationGroupRole gr       on gr.group = gm.group
@@ -140,6 +140,7 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
                 or lower(u.name)     like CAST(:q AS String)
                 or lower(u.email)    like CAST(:q AS String)
                 )
+            group by u.userId
     """)
     Page<Long> findUserIdsByRoleIdViaGroup(@Param("roleId") Long roleId,
             @Param("q") String q,
