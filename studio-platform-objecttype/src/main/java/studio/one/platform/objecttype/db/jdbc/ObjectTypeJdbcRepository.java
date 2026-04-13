@@ -189,6 +189,13 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
         return findPolicy(row.getObjectType()).orElse(row);
     }
 
+    @Override
+    public void delete(int objectType) {
+        template.update(
+                "delete from tb_application_object_type where object_type = :objectType",
+                Map.of("objectType", objectType));
+    }
+
     private String buildWhere(String domain, String status, String q, Map<String, Object> params) {
         StringBuilder where = new StringBuilder(" where 1=1");
         if (StringUtils.hasText(domain)) {
