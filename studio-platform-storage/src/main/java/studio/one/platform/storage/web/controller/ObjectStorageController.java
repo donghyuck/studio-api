@@ -90,7 +90,7 @@ public class ObjectStorageController {
     private final I18n i18n;
 
 
-    @GetMapping(value = "/providers")
+    @GetMapping(value = {"/providers", "/providers/"})
     @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<List<ProviderInfoDto>>> listProviders(
             @RequestParam(defaultValue = "false") boolean health) {
@@ -98,7 +98,7 @@ public class ObjectStorageController {
         return ok(ApiResponse.ok(catalog.list(health)));
     }
 
-    @GetMapping(value = "/providers/{providerId}/buckets")
+    @GetMapping(value = {"/providers/{providerId}/buckets", "/providers/{providerId}/buckets/"})
     @PreAuthorize("@endpointAuthz.can('services:storage_cloud','read')")
     public ResponseEntity<ApiResponse<List<BucketInfo>>> listBuckets(@PathVariable String providerId) {
         requireAdmin();
