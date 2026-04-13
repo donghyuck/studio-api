@@ -115,6 +115,12 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         return toPolicyView(saved);
     }
 
+    @Override
+    public void delete(int objectType) {
+        ensureTypeExists(objectType);
+        store.delete(objectType);
+    }
+
     private void ensureTypeExists(int objectType) {
         store.findByType(objectType)
                 .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
