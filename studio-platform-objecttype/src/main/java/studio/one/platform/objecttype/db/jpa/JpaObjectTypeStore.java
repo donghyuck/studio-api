@@ -162,6 +162,11 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
     }
 
     @Override
+    public void delete(int objectType) {
+        typeRepository.deleteById(objectType);
+    }
+
+    @Override
     public ObjectTypePolicyRow upsertPolicy(ObjectTypePolicyRow row) {
         String sql = """
             INSERT INTO tb_application_object_type_policy (

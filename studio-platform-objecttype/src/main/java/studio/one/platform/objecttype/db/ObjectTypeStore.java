@@ -25,4 +25,6 @@ public interface ObjectTypeStore {
     Optional<ObjectTypePolicyRow> findPolicy(int objectType);
 
     ObjectTypePolicyRow upsertPolicy(ObjectTypePolicyRow row);
+
+    void delete(int objectType);
 }
