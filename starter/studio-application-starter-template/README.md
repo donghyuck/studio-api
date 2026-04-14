@@ -64,7 +64,7 @@ spring:
 | `FreemarkerTemplateBuilder` | `FreemarkerTemplateBuilder` | `enabled=true` |
 | `TemplateJpaPersistenceRepository` | `TemplateJpaPersistenceRepository` | persistence=jpa |
 | `TemplateJdbcRepository` | `TemplateJdbcRepository` | persistence=jdbc |
-| `TemplateController` | `TemplateController` | `web.enabled=true` (기본) |
+| `TemplateMgmtController` | `TemplateMgmtController` | `web.enabled=true` (기본) |
 
 - JPA 사용 시 `EntityManagerFactory`가 필요하다.
 - JDBC 사용 시 `NamedParameterJdbcTemplate` 빈이 필요하다.

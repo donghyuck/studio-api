@@ -46,7 +46,7 @@ import studio.one.application.template.persistence.jpa.repo.TemplateJpaRepositor
 import studio.one.application.template.service.impl.FreemarkerTemplateBuilder;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.service.impl.TemplatesServiceImpl;
-import studio.one.application.template.web.controller.TemplateController;
+import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.template.autoconfigure.condition.ConditionalOnTemplatePersistence;
@@ -154,7 +154,7 @@ public class TemplateAutoConfiguration {
 
     @Configuration
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".template.web", name = "enabled", havingValue = "true", matchIfMissing = true )
-    @Import(TemplateController.class)
+    @Import(TemplateMgmtController.class)
     static class TemplateWebConfig {
         
     }
