@@ -76,3 +76,15 @@ If policy changes are frequent, extract:
 - `UserSelfUpdateMapper` (field application)
 - `UserSelfUpdateHook` (before/after)
 and inject them via Spring to override per project.
+
+## 대응 스타터
+이 모듈의 엔티티/리포지토리 스캔과 서비스 빈 등록은
+`starter/studio-platform-starter-user`가 담당한다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter-user"))
+implementation(project(":studio-platform-user-default"))
+```
+
+스타터 상세 설정(패키지 스캔, 엔드포인트 토글, 영속성 타입)은
+`starter/studio-platform-starter-user/README.md`를 참고한다.

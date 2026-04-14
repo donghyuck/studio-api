@@ -1,0 +1,131 @@
+# studio-platform-starter-ai-web
+
+AI 기능을 HTTP 엔드포인트로 노출하는 웹 스타터이다.
+`studio-platform-starter-ai`와 분리되어 있으며, AI 코어 기능은 유지하면서 REST API 노출 여부를
+별도로 제어할 수 있다. 채팅, 임베딩, 벡터 스토어, RAG 파이프라인, 쿼리 리라이트, AI 정보 조회
+엔드포인트를 자동 등록한다.
+
+## 1) 의존성 추가
+
+AI 코어 스타터와 웹 스타터를 함께 선언한다. 프로바이더 라이브러리도 소비 앱에서 직접 선언해야 한다.
+
+```kotlin
+dependencies {
+    // AI 코어 자동 구성 (필수)
+    implementation(project(":starter:studio-platform-starter-ai"))
+    // AI 웹 엔드포인트 (이 스타터)
+    implementation(project(":starter:studio-platform-starter-ai-web"))
+
+    // REST 엔드포인트 활성화에 필요
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
+    // 사용할 프로바이더 라이브러리 선언 (예: OpenAI)
+    implementation("org.springframework.ai:spring-ai-starter-model-openai")
+}
+```
+
+## 2) 기능 활성화
+
+AI 코어(`studio.ai.enabled`)가 `true`여야 웹 엔드포인트도 활성화된다.
+
+```yaml
+studio:
+  ai:
+    enabled: true
+    default-provider: openai
+    endpoints:
+      enabled: false       # GET /api/ai/info/providers 활성화 여부 (기본: false)
+      base-path: /api/ai   # 모든 AI 엔드포인트의 기본 경로 (기본값)
+    providers:
+      openai:
+        type: OPENAI
+        enabled: true
+        chat:
+          enabled: true
+        embedding:
+          enabled: true
+```
+
+## 3) REST 엔드포인트
+
+기본 base-path는 `/api/ai`이며 `studio.ai.endpoints.base-path`로 변경할 수 있다.
+
+| 메서드 | 경로 | 설명 | 권한 |
+|---|---|---|---|
+| `POST` | `{basePath}/chat` | 채팅 완성 요청 | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/rag` | RAG 컨텍스트 주입 후 채팅 | `services:ai_chat write` |
+| `POST` | `{basePath}/embedding` | 텍스트 임베딩 벡터 생성 | `services:ai_embedding write` |
+| `POST` | `{basePath}/vectors` | 벡터 문서 업서트 | `services:ai_vector read` |
+| `POST` | `{basePath}/vectors/search` | 벡터 유사도 검색 | `services:ai_vector read` |
+| `POST` | `{basePath}/rag/index` | 문서 RAG 인덱싱 | `services:ai_rag read` |
+| `POST` | `{basePath}/rag/search` | RAG 시맨틱 검색 | `services:ai_rag read` |
+| `POST` | `{basePath}/query-rewrite` | 검색 쿼리 리라이트 | `services:ai_chat read` |
+| `GET`  | `{basePath}/info/providers` | 프로바이더 및 벡터 스토어 상태 조회 | `services:ai_chat read` 또는 `services:ai_embedding read` |
+
+> `GET /info/providers`는 `studio.ai.endpoints.enabled=true`일 때만 등록된다.
+
+### 채팅 요청 예시
+
+```http
+POST /api/ai/chat
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "messages": [
+    {"role": "user", "content": "안녕하세요"}
+  ],
+  "model": "gpt-4o-mini",
+  "temperature": 0.7,
+  "maxOutputTokens": 512
+}
+```
+
+### 임베딩 요청 예시
+
+```http
+POST /api/ai/embedding
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "texts": ["임베딩할 텍스트1", "임베딩할 텍스트2"]
+}
+```
+
+### RAG 인덱싱 예시
+
+```http
+POST /api/ai/rag/index
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "documentId": "doc-001",
+  "text": "인덱싱할 문서 내용",
+  "metadata": {"source": "manual"},
+  "useLlmKeywordExtraction": true
+}
+```
+
+## 4) 자동 구성되는 주요 빈 (엔드포인트)
+
+| 빈 | 설명 |
+|---|---|
+| `ChatController` | 채팅 및 RAG 채팅 엔드포인트 |
+| `EmbeddingController` | 임베딩 엔드포인트 |
+| `VectorController` | 벡터 업서트 및 검색 엔드포인트 |
+| `RagController` | RAG 인덱싱 및 검색 엔드포인트 |
+| `QueryRewriteController` | 쿼리 리라이트 엔드포인트 |
+| `AiInfoController` | AI 정보 조회 엔드포인트 (`endpoints.enabled=true` 필요) |
+
+## 5) 참고 사항
+
+- `VectorController`는 `VectorStorePort` 빈이 없어도 등록되지만, 벡터 관련 요청 시 HTTP 503을 반환한다.
+- 벡터 검색 시 `hybrid=true`를 설정하면 BM25 + 벡터 하이브리드 검색이 활성화된다(query 텍스트 필수).
+- `query-rewrite` 엔드포인트는 Mustache 템플릿(`query-rewrite`)이 없으면 내장 폴백 프롬프트를 사용한다.
+- 모든 엔드포인트는 Spring Security의 메서드 레벨 권한 검사(`@PreAuthorize`)를 사용한다.
+  `endpointAuthz` 빈이 컨텍스트에 등록되어 있어야 한다.
+- 이 스타터만 단독으로 추가해도 `studio-platform-starter-ai`가 `api` 의존성으로 전이된다.

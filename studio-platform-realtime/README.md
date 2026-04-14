@@ -197,3 +197,16 @@ stomp.connect({}, () => {
 | 잘못된 destination 설계 | 클라이언트 구독 실패 | `/topic/...`·`/user/...` 네이밍 규칙 문서화 및 테스트 |
 
 > 운영 팁: 운영/스테이징 환경마다 `studio.realtime.*` 값을 별도 관리하고, Redis Pub/Sub는 모니터링 대상(메시지 처리량, 실패 로그)으로 등록하세요.
+
+## 대응 스타터
+이 모듈의 자동 구성(STOMP 엔드포인트, Redis Pub/Sub 브로커, JWT 연동)은
+`starter/studio-platform-starter-realtime`이 담당한다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter-realtime"))
+// Redis Pub/Sub 사용 시
+implementation("org.springframework.boot:spring-boot-starter-data-redis")
+```
+
+스타터 상세 설정(`studio.realtime.*`, JWT 의존성 요건)은
+`starter/studio-platform-starter-realtime/README.md`를 참고한다.

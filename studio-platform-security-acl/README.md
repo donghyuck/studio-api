@@ -110,3 +110,12 @@ import studio.one.platform.security.acl.AclPermissionService;
 ## 알려진 트레이드오프
 - 벌크 grant/revoke는 리포지토리 접근 전제
 - 캐시 무효화는 전부 삭제 방식(거친 무효화)
+
+## 대응 스타터
+이 모듈의 자동 구성은 `starter/studio-platform-starter-security-acl`이 담당한다.
+`studio-platform-starter-security`와 함께 사용하는 것이 일반적이다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter-security"))
+implementation(project(":starter:studio-platform-starter-security-acl"))
+```

@@ -17,7 +17,7 @@
 ./gradlew clean build
 ```
 
-필수 secret 예시는 [.env.example](/Users/donghyuck.son/git/studio-api/.env.example)에서 확인한다.
+필수 secret 예시는 [.env.example](.env.example)에서 확인한다.
 
 ## 기술 기준
 - Java toolchain / source compatibility: `17`
@@ -70,6 +70,25 @@ dependencies {
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`와 `:studio-platform-user-default`
 - 첨부/메일/아바타 같은 기능 모듈은 각 application starter를 추가
+
+### AI 스타터 사용 시 주의사항
+`studio-platform-starter-ai`는 provider 라이브러리를 `compileOnly`로만 제공하므로,
+소비 앱에서 필요한 provider를 직접 선언해야 한다. Spring AI BOM은 `api(platform(...))`으로
+노출되므로 별도 BOM 선언 없이 일관된 Spring AI 버전을 사용할 수 있다.
+
+```kotlin
+// OpenAI 사용 예시
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation("org.springframework.ai:spring-ai-starter-model-openai")
+
+// Google GenAI 사용 예시
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation("org.springframework.ai:spring-ai-google-genai")
+
+// Ollama 사용 예시
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation("org.springframework.ai:spring-ai-ollama")
+```
 
 ## 모듈 의존 방향
 의존성은 아래 방향을 권장한다. (순환 의존 금지)
@@ -163,7 +182,7 @@ scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 
 ## 보안 설정
 - secret은 저장소에 커밋하지 않고 환경변수 또는 `~/.gradle/gradle.properties` 로만 주입한다.
-- 샘플 환경변수 목록은 [.env.example](/Users/donghyuck.son/git/studio-api/.env.example), 상세 운영 규칙과 회전 절차는 [SECURITY.md](/Users/donghyuck.son/git/studio-api/SECURITY.md) 를 참고한다.
+- 샘플 환경변수 목록은 [.env.example](.env.example), 상세 운영 규칙과 회전 절차는 [SECURITY.md](SECURITY.md)를 참고한다.
 
 자주 필요한 값:
 - `STUDIO_JWT_SECRET`
@@ -201,7 +220,7 @@ studio:
       audit-enabled: true
   ai:
     enabled: true
-    default-provider: openai
+    default-provider: openai   # 필수 — 미설정 시 기동 실패
     providers:
       openai:
         type: OPENAI
