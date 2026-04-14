@@ -37,6 +37,7 @@ import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.web.dto.TemplateDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.identity.ApplicationPrincipal;
+import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -44,9 +45,10 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.PREFIX + ".template.web.base-path:/api/mgmt/templates}")
 @RequiredArgsConstructor
 @Validated
-public class TemplateController {
+public class TemplateMgmtController {
 
     private final TemplatesService templatesService;
+    private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @PostMapping
@@ -69,14 +71,14 @@ public class TemplateController {
             created.setProperties(request.properties());
         }
         templatesService.saveOrUpdate(created);
-        return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(created)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(created)));
     }
 
     @GetMapping("/{templateId:[\\p{Digit}]+}")
     @PreAuthorize("@endpointAuthz.can('features:template','read')")
     public ResponseEntity<ApiResponse<TemplateDto>> get(@PathVariable long templateId) throws NotFoundException {
         Template template = resolveTemplate(templateId);
-        return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(template)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(template)));
     }
 
     @GetMapping
@@ -90,7 +92,7 @@ public class TemplateController {
         Page<TemplateDto> page = (isAdmin(principal)
                 ? templatesService.page(pageable, query, fields)
                 : templatesService.pageByCreatedBy(requireUserId(principal), pageable, query, fields))
-                .map(TemplateDto::summary);
+                .map(this::toSummaryDto);
         return ResponseEntity.ok()
                 .header("X-Template-Search-Fields", SearchFields.allowedCsv())
                 .body(ApiResponse.ok(page));
@@ -103,7 +105,7 @@ public class TemplateController {
         Template template = isAdmin(principal)
                 ? templatesService.getTemplatesByName(name)
                 : templatesService.getTemplatesByNameAndCreator(name, requireUserId(principal));
-        return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(template)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(template)));
     }
 
     @PutMapping("/{templateId:[\\p{Digit}]+}")
@@ -124,7 +126,7 @@ public class TemplateController {
         existing.setProperties(request.properties());
         existing.setUpdatedBy(userId);
         templatesService.saveOrUpdate(existing);
-        return ResponseEntity.ok(ApiResponse.ok(TemplateDto.from(existing)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(existing)));
     }
 
     @DeleteMapping("/{templateId:[\\p{Digit}]+}")
@@ -160,9 +162,6 @@ public class TemplateController {
         return ResponseEntity.ok(ApiResponse.ok(rendered));
     }
 
-    /**
-     * Incoming request payload for template create/update.
-     */
     public record TemplateRequest(
             @NotNull Integer objectType,
             @NotNull Long objectId,
@@ -179,6 +178,18 @@ public class TemplateController {
             }
             return new java.io.ByteArrayInputStream(body.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
+    }
+
+    private TemplateDto toDto(Template template) {
+        return TemplateDto.from(template, TemplateWebSupport.findUserDto(identityServiceProvider, template.getCreatedBy()),
+                TemplateWebSupport.findUserDto(identityServiceProvider, template.getUpdatedBy()));
+    }
+
+    private TemplateDto toSummaryDto(Template template) {
+        return TemplateDto.summary(
+                template,
+                TemplateWebSupport.findUserDto(identityServiceProvider, template.getCreatedBy()),
+                TemplateWebSupport.findUserDto(identityServiceProvider, template.getUpdatedBy()));
     }
 
     private void validateFields(String fields) {

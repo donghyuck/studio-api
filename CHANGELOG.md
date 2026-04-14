@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-04-14
+
+### 변경됨
+- `template-service`의 관리 컨트롤러 클래스를 `TemplateController`에서 `TemplateMgmtController`로 변경해 관리용 컨트롤러 명명 규칙을 맞췄다.
+- `GET /api/mgmt/templates` 계열 응답의 `createdBy`, `updatedBy`를 숫자 userId 대신 `{ userId, username }` 형태의 `UserDto`로 변경했다.
+- `template-service`에 사용자 응답 매핑 회귀 테스트를 추가하고, 기존 권한 테스트를 새 컨트롤러명 기준으로 갱신했다.
+
+### 검증
+- `./gradlew :studio-application-modules:template-service:test`
+
 ## 2026-04-10
 
 ### 변경됨
