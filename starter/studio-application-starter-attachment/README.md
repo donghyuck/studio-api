@@ -85,7 +85,6 @@ studio:
 |--------|------|------|------|
 | `POST` | `/` | 파일 업로드 (multipart: `objectType`, `objectId`, `file`) | `features:attachment/upload` |
 | `GET` | `/{attachmentId}` | 메타데이터 조회 | `features:attachment/read` |
-| `GET` | `/{attachmentId}/thumbnail` | 썸네일 이미지 | `features:attachment/read` |
 | `GET` | `/{attachmentId}/text` | 텍스트 추출 (`FileContentExtractionService` 필요) | `features:attachment/read` |
 | `GET` | `/{attachmentId}/download` | 스트리밍 다운로드 | `features:attachment/download` |
 | `GET` | `/` | 페이지 목록 (`objectType`, `objectId`, `keyword` 선택) | — |

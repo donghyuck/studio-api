@@ -24,17 +24,20 @@
 | `PageResult<T>` | 커서 기반 페이징 결과 (items, nextToken, truncated, commonPrefixes) |
 
 ## REST 엔드포인트
-기본 경로: `/api/mgmt/objectstorage` (`studio.cloud.storage.web.endpoint`로 변경 가능)  
-모든 엔드포인트는 `ROLE_ADMIN` 권한이 필요하다.
+기본 경로: `/api/mgmt/objectstorage` (`studio.cloud.storage.web.endpoint`로 변경 가능)
 
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| GET | `/providers` | 등록된 프로바이더 목록 조회 (`?health=true`로 헬스 포함) |
-| GET | `/providers/{providerId}/buckets` | 특정 프로바이더의 버킷 목록 조회 |
-| GET | `/providers/{providerId}/buckets/{bucket}/objects` | 버킷 내 객체 목록 (커서 페이징, prefix/delimiter 지원) |
-| GET | `/providers/{providerId}/buckets/{bucket}/object` | 객체 메타데이터 조회 (`?key=path/to/obj`) |
-| GET | `/providers/{providerId}/buckets/{bucket}/object:presigned-get` | GET용 Presigned URL 생성 |
-| POST | `/providers/{providerId}/buckets/{bucket}/object:presigned-put` | PUT용 Presigned URL 생성 |
+모든 엔드포인트는 **두 가지 조건을 모두 만족**해야 접근할 수 있다.
+- `ROLE_ADMIN` 또는 `ADMIN` authority
+- `services:storage_cloud` scope (`read` 또는 `write`)
+
+| 메서드 | 경로 | 설명 | scope |
+|---|---|---|---|
+| GET | `/providers` | 등록된 프로바이더 목록 조회 (`?health=true`로 헬스 포함) | `read` |
+| GET | `/providers/{providerId}/buckets` | 특정 프로바이더의 버킷 목록 조회 | `read` |
+| GET | `/providers/{providerId}/buckets/{bucket}/objects` | 버킷 내 객체 목록 (커서 페이징, prefix/delimiter 지원) | `read` |
+| GET | `/providers/{providerId}/buckets/{bucket}/object` | 객체 메타데이터 조회 (`?key=path/to/obj`) | `read` |
+| GET | `/providers/{providerId}/buckets/{bucket}/object:presigned-get` | GET용 Presigned URL 생성 | `read` |
+| POST | `/providers/{providerId}/buckets/{bucket}/object:presigned-put` | PUT용 Presigned URL 생성 | `write` |
 
 ## 설정
 ```yaml

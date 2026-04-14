@@ -220,6 +220,7 @@ studio:
       audit-enabled: true
   ai:
     enabled: true
+    default-provider: openai   # 필수 — 미설정 시 기동 실패
     providers:
       openai:
         type: OPENAI
@@ -227,8 +228,6 @@ studio:
           enabled: true
         embedding:
           enabled: true
-    # default-provider를 생략하면 Spring AI 경로가 자동으로 기본 provider로 승격된다.
-    # default-provider: openai  # 명시하면 LangChain base provider로 롤백
 spring:
   ai:
     openai:
