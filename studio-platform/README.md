@@ -39,6 +39,15 @@ logging:
     studio.one.platform.error: DEBUG
 ```
 
+## 대응 스타터
+이 모듈의 자동 구성은 `starter/studio-platform-starter`가 담당한다.
+`studio-platform-data`와 `studio-platform-autoconfigure`도 함께 포함되므로
+대부분의 경우 모듈을 직접 참조하는 대신 스타터를 사용한다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter"))
+```
+
 ## ADR
 - `docs/adr/0001-web-api-contracts.md`
 

@@ -1,0 +1,68 @@
+# studio-platform-ai
+
+AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근을 포트 인터페이스로 정의하고, RAG 인덱싱/검색 파이프라인과 텍스트 청킹 전략을 제공한다.
+이 모듈은 인터페이스와 서비스 로직만 포함하며, 런타임 구현체는 `studio-platform-starter-ai`가 담당한다.
+
+## 요약
+포트/어댑터 원칙에 따라 AI 공급자(OpenAI, Ollama, Google AI Gemini 등)를 추상화한다. 애플리케이션 코드는 이 모듈의 포트 인터페이스에만 의존하고, 실제 공급자는 스타터가 빈으로 등록한다.
+
+## 설계
+- `ChatPort` / `EmbeddingPort` / `VectorStorePort`: 공급자 중립 포트 인터페이스
+- `AiProviderRegistry`: 공급자 이름을 키로 ChatPort/EmbeddingPort를 관리하는 레지스트리
+- `TextChunker`: 긴 문서를 임베딩에 적합한 크기로 분할하는 전략 인터페이스
+- `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 조율하는 파이프라인 서비스
+  - 하이브리드 검색(벡터 0.7 + 렉시컬 0.3) → 쿼리 보강 → 순수 시맨틱 검색 순으로 폴백
+  - Caffeine 캐시 + Resilience4j Retry로 임베딩 호출을 보호
+
+## 주요 타입
+
+| 타입 | 패키지 | 설명 |
+|---|---|---|
+| `ChatPort` | `core.chat` | 챗 완성 요청/응답 계약 |
+| `EmbeddingPort` | `core.embedding` | 텍스트 임베딩 벡터 생성 계약 |
+| `VectorStorePort` | `core.vector` | 벡터 저장/검색/하이브리드 검색 계약 |
+| `AiProviderRegistry` | `core.registry` | 공급자별 ChatPort/EmbeddingPort 룩업 |
+| `TextChunker` | `core.chunk` | 문서를 TextChunk 리스트로 분할 |
+| `RagPipelineService` | `service.pipeline` | 인덱싱/검색 파이프라인 오케스트레이터 |
+| `AiProvider` | `core` | 지원 공급자 열거형 (OPENAI, OLLAMA, GOOGLE_AI_GEMINI) |
+
+## 구현 분리 원칙
+이 모듈은 구현체를 포함하지 않는다. 의존성 역전 원칙에 따라 애플리케이션은 `ChatPort` 등 포트만 참조하며, 공급자별 어댑터는 스타터 모듈이 조건부로 등록한다. 공급자를 교체하거나 추가할 때 이 모듈을 수정할 필요가 없다.
+
+## 사용법
+- `studio-platform-starter-ai` 의존성 추가 (런타임 구현 포함)
+- `AiProviderRegistry`에서 공급자 이름으로 `ChatPort` / `EmbeddingPort` 조회
+- `RagPipelineService`에 `EmbeddingPort`, `VectorStorePort`, `TextChunker` 주입 후 사용
+
+## 의존성 추가
+```kotlin
+dependencies {
+    implementation(project(":studio-platform-ai"))
+    // 런타임 구현은 스타터 사용
+    runtimeOnly(project(":starter:studio-platform-starter-ai"))
+}
+```
+
+## 사용 예시
+```java
+// 레지스트리에서 포트 조회
+ChatPort chat = aiProviderRegistry.chatPort("openai");
+ChatResponse response = chat.chat(new ChatRequest(messages));
+
+// RAG 인덱싱
+ragPipelineService.index(RagIndexRequest.builder()
+    .documentId("doc-001")
+    .text(fullText)
+    .metadata(Map.of("objectType", "article", "objectId", "42"))
+    .build());
+
+// RAG 검색
+List<RagSearchResult> results = ragPipelineService.searchByObject(
+    new RagSearchRequest("검색어", 5), "article", "42");
+```
+
+## 관련 모듈
+- `studio-platform-starter-ai` — 공급자별 어댑터·벡터 스토어 자동 구성 (OpenAI, Ollama, Gemini, pgvector)
+- `studio-platform-starter-ai-web` — AI HTTP 엔드포인트 노출 (chat, embedding, RAG, vector)
+- `studio-platform-data` — 파일 텍스트 추출 (`FileContentExtractionService`)로 RAG 인덱싱 전처리
+- `studio-application-modules/content-embedding-pipeline` — 이 모듈의 포트를 활용해 첨부파일 임베딩·RAG 인덱싱을 수행하는 소비자

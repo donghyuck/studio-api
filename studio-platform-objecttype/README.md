@@ -306,3 +306,14 @@ ObjectTypePolicyDto:
 - DB/Repository 인프라는 `studio-platform-data`
 
 의존 방향은 `platform → objecttype → data`로 유지합니다.
+
+## 대응 스타터
+이 모듈의 자동 구성(레지스트리 초기화, REST 엔드포인트 노출, YAML/DB 모드 선택)은
+`starter/studio-platform-starter-objecttype`이 담당한다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter-objecttype"))
+```
+
+스타터 상세 설정(YAML vs DB 모드, 캐시 TTL, 엔드포인트 경로)은
+`starter/studio-platform-starter-objecttype/README.md`를 참고한다.

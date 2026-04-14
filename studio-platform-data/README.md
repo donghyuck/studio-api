@@ -142,3 +142,14 @@ studio:
   필요한 파서를 리스트로 주입해 `FileParserFactory`를 만들고 `FileContentExtractionService`를 통해 `extractText(contentType, filename, fileOrStream)`을 호출한다. OCR을 쓰려면 `ImageFileParser` 생성 시 Tesseract 데이터 경로와 언어 코드를 전달한다.
 - **프로퍼티 저장소**  
   DB에 `TB_APPLICATION_PROPERTY` 테이블을 준비한 뒤 `JpaApplicationProperties` 또는 `JdbcApplicationProperties`를 빈으로 등록한다. `get/put/putAll/remove`를 통해 런타임 설정을 읽고 갱신할 수 있다.
+
+## 대응 스타터
+이 모듈은 `starter/studio-platform-starter`에 `api` 의존성으로 포함된다.
+별도로 추가하지 않아도 `studio-platform-starter`를 사용하면 자동으로 classpath에 포함된다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter"))
+```
+
+파일 텍스트 추출(`FileContentExtractionService`)을 AI 파이프라인과 함께 사용하려면
+`starter/studio-platform-starter-ai`도 참고한다.
