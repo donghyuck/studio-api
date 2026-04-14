@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import studio.one.platform.exception.PlatformRuntimeException;
@@ -37,6 +38,7 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         return toView(row);
     }
 
+    @Transactional
     @Override
     public ObjectTypeView upsert(ObjectTypeUpsertCommand request) {
         if (request.objectType() == null) {
@@ -62,6 +64,7 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         return toView(saved);
     }
 
+    @Transactional
     @Override
     public ObjectTypeView patch(int objectType, ObjectTypePatchCommand request) {
         ObjectTypeRow existing = store.findByType(objectType)
@@ -93,6 +96,7 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
                 .orElse(null);
     }
 
+    @Transactional
     @Override
     public ObjectTypePolicyView upsertPolicy(int objectType, ObjectTypePolicyUpsertCommand request) {
         ensureTypeExists(objectType);
@@ -115,6 +119,7 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         return toPolicyView(saved);
     }
 
+    @Transactional
     @Override
     public void delete(int objectType) {
         ensureTypeExists(objectType);
