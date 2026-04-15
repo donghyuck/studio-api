@@ -7,9 +7,16 @@
 - query 없는 object-scope RAG 조회가 과도한 chunk를 반환하지 않도록 `studio.ai.pipeline.object-scope.default-list-limit`, `max-list-limit` 설정과 service layer clamp를 추가했다.
 - `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수와 score 포함 여부를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
 - hybrid search weight는 합계가 0보다 커야 하며, context 문자 수 한도 초과 시 chunk를 중간 절단하지 않고 제외하도록 명확히 했다.
+- Issue #203의 RAG 품질 개선 Phase 2 범위로 live LLM 호출 없이 동작하는 deterministic RAG smoke fixture를 추가했다.
+- 한국어 정책형 fixture와 첨부 요약형 fixture를 추가해 한국어 질의가 기대 chunk로 매핑되는지, object scope 검색이 다른 첨부 chunk를 반환하지 않는지, `listByObject`가 chunk 순서를 보존하는지 검증한다.
+- Phase 1의 context truncation 구현에 의존하는 검증은 이번 범위에서 제외하고 후속 Phase 1/통합 검증 대상으로 남겼다.
+- 이 작업은 PR #207의 RAG 설정화 변경과 통합 검증되도록 `2.x` 최신으로 rebase했다.
 
 ### 검증
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test --rerun-tasks`
+- `gradle :studio-platform-ai:test --tests 'studio.one.platform.ai.service.pipeline.RagQualitySmokeTest'`
+- `./gradlew :studio-platform-ai:test`
+- `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `git diff --check`
 
 ## 2026-04-15
