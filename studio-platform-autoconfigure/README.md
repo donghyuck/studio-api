@@ -76,6 +76,11 @@ public class MyFeatureConfiguration {
 ## 주의
 이 모듈은 단독으로 사용하지 않는다. `studio-platform-starter` 또는 기능별 스타터를 통해 자동 구성 경로에 포함된다.
 
+`starter/studio-platform-starter`에는 과거 오타 패키지 경로인 `perisitence`와
+`studio-platform-autoconfigure`의 `perisistence` 호환 경로가 일부 남아 있다.
+신규 코드와 문서 예시는 정상 패키지명 `persistence`를 기준으로 작성한다. 기존 오타
+경로는 호환을 위한 bridge로만 유지한다.
+
 ## 관련 모듈
 - `starter/studio-platform-starter` — 이 모듈을 포함해 플랫폼 공통 자동 구성을 활성화
 - `studio-platform-security` — `ConditionalOnProperties`/감사 설정 활용

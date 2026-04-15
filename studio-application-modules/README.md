@@ -40,9 +40,19 @@
 - 엔드포인트(기본 `studio.features.attachment.web.mgmt-base-path`, 예: `/api/mgmt/attachments`):
   - `GET /{id}/embedding?storeVector=true|false`: 텍스트 추출 후 임베딩 생성, storeVector=true 시 벡터 스토어 업서트.
   - `GET /{id}/embedding/exists`: 해당 첨부 벡터 존재 여부 확인.
+  - `GET /{id}/rag/metadata`: 첨부파일 RAG 메타데이터 조회.
   - `POST /{id}/rag/index`: 추출 텍스트를 RAG 인덱스에 등록(메타데이터/키워드 옵션 포함).
   - `POST /rag/search`: RAG 인덱스 검색.
 - 권한: 컨트롤러는 attachment 스코프 인가(`features:attachment` write/read)와 동일하게 동작. 빈이 없을 경우 501(NOT_IMPLEMENTED)로 안내 응답.
+
+## Template 서비스
+- 의존성: `studio-application-modules/template-service` 또는 `studio-application-starter-template`.
+- 활성화: `studio.features.template.enabled=true`.
+- 저장소: `studio.features.template.persistence=jpa|jdbc` (전역 `studio.persistence.type` 미설정 시 기본 jpa).
+- REST: `studio.features.template.web.enabled=true` 시 `/api/mgmt/templates` 기본 경로에 `TemplateMgmtController` 노출.
+- API/서비스: `TemplatesService`로 템플릿 CRUD와 FreeMarker 기반 제목/본문 렌더링을 수행한다.
+- 엔드포인트: `POST /`, `GET /`, `GET /{templateId}`, `GET /name/{name}`, `PUT /{templateId}`, `DELETE /{templateId}`, `POST /{templateId}/render/body`, `POST /{templateId}/render/subject`.
+- 권한: `features:template/read`, `features:template/write`, `features:template/delete`.
 
 ## Mail 서비스
 - 의존성: `studio-application-modules/mail-service` 또는 `studio-application-starter-mail`.

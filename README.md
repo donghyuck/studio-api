@@ -3,7 +3,7 @@
 [![release](https://img.shields.io/badge/release-2.0.0-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
-모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다.
+모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다.
 
 ## 빠른 시작
 1. JDK 17과 Gradle 실행 환경을 준비한다.
@@ -28,7 +28,7 @@
 ## 레포지토리 구성
 ```
 starter/                         # Spring Boot 스타터 모음 (자동 구성)
-studio-application-modules/      # 애플리케이션 기능 모듈 (attachment, avatar, embedding pipeline)
+studio-application-modules/      # 애플리케이션 기능 모듈 (attachment, avatar, embedding pipeline, template, mail)
 studio-platform/                 # 코어 플랫폼 라이브러리
 studio-platform-objecttype/      # objectType 레지스트리/정책/런타임 검증 구현
 studio-platform-ai/              # AI 포트/서비스/컨트롤러
@@ -69,7 +69,33 @@ dependencies {
 - 공통 웹/데이터/JPA 기반은 `:starter:studio-platform-starter`
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`와 `:studio-platform-user-default`
-- 첨부/메일/아바타 같은 기능 모듈은 각 application starter를 추가
+- objectType 정책/검증이 필요하면 `:starter:studio-platform-starter-objecttype`
+- STOMP/WebSocket 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
+- 첨부/아바타/템플릿/메일 같은 기능 모듈은 각 application starter를 추가
+
+대표 조합 예시:
+
+```kotlin
+// 기본 인증 앱
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-security"))
+implementation(project(":starter:studio-platform-starter-user"))
+implementation(project(":studio-platform-user-default"))
+
+// 첨부 + AI 임베딩 앱
+implementation(project(":starter:studio-application-starter-attachment"))
+implementation(project(":studio-application-modules:content-embedding-pipeline"))
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation("org.springframework.ai:spring-ai-starter-model-openai")
+
+// 실시간 알림 앱
+implementation(project(":starter:studio-platform-starter-realtime"))
+implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
+// 템플릿 + 메일 앱
+implementation(project(":starter:studio-application-starter-template"))
+implementation(project(":starter:studio-application-starter-mail"))
+```
 
 ### AI 스타터 사용 시 주의사항
 `studio-platform-starter-ai`는 provider 라이브러리를 `compileOnly`로만 제공하므로,
@@ -190,6 +216,15 @@ scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 - `JASYPT_HTTP_TOKEN`
 - `OPENAI_API_KEY`
 - `NEXUS_USERNAME`, `NEXUS_PASSWORD`
+
+| 환경변수 | 관련 기능/스타터 | 미설정 시 동작 |
+|---|---|---|
+| `STUDIO_JWT_SECRET` | `studio-platform-starter-security` | JWT 활성화 시 기동 실패 |
+| `JASYPT_ENCRYPTOR_PASSWORD` | `studio-platform-starter-jasypt` | 암호화 프로퍼티 복호화 실패 |
+| `JASYPT_HTTP_TOKEN` | `studio-platform-starter-jasypt` | 내부 Jasypt HTTP 엔드포인트 보호 토큰으로 사용 |
+| `OPENAI_API_KEY` | `studio-platform-starter-ai` + OpenAI provider | OpenAI provider 활성화 시 기동 실패 |
+| `GOOGLE_API_KEY` 또는 `GOOGLE_AI_API_KEY` | `studio-platform-starter-ai` + Google GenAI provider | Google provider 활성화 시 기동 실패 |
+| `NEXUS_USERNAME`, `NEXUS_PASSWORD`, `NEXUS_URL` | `scripts/publish-local-nexus.sh` | 로컬 Nexus 배포 스크립트 실패 |
 
 ## 기본 설정 예시
 ```yaml

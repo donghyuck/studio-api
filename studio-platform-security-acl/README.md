@@ -82,6 +82,11 @@ ACL 감사 로그는 INFO 레벨에서 `ACL_AUDIT` prefix로 출력됩니다.
 - 캐시 이름은 `studio.security.acl.cache-name`으로 설정
 - `DomainPolicyRefreshEvent` 발생 시 캐시 전체 삭제
 
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/security-acl/{postgres,mysql,mariadb}/V500__create_acl_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 security-acl 범위(V500-V599)를 따른다.
+
 ## 외부 모듈 사용
 외부 모듈은 인터페이스만 의존합니다.
 ```java

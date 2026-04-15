@@ -147,5 +147,6 @@ studio:
 - JPA 사용 시 `EntityManagerFactory`가 필요하다.
 - JDBC 모드에서는 `JdbcTemplate` 기반 리포지토리가 사용된다.
 - 기능을 끄려면 `studio.features.user.enabled=false`로 비활성화한다.
-- PostgreSQL 스키마는 `studio-platform-user-default`에 포함된다:
-  `studio-platform-user-default/src/main/resources/schema/user/postgres/V0__create_user_tables.sql`
+- 사용자 스키마는 `studio-platform-user-default`에 포함된다:
+  `studio-platform-user-default/src/main/resources/schema/user/{db}/V300__create_user_tables.sql`
+  (`docs/flyway-versioning.md`의 user 범위 V300-V399 참고)

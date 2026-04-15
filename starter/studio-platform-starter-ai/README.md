@@ -172,6 +172,7 @@ studio:
 - `studio-platform-ai` — 이 스타터가 구현하는 포트 인터페이스 모듈
 - `studio-platform-starter-ai-web` — AI HTTP 엔드포인트를 노출하는 짝 스타터 (이 스타터와 함께 사용)
 - `studio-application-modules/content-embedding-pipeline` — 이 스타터의 `EmbeddingPort`/`VectorStorePort`를 소비하는 임베딩 파이프라인 모듈
+- `docs/dev/spring-ai-openai.md` — OpenAI provider의 Spring AI 전환 방향과 롤백 참고 문서
 
 ## 5) 참고 사항
 

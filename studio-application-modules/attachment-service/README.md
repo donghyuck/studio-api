@@ -159,6 +159,11 @@ objecttypes:
 - objecttype 정책 검증이 활성화되면 용량/확장자/MIME 정책 위반 시 `POLICY_VIOLATION` 에러가 발생한다.
 - 기본 캐시 이름은 `attachments.byId`이며, 캐시 설정이 필요하면 전역 CacheManager에 매핑을 추가한다.
 
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/attachment/{postgres,mysql,mariadb}/V800__create_attachment_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 attachment 범위(V800-V899)를 따른다.
+
 ## 빠른 시작
 1. `studio.features.attachment.enabled=true` 와 `studio.features.attachment.web.enabled=true` 설정.
 2. 필요 시 `studio.features.attachment.persistence`(jpa/jdbc)와 `studio.features.attachment.storage.*` 조정.

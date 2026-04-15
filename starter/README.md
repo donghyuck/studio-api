@@ -7,7 +7,9 @@
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`
 - ACL이 필요하면 `:starter:studio-platform-starter-security-acl`
-- 첨부/아바타/메일은 각 application starter를 추가
+- objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
+- WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
+- 첨부/아바타/템플릿/메일은 각 application starter를 추가
 
 최소 예시:
 
@@ -28,11 +30,48 @@ dependencies {
 - `studio-platform-starter-security`: Spring Security 기본 구성과 인증/인가 훅
 - `studio-platform-starter-security-acl`: ACL 엔티티/리포지토리 스캔과 ACL 연동
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
+- `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성
+- `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
 - `studio-platform-starter-ai`: OpenAI/Spring AI, 벡터스토어, RAG 등 AI core 구성
 - `studio-platform-starter-ai-web`: AI HTTP endpoint와 JSON component 노출
 - `studio-platform-starter-jasypt`: Jasypt 암호화/복호화 지원
 - `studio-platform-starter-objectstorage`, `-aws`, `-oci`: 오브젝트 스토리지 공통 및 provider별 구성
 - `studio-application-starter-attachment`, `-avatar`, `-template`, `-mail`: 애플리케이션 기능 모듈 자동 구성
+
+## 대표 조합
+
+**기본 인증 앱**
+```kotlin
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-security"))
+implementation(project(":starter:studio-platform-starter-user"))
+implementation(project(":studio-platform-user-default"))
+```
+
+**첨부파일 + AI 임베딩 앱**
+```kotlin
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-security"))
+implementation(project(":starter:studio-platform-starter-user"))
+implementation(project(":starter:studio-application-starter-attachment"))
+implementation(project(":studio-application-modules:content-embedding-pipeline"))
+implementation(project(":starter:studio-platform-starter-ai"))
+implementation("org.springframework.ai:spring-ai-starter-model-openai")
+```
+
+**실시간 알림 앱**
+```kotlin
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-security"))
+implementation(project(":starter:studio-platform-starter-realtime"))
+implementation("org.springframework.boot:spring-boot-starter-data-redis")
+```
+
+**템플릿 + 메일 앱**
+```kotlin
+implementation(project(":starter:studio-application-starter-template"))
+implementation(project(":starter:studio-application-starter-mail"))
+```
 
 ## studio-platform-starter-ai 사용법
 
@@ -152,6 +191,18 @@ spring:
 ## 문서 바로가기
 - 루트 개요: `../README.md`
 - 애플리케이션 모듈 가이드: `../studio-application-modules/README.md`
+- 새 스타터 작성 절차: `STARTER_GUIDE.md`
+- 플랫폼 starter 상세: `studio-platform-starter/README.md`
+- Security starter 상세: `studio-platform-starter-security/README.md`
+- Security ACL starter 상세: `studio-platform-starter-security-acl/README.md`
 - 사용자 starter 상세: `studio-platform-starter-user/README.md`
 - Jasypt starter 상세: `studio-platform-starter-jasypt/README.md`
+- ObjectType starter 상세: `studio-platform-starter-objecttype/README.md`
+- Realtime starter 상세: `studio-platform-starter-realtime/README.md`
+- AI starter 상세: `studio-platform-starter-ai/README.md`
+- AI Web starter 상세: `studio-platform-starter-ai-web/README.md`
+- Object Storage starter 상세: `studio-platform-starter-objectstorage/README.md`
+- Attachment starter 상세: `studio-application-starter-attachment/README.md`
+- Avatar starter 상세: `studio-application-starter-avatar/README.md`
+- Template starter 상세: `studio-application-starter-template/README.md`
 - Mail starter 상세: `studio-application-starter-mail/README.md`

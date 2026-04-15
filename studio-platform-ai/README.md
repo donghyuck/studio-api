@@ -66,3 +66,8 @@ List<RagSearchResult> results = ragPipelineService.searchByObject(
 - `studio-platform-starter-ai-web` — AI HTTP 엔드포인트 노출 (chat, embedding, RAG, vector)
 - `studio-platform-data` — 파일 텍스트 추출 (`FileContentExtractionService`)로 RAG 인덱싱 전처리
 - `studio-application-modules/content-embedding-pipeline` — 이 모듈의 포트를 활용해 첨부파일 임베딩·RAG 인덱싱을 수행하는 소비자
+
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V600__create_vector_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 ai 범위(V600-V699)를 따른다.

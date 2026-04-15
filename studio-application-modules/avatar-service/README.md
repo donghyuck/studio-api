@@ -122,6 +122,8 @@ src/main/resources/schema/avatar/
   └── mysql/V700__create_avatar_tables.sql
 ```
 
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 avatar 범위(V700-V799)를 따른다.
+
 ## 제공 기능
 
 - 사용자별 아바타 업로드와 교체

@@ -28,6 +28,11 @@
 - DB 프로퍼티 테이블: `TB_APPLICATION_PROPERTY`
 - OCR 사용 시 Tesseract 데이터 경로/언어 설정 필요
 
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/data/{postgres,mysql,mariadb}/V100__create_property_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 data 범위(V100-V199)를 따른다.
+
 ## 환경별 예시
 - **dev**: SQL XML 디렉터리 변경이 잦으면 스캔 주기를 짧게(DirectoryScanner 기본값 조정)
 - **stage**: SQL 변경 배포 전 `sql` 리소스 검증(누락/중복 키) 체크

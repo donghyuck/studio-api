@@ -3,12 +3,20 @@
 ## 2026-04-14
 
 ### 변경됨
+- README 계층을 소스 기준으로 현행화해 활성 모듈/스타터 목록, 대표 스타터 조합, 환경변수 매핑을 보강했다.
+- `starter/studio-platform-starter-realtime/README.md`를 추가해 STOMP/WebSocket, Redis Pub/Sub, JWT handshake 자동 구성을 문서화했다.
+- schema 보유 모듈 README의 Flyway 버전 참조를 실제 `Vxxx__*.sql` 파일명과 `docs/flyway-versioning.md` 기준으로 정리했다.
+- `docs/documentation-improvements.md`를 현재 상태/완료 항목/즉시 보완 후보/표준화/소스 품질 개선 후보 기준으로 재정리했다.
 - `template-service`의 관리 컨트롤러 클래스를 `TemplateController`에서 `TemplateMgmtController`로 변경해 관리용 컨트롤러 명명 규칙을 맞췄다.
 - `GET /api/mgmt/templates` 계열 응답의 `createdBy`, `updatedBy`를 숫자 userId 대신 `{ userId, username }` 형태의 `UserDto`로 변경했다.
 - `template-service`에 사용자 응답 매핑 회귀 테스트를 추가하고, 기존 권한 테스트를 새 컨트롤러명 기준으로 갱신했다.
 - `starter:studio-application-starter-template`의 auto-configuration과 관련 README가 새 컨트롤러명 `TemplateMgmtController`를 참조하도록 맞춰 starter 컴파일 오류를 수정했다.
 
 ### 검증
+- `rg "TemplateController|V0__" README.md starter studio-application-modules studio-platform* docs -g 'README.md' -g '*.md' -g '!**/build/**' -g '!**/bin/**'`
+- `rg "STARTER_GUIDE|spring-ai-openai|flyway-versioning|studio-platform-starter-realtime/README.md" README.md starter studio-application-modules studio-platform* docs -g 'README.md' -g '*.md' -g '!**/build/**' -g '!**/bin/**'`
+- README 누락 확인 스크립트 (`settings.gradle.kts`의 공식 include 기준)
+- `./gradlew :starter:studio-platform-starter-realtime:compileJava`
 - `./gradlew :studio-application-modules:template-service:test`
 - `./gradlew :starter:studio-application-starter-template:compileJava`
 

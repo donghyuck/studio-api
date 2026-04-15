@@ -138,6 +138,11 @@ objecttypes:
 
 ## 캐시/리바인드
 - registry/policy 캐시는 `studio.objecttype.*.cache` 설정으로 활성화하며 TTL 기반이다.
+
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/objecttype/{postgres,mysql,mariadb}/V200__create_objecttype_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V299)를 따른다.
 - TTL이 `0` 또는 음수면 캐시를 우회하고 원본 구현을 그대로 호출한다.
 - `ObjectRebindService.rebind()` 호출 시 캐시가 무효화되도록 연결되어 있다.
 
