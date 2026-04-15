@@ -216,6 +216,7 @@ public class VectorController {
         Map<String, Object> metadata = document.metadata();
         return new VectorSearchResultDto(
                 document.id(),
+                document.id(),
                 document.content(),
                 metadata == null ? Collections.emptyMap() : Map.copyOf(metadata),
                 result.score());

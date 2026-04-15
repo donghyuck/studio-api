@@ -103,6 +103,8 @@ class OpenAiProviderAutoConfigurationTest {
             ChatController controller = context.getBean(ChatController.class);
 
             ResponseEntity<ApiResponse<ChatResponseDto>> response = controller.chat(new ChatRequestDto(
+                    null,
+                    null,
                     List.of(new ChatMessageDto("user", "hello")),
                     null,
                     null,

@@ -6,6 +6,7 @@ import java.util.Map;
  * DTO for vector search hits.
  */
 public record VectorSearchResultDto(
+        String id,
         String documentId,
         String content,
         Map<String, Object> metadata,

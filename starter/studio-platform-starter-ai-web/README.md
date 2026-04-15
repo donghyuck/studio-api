@@ -74,6 +74,8 @@ Authorization: Bearer <token>
 Content-Type: application/json
 
 {
+  "provider": "openai",
+  "systemPrompt": "답변은 간결하게 작성하세요.",
   "messages": [
     {"role": "user", "content": "안녕하세요"}
   ],
@@ -82,6 +84,34 @@ Content-Type: application/json
   "maxOutputTokens": 512
 }
 ```
+
+`provider`를 생략하면 `studio.ai.default-provider`가 사용된다. `systemPrompt`가 있으면
+서버가 첫 system message로 변환해 provider에 전달한다.
+
+### RAG Chat 예시
+
+```http
+POST /api/ai/chat/rag
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "chat": {
+    "provider": "openai",
+    "systemPrompt": "제공된 파일 컨텍스트를 기반으로 답변하세요.",
+    "messages": [
+      {"role": "user", "content": "이 파일의 핵심 내용을 요약해줘"}
+    ]
+  },
+  "ragQuery": "핵심 내용 요약",
+  "ragTopK": 3,
+  "objectType": "attachment",
+  "objectId": "123"
+}
+```
+
+`objectType`/`objectId`를 지정하면 해당 객체 범위의 RAG 인덱스에서 검색한다. `ragQuery`가 없고
+객체 범위만 있으면 저장된 chunk를 순서대로 가져와 컨텍스트로 사용한다.
 
 ### 임베딩 요청 예시
 
@@ -110,6 +140,35 @@ Content-Type: application/json
 }
 ```
 
+### 파일 기반 RAG 흐름
+
+첨부파일 기반 답변은 `content-embedding-pipeline`과 함께 사용한다.
+
+1. `POST /api/mgmt/attachments/{attachmentId}/rag/index`로 파일 텍스트를 추출하고 RAG 인덱스에 저장한다.
+2. `GET /api/mgmt/attachments/{attachmentId}/rag/metadata`로 `objectType=attachment`, `objectId=<attachmentId>` 메타데이터를 확인한다.
+3. `POST /api/ai/chat/rag`에 `objectType=attachment`, `objectId=<attachmentId>`를 넘겨 해당 파일 내용 기반 답변을 요청한다.
+
+`/api/ai/chat/rag`에서 객체 범위 RAG를 사용할 때 현재 안전하게 지원되는 범위는
+`objectType=attachment`와 구체적인 `objectId` 조합이다. 이 경우 기본 AI chat 권한
+(`services:ai_chat write`) 외에 첨부 읽기 권한(`features:attachment read`)도 필요하다.
+
+### 벡터 검색 응답
+
+`POST /api/ai/vectors/search` 응답 항목은 기존 `documentId`와 클라이언트 grid 호환용 `id`를 함께 반환한다.
+
+```json
+{
+  "id": "doc-1",
+  "documentId": "doc-1",
+  "content": "...",
+  "metadata": {
+    "objectType": "attachment",
+    "objectId": "123"
+  },
+  "score": 0.91
+}
+```
+
 ## 4) 자동 구성되는 주요 빈 (엔드포인트)
 
 | 빈 | 설명 |
@@ -125,6 +184,7 @@ Content-Type: application/json
 
 - `VectorController`는 `VectorStorePort` 빈이 없어도 등록되지만, 벡터 관련 요청 시 HTTP 503을 반환한다.
 - 벡터 검색 시 `hybrid=true`를 설정하면 BM25 + 벡터 하이브리드 검색이 활성화된다(query 텍스트 필수).
+- 채팅 API의 `provider`는 Studio provider id 선택만 담당한다. OpenAI 런타임 설정은 계속 `spring.ai.openai.*`가 소유한다.
 - `query-rewrite` 엔드포인트는 Mustache 템플릿(`query-rewrite`)이 없으면 내장 폴백 프롬프트를 사용한다.
 - 모든 엔드포인트는 Spring Security의 메서드 레벨 권한 검사(`@PreAuthorize`)를 사용한다.
   `endpointAuthz` 빈이 컨텍스트에 등록되어 있어야 한다.
