@@ -75,13 +75,12 @@ trap cleanup EXIT
 readarray_compat() {
   local __var_name="$1"
   local __line
-  local __items=()
+
+  eval "${__var_name}=()"
 
   while IFS= read -r __line; do
-    __items+=("${__line}")
+    eval "${__var_name}+=(\"\${__line}\")"
   done
-
-  eval "${__var_name}=(\"\${__items[@]}\")"
 }
 
 echo "[INFO] cloning ${UPSTREAM_REPO} (${UPSTREAM_REF})"

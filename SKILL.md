@@ -1,67 +1,62 @@
 ---
-name: karpathy-guidelines
-description: Behavioral guidelines to reduce common LLM coding mistakes. Use when writing, reviewing, or refactoring code to avoid overcomplication, make surgical changes, surface assumptions, and define verifiable success criteria.
+name: devops-policy-template-maintainer
+description: Maintain this reusable AI-assisted DevOps policy template. Use task-specific skills for issue, MR, and commit drafting.
 license: MIT
 ---
 
-# Karpathy Guidelines
+# DevOps Policy Template Maintainer
 
-Behavioral guidelines to reduce common LLM coding mistakes, derived from [Andrej Karpathy's observations](https://x.com/karpathy/status/2015883857489522876) on LLM coding pitfalls.
+Use this skill when editing this repository.
 
-**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+## Mission
 
-## 1. Think Before Coding
+Keep this repository reusable across projects.
+Prefer fewer clearer files over more guidance.
+Every changed line must support policy distribution, policy maintenance, or agent operation.
 
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+## Working Rules
 
-Before implementing:
-- State your assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them - don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+- Treat this as a template repository, not a business system.
+- Do not add application code or product-specific behavior.
+- Reuse existing files before creating new files.
+- Keep policy sentences short and declarative.
+- Keep templates copy-ready for real teams.
+- Write policy explanations and workflow outputs in Korean unless the user asks otherwise.
+- Keep README focused on purpose, file roles, install, update, and application flow.
+- Keep AGENTS focused on agent execution rules.
+- Keep `AI_DEVELOPMENT_POLICY.md` focused on enforceable AI-assisted rules.
+- Keep `CONTRIBUTING.md` focused on human Git workflow.
+- Keep `.codex/agents/*.toml` as execution definitions.
+- Keep `docs/agents/*.md` as short selection guidance.
+- Keep task-specific details in `skills/*/SKILL.md`.
 
-## 2. Simplicity First
+## Task Rule Loading
 
-**Minimum code that solves the problem. Nothing speculative.**
+Do not assume repository-local `skills/*/SKILL.md` files are auto-loaded.
+Read the matching task rule before creating issue, MR, or commit artifacts.
+The user does not need to mention the skill name.
 
-- No features beyond what was asked.
-- No abstractions for single-use code.
-- No "flexibility" or "configurability" that wasn't requested.
-- No error handling for impossible scenarios.
-- If you write 200 lines and it could be 50, rewrite it.
+- Issue draft, update, or creation: `skills/write-issue/SKILL.md`
+- MR draft, update, or creation: `skills/write-mr/SKILL.md`
+- AI-assisted commit preparation: `skills/write-commit/SKILL.md`
 
-Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+## Change Discipline
 
-## 3. Surgical Changes
+Before editing, identify:
 
-**Touch only what you must. Clean up only your own mess.**
+1. the file role being clarified;
+2. the duplicate rule being removed or linked;
+3. the validation command or manual check.
 
-When editing existing code:
-- Don't "improve" adjacent code, comments, or formatting.
-- Don't refactor things that aren't broken.
-- Match existing style, even if you'd do it differently.
-- If you notice unrelated dead code, mention it - don't delete it.
+Do not add speculative configuration, optional process branches, or broad refactors.
+If two interpretations would produce different template behavior, ask first.
 
-When your changes create orphans:
-- Remove imports/variables/functions that YOUR changes made unused.
-- Don't remove pre-existing dead code unless asked.
+## Validation
 
-The test: Every changed line should trace directly to the user's request.
+For document-only changes, run a repository text check such as:
 
-## 4. Goal-Driven Execution
-
-**Define success criteria. Loop until verified.**
-
-Transform tasks into verifiable goals:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-
-For multi-step tasks, state a brief plan:
-```
-1. [Step] → verify: [check]
-2. [Step] → verify: [check]
-3. [Step] → verify: [check]
+```bash
+git diff --check
 ```
 
-Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+For script changes, run the changed script with a safe target or `--dry-run` when available.

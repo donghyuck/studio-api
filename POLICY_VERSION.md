@@ -1,8 +1,8 @@
 # Policy Version
 
-- Current Version: `v1.5.0`
+- Current Version: `v1.5.1`
 - Effective Date: `2026-03-18`
-- Last Updated: `2026-04-01`
+- Last Updated: `2026-04-15`
 
 ## Versioning Rules
 - 정책 파일 구조/규칙 변경 시 버전을 갱신한다.
@@ -21,6 +21,7 @@
   - `.gitmessage-ai-assisted.txt`
   - `.codex/config.toml`
   - `.codex/agents/*.toml`
+  - `skills/*/SKILL.md`
   - `.gitlab/issue_templates/default.md`
   - `.gitlab/merge_request_templates/default.md`
   - `docs/agents/*.md`
@@ -29,3 +30,8 @@
   - `scripts/install-policy.sh`
   - `scripts/update-policy.sh`
   - `scripts/update-codex-subagents.sh`
+
+## Template Repository Notes
+
+- `CHANGELOG.md`는 템플릿 저장소 변경 이력이며 대상 프로젝트에 배포하지 않는다.
+- 대상 프로젝트는 배포된 `POLICY_VERSION.md`로 정책 파일 세트의 기준 버전을 확인한다.
