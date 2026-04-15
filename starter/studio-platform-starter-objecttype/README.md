@@ -144,7 +144,7 @@ studio:
 
 - `ObjectTypeController` — 공개 조회 엔드포인트 (YAML·DB 모드 모두 활성화 가능)
 - `ObjectTypeMgmtController` — 관리 엔드포인트 (DB 모드에서 `ObjectTypeAdminService` 빈이 있을 때만 등록됨)
-- `GET /api/mgmt/object-types/{objectType}/policy/effective` — 저장 정책이 없을 때도 클라이언트 안내용 적용 정책을 반환한다. 저장 정책이면 `source=stored`, 내부 기본 정책이면 `source=default`다. 기본 정책은 현재 제한 없음(`maxFileMb`, `allowedExt`, `allowedMime`, `policyJson` 모두 `null`)이다.
+- `GET /api/mgmt/object-types/{objectType}/policy/effective` — 저장 정책이 없을 때도 클라이언트 안내용 적용 정책을 반환한다. 저장 정책이면 `source=stored`, 내부 기본 정책이면 `source=default`다. 기본 정책은 현재 제한 없음(`maxFileMb=null`, `allowedExt=""`, `allowedMime=""`, `policyJson="{}"`)이다.
 
 ## 6) 참고 사항
 - `studio-platform-objecttype` 모듈이 도메인 모델, 레지스트리, 정책 리졸버 구현을 제공하며,

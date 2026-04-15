@@ -191,9 +191,9 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         return new ObjectTypeEffectivePolicyView(
                 objectType,
                 null,
-                null,
-                null,
-                null,
+                "",
+                "",
+                "{}",
                 ObjectTypeEffectivePolicyView.Source.DEFAULT);
     }
 

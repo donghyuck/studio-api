@@ -168,7 +168,7 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V2
 
 - 저장된 정책이 있으면 저장 정책값과 `source=stored`를 반환한다.
 - 저장된 정책이 없으면 내부 기본 정책값과 `source=default`를 반환한다.
-- `source=default`의 현재 의미는 제한 없음이다. `maxFileMb`, `allowedExt`, `allowedMime`, `policyJson`은 모두 `null`로 내려간다.
+- `source=default`의 현재 의미는 제한 없음이다. `maxFileMb=null`은 용량 제한 없음, `allowedExt=""`는 확장자 제한 없음, `allowedMime=""`는 MIME 제한 없음, `policyJson="{}"`은 추가 정책 없음으로 내려간다.
 
 클라이언트 안내 기준:
 - `source=stored`: “저장된 정책이 적용됩니다.”
