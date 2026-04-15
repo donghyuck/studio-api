@@ -24,6 +24,7 @@ import studio.one.platform.objecttype.service.ObjectTypePolicyUpsertCommand;
 import studio.one.platform.objecttype.service.ObjectTypeUpsertCommand;
 import studio.one.platform.objecttype.service.ObjectTypeView;
 import studio.one.platform.objecttype.web.dto.ObjectTypeDto;
+import studio.one.platform.objecttype.web.dto.ObjectTypeEffectivePolicyDto;
 import studio.one.platform.objecttype.web.dto.ObjectTypePatchRequest;
 import studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto;
 import studio.one.platform.objecttype.web.dto.ObjectTypePolicyUpsertRequest;
@@ -84,6 +85,12 @@ public class ObjectTypeMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.getPolicy(objectType))));
     }
 
+    @GetMapping("/{objectType}/policy/effective")
+    public ResponseEntity<ApiResponse<ObjectTypeEffectivePolicyDto>> getEffectivePolicy(
+            @PathVariable @Min(1) int objectType) {
+        return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.getEffectivePolicy(objectType))));
+    }
+
     @PutMapping("/{objectType}/policy")
     public ResponseEntity<ApiResponse<ObjectTypePolicyDto>> upsertPolicy(
             @PathVariable @Min(1) int objectType,
@@ -136,6 +143,18 @@ public class ObjectTypeMgmtController {
                 .updatedBy(view.updatedBy())
                 .updatedById(view.updatedById())
                 .updatedAt(view.updatedAt())
+                .build();
+    }
+
+    private ObjectTypeEffectivePolicyDto toDto(
+            studio.one.platform.objecttype.service.ObjectTypeEffectivePolicyView view) {
+        return ObjectTypeEffectivePolicyDto.builder()
+                .objectType(view.objectType())
+                .maxFileMb(view.maxFileMb())
+                .allowedExt(view.allowedExt())
+                .allowedMime(view.allowedMime())
+                .policyJson(view.policyJson())
+                .source(view.source().value())
                 .build();
     }
 
