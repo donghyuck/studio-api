@@ -8,6 +8,8 @@ import java.util.List;
  * DTO for submitting chat requests.
  */
 public record ChatRequestDto(
+        String provider,
+        String systemPrompt,
         @NotEmpty(message = "At least one chat message is required")
         @Valid List<ChatMessageDto> messages,
         String model,

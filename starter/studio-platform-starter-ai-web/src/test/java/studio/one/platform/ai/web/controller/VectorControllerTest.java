@@ -53,6 +53,7 @@ class VectorControllerTest {
                 new VectorSearchRequestDto("hello", null, 3, false, "attachment", "42", null));
 
         assertThat(response.getBody().getData()).hasSize(1);
+        assertThat(response.getBody().getData().get(0).id()).isEqualTo("doc-1");
         assertThat(response.getBody().getData().get(0).documentId()).isEqualTo("doc-1");
         verify(vectorStorePort).searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class));
     }

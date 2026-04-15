@@ -43,6 +43,7 @@ import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
+import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
@@ -58,7 +59,7 @@ import studio.one.platform.web.dto.ApiResponse;
  * 
  * REST controller exposing chat completions. The base path defaults to {@code /api/ai}
  * and can be overridden with {@code studio.ai.endpoints.base-path}. Requests are
- * delegated to {@link ChatPort} and wrapped with {@link ApiResponse}.
+ * delegated through {@link AiProviderRegistry} and wrapped with {@link ApiResponse}.
  */
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/chat")
@@ -66,11 +67,11 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 public class ChatController {
 
-    private final ChatPort chatPort;
+    private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
 
-    public ChatController(ChatPort chatPort, RagPipelineService ragPipelineService) {
-        this.chatPort = Objects.requireNonNull(chatPort, "chatPort");
+    public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
+        this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
     }
 
@@ -108,7 +109,7 @@ public class ChatController {
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) {
-        ChatResponse response = chatPort.chat(toDomainChatRequest(request));
+        ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(response)));
     }
 
@@ -156,9 +157,14 @@ public class ChatController {
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
         augmentedMessages.add(new ChatMessageDto("system", context));
+        if (chat.systemPrompt() != null && !chat.systemPrompt().isBlank()) {
+            augmentedMessages.add(new ChatMessageDto("system", chat.systemPrompt()));
+        }
         augmentedMessages.addAll(chat.messages());
 
         ChatRequestDto augmented = new ChatRequestDto(
+                chat.provider(),
+                null,
                 augmentedMessages,
                 chat.model(),
                 chat.temperature(),
@@ -167,12 +173,12 @@ public class ChatController {
                 chat.maxOutputTokens(),
                 chat.stopSequences());
 
-        ChatResponse response = chatPort.chat(toDomainChatRequest(augmented));
+        ChatResponse response = chatPort(chat.provider()).chat(toDomainChatRequest(augmented));
         return ResponseEntity.ok(ApiResponse.ok(toDto(response)));
     }
 
     private ChatRequest toDomainChatRequest(ChatRequestDto request) {
-        ChatRequest.Builder builder = ChatRequest.builder().messages(toDomainMessages(request.messages()));
+        ChatRequest.Builder builder = ChatRequest.builder().messages(toDomainMessages(request));
         if (request.model() != null) {
             builder.model(request.model());
         }
@@ -193,6 +199,10 @@ public class ChatController {
         }
         return builder.build();
     }
+
+    private ChatPort chatPort(String provider) {
+        return providerRegistry.chatPort(provider);
+    }
     
     private String truncate(String content, int maxLen) {
         if (content == null) {
@@ -204,7 +214,12 @@ public class ChatController {
         return content.substring(0, maxLen) + "...";
     }
 
-    private List<ChatMessage> toDomainMessages(List<ChatMessageDto> messages) {
+    private List<ChatMessage> toDomainMessages(ChatRequestDto request) {
+        List<ChatMessageDto> messages = new ArrayList<>();
+        if (request.systemPrompt() != null && !request.systemPrompt().isBlank()) {
+            messages.add(new ChatMessageDto("system", request.systemPrompt()));
+        }
+        messages.addAll(request.messages());
         return messages.stream()
                 .map(this::toDomainMessage)
                 .toList();

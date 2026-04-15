@@ -10,6 +10,7 @@ import org.springframework.lang.Nullable;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
@@ -27,8 +28,8 @@ import studio.one.platform.constant.PropertyKeys;
 public class AiWebAutoConfiguration {
 
     @Bean
-    ChatController chatController(ChatPort chatPort, RagPipelineService ragPipelineService) {
-        return new ChatController(chatPort, ragPipelineService);
+    ChatController chatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
+        return new ChatController(providerRegistry, ragPipelineService);
     }
 
     @Bean
