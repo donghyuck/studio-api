@@ -11,7 +11,8 @@ AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근
 - `AiProviderRegistry`: 공급자 이름을 키로 ChatPort/EmbeddingPort를 관리하는 레지스트리
 - `TextChunker`: 긴 문서를 임베딩에 적합한 크기로 분할하는 전략 인터페이스
 - `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 조율하는 파이프라인 서비스
-  - 하이브리드 검색(벡터 0.7 + 렉시컬 0.3) → 쿼리 보강 → 순수 시맨틱 검색 순으로 폴백
+  - 설정된 하이브리드 검색 비중 → 쿼리 보강 → 순수 시맨틱 검색 순으로 폴백
+  - query 없는 object-scope 조회는 설정된 기본/최대 limit 안에서 chunk를 반환
   - Caffeine 캐시 + Resilience4j Retry로 임베딩 호출을 보호
 
 ## 주요 타입
