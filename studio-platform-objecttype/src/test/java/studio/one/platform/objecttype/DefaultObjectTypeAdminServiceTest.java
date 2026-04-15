@@ -52,9 +52,9 @@ class DefaultObjectTypeAdminServiceTest {
 
         assertEquals(1001, result.objectType());
         assertNull(result.maxFileMb());
-        assertEquals("", result.allowedExt());
-        assertEquals("", result.allowedMime());
-        assertEquals("{}", result.policyJson());
+        assertNull(result.allowedExt());
+        assertNull(result.allowedMime());
+        assertNull(result.policyJson());
         assertEquals(ObjectTypeEffectivePolicyView.Source.DEFAULT, result.source());
     }
 

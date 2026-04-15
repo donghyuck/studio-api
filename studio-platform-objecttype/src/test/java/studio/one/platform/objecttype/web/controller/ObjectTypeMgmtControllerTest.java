@@ -101,16 +101,16 @@ class ObjectTypeMgmtControllerTest {
         ObjectTypeMgmtController controller = new ObjectTypeMgmtController(adminService, rebindService);
 
         when(adminService.getEffectivePolicy(1001))
-                .thenReturn(new ObjectTypeEffectivePolicyView(1001, null, "", "", "{}",
+                .thenReturn(new ObjectTypeEffectivePolicyView(1001, null, null, null, null,
                         ObjectTypeEffectivePolicyView.Source.DEFAULT));
 
         ResponseEntity<ApiResponse<ObjectTypeEffectivePolicyDto>> response = controller.getEffectivePolicy(1001);
 
         assertEquals(1001, response.getBody().getData().getObjectType());
         assertNull(response.getBody().getData().getMaxFileMb());
-        assertEquals("", response.getBody().getData().getAllowedExt());
-        assertEquals("", response.getBody().getData().getAllowedMime());
-        assertEquals("{}", response.getBody().getData().getPolicyJson());
+        assertNull(response.getBody().getData().getAllowedExt());
+        assertNull(response.getBody().getData().getAllowedMime());
+        assertNull(response.getBody().getData().getPolicyJson());
         assertEquals("default", response.getBody().getData().getSource());
         verify(adminService).getEffectivePolicy(1001);
     }

@@ -168,11 +168,11 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V2
 
 - 저장된 정책이 있으면 저장 정책값과 `source=stored`를 반환한다.
 - 저장된 정책이 없으면 내부 기본 정책값과 `source=default`를 반환한다.
-- `source=default`의 현재 의미는 제한 없음이다. `maxFileMb=null`은 용량 제한 없음, `allowedExt=""`는 확장자 제한 없음, `allowedMime=""`는 MIME 제한 없음, `policyJson="{}"`은 추가 정책 없음으로 내려간다.
+- `source=default`의 현재 의미는 ObjectType별 추가 정책 없음이다. API 응답은 `maxFileMb=null`, `allowedExt=null`, `allowedMime=null`, `policyJson=null`로 내려가며, 클라이언트는 이를 용량/확장자/MIME/추가 정책 제한 없음으로 안내한다. 단, Spring multipart 제한이나 attachment 서비스 공통 제한은 별도로 적용될 수 있다.
 
 클라이언트 안내 기준:
 - `source=stored`: “저장된 정책이 적용됩니다.”
-- `source=default`: “저장된 정책이 없어 기본 정책이 적용됩니다. 현재 기본 정책은 제한 없음입니다.”
+- `source=default`: “저장된 ObjectType 정책이 없어 ObjectType별 추가 제한은 적용되지 않습니다. 서버 공통 업로드 제한은 별도로 적용될 수 있습니다.”
 
 ## 런타임(클라이언트용 API) 가이드
 런타임 API는 업로드 검증/정의 조회를 위한 엔드포인트다.
