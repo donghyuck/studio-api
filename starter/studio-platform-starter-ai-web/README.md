@@ -144,9 +144,13 @@ Content-Type: application/json
 
 첨부파일 기반 답변은 `content-embedding-pipeline`과 함께 사용한다.
 
-1. `POST /api/mgmt/files/{attachmentId}/rag/index`로 파일 텍스트를 추출하고 RAG 인덱스에 저장한다.
-2. `GET /api/mgmt/files/{attachmentId}/rag/metadata`로 `objectType=attachment`, `objectId=<attachmentId>` 메타데이터를 확인한다.
+1. `POST /api/mgmt/attachments/{attachmentId}/rag/index`로 파일 텍스트를 추출하고 RAG 인덱스에 저장한다.
+2. `GET /api/mgmt/attachments/{attachmentId}/rag/metadata`로 `objectType=attachment`, `objectId=<attachmentId>` 메타데이터를 확인한다.
 3. `POST /api/ai/chat/rag`에 `objectType=attachment`, `objectId=<attachmentId>`를 넘겨 해당 파일 내용 기반 답변을 요청한다.
+
+`/api/ai/chat/rag`에서 객체 범위 RAG를 사용할 때 현재 안전하게 지원되는 범위는
+`objectType=attachment`와 구체적인 `objectId` 조합이다. 이 경우 기본 AI chat 권한
+(`services:ai_chat write`) 외에 첨부 읽기 권한(`features:attachment read`)도 필요하다.
 
 ### 벡터 검색 응답
 

@@ -1,9 +1,10 @@
 package studio.one.platform.ai.web.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
@@ -84,6 +87,60 @@ class ChatControllerTest {
 
         verify(providerRegistry).chatPort(null);
         verify(defaultChatPort).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void chatTreatsBlankProviderAsDefaultProvider() {
+        controller.chat(new ChatRequestDto(
+                "  ",
+                null,
+                List.of(new ChatMessageDto("user", "hello")),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        verify(providerRegistry).chatPort(null);
+        verify(defaultChatPort).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void chatTrimsRequestedProvider() {
+        controller.chat(new ChatRequestDto(
+                " google ",
+                null,
+                List.of(new ChatMessageDto("user", "hello")),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null));
+
+        verify(providerRegistry).chatPort("google");
+        verify(googleChatPort).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void chatRejectsUnknownProviderAsBadRequest() {
+        when(providerRegistry.chatPort("missing")).thenThrow(new IllegalArgumentException("Unknown provider: missing"));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.chat(new ChatRequestDto(
+                        "missing",
+                        null,
+                        List.of(new ChatMessageDto("user", "hello")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getReason()).contains("missing");
     }
 
     @Test
@@ -163,6 +220,75 @@ class ChatControllerTest {
                 "123"));
 
         verify(ragPipelineService).listByObject("attachment", "123", 3);
+    }
+
+    @Test
+    void ragChatRejectsObjectIdWithoutObjectType() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.chatWithRag(new ChatRagRequestDto(
+                        new ChatRequestDto(
+                                null,
+                                null,
+                                List.of(new ChatMessageDto("user", "summarize")),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null),
+                        null,
+                        3,
+                        null,
+                        "123")));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(ragPipelineService);
+    }
+
+    @Test
+    void ragChatRejectsObjectTypeWithoutObjectId() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.chatWithRag(new ChatRagRequestDto(
+                        new ChatRequestDto(
+                                null,
+                                null,
+                                List.of(new ChatMessageDto("user", "summarize")),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null),
+                        "summary",
+                        3,
+                        "attachment",
+                        null)));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(ragPipelineService);
+    }
+
+    @Test
+    void ragChatRejectsUnsupportedObjectType() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.chatWithRag(new ChatRagRequestDto(
+                        new ChatRequestDto(
+                                null,
+                                null,
+                                List.of(new ChatMessageDto("user", "summarize")),
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null),
+                        null,
+                        3,
+                        "document",
+                        "123")));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        verifyNoInteractions(ragPipelineService);
     }
 
     private ChatResponse response(String content) {

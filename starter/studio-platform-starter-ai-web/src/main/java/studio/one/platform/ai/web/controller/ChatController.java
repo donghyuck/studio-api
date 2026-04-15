@@ -29,6 +29,7 @@ import java.util.Objects;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatMessage;
@@ -67,6 +69,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 public class ChatController {
 
+    private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
 
@@ -117,17 +120,20 @@ public class ChatController {
      * RAG 검색 결과를 시스템 프롬프트로 주입한 뒤 챗을 수행한다.
      */
     @PostMapping("/rag")
-    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') and "
+            + "(#request.objectType() == null or !#request.objectType().trim().equalsIgnoreCase('attachment') "
+            + "or @endpointAuthz.can('features:attachment','read'))")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(@Valid @RequestBody ChatRagRequestDto request) {
         
         ChatRequestDto chat = request.chat();
         int ragTopK = request.ragTopK() != null ? request.ragTopK() : 3;
-        String objectType = request.objectType();
-        String objectId = request.objectId();
+        ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
+        String objectType = objectScope.objectType();
+        String objectId = objectScope.objectId();
 
         List<RagSearchResult> ragResults;
         String ragQuery = request.ragQuery();
-        boolean hasFilter = (objectType != null && !objectType.isBlank()) || (objectId != null && !objectId.isBlank());
+        boolean hasFilter = objectScope.hasFilter();
 
         if (ragQuery == null || ragQuery.isBlank()) {
             if (!hasFilter) {
@@ -201,7 +207,37 @@ public class ChatController {
     }
 
     private ChatPort chatPort(String provider) {
-        return providerRegistry.chatPort(provider);
+        String normalized = normalizeText(provider);
+        try {
+            return providerRegistry.chatPort(normalized);
+        } catch (IllegalArgumentException ex) {
+            if (normalized != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Unknown AI provider: " + normalized, ex);
+            }
+            throw ex;
+        }
+    }
+
+    private ObjectScope resolveObjectScope(String objectType, String objectId) {
+        String normalizedObjectType = normalizeText(objectType);
+        String normalizedObjectId = normalizeText(objectId);
+        if (normalizedObjectType == null && normalizedObjectId == null) {
+            return ObjectScope.none();
+        }
+        if (!OBJECT_TYPE_ATTACHMENT.equalsIgnoreCase(normalizedObjectType) || normalizedObjectId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Unsupported RAG object scope");
+        }
+        return new ObjectScope(OBJECT_TYPE_ATTACHMENT, normalizedObjectId);
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
     
     private String truncate(String content, int maxLen) {
@@ -264,5 +300,16 @@ public class ChatController {
                     .append("\n").append(r.content()).append("\n\n");
         }
         return sb.toString().trim();
+    }
+
+    private record ObjectScope(String objectType, String objectId) {
+
+        static ObjectScope none() {
+            return new ObjectScope(null, null);
+        }
+
+        boolean hasFilter() {
+            return objectType != null || objectId != null;
+        }
     }
 }

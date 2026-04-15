@@ -5,6 +5,8 @@
 ### 변경됨
 - Spring AI 기반 AI web API가 기존 React 클라이언트 계약을 수용하도록 `ChatRequestDto.provider`, `ChatRequestDto.systemPrompt`를 추가하고, `ChatController`가 `AiProviderRegistry`로 provider별 `ChatPort`를 선택하도록 변경했다.
 - `POST /api/ai/chat/rag`가 파일/객체 범위 RAG 답변에 사용할 `objectType`/`objectId` 흐름과 client system prompt를 함께 지원하도록 보강했다.
+- `POST /api/ai/chat/rag`의 attachment 범위 RAG가 `features:attachment read` 권한을 추가로 요구하고, 안전하게 권한 확인할 수 없는 object scope 요청을 거부하도록 보강했다.
+- `POST /api/ai/chat`의 `provider` 입력을 trim/blank normalize하고 알 수 없는 provider를 400 오류로 반환하도록 정리했다.
 - `POST /api/ai/vectors/search` 응답에 기존 `documentId`와 동일한 `id` alias를 추가해 클라이언트 grid와 기존 소비자를 모두 지원하도록 했다.
 - `ObjectTypeMgmtController`에 `GET /api/mgmt/object-types/{objectType}/policy/effective`를 추가해 저장 정책이 없을 때도 클라이언트가 실제 적용 정책(`source=default`, ObjectType별 추가 제한 없음)을 안내할 수 있도록 했다.
 
