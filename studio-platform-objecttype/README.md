@@ -159,8 +159,20 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V2
 - `PUT    /api/mgmt/object-types/{objectType}` (upsert)
 - `PATCH  /api/mgmt/object-types/{objectType}` (status/description/etc)
 - `GET    /api/mgmt/object-types/{objectType}/policy`
+- `GET    /api/mgmt/object-types/{objectType}/policy/effective`
 - `PUT    /api/mgmt/object-types/{objectType}/policy` (upsert)
 - `POST   /api/mgmt/object-types/reload` (cache evict/rebind)
+
+### 적용 정책 조회
+`GET /api/mgmt/object-types/{objectType}/policy/effective`는 클라이언트가 실제 적용 정책을 안내할 때 사용한다.
+
+- 저장된 정책이 있으면 저장 정책값과 `source=stored`를 반환한다.
+- 저장된 정책이 없으면 내부 기본 정책값과 `source=default`를 반환한다.
+- `source=default`의 현재 의미는 제한 없음이다. `maxFileMb`, `allowedExt`, `allowedMime`, `policyJson`은 모두 `null`로 내려간다.
+
+클라이언트 안내 기준:
+- `source=stored`: “저장된 정책이 적용됩니다.”
+- `source=default`: “저장된 정책이 없어 기본 정책이 적용됩니다. 현재 기본 정책은 제한 없음입니다.”
 
 ## 런타임(클라이언트용 API) 가이드
 런타임 API는 업로드 검증/정의 조회를 위한 엔드포인트다.

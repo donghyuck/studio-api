@@ -17,6 +17,8 @@ public interface ObjectTypeAdminService {
 
     ObjectTypePolicyView getPolicy(int objectType);
 
+    ObjectTypeEffectivePolicyView getEffectivePolicy(int objectType);
+
     ObjectTypePolicyView upsertPolicy(int objectType, ObjectTypePolicyUpsertCommand request);
 
     void delete(int objectType);

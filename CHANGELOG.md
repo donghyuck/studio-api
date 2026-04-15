@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-15
+
+### 변경됨
+- `ObjectTypeMgmtController`에 `GET /api/mgmt/object-types/{objectType}/policy/effective`를 추가해 저장 정책이 없을 때도 클라이언트가 실제 적용 정책(`source=default`, 제한 없음)을 안내할 수 있도록 했다.
+
+### 검증
+- `./gradlew :studio-platform-objecttype:test`
+- `./gradlew :starter:studio-platform-starter-objecttype:compileJava`
+
 ## 2026-04-14
 
 ### 변경됨

@@ -96,6 +96,14 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
                 .orElse(null);
     }
 
+    @Override
+    public ObjectTypeEffectivePolicyView getEffectivePolicy(int objectType) {
+        ensureTypeExists(objectType);
+        return store.findPolicy(objectType)
+                .map(DefaultObjectTypeAdminService::toStoredEffectivePolicyView)
+                .orElseGet(() -> defaultEffectivePolicyView(objectType));
+    }
+
     @Transactional
     @Override
     public ObjectTypePolicyView upsertPolicy(int objectType, ObjectTypePolicyUpsertCommand request) {
@@ -167,6 +175,26 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
                 row.getUpdatedBy(),
                 row.getUpdatedById(),
                 toOffset(row.getUpdatedAt()));
+    }
+
+    static ObjectTypeEffectivePolicyView toStoredEffectivePolicyView(ObjectTypePolicyRow row) {
+        return new ObjectTypeEffectivePolicyView(
+                row.getObjectType(),
+                row.getMaxFileMb(),
+                row.getAllowedExt(),
+                row.getAllowedMime(),
+                row.getPolicyJson(),
+                ObjectTypeEffectivePolicyView.Source.STORED);
+    }
+
+    static ObjectTypeEffectivePolicyView defaultEffectivePolicyView(int objectType) {
+        return new ObjectTypeEffectivePolicyView(
+                objectType,
+                null,
+                null,
+                null,
+                null,
+                ObjectTypeEffectivePolicyView.Source.DEFAULT);
     }
 
     private static OffsetDateTime toOffset(Instant instant) {
