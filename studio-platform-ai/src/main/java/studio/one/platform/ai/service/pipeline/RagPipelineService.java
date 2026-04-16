@@ -244,7 +244,7 @@ public class RagPipelineService {
             return List.of();
         }
         try {
-            return normalizeKeywords(keywordExtractor.extract(indexedText));
+            return keywordExtractor.extract(indexedText);
         } catch (Exception ignored) {
             return List.of();
         }
@@ -255,7 +255,7 @@ public class RagPipelineService {
             return List.of();
         }
         try {
-            return normalizeKeywords(keywordExtractor.extract(chunkText));
+            return keywordExtractor.extract(chunkText);
         } catch (Exception ignored) {
             return List.of();
         }
@@ -304,7 +304,7 @@ public class RagPipelineService {
             return query;
         }
         try {
-            List<String> extracted = normalizeKeywords(keywordExtractor.extract(query));
+            List<String> extracted = keywordExtractor.extract(query);
             if (extracted == null || extracted.isEmpty()) {
                 return query;
             }

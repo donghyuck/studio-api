@@ -165,7 +165,7 @@ class RagPipelineServiceTest {
                 .thenReturn(List.of(new TextChunk("doc-kw-0", "hello world")));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-kw-0", List.of(0.1, 0.2, 0.3)))));
-        when(keywordExtractor.extract("hello world")).thenReturn(List.of(" hello ", "HELLO", "world", " "));
+        when(keywordExtractor.extract("hello world")).thenReturn(List.of("hello", "world"));
 
         ragPipelineService.index(request);
 
@@ -197,7 +197,7 @@ class RagPipelineServiceTest {
                         new TextChunk("doc-chunk-1", "beta")));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
-        when(keywordExtractor.extract("alpha")).thenReturn(List.of(" Alpha ", "alpha", "first"));
+        when(keywordExtractor.extract("alpha")).thenReturn(List.of("Alpha", "first"));
         when(keywordExtractor.extract("beta")).thenReturn(List.of("Beta", "second"));
 
         ragPipelineService.index(request);
@@ -215,6 +215,38 @@ class RagPipelineServiceTest {
                 .containsEntry("chunkKeywords", List.of("Beta", "second"))
                 .containsEntry("chunkKeywordsText", "Beta second")
                 .doesNotContainKeys("keywords", "keywordsText");
+    }
+
+    @Test
+    void shouldIgnoreCallerKeywordsWhenScopeIsChunk() {
+        ragPipelineService = new RagPipelineService(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                new RagKeywordOptions(RagKeywordOptions.KeywordScope.CHUNK, 4_000, true, 10));
+        RagIndexRequest request = new RagIndexRequest(
+                "doc-manual-chunk",
+                "alpha beta",
+                Map.of(),
+                List.of("manual1", "manual2"),
+                false);
+        when(textChunker.chunk("doc-manual-chunk", "alpha beta"))
+                .thenReturn(List.of(new TextChunk("doc-manual-chunk-0", "alpha beta")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        verify(keywordExtractor, never()).extract(anyString());
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        assertThat(documentsCaptor.getValue().get(0).metadata())
+                .doesNotContainKeys("keywords", "keywordsText", "chunkKeywords", "chunkKeywordsText");
     }
 
     @Test
@@ -509,6 +541,13 @@ class RagPipelineServiceTest {
 
         assertThat(results).hasSize(1);
         verify(vectorStorePort).hybridSearch(eq("hello alpha beta"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldRejectInvalidKeywordScopeWithValidValuesMessage() {
+        assertThatThrownBy(() -> RagKeywordOptions.KeywordScope.from("document-scope"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Valid values are: DOCUMENT, CHUNK, BOTH");
     }
 
     @Test

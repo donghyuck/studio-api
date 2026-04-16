@@ -41,7 +41,12 @@ public record RagKeywordOptions(
             if (value == null || value.isBlank()) {
                 return DEFAULT_SCOPE;
             }
-            return KeywordScope.valueOf(value.trim().replace('-', '_').toUpperCase());
+            try {
+                return KeywordScope.valueOf(value.trim().toUpperCase());
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalArgumentException("Invalid keyword scope '" + value
+                        + "'. Valid values are: DOCUMENT, CHUNK, BOTH", ex);
+            }
         }
 
         public boolean includesDocument() {
