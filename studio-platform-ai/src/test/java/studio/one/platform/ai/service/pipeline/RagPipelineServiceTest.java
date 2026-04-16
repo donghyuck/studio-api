@@ -165,7 +165,7 @@ class RagPipelineServiceTest {
                 .thenReturn(List.of(new TextChunk("doc-kw-0", "hello world")));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-kw-0", List.of(0.1, 0.2, 0.3)))));
-        when(keywordExtractor.extract("hello world")).thenReturn(List.of("hello", "world"));
+        when(keywordExtractor.extract("hello world")).thenReturn(List.of(" hello ", "HELLO", "world", " "));
 
         ragPipelineService.index(request);
 
@@ -173,6 +173,81 @@ class RagPipelineServiceTest {
         verify(vectorStorePort).upsert(documentsCaptor.capture());
         VectorDocument document = documentsCaptor.getValue().get(0);
         assertThat(document.metadata()).containsEntry("keywords", List.of("hello", "world"));
+        assertThat(document.metadata()).containsEntry("keywordsText", "hello world");
+        assertThat(document.metadata()).doesNotContainKeys("chunkKeywords", "chunkKeywordsText");
+    }
+
+    @Test
+    void shouldAddChunkKeywordsWhenScopeIsChunk() {
+        ragPipelineService = new RagPipelineService(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                new RagKeywordOptions(RagKeywordOptions.KeywordScope.CHUNK, 4_000, true, 10));
+        RagIndexRequest request = new RagIndexRequest("doc-chunk", "alpha beta", Map.of(), List.of(), true);
+        when(textChunker.chunk("doc-chunk", "alpha beta"))
+                .thenReturn(List.of(
+                        new TextChunk("doc-chunk-0", "alpha"),
+                        new TextChunk("doc-chunk-1", "beta")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+        when(keywordExtractor.extract("alpha")).thenReturn(List.of(" Alpha ", "alpha", "first"));
+        when(keywordExtractor.extract("beta")).thenReturn(List.of("Beta", "second"));
+
+        ragPipelineService.index(request);
+
+        verify(keywordExtractor).extract("alpha");
+        verify(keywordExtractor).extract("beta");
+        verify(keywordExtractor, never()).extract("alpha beta");
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        List<VectorDocument> documents = documentsCaptor.getValue();
+        assertThat(documents.get(0).metadata())
+                .containsEntry("chunkKeywords", List.of("Alpha", "first"))
+                .containsEntry("chunkKeywordsText", "Alpha first")
+                .doesNotContainKeys("keywords", "keywordsText");
+        assertThat(documents.get(1).metadata())
+                .containsEntry("chunkKeywords", List.of("Beta", "second"))
+                .containsEntry("chunkKeywordsText", "Beta second")
+                .doesNotContainKeys("keywords", "keywordsText");
+    }
+
+    @Test
+    void shouldAddDocumentAndChunkKeywordsWhenScopeIsBoth() {
+        ragPipelineService = new RagPipelineService(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                new RagKeywordOptions(RagKeywordOptions.KeywordScope.BOTH, 4_000, true, 10));
+        RagIndexRequest request = new RagIndexRequest("doc-both", "alpha", Map.of(), List.of(), true);
+        when(textChunker.chunk("doc-both", "alpha"))
+                .thenReturn(List.of(new TextChunk("doc-both-0", "alpha")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+        when(keywordExtractor.extract("alpha"))
+                .thenReturn(List.of("document"))
+                .thenReturn(List.of("chunk"));
+
+        ragPipelineService.index(request);
+
+        verify(keywordExtractor, times(2)).extract("alpha");
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        VectorDocument document = documentsCaptor.getValue().get(0);
+        assertThat(document.metadata()).containsEntry("keywords", List.of("document"));
+        assertThat(document.metadata()).containsEntry("keywordsText", "document");
+        assertThat(document.metadata()).containsEntry("chunkKeywords", List.of("chunk"));
+        assertThat(document.metadata()).containsEntry("chunkKeywordsText", "chunk");
     }
 
     @Test
@@ -376,6 +451,64 @@ class RagPipelineServiceTest {
         assertThat(results.get(0).documentId()).isEqualTo("doc-semantic");
         verify(keywordExtractor, never()).extract(anyString());
         verify(vectorStorePort, times(1)).hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldSkipQueryExpansionWhenDisabled() {
+        ragPipelineService = new RagPipelineService(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                new RagKeywordOptions(RagKeywordOptions.KeywordScope.DOCUMENT, 4_000, false, 10));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.search(any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic", "semantic", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        verify(keywordExtractor, never()).extract(anyString());
+        verify(vectorStorePort, times(1)).hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldLimitQueryExpansionKeywords() {
+        ragPipelineService = new RagPipelineService(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                new RagKeywordOptions(RagKeywordOptions.KeywordScope.DOCUMENT, 4_000, true, 2));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of("alpha", "beta", "gamma"));
+        when(vectorStorePort.hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.hybridSearch(eq("hello alpha beta"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-expanded", "expanded", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        verify(vectorStorePort).hybridSearch(eq("hello alpha beta"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
     }
 
     @Test

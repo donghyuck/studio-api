@@ -26,6 +26,7 @@ import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
@@ -108,7 +109,8 @@ public class RagPipelineConfiguration {
                 return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
-                                ragPipelineDiagnosticsOptions(properties));
+                                ragPipelineDiagnosticsOptions(properties),
+                                ragKeywordOptions(properties));
         }
 
         @Bean
@@ -154,6 +156,17 @@ public class RagPipelineConfiguration {
                                 diagnostics.isEnabled(),
                                 diagnostics.isLogResults(),
                                 diagnostics.getMaxSnippetChars());
+        }
+
+        private RagKeywordOptions ragKeywordOptions(RagPipelineProperties properties) {
+                RagPipelineProperties.KeywordsProperties keywords = properties.getKeywords();
+                RagPipelineProperties.QueryExpansionProperties queryExpansion =
+                                properties.getRetrieval().getQueryExpansion();
+                return new RagKeywordOptions(
+                                RagKeywordOptions.KeywordScope.from(keywords.getScope()),
+                                keywords.getMaxInputChars(),
+                                queryExpansion.isEnabled(),
+                                queryExpansion.getMaxKeywords());
         }
 
 }

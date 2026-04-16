@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
+import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 
 import java.time.Duration;
@@ -19,6 +20,7 @@ public class RagPipelineProperties {
     private final ObjectScopeProperties objectScope = new ObjectScopeProperties();
     private final CleanerProperties cleaner = new CleanerProperties();
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
+    private final KeywordsProperties keywords = new KeywordsProperties();
 
     public int getChunkSize() {
         return chunkSize;
@@ -58,6 +60,10 @@ public class RagPipelineProperties {
 
     public DiagnosticsProperties getDiagnostics() {
         return diagnostics;
+    }
+
+    public KeywordsProperties getKeywords() {
+        return keywords;
     }
 
     public static class CacheProperties {
@@ -108,6 +114,7 @@ public class RagPipelineProperties {
         private double minRelevanceScore = RagPipelineOptions.DEFAULT_MIN_RELEVANCE_SCORE;
         private boolean keywordFallbackEnabled = RagPipelineOptions.DEFAULT_KEYWORD_FALLBACK_ENABLED;
         private boolean semanticFallbackEnabled = RagPipelineOptions.DEFAULT_SEMANTIC_FALLBACK_ENABLED;
+        private final QueryExpansionProperties queryExpansion = new QueryExpansionProperties();
 
         public double getVectorWeight() {
             return vectorWeight;
@@ -147,6 +154,31 @@ public class RagPipelineProperties {
 
         public void setSemanticFallbackEnabled(boolean semanticFallbackEnabled) {
             this.semanticFallbackEnabled = semanticFallbackEnabled;
+        }
+
+        public QueryExpansionProperties getQueryExpansion() {
+            return queryExpansion;
+        }
+    }
+
+    public static class QueryExpansionProperties {
+        private boolean enabled = RagKeywordOptions.DEFAULT_QUERY_EXPANSION_ENABLED;
+        private int maxKeywords = RagKeywordOptions.DEFAULT_QUERY_EXPANSION_MAX_KEYWORDS;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getMaxKeywords() {
+            return maxKeywords;
+        }
+
+        public void setMaxKeywords(int maxKeywords) {
+            this.maxKeywords = maxKeywords;
         }
     }
 
@@ -237,6 +269,27 @@ public class RagPipelineProperties {
 
         public void setMaxSnippetChars(int maxSnippetChars) {
             this.maxSnippetChars = maxSnippetChars;
+        }
+    }
+
+    public static class KeywordsProperties {
+        private String scope = RagKeywordOptions.DEFAULT_SCOPE.name().toLowerCase();
+        private int maxInputChars = RagKeywordOptions.DEFAULT_MAX_INPUT_CHARS;
+
+        public String getScope() {
+            return scope;
+        }
+
+        public void setScope(String scope) {
+            this.scope = scope;
+        }
+
+        public int getMaxInputChars() {
+            return maxInputChars;
+        }
+
+        public void setMaxInputChars(int maxInputChars) {
+            this.maxInputChars = maxInputChars;
         }
     }
 }
