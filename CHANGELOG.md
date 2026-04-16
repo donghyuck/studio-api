@@ -4,9 +4,11 @@
 
 ### 변경됨
 - 이슈 #213 대응으로 AI web endpoint에서 provider quota/rate limit 예외를 500 대신 429 `ProblemDetails`로 반환하도록 했다.
-- 이슈 #217 대응으로 `studio-platform-ai`를 AI/RAG 공통 계약 중심 모듈로 축소하고, RAG pipeline 구현체와 pgvector adapter, keyword/cleaner/prompt 구현을 `starter:studio-platform-starter-ai`로 이동했다.
+- 이슈 #217 대응으로 `studio-platform-ai`를 AI/RAG 공통 계약 중심 모듈로 축소하고, RAG pipeline 구현체와 pgvector adapter, LLM 기반 keyword/cleaner 구현을 `starter:studio-platform-starter-ai`로 이동했다.
 - 기존 `RagPipelineService`는 같은 FQN의 facade interface로 유지하고, 기본 구현은 starter의 `DefaultRagPipelineService`로 분리해 web/content 소비 모듈의 계약 의존을 유지했다.
-- `studio-platform-ai`에서 Spring/JDBC/pgvector/Caffeine/Resilience4j 구현 의존을 제거하고, 관련 테스트 fixture와 구현 테스트를 starter 모듈로 이동했다.
+- `TextCleaner`, `KeywordExtractor`, `PromptRenderer`, RAG option 타입은 확장 계약으로 `studio-platform-ai`에 유지하고, 관련 테스트 fixture와 구현 테스트를 starter 모듈로 이동했다.
+- `RagPipelineService.SERVICE_NAME`의 `rag-pipelien-service` 오탈자를 `rag-pipeline-service`로 수정하고, 기존 bean name은 `LEGACY_SERVICE_NAME` alias로 유지했다.
+- `studio-platform-ai`에서 Spring/JDBC/pgvector/Caffeine/Resilience4j 구현 의존을 제거했다.
 - 이슈 #206 대응으로 `studio.ai.pipeline.keywords.scope`, `max-input-chars`와 `studio.ai.pipeline.retrieval.query-expansion.*` 설정을 추가해 keyword metadata 범위와 query expansion 동작을 조정할 수 있도록 했다.
 - 기본 `keywords.scope=document`는 기존 문서 단위 `keywords`/`keywordsText` 동작을 유지하고, `chunk` 또는 `both` 설정 시 chunk metadata에 `chunkKeywords`/`chunkKeywordsText`를 추가한다.
 - `LlmKeywordExtractor`의 입력 최대 길이 4000자 제한을 설정으로 이동하고, keyword trim/blank 제거/case-insensitive de-duplication을 적용했다.

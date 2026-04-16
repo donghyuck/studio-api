@@ -11,7 +11,9 @@ import studio.one.platform.constant.ServiceNames;
 
 public interface RagPipelineService {
 
-    String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":ai:rag-pipelien-service";
+    String SERVICE_NAME = ServiceNames.Features.PREFIX + ":ai:rag-pipeline-service";
+
+    String LEGACY_SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":ai:rag-pipelien-service";
 
     void index(RagIndexRequest request);
 

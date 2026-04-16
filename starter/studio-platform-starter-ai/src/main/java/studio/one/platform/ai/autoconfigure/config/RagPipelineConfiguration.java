@@ -95,7 +95,7 @@ public class RagPipelineConfiguration {
                 return Retry.of("embedding", config);
         }
 
-        @Bean(RagPipelineService.SERVICE_NAME)
+        @Bean(name = { RagPipelineService.SERVICE_NAME, RagPipelineService.LEGACY_SERVICE_NAME })
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
                         TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider,
@@ -107,7 +107,7 @@ public class RagPipelineConfiguration {
                                 AiProviderRegistryConfiguration.FEATURE_NAME,
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
-                return new DefaultRagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
+                return DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),

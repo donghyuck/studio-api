@@ -23,11 +23,6 @@ public final class AiProviderRegistry {
         this.defaultProvider = defaultProvider.toLowerCase(Locale.ROOT);
         this.chatPorts = Collections.unmodifiableMap(new LinkedHashMap<>(chatPorts));
         this.embeddingPorts = Collections.unmodifiableMap(new LinkedHashMap<>(embeddingPorts));
-        boolean hasDefault = chatPorts.containsKey(this.defaultProvider) || embeddingPorts.containsKey(this.defaultProvider);
-        if (!hasDefault) {
-            throw new IllegalArgumentException("Default provider not found in chatPorts or embeddingPorts: "
-                    + defaultProvider);
-        }
     }
 
     public Map<String, ChatPort> availableChatPorts() {

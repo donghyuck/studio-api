@@ -12,6 +12,8 @@ Spring AI 기반 런타임 구현체와 RAG pipeline 구현은 `studio-platform-
 - `AiProviderRegistry`: 공급자 이름을 키로 ChatPort/EmbeddingPort를 관리하는 레지스트리
 - `TextChunker`: 긴 문서를 임베딩에 적합한 크기로 분할하는 전략 인터페이스
 - `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 정의하는 RAG facade 계약
+- `TextCleaner` / `KeywordExtractor` / `PromptRenderer`: RAG 전처리와 프롬프트 확장점 계약
+- `RagPipelineOptions` 계열: 기본 RAG 구현을 대체하거나 테스트할 때 사용할 설정 계약
 
 ## 주요 타입
 
@@ -23,6 +25,10 @@ Spring AI 기반 런타임 구현체와 RAG pipeline 구현은 `studio-platform-
 | `AiProviderRegistry` | `core.registry` | 공급자별 ChatPort/EmbeddingPort 룩업 |
 | `TextChunker` | `core.chunk` | 문서를 TextChunk 리스트로 분할 |
 | `RagPipelineService` | `service.pipeline` | 인덱싱/검색 RAG facade 계약 |
+| `TextCleaner` | `service.cleaning` | 색인 전 추출 텍스트 정제 계약 |
+| `KeywordExtractor` | `service.keyword` | 색인/검색 keyword 추출 계약 |
+| `PromptRenderer` | `service.prompt` | 프롬프트 렌더링 계약 |
+| `RagPipelineOptions` | `service.pipeline` | RAG 구현 설정 계약 |
 | `RagRetrievalDiagnostics` | `core.rag` | RAG 검색 fallback 전략과 결과 상태 진단 모델 |
 | `AiProvider` | `core` | 지원 공급자 열거형 (OPENAI, OLLAMA, GOOGLE_AI_GEMINI) |
 

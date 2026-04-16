@@ -51,52 +51,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
             TextChunker textChunker,
             Cache<String, List<Double>> embeddingCache,
             Retry retry,
-            KeywordExtractor keywordExtractor) {
-        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
-                null, RagPipelineOptions.defaults(), RagPipelineDiagnosticsOptions.defaults(),
-                RagKeywordOptions.defaults());
-    }
-
-    public DefaultRagPipelineService(EmbeddingPort embeddingPort,
-            VectorStorePort vectorStorePort,
-            TextChunker textChunker,
-            Cache<String, List<Double>> embeddingCache,
-            Retry retry,
-            KeywordExtractor keywordExtractor,
-            RagPipelineOptions options) {
-        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, null, options);
-    }
-
-    public DefaultRagPipelineService(EmbeddingPort embeddingPort,
-            VectorStorePort vectorStorePort,
-            TextChunker textChunker,
-            Cache<String, List<Double>> embeddingCache,
-            Retry retry,
-            KeywordExtractor keywordExtractor,
-            TextCleaner textCleaner,
-            RagPipelineOptions options) {
-        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, textCleaner,
-                options, RagPipelineDiagnosticsOptions.defaults(), RagKeywordOptions.defaults());
-    }
-
-    public DefaultRagPipelineService(EmbeddingPort embeddingPort,
-            VectorStorePort vectorStorePort,
-            TextChunker textChunker,
-            Cache<String, List<Double>> embeddingCache,
-            Retry retry,
-            KeywordExtractor keywordExtractor,
-            TextCleaner textCleaner,
-            RagPipelineOptions options,
-            RagPipelineDiagnosticsOptions diagnosticsOptions) {
-        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, textCleaner,
-                options, diagnosticsOptions, RagKeywordOptions.defaults());
-    }
-
-    public DefaultRagPipelineService(EmbeddingPort embeddingPort,
-            VectorStorePort vectorStorePort,
-            TextChunker textChunker,
-            Cache<String, List<Double>> embeddingCache,
-            Retry retry,
             KeywordExtractor keywordExtractor,
             TextCleaner textCleaner,
             RagPipelineOptions options,
@@ -113,6 +67,67 @@ public class DefaultRagPipelineService implements RagPipelineService {
         this.options = Objects.requireNonNull(options, "options");
         this.diagnosticsOptions = Objects.requireNonNull(diagnosticsOptions, "diagnosticsOptions");
         this.keywordOptions = Objects.requireNonNull(keywordOptions, "keywordOptions");
+    }
+
+    public static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor) {
+        return create(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
+                null, RagPipelineOptions.defaults(), RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+    }
+
+    public static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            RagPipelineOptions options) {
+        return create(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, null,
+                options, RagPipelineDiagnosticsOptions.defaults(), RagKeywordOptions.defaults());
+    }
+
+    public static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options) {
+        return create(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
+                textCleaner, options, RagPipelineDiagnosticsOptions.defaults(), RagKeywordOptions.defaults());
+    }
+
+    static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options,
+            RagPipelineDiagnosticsOptions diagnosticsOptions) {
+        return create(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
+                textCleaner, options, diagnosticsOptions, RagKeywordOptions.defaults());
+    }
+
+    public static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options,
+            RagPipelineDiagnosticsOptions diagnosticsOptions,
+            RagKeywordOptions keywordOptions) {
+        return new DefaultRagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry,
+                keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions);
     }
 
     @Override
