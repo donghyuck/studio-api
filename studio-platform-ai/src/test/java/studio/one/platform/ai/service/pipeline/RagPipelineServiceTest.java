@@ -24,6 +24,8 @@ import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.cleaning.TextCleaner;
+import studio.one.platform.ai.service.cleaning.TextCleaningResult;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 
 import java.time.Duration;
@@ -55,6 +57,9 @@ class RagPipelineServiceTest {
 
     @Mock
     private KeywordExtractor keywordExtractor;
+
+    @Mock
+    private TextCleaner textCleaner;
 
     private Cache<String, List<Double>> cache;
     private Retry retry;
@@ -90,8 +95,66 @@ class RagPipelineServiceTest {
         VectorDocument document = documents.get(0);
         assertThat(document.id()).isEqualTo("doc-1-0");
         assertThat(document.metadata()).containsEntry("author", "test");
+        assertThat(document.metadata()).containsEntry("cleaned", false);
+        assertThat(document.metadata()).containsEntry("cleanerPrompt", "");
+        assertThat(document.metadata()).containsEntry("originalTextLength", 11);
+        assertThat(document.metadata()).containsEntry("indexedTextLength", 11);
+        assertThat(document.metadata()).containsEntry("chunkCount", 1);
         assertThat(document.metadata()).containsEntry("chunkOrder", 0);
+        assertThat(document.metadata()).containsEntry("chunkLength", 11);
         assertThat(document.embedding()).containsExactly(0.1, 0.2, 0.3);
+    }
+
+    @Test
+    void shouldCleanTextBeforeChunkingWhenCleanerIsAvailable() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, textCleaner, RagPipelineOptions.defaults());
+        RagIndexRequest request = new RagIndexRequest("doc-clean", "noisy text", Map.of());
+        when(textCleaner.clean("noisy text"))
+                .thenReturn(new TextCleaningResult("clean text", true, "rag-cleaner"));
+        when(textChunker.chunk("doc-clean", "clean text"))
+                .thenReturn(List.of(new TextChunk("doc-clean-0", "clean text")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-clean-0", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        verify(textCleaner).clean("noisy text");
+        verify(textChunker).chunk("doc-clean", "clean text");
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        VectorDocument document = documentsCaptor.getValue().get(0);
+        assertThat(document.content()).isEqualTo("clean text");
+        assertThat(document.metadata()).containsEntry("cleaned", true);
+        assertThat(document.metadata()).containsEntry("cleanerPrompt", "rag-cleaner");
+        assertThat(document.metadata()).containsEntry("originalTextLength", 10);
+        assertThat(document.metadata()).containsEntry("indexedTextLength", 10);
+        assertThat(document.metadata()).containsEntry("chunkCount", 1);
+        assertThat(document.metadata()).containsEntry("chunkLength", 10);
+    }
+
+    @Test
+    void shouldPreserveCallerMetadataWhenAddingCleanerMetadata() {
+        RagIndexRequest request = new RagIndexRequest("doc-meta", "hello world", Map.of(
+                "cleaned", "caller-cleaned",
+                "cleanerPrompt", "caller-prompt",
+                "originalTextLength", 999,
+                "indexedTextLength", 888,
+                "chunkCount", 777));
+        when(textChunker.chunk("doc-meta", "hello world"))
+                .thenReturn(List.of(new TextChunk("doc-meta-0", "hello world")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-meta-0", List.of(0.1, 0.2, 0.3)))));
+
+        ragPipelineService.index(request);
+
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        VectorDocument document = documentsCaptor.getValue().get(0);
+        assertThat(document.metadata()).containsEntry("cleaned", "caller-cleaned");
+        assertThat(document.metadata()).containsEntry("cleanerPrompt", "caller-prompt");
+        assertThat(document.metadata()).containsEntry("originalTextLength", 999);
+        assertThat(document.metadata()).containsEntry("indexedTextLength", 888);
+        assertThat(document.metadata()).containsEntry("chunkCount", 777);
+        assertThat(document.metadata()).containsEntry("chunkLength", 11);
     }
 
     @Test

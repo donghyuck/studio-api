@@ -25,6 +25,8 @@ import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.cleaning.TextCleaner;
+import studio.one.platform.ai.service.cleaning.TextCleaningResult;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.constant.ServiceNames;
 
@@ -38,6 +40,7 @@ public class RagPipelineService {
     private final Cache<String, List<Double>> embeddingCache;
     private final Retry retry;
     private final KeywordExtractor keywordExtractor;
+    private final TextCleaner textCleaner;
     private final RagPipelineOptions options;
 
     public RagPipelineService(EmbeddingPort embeddingPort,
@@ -47,7 +50,7 @@ public class RagPipelineService {
             Retry retry,
             KeywordExtractor keywordExtractor) {
         this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
-                RagPipelineOptions.defaults());
+                null, RagPipelineOptions.defaults());
     }
 
     public RagPipelineService(EmbeddingPort embeddingPort,
@@ -57,6 +60,17 @@ public class RagPipelineService {
             Retry retry,
             KeywordExtractor keywordExtractor,
             RagPipelineOptions options) {
+        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, null, options);
+    }
+
+    public RagPipelineService(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options) {
 
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
@@ -64,6 +78,7 @@ public class RagPipelineService {
         this.embeddingCache = Objects.requireNonNull(embeddingCache, "embeddingCache");
         this.retry = Objects.requireNonNull(retry, "retry");
         this.keywordExtractor = keywordExtractor;
+        this.textCleaner = textCleaner;
         this.options = Objects.requireNonNull(options, "options");
     }
 
@@ -71,10 +86,17 @@ public class RagPipelineService {
 
         log.debug("using llm keywords extract : {}", request.useLlmKeywordExtraction());
 
-        List<TextChunk> chunks = textChunker.chunk(request.documentId(), request.text());
+        TextCleaningResult cleaning = cleanText(request.text());
+        String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
+        List<TextChunk> chunks = textChunker.chunk(request.documentId(), indexedText);
         List<VectorDocument> documents = new ArrayList<>(chunks.size());
-        List<String> keywords = resolveKeywords(request);
+        List<String> keywords = resolveKeywords(request, indexedText);
         Map<String, Object> baseMetadata = new HashMap<>(request.metadata());
+        baseMetadata.putIfAbsent("cleaned", cleaning.cleaned());
+        baseMetadata.putIfAbsent("cleanerPrompt", cleaning.cleanerPrompt() == null ? "" : cleaning.cleanerPrompt());
+        baseMetadata.putIfAbsent("originalTextLength", request.text().length());
+        baseMetadata.putIfAbsent("indexedTextLength", indexedText.length());
+        baseMetadata.putIfAbsent("chunkCount", chunks.size());
         if (!keywords.isEmpty()) {
             baseMetadata.put("keywords", keywords);
             baseMetadata.put("keywordsText", String.join(" ", keywords));
@@ -86,6 +108,7 @@ public class RagPipelineService {
             metadata.put("documentId", request.documentId());
             metadata.put("chunkId", chunk.id());
             metadata.put("chunkOrder", order++);
+            metadata.put("chunkLength", chunk.content().length());
             documents.add(new VectorDocument(chunk.id(), chunk.content(), metadata, embedding));
         }
         if (!documents.isEmpty()) {
@@ -149,7 +172,14 @@ public class RagPipelineService {
         return Retry.decorateSupplier(retry, supplier).get();
     }
 
-    private List<String> resolveKeywords(RagIndexRequest request) {
+    private TextCleaningResult cleanText(String text) {
+        if (textCleaner == null) {
+            return TextCleaningResult.skipped(text);
+        }
+        return textCleaner.clean(text);
+    }
+
+    private List<String> resolveKeywords(RagIndexRequest request, String indexedText) {
         if (request.keywords() != null && !request.keywords().isEmpty()) {
             return request.keywords();
         }
@@ -157,7 +187,7 @@ public class RagPipelineService {
             return List.of();
         }
         try {
-            List<String> extracted = keywordExtractor.extract(request.text());
+            List<String> extracted = keywordExtractor.extract(indexedText);
             return extracted == null ? List.of() : extracted;
         } catch (Exception ignored) {
             return List.of();

@@ -168,6 +168,7 @@ studio:
 | `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
 | `RagPipelineService` | RAG 인덱싱/검색 파이프라인 서비스 |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
+| `TextCleaner` | `studio.ai.pipeline.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
 
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
 `objectType`/`objectId` 메타데이터를 함께 저장하면 AI web starter의 RAG chat API에서 특정 파일이나 객체 범위에 한정해 답변할 수 있다.
@@ -203,6 +204,34 @@ studio:
 | `studio.ai.pipeline.object-scope.max-list-limit` | `100` | object-scope list 최대 limit |
 
 `vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
+
+### RAG 색인 전 텍스트 정제
+
+이슈 #204부터 RAG 색인 전에 LLM 기반 텍스트 정제를 선택적으로 적용할 수 있다. 기본값은 비활성화이므로
+기존 raw indexing 동작은 유지된다. 활성화하면 `rag-cleaner` Mustache prompt를 렌더링해 LLM에 전달하고,
+응답 JSON의 `clean_text` 필드를 색인 대상 텍스트로 사용한다.
+
+```yaml
+studio:
+  ai:
+    pipeline:
+      cleaner:
+        enabled: false
+        prompt: rag-cleaner
+        max-input-chars: 20000
+        fail-open: true
+```
+
+| 설정 | 기본값 | 설명 |
+|---|---:|---|
+| `studio.ai.pipeline.cleaner.enabled` | `false` | 색인 전 LLM text cleaner 사용 여부 |
+| `studio.ai.pipeline.cleaner.prompt` | `rag-cleaner` | 사용할 Mustache prompt 이름 |
+| `studio.ai.pipeline.cleaner.max-input-chars` | `20000` | cleaner에 전달할 입력 최대 길이 |
+| `studio.ai.pipeline.cleaner.fail-open` | `true` | cleaner 호출/파싱 실패 시 원문으로 색인을 계속할지 여부 |
+
+정제 결과는 vector metadata에 additive key로 기록된다.
+`cleaned`, `cleanerPrompt`, `originalTextLength`, `indexedTextLength`, `chunkCount`, `chunkLength`가 추가되며,
+호출자가 같은 key를 이미 전달한 경우 기존 metadata 값을 보존한다.
 
 ## 관련 모듈
 - `studio-platform-ai` — 이 스타터가 구현하는 포트 인터페이스 모듈

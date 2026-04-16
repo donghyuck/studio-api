@@ -16,6 +16,7 @@ public class RagPipelineProperties {
     private final RetryProperties retry = new RetryProperties();
     private final RetrievalProperties retrieval = new RetrievalProperties();
     private final ObjectScopeProperties objectScope = new ObjectScopeProperties();
+    private final CleanerProperties cleaner = new CleanerProperties();
 
     public int getChunkSize() {
         return chunkSize;
@@ -47,6 +48,10 @@ public class RagPipelineProperties {
 
     public ObjectScopeProperties getObjectScope() {
         return objectScope;
+    }
+
+    public CleanerProperties getCleaner() {
+        return cleaner;
     }
 
     public static class CacheProperties {
@@ -157,6 +162,45 @@ public class RagPipelineProperties {
 
         public void setMaxListLimit(int maxListLimit) {
             this.maxListLimit = maxListLimit;
+        }
+    }
+
+    public static class CleanerProperties {
+        private boolean enabled = false;
+        private String prompt = "rag-cleaner";
+        private int maxInputChars = 20_000;
+        private boolean failOpen = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getPrompt() {
+            return prompt;
+        }
+
+        public void setPrompt(String prompt) {
+            this.prompt = prompt;
+        }
+
+        public int getMaxInputChars() {
+            return maxInputChars;
+        }
+
+        public void setMaxInputChars(int maxInputChars) {
+            this.maxInputChars = maxInputChars;
+        }
+
+        public boolean isFailOpen() {
+            return failOpen;
+        }
+
+        public void setFailOpen(boolean failOpen) {
+            this.failOpen = failOpen;
         }
     }
 }

@@ -13,6 +13,15 @@ import studio.one.platform.constant.PropertyKeys;
 @Getter @Setter
 public class PromptProperties {
 
-    private Map<String, String> prompts = new HashMap<>();
+    private Map<String, String> prompts = defaultPrompts();
+
+    private static Map<String, String> defaultPrompts() {
+        Map<String, String> defaults = new HashMap<>();
+        defaults.put("keyword-extraction", "classpath:/prompts/keyword-extraction.v1.prompt");
+        defaults.put("query-rewrite", "classpath:/prompts/query-rewrite.v1.prompt");
+        defaults.put("rag-cleaner", "classpath:/prompts/rag-cleaner.v1.prompt");
+        defaults.put("summarization", "classpath:/prompts/summarization.v1.prompt");
+        return defaults;
+    }
  
 }

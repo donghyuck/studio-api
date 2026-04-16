@@ -31,6 +31,7 @@ EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
 ```
 
 청킹은 현재 단일 텍스트 단위로 처리되며, 멀티청크 지원은 `RagPipelineService` 구현체에 위임된다.
+`studio.ai.pipeline.cleaner.enabled=true`이면 `RagPipelineService`가 chunking 전에 추출 텍스트를 정제한다.
 
 ## 주요 서비스 클래스와 역할
 
@@ -96,6 +97,20 @@ Content-Type: application/json
   }
 }
 ```
+
+첨부 RAG 인덱싱은 metadata에 아래 값을 `putIfAbsent`로 보강한다. 요청 metadata에 같은 key가 있으면 요청 값을 유지한다.
+
+| key | 설명 |
+|---|---|
+| `objectType` | 기본값 `attachment` 또는 요청 값 |
+| `objectId` | 기본값 attachment ID 문자열 또는 요청 값 |
+| `attachmentId` | 첨부 ID |
+| `name` | 첨부 원본 이름 |
+| `filename` | 첨부 파일명. 클라이언트 표시용 alias |
+| `sourceType` | `attachment` |
+| `indexedAt` | RAG 인덱싱 요청 시각 |
+| `contentType` | 첨부 MIME 타입 |
+| `size` | 첨부 크기 |
 
 ### RAG 검색 요청 예시
 

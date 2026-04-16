@@ -3,7 +3,10 @@ package studio.one.platform.ai.autoconfigure.config;
 import java.time.Duration;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -15,13 +18,18 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
+import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -87,7 +95,9 @@ public class RagPipelineConfiguration {
         @Bean(RagPipelineService.SERVICE_NAME)
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
                         TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
-                        ObjectProvider<KeywordExtractor> keywordExtractorProvider, RagPipelineProperties properties) {
+                        ObjectProvider<KeywordExtractor> keywordExtractorProvider,
+                        ObjectProvider<TextCleaner> textCleanerProvider,
+                        RagPipelineProperties properties) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
@@ -95,7 +105,32 @@ public class RagPipelineConfiguration {
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
                 return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
-                                embeddingRetry, keywordExtractorProvider.getIfAvailable(), ragPipelineOptions(properties));
+                                embeddingRetry, keywordExtractorProvider.getIfAvailable(),
+                                textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties));
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(TextCleaner.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX + ".pipeline.cleaner", name = "enabled", havingValue = "true")
+        TextCleaner textCleaner(PromptRenderer promptRenderer,
+                        ChatPort chatPort,
+                        ObjectProvider<ObjectMapper> objectMapperProvider,
+                        RagPipelineProperties properties) {
+                RagPipelineProperties.CleanerProperties cleaner = properties.getCleaner();
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
+                                AiProviderRegistryConfiguration.FEATURE_NAME,
+                                LogUtils.blue(LlmTextCleaner.class, true),
+                                LogUtils.green(ChatPort.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                promptRenderer.getRawPrompt(cleaner.getPrompt());
+                return new LlmTextCleaner(
+                                promptRenderer,
+                                chatPort,
+                                objectMapperProvider.getIfAvailable(ObjectMapper::new),
+                                cleaner.getPrompt(),
+                                cleaner.getMaxInputChars(),
+                                cleaner.isFailOpen());
         }
 
         private RagPipelineOptions ragPipelineOptions(RagPipelineProperties properties) {

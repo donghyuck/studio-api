@@ -9,6 +9,8 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
+import java.util.Map;
+
 class RagPipelinePropertiesTest {
 
     @Test
@@ -22,19 +24,27 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getRetrieval().isSemanticFallbackEnabled()).isTrue();
         assertThat(properties.getObjectScope().getDefaultListLimit()).isEqualTo(20);
         assertThat(properties.getObjectScope().getMaxListLimit()).isEqualTo(100);
+        assertThat(properties.getCleaner().isEnabled()).isFalse();
+        assertThat(properties.getCleaner().getPrompt()).isEqualTo("rag-cleaner");
+        assertThat(properties.getCleaner().getMaxInputChars()).isEqualTo(20_000);
+        assertThat(properties.getCleaner().isFailOpen()).isTrue();
     }
 
     @Test
     void shouldBindRetrievalAndObjectScopeOverrides() {
         StandardEnvironment environment = new StandardEnvironment();
-        environment.getPropertySources().addFirst(new MapPropertySource("test", java.util.Map.of(
-                "studio.ai.pipeline.retrieval.vector-weight", "0.2",
-                "studio.ai.pipeline.retrieval.lexical-weight", "0.8",
-                "studio.ai.pipeline.retrieval.min-relevance-score", "0.4",
-                "studio.ai.pipeline.retrieval.keyword-fallback-enabled", "false",
-                "studio.ai.pipeline.retrieval.semantic-fallback-enabled", "false",
-                "studio.ai.pipeline.object-scope.default-list-limit", "5",
-                "studio.ai.pipeline.object-scope.max-list-limit", "10")));
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
+                Map.entry("studio.ai.pipeline.retrieval.vector-weight", "0.2"),
+                Map.entry("studio.ai.pipeline.retrieval.lexical-weight", "0.8"),
+                Map.entry("studio.ai.pipeline.retrieval.min-relevance-score", "0.4"),
+                Map.entry("studio.ai.pipeline.retrieval.keyword-fallback-enabled", "false"),
+                Map.entry("studio.ai.pipeline.retrieval.semantic-fallback-enabled", "false"),
+                Map.entry("studio.ai.pipeline.object-scope.default-list-limit", "5"),
+                Map.entry("studio.ai.pipeline.object-scope.max-list-limit", "10"),
+                Map.entry("studio.ai.pipeline.cleaner.enabled", "true"),
+                Map.entry("studio.ai.pipeline.cleaner.prompt", "custom-cleaner"),
+                Map.entry("studio.ai.pipeline.cleaner.max-input-chars", "1234"),
+                Map.entry("studio.ai.pipeline.cleaner.fail-open", "false"))));
 
         RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
                 .bind("studio.ai.pipeline", Bindable.of(RagPipelineProperties.class))
@@ -47,5 +57,9 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getRetrieval().isSemanticFallbackEnabled()).isFalse();
         assertThat(properties.getObjectScope().getDefaultListLimit()).isEqualTo(5);
         assertThat(properties.getObjectScope().getMaxListLimit()).isEqualTo(10);
+        assertThat(properties.getCleaner().isEnabled()).isTrue();
+        assertThat(properties.getCleaner().getPrompt()).isEqualTo("custom-cleaner");
+        assertThat(properties.getCleaner().getMaxInputChars()).isEqualTo(1234);
+        assertThat(properties.getCleaner().isFailOpen()).isFalse();
     }
 }

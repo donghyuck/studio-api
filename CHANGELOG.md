@@ -3,6 +3,10 @@
 ## 2026-04-16
 
 ### 변경됨
+- 이슈 #204 대응으로 `studio.ai.pipeline.cleaner.*` 설정을 추가해 RAG 색인 전 LLM 기반 텍스트 정제를 선택적으로 적용할 수 있도록 했다.
+- `TextCleaner`/`LlmTextCleaner`를 추가하고 `rag-cleaner` prompt의 `clean_text` JSON 응답을 색인 텍스트로 사용하도록 했다.
+- `RagPipelineService.index()`가 cleaner 적용 여부, 원문/색인 텍스트 길이, chunk 수, chunk 길이를 vector metadata에 additive로 기록하도록 했다.
+- 첨부 RAG 인덱싱 metadata에 `filename`, `sourceType=attachment`, `indexedAt`을 `putIfAbsent`로 추가해 클라이언트/운영 추적 정보를 보강했다.
 - 이슈 #202 대응으로 `RagPipelineService`의 hybrid 검색 weight, 최소 relevance score, keyword/semantic fallback 사용 여부를 `studio.ai.pipeline.retrieval.*` 설정으로 조정할 수 있도록 했다.
 - query 없는 object-scope RAG 조회가 과도한 chunk를 반환하지 않도록 `studio.ai.pipeline.object-scope.default-list-limit`, `max-list-limit` 설정과 service layer clamp를 추가했다.
 - `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수와 score 포함 여부를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
@@ -15,6 +19,9 @@
 ### 검증
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test --rerun-tasks`
 - `gradle :studio-platform-ai:test --tests 'studio.one.platform.ai.service.pipeline.RagQualitySmokeTest'`
+- `gradle :studio-platform-ai:test`
+- `gradle :starter:studio-platform-starter-ai:test`
+- `gradle :studio-application-modules:content-embedding-pipeline:test`
 - `./gradlew :studio-platform-ai:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `git diff --check`

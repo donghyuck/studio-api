@@ -1,7 +1,9 @@
 package studio.one.application.web.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -30,6 +32,7 @@ import studio.one.application.attachment.service.AttachmentService;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.constant.PropertyKeys;
@@ -122,6 +125,45 @@ class AttachmentEmbeddingPipelineControllerTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void ragIndexAddsAttachmentMetadataWithoutOverwritingCallerMetadata() throws Exception {
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "metadata": {
+                                    "filename": "caller.txt",
+                                    "sourceType": "caller-source",
+                                    "indexedAt": "caller-time"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) -> {
+            Map<String, Object> metadata = request.metadata();
+            return "caller.txt".equals(metadata.get("filename"))
+                    && "caller-source".equals(metadata.get("sourceType"))
+                    && "caller-time".equals(metadata.get("indexedAt"))
+                    && "attachment".equals(metadata.get("objectType"))
+                    && "1".equals(metadata.get("objectId"))
+                    && Long.valueOf(1L).equals(metadata.get("attachmentId"))
+                    && "sample.txt".equals(metadata.get("name"))
+                    && "text/plain".equals(metadata.get("contentType"))
+                    && Long.valueOf(5L).equals(metadata.get("size"));
+        }));
     }
 
     private static <T> ObjectProvider<T> provider(T value) {
