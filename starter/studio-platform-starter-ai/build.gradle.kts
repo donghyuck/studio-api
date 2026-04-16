@@ -19,6 +19,7 @@ dependencies {
     compileOnly(project(":studio-platform-autoconfigure"))
     compileOnly(project(":starter:studio-platform-starter"))
     api(project(":studio-platform-ai"))
+    api(project(":studio-platform-chunking"))
     compileOnly("org.springframework:spring-jdbc")
 
     // Provider libraries: compileOnly so they do NOT become transitive dependencies.

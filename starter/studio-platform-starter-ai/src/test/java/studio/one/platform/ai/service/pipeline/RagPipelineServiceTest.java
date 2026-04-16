@@ -28,6 +28,11 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaningResult;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkingContext;
+import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.core.ChunkingStrategyType;
 
 import java.time.Duration;
 import java.util.List;
@@ -61,6 +66,9 @@ class RagPipelineServiceTest {
 
     @Mock
     private TextCleaner textCleaner;
+
+    @Mock
+    private ChunkingOrchestrator chunkingOrchestrator;
 
     private Cache<String, List<Double>> cache;
     private Retry retry;
@@ -175,6 +183,75 @@ class RagPipelineServiceTest {
         assertThat(document.metadata()).containsEntry("keywords", List.of("hello", "world"));
         assertThat(document.metadata()).containsEntry("keywordsText", "hello world");
         assertThat(document.metadata()).doesNotContainKeys("chunkKeywords", "chunkKeywordsText");
+    }
+
+    @Test
+    void shouldUseChunkingOrchestratorAndReplaceObjectScopedChunks() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+        RagIndexRequest request = new RagIndexRequest("doc-orchestrated", "alpha beta", Map.of(
+                "objectType", "attachment",
+                "objectId", "42"));
+        Chunk chunk = Chunk.of(
+                "doc-orchestrated-0",
+                "alpha beta",
+                ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0)
+                        .sourceDocumentId("doc-orchestrated")
+                        .objectType("attachment")
+                        .objectId("42")
+                        .charCount(10)
+                        .build());
+        when(chunkingOrchestrator.chunk(any(ChunkingContext.class))).thenReturn(List.of(chunk));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        verify(textChunker, never()).chunk(anyString(), anyString());
+        verify(vectorStorePort).replaceByObject(eq("attachment"), eq("42"), documentsCaptor.capture());
+        VectorDocument document = documentsCaptor.getValue().get(0);
+        assertThat(document.id()).isEqualTo("doc-orchestrated-0");
+        assertThat(document.metadata())
+                .containsEntry("sourceDocumentId", "doc-orchestrated")
+                .containsEntry("strategy", "recursive")
+                .containsEntry("objectType", "attachment")
+                .containsEntry("objectId", "42")
+                .containsEntry("chunkOrder", 0);
+    }
+
+    @Test
+    void shouldDeleteObjectScopedChunksWhenNewIndexHasNoChunks() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+        RagIndexRequest request = new RagIndexRequest("doc-empty", "   ", Map.of(
+                "objectType", "attachment",
+                "objectId", "42"));
+
+        ragPipelineService.index(request);
+
+        verify(vectorStorePort).deleteByObject("attachment", "42");
+        verify(vectorStorePort, never()).upsert(any());
+        verify(vectorStorePort, never()).replaceByObject(anyString(), anyString(), any());
     }
 
     @Test

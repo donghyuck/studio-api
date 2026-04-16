@@ -9,6 +9,7 @@
 - 임베딩 생성에는 `EmbeddingPort` 빈이 필요하다.
 - 벡터 저장에는 `VectorStorePort` 빈이 필요하다(선택).
 - RAG 인덱싱에는 `RagPipelineService` 빈이 필요하다(선택).
+- `starter:studio-platform-starter-chunking`이 있으면 RAG 인덱싱 시 chunk metadata가 vector metadata에 추가된다.
 
 ## 파이프라인 흐름
 
@@ -30,7 +31,8 @@ EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
     └─ [RAG 인덱싱] RagPipelineService.index()        ← 선택적 RAG 인덱스 등록
 ```
 
-청킹은 현재 단일 텍스트 단위로 처리되며, 멀티청크 지원은 `RagPipelineService` 구현체에 위임된다.
+청킹은 `RagPipelineService` 구현체에 위임된다. `starter:studio-platform-starter-chunking`이 있으면
+recursive/fixed-size 전략으로 chunk를 만들고, 없으면 기존 `TextChunker` fallback을 사용한다.
 `studio.ai.pipeline.cleaner.enabled=true`이면 `RagPipelineService`가 chunking 전에 추출 텍스트를 정제한다.
 
 ## 주요 서비스 클래스와 역할
@@ -52,8 +54,10 @@ EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
 | `EmbeddingPort` | 임베딩 생성 시 필수 | `studio-platform-ai` AI 어댑터 (예: OpenAI 스타터) |
 | `VectorStorePort` | 벡터 저장 시 필수 | 벡터 DB 어댑터 (예: pgvector, Qdrant 스타터) |
 | `RagPipelineService` | RAG 인덱싱/검색 시 필수 | RAG 파이프라인 스타터 |
+| `ChunkingOrchestrator` | RAG chunking 확장 시 선택 | `starter:studio-platform-starter-chunking` |
 
 빈이 없는 경우 해당 엔드포인트는 `501 NOT_IMPLEMENTED`를 반환한다.
+`ChunkingOrchestrator`는 선택 빈이며 없으면 RAG 구현체의 legacy `TextChunker` fallback이 사용된다.
 
 ## REST 엔드포인트
 
@@ -136,6 +140,7 @@ Content-Type: application/json
 dependencies {
     implementation(project(":starter:studio-application-starter-attachment"))
     implementation(project(":studio-application-modules:content-embedding-pipeline"))
+    implementation(project(":starter:studio-platform-starter-chunking"))
     // AI 어댑터 (EmbeddingPort + FileContentExtractionService + VectorStorePort 제공)
     implementation(project(":starter:studio-platform-starter-ai"))
     // provider 라이브러리는 직접 선언 (예: OpenAI)

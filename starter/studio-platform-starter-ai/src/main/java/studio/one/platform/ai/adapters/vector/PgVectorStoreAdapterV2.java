@@ -10,10 +10,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
@@ -25,6 +28,7 @@ import studio.one.platform.data.sqlquery.annotation.SqlStatement;
  * PgVector {@link VectorStorePort} implementation backed by sqlset-defined
  * statements and {@link SqlStatement} injection.
  */
+@Slf4j
 public class PgVectorStoreAdapterV2 implements VectorStorePort {
 
     private static final RowMapper<VectorSearchResult> ROW_MAPPER = new RowMapper<>() {
@@ -48,6 +52,9 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     @SqlStatement("ai.vector.search")
     private String searchSql;
 
+    @SqlStatement("ai.vector.deleteByObject")
+    private String deleteByObjectSql;
+
     @SqlStatement("ai.vector.searchByObject")
     private String searchByObjectSql;
 
@@ -68,14 +75,22 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
 
     private final NamedParameterJdbcTemplate namedParameterJdbcTemplate;
     private final JdbcTemplate jdbcTemplate;
+    private final TransactionTemplate transactionTemplate;
 
     public PgVectorStoreAdapterV2(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;
         this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(jdbcTemplate);
+        this.transactionTemplate = jdbcTemplate.getDataSource() == null
+                ? null
+                : new TransactionTemplate(new DataSourceTransactionManager(jdbcTemplate.getDataSource()));
     }
 
     @Override
     public void upsert(List<VectorDocument> documents) {
+        upsertInternal(documents);
+    }
+
+    private void upsertInternal(List<VectorDocument> documents) {
         List<MapSqlParameterSource> batch = new ArrayList<>(documents.size());
         for (VectorDocument document : documents) {
             Map<String, Object> metadata = withDocumentId(document);
@@ -97,6 +112,28 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return namedParameterJdbcTemplate.query(searchSql, new MapSqlParameterSource()
                 .addValue("vector", vector)
                 .addValue("limit", request.topK()), ROW_MAPPER);
+    }
+
+    @Override
+    public void deleteByObject(String objectType, String objectId) {
+        namedParameterJdbcTemplate.update(deleteByObjectSql, new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId));
+    }
+
+    @Override
+    public void replaceByObject(String objectType, String objectId, List<VectorDocument> documents) {
+        if (transactionTemplate == null) {
+            log.warn("TransactionTemplate unavailable; replaceByObject will execute non-atomically. "
+                    + "Configure a DataSource to enable transactional replacement.");
+            deleteByObject(objectType, objectId);
+            upsertInternal(documents);
+            return;
+        }
+        transactionTemplate.executeWithoutResult(status -> {
+            deleteByObject(objectType, objectId);
+            upsertInternal(documents);
+        });
     }
 
     @Override

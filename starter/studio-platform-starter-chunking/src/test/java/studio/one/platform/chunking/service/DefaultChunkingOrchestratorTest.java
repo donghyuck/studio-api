@@ -1,0 +1,80 @@
+package studio.one.platform.chunking.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+
+import studio.one.platform.chunking.autoconfigure.ChunkingProperties;
+import studio.one.platform.chunking.core.ChunkingContext;
+import studio.one.platform.chunking.core.ChunkingStrategyType;
+
+class DefaultChunkingOrchestratorTest {
+
+    @Test
+    void usesConfiguredStrategyWhenContextRequestsDefaults() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setStrategy("fixed-size");
+        properties.setMaxSize(5);
+        properties.setOverlap(1);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(10, 0), new RecursiveChunker(10, 0)));
+
+        var chunks = orchestrator.chunk(ChunkingContext.configuredDefaults("abcdefghij")
+                .sourceDocumentId("doc")
+                .build());
+
+        assertThat(chunks).extracting(chunk -> chunk.content()).containsExactly("abcde", "efghi", "ij");
+    }
+
+    @Test
+    void contextStrategyOverridesConfiguredStrategy() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setStrategy("fixed-size");
+        properties.setMaxSize(5);
+        properties.setOverlap(0);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(5, 0), new RecursiveChunker(5, 0)));
+
+        var chunks = orchestrator.chunk(ChunkingContext.configuredDefaults("alpha beta")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.RECURSIVE)
+                .build());
+
+        assertThat(chunks).extracting(chunk -> chunk.content()).containsExactly("alpha", "beta");
+    }
+
+    @Test
+    void rejectsUnsupportedPhaseOneStrategy() {
+        ChunkingProperties properties = new ChunkingProperties();
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(10, 0), new RecursiveChunker(10, 0)));
+
+        assertThatThrownBy(() -> orchestrator.chunk(ChunkingContext.builder("hello")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.SEMANTIC)
+                .build()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unsupported Phase 1 chunking strategy");
+    }
+
+    @Test
+    void rejectsMissingChunkerBeanForSupportedStrategy() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setStrategy("fixed-size");
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new RecursiveChunker(10, 0)));
+
+        assertThatThrownBy(() -> orchestrator.chunk(ChunkingContext.configuredDefaults("hello")
+                .sourceDocumentId("doc")
+                .build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Chunker bean for strategy FIXED_SIZE is not registered");
+    }
+}

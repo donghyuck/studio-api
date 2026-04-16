@@ -32,6 +32,7 @@ import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -98,6 +99,7 @@ public class RagPipelineConfiguration {
         @Bean(name = { RagPipelineService.SERVICE_NAME, RagPipelineService.LEGACY_SERVICE_NAME })
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
                         TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
+                        ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider,
                         ObjectProvider<TextCleaner> textCleanerProvider,
                         RagPipelineProperties properties) {
@@ -107,7 +109,8 @@ public class RagPipelineConfiguration {
                                 AiProviderRegistryConfiguration.FEATURE_NAME,
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
-                return DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, embeddingCache,
+                return DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker,
+                                chunkingOrchestratorProvider.getIfAvailable(), embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),

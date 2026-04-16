@@ -31,6 +31,7 @@ class PgVectorStoreAdapterV2Test {
 
     private static final String UPSERT_SQL = "upsert-sql";
     private static final String SEARCH_SQL = "search-sql";
+    private static final String DELETE_BY_OBJECT_SQL = "delete-by-object-sql";
     private static final String SEARCH_BY_OBJECT_SQL = "search-by-object-sql";
     private static final String HYBRID_SEARCH_SQL = "hybrid-search-sql";
     private static final String LIST_BY_OBJECT_SQL = "list-by-object-sql";
@@ -48,6 +49,7 @@ class PgVectorStoreAdapterV2Test {
         setField("namedParameterJdbcTemplate", namedParameterJdbcTemplate);
         setField("upsertSql", UPSERT_SQL);
         setField("searchSql", SEARCH_SQL);
+        setField("deleteByObjectSql", DELETE_BY_OBJECT_SQL);
         setField("searchByObjectSql", SEARCH_BY_OBJECT_SQL);
         setField("hybridSearchSql", HYBRID_SEARCH_SQL);
         setField("listByObjectSql", LIST_BY_OBJECT_SQL);
@@ -103,6 +105,31 @@ class PgVectorStoreAdapterV2Test {
         assertThat(results.get(0).document().id()).isEqualTo("doc-42");
         assertThat(results.get(0).document().metadata()).containsEntry("topic", "alpha");
         verify(namedParameterJdbcTemplate).query(org.mockito.Mockito.eq(SEARCH_SQL), any(MapSqlParameterSource.class), any(RowMapper.class));
+    }
+
+    @Test
+    void deleteByObjectUsesConfiguredSql() {
+        adapter.deleteByObject("ARTICLE", "article-1");
+
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(namedParameterJdbcTemplate).update(org.mockito.Mockito.eq(DELETE_BY_OBJECT_SQL), paramsCaptor.capture());
+        MapSqlParameterSource params = paramsCaptor.getValue();
+        assertThat(params.getValue("objectType")).isEqualTo("ARTICLE");
+        assertThat(params.getValue("objectId")).isEqualTo("article-1");
+    }
+
+    @Test
+    void replaceByObjectDeletesThenUpsertsWhenNoTransactionManagerIsAvailable() {
+        VectorDocument document = new VectorDocument(
+                "doc-replace",
+                "replacement",
+                Map.of("objectType", "ARTICLE", "objectId", "article-1", "chunkOrder", 0),
+                List.of(0.1d, 0.2d));
+
+        adapter.replaceByObject("ARTICLE", "article-1", List.of(document));
+
+        verify(namedParameterJdbcTemplate).update(org.mockito.Mockito.eq(DELETE_BY_OBJECT_SQL), any(MapSqlParameterSource.class));
+        verify(namedParameterJdbcTemplate).batchUpdate(org.mockito.Mockito.eq(UPSERT_SQL), any(MapSqlParameterSource[].class));
     }
 
     @Test

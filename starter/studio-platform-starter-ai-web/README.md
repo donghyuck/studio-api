@@ -4,6 +4,10 @@ AI 기능을 HTTP 엔드포인트로 노출하는 웹 스타터이다.
 `studio-platform-starter-ai`와 분리되어 있으며, AI 코어 기능은 유지하면서 REST API 노출 여부를
 별도로 제어할 수 있다. 채팅, 임베딩, 벡터 스토어, RAG 파이프라인, 쿼리 리라이트, AI 정보 조회
 엔드포인트를 자동 등록한다.
+이 스타터는 web adapter 역할만 담당하며 chunking strategy, document parsing, embedding batch
+orchestration, vector persistence 구현을 추가하지 않는다.
+RAG chunking 실행은 `starter:studio-platform-starter-ai`의 `RagPipelineService`와 선택적
+`starter:studio-platform-starter-chunking`에 위임한다.
 
 ## 1) 의존성 추가
 

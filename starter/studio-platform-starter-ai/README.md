@@ -6,6 +6,8 @@ AI 서비스(채팅, 임베딩, 벡터 스토어, RAG 파이프라인)를 자동
 동시에 등록하고, `default-provider`로 지정한 프로바이더를 기본 `ChatPort` / `EmbeddingPort` 빈으로 노출한다.
 JdbcTemplate이 컨텍스트에 있으면 pgvector 기반 `VectorStorePort`도 자동으로 생성된다.
 `studio-platform-ai`는 공통 계약만 제공하고, Spring AI adapter와 기본 RAG 구현은 이 스타터가 제공한다.
+`starter:studio-platform-starter-chunking`이 있으면 `RagPipelineService`는 `ChunkingOrchestrator`를 우선 사용하고,
+없으면 기존 `TextChunker` fallback을 사용한다.
 
 > **중요** Spring AI BOM(`org.springframework.ai:spring-ai-bom:1.1.2`)이 `api(platform())` 으로
 > 노출되므로, 소비 앱에서 별도로 BOM을 선언하지 않아도 Spring AI 의존성 버전이 자동 관리된다.
@@ -35,6 +37,9 @@ dependencies {
 
     // 벡터 스토어를 사용할 경우 (pgvector)
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+
+    // RAG indexing chunking 전략
+    implementation(project(":starter:studio-platform-starter-chunking"))
 }
 ```
 
@@ -168,11 +173,37 @@ studio:
 | `EmbeddingPort` (기본) | `default-provider`에 해당하는 임베딩 포트 |
 | `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
 | `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
+| `ChunkingOrchestrator` | `starter-chunking`이 있을 때 RAG indexing chunk 생성에 사용 |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
 | `TextCleaner` | `studio.ai.pipeline.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
 
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
 `objectType`/`objectId` 메타데이터를 함께 저장하면 AI web starter의 RAG chat API에서 특정 파일이나 객체 범위에 한정해 답변할 수 있다.
+같은 `objectType`/`objectId`를 재색인하면 기존 chunk를 삭제한 뒤 새 chunk를 저장해 stale chunk가 남지 않도록 한다.
+
+### RAG 청킹 설정
+
+`starter:studio-platform-starter-chunking`이 classpath에 있으면 `RagPipelineService`는 신규
+`ChunkingOrchestrator`를 사용한다. 없으면 기존 `TextChunker` 기반 fallback이 적용된다.
+
+```yaml
+studio:
+  chunking:
+    enabled: true
+    strategy: recursive
+    max-size: 800
+    overlap: 100
+```
+
+| 설정 | 기본값 | 설명 |
+|---|---:|---|
+| `studio.chunking.enabled` | `true` | chunking starter 기본 bean 등록 여부 |
+| `studio.chunking.strategy` | `recursive` | Phase 1 전략. `recursive`, `fixed-size` 지원 |
+| `studio.chunking.max-size` | `800` | chunk 최대 문자 수 |
+| `studio.chunking.overlap` | `100` | 이전 chunk tail을 다음 chunk에 포함할 문자 수 |
+
+기존 `studio.ai.pipeline.chunk-size`, `studio.ai.pipeline.chunk-overlap`는 legacy `TextChunker` fallback 설정이다.
+신규 `ChunkingOrchestrator` 경로에서는 `studio.chunking.*`가 기준이다.
 
 ### RAG 파이프라인 튜닝
 

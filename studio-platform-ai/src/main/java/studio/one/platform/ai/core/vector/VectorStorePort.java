@@ -11,6 +11,23 @@ public interface VectorStorePort {
 
     void upsert(List<VectorDocument> documents);
 
+    default void deleteByObject(String objectType, String objectId) {
+        throw new UnsupportedOperationException("deleteByObject is not implemented");
+    }
+
+    /**
+     * Replaces all vectors for an object scope.
+     * <p>
+     * Default implementation is non-atomic because it delegates to
+     * {@link #deleteByObject(String, String)} and then {@link #upsert(List)}.
+     * Implementations that support transactions should override this method with an
+     * atomic replacement.
+     */
+    default void replaceByObject(String objectType, String objectId, List<VectorDocument> documents) {
+        deleteByObject(objectType, objectId);
+        upsert(documents);
+    }
+
     List<VectorSearchResult> search(VectorSearchRequest request);
 
     /**
