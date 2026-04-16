@@ -15,6 +15,7 @@ import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
@@ -43,6 +44,11 @@ public class AiWebAutoConfiguration {
             AiWebRagProperties properties) {
         return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
                 properties.getDiagnostics().isAllowClientDebug());
+    }
+
+    @Bean
+    AiWebExceptionHandler aiWebExceptionHandler() {
+        return new AiWebExceptionHandler();
     }
 
     @Bean

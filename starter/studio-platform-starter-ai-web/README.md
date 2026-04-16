@@ -208,12 +208,14 @@ Content-Type: application/json
 | `RagController` | RAG 인덱싱 및 검색 엔드포인트 |
 | `QueryRewriteController` | 쿼리 리라이트 엔드포인트 |
 | `AiInfoController` | AI 정보 조회 엔드포인트 (`endpoints.enabled=true` 필요) |
+| `AiWebExceptionHandler` | AI web endpoint의 `ProblemDetails` 오류 매핑 |
 
 ## 5) 참고 사항
 
 - `VectorController`는 `VectorStorePort` 빈이 없어도 등록되지만, 벡터 관련 요청 시 HTTP 503을 반환한다.
 - 벡터 검색 시 `hybrid=true`를 설정하면 BM25 + 벡터 하이브리드 검색이 활성화된다(query 텍스트 필수).
 - 채팅 API의 `provider`는 Studio provider id 선택만 담당한다. OpenAI 런타임 설정은 계속 `spring.ai.openai.*`가 소유한다.
+- Google GenAI 등 provider quota/rate limit 오류는 AI web exception handler가 HTTP 429 `ProblemDetails`로 변환한다.
 - `query-rewrite` 엔드포인트는 Mustache 템플릿(`query-rewrite`)이 없으면 내장 폴백 프롬프트를 사용한다.
 - 모든 엔드포인트는 Spring Security의 메서드 레벨 권한 검사(`@PreAuthorize`)를 사용한다.
   `endpointAuthz` 빈이 컨텍스트에 등록되어 있어야 한다.
