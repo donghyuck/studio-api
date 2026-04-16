@@ -26,6 +26,7 @@ import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
@@ -106,7 +107,8 @@ public class RagPipelineConfiguration {
 
                 return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
-                                textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties));
+                                textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
+                                ragPipelineDiagnosticsOptions(properties));
         }
 
         @Bean
@@ -144,6 +146,14 @@ public class RagPipelineConfiguration {
                                 retrieval.isSemanticFallbackEnabled(),
                                 objectScope.getDefaultListLimit(),
                                 objectScope.getMaxListLimit());
+        }
+
+        private RagPipelineDiagnosticsOptions ragPipelineDiagnosticsOptions(RagPipelineProperties properties) {
+                RagPipelineProperties.DiagnosticsProperties diagnostics = properties.getDiagnostics();
+                return new RagPipelineDiagnosticsOptions(
+                                diagnostics.isEnabled(),
+                                diagnostics.isLogResults(),
+                                diagnostics.getMaxSnippetChars());
         }
 
 }

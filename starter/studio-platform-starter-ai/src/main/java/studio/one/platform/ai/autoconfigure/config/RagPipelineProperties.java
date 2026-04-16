@@ -3,6 +3,7 @@ package studio.one.platform.ai.autoconfigure.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 
 import java.time.Duration;
@@ -17,6 +18,7 @@ public class RagPipelineProperties {
     private final RetrievalProperties retrieval = new RetrievalProperties();
     private final ObjectScopeProperties objectScope = new ObjectScopeProperties();
     private final CleanerProperties cleaner = new CleanerProperties();
+    private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
 
     public int getChunkSize() {
         return chunkSize;
@@ -52,6 +54,10 @@ public class RagPipelineProperties {
 
     public CleanerProperties getCleaner() {
         return cleaner;
+    }
+
+    public DiagnosticsProperties getDiagnostics() {
+        return diagnostics;
     }
 
     public static class CacheProperties {
@@ -201,6 +207,36 @@ public class RagPipelineProperties {
 
         public void setFailOpen(boolean failOpen) {
             this.failOpen = failOpen;
+        }
+    }
+
+    public static class DiagnosticsProperties {
+        private boolean enabled = RagPipelineDiagnosticsOptions.DEFAULT_ENABLED;
+        private boolean logResults = RagPipelineDiagnosticsOptions.DEFAULT_LOG_RESULTS;
+        private int maxSnippetChars = RagPipelineDiagnosticsOptions.DEFAULT_MAX_SNIPPET_CHARS;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public boolean isLogResults() {
+            return logResults;
+        }
+
+        public void setLogResults(boolean logResults) {
+            this.logResults = logResults;
+        }
+
+        public int getMaxSnippetChars() {
+            return maxSnippetChars;
+        }
+
+        public void setMaxSnippetChars(int maxSnippetChars) {
+            this.maxSnippetChars = maxSnippetChars;
         }
     }
 }

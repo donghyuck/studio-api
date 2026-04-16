@@ -22,6 +22,7 @@
 package studio.one.platform.ai.web.controller;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,20 +40,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
+import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
-import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -66,13 +67,14 @@ import studio.one.platform.web.dto.ApiResponse;
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/chat")
 @Validated
-@Slf4j
 public class ChatController {
 
     private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
+
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
     private final RagContextBuilder ragContextBuilder;
+    private final boolean allowClientDebug;
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
         this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
@@ -82,9 +84,18 @@ public class ChatController {
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagContextBuilder ragContextBuilder) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, false);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
+        this.allowClientDebug = allowClientDebug;
     }
 
     /**
@@ -133,7 +144,6 @@ public class ChatController {
             + "(#request.objectType() == null or !#request.objectType().trim().equalsIgnoreCase('attachment') "
             + "or @endpointAuthz.can('features:attachment','read'))")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(@Valid @RequestBody ChatRagRequestDto request) {
-        
         ChatRequestDto chat = request.chat();
         int ragTopK = request.ragTopK() != null ? request.ragTopK() : 3;
         ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
@@ -152,21 +162,13 @@ public class ChatController {
         } else {
             String resolvedQuery = resolveRagQuery(request);
             if (hasFilter) {
-                ragResults = ragPipelineService.searchByObject(new RagSearchRequest(resolvedQuery, ragTopK), objectType, objectId);
+                ragResults = ragPipelineService.searchByObject(
+                        new RagSearchRequest(resolvedQuery, ragTopK), objectType, objectId);
             } else {
                 ragResults = ragPipelineService.search(new RagSearchRequest(resolvedQuery, ragTopK));
             }
         }
-        if (log.isInfoEnabled()) {
-            log.info("RAG results count={}, objectType={}, objectId={}, ragQuery={}",
-                    ragResults.size(), objectType, objectId, ragQuery);
-            ragResults.stream().limit(5).forEach(r ->
-                    log.info("RAG hit docId={}, score={}, snippet={}",
-                            r.documentId(),
-                            String.format("%.3f", r.score()),
-                            truncate(r.content(), 120)));
-        }
-
+        RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
 
         String context = ragContextBuilder.build(ragResults);
 
@@ -189,7 +191,7 @@ public class ChatController {
                 chat.stopSequences());
 
         ChatResponse response = chatPort(chat.provider()).chat(toDomainChatRequest(augmented));
-        return ResponseEntity.ok(ApiResponse.ok(toDto(response)));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(response, diagnostics, shouldExposeDiagnostics(request))));
     }
 
     private ChatRequest toDomainChatRequest(ChatRequestDto request) {
@@ -248,16 +250,6 @@ public class ChatController {
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
     }
-    
-    private String truncate(String content, int maxLen) {
-        if (content == null) {
-            return "";
-        }
-        if (content.length() <= maxLen) {
-            return content;
-        }
-        return content.substring(0, maxLen) + "...";
-    }
 
     private List<ChatMessage> toDomainMessages(ChatRequestDto request) {
         List<ChatMessageDto> messages = new ArrayList<>();
@@ -276,11 +268,25 @@ public class ChatController {
     }
 
     private ChatResponseDto toDto(ChatResponse response) {
+        return toDto(response, null, false);
+    }
+
+    private ChatResponseDto toDto(
+            ChatResponse response,
+            RagRetrievalDiagnostics diagnostics,
+            boolean exposeDiagnostics) {
         List<ChatMessageDto> messages = response.messages().stream()
                 .map(message -> new ChatMessageDto(message.role().name().toLowerCase(Locale.ROOT), message.content()))
                 .toList();
-        Map<String, Object> metadata = Map.copyOf(response.metadata());
+        Map<String, Object> metadata = new HashMap<>(response.metadata());
+        if (exposeDiagnostics && diagnostics != null) {
+            metadata.put("ragDiagnostics", diagnostics.toMetadata());
+        }
         return new ChatResponseDto(messages, response.model(), metadata);
+    }
+
+    private boolean shouldExposeDiagnostics(ChatRagRequestDto request) {
+        return allowClientDebug && Boolean.TRUE.equals(request.debug());
     }
 
     private String resolveRagQuery(ChatRagRequestDto request) {

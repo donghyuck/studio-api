@@ -27,6 +27,7 @@ AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근
 | `TextChunker` | `core.chunk` | 문서를 TextChunk 리스트로 분할 |
 | `TextCleaner` | `service.cleaning` | 색인 전 추출 텍스트 정제 계약 |
 | `RagPipelineService` | `service.pipeline` | 인덱싱/검색 파이프라인 오케스트레이터 |
+| `RagRetrievalDiagnostics` | `core.rag` | RAG 검색 fallback 전략과 결과 상태 진단 모델 |
 | `AiProvider` | `core` | 지원 공급자 열거형 (OPENAI, OLLAMA, GOOGLE_AI_GEMINI) |
 
 ## RAG metadata
@@ -40,6 +41,11 @@ AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근
 | `indexedTextLength` | 실제 chunking/indexing에 사용한 텍스트 길이 |
 | `chunkCount` | 생성된 chunk 수 |
 | `chunkLength` | 개별 chunk content 길이 |
+
+## RAG diagnostics
+`RagPipelineService`는 diagnostics가 활성화된 경우 마지막 RAG 검색의 strategy, result count, score threshold,
+hybrid weight, object scope, topK를 `RagRetrievalDiagnostics`로 기록한다. 진단 metadata에는 chunk 본문을 포함하지 않는다.
+Web API에서 client debug 노출 여부는 `studio-platform-starter-ai-web` 설정이 결정한다.
 
 ## 구현 분리 원칙
 이 모듈은 구현체를 포함하지 않는다. 의존성 역전 원칙에 따라 애플리케이션은 `ChatPort` 등 포트만 참조하며, 공급자별 어댑터는 스타터 모듈이 조건부로 등록한다. 공급자를 교체하거나 추가할 때 이 모듈을 수정할 필요가 없다.

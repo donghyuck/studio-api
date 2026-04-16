@@ -18,6 +18,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
@@ -410,5 +411,147 @@ class RagPipelineServiceTest {
 
         verify(vectorStorePort, times(4)).listByObject(eq("attachment"), eq("42"), limitCaptor.capture());
         assertThat(limitCaptor.getAllValues()).containsExactly(5, 5, 10, 7);
+    }
+
+    @Test
+    void shouldNotExposeDiagnosticsWhenDisabled() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-1", "chunk", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        ragPipelineService.search(request);
+
+        assertThat(ragPipelineService.latestDiagnostics()).isEmpty();
+    }
+
+    @Test
+    void shouldTrackHybridRetrievalDiagnosticsWhenEnabled() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor,
+                null,
+                new RagPipelineOptions(0.2d, 0.8d, 0.4d, true, true, 20, 100),
+                new RagPipelineDiagnosticsOptions(true, false, 120));
+        RagSearchRequest request = new RagSearchRequest("hello", 7);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), eq(0.2d), eq(0.8d)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-1", "chunk", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        ragPipelineService.search(request);
+
+        assertThat(ragPipelineService.latestDiagnostics()).hasValueSatisfying(diagnostics -> {
+            assertThat(diagnostics.strategy()).isEqualTo(RagRetrievalDiagnostics.Strategy.HYBRID);
+            assertThat(diagnostics.initialResultCount()).isEqualTo(1);
+            assertThat(diagnostics.finalResultCount()).isEqualTo(1);
+            assertThat(diagnostics.minScore()).isEqualTo(0.4d);
+            assertThat(diagnostics.vectorWeight()).isEqualTo(0.2d);
+            assertThat(diagnostics.lexicalWeight()).isEqualTo(0.8d);
+            assertThat(diagnostics.objectType()).isNull();
+            assertThat(diagnostics.objectId()).isNull();
+            assertThat(diagnostics.topK()).isEqualTo(7);
+        });
+    }
+
+    @Test
+    void shouldTrackKeywordFallbackDiagnosticsWhenEnabled() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                new RagPipelineDiagnosticsOptions(true, false, 120));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of("greeting"));
+        when(vectorStorePort.hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.01)));
+        when(vectorStorePort.hybridSearch(eq("hello greeting"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-strong", "strong", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        ragPipelineService.search(request);
+
+        assertThat(ragPipelineService.latestDiagnostics()).hasValueSatisfying(diagnostics -> {
+            assertThat(diagnostics.strategy()).isEqualTo(RagRetrievalDiagnostics.Strategy.KEYWORD_ENRICHED_HYBRID);
+            assertThat(diagnostics.initialResultCount()).isEqualTo(1);
+            assertThat(diagnostics.finalResultCount()).isEqualTo(1);
+        });
+    }
+
+    @Test
+    void shouldTrackObjectScopedSemanticFallbackDiagnosticsWhenEnabled() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                new RagPipelineDiagnosticsOptions(true, false, 120));
+        RagSearchRequest request = new RagSearchRequest("hello", 3);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of());
+        when(vectorStorePort.hybridSearchByObject(anyString(), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic", "semantic", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        ragPipelineService.searchByObject(request, "attachment", "42");
+
+        assertThat(ragPipelineService.latestDiagnostics()).hasValueSatisfying(diagnostics -> {
+            assertThat(diagnostics.strategy()).isEqualTo(RagRetrievalDiagnostics.Strategy.SEMANTIC);
+            assertThat(diagnostics.objectType()).isEqualTo("attachment");
+            assertThat(diagnostics.objectId()).isEqualTo("42");
+            assertThat(diagnostics.topK()).isEqualTo(3);
+        });
+    }
+
+    @Test
+    void shouldTrackNoneDiagnosticsWhenNoRelevantResultsRemain() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                new RagPipelineDiagnosticsOptions(true, false, 120));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of());
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.01)));
+        when(vectorStorePort.search(any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic-low", "weak semantic", Map.of(), List.of(0.5, 0.6)), 0.01)));
+
+        ragPipelineService.search(request);
+
+        assertThat(ragPipelineService.latestDiagnostics()).hasValueSatisfying(diagnostics -> {
+            assertThat(diagnostics.strategy()).isEqualTo(RagRetrievalDiagnostics.Strategy.NONE);
+            assertThat(diagnostics.initialResultCount()).isEqualTo(1);
+            assertThat(diagnostics.finalResultCount()).isZero();
+        });
+    }
+
+    @Test
+    void shouldNotIncludeSensitiveContentInDiagnosticsMetadata() {
+        RagRetrievalDiagnostics diagnostics = new RagRetrievalDiagnostics(
+                RagRetrievalDiagnostics.Strategy.HYBRID,
+                1,
+                1,
+                0.15d,
+                0.7d,
+                0.3d,
+                "attachment",
+                "42",
+                3);
+
+        assertThat(diagnostics.toMetadata())
+                .containsEntry("strategy", "hybrid")
+                .doesNotContainKeys("content", "snippet", "text", "chunk");
     }
 }

@@ -39,8 +39,10 @@ public class AiWebAutoConfiguration {
     ChatController chatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
-            RagContextBuilder ragContextBuilder) {
-        return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder);
+            RagContextBuilder ragContextBuilder,
+            AiWebRagProperties properties) {
+        return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
+                properties.getDiagnostics().isAllowClientDebug());
     }
 
     @Bean

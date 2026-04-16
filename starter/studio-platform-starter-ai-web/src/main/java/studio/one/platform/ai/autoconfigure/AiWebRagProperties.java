@@ -8,9 +8,14 @@ import studio.one.platform.constant.PropertyKeys;
 public class AiWebRagProperties {
 
     private final ContextProperties context = new ContextProperties();
+    private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
 
     public ContextProperties getContext() {
         return context;
+    }
+
+    public DiagnosticsProperties getDiagnostics() {
+        return diagnostics;
     }
 
     public static class ContextProperties {
@@ -40,6 +45,18 @@ public class AiWebRagProperties {
 
         public void setIncludeScores(boolean includeScores) {
             this.includeScores = includeScores;
+        }
+    }
+
+    public static class DiagnosticsProperties {
+        private boolean allowClientDebug = false;
+
+        public boolean isAllowClientDebug() {
+            return allowClientDebug;
+        }
+
+        public void setAllowClientDebug(boolean allowClientDebug) {
+            this.allowClientDebug = allowClientDebug;
         }
     }
 }

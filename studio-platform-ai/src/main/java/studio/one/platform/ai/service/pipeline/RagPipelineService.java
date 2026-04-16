@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -19,6 +20,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
@@ -42,6 +44,8 @@ public class RagPipelineService {
     private final KeywordExtractor keywordExtractor;
     private final TextCleaner textCleaner;
     private final RagPipelineOptions options;
+    private final RagPipelineDiagnosticsOptions diagnosticsOptions;
+    private final ThreadLocal<RagRetrievalDiagnostics> latestDiagnostics = new ThreadLocal<>();
 
     public RagPipelineService(EmbeddingPort embeddingPort,
             VectorStorePort vectorStorePort,
@@ -50,7 +54,7 @@ public class RagPipelineService {
             Retry retry,
             KeywordExtractor keywordExtractor) {
         this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
-                null, RagPipelineOptions.defaults());
+                null, RagPipelineOptions.defaults(), RagPipelineDiagnosticsOptions.defaults());
     }
 
     public RagPipelineService(EmbeddingPort embeddingPort,
@@ -71,6 +75,19 @@ public class RagPipelineService {
             KeywordExtractor keywordExtractor,
             TextCleaner textCleaner,
             RagPipelineOptions options) {
+        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, textCleaner,
+                options, RagPipelineDiagnosticsOptions.defaults());
+    }
+
+    public RagPipelineService(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options,
+            RagPipelineDiagnosticsOptions diagnosticsOptions) {
 
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
@@ -80,6 +97,7 @@ public class RagPipelineService {
         this.keywordExtractor = keywordExtractor;
         this.textCleaner = textCleaner;
         this.options = Objects.requireNonNull(options, "options");
+        this.diagnosticsOptions = Objects.requireNonNull(diagnosticsOptions, "diagnosticsOptions");
     }
 
     public void index(RagIndexRequest request) {
@@ -117,17 +135,21 @@ public class RagPipelineService {
     }
 
     public List<RagSearchResult> search(RagSearchRequest request) {
+        clearDiagnostics();
         List<Double> queryEmbedding = embedWithCache(request.query());
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
                 query -> vectorStorePort.hybridSearch(query, searchRequest, options.vectorWeight(), options.lexicalWeight()),
-                () -> vectorStorePort.search(searchRequest));
+                () -> vectorStorePort.search(searchRequest),
+                null,
+                null);
         return toRagSearchResults(results);
     }
 
     public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
+        clearDiagnostics();
         List<Double> queryEmbedding = embedWithCache(request.query());
         VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
         List<VectorSearchResult> results = searchWithFallback(
@@ -140,11 +162,14 @@ public class RagPipelineService {
                         searchRequest,
                         options.vectorWeight(),
                         options.lexicalWeight()),
-                () -> vectorStorePort.searchByObject(objectType, objectId, searchRequest));
+                () -> vectorStorePort.searchByObject(objectType, objectId, searchRequest),
+                objectType,
+                objectId);
         return toRagSearchResults(results);
     }
 
     public List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit) {
+        clearDiagnostics();
         List<VectorSearchResult> results = vectorStorePort.listByObject(objectType, objectId, options.clampListLimit(limit));
         return results.stream()
                 .map(result -> new RagSearchResult(
@@ -153,6 +178,12 @@ public class RagPipelineService {
                         result.document().metadata(),
                         result.score()))
                 .toList();
+    }
+
+    public Optional<RagRetrievalDiagnostics> latestDiagnostics() {
+        return diagnosticsOptions.enabled()
+                ? Optional.ofNullable(latestDiagnostics.get())
+                : Optional.empty();
     }
 
     private List<Double> embedWithCache(String text) {
@@ -198,16 +229,23 @@ public class RagPipelineService {
             String query,
             VectorSearchRequest searchRequest,
             Function<String, List<VectorSearchResult>> hybridSearch,
-            Supplier<List<VectorSearchResult>> semanticSearch) {
+            Supplier<List<VectorSearchResult>> semanticSearch,
+            String objectType,
+            String objectId) {
         List<VectorSearchResult> results = hybridSearch.apply(query);
         if (hasRelevantResults(results)) {
+            recordDiagnostics(RagRetrievalDiagnostics.Strategy.HYBRID,
+                    results.size(), results.size(), searchRequest, objectType, objectId, results);
             return results;
         }
+        int initialResultCount = safeSize(results);
 
         String enrichedQuery = options.keywordFallbackEnabled() ? enrichQuery(query) : query;
         if (options.keywordFallbackEnabled() && !enrichedQuery.equals(query)) {
             List<VectorSearchResult> enrichedResults = hybridSearch.apply(enrichedQuery);
             if (hasRelevantResults(enrichedResults)) {
+                recordDiagnostics(RagRetrievalDiagnostics.Strategy.KEYWORD_ENRICHED_HYBRID,
+                        initialResultCount, enrichedResults.size(), searchRequest, objectType, objectId, enrichedResults);
                 return enrichedResults;
             }
         }
@@ -215,9 +253,13 @@ public class RagPipelineService {
         if (options.semanticFallbackEnabled()) {
             List<VectorSearchResult> semanticResults = semanticSearch.get();
             if (hasRelevantResults(semanticResults)) {
+                recordDiagnostics(RagRetrievalDiagnostics.Strategy.SEMANTIC,
+                        initialResultCount, semanticResults.size(), searchRequest, objectType, objectId, semanticResults);
                 return semanticResults;
             }
         }
+        recordDiagnostics(RagRetrievalDiagnostics.Strategy.NONE,
+                initialResultCount, 0, searchRequest, objectType, objectId, List.of());
         return List.of();
     }
 
@@ -263,5 +305,70 @@ public class RagPipelineService {
                         result.document().metadata(),
                         result.score()))
                 .toList();
+    }
+
+    private void clearDiagnostics() {
+        latestDiagnostics.remove();
+    }
+
+    private void recordDiagnostics(
+            RagRetrievalDiagnostics.Strategy strategy,
+            int initialResultCount,
+            int finalResultCount,
+            VectorSearchRequest searchRequest,
+            String objectType,
+            String objectId,
+            List<VectorSearchResult> results) {
+        if (!diagnosticsOptions.enabled()) {
+            return;
+        }
+        RagRetrievalDiagnostics diagnostics = new RagRetrievalDiagnostics(
+                strategy,
+                initialResultCount,
+                finalResultCount,
+                options.minRelevanceScore(),
+                options.vectorWeight(),
+                options.lexicalWeight(),
+                objectType,
+                objectId,
+                searchRequest.topK());
+        latestDiagnostics.set(diagnostics);
+        logDiagnostics(diagnostics, results);
+    }
+
+    private void logDiagnostics(RagRetrievalDiagnostics diagnostics, List<VectorSearchResult> results) {
+        if (!diagnosticsOptions.logResults() || !log.isDebugEnabled()) {
+            return;
+        }
+        log.debug("RAG retrieval diagnostics strategy={}, initialResultCount={}, finalResultCount={}, minScore={}, "
+                        + "vectorWeight={}, lexicalWeight={}, objectType={}, objectId={}, topK={}",
+                diagnostics.strategy().value(),
+                diagnostics.initialResultCount(),
+                diagnostics.finalResultCount(),
+                diagnostics.minScore(),
+                diagnostics.vectorWeight(),
+                diagnostics.lexicalWeight(),
+                diagnostics.objectType(),
+                diagnostics.objectId(),
+                diagnostics.topK());
+        results.stream().limit(diagnostics.topK()).forEach(result ->
+                log.debug("RAG diagnostic hit docId={}, score={}, snippet={}",
+                        result.document().id(),
+                        String.format("%.3f", result.score()),
+                        truncate(result.document().content(), diagnosticsOptions.maxSnippetChars())));
+    }
+
+    private int safeSize(List<VectorSearchResult> results) {
+        return results == null ? 0 : results.size();
+    }
+
+    private String truncate(String content, int maxLen) {
+        if (content == null || maxLen == 0) {
+            return "";
+        }
+        if (content.length() <= maxLen) {
+            return content;
+        }
+        return content.substring(0, maxLen);
     }
 }

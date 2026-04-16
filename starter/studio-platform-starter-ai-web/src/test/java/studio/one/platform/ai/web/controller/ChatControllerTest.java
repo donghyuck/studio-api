@@ -9,12 +9,14 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -22,12 +24,15 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
+import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.web.dto.ApiResponse;
 
 class ChatControllerTest {
 
@@ -53,6 +58,7 @@ class ChatControllerTest {
         when(providerRegistry.chatPort("google")).thenReturn(googleChatPort);
         when(defaultChatPort.chat(any())).thenReturn(response("default"));
         when(googleChatPort.chat(any())).thenReturn(response("google"));
+        when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.empty());
     }
 
     @Test
@@ -292,6 +298,97 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatDoesNotExposeDiagnosticsWhenClientDebugIsDisabled() {
+        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "sensitive file body", Map.of(), 0.9d)));
+        when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.of(diagnostics()));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                null,
+                null,
+                false)).getBody().getData();
+
+        assertThat(response.metadata()).doesNotContainKey("ragDiagnostics");
+    }
+
+    @Test
+    void ragChatDoesNotExposeDiagnosticsWhenServerDebugIsDisabled() {
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "sensitive file body", Map.of(), 0.9d)));
+        when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.of(diagnostics()));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                null,
+                null,
+                true)).getBody().getData();
+
+        assertThat(response.metadata()).doesNotContainKey("ragDiagnostics");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragChatExposesSafeDiagnosticsWhenClientAndServerDebugAreEnabled() {
+        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "sensitive file body", Map.of(), 0.9d)));
+        when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.of(diagnostics()));
+
+        ResponseEntity<ApiResponse<ChatResponseDto>> response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                null,
+                null,
+                true));
+
+        Map<String, Object> ragDiagnostics = (Map<String, Object>) response.getBody()
+                .getData()
+                .metadata()
+                .get("ragDiagnostics");
+        assertThat(ragDiagnostics)
+                .containsEntry("strategy", "hybrid")
+                .containsEntry("initialResultCount", 1)
+                .containsEntry("finalResultCount", 1)
+                .containsEntry("topK", 3)
+                .doesNotContainKeys("content", "snippet", "text", "chunk");
+        assertThat(ragDiagnostics.values()).doesNotContain("sensitive file body");
+    }
+
+    @Test
     void ragChatListsByObjectWhenQueryMissingAndObjectFilterPresent() {
         when(ragPipelineService.listByObject("attachment", "123", 3))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 1.0d)));
@@ -387,5 +484,18 @@ class ChatControllerTest {
     private ChatResponse response(String content) {
         return new ChatResponse(List.of(studio.one.platform.ai.core.chat.ChatMessage.assistant(content)), "model",
                 Map.of());
+    }
+
+    private RagRetrievalDiagnostics diagnostics() {
+        return new RagRetrievalDiagnostics(
+                RagRetrievalDiagnostics.Strategy.HYBRID,
+                1,
+                1,
+                0.15d,
+                0.7d,
+                0.3d,
+                null,
+                null,
+                3);
     }
 }
