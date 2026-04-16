@@ -11,6 +11,15 @@ public record ChatRagRequestDto(
         String ragQuery,
         Integer ragTopK,
         String objectType,
-        String objectId
+        String objectId,
+        Boolean debug
 ) {
+    public ChatRagRequestDto(
+            ChatRequestDto chat,
+            String ragQuery,
+            Integer ragTopK,
+            String objectType,
+            String objectId) {
+        this(chat, ragQuery, ragTopK, objectType, objectId, null);
+    }
 }

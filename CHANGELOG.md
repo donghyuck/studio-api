@@ -3,6 +3,9 @@
 ## 2026-04-16
 
 ### 변경됨
+- 이슈 #205 대응으로 `studio.ai.pipeline.diagnostics.*`와 `studio.ai.endpoints.rag.diagnostics.allow-client-debug` 설정을 추가해 RAG 검색 fallback 전략과 결과 상태를 선택적으로 관찰할 수 있도록 했다.
+- `RagRetrievalDiagnostics`를 추가해 strategy, result count, score threshold, hybrid weight, object scope, topK를 기록하고, client debug 허용 시에만 `ChatResponseDto.metadata.ragDiagnostics`에 노출한다.
+- 기존 `POST /api/ai/chat/rag`의 per-hit info 로그를 제거하고, diagnostics result logging이 명시적으로 활성화된 경우에만 bounded debug snippet을 출력하도록 했다.
 - 이슈 #204 대응으로 `studio.ai.pipeline.cleaner.*` 설정을 추가해 RAG 색인 전 LLM 기반 텍스트 정제를 선택적으로 적용할 수 있도록 했다.
 - `TextCleaner`/`LlmTextCleaner`를 추가하고 `rag-cleaner` prompt의 `clean_text` JSON 응답을 색인 텍스트로 사용하도록 했다.
 - `RagPipelineService.index()`가 cleaner 적용 여부, 원문/색인 텍스트 길이, chunk 수, chunk 길이를 vector metadata에 additive로 기록하도록 했다.
@@ -18,6 +21,8 @@
 
 ### 검증
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test --rerun-tasks`
+- `gradle :studio-platform-ai:test`
+- `gradle :starter:studio-platform-starter-ai-web:test`
 - `gradle :studio-platform-ai:test --tests 'studio.one.platform.ai.service.pipeline.RagQualitySmokeTest'`
 - `gradle :studio-platform-ai:test`
 - `gradle :starter:studio-platform-starter-ai:test`

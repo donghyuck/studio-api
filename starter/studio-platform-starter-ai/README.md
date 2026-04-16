@@ -191,6 +191,10 @@ studio:
       object-scope:
         default-list-limit: 20
         max-list-limit: 100
+      diagnostics:
+        enabled: false
+        log-results: false
+        max-snippet-chars: 120
 ```
 
 | 설정 | 기본값 | 설명 |
@@ -202,8 +206,12 @@ studio:
 | `studio.ai.pipeline.retrieval.semantic-fallback-enabled` | `true` | semantic fallback 사용 여부 |
 | `studio.ai.pipeline.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
 | `studio.ai.pipeline.object-scope.max-list-limit` | `100` | object-scope list 최대 limit |
+| `studio.ai.pipeline.diagnostics.enabled` | `false` | RAG 검색 fallback 전략과 결과 카운트 수집 여부 |
+| `studio.ai.pipeline.diagnostics.log-results` | `false` | diagnostics 활성화 시 bounded result snippet debug log 출력 여부 |
+| `studio.ai.pipeline.diagnostics.max-snippet-chars` | `120` | result snippet debug log 최대 문자 수 |
 
 `vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
+diagnostics metadata에는 chunk 본문을 포함하지 않고 strategy, 결과 수, threshold, weight, object scope, topK만 기록한다.
 
 ### RAG 색인 전 텍스트 정제
 

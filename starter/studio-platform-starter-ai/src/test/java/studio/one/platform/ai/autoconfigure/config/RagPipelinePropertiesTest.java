@@ -28,6 +28,9 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getCleaner().getPrompt()).isEqualTo("rag-cleaner");
         assertThat(properties.getCleaner().getMaxInputChars()).isEqualTo(20_000);
         assertThat(properties.getCleaner().isFailOpen()).isTrue();
+        assertThat(properties.getDiagnostics().isEnabled()).isFalse();
+        assertThat(properties.getDiagnostics().isLogResults()).isFalse();
+        assertThat(properties.getDiagnostics().getMaxSnippetChars()).isEqualTo(120);
     }
 
     @Test
@@ -44,7 +47,10 @@ class RagPipelinePropertiesTest {
                 Map.entry("studio.ai.pipeline.cleaner.enabled", "true"),
                 Map.entry("studio.ai.pipeline.cleaner.prompt", "custom-cleaner"),
                 Map.entry("studio.ai.pipeline.cleaner.max-input-chars", "1234"),
-                Map.entry("studio.ai.pipeline.cleaner.fail-open", "false"))));
+                Map.entry("studio.ai.pipeline.cleaner.fail-open", "false"),
+                Map.entry("studio.ai.pipeline.diagnostics.enabled", "true"),
+                Map.entry("studio.ai.pipeline.diagnostics.log-results", "true"),
+                Map.entry("studio.ai.pipeline.diagnostics.max-snippet-chars", "42"))));
 
         RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
                 .bind("studio.ai.pipeline", Bindable.of(RagPipelineProperties.class))
@@ -61,5 +67,8 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getCleaner().getPrompt()).isEqualTo("custom-cleaner");
         assertThat(properties.getCleaner().getMaxInputChars()).isEqualTo(1234);
         assertThat(properties.getCleaner().isFailOpen()).isFalse();
+        assertThat(properties.getDiagnostics().isEnabled()).isTrue();
+        assertThat(properties.getDiagnostics().isLogResults()).isTrue();
+        assertThat(properties.getDiagnostics().getMaxSnippetChars()).isEqualTo(42);
     }
 }

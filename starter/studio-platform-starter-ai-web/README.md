@@ -125,6 +125,8 @@ studio:
           max-chunks: 8
           max-chars: 12000
           include-scores: true
+        diagnostics:
+          allow-client-debug: false
 ```
 
 | 설정 | 기본값 | 설명 |
@@ -132,6 +134,13 @@ studio:
 | `studio.ai.endpoints.rag.context.max-chunks` | `8` | chat system context에 포함할 최대 RAG chunk 수 |
 | `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.include-scores` | `true` | context에 retrieval score를 포함할지 여부 |
+| `studio.ai.endpoints.rag.diagnostics.allow-client-debug` | `false` | client `debug=true` 요청에 `metadata.ragDiagnostics` 노출 허용 여부 |
+
+이슈 #205부터 RAG retrieval diagnostics를 선택적으로 사용할 수 있다. 서버의
+`studio.ai.pipeline.diagnostics.enabled=true`가 켜진 경우 검색 fallback strategy를 기록하고,
+클라이언트 요청의 `debug=true`와 서버 `allow-client-debug=true`가 모두 만족될 때만 응답 metadata에
+`ragDiagnostics`를 추가한다. diagnostics metadata에는 chunk 본문이나 snippet을 포함하지 않는다.
+result snippet 로그는 `studio.ai.pipeline.diagnostics.log-results=true`일 때만 debug level로 제한 길이만 출력한다.
 
 ### 임베딩 요청 예시
 
