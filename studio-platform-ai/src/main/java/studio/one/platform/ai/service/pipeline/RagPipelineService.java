@@ -32,16 +32,13 @@ import studio.one.platform.constant.ServiceNames;
 public class RagPipelineService {
     public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":ai:rag-pipelien-service";
 
-    private static final double HYBRID_VECTOR_WEIGHT = 0.7;
-    private static final double HYBRID_LEXICAL_WEIGHT = 0.3;
-    private static final double MIN_RELEVANCE_SCORE = 0.15;
-
     private final EmbeddingPort embeddingPort;
     private final VectorStorePort vectorStorePort;
     private final TextChunker textChunker;
     private final Cache<String, List<Double>> embeddingCache;
     private final Retry retry;
     private final KeywordExtractor keywordExtractor;
+    private final RagPipelineOptions options;
 
     public RagPipelineService(EmbeddingPort embeddingPort,
             VectorStorePort vectorStorePort,
@@ -49,6 +46,17 @@ public class RagPipelineService {
             Cache<String, List<Double>> embeddingCache,
             Retry retry,
             KeywordExtractor keywordExtractor) {
+        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
+                RagPipelineOptions.defaults());
+    }
+
+    public RagPipelineService(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            RagPipelineOptions options) {
 
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
@@ -56,6 +64,7 @@ public class RagPipelineService {
         this.embeddingCache = Objects.requireNonNull(embeddingCache, "embeddingCache");
         this.retry = Objects.requireNonNull(retry, "retry");
         this.keywordExtractor = keywordExtractor;
+        this.options = Objects.requireNonNull(options, "options");
     }
 
     public void index(RagIndexRequest request) {
@@ -90,7 +99,7 @@ public class RagPipelineService {
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
-                query -> vectorStorePort.hybridSearch(query, searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT),
+                query -> vectorStorePort.hybridSearch(query, searchRequest, options.vectorWeight(), options.lexicalWeight()),
                 () -> vectorStorePort.search(searchRequest));
         return toRagSearchResults(results);
     }
@@ -106,14 +115,14 @@ public class RagPipelineService {
                         objectType,
                         objectId,
                         searchRequest,
-                        HYBRID_VECTOR_WEIGHT,
-                        HYBRID_LEXICAL_WEIGHT),
+                        options.vectorWeight(),
+                        options.lexicalWeight()),
                 () -> vectorStorePort.searchByObject(objectType, objectId, searchRequest));
         return toRagSearchResults(results);
     }
 
     public List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit) {
-        List<VectorSearchResult> results = vectorStorePort.listByObject(objectType, objectId, limit);
+        List<VectorSearchResult> results = vectorStorePort.listByObject(objectType, objectId, options.clampListLimit(limit));
         return results.stream()
                 .map(result -> new RagSearchResult(
                         result.document().id(),
@@ -165,17 +174,19 @@ public class RagPipelineService {
             return results;
         }
 
-        String enrichedQuery = enrichQuery(query);
-        if (!enrichedQuery.equals(query)) {
+        String enrichedQuery = options.keywordFallbackEnabled() ? enrichQuery(query) : query;
+        if (options.keywordFallbackEnabled() && !enrichedQuery.equals(query)) {
             List<VectorSearchResult> enrichedResults = hybridSearch.apply(enrichedQuery);
             if (hasRelevantResults(enrichedResults)) {
                 return enrichedResults;
             }
         }
 
-        List<VectorSearchResult> semanticResults = semanticSearch.get();
-        if (hasRelevantResults(semanticResults)) {
-            return semanticResults;
+        if (options.semanticFallbackEnabled()) {
+            List<VectorSearchResult> semanticResults = semanticSearch.get();
+            if (hasRelevantResults(semanticResults)) {
+                return semanticResults;
+            }
         }
         return List.of();
     }
@@ -211,7 +222,7 @@ public class RagPipelineService {
         if (results == null || results.isEmpty()) {
             return false;
         }
-        return results.stream().anyMatch(result -> result.score() >= MIN_RELEVANCE_SCORE);
+        return results.stream().anyMatch(result -> result.score() >= options.minRelevanceScore());
     }
 
     private List<RagSearchResult> toRagSearchResults(List<VectorSearchResult> results) {

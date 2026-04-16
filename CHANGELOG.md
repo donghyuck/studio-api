@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-04-16
+
+### 변경됨
+- 이슈 #202 대응으로 `RagPipelineService`의 hybrid 검색 weight, 최소 relevance score, keyword/semantic fallback 사용 여부를 `studio.ai.pipeline.retrieval.*` 설정으로 조정할 수 있도록 했다.
+- query 없는 object-scope RAG 조회가 과도한 chunk를 반환하지 않도록 `studio.ai.pipeline.object-scope.default-list-limit`, `max-list-limit` 설정과 service layer clamp를 추가했다.
+- `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수와 score 포함 여부를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
+- hybrid search weight는 합계가 0보다 커야 하며, context 문자 수 한도 초과 시 chunk를 중간 절단하지 않고 제외하도록 명확히 했다.
+
+### 검증
+- `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test --rerun-tasks`
+- `git diff --check`
+
 ## 2026-04-15
 
 ### 변경됨

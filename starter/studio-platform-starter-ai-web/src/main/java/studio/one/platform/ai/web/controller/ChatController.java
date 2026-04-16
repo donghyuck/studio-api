@@ -72,10 +72,19 @@ public class ChatController {
     private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
+    private final RagContextBuilder ragContextBuilder;
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
+        this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
+        this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
     }
 
     /**
@@ -159,7 +168,7 @@ public class ChatController {
         }
 
 
-        String context = buildContext(ragResults);
+        String context = ragContextBuilder.build(ragResults);
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
         augmentedMessages.add(new ChatMessageDto("system", context));
@@ -286,20 +295,6 @@ public class ChatController {
             }
         }
         throw new IllegalArgumentException("RAG query is empty");
-    }
-
-    private String buildContext(List<RagSearchResult> results) {
-        if (results == null || results.isEmpty()) {
-            return "참고할 문서가 없습니다. 일반적으로 답변하세요.";
-        }
-        StringBuilder sb = new StringBuilder("다음 문서 내용을 참고해 답변하세요:\n");
-        for (int i = 0; i < results.size(); i++) {
-            RagSearchResult r = results.get(i);
-            sb.append("[").append(i + 1).append("] docId=").append(r.documentId())
-                    .append(" score=").append(String.format("%.3f", r.score()))
-                    .append("\n").append(r.content()).append("\n\n");
-        }
-        return sb.toString().trim();
     }
 
     private record ObjectScope(String objectType, String objectId) {

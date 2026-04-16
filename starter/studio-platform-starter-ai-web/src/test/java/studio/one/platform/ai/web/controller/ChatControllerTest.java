@@ -199,6 +199,99 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatLimitsContextChunks() {
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(2, 12_000, true));
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(
+                        new RagSearchResult("doc-1", "first", Map.of(), 0.9d),
+                        new RagSearchResult("doc-2", "second", Map.of(), 0.8d),
+                        new RagSearchResult("doc-3", "third", Map.of(), 0.7d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                null,
+                null));
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        String context = chatCaptor.getValue().messages().get(0).content();
+        assertThat(context).contains("doc-1", "doc-2");
+        assertThat(context).doesNotContain("doc-3");
+    }
+
+    @Test
+    void ragChatLimitsContextCharacters() {
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(8, 80, true));
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "doc-1",
+                        "0123456789".repeat(20),
+                        Map.of(),
+                        0.9d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                null,
+                null));
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+    }
+
+    @Test
+    void ragChatCanOmitScoresFromContext() {
+        controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(8, 12_000, false));
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "first", Map.of(), 0.9d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                null,
+                null));
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("docId=doc-1")
+                .doesNotContain("score=");
+    }
+
+    @Test
     void ragChatListsByObjectWhenQueryMissingAndObjectFilterPresent() {
         when(ragPipelineService.listByObject("attachment", "123", 3))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 1.0d)));

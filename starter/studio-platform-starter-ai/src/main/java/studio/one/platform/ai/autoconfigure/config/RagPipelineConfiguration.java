@@ -20,6 +20,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -86,7 +87,7 @@ public class RagPipelineConfiguration {
         @Bean(RagPipelineService.SERVICE_NAME)
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
                         TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
-                        ObjectProvider<KeywordExtractor> keywordExtractorProvider) {
+                        ObjectProvider<KeywordExtractor> keywordExtractorProvider, RagPipelineProperties properties) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
@@ -94,7 +95,20 @@ public class RagPipelineConfiguration {
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
                 return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
-                                embeddingRetry, keywordExtractorProvider.getIfAvailable());
+                                embeddingRetry, keywordExtractorProvider.getIfAvailable(), ragPipelineOptions(properties));
+        }
+
+        private RagPipelineOptions ragPipelineOptions(RagPipelineProperties properties) {
+                RagPipelineProperties.RetrievalProperties retrieval = properties.getRetrieval();
+                RagPipelineProperties.ObjectScopeProperties objectScope = properties.getObjectScope();
+                return new RagPipelineOptions(
+                                retrieval.getVectorWeight(),
+                                retrieval.getLexicalWeight(),
+                                retrieval.getMinRelevanceScore(),
+                                retrieval.isKeywordFallbackEnabled(),
+                                retrieval.isSemanticFallbackEnabled(),
+                                objectScope.getDefaultListLimit(),
+                                objectScope.getMaxListLimit());
         }
 
 }

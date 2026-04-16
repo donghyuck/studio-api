@@ -31,12 +31,14 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,6 +63,9 @@ class RagPipelineServiceTest {
 
     @Captor
     private ArgumentCaptor<List<VectorDocument>> documentsCaptor;
+
+    @Captor
+    private ArgumentCaptor<Integer> limitCaptor;
 
     @BeforeEach
     void setUp() {
@@ -243,5 +248,104 @@ class RagPipelineServiceTest {
         List<RagSearchResult> results = ragPipelineService.searchByObject(request, "attachment", "42");
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    void shouldPassConfiguredWeightsToHybridSearch() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.2d, 0.8d, 0.15d, true, true, 20, 100));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), eq(0.2d), eq(0.8d)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-weighted", "weighted", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        verify(vectorStorePort).hybridSearch(eq("hello"), any(VectorSearchRequest.class), eq(0.2d), eq(0.8d));
+    }
+
+    @Test
+    void shouldRejectNonPositiveCombinedHybridWeights() {
+        assertThatThrownBy(() -> new RagPipelineOptions(0.0d, 0.0d, 0.15d, true, true, 20, 100))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("positive sum");
+    }
+
+    @Test
+    void shouldUseConfiguredMinimumRelevanceScore() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.5d, false, false, 20, 100));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.49)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).isEmpty();
+        verify(keywordExtractor, never()).extract(anyString());
+        verify(vectorStorePort, never()).search(any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void shouldSkipKeywordFallbackWhenDisabled() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, false, true, 20, 100));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.01)));
+        when(vectorStorePort.search(any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-semantic", "semantic", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).documentId()).isEqualTo("doc-semantic");
+        verify(keywordExtractor, never()).extract(anyString());
+        verify(vectorStorePort, times(1)).hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldSkipSemanticFallbackWhenDisabled() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, true, false, 20, 100));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of());
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.01)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).isEmpty();
+        verify(vectorStorePort, never()).search(any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void shouldClampObjectListLimitInServiceLayer() {
+        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, true, true, 5, 10));
+        when(vectorStorePort.listByObject(eq("attachment"), eq("42"), any()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc", "content", Map.of(), List.of()), 1.0d)));
+
+        ragPipelineService.listByObject("attachment", "42", null);
+        ragPipelineService.listByObject("attachment", "42", 0);
+        ragPipelineService.listByObject("attachment", "42", 30);
+        ragPipelineService.listByObject("attachment", "42", 7);
+
+        verify(vectorStorePort, times(4)).listByObject(eq("attachment"), eq("42"), limitCaptor.capture());
+        assertThat(limitCaptor.getAllValues()).containsExactly(5, 5, 10, 7);
     }
 }

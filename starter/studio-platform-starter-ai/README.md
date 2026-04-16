@@ -172,6 +172,38 @@ studio:
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
 `objectType`/`objectId` 메타데이터를 함께 저장하면 AI web starter의 RAG chat API에서 특정 파일이나 객체 범위에 한정해 답변할 수 있다.
 
+### RAG 파이프라인 튜닝
+
+이슈 #202부터 RAG 검색과 객체 범위 조회 제한은 운영 설정으로 조정할 수 있다. 기본값은 기존 동작과 유사하게 유지하되,
+query 없는 객체 범위 조회가 과도한 chunk를 반환하지 않도록 service layer에서 limit을 보정한다.
+
+```yaml
+studio:
+  ai:
+    pipeline:
+      retrieval:
+        vector-weight: 0.7
+        lexical-weight: 0.3
+        min-relevance-score: 0.15
+        keyword-fallback-enabled: true
+        semantic-fallback-enabled: true
+      object-scope:
+        default-list-limit: 20
+        max-list-limit: 100
+```
+
+| 설정 | 기본값 | 설명 |
+|---|---:|---|
+| `studio.ai.pipeline.retrieval.vector-weight` | `0.7` | hybrid 검색의 벡터 점수 비중 |
+| `studio.ai.pipeline.retrieval.lexical-weight` | `0.3` | hybrid 검색의 lexical 점수 비중 |
+| `studio.ai.pipeline.retrieval.min-relevance-score` | `0.15` | fallback 성공으로 판단할 최소 relevance score |
+| `studio.ai.pipeline.retrieval.keyword-fallback-enabled` | `true` | keyword-enriched hybrid fallback 사용 여부 |
+| `studio.ai.pipeline.retrieval.semantic-fallback-enabled` | `true` | semantic fallback 사용 여부 |
+| `studio.ai.pipeline.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
+| `studio.ai.pipeline.object-scope.max-list-limit` | `100` | object-scope list 최대 limit |
+
+`vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
+
 ## 관련 모듈
 - `studio-platform-ai` — 이 스타터가 구현하는 포트 인터페이스 모듈
 - `studio-platform-starter-ai-web` — AI HTTP 엔드포인트를 노출하는 짝 스타터 (이 스타터와 함께 사용)
