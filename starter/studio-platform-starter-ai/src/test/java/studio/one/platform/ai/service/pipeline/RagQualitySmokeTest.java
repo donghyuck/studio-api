@@ -162,6 +162,11 @@ class RagQualitySmokeTest {
         }
 
         @Override
+        public void deleteByObject(String objectType, String objectId) {
+            documents.entrySet().removeIf(entry -> matchesObject(entry.getValue(), objectType, objectId));
+        }
+
+        @Override
         public List<VectorSearchResult> search(VectorSearchRequest request) {
             return rank(documents.values(), request.embedding(), request.topK());
         }

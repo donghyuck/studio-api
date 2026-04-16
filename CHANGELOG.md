@@ -3,6 +3,9 @@
 ## 2026-04-16
 
 ### 변경됨
+- 이슈 #221 대응으로 `studio-platform-chunking` 계약 모듈과 `starter:studio-platform-starter-chunking`을 추가해 RAG indexing chunking을 starter 형태로 분리했다.
+- `DefaultRagPipelineService`가 `ChunkingOrchestrator`를 optional로 사용하고, 없으면 기존 `TextChunker` fallback을 유지하도록 했다.
+- `VectorStorePort`에 object scope replace/delete 흐름을 추가해 같은 `objectType`/`objectId` 재색인 시 stale chunk가 남지 않도록 했다.
 - 이슈 #219 대응으로 Chunking starter와 Spring AI Retrieval pipeline을 병렬 구현하기 위한 `docs/dev/chunking-rag-pipeline-plan.md` 계획 문서를 추가했다.
 - 이슈 #213 대응으로 AI web endpoint에서 provider quota/rate limit 예외를 500 대신 429 `ProblemDetails`로 반환하도록 했다.
 - 이슈 #217 대응으로 `studio-platform-ai`를 AI/RAG 공통 계약 중심 모듈로 축소하고, RAG pipeline 구현체와 pgvector adapter, LLM 기반 keyword/cleaner 구현을 `starter:studio-platform-starter-ai`로 이동했다.
@@ -36,6 +39,7 @@
 - 이 작업은 PR #207의 RAG 설정화 변경과 통합 검증되도록 `2.x` 최신으로 rebase했다.
 
 ### 검증
+- `gradle :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test :studio-platform-ai:test`
 - `git diff --check`
 - `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`

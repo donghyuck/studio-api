@@ -19,6 +19,13 @@
         ]]>
     </sql-query>
 
+    <sql-query id="deleteByObject">
+        <![CDATA[
+        DELETE FROM tb_ai_document_chunk
+         WHERE object_type = :objectType AND object_id = :objectId
+        ]]>
+    </sql-query>
+
     <sql-query id="searchByObject">
         <![CDATA[
         SELECT object_id, text, metadata, (embedding <-> :vector) AS distance

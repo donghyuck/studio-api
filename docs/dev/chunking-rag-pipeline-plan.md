@@ -367,11 +367,11 @@ Lane C 소유 파일로 고정한다.
 | 경로 | 변경 내용 |
 |---|---|
 | `settings.gradle.kts` | `:studio-platform-chunking`, `:starter:studio-platform-starter-chunking` include 추가 |
-| `studio-platform-ai/build.gradle.kts` | chunking 계약 모듈 의존 추가. Spring/JDBC 의존 추가 금지 |
-| `starter/studio-platform-starter-ai/build.gradle.kts` | chunking starter 또는 chunking 계약 의존 추가 |
+| `studio-platform-ai/build.gradle.kts` | 변경 없음. 기존 AI/RAG 계약 모듈은 chunking 계약에 직접 의존하지 않음 |
+| `starter/studio-platform-starter-ai/build.gradle.kts` | chunking 계약 모듈 의존 추가. chunking 구현 starter는 소비 앱이 선택적으로 추가 |
 | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/service/pipeline/DefaultRagPipelineService.java` | `ChunkingOrchestrator` optional 사용, legacy `TextChunker` fallback 유지 |
 | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/autoconfigure/config/RagPipelineConfiguration.java` | `ObjectProvider<ChunkingOrchestrator>` 주입, fallback 경로 유지 |
-| `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/autoconfigure/config/RagPipelineProperties.java` | `chunkSize`, `chunkOverlap`를 legacy alias로 유지하고 신규 `studio.chunking.*` 우선 |
+| `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/autoconfigure/config/RagPipelineProperties.java` | `chunkSize`, `chunkOverlap`를 legacy `TextChunker` fallback 설정으로 유지. 신규 `ChunkingOrchestrator` 경로는 `studio.chunking.*` 사용 |
 | `starter/studio-platform-starter-ai/src/test/java/studio/one/platform/ai/service/pipeline/RagPipelineServiceTest.java` | chunk metadata 병합, legacy fallback 검증 추가 |
 | `starter/studio-platform-starter-ai/src/test/java/studio/one/platform/ai/service/pipeline/RagQualitySmokeTest.java` | recursive chunking 적용 후 기존 검색 품질 유지 검증 |
 | `studio-platform-ai/README.md` | chunking 계약 모듈과의 관계 문서화 |
@@ -384,8 +384,8 @@ Lane C 소유 파일로 고정한다.
 | 경로 | 목적 |
 |---|---|
 | `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/StructureBasedChunker.java` | heading/page/table/paragraph boundary 기반 chunking |
-| `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/SemanticChunker.java` | `EmbeddingPort` 기반 semantic refinement |
-| `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/LlmChunker.java` | `ChatPort`/`PromptRenderer` 기반 LLM refinement |
+| `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/service/chunk/SemanticChunker.java` | `EmbeddingPort` 기반 semantic refinement 후보 |
+| `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/service/chunk/LlmChunker.java` | `ChatPort`/`PromptRenderer` 기반 LLM refinement 후보 |
 | `studio-platform-chunking/src/main/java/studio/one/platform/chunking/core/ParsedDocument.java` | 구조 기반 chunking 입력 모델 후보 |
 | `studio-platform-chunking/src/main/java/studio/one/platform/chunking/core/DocumentSection.java` | section/page/table metadata 모델 후보 |
 | `studio-application-modules/content-embedding-pipeline/src/main/java/studio/one/application/web/controller/AttachmentRagIndexRequestDto.java` | 선택적 strategy override 추가 후보 |

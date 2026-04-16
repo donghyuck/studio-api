@@ -9,6 +9,7 @@
 - ACL이 필요하면 `:starter:studio-platform-starter-security-acl`
 - objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
 - WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
+- RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - 첨부/아바타/템플릿/메일은 각 application starter를 추가
 
 최소 예시:
@@ -32,6 +33,7 @@ dependencies {
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
 - `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성
 - `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
+- `studio-platform-starter-chunking`: RAG indexing용 fixed-size/recursive chunking 자동 구성
 - `studio-platform-starter-ai`: OpenAI/Spring AI, 벡터스토어, RAG 등 AI core 구성
 - `studio-platform-starter-ai-web`: AI HTTP endpoint와 JSON component 노출
 - `studio-platform-starter-jasypt`: Jasypt 암호화/복호화 지원
@@ -55,6 +57,7 @@ implementation(project(":starter:studio-platform-starter-security"))
 implementation(project(":starter:studio-platform-starter-user"))
 implementation(project(":starter:studio-application-starter-attachment"))
 implementation(project(":studio-application-modules:content-embedding-pipeline"))
+implementation(project(":starter:studio-platform-starter-chunking"))
 implementation(project(":starter:studio-platform-starter-ai"))
 implementation("org.springframework.ai:spring-ai-starter-model-openai")
 ```
