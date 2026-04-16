@@ -79,23 +79,24 @@ class RagQualitySmokeTest {
         indexFixture("attachment-summary", "rag-fixtures/attachment-summary.md", SUMMARY_ATTACHMENT_ID);
 
         List<RagSearchResult> results = ragPipelineService.searchByObject(
-                new RagSearchRequest("고객 지원 지표와 대시보드 개선 일정", 5),
+                new RagSearchRequest("파일 업로드 제한과 첨부 파일 보존 기간", 5),
                 ATTACHMENT,
                 POLICY_ATTACHMENT_ID);
 
+        assertThat(results).isNotEmpty();
         assertThat(results).allSatisfy(result -> assertThat(result.metadata())
                 .containsEntry("objectType", ATTACHMENT)
                 .containsEntry("objectId", POLICY_ATTACHMENT_ID));
         assertThat(results)
                 .extracting(RagSearchResult::content)
-                .noneMatch(content -> content.contains("고객 지원 지표") || content.contains("대시보드 개선"));
+                .noneMatch(content -> content.contains("첨부 파일 보존 기간") || content.contains("고객 지원 지표"));
     }
 
     @Test
     void shouldPreserveChunkOrderWhenListingObjectChunks() {
         indexFixture("korean-policy", "rag-fixtures/korean-policy.md", POLICY_ATTACHMENT_ID);
 
-        List<RagSearchResult> results = ragPipelineService.listByObject(ATTACHMENT, POLICY_ATTACHMENT_ID, null);
+        List<RagSearchResult> results = ragPipelineService.listByObject(ATTACHMENT, POLICY_ATTACHMENT_ID, 10);
 
         assertThat(results).hasSizeGreaterThanOrEqualTo(4);
         assertThat(results)
@@ -195,10 +196,9 @@ class RagQualitySmokeTest {
 
         @Override
         public List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
-            int safeLimit = limit == null ? Integer.MAX_VALUE : limit;
             return scopedDocuments(objectType, objectId).stream()
                     .sorted(Comparator.comparingInt(InMemoryVectorStore::chunkOrder))
-                    .limit(safeLimit)
+                    .limit(limit)
                     .map(document -> new VectorSearchResult(document, 1.0))
                     .toList();
         }
