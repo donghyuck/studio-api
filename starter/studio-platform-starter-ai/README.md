@@ -5,6 +5,7 @@ AI 서비스(채팅, 임베딩, 벡터 스토어, RAG 파이프라인)를 자동
 멀티 프로바이더 팩토리 패턴을 통해 OpenAI, Google AI Gemini, Ollama 등 여러 LLM 프로바이더를
 동시에 등록하고, `default-provider`로 지정한 프로바이더를 기본 `ChatPort` / `EmbeddingPort` 빈으로 노출한다.
 JdbcTemplate이 컨텍스트에 있으면 pgvector 기반 `VectorStorePort`도 자동으로 생성된다.
+`studio-platform-ai`는 공통 계약만 제공하고, Spring AI adapter와 기본 RAG 구현은 이 스타터가 제공한다.
 
 > **중요** Spring AI BOM(`org.springframework.ai:spring-ai-bom:1.1.2`)이 `api(platform())` 으로
 > 노출되므로, 소비 앱에서 별도로 BOM을 선언하지 않아도 Spring AI 의존성 버전이 자동 관리된다.
@@ -166,7 +167,7 @@ studio:
 | `ChatPort` (기본) | `default-provider`에 해당하는 채팅 포트 |
 | `EmbeddingPort` (기본) | `default-provider`에 해당하는 임베딩 포트 |
 | `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
-| `RagPipelineService` | RAG 인덱싱/검색 파이프라인 서비스 |
+| `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
 | `TextCleaner` | `studio.ai.pipeline.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
 

@@ -26,6 +26,7 @@ import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.ai.service.pipeline.DefaultRagPipelineService;
 import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
@@ -106,7 +107,7 @@ public class RagPipelineConfiguration {
                                 AiProviderRegistryConfiguration.FEATURE_NAME,
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
-                return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
+                return new DefaultRagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),

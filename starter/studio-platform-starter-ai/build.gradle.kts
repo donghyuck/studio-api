@@ -32,6 +32,7 @@ dependencies {
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     implementation("io.github.resilience4j:resilience4j-retry:${property("resilience4jVersion")}")
     implementation("com.github.spullara.mustache.java:compiler:${property("mustacheVersion")}")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
 
     // Tests need the provider libraries at runtime to exercise the factory implementations
     testImplementation("org.springframework.ai:spring-ai-starter-model-openai")
@@ -40,5 +41,7 @@ dependencies {
     testImplementation("org.springframework.ai:spring-ai-google-genai-embedding")
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core")
+    testImplementation("org.assertj:assertj-core")
+    testImplementation("org.springframework:spring-jdbc")
     testImplementation(project(":studio-platform"))
 } 
