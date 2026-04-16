@@ -3,6 +3,7 @@
 ## 2026-04-16
 
 ### 변경됨
+- 이슈 #219 대응으로 Chunking starter와 Spring AI Retrieval pipeline을 병렬 구현하기 위한 `docs/dev/chunking-rag-pipeline-plan.md` 계획 문서를 추가했다.
 - 이슈 #213 대응으로 AI web endpoint에서 provider quota/rate limit 예외를 500 대신 429 `ProblemDetails`로 반환하도록 했다.
 - 이슈 #217 대응으로 `studio-platform-ai`를 AI/RAG 공통 계약 중심 모듈로 축소하고, RAG pipeline 구현체와 pgvector adapter, LLM 기반 keyword/cleaner 구현을 `starter:studio-platform-starter-ai`로 이동했다.
 - 기존 `RagPipelineService`는 같은 FQN의 facade interface로 유지하고, 기본 구현은 starter의 `DefaultRagPipelineService`로 분리해 web/content 소비 모듈의 계약 의존을 유지했다.
@@ -35,6 +36,7 @@
 - 이 작업은 PR #207의 RAG 설정화 변경과 통합 검증되도록 `2.x` 최신으로 rebase했다.
 
 ### 검증
+- `git diff --check`
 - `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
 - `gradle :starter:studio-platform-starter-ai-web:test`
