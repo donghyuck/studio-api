@@ -41,6 +41,15 @@ AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근
 | `indexedTextLength` | 실제 chunking/indexing에 사용한 텍스트 길이 |
 | `chunkCount` | 생성된 chunk 수 |
 | `chunkLength` | 개별 chunk content 길이 |
+| `keywords` | 문서 단위 keyword 목록. `studio.ai.pipeline.keywords.scope=document|both`일 때 기록 |
+| `keywordsText` | 문서 단위 keyword를 공백으로 연결한 lexical 검색용 문자열 |
+| `chunkKeywords` | chunk 단위 keyword 목록. `scope=chunk|both`일 때 기록 |
+| `chunkKeywordsText` | chunk 단위 keyword를 공백으로 연결한 lexical 검색용 문자열 |
+
+Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친다.
+기본 `scope=document`는 기존 동작과 동일하게 문서 단위 keyword만 기록한다.
+`scope=chunk` 또는 `both`는 chunk별 keyword를 추가해 긴 파일에서 chunk 의미가 희석되는 문제를 줄이는 기반을 제공한다.
+현재 PostgreSQL hybrid SQL ranking은 기존 `simple` text search config 동작을 유지한다.
 
 ## RAG diagnostics
 `RagPipelineService`는 diagnostics가 활성화된 경우 마지막 RAG 검색의 strategy, result count, score threshold,

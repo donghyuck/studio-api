@@ -45,6 +45,7 @@ public class RagPipelineService {
     private final TextCleaner textCleaner;
     private final RagPipelineOptions options;
     private final RagPipelineDiagnosticsOptions diagnosticsOptions;
+    private final RagKeywordOptions keywordOptions;
     private final ThreadLocal<RagRetrievalDiagnostics> latestDiagnostics = new ThreadLocal<>();
 
     public RagPipelineService(EmbeddingPort embeddingPort,
@@ -54,7 +55,8 @@ public class RagPipelineService {
             Retry retry,
             KeywordExtractor keywordExtractor) {
         this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor,
-                null, RagPipelineOptions.defaults(), RagPipelineDiagnosticsOptions.defaults());
+                null, RagPipelineOptions.defaults(), RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
     }
 
     public RagPipelineService(EmbeddingPort embeddingPort,
@@ -76,7 +78,7 @@ public class RagPipelineService {
             TextCleaner textCleaner,
             RagPipelineOptions options) {
         this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, textCleaner,
-                options, RagPipelineDiagnosticsOptions.defaults());
+                options, RagPipelineDiagnosticsOptions.defaults(), RagKeywordOptions.defaults());
     }
 
     public RagPipelineService(EmbeddingPort embeddingPort,
@@ -88,6 +90,20 @@ public class RagPipelineService {
             TextCleaner textCleaner,
             RagPipelineOptions options,
             RagPipelineDiagnosticsOptions diagnosticsOptions) {
+        this(embeddingPort, vectorStorePort, textChunker, embeddingCache, retry, keywordExtractor, textCleaner,
+                options, diagnosticsOptions, RagKeywordOptions.defaults());
+    }
+
+    public RagPipelineService(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options,
+            RagPipelineDiagnosticsOptions diagnosticsOptions,
+            RagKeywordOptions keywordOptions) {
 
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
@@ -98,6 +114,7 @@ public class RagPipelineService {
         this.textCleaner = textCleaner;
         this.options = Objects.requireNonNull(options, "options");
         this.diagnosticsOptions = Objects.requireNonNull(diagnosticsOptions, "diagnosticsOptions");
+        this.keywordOptions = Objects.requireNonNull(keywordOptions, "keywordOptions");
     }
 
     public void index(RagIndexRequest request) {
@@ -108,21 +125,30 @@ public class RagPipelineService {
         String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
         List<TextChunk> chunks = textChunker.chunk(request.documentId(), indexedText);
         List<VectorDocument> documents = new ArrayList<>(chunks.size());
-        List<String> keywords = resolveKeywords(request, indexedText);
+        List<String> documentKeywords = keywordOptions.scope().includesDocument()
+                ? resolveDocumentKeywords(request, indexedText)
+                : List.of();
         Map<String, Object> baseMetadata = new HashMap<>(request.metadata());
         baseMetadata.putIfAbsent("cleaned", cleaning.cleaned());
         baseMetadata.putIfAbsent("cleanerPrompt", cleaning.cleanerPrompt() == null ? "" : cleaning.cleanerPrompt());
         baseMetadata.putIfAbsent("originalTextLength", request.text().length());
         baseMetadata.putIfAbsent("indexedTextLength", indexedText.length());
         baseMetadata.putIfAbsent("chunkCount", chunks.size());
-        if (!keywords.isEmpty()) {
-            baseMetadata.put("keywords", keywords);
-            baseMetadata.put("keywordsText", String.join(" ", keywords));
+        if (!documentKeywords.isEmpty()) {
+            baseMetadata.put("keywords", documentKeywords);
+            baseMetadata.put("keywordsText", String.join(" ", documentKeywords));
         }
         int order = 0;
         for (TextChunk chunk : chunks) {
             List<Double> embedding = embedWithCache(chunk.content());
             Map<String, Object> metadata = new HashMap<>(baseMetadata);
+            List<String> chunkKeywords = keywordOptions.scope().includesChunk()
+                    ? resolveChunkKeywords(request, chunk.content())
+                    : List.of();
+            if (!chunkKeywords.isEmpty()) {
+                metadata.put("chunkKeywords", chunkKeywords);
+                metadata.put("chunkKeywordsText", String.join(" ", chunkKeywords));
+            }
             metadata.put("documentId", request.documentId());
             metadata.put("chunkId", chunk.id());
             metadata.put("chunkOrder", order++);
@@ -210,16 +236,26 @@ public class RagPipelineService {
         return textCleaner.clean(text);
     }
 
-    private List<String> resolveKeywords(RagIndexRequest request, String indexedText) {
+    private List<String> resolveDocumentKeywords(RagIndexRequest request, String indexedText) {
         if (request.keywords() != null && !request.keywords().isEmpty()) {
-            return request.keywords();
+            return normalizeKeywords(request.keywords());
         }
         if (!request.useLlmKeywordExtraction() || keywordExtractor == null) {
             return List.of();
         }
         try {
-            List<String> extracted = keywordExtractor.extract(indexedText);
-            return extracted == null ? List.of() : extracted;
+            return normalizeKeywords(keywordExtractor.extract(indexedText));
+        } catch (Exception ignored) {
+            return List.of();
+        }
+    }
+
+    private List<String> resolveChunkKeywords(RagIndexRequest request, String chunkText) {
+        if (!request.useLlmKeywordExtraction() || keywordExtractor == null) {
+            return List.of();
+        }
+        try {
+            return normalizeKeywords(keywordExtractor.extract(chunkText));
         } catch (Exception ignored) {
             return List.of();
         }
@@ -264,23 +300,22 @@ public class RagPipelineService {
     }
 
     private String enrichQuery(String query) {
-        if (keywordExtractor == null) {
+        if (keywordExtractor == null || !keywordOptions.queryExpansionEnabled()) {
             return query;
         }
         try {
-            List<String> extracted = keywordExtractor.extract(query);
+            List<String> extracted = normalizeKeywords(keywordExtractor.extract(query));
             if (extracted == null || extracted.isEmpty()) {
                 return query;
             }
             List<String> uniqueTerms = new ArrayList<>();
             uniqueTerms.add(query.trim());
             for (String keyword : extracted) {
-                if (keyword == null || keyword.isBlank()) {
-                    continue;
+                if (uniqueTerms.stream().noneMatch(keyword::equalsIgnoreCase)) {
+                    uniqueTerms.add(keyword);
                 }
-                String normalized = keyword.trim();
-                if (uniqueTerms.stream().noneMatch(normalized::equalsIgnoreCase)) {
-                    uniqueTerms.add(normalized);
+                if (uniqueTerms.size() > keywordOptions.queryExpansionMaxKeywords()) {
+                    break;
                 }
             }
             return String.join(" ", uniqueTerms);
@@ -288,6 +323,23 @@ public class RagPipelineService {
             log.debug("Failed to extract keywords for RAG search fallback. query={}", query, ex);
             return query;
         }
+    }
+
+    private List<String> normalizeKeywords(List<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
+            return List.of();
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String keyword : keywords) {
+            if (keyword == null || keyword.isBlank()) {
+                continue;
+            }
+            String trimmed = keyword.trim();
+            if (normalized.stream().noneMatch(trimmed::equalsIgnoreCase)) {
+                normalized.add(trimmed);
+            }
+        }
+        return normalized;
     }
 
     private boolean hasRelevantResults(List<VectorSearchResult> results) {

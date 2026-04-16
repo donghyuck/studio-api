@@ -3,6 +3,10 @@
 ## 2026-04-16
 
 ### 변경됨
+- 이슈 #206 대응으로 `studio.ai.pipeline.keywords.scope`, `max-input-chars`와 `studio.ai.pipeline.retrieval.query-expansion.*` 설정을 추가해 keyword metadata 범위와 query expansion 동작을 조정할 수 있도록 했다.
+- 기본 `keywords.scope=document`는 기존 문서 단위 `keywords`/`keywordsText` 동작을 유지하고, `chunk` 또는 `both` 설정 시 chunk metadata에 `chunkKeywords`/`chunkKeywordsText`를 추가한다.
+- `LlmKeywordExtractor`의 입력 최대 길이 4000자 제한을 설정으로 이동하고, keyword trim/blank 제거/case-insensitive de-duplication을 적용했다.
+- `studio.ai.vector.postgres.text-search-config=simple` 기본 설정을 추가하되, 이번 작업에서는 기존 PostgreSQL SQL ranking 동작과 DB migration은 변경하지 않았다.
 - 이슈 #205 대응으로 `studio.ai.pipeline.diagnostics.*`와 `studio.ai.endpoints.rag.diagnostics.allow-client-debug` 설정을 추가해 RAG 검색 fallback 전략과 결과 상태를 선택적으로 관찰할 수 있도록 했다.
 - `RagRetrievalDiagnostics`를 추가해 strategy, result count, score threshold, hybrid weight, object scope, topK를 기록하고, client debug 허용 시에만 `ChatResponseDto.metadata.ragDiagnostics`에 노출한다.
 - 기존 `POST /api/ai/chat/rag`의 per-hit info 로그를 제거하고, diagnostics result logging이 명시적으로 활성화된 경우에만 bounded debug snippet을 출력하도록 했다.
@@ -20,6 +24,8 @@
 - 이 작업은 PR #207의 RAG 설정화 변경과 통합 검증되도록 `2.x` 최신으로 rebase했다.
 
 ### 검증
+- `gradle :studio-platform-ai:test`
+- `gradle :starter:studio-platform-starter-ai:test`
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test --rerun-tasks`
 - `gradle :studio-platform-ai:test`
 - `gradle :starter:studio-platform-starter-ai-web:test`

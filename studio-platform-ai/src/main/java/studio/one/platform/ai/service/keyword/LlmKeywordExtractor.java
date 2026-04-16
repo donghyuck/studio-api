@@ -3,12 +3,10 @@ package studio.one.platform.ai.service.keyword;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -19,7 +17,6 @@ import studio.one.platform.ai.service.prompt.PromptRenderer;
 /**
  * LLM 기반 키워드 추출기. 입력 텍스트에서 5~10개의 핵심 키워드를 JSON 배열로 받아 파싱한다.
  */
-@RequiredArgsConstructor
 @Slf4j
 public class LlmKeywordExtractor implements KeywordExtractor {
 
@@ -32,7 +29,21 @@ public class LlmKeywordExtractor implements KeywordExtractor {
 
     private final PromptRenderer promptRenderer;
     private final ChatPort chatPort;
+    private final int maxInputChars;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public LlmKeywordExtractor(PromptRenderer promptRenderer, ChatPort chatPort) {
+        this(promptRenderer, chatPort, 4_000);
+    }
+
+    public LlmKeywordExtractor(PromptRenderer promptRenderer, ChatPort chatPort, int maxInputChars) {
+        if (maxInputChars < 1) {
+            throw new IllegalArgumentException("maxInputChars must be greater than 0");
+        }
+        this.promptRenderer = Objects.requireNonNull(promptRenderer, "promptRenderer");
+        this.chatPort = Objects.requireNonNull(chatPort, "chatPort");
+        this.maxInputChars = maxInputChars;
+    }
 
     @Override
     public List<String> extract(String text) {
@@ -63,7 +74,7 @@ public class LlmKeywordExtractor implements KeywordExtractor {
         return ChatRequest.builder()
                 .messages(List.of(
                         ChatMessage.system(systemPrompt),
-                        ChatMessage.user(trimToLength(text, 4000))))
+                        ChatMessage.user(trimToLength(text, maxInputChars))))
                 .build();
     }
 
@@ -76,23 +87,32 @@ public class LlmKeywordExtractor implements KeywordExtractor {
         if (!parsed.isEmpty()) {
             return parsed;
         }
-        return Arrays.stream(cleaned.split("[,\\n]"))
+        return normalizeKeywords(Arrays.stream(cleaned.split("[,\\n]"))
                 .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .toList();
+                .toList());
     }
 
     private List<String> tryParseJson(String cleaned) {
         try {
             List<String> list = objectMapper.readValue(cleaned, new TypeReference<List<String>>() {});
-            return list.stream()
-                    .filter(Objects::nonNull)
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .collect(Collectors.toList());
+            return normalizeKeywords(list);
         } catch (Exception ignored) {
             return List.of();
         }
+    }
+
+    private List<String> normalizeKeywords(List<String> keywords) {
+        List<String> normalized = new java.util.ArrayList<>();
+        for (String keyword : keywords) {
+            if (keyword == null || keyword.isBlank()) {
+                continue;
+            }
+            String trimmed = keyword.trim();
+            if (normalized.stream().noneMatch(trimmed::equalsIgnoreCase)) {
+                normalized.add(trimmed);
+            }
+        }
+        return normalized;
     }
 
     private String stripFence(String value) {
