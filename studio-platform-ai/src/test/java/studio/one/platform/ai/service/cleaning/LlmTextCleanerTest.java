@@ -13,6 +13,8 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,6 +26,7 @@ import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(OutputCaptureExtension.class)
 class LlmTextCleanerTest {
 
     @Mock
@@ -53,7 +56,7 @@ class LlmTextCleanerTest {
     }
 
     @Test
-    void shouldFallbackToOriginalTextWhenFailOpen() {
+    void shouldFallbackToOriginalTextWhenFailOpen(CapturedOutput output) {
         LlmTextCleaner cleaner = cleaner(true);
         when(promptRenderer.render(eq("rag-cleaner"), any(Map.class))).thenReturn("clean prompt");
         when(chatPort.chat(any(ChatRequest.class))).thenThrow(new RuntimeException("provider failure"));
@@ -63,6 +66,8 @@ class LlmTextCleanerTest {
         assertThat(result.text()).isEqualTo("원문");
         assertThat(result.cleaned()).isFalse();
         assertThat(result.cleanerPrompt()).isEqualTo("rag-cleaner");
+        assertThat(output).contains("Failed to clean RAG text via LLM. Falling back to original text.");
+        assertThat(output).doesNotContain("\tat ");
     }
 
     @Test

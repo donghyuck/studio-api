@@ -123,6 +123,7 @@ public class RagPipelineConfiguration {
                                 LogUtils.blue(LlmTextCleaner.class, true),
                                 LogUtils.green(ChatPort.class, true),
                                 LogUtils.red(State.CREATED.toString())));
+                promptRenderer.getRawPrompt(cleaner.getPrompt());
                 return new LlmTextCleaner(
                                 promptRenderer,
                                 chatPort,
