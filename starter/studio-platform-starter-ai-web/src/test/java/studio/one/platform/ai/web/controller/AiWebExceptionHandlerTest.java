@@ -34,7 +34,8 @@ class AiWebExceptionHandlerTest {
         when(request.getRequestURI()).thenReturn("/api/ai/chat");
 
         RuntimeException ex = new RuntimeException("Failed to generate content",
-                new GoogleGenAiClientException("429 quota exceeded for generate_content_free_tier_requests"));
+                new com.google.genai.errors.ClientException(
+                        "RESOURCE_EXHAUSTED: Quota exceeded for generate_content_free_tier_requests"));
 
         var response = new AiWebExceptionHandler().handleRuntimeException(ex, request);
 
@@ -44,6 +45,18 @@ class AiWebExceptionHandlerTest {
         assertThat(response.getBody().getDetail()).isEqualTo(
                 "AI provider quota exceeded. Please retry later or check provider quota.");
         assertThat(response.getBody().getInstance()).isEqualTo("/api/ai/chat");
+    }
+
+    @Test
+    void rethrowsQuotaMessageFromUnexpectedExceptionClass() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRequestURI()).thenReturn("/api/ai/chat");
+        RuntimeException ex = new RuntimeException("Failed to generate content",
+                new RuntimeException("RESOURCE_EXHAUSTED: Quota exceeded"));
+
+        org.junit.jupiter.api.Assertions.assertSame(ex,
+                org.junit.jupiter.api.Assertions.assertThrows(RuntimeException.class,
+                        () -> new AiWebExceptionHandler().handleRuntimeException(ex, request)));
     }
 
     @Test
@@ -57,9 +70,4 @@ class AiWebExceptionHandlerTest {
                         () -> new AiWebExceptionHandler().handleRuntimeException(ex, request)));
     }
 
-    private static final class GoogleGenAiClientException extends RuntimeException {
-        private GoogleGenAiClientException(String message) {
-            super(message);
-        }
-    }
 }

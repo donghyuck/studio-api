@@ -50,11 +50,12 @@ public class AiWebExceptionHandler {
             RuntimeException ex,
             HttpServletRequest request) {
         if (isGoogleGenAiQuotaExceeded(ex)) {
-            log.warn("AI provider quota exceeded: {}", safeMessage(rootCause(ex)));
+            log.warn("AI provider quota exceeded. provider={}", rootCause(ex).getClass().getSimpleName());
             return problem(HttpStatus.TOO_MANY_REQUESTS,
                     "AI provider quota exceeded. Please retry later or check provider quota.",
                     request);
         }
+        // Keep non-AI-provider runtime failures on the application's existing global exception path.
         throw ex;
     }
 
@@ -83,10 +84,7 @@ public class AiWebExceptionHandler {
     }
 
     private boolean isGoogleGenAiClientException(Throwable ex) {
-        String className = ex.getClass().getName();
-        return GOOGLE_GENAI_CLIENT_EXCEPTION.equals(className)
-                || className.endsWith(".GoogleGenAiClientException")
-                || className.endsWith("$GoogleGenAiClientException");
+        return GOOGLE_GENAI_CLIENT_EXCEPTION.equals(ex.getClass().getName());
     }
 
     private boolean containsQuotaSignal(String message) {
@@ -94,7 +92,11 @@ public class AiWebExceptionHandler {
             return false;
         }
         String lower = message.toLowerCase(java.util.Locale.ROOT);
-        return lower.contains("429") && (lower.contains("quota") || lower.contains("rate"));
+        return lower.contains("quota")
+                || lower.contains("rate limit")
+                || lower.contains("resource_exhausted")
+                || lower.contains("too_many_requests")
+                || (lower.contains("429") && lower.contains("rate"));
     }
 
     private Throwable rootCause(Throwable ex) {
@@ -105,11 +107,4 @@ public class AiWebExceptionHandler {
         return current;
     }
 
-    private String safeMessage(Throwable ex) {
-        String message = ex == null ? null : ex.getMessage();
-        if (message == null || message.isBlank()) {
-            return "quota exceeded";
-        }
-        return message.replaceAll("(?i)(api[_-]?key|token|authorization)[^,\\s]*", "$1=<redacted>");
-    }
 }
