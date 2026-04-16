@@ -54,6 +54,8 @@ studio:
 
 사용자용 기본 base-path는 `/api/ai`이며 `studio.ai.endpoints.base-path`로 변경할 수 있다.
 관리용 기본 base-path는 `/api/mgmt/ai`이며 `studio.ai.endpoints.mgmt-base-path`로 변경할 수 있다.
+기존 `/api/ai/embedding`, `/api/ai/vectors`, `/api/ai/rag` 경로를 유지해야 하는 환경은
+`studio.ai.endpoints.mgmt-base-path=/api/ai`로 설정한다.
 
 | 메서드 | 경로 | 설명 | 권한 |
 |---|---|---|---|

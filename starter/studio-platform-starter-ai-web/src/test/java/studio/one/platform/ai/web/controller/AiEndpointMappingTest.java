@@ -10,6 +10,7 @@ import studio.one.platform.constant.PropertyKeys;
 
 class AiEndpointMappingTest {
 
+    // Verifies annotation values. Placeholder resolution is covered by Spring MVC integration tests.
     @Test
     void mapsUserEndpointsToPublicBasePath() {
         assertRequestMapping(ChatController.class, "${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/chat");

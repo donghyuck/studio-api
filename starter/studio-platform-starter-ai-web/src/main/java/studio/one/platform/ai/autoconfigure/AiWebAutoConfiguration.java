@@ -1,8 +1,8 @@
 package studio.one.platform.ai.autoconfigure;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -27,12 +27,7 @@ import studio.one.platform.constant.PropertyKeys;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(ChatPort.class)
-@ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
-@ConditionalOnProperty(
-        prefix = PropertyKeys.AI.Endpoints.PREFIX,
-        name = "enabled",
-        havingValue = "true",
-        matchIfMissing = true)
+@Conditional(AiWebEndpointCondition.class)
 @EnableConfigurationProperties(AiWebRagProperties.class)
 public class AiWebAutoConfiguration {
 

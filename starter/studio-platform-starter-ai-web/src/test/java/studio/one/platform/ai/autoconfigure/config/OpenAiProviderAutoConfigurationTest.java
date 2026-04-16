@@ -206,4 +206,19 @@ class OpenAiProviderAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(QueryRewriteController.class);
                 });
     }
+
+    @Test
+    void doesNotRegisterWebControllersWhenAiIsDisabled() {
+        contextRunner
+                .withPropertyValues("studio.ai.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ChatController.class);
+                    assertThat(context).doesNotHaveBean(EmbeddingController.class);
+                    assertThat(context).doesNotHaveBean(AiInfoController.class);
+                    assertThat(context).doesNotHaveBean(VectorController.class);
+                    assertThat(context).doesNotHaveBean(RagController.class);
+                    assertThat(context).doesNotHaveBean(QueryRewriteController.class);
+                });
+    }
 }
