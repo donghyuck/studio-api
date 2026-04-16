@@ -214,7 +214,7 @@ studio:
 | `studio.ai.pipeline.retrieval.keyword-fallback-enabled` | `true` | keyword-enriched hybrid fallback 사용 여부 |
 | `studio.ai.pipeline.retrieval.semantic-fallback-enabled` | `true` | semantic fallback 사용 여부 |
 | `studio.ai.pipeline.retrieval.query-expansion.enabled` | `true` | keyword fallback에서 LLM keyword extractor로 query를 보강할지 여부 |
-| `studio.ai.pipeline.retrieval.query-expansion.max-keywords` | `10` | query 보강에 사용할 최대 keyword 수 |
+| `studio.ai.pipeline.retrieval.query-expansion.max-keywords` | `10` | 원본 query 외에 추가할 최대 keyword 수 |
 | `studio.ai.pipeline.keywords.scope` | `document` | 색인 metadata keyword 범위. `document`, `chunk`, `both` 지원 |
 | `studio.ai.pipeline.keywords.max-input-chars` | `4000` | LLM keyword extractor에 전달할 입력 최대 길이 |
 | `studio.ai.pipeline.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
@@ -227,8 +227,10 @@ studio:
 diagnostics metadata에는 chunk 본문을 포함하지 않고 strategy, 결과 수, threshold, weight, object scope, topK만 기록한다.
 `keywords.scope=document`는 기존 동작과 동일하게 문서 단위 `keywords`/`keywordsText`만 기록한다.
 `chunk` 또는 `both`를 사용하면 chunk metadata에 `chunkKeywords`/`chunkKeywordsText`를 추가한다.
+호출자가 제공한 `RagIndexRequest.keywords`는 document-level keyword로만 사용되며, `keywords.scope=chunk`에서는 저장되지 않는다.
+`query-expansion.enabled`는 `keyword-fallback-enabled=true`일 때만 효과가 있다.
 Keyword 값은 trim, blank 제거, case-insensitive de-duplication을 거친다.
-PostgreSQL lexical 검색은 현재 SQL ranking 동작을 유지하며, 기본 text search config는 `studio.ai.vector.postgres.text-search-config=simple`로 문서화한다.
+PostgreSQL lexical 검색은 현재 SQL ranking 동작을 유지한다. `studio.ai.vector.postgres.text-search-config=simple`은 향후 PostgreSQL FTS config 지원을 위한 문서화된 설정 후보이며, 이번 PR에서는 실제 SQL에 적용되지 않는다.
 
 ### RAG 색인 전 텍스트 정제
 
