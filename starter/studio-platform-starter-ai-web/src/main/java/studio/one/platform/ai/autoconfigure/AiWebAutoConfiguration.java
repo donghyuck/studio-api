@@ -28,6 +28,11 @@ import studio.one.platform.constant.PropertyKeys;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(ChatPort.class)
 @ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnProperty(
+        prefix = PropertyKeys.AI.Endpoints.PREFIX,
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 @EnableConfigurationProperties(AiWebRagProperties.class)
 public class AiWebAutoConfiguration {
 
@@ -74,11 +79,6 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.AI.Endpoints.PREFIX,
-            name = "enabled",
-            havingValue = "true",
-            matchIfMissing = false)
     AiInfoController aiInfoController(
             AiAdapterProperties properties,
             Environment environment,

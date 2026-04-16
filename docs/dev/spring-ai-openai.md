@@ -21,6 +21,7 @@ studio:
     endpoints:
       enabled: true
       base-path: /api/ai
+      mgmt-base-path: /api/mgmt/ai
     providers:
       openai:
         type: OPENAI

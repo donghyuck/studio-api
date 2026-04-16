@@ -28,6 +28,9 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
+import studio.one.platform.ai.web.controller.QueryRewriteController;
+import studio.one.platform.ai.web.controller.RagController;
+import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
@@ -190,14 +193,17 @@ class OpenAiProviderAutoConfigurationTest {
     }
 
     @Test
-    void doesNotRegisterInfoControllerWhenEndpointsAreDisabled() {
+    void doesNotRegisterWebControllersWhenEndpointsAreDisabled() {
         contextRunner
                 .withPropertyValues("studio.ai.endpoints.enabled=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ChatController.class);
+                    assertThat(context).doesNotHaveBean(EmbeddingController.class);
                     assertThat(context).doesNotHaveBean(AiInfoController.class);
-                    assertThat(context).hasSingleBean(ChatController.class);
-                    assertThat(context).hasSingleBean(EmbeddingController.class);
+                    assertThat(context).doesNotHaveBean(VectorController.class);
+                    assertThat(context).doesNotHaveBean(RagController.class);
+                    assertThat(context).doesNotHaveBean(QueryRewriteController.class);
                 });
     }
 }

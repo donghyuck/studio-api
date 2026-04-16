@@ -26,12 +26,12 @@ import studio.one.platform.web.dto.ApiResponse;
  * 텍스트 리스트를 임베딩합니다. EmbeddingPort를 통해 임베딩 벡터를 생성합니다.
  * 
  * REST API for generating embeddings with the configured model.
- * <p>Base path is configurable via {@code studio.ai.endpoints.base-path} (default {@code /api/ai}).
+ * <p>Base path is configurable via {@code studio.ai.endpoints.mgmt-base-path} (default {@code /api/mgmt/ai}).
  * Endpoint: {@code POST {basePath}/embedding} returning {@link ApiResponse} containing
  * {@link EmbeddingResponseDto}.
  */
 @RestController
-@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/embedding")
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/embedding")
 @Validated
 public class EmbeddingController {
 
@@ -42,10 +42,10 @@ public class EmbeddingController {
     }
 
     /**
-     * Handles vector embedding requests under {@code ${studio.ai.endpoints.base-path:/api/ai}/embedding}.
+     * Handles vector embedding requests under {@code ${studio.ai.endpoints.mgmt-base-path:/api/mgmt/ai}/embedding}.
      * <p>Typical usage:
      * <pre>
-     * POST /api/ai/embedding
+     * POST /api/mgmt/ai/embedding
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_embedding write)
      * {
      *   "texts": ["hello world", "another text"]
