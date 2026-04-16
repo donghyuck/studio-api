@@ -26,6 +26,7 @@ import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.ai.service.pipeline.DefaultRagPipelineService;
 import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
@@ -94,7 +95,7 @@ public class RagPipelineConfiguration {
                 return Retry.of("embedding", config);
         }
 
-        @Bean(RagPipelineService.SERVICE_NAME)
+        @Bean(name = { RagPipelineService.SERVICE_NAME, RagPipelineService.LEGACY_SERVICE_NAME })
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
                         TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider,
@@ -106,7 +107,7 @@ public class RagPipelineConfiguration {
                                 AiProviderRegistryConfiguration.FEATURE_NAME,
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
-                return new RagPipelineService(embeddingPort, vectorStorePort, textChunker, embeddingCache,
+                return DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),

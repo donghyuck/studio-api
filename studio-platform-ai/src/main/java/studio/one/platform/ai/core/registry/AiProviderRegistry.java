@@ -8,14 +8,9 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-import jakarta.annotation.PostConstruct;
-
-import lombok.extern.slf4j.Slf4j;
-
 /**
  * Holds the available chat/embedding ports for each configured provider.
  */
-@Slf4j
 public final class AiProviderRegistry {
 
     private final Map<String, ChatPort> chatPorts;
@@ -28,17 +23,6 @@ public final class AiProviderRegistry {
         this.defaultProvider = defaultProvider.toLowerCase(Locale.ROOT);
         this.chatPorts = Collections.unmodifiableMap(new LinkedHashMap<>(chatPorts));
         this.embeddingPorts = Collections.unmodifiableMap(new LinkedHashMap<>(embeddingPorts));
-    }
-
-    @PostConstruct
-    void initialize() {
-        log.debug("defaultProvider: {}", this.defaultProvider);
-        log.debug("chat providers      : {}", String.join(", ", this.chatPorts.keySet()));
-        log.debug("embedding providers : {}", String.join(", ", this.embeddingPorts.keySet()));
-        boolean hasDefault = chatPorts.containsKey(defaultProvider) || embeddingPorts.containsKey(defaultProvider);
-        if (!hasDefault) {
-            log.warn("Default provider '{}' not found in chatPorts or embeddingPorts", defaultProvider);
-        }
     }
 
     public Map<String, ChatPort> availableChatPorts() {

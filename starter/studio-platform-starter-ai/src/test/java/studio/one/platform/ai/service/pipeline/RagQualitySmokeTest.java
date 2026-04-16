@@ -48,7 +48,7 @@ class RagQualitySmokeTest {
     @BeforeEach
     void setUp() {
         vectorStore = new InMemoryVectorStore();
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 new KeywordEmbeddingPort(),
                 vectorStore,
                 new ParagraphTextChunker(),

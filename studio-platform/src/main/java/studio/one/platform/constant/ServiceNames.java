@@ -41,6 +41,12 @@ public class ServiceNames {
 
     }
 
+    @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+    public static final class Features {
+        public static final String PREFIX = Featrues.PREFIX;
+
+    }
+
     public static final String APPLICATION_PROPERTIES = Featrues.PREFIX + ":foundation:application-properties"; 
     public static final String REPOSITORY = Featrues.PREFIX  + ":foundation:repository"; 
     public static final String I18N = Featrues.PREFIX  + ":foundation:i18n";

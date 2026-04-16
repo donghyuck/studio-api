@@ -77,7 +77,7 @@ class RagPipelineServiceTest {
     void setUp() {
         cache = Caffeine.newBuilder().build();
         retry = Retry.of("test", RetryConfig.custom().maxAttempts(1).waitDuration(Duration.ZERO).build());
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry, keywordExtractor);
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry, keywordExtractor);
     }
 
     @Test
@@ -108,7 +108,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldCleanTextBeforeChunkingWhenCleanerIsAvailable() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, textCleaner, RagPipelineOptions.defaults());
         RagIndexRequest request = new RagIndexRequest("doc-clean", "noisy text", Map.of());
         when(textCleaner.clean("noisy text"))
@@ -179,7 +179,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldAddChunkKeywordsWhenScopeIsChunk() {
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
@@ -219,7 +219,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldIgnoreCallerKeywordsWhenScopeIsChunk() {
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
@@ -251,7 +251,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldAddDocumentAndChunkKeywordsWhenScopeIsBoth() {
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
@@ -423,7 +423,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldPassConfiguredWeightsToHybridSearch() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.2d, 0.8d, 0.15d, true, true, 20, 100));
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
@@ -447,7 +447,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldUseConfiguredMinimumRelevanceScore() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.5d, false, false, 20, 100));
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
@@ -465,7 +465,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldSkipKeywordFallbackWhenDisabled() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, false, true, 20, 100));
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
@@ -487,7 +487,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldSkipQueryExpansionWhenDisabled() {
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
@@ -516,7 +516,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldLimitQueryExpansionKeywords() {
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
@@ -545,7 +545,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldNormalizeExtractorKeywordsForQueryExpansion() {
-        ragPipelineService = new RagPipelineService(
+        ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
@@ -581,7 +581,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldSkipSemanticFallbackWhenDisabled() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, true, false, 20, 100));
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
@@ -599,7 +599,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldClampObjectListLimitInServiceLayer() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, true, true, 5, 10));
         when(vectorStorePort.listByObject(eq("attachment"), eq("42"), any()))
                 .thenReturn(List.of(new VectorSearchResult(
@@ -630,7 +630,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldTrackHybridRetrievalDiagnosticsWhenEnabled() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor,
                 null,
                 new RagPipelineOptions(0.2d, 0.8d, 0.4d, true, true, 20, 100),
@@ -659,7 +659,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldTrackKeywordFallbackDiagnosticsWhenEnabled() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor,
                 null,
                 RagPipelineOptions.defaults(),
@@ -686,7 +686,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldTrackObjectScopedSemanticFallbackDiagnosticsWhenEnabled() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor,
                 null,
                 RagPipelineOptions.defaults(),
@@ -713,7 +713,7 @@ class RagPipelineServiceTest {
 
     @Test
     void shouldTrackNoneDiagnosticsWhenNoRelevantResultsRemain() {
-        ragPipelineService = new RagPipelineService(embeddingPort, vectorStorePort, textChunker, cache, retry,
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor,
                 null,
                 RagPipelineOptions.defaults(),
