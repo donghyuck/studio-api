@@ -9,6 +9,11 @@
 - `TextCleaner`, `KeywordExtractor`, `PromptRenderer`, RAG option 타입은 확장 계약으로 `studio-platform-ai`에 유지하고, 관련 테스트 fixture와 구현 테스트를 starter 모듈로 이동했다.
 - `RagPipelineService.SERVICE_NAME`의 `rag-pipelien-service` 오탈자를 `rag-pipeline-service`로 수정하고, 기존 bean name은 `LEGACY_SERVICE_NAME` alias로 유지했다.
 - `studio-platform-ai`에서 Spring/JDBC/pgvector/Caffeine/Resilience4j 구현 의존을 제거했다.
+- 이슈 #215 대응으로 AI web endpoint 설정을 `studio.ai.endpoints.enabled`, `base-path`, `mgmt-base-path` 기준으로 정리했다.
+- Breaking: embedding/vector/RAG endpoint 기본 경로를 `/api/ai`에서 `/api/mgmt/ai`로 변경했다. 기존 경로를 유지하려면 `studio.ai.endpoints.mgmt-base-path=/api/ai`를 설정해야 한다.
+- 사용자용 AI endpoint는 기본 `/api/ai`, 관리용 embedding/vector/RAG endpoint는 기본 `/api/mgmt/ai`를 사용하도록 분리했다.
+- `studio.ai.endpoints.enabled=false`가 AI web controller 전체 비활성화로 동작하도록 자동 구성 조건을 정리했다.
+- 기존 `studio.ai.endpoints.enabled=false`는 `AiInfoController`만 숨겼지만, 이제 AI web endpoint 전체를 비활성화한다.
 - 이슈 #206 대응으로 `studio.ai.pipeline.keywords.scope`, `max-input-chars`와 `studio.ai.pipeline.retrieval.query-expansion.*` 설정을 추가해 keyword metadata 범위와 query expansion 동작을 조정할 수 있도록 했다.
 - 기본 `keywords.scope=document`는 기존 문서 단위 `keywords`/`keywordsText` 동작을 유지하고, `chunk` 또는 `both` 설정 시 chunk metadata에 `chunkKeywords`/`chunkKeywordsText`를 추가한다.
 - `LlmKeywordExtractor`의 입력 최대 길이 4000자 제한을 설정으로 이동하고, keyword trim/blank 제거/case-insensitive de-duplication을 적용했다.
@@ -32,6 +37,7 @@
 ### 검증
 - `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
+- `gradle :starter:studio-platform-starter-ai-web:test`
 - `gradle :studio-platform-ai:test`
 - `gradle :starter:studio-platform-starter-ai:test`
 - `gradle :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test --rerun-tasks`

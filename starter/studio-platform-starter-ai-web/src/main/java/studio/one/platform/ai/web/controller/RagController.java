@@ -27,14 +27,14 @@ import studio.one.platform.constant.PropertyKeys;
  * RAG 인덱싱과 검색을 처리합니다. RagPipelineService를 통해 텍스트 인덱싱 및 질의 검색을 수행합니다
  * 
  * RAG pipeline endpoints for indexing and searching documents.
- * <p>Base path: {@code ${studio.ai.endpoints.base-path:/api/ai}/rag}. Supports:
+ * <p>Base path: {@code ${studio.ai.endpoints.mgmt-base-path:/api/mgmt/ai}/rag}. Supports:
  * <ul>
  *   <li>{@code POST /index} for registering content with optional metadata.</li>
  *   <li>{@code POST /search} for semantic lookup returning ranked results.</li>
  * </ul>
  */
 @RestController 
-@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/rag")
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/rag")
 @Validated
 public class RagController {
 
@@ -47,7 +47,7 @@ public class RagController {
     /**
      * Indexes a document for later retrieval.
      * <pre>
-     * POST /api/ai/rag/index
+     * POST /api/mgmt/ai/rag/index
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read)
      * {
      *   "documentId": "doc-123",
@@ -78,7 +78,7 @@ public class RagController {
     /**
      * Performs a semantic search across indexed content.
      * <pre>
-     * POST /api/ai/rag/search
+     * POST /api/mgmt/ai/rag/search
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_rag read)
      * {
      *   "query": "find me something",

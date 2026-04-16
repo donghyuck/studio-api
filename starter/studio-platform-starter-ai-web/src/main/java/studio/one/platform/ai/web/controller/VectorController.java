@@ -39,13 +39,13 @@ import studio.one.platform.web.dto.ApiResponse;
  * 벡터 업서트와 검색을 제공합니다. 벡터 스토어가 없으면 503을 발생시켜 구성 여부를 명확히 합니다.
  * 
  * Vector store management endpoints under
- * {@code ${studio.ai.endpoints.base-path:/api/ai}/vectors}.
+ * {@code ${studio.ai.endpoints.mgmt-base-path:/api/mgmt/ai}/vectors}.
  * Provides vector upsert and similarity search backed by
  * {@link VectorStorePort}, generating
  * embeddings via {@link EmbeddingPort} when raw text queries are supplied.
  */
 @RestController
-@RequestMapping("${" + PropertyKeys.AI.Endpoints.BASE_PATH + ":/api/ai}/vectors")
+@RequestMapping("${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/vectors")
 @Validated
 @Slf4j
 public class VectorController {
@@ -67,7 +67,7 @@ public class VectorController {
      * Upserts documents with precomputed embeddings.
      * 
      * <pre>
-     * POST /api/ai/vectors
+     * POST /api/mgmt/ai/vectors
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_vector read)
      * {
      *   "documents": [
@@ -104,7 +104,7 @@ public class VectorController {
      * Accepts either a raw query or an embedding and performs similarity search.
      * 
      * <pre>
-     * POST /api/ai/vectors/search
+     * POST /api/mgmt/ai/vectors/search
      * Authorization: Bearer &lt;token&gt;   (requires services:ai_vector read)
      * {
      *   "query": "search text",
