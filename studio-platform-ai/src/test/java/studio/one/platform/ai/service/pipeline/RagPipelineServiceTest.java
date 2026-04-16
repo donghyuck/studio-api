@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -264,6 +265,13 @@ class RagPipelineServiceTest {
 
         assertThat(results).hasSize(1);
         verify(vectorStorePort).hybridSearch(eq("hello"), any(VectorSearchRequest.class), eq(0.2d), eq(0.8d));
+    }
+
+    @Test
+    void shouldRejectNonPositiveCombinedHybridWeights() {
+        assertThatThrownBy(() -> new RagPipelineOptions(0.0d, 0.0d, 0.15d, true, true, 20, 100))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("positive sum");
     }
 
     @Test

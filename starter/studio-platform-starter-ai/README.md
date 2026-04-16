@@ -202,6 +202,8 @@ studio:
 | `studio.ai.pipeline.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
 | `studio.ai.pipeline.object-scope.max-list-limit` | `100` | object-scope list 최대 limit |
 
+`vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
+
 ## 관련 모듈
 - `studio-platform-ai` — 이 스타터가 구현하는 포트 인터페이스 모듈
 - `studio-platform-starter-ai-web` — AI HTTP 엔드포인트를 노출하는 짝 스타터 (이 스타터와 함께 사용)

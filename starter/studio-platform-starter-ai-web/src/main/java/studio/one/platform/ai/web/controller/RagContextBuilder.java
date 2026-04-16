@@ -38,6 +38,9 @@ public class RagContextBuilder {
             return NO_CONTEXT_MESSAGE;
         }
         StringBuilder sb = new StringBuilder(HEADER);
+        if (sb.length() > maxChars) {
+            return NO_CONTEXT_MESSAGE;
+        }
         int count = Math.min(maxChunks, results.size());
         for (int i = 0; i < count; i++) {
             RagSearchResult result = results.get(i);
@@ -51,16 +54,11 @@ public class RagContextBuilder {
     }
 
     private boolean appendWithinLimit(StringBuilder sb, String chunk) {
-        int remaining = maxChars - sb.length();
-        if (remaining <= 0) {
+        if (sb.length() + chunk.length() > maxChars) {
             return false;
         }
-        if (chunk.length() <= remaining) {
-            sb.append(chunk);
-            return true;
-        }
-        sb.append(chunk, 0, remaining);
-        return false;
+        sb.append(chunk);
+        return true;
     }
 
     private String formatChunk(int index, RagSearchResult result) {

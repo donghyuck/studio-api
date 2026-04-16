@@ -114,6 +114,7 @@ Content-Type: application/json
 객체 범위만 있으면 저장된 chunk를 순서대로 가져와 컨텍스트로 사용한다.
 
 RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않도록 제한된다.
+문자 수 한도는 context header를 포함해 계산하며, 한도를 초과하는 chunk는 문장 중간에서 자르지 않고 통째로 제외한다.
 
 ```yaml
 studio:
@@ -129,7 +130,7 @@ studio:
 | 설정 | 기본값 | 설명 |
 |---|---:|---|
 | `studio.ai.endpoints.rag.context.max-chunks` | `8` | chat system context에 포함할 최대 RAG chunk 수 |
-| `studio.ai.endpoints.rag.context.max-chars` | `12000` | chat system context 최대 문자 수 |
+| `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.include-scores` | `true` | context에 retrieval score를 포함할지 여부 |
 
 ### 임베딩 요청 예시

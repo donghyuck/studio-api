@@ -27,6 +27,9 @@ public record RagPipelineOptions(
         if (lexicalWeight < 0.0d) {
             throw new IllegalArgumentException("lexicalWeight must be greater than or equal to 0");
         }
+        if (vectorWeight + lexicalWeight <= 0.0d) {
+            throw new IllegalArgumentException("vectorWeight and lexicalWeight must have a positive sum");
+        }
         if (minRelevanceScore < 0.0d) {
             throw new IllegalArgumentException("minRelevanceScore must be greater than or equal to 0");
         }

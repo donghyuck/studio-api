@@ -258,7 +258,8 @@ class ChatControllerTest {
                 null));
 
         verify(defaultChatPort).chat(chatCaptor.capture());
-        assertThat(chatCaptor.getValue().messages().get(0).content()).hasSizeLessThanOrEqualTo(80);
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
     }
 
     @Test
