@@ -11,6 +11,7 @@ AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근
 - `AiProviderRegistry`: 공급자 이름을 키로 ChatPort/EmbeddingPort를 관리하는 레지스트리
 - `TextChunker`: 긴 문서를 임베딩에 적합한 크기로 분할하는 전략 인터페이스
 - `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 조율하는 파이프라인 서비스
+  - 선택적 `TextCleaner`가 있으면 chunking 전에 추출 텍스트를 정제
   - 설정된 하이브리드 검색 비중 → 쿼리 보강 → 순수 시맨틱 검색 순으로 폴백
   - query 없는 object-scope 조회는 설정된 기본/최대 limit 안에서 chunk를 반환
   - Caffeine 캐시 + Resilience4j Retry로 임베딩 호출을 보호
@@ -24,8 +25,21 @@ AI 추상화 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근
 | `VectorStorePort` | `core.vector` | 벡터 저장/검색/하이브리드 검색 계약 |
 | `AiProviderRegistry` | `core.registry` | 공급자별 ChatPort/EmbeddingPort 룩업 |
 | `TextChunker` | `core.chunk` | 문서를 TextChunk 리스트로 분할 |
+| `TextCleaner` | `service.cleaning` | 색인 전 추출 텍스트 정제 계약 |
 | `RagPipelineService` | `service.pipeline` | 인덱싱/검색 파이프라인 오케스트레이터 |
 | `AiProvider` | `core` | 지원 공급자 열거형 (OPENAI, OLLAMA, GOOGLE_AI_GEMINI) |
+
+## RAG metadata
+`RagPipelineService.index()`는 색인 문서 metadata에 아래 key를 추가한다. 호출자가 같은 key를 전달한 경우 기존 값을 보존한다.
+
+| key | 설명 |
+|---|---|
+| `cleaned` | text cleaner가 성공적으로 정제 텍스트를 생성했는지 여부 |
+| `cleanerPrompt` | 사용한 cleaner prompt 이름. cleaner 미사용 시 빈 문자열 |
+| `originalTextLength` | 원본 추출 텍스트 길이 |
+| `indexedTextLength` | 실제 chunking/indexing에 사용한 텍스트 길이 |
+| `chunkCount` | 생성된 chunk 수 |
+| `chunkLength` | 개별 chunk content 길이 |
 
 ## 구현 분리 원칙
 이 모듈은 구현체를 포함하지 않는다. 의존성 역전 원칙에 따라 애플리케이션은 `ChatPort` 등 포트만 참조하며, 공급자별 어댑터는 스타터 모듈이 조건부로 등록한다. 공급자를 교체하거나 추가할 때 이 모듈을 수정할 필요가 없다.

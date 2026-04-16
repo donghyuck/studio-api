@@ -23,6 +23,7 @@ package studio.one.application.web.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -320,6 +321,9 @@ public class AttachmentEmbeddingPipelineController {
         metadata.putIfAbsent("objectId", objectId);
         metadata.putIfAbsent("attachmentId", attachment.getAttachmentId());
         metadata.putIfAbsent("name", attachment.getName());
+        metadata.putIfAbsent("filename", attachment.getName());
+        metadata.putIfAbsent("sourceType", "attachment");
+        metadata.putIfAbsent("indexedAt", Instant.now().toString());
         metadata.putIfAbsent("contentType", attachment.getContentType());
         metadata.putIfAbsent("size", attachment.getSize());
         metadata.putIfAbsent("chunkOrder", 0);
