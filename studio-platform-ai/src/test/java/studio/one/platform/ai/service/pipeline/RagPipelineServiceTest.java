@@ -165,7 +165,7 @@ class RagPipelineServiceTest {
                 .thenReturn(List.of(new TextChunk("doc-kw-0", "hello world")));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-kw-0", List.of(0.1, 0.2, 0.3)))));
-        when(keywordExtractor.extract("hello world")).thenReturn(List.of("hello", "world"));
+        when(keywordExtractor.extract("hello world")).thenReturn(List.of(" hello ", "HELLO", "world", " "));
 
         ragPipelineService.index(request);
 
@@ -541,6 +541,35 @@ class RagPipelineServiceTest {
 
         assertThat(results).hasSize(1);
         verify(vectorStorePort).hybridSearch(eq("hello alpha beta"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldNormalizeExtractorKeywordsForQueryExpansion() {
+        ragPipelineService = new RagPipelineService(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                new RagKeywordOptions(RagKeywordOptions.KeywordScope.DOCUMENT, 4_000, true, 2));
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of(" hello ", " Alpha ", "alpha", " beta "));
+        when(vectorStorePort.hybridSearch(eq("hello"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of());
+        when(vectorStorePort.hybridSearch(eq("hello Alpha beta"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-expanded", "expanded", Map.of(), List.of(0.5, 0.6)), 0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).hasSize(1);
+        verify(vectorStorePort).hybridSearch(eq("hello Alpha beta"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
     }
 
     @Test
