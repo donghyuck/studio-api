@@ -14,6 +14,35 @@ import org.springframework.core.env.StandardEnvironment;
 class AiWebRagPropertiesTest {
 
     @Test
+    void shouldExposeChatMemoryDefaults() {
+        AiWebChatProperties properties = new AiWebChatProperties();
+
+        assertThat(properties.getMemory().isEnabled()).isFalse();
+        assertThat(properties.getMemory().getMaxMessages()).isEqualTo(20);
+        assertThat(properties.getMemory().getMaxConversations()).isEqualTo(1_000);
+        assertThat(properties.getMemory().getTtl()).isEqualTo(java.time.Duration.ofMinutes(30));
+    }
+
+    @Test
+    void shouldBindChatMemoryOverrides() {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+                "studio.ai.endpoints.chat.memory.enabled", "true",
+                "studio.ai.endpoints.chat.memory.max-messages", "12",
+                "studio.ai.endpoints.chat.memory.max-conversations", "200",
+                "studio.ai.endpoints.chat.memory.ttl", "5m")));
+
+        AiWebChatProperties properties = new Binder(ConfigurationPropertySources.get(environment))
+                .bind("studio.ai.endpoints.chat", Bindable.of(AiWebChatProperties.class))
+                .orElseThrow(() -> new AssertionError("AiWebChatProperties binding failed"));
+
+        assertThat(properties.getMemory().isEnabled()).isTrue();
+        assertThat(properties.getMemory().getMaxMessages()).isEqualTo(12);
+        assertThat(properties.getMemory().getMaxConversations()).isEqualTo(200);
+        assertThat(properties.getMemory().getTtl()).isEqualTo(java.time.Duration.ofMinutes(5));
+    }
+
+    @Test
     void shouldExposeDiagnosticsDefaults() {
         AiWebRagProperties properties = new AiWebRagProperties();
 

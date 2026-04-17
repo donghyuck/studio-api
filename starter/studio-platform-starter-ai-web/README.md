@@ -97,6 +97,53 @@ Content-Type: application/json
 `provider`를 생략하면 `studio.ai.default-provider`가 사용된다. `systemPrompt`가 있으면
 서버가 첫 system message로 변환해 provider에 전달한다.
 
+기본 chat endpoint는 이전 대화를 서버에 저장하지 않는다. 요청에서 memory를 명시적으로 켜고,
+서버 설정도 활성화된 경우에만 `conversationId` 기준으로 최근 대화 메시지를 in-memory에 보관한다.
+memory 사용 시 클라이언트는 같은 `conversationId`와 새 턴 메시지만 보내야 한다.
+이전 대화 전체를 `messages`에 다시 포함하면 서버 memory에 같은 턴이 중복 저장될 수 있다.
+서버는 인증된 사용자 식별자와 `conversationId`를 합성한 내부 key로 저장해 사용자 간
+동일한 `conversationId`가 충돌하지 않도록 분리한다.
+
+```yaml
+studio:
+  ai:
+    endpoints:
+      chat:
+        memory:
+          enabled: false
+          max-messages: 20
+          max-conversations: 1000
+          ttl: 30m
+```
+
+```http
+POST /api/ai/chat
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "provider": "openai",
+  "messages": [
+    {"role": "user", "content": "방금 이야기한 내용을 이어서 설명해줘"}
+  ],
+  "memory": {
+    "enabled": true,
+    "conversationId": "chat-123"
+  }
+}
+```
+
+| 설정 | 기본값 | 설명 |
+|---|---:|---|
+| `studio.ai.endpoints.chat.memory.enabled` | `false` | chat memory 요청 허용 여부 |
+| `studio.ai.endpoints.chat.memory.max-messages` | `20` | conversation별 보관할 최근 메시지 수 |
+| `studio.ai.endpoints.chat.memory.max-conversations` | `1000` | 인스턴스 메모리에 보관할 최대 conversation 수 |
+| `studio.ai.endpoints.chat.memory.ttl` | `30m` | 마지막 접근 이후 conversation 보관 시간 |
+
+이 memory는 단일 앱 인스턴스의 in-memory cache다. 애플리케이션 재시작 시 사라지며, 다중 인스턴스 간 공유되지 않는다.
+운영에서 여러 인스턴스 간 대화 memory가 필요하면 `ChatMemoryStore`를 외부 저장소 기반 구현으로 교체한다.
+장기 보관, 감사 로그, conversation 목록 조회, 삭제 API 용도로 사용하지 않는다.
+
 ### RAG Chat 예시
 
 ```http
