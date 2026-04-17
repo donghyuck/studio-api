@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.security.Principal;
 
 import jakarta.validation.Valid;
 
@@ -147,8 +148,18 @@ public class ChatController {
      */
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
-    public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) {
-        ChatMemoryContext memory = resolveMemory(request);
+    public ResponseEntity<ApiResponse<ChatResponseDto>> chat(
+            @Valid @RequestBody ChatRequestDto request,
+            Principal principal) {
+        return chatInternal(request, principal);
+    }
+
+    ResponseEntity<ApiResponse<ChatResponseDto>> chat(ChatRequestDto request) {
+        return chatInternal(request, null);
+    }
+
+    private ResponseEntity<ApiResponse<ChatResponseDto>> chatInternal(ChatRequestDto request, Principal principal) {
+        ChatMemoryContext memory = resolveMemory(request, principal);
         ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request, toDomainMessages(request, memory.history())));
         int memoryMessageCount = appendMemory(memory, request.messages(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
@@ -161,7 +172,19 @@ public class ChatController {
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') and "
             + "(#request.objectType() == null or !#request.objectType().trim().equalsIgnoreCase('attachment') "
             + "or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(@Valid @RequestBody ChatRagRequestDto request) {
+    public ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(
+            @Valid @RequestBody ChatRagRequestDto request,
+            Principal principal) {
+        return chatWithRagInternal(request, principal);
+    }
+
+    ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(ChatRagRequestDto request) {
+        return chatWithRagInternal(request, null);
+    }
+
+    private ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRagInternal(
+            ChatRagRequestDto request,
+            Principal principal) {
         ChatRequestDto chat = request.chat();
         int ragTopK = request.ragTopK() != null ? request.ragTopK() : 3;
         ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
@@ -195,7 +218,7 @@ public class ChatController {
         if (chat.systemPrompt() != null && !chat.systemPrompt().isBlank()) {
             augmentedMessages.add(new ChatMessageDto("system", chat.systemPrompt()));
         }
-        ChatMemoryContext memory = resolveMemory(chat);
+        ChatMemoryContext memory = resolveMemory(chat, principal);
         augmentedMessages.addAll(toDtoMessages(memory.history()));
         augmentedMessages.addAll(chat.messages());
 
@@ -312,10 +335,6 @@ public class ChatController {
         return new ChatMessage(role, dto.content());
     }
 
-    private ChatResponseDto toDto(ChatResponse response) {
-        return toDto(response, null, false, Map.of("memoryEnabled", false));
-    }
-
     private ChatResponseDto toDto(
             ChatResponse response,
             RagRetrievalDiagnostics diagnostics,
@@ -350,21 +369,22 @@ public class ChatController {
         throw new IllegalArgumentException("RAG query is empty");
     }
 
-    private ChatMemoryContext resolveMemory(ChatRequestDto request) {
+    private ChatMemoryContext resolveMemory(ChatRequestDto request, Principal principal) {
         ChatMemoryOptionsDto memory = request.memory();
         if (memory == null || !Boolean.TRUE.equals(memory.enabled())) {
             return ChatMemoryContext.disabled();
+        }
+        if (!chatMemoryEnabled || chatMemoryStore == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Chat memory is not enabled on this server");
         }
         String conversationId = normalizeText(memory.conversationId());
         if (conversationId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "conversationId is required when chat memory is enabled");
         }
-        if (!chatMemoryEnabled || chatMemoryStore == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Chat memory is not enabled on this server");
-        }
-        return new ChatMemoryContext(true, conversationId, chatMemoryStore.get(conversationId));
+        String scopedConversationId = currentPrincipalScope(principal) + ":" + conversationId;
+        return new ChatMemoryContext(true, conversationId, scopedConversationId, chatMemoryStore.get(scopedConversationId));
     }
 
     private int appendMemory(ChatMemoryContext memory, List<ChatMessageDto> requestMessages, ChatResponse response) {
@@ -379,7 +399,7 @@ public class ChatController {
         response.messages().stream()
                 .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
                 .forEach(messagesToStore::add);
-        return chatMemoryStore.append(memory.conversationId(), messagesToStore);
+        return chatMemoryStore.append(memory.storageKey(), messagesToStore);
     }
 
     private Map<String, Object> memoryMetadata(ChatMemoryContext memory, int memoryMessageCount) {
@@ -403,10 +423,22 @@ public class ChatController {
         }
     }
 
-    private record ChatMemoryContext(boolean enabled, String conversationId, List<ChatMessage> history) {
+    private String currentPrincipalScope(Principal principal) {
+        if (principal != null) {
+            String name = normalizeText(principal.getName());
+            if (name != null) {
+                return "principal:" + name;
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Principal name is required when chat memory is enabled");
+        }
+        return "anonymous";
+    }
+
+    private record ChatMemoryContext(boolean enabled, String conversationId, String storageKey, List<ChatMessage> history) {
 
         static ChatMemoryContext disabled() {
-            return new ChatMemoryContext(false, null, List.of());
+            return new ChatMemoryContext(false, null, null, List.of());
         }
     }
 }

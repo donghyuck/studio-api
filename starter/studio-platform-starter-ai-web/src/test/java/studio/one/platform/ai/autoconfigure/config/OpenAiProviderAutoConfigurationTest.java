@@ -116,7 +116,7 @@ class OpenAiProviderAutoConfigurationTest {
                     null,
                     null,
                     null,
-                    null));
+                    null), null);
 
             assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
             assertThat(response.getBody().getData().model()).isEqualTo("gpt-4.1-mini");

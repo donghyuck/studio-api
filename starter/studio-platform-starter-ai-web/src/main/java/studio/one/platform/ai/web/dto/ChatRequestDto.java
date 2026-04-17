@@ -18,7 +18,7 @@ public record ChatRequestDto(
         Integer topK,
         Integer maxOutputTokens,
         List<String> stopSequences,
-        @Valid ChatMemoryOptionsDto memory
+        ChatMemoryOptionsDto memory
 ) {
     public ChatRequestDto(
             String provider,

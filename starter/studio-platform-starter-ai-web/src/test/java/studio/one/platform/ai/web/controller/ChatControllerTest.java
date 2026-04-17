@@ -36,6 +36,7 @@ import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.web.dto.ApiResponse;
 
 class ChatControllerTest {
@@ -245,7 +246,34 @@ class ChatControllerTest {
 
         assertThrows(IllegalStateException.class, () -> controller.chat(memoryChat("chat-1", "hello")));
 
-        assertThat(memoryStore.get("chat-1")).isEmpty();
+        assertThat(memoryStore.get("anonymous:chat-1")).isEmpty();
+    }
+
+    @Test
+    void chatRejectsBlankPrincipalNameWhenMemoryIsEnabled() {
+        controller = memoryController();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.chat(memoryChat("chat-1", "hello"), () -> "  "));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getReason()).contains("Principal name");
+        verifyNoInteractions(defaultChatPort);
+    }
+
+    @Test
+    void differentPrincipalsDoNotShareConversationMemory() {
+        controller = memoryController();
+        ArgumentCaptor<ChatRequest> captor = ArgumentCaptor.forClass(ChatRequest.class);
+
+        controller.chat(memoryChat("chat-1", "hello from user a"), () -> "user-a");
+        controller.chat(memoryChat("chat-1", "hello from user b"), () -> "user-b");
+
+        verify(defaultChatPort, times(2)).chat(captor.capture());
+        List<studio.one.platform.ai.core.chat.ChatMessage> userBMessages = captor.getAllValues().get(1).messages();
+        assertThat(userBMessages)
+                .extracting(message -> message.role().name() + ":" + message.content())
+                .containsExactly("USER:hello from user b");
     }
 
     @Test

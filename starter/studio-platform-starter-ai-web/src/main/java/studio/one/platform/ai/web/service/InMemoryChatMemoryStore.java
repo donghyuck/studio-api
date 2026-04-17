@@ -1,4 +1,4 @@
-package studio.one.platform.ai.web.controller;
+package studio.one.platform.ai.web.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,6 +56,6 @@ public class InMemoryChatMemoryStore implements ChatMemoryStore {
             int fromIndex = Math.max(0, merged.size() - maxMessages);
             return List.copyOf(merged.subList(fromIndex, merged.size()));
         });
-        return updated == null ? 0 : updated.size();
+        return updated.size();
     }
 }

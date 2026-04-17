@@ -22,11 +22,11 @@ import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
-import studio.one.platform.ai.web.controller.InMemoryChatMemoryStore;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.VectorController;
+import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.constant.PropertyKeys;
 
 @Configuration(proxyBeanMethods = false)

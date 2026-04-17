@@ -34,6 +34,9 @@ public class AiWebChatProperties {
         }
 
         public void setMaxMessages(int maxMessages) {
+            if (maxMessages <= 0) {
+                throw new IllegalArgumentException("maxMessages must be greater than 0");
+            }
             this.maxMessages = maxMessages;
         }
 
@@ -42,6 +45,9 @@ public class AiWebChatProperties {
         }
 
         public void setMaxConversations(long maxConversations) {
+            if (maxConversations <= 0) {
+                throw new IllegalArgumentException("maxConversations must be greater than 0");
+            }
             this.maxConversations = maxConversations;
         }
 
@@ -50,6 +56,9 @@ public class AiWebChatProperties {
         }
 
         public void setTtl(Duration ttl) {
+            if (ttl == null || ttl.isNegative() || ttl.isZero()) {
+                throw new IllegalArgumentException("ttl must be greater than 0");
+            }
             this.ttl = ttl;
         }
     }
