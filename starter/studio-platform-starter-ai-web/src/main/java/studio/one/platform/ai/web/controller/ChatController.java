@@ -41,6 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
+import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
@@ -50,6 +51,7 @@ import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
@@ -75,6 +77,8 @@ public class ChatController {
     private final RagPipelineService ragPipelineService;
     private final RagContextBuilder ragContextBuilder;
     private final boolean allowClientDebug;
+    private final ChatMemoryStore chatMemoryStore;
+    private final boolean chatMemoryEnabled;
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
         this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
@@ -92,10 +96,22 @@ public class ChatController {
             RagPipelineService ragPipelineService,
             RagContextBuilder ragContextBuilder,
             boolean allowClientDebug) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, null, false);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
         this.allowClientDebug = allowClientDebug;
+        this.chatMemoryStore = chatMemoryStore;
+        this.chatMemoryEnabled = chatMemoryEnabled;
     }
 
     /**
@@ -132,8 +148,10 @@ public class ChatController {
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chat(@Valid @RequestBody ChatRequestDto request) {
-        ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request));
-        return ResponseEntity.ok(ApiResponse.ok(toDto(response)));
+        ChatMemoryContext memory = resolveMemory(request);
+        ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request, toDomainMessages(request, memory.history())));
+        int memoryMessageCount = appendMemory(memory, request.messages(), response);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
     }
 
     /**
@@ -177,6 +195,8 @@ public class ChatController {
         if (chat.systemPrompt() != null && !chat.systemPrompt().isBlank()) {
             augmentedMessages.add(new ChatMessageDto("system", chat.systemPrompt()));
         }
+        ChatMemoryContext memory = resolveMemory(chat);
+        augmentedMessages.addAll(toDtoMessages(memory.history()));
         augmentedMessages.addAll(chat.messages());
 
         ChatRequestDto augmented = new ChatRequestDto(
@@ -188,14 +208,24 @@ public class ChatController {
                 chat.topP(),
                 chat.topK(),
                 chat.maxOutputTokens(),
-                chat.stopSequences());
+                chat.stopSequences(),
+                chat.memory());
 
         ChatResponse response = chatPort(chat.provider()).chat(toDomainChatRequest(augmented));
-        return ResponseEntity.ok(ApiResponse.ok(toDto(response, diagnostics, shouldExposeDiagnostics(request))));
+        int memoryMessageCount = appendMemory(memory, chat.messages(), response);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(
+                response,
+                diagnostics,
+                shouldExposeDiagnostics(request),
+                memoryMetadata(memory, memoryMessageCount))));
     }
 
     private ChatRequest toDomainChatRequest(ChatRequestDto request) {
-        ChatRequest.Builder builder = ChatRequest.builder().messages(toDomainMessages(request));
+        return toDomainChatRequest(request, toDomainMessages(request));
+    }
+
+    private ChatRequest toDomainChatRequest(ChatRequestDto request, List<ChatMessage> messages) {
+        ChatRequest.Builder builder = ChatRequest.builder().messages(messages);
         if (request.model() != null) {
             builder.model(request.model());
         }
@@ -252,13 +282,28 @@ public class ChatController {
     }
 
     private List<ChatMessage> toDomainMessages(ChatRequestDto request) {
+        return toDomainMessages(request, List.of());
+    }
+
+    private List<ChatMessage> toDomainMessages(ChatRequestDto request, List<ChatMessage> history) {
         List<ChatMessageDto> messages = new ArrayList<>();
         if (request.systemPrompt() != null && !request.systemPrompt().isBlank()) {
             messages.add(new ChatMessageDto("system", request.systemPrompt()));
         }
-        messages.addAll(request.messages());
-        return messages.stream()
+        List<ChatMessage> domainMessages = new ArrayList<>();
+        domainMessages.addAll(messages.stream()
                 .map(this::toDomainMessage)
+                .toList());
+        domainMessages.addAll(history);
+        domainMessages.addAll(request.messages().stream()
+                .map(this::toDomainMessage)
+                .toList());
+        return domainMessages;
+    }
+
+    private List<ChatMessageDto> toDtoMessages(List<ChatMessage> messages) {
+        return messages.stream()
+                .map(message -> new ChatMessageDto(message.role().name().toLowerCase(Locale.ROOT), message.content()))
                 .toList();
     }
 
@@ -268,17 +313,19 @@ public class ChatController {
     }
 
     private ChatResponseDto toDto(ChatResponse response) {
-        return toDto(response, null, false);
+        return toDto(response, null, false, Map.of("memoryEnabled", false));
     }
 
     private ChatResponseDto toDto(
             ChatResponse response,
             RagRetrievalDiagnostics diagnostics,
-            boolean exposeDiagnostics) {
+            boolean exposeDiagnostics,
+            Map<String, Object> extraMetadata) {
         List<ChatMessageDto> messages = response.messages().stream()
                 .map(message -> new ChatMessageDto(message.role().name().toLowerCase(Locale.ROOT), message.content()))
                 .toList();
         Map<String, Object> metadata = new HashMap<>(response.metadata());
+        metadata.putAll(extraMetadata);
         if (exposeDiagnostics && diagnostics != null) {
             metadata.put("ragDiagnostics", diagnostics.toMetadata());
         }
@@ -303,6 +350,48 @@ public class ChatController {
         throw new IllegalArgumentException("RAG query is empty");
     }
 
+    private ChatMemoryContext resolveMemory(ChatRequestDto request) {
+        ChatMemoryOptionsDto memory = request.memory();
+        if (memory == null || !Boolean.TRUE.equals(memory.enabled())) {
+            return ChatMemoryContext.disabled();
+        }
+        String conversationId = normalizeText(memory.conversationId());
+        if (conversationId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "conversationId is required when chat memory is enabled");
+        }
+        if (!chatMemoryEnabled || chatMemoryStore == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Chat memory is not enabled on this server");
+        }
+        return new ChatMemoryContext(true, conversationId, chatMemoryStore.get(conversationId));
+    }
+
+    private int appendMemory(ChatMemoryContext memory, List<ChatMessageDto> requestMessages, ChatResponse response) {
+        if (!memory.enabled()) {
+            return 0;
+        }
+        List<ChatMessage> messagesToStore = new ArrayList<>();
+        requestMessages.stream()
+                .map(this::toDomainMessage)
+                .filter(message -> message.role() != ChatMessageRole.SYSTEM)
+                .forEach(messagesToStore::add);
+        response.messages().stream()
+                .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
+                .forEach(messagesToStore::add);
+        return chatMemoryStore.append(memory.conversationId(), messagesToStore);
+    }
+
+    private Map<String, Object> memoryMetadata(ChatMemoryContext memory, int memoryMessageCount) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("memoryEnabled", memory.enabled());
+        if (memory.enabled()) {
+            metadata.put("conversationId", memory.conversationId());
+            metadata.put("memoryMessageCount", memoryMessageCount);
+        }
+        return metadata;
+    }
+
     private record ObjectScope(String objectType, String objectId) {
 
         static ObjectScope none() {
@@ -311,6 +400,13 @@ public class ChatController {
 
         boolean hasFilter() {
             return objectType != null || objectId != null;
+        }
+    }
+
+    private record ChatMemoryContext(boolean enabled, String conversationId, List<ChatMessage> history) {
+
+        static ChatMemoryContext disabled() {
+            return new ChatMemoryContext(false, null, List.of());
         }
     }
 }

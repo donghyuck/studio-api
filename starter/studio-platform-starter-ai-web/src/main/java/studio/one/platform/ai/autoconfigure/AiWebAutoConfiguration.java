@@ -1,6 +1,8 @@
 package studio.one.platform.ai.autoconfigure;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
@@ -9,6 +11,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.lang.Nullable;
 
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
+import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
@@ -19,6 +22,7 @@ import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
+import studio.one.platform.ai.web.controller.InMemoryChatMemoryStore;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
@@ -28,7 +32,7 @@ import studio.one.platform.constant.PropertyKeys;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(ChatPort.class)
 @Conditional(AiWebEndpointCondition.class)
-@EnableConfigurationProperties(AiWebRagProperties.class)
+@EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class})
 public class AiWebAutoConfiguration {
 
     @Bean
@@ -37,13 +41,24 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(ChatMemoryStore.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.AI.Endpoints.PREFIX + ".chat.memory", name = "enabled", havingValue = "true")
+    ChatMemoryStore chatMemoryStore(AiWebChatProperties properties) {
+        return new InMemoryChatMemoryStore(properties.getMemory());
+    }
+
+    @Bean
     ChatController chatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagContextBuilder ragContextBuilder,
-            AiWebRagProperties properties) {
+            AiWebRagProperties ragProperties,
+            AiWebChatProperties chatProperties,
+            @Nullable ChatMemoryStore chatMemoryStore) {
         return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
-                properties.getDiagnostics().isAllowClientDebug());
+                ragProperties.getDiagnostics().isAllowClientDebug(),
+                chatMemoryStore,
+                chatProperties.getMemory().isEnabled());
     }
 
     @Bean

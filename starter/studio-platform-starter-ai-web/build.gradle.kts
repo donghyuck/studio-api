@@ -24,6 +24,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("com.fasterxml.jackson.core:jackson-databind")
+    implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.mockito:mockito-core")

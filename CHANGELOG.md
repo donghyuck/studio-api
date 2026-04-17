@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-04-17
+
+### 변경됨
+- `POST /api/ai/chat`와 `POST /api/ai/chat/rag`에 요청 단위 opt-in chat memory를 추가했다.
+- 기본 동작은 stateless로 유지하고, `studio.ai.endpoints.chat.memory.enabled=true`와 요청 `memory.enabled=true`가 모두 설정된 경우에만 `conversationId`별 최근 메시지를 in-memory로 보관한다.
+- chat memory는 `max-messages`, `max-conversations`, `ttl` 상한을 적용하며, 재시작 시 소실되고 다중 인스턴스 간 공유되지 않는 제약을 README에 문서화했다.
+- 응답 metadata에 memory 사용 여부와 conversation 상태를 노출하도록 했다.
+
+### 검증
+- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-ai-web:test`
+
 ## 2026-04-16
 
 ### 변경됨

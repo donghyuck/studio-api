@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 
 import studio.one.platform.ai.autoconfigure.AiWebAutoConfiguration;
 import studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard;
+import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
@@ -78,6 +79,7 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(context).hasSingleBean(ChatController.class);
             assertThat(context).hasSingleBean(EmbeddingController.class);
             assertThat(context).hasSingleBean(AiInfoController.class);
+            assertThat(context).doesNotHaveBean(ChatMemoryStore.class);
 
             AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
             assertThat(registry.defaultProvider()).isEqualTo("openai");
@@ -146,6 +148,17 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(response.getBody().getData().vectors().get(0).referenceId()).isEqualTo("first");
             assertThat(response.getBody().getData().vectors().get(0).values()).containsExactly(1.0, 2.0);
         });
+    }
+
+    @Test
+    void registersInMemoryChatMemoryStoreWhenChatMemoryIsEnabled() {
+        contextRunner
+                .withPropertyValues("studio.ai.endpoints.chat.memory.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatMemoryStore.class);
+                    assertThat(context).hasSingleBean(ChatController.class);
+                });
     }
 
     @Test

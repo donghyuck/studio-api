@@ -17,6 +17,19 @@ public record ChatRequestDto(
         Double topP,
         Integer topK,
         Integer maxOutputTokens,
-        List<String> stopSequences
+        List<String> stopSequences,
+        @Valid ChatMemoryOptionsDto memory
 ) {
+    public ChatRequestDto(
+            String provider,
+            String systemPrompt,
+            List<ChatMessageDto> messages,
+            String model,
+            Double temperature,
+            Double topP,
+            Integer topK,
+            Integer maxOutputTokens,
+            List<String> stopSequences) {
+        this(provider, systemPrompt, messages, model, temperature, topP, topK, maxOutputTokens, stopSequences, null);
+    }
 }
