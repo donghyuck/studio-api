@@ -176,6 +176,7 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(response.getBody().getData().providers())
                     .extracting(AiInfoController.ProviderInfo::name)
                     .containsExactly("openai");
+            assertThat(response.getBody().getData().chat().memory().enabled()).isFalse();
         });
     }
 

@@ -91,8 +91,9 @@ public class AiWebAutoConfiguration {
     @Bean
     AiInfoController aiInfoController(
             AiAdapterProperties properties,
+            AiWebChatProperties chatProperties,
             Environment environment,
             @Nullable VectorStorePort vectorStorePort) {
-        return new AiInfoController(properties, environment, vectorStorePort);
+        return new AiInfoController(properties, chatProperties, environment, vectorStorePort);
     }
 }
