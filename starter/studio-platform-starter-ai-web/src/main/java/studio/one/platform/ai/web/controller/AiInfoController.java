@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.constant.PropertyKeys;
@@ -27,12 +28,18 @@ import java.util.Map;
 public class AiInfoController {
 
     private final AiAdapterProperties properties;
+    private final AiWebChatProperties chatProperties;
     private final Environment environment;
     @Nullable
     private final VectorStorePort vectorStorePort;
 
-    public AiInfoController(AiAdapterProperties properties, Environment environment, @Nullable VectorStorePort vectorStorePort) {
+    public AiInfoController(
+            AiAdapterProperties properties,
+            AiWebChatProperties chatProperties,
+            Environment environment,
+            @Nullable VectorStorePort vectorStorePort) {
         this.properties = properties;
+        this.chatProperties = chatProperties;
         this.environment = environment;
         this.vectorStorePort = vectorStorePort;
     }
@@ -47,7 +54,13 @@ public class AiInfoController {
         VectorInfo vectorInfo = new VectorInfo(
                 vectorStorePort != null,
                 vectorStorePort == null ? null : vectorStorePort.getClass().getSimpleName());
-        return ResponseEntity.ok(ApiResponse.ok(new AiInfoResponse(providerInfos, properties.getDefaultProvider(), vectorInfo)));
+        ChatInfo chatInfo = new ChatInfo(new ChatMemoryInfo(
+                chatProperties.getMemory().isEnabled(),
+                chatProperties.getMemory().getMaxMessages(),
+                chatProperties.getMemory().getMaxConversations(),
+                chatProperties.getMemory().getTtl().toString()));
+        return ResponseEntity.ok(ApiResponse.ok(
+                new AiInfoResponse(providerInfos, properties.getDefaultProvider(), vectorInfo, chatInfo)));
     }
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
@@ -67,7 +80,7 @@ public class AiInfoController {
         return new ProviderInfo(name, provider.getType(), chat, embedding, baseUrl);
     }
 
-    public record AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector) {}
+    public record AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector, ChatInfo chat) {}
 
     public record ProviderInfo(String name,
                                AiAdapterProperties.ProviderType type,
@@ -78,4 +91,8 @@ public class AiInfoController {
     public record ProviderChannel(boolean enabled, String model) {}
 
     public record VectorInfo(boolean available, String implementation) {}
+
+    public record ChatInfo(ChatMemoryInfo memory) {}
+
+    public record ChatMemoryInfo(boolean enabled, int maxMessages, long maxConversations, String ttl) {}
 }

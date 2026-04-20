@@ -14,6 +14,7 @@
 ## 2026-04-16
 
 ### 변경됨
+- 최근 AI/RAG 모듈 변경에 따른 클라이언트 수정 항목을 `docs/dev/ai-client-update-guide.md`에 정리하고 README 문서 목록에 추가했다.
 - 이슈 #221 대응으로 `studio-platform-chunking` 계약 모듈과 `starter:studio-platform-starter-chunking`을 추가해 RAG indexing chunking을 starter 형태로 분리했다.
 - `DefaultRagPipelineService`가 `ChunkingOrchestrator`를 optional로 사용하고, 없으면 기존 `TextChunker` fallback을 유지하도록 했다.
 - `VectorStorePort`에 object scope replace/delete 흐름을 추가해 같은 `objectType`/`objectId` 재색인 시 stale chunk가 남지 않도록 했다.

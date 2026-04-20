@@ -281,6 +281,7 @@ spring:
 
 ## 문서 바로가기
 - 스타터 요약: `starter/README.md`
+- AI 클라이언트 수정 가이드: `docs/dev/ai-client-update-guide.md`
 - 애플리케이션 모듈 가이드: `studio-application-modules/README.md`
 - 사용자 계약: `studio-platform-user/README.md`
 - 사용자 기본 구현: `studio-platform-user-default/README.md`
