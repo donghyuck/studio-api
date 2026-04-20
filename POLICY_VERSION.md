@@ -1,8 +1,8 @@
 # Policy Version
 
-- Current Version: `v1.5.1`
+- Current Version: `v1.6.0`
 - Effective Date: `2026-03-18`
-- Last Updated: `2026-04-15`
+- Last Updated: `2026-04-16`
 
 ## Versioning Rules
 - 정책 파일 구조/규칙 변경 시 버전을 갱신한다.
@@ -20,8 +20,12 @@
   - `README.md`
   - `.gitmessage-ai-assisted.txt`
   - `.codex/config.toml`
-  - `.codex/agents/*.toml`
+  - active `.codex/agents/*.toml`
+  - archived `.codex/agents/_archive/*.toml`
   - `skills/*/SKILL.md`
+  - `skills/spec/SKILL.md`
+  - `skills/build/SKILL.md`
+  - `skills/review/SKILL.md`
   - `.gitlab/issue_templates/default.md`
   - `.gitlab/merge_request_templates/default.md`
   - `docs/agents/*.md`

@@ -93,6 +93,8 @@ if [[ ${#LOCAL_AGENTS[@]} -eq 0 ]]; then
   exit 0
 fi
 
+echo "[INFO] scanning active top-level agents only; _archive is ignored"
+
 for local_file in "${LOCAL_AGENTS[@]}"; do
   base_name="$(basename "${local_file}")"
 

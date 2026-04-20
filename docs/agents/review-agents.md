@@ -4,12 +4,15 @@
 
 Use review agents when pending changes need defect analysis, policy checks, or security review.
 
-## Recommended agents
+## Active agents
 
-- `code-reviewer`: general code review
-- `architect-reviewer`: structural or architecture-heavy review
-- `security-auditor`: security-focused review
-- `code-mapper`: analysis and impact review before or after implementation
+- `code-reviewer`: review bugs, regressions, missing validation, and policy compliance.
+- `security-auditor`: review auth, permission, token, secret, privacy, and data-handling risk.
+
+## Archived references
+
+`architect-reviewer` and `code-mapper` are archived references.
+Route active review work through `code-reviewer` or `security-auditor`.
 
 ## Expected output
 
