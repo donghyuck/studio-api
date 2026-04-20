@@ -8,9 +8,11 @@
 - 기존 `studio.one.platform.text.*` API는 `studio-platform-data`의 deprecated wrapper로 유지하고, 내부 attachment/RAG 사용처는 `studio.one.platform.textract.*`를 직접 사용하도록 전환했다.
 - `StructuredFileParser`, `ParsedFile`, `ParsedBlock`, `BlockType`, `ParseWarning`을 추가해 HWP/HWPX와 OCR 확장을 위한 RAG 친화 구조화 파싱 계약을 마련했다.
 - `rhwp` 분석 결과를 참고해 HWPX 문단·표·이미지와 HWP BodyText/BinData 추출 parser를 추가했다.
+- 후속 정리로 `starter:studio-platform-starter`의 legacy text auto-configuration과 `studio-platform-data`의 포맷별 parser wrapper를 제거하고, data에는 최소 facade만 남겼다.
 
 ### 검증
 - `./gradlew :studio-platform-textract:test :studio-platform-data:test :starter:studio-platform-textract-starter:test :starter:studio-platform-starter:test :studio-application-modules:attachment-service:test :studio-application-modules:content-embedding-pipeline:test`
+- `gradle :studio-platform-data:test :starter:studio-platform-starter:test :starter:studio-platform-textract-starter:test`
 - `git diff --check`
 
 ## 2026-04-17
