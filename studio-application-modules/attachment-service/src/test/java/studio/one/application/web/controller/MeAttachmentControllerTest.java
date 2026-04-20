@@ -20,7 +20,7 @@ import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.identity.IdentityService;
-import studio.one.platform.text.service.FileContentExtractionService;
+import studio.one.platform.textract.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 @ExtendWith(MockitoExtension.class)

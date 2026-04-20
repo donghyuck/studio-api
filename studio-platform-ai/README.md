@@ -100,7 +100,7 @@ List<RagSearchResult> results = ragPipelineService.searchByObject(
 - `studio-platform-starter-ai` — 공급자별 어댑터·벡터 스토어 자동 구성 (OpenAI, Ollama, Gemini, pgvector)
 - `studio-platform-chunking` / `studio-platform-starter-chunking` — RAG indexing용 chunking 계약과 기본 전략 구현
 - `studio-platform-starter-ai-web` — AI HTTP 엔드포인트 노출 (chat, embedding, RAG, vector)
-- `studio-platform-data` — 파일 텍스트 추출 (`FileContentExtractionService`)로 RAG 인덱싱 전처리
+- `studio-platform-textract` / `starter:studio-platform-textract-starter` — 파일 텍스트 추출(`FileContentExtractionService`)로 RAG 인덱싱 전처리
 - `studio-application-modules/content-embedding-pipeline` — 이 모듈의 포트를 활용해 첨부파일 임베딩·RAG 인덱싱을 수행하는 소비자
 
 ## 스키마

@@ -19,6 +19,7 @@ java {
 dependencies {
     api(project(":studio-platform"))
     api(project(":studio-platform-data"))
+    api(project(":starter:studio-platform-textract-starter"))
     api(project(":studio-platform-autoconfigure")) 
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")

@@ -1,44 +1,36 @@
 package studio.one.platform.text.extractor.impl;
 
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-
-import javax.imageio.ImageIO;
-
-import lombok.extern.slf4j.Slf4j;
-import net.sourceforge.tess4j.Tesseract;
-import net.sourceforge.tess4j.TesseractException;
 import studio.one.platform.text.extractor.FileParseException;
+import studio.one.platform.text.extractor.FileParser;
+import studio.one.platform.textract.model.DocumentExtractionResult;
+import studio.one.platform.textract.model.ParsedFile;
 
-@Slf4j 
-public class ImageFileParser extends AbstractFileParser {
-
-    private final Tesseract tesseract; // Spring Bean 으로 주입받는 것을 권장
+/**
+ * @deprecated since 2026-04-20. Use
+ *             {@link studio.one.platform.textract.extractor.impl.ImageFileParser}.
+ */
+@Deprecated(forRemoval = false)
+public class ImageFileParser
+        extends studio.one.platform.textract.extractor.impl.ImageFileParser
+        implements FileParser {
 
     public ImageFileParser(String tesseractDataPath, String language) {
-        this.tesseract = new  Tesseract();
-        this.tesseract.setDatapath(tesseractDataPath);
-        this.tesseract.setLanguage(language);
-    }
-
-    @Override
-    public boolean supports(String contentType, String filename) {
-        String name = lower(filename);
-        if (isContentType(contentType, "image/")) return true;
-        return name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".bmp");
+        super(tesseractDataPath, language);
     }
 
     @Override
     public String parse(byte[] bytes, String contentType, String filename) throws FileParseException {
-        try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
-            BufferedImage image = ImageIO.read(in);
-            if (image == null) {
-                throw new FileParseException("Unsupported or corrupt image: " + safeFilename(filename));
-            }
-            return cleanText(tesseract.doOCR(image));
-        } catch (TesseractException | IOException e) {
-            throw new FileParseException("Failed to parse image: " + safeFilename(filename), e);
-        }
+        return LegacyParserSupport.translate(() -> super.parse(bytes, contentType, filename));
+    }
+
+    @Override
+    public DocumentExtractionResult extract(byte[] bytes, String contentType, String filename)
+            throws FileParseException {
+        return LegacyParserSupport.translate(() -> super.extract(bytes, contentType, filename));
+    }
+
+    @Override
+    public ParsedFile parseStructured(byte[] bytes, String contentType, String filename) throws FileParseException {
+        return LegacyParserSupport.translate(() -> super.parseStructured(bytes, contentType, filename));
     }
 }

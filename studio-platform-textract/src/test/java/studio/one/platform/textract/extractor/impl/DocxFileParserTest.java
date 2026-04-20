@@ -1,0 +1,48 @@
+package studio.one.platform.textract.extractor.impl;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayOutputStream;
+
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.junit.jupiter.api.Test;
+
+import studio.one.platform.textract.extractor.DocumentFormat;
+import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ParsedFile;
+
+class DocxFileParserTest {
+
+    @Test
+    void parseStructuredReturnsParagraphTextAndTableCells() throws Exception {
+        byte[] bytes = docxWithParagraphAndTable();
+
+        ParsedFile result = new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "sample.docx");
+
+        assertEquals(DocumentFormat.DOCX, result.format());
+        assertTrue(result.plainText().contains("본문 문단"));
+        assertTrue(result.plainText().contains("A1 | B1"));
+        assertTrue(result.blocks().stream().anyMatch(block -> block.type() == BlockType.TABLE));
+        assertEquals(1, result.tables().size());
+        assertEquals(4, result.tables().get(0).cells().size());
+        assertEquals("A1", result.tables().get(0).cells().get(0).text());
+        assertEquals("| A1 | B1 |", result.tables().get(0).markdown().split("\\n")[0]);
+    }
+
+    private byte[] docxWithParagraphAndTable() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            document.createParagraph().createRun().setText("본문 문단");
+            XWPFTable table = document.createTable(2, 2);
+            table.getRow(0).getCell(0).setText("A1");
+            table.getRow(0).getCell(1).setText("B1");
+            table.getRow(1).getCell(0).setText("A2");
+            table.getRow(1).getCell(1).setText("B2");
+            document.write(out);
+            return out.toByteArray();
+        }
+    }
+}

@@ -1,31 +1,32 @@
 package studio.one.platform.text.extractor.impl;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-
-import org.jsoup.Jsoup;
-
 import studio.one.platform.text.extractor.FileParseException;
+import studio.one.platform.text.extractor.FileParser;
+import studio.one.platform.textract.model.DocumentExtractionResult;
+import studio.one.platform.textract.model.ParsedFile;
 
-public class HtmlFileParser extends AbstractFileParser {
-
-    @Override
-    public boolean supports(String contentType, String filename) {
-        if (isContentType(contentType, "text/html"))
-            return true;
-        return hasExtension(filename, ".html", ".htm");
-    }
+/**
+ * @deprecated since 2026-04-20. Use
+ *             {@link studio.one.platform.textract.extractor.impl.HtmlFileParser}.
+ */
+@Deprecated(forRemoval = false)
+public class HtmlFileParser
+        extends studio.one.platform.textract.extractor.impl.HtmlFileParser
+        implements FileParser {
 
     @Override
     public String parse(byte[] bytes, String contentType, String filename) throws FileParseException {
-        try (ByteArrayInputStream in = new ByteArrayInputStream(bytes)) {
-            String text = Jsoup
-                    .parse(in, StandardCharsets.UTF_8.name(), "")
-                    .text();
-            return cleanText(text);
-        } catch (IOException e) {
-            throw new FileParseException("Failed to parse HTML: " + safeFilename(filename), e);
-        }
+        return LegacyParserSupport.translate(() -> super.parse(bytes, contentType, filename));
+    }
+
+    @Override
+    public DocumentExtractionResult extract(byte[] bytes, String contentType, String filename)
+            throws FileParseException {
+        return LegacyParserSupport.translate(() -> super.extract(bytes, contentType, filename));
+    }
+
+    @Override
+    public ParsedFile parseStructured(byte[] bytes, String contentType, String filename) throws FileParseException {
+        return FileParser.super.parseStructured(bytes, contentType, filename);
     }
 }
