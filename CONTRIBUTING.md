@@ -14,6 +14,14 @@ Issue → Branch → Develop → Commit → Merge Request → Review → CI / va
 
 Issue 생성이 어려운 경우 commit body 또는 MR body에 사유를 기록한다.
 
+## AI Workflow
+
+- Start with a spec or issue draft before implementation.
+- Build in small increments and keep changes scoped.
+- Review before merge using `code-reviewer` or equivalent human review.
+- Run security review for auth, permission, token, secret, privacy, or data-handling changes.
+- Update documentation when behavior, policy, templates, scripts, or validation procedures change.
+
 ## Issue
 
 - `.gitlab/issue_templates/default.md`를 사용한다.

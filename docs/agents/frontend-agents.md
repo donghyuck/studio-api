@@ -1,18 +1,19 @@
-# Frontend Agents
+# Frontend Guidance
 
 ## Purpose
 
-Use frontend agents when the task primarily affects UI implementation, frontend state, or web client behavior.
+Frontend work stays inside the lightweight core workflow.
+This repository does not maintain active frontend specialist agents.
 
-## Recommended agents
+## Active routing
 
-- `react-specialist`: React component behavior, state flow, rendering bugs, and modern React patterns
-- `vue-expert`: Vue component, page, and UI behavior changes
-- `typescript-pro`: TypeScript typing, API models, and safer state handling
-- `javascript-engineer`: plain JavaScript or legacy frontend and script changes
+- Use `issue-agent` to define UI scope and acceptance criteria.
+- Use `backend-developer` for bounded implementation when the owning path is clear.
+- Use `code-reviewer` for UI behavior, accessibility, and regression review.
+- Use `security-auditor` when frontend changes touch auth, tokens, permissions, or sensitive data.
+- Use `docs-agent` when user-facing behavior or policy guidance changes.
 
-## Expected output
+## Archived references
 
-- Minimal in-scope frontend changes
-- Validation notes for the main author
-- Integration or compatibility risks when relevant
+`react-specialist`, `vue-expert`, `typescript-pro`, and `javascript-engineer` are archived references.
+Do not use them as active execution agents by default.

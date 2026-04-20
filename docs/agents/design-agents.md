@@ -1,16 +1,19 @@
-# Design Agents
+# Design Guidance
 
 ## Purpose
 
-Use design agents when the task needs architecture planning, system boundary review, or implementation sequencing.
+Design work stays inside the lightweight core workflow.
+This repository does not maintain active architecture specialist agents.
 
-## Recommended agents
+## Active routing
 
-- `system-designer`: system flow, ownership boundary, and rollout planning
-- `architect-reviewer`: higher-risk structural review after a design or implementation proposal
+- Use `issue-agent` for spec, scope, and acceptance criteria.
+- Use `backend-developer` after the implementation boundary is clear.
+- Use `code-reviewer` for design-risk review before merge.
+- Use `security-auditor` when the design affects trust boundaries or sensitive data.
+- Use `docs-agent` for policy, README, changelog, or MR summary updates.
 
-## Expected output
+## Archived references
 
-- Concrete design tradeoffs
-- Affected boundaries and risks
-- Suggested implementation order or validation checkpoints
+`system-designer` and `architect-reviewer` are archived references.
+Do not use them as active execution agents by default.
