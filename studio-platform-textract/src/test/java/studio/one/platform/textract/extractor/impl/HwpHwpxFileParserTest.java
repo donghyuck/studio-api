@@ -1,0 +1,142 @@
+package studio.one.platform.textract.extractor.impl;
+
+import static java.nio.charset.StandardCharsets.UTF_16LE;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import org.apache.poi.poifs.filesystem.DirectoryEntry;
+import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.junit.jupiter.api.Test;
+
+import studio.one.platform.textract.extractor.DocumentFormat;
+import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ParsedFile;
+
+class HwpHwpxFileParserTest {
+
+    private final HwpHwpxFileParser parser = new HwpHwpxFileParser();
+
+    @Test
+    void parseHwpxExtractsTextTableAndImages() throws Exception {
+        ParsedFile result = parser.parseStructured(hwpxBytes(), "application/hwpx", "sample.hwpx");
+
+        assertEquals(DocumentFormat.HWPX, result.format());
+        assertTrue(result.plainText().contains("본문 문단"));
+        assertTrue(result.plainText().contains("A1"));
+        assertEquals(1, result.tables().size());
+        assertEquals(4, result.tables().get(0).cells().size());
+        assertEquals(1, result.images().size());
+        assertTrue(result.blocks().stream().anyMatch(block -> block.type() == BlockType.TABLE));
+    }
+
+    @Test
+    void parseHwpExtractsBodyTextAndBinDataImages() throws Exception {
+        ParsedFile result = parser.parseStructured(hwpBytes(), "application/x-hwp", "sample.hwp");
+
+        assertEquals(DocumentFormat.HWP, result.format());
+        assertTrue(result.plainText().contains("한글 본문"));
+        assertFalse(result.blocks().isEmpty());
+        assertEquals(1, result.images().size());
+        assertEquals("image/png", result.images().get(0).contentType());
+    }
+
+    private byte[] hwpxBytes() throws Exception {
+        Map<String, byte[]> entries = Map.of(
+                "Contents/content.hpf", """
+                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
+                          <opf:manifest>
+                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
+                            <opf:item id="image1" href="BinData/image1.png" media-type="image/png"/>
+                          </opf:manifest>
+                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
+                        </opf:package>
+                        """.getBytes(UTF_8),
+                "Contents/section0.xml", """
+                        <hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"
+                                xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
+                          <hp:p><hp:run><hp:t>본문 문단</hp:t></hp:run></hp:p>
+                          <hp:p>
+                            <hp:tbl>
+                              <hp:tr>
+                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>A1</hp:t></hp:run></hp:p></hp:subList></hp:tc>
+                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>B1</hp:t></hp:run></hp:p></hp:subList></hp:tc>
+                              </hp:tr>
+                              <hp:tr>
+                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>A2</hp:t></hp:run></hp:p></hp:subList></hp:tc>
+                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>B2</hp:t></hp:run></hp:p></hp:subList></hp:tc>
+                              </hp:tr>
+                            </hp:tbl>
+                          </hp:p>
+                          <hp:p><hp:pic><hp:img binaryItemIDRef="image1"/></hp:pic></hp:p>
+                        </hs:sec>
+                        """.getBytes(UTF_8),
+                "Contents/BinData/image1.png", new byte[] { (byte) 0x89, 'P', 'N', 'G' });
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(out)) {
+            for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue());
+                zip.closeEntry();
+            }
+        }
+        return out.toByteArray();
+    }
+
+    private byte[] hwpBytes() throws Exception {
+        try (POIFSFileSystem fs = new POIFSFileSystem();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            fs.getRoot().createDocument("FileHeader", new ByteArrayInputStream(fileHeader()));
+            DirectoryEntry bodyText = fs.getRoot().createDirectory("BodyText");
+            bodyText.createDocument("Section0", new ByteArrayInputStream(section("한글 본문")));
+            DirectoryEntry binData = fs.getRoot().createDirectory("BinData");
+            binData.createDocument("BIN0001.png", new ByteArrayInputStream(new byte[] { (byte) 0x89, 'P', 'N', 'G' }));
+            fs.writeFilesystem(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] fileHeader() {
+        byte[] header = new byte[256];
+        byte[] signature = "HWP Document File".getBytes(UTF_8);
+        System.arraycopy(signature, 0, header, 0, signature.length);
+        header[35] = 5;
+        return header;
+    }
+
+    private byte[] section(String text) throws Exception {
+        byte[] paraHeaderData = new byte[12];
+        byte[] paraTextData = paraText(text);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(record(66, 0, paraHeaderData));
+        out.write(record(67, 1, paraTextData));
+        return out.toByteArray();
+    }
+
+    private byte[] paraText(String text) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(text.getBytes(UTF_16LE));
+        out.write(new byte[] { 0x0D, 0x00 });
+        return out.toByteArray();
+    }
+
+    private byte[] record(int tagId, int level, byte[] data) throws Exception {
+        int header = tagId | (level << 10) | (data.length << 20);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        out.write(new byte[] {
+                (byte) header,
+                (byte) (header >>> 8),
+                (byte) (header >>> 16),
+                (byte) (header >>> 24)
+        });
+        out.write(data);
+        return out.toByteArray();
+    }
+}

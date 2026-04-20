@@ -1,43 +1,32 @@
 package studio.one.platform.text.extractor.impl;
 
-import java.io.IOException;
-
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
-import org.springframework.http.MediaType;
-
-import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.text.extractor.FileParseException;
+import studio.one.platform.text.extractor.FileParser;
+import studio.one.platform.textract.model.DocumentExtractionResult;
+import studio.one.platform.textract.model.ParsedFile;
 
-@Slf4j
-public class PdfFileParser extends AbstractFileParser {
-
-    @Override
-    public boolean supports(String contentType, String filename) {
-        try {
-            if (contentType != null) {
-                MediaType mt = MediaType.parseMediaType(contentType);
-                if (MediaType.APPLICATION_PDF.includes(mt)) {
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            log.debug("Failed to parse media type: {}", contentType, e);
-        }
-        return hasExtension(filename, ".pdf");
-    }
+/**
+ * @deprecated since 2026-04-20. Use
+ *             {@link studio.one.platform.textract.extractor.impl.PdfFileParser}.
+ */
+@Deprecated(forRemoval = false)
+public class PdfFileParser
+        extends studio.one.platform.textract.extractor.impl.PdfFileParser
+        implements FileParser {
 
     @Override
     public String parse(byte[] bytes, String contentType, String filename) throws FileParseException {
-        try (PDDocument document = Loader.loadPDF(bytes)) {
-            PDFTextStripper stripper = new PDFTextStripper();
-            stripper.setSortByPosition(true);
-            stripper.setStartPage(1);
-            stripper.setEndPage(document.getNumberOfPages());
-            return cleanText(stripper.getText(document));
-        } catch (IOException e) {
-            throw new FileParseException("Failed to parse PDF file: " + safeFilename(filename), e);
-        }
+        return LegacyParserSupport.translate(() -> super.parse(bytes, contentType, filename));
+    }
+
+    @Override
+    public DocumentExtractionResult extract(byte[] bytes, String contentType, String filename)
+            throws FileParseException {
+        return LegacyParserSupport.translate(() -> super.extract(bytes, contentType, filename));
+    }
+
+    @Override
+    public ParsedFile parseStructured(byte[] bytes, String contentType, String filename) throws FileParseException {
+        return FileParser.super.parseStructured(bytes, contentType, filename);
     }
 }

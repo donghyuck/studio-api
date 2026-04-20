@@ -8,36 +8,24 @@ import org.springframework.boot.autoconfigure.validation.ValidationAutoConfigura
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import studio.one.platform.text.service.FileContentExtractionService;
+import studio.one.platform.textract.autoconfigure.TextractAutoConfiguration;
 
 class TextAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     ValidationAutoConfiguration.class,
+                    TextractAutoConfiguration.class,
                     TextAutoConfiguration.class))
             .withPropertyValues("studio.features.text.enabled=true");
 
     @Test
-    void rejectsNonPositiveMaxExtractBytesAtBindingTime() {
-        contextRunner
-                .withPropertyValues("studio.features.text.max-extract-bytes=0")
-                .run(context -> {
-                    assertThat(context).hasFailed();
-                    assertThat(context.getStartupFailure())
-                            .hasMessageContaining("Could not bind properties to 'TextFeatureProperties'")
-                            .rootCause()
-                            .hasMessageContaining("maxExtractBytes")
-                            .hasMessageContaining("1");
-                });
-    }
-
-    @Test
-    void createsExtractionServiceWhenMaxExtractBytesIsPositive() {
+    void createsLegacyExtractionServiceBridge() {
         contextRunner
                 .withPropertyValues("studio.features.text.max-extract-bytes=1024")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context).hasSingleBean(TextFeatureProperties.class);
+                    assertThat(context).hasSingleBean(studio.one.platform.textract.service.FileContentExtractionService.class);
                     assertThat(context).hasSingleBean(FileContentExtractionService.class);
                 });
     }

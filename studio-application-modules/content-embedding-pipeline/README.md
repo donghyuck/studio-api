@@ -20,7 +20,7 @@
 AttachmentService.getInputStream()    ← attachment-service 모듈 제공
     │
     ▼
-FileContentExtractionService.extractText()   ← studio-platform-ai 또는 별도 구현 제공
+FileContentExtractionService.extractText()   ← studio-platform-textract-starter 제공
     │  텍스트 추출 (PDF, DOCX, 텍스트 등)
     ▼
 EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
@@ -40,7 +40,7 @@ recursive/fixed-size 전략으로 chunk를 만들고, 없으면 기존 `TextChun
 | 클래스 | 역할 |
 |--------|------|
 | `AttachmentEmbeddingPipelineController` | 임베딩 생성/저장, 벡터 존재 여부 확인, RAG 인덱싱/검색 REST 엔드포인트 제공 |
-| `FileContentExtractionService` | 파일 MIME 타입과 이름을 기반으로 텍스트 추출. 구현체는 `studio-platform-ai` 또는 별도 스타터가 제공한다 |
+| `FileContentExtractionService` | 파일 MIME 타입과 이름을 기반으로 텍스트 추출. 구현체는 `studio-platform-textract-starter`가 제공한다 |
 | `EmbeddingPort` | 텍스트 리스트를 받아 임베딩 벡터 반환. `studio-platform-ai` AI 어댑터(OpenAI 등)가 구현체를 제공한다 |
 | `VectorStorePort` | 벡터 문서 업서트/존재 확인/메타데이터 조회. 벡터 DB 어댑터가 구현체를 제공한다 |
 | `RagPipelineService` | 텍스트 인덱싱 및 시맨틱 검색. RAG 파이프라인 스타터가 구현체를 제공한다 |
@@ -50,7 +50,7 @@ recursive/fixed-size 전략으로 chunk를 만들고, 없으면 기존 `TextChun
 | 빈 타입 | 필수 여부 | 제공 스타터/모듈 |
 |---------|----------|-----------------|
 | `AttachmentService` | 필수 | `:starter:studio-application-starter-attachment` |
-| `FileContentExtractionService` | 임베딩/텍스트 추출 시 필수 | `studio-platform-ai` 또는 별도 텍스트 추출 스타터 |
+| `FileContentExtractionService` | 임베딩/텍스트 추출 시 필수 | `starter:studio-platform-textract-starter` |
 | `EmbeddingPort` | 임베딩 생성 시 필수 | `studio-platform-ai` AI 어댑터 (예: OpenAI 스타터) |
 | `VectorStorePort` | 벡터 저장 시 필수 | 벡터 DB 어댑터 (예: pgvector, Qdrant 스타터) |
 | `RagPipelineService` | RAG 인덱싱/검색 시 필수 | RAG 파이프라인 스타터 |
@@ -141,7 +141,9 @@ dependencies {
     implementation(project(":starter:studio-application-starter-attachment"))
     implementation(project(":studio-application-modules:content-embedding-pipeline"))
     implementation(project(":starter:studio-platform-starter-chunking"))
-    // AI 어댑터 (EmbeddingPort + FileContentExtractionService + VectorStorePort 제공)
+    // 텍스트 추출기
+    implementation(project(":starter:studio-platform-textract-starter"))
+    // AI 어댑터 (EmbeddingPort + VectorStorePort 제공)
     implementation(project(":starter:studio-platform-starter-ai"))
     // provider 라이브러리는 직접 선언 (예: OpenAI)
     implementation("org.springframework.ai:spring-ai-starter-model-openai")

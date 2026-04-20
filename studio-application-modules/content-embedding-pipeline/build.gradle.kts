@@ -21,6 +21,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly(project(":studio-platform")) 
     compileOnly(project(":studio-platform-data")) 
+    compileOnly(project(":studio-platform-textract"))
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-security"))  
     compileOnly(project(":studio-platform-ai"))  
@@ -33,6 +34,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-security")
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-data"))
+    testImplementation(project(":studio-platform-textract"))
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-application-modules:attachment-service"))
 }

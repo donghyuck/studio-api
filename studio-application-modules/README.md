@@ -33,7 +33,7 @@
 - 역할: 첨부파일 텍스트를 추출하고 임베딩을 생성해 벡터 스토어에 업서트하거나 RAG 인덱스를 구축하는 파이프라인 API.
 - 의존성: `studio-application-modules/content-embedding-pipeline` + `studio-application-modules/attachment-service` + `studio-platform-ai` (임베딩/벡터/RAG 포트).
 - 전제 조건:
-  - 텍스트 추출기(`FileContentExtractionService`) 빈
+  - 텍스트 추출기(`studio-platform-textract`의 `FileContentExtractionService`) 빈
   - 임베딩 프로바이더(`EmbeddingPort`) 빈
   - 벡터 스토어(`VectorStorePort`)가 있어야 저장 가능, 없으면 임베딩만 반환
   - RAG 사용 시 `RagPipelineService` 빈 필요

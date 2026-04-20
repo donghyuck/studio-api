@@ -37,7 +37,7 @@ import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
-import studio.one.platform.text.service.FileContentExtractionService;
+import studio.one.platform.textract.service.FileContentExtractionService;
 
 class AttachmentEmbeddingPipelineControllerTest {
 

@@ -15,7 +15,7 @@
 - `starter:studio-platform-starter-ai-web`: HTTP adapter
   - chat, rag chat, embedding, vector, rag, query rewrite endpoint
   - 앞으로 chunking/retrieval 구현 추가 금지
-- `studio-platform-data`: 문서/파일 파싱
+- `studio-platform-textract`: 문서/파일 파싱
   - `FileContentExtractionService`, `FileParser`, PDF/DOCX/PPTX/HTML/TXT/Image parser
 - `studio-application-modules:content-embedding-pipeline`: attachment 기반 RAG indexing API
   - attachment → text extraction → `RagPipelineService.index()`
@@ -30,7 +30,7 @@
 - [ ] 기본 chunking 전략은 `recursive`로 한다.
 - [ ] `fixed-size`, `structure-based`, `semantic`, `llm-based` 전략은 확장 가능하게 둔다.
 - [ ] 기존 `TextChunker`/`OverlapTextChunker` 소비자는 깨지지 않게 fallback 또는 deprecated bridge를 둔다.
-- [ ] 기존 `FileContentExtractionService`는 재사용한다.
+- [ ] `studio-platform-textract`의 `FileContentExtractionService`는 재사용한다.
 - [ ] 기존 `EmbeddingPort`와 `VectorStorePort`는 유지한다.
 - [ ] 기존 `tb_ai_document_chunk` schema는 Phase 1에서 변경하지 않는다.
 - [ ] chunk metadata는 기존 `metadata` JSON에 additive로 저장한다.
@@ -164,12 +164,12 @@ Lane C 소유 파일로 고정한다.
 
 담당 범위:
 
-- `studio-platform-data`
+- `studio-platform-textract`
 - `studio-application-modules:content-embedding-pipeline`
 
 작업:
 
-- `FileContentExtractionService` 재사용 확인
+- `studio-platform-textract`의 `FileContentExtractionService` 재사용 확인
 - `AttachmentEmbeddingPipelineController` API 변경 없음 확인
 - `AttachmentRagIndexRequestDto`는 Phase 1에서 변경하지 않음
 - 구조 기반 chunking용 `ParsedDocument` 도입 여부는 Phase 2로 분리
