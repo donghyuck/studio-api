@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class ParseWarningTest {
 
     @Test
-    void constructorNormalizesCodeAndKeepsLegacyFields() {
+    void constructorFallsBackToNormalizedCanonicalCodeAndKeepsLegacyFields() {
         ParseWarning warning = new ParseWarning("hwp.encrypted", "Encrypted HWP is not supported", "FileHeader", Map.of());
 
         assertEquals("hwp.encrypted", warning.code());
@@ -39,5 +39,35 @@ class ParseWarningTest {
         assertEquals("section[0]", warning.sourceRef());
         assertEquals("section[0]/paragraph[1]", warning.blockRef());
         assertTrue(warning.partialParse());
+    }
+
+    @Test
+    void warningFactoryKeepsWarningSeverityAndNonPartialState() {
+        ParseWarning warning = ParseWarning.warning("hwpx.section.missing", "Missing section file", "section[0]");
+
+        assertEquals(ParseWarningSeverity.WARNING, warning.severity());
+        assertFalse(warning.partialParse());
+        assertFalse(warning.isError());
+    }
+
+    @Test
+    void errorFactoryMarksWarningAsError() {
+        ParseWarning warning = ParseWarning.error("hwp.encrypted", "Encrypted HWP is not supported", "FileHeader", Map.of());
+
+        assertEquals(ParseWarningSeverity.ERROR, warning.severity());
+        assertFalse(warning.partialParse());
+        assertTrue(warning.isError());
+    }
+
+    @Test
+    void severityFallsBackToWarningForInvalidMetadataValue() {
+        ParseWarning warning = new ParseWarning(
+                "custom.warning",
+                "Custom warning",
+                "document",
+                Map.of(ParseWarning.KEY_SEVERITY, "BROKEN"));
+
+        assertEquals(ParseWarningSeverity.WARNING, warning.severity());
+        assertFalse(warning.isError());
     }
 }

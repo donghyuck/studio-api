@@ -1,5 +1,6 @@
 package studio.one.platform.textract.model;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -43,6 +44,7 @@ public record ParseWarning(
             String sourceRef,
             String blockRef,
             Map<String, Object> metadata) {
+        // blockRef is an optional logical block pointer inside the same sourceRef scope.
         return structured(code, message, sourceRef, sourceRef, blockRef, true, ParseWarningSeverity.WARNING, metadata);
     }
 
@@ -59,9 +61,6 @@ public record ParseWarning(
 
     public ParseWarningSeverity severity() {
         Object value = metadata.get(KEY_SEVERITY);
-        if (value instanceof ParseWarningSeverity severityValue) {
-            return severityValue;
-        }
         if (value instanceof String stringValue) {
             try {
                 return ParseWarningSeverity.valueOf(stringValue);
@@ -100,7 +99,7 @@ public record ParseWarning(
             boolean partialParse,
             ParseWarningSeverity severity,
             Map<String, Object> metadata) {
-        Map<String, Object> merged = new java.util.LinkedHashMap<>();
+        Map<String, Object> merged = new LinkedHashMap<>();
         if (metadata != null) {
             merged.putAll(metadata);
         }
