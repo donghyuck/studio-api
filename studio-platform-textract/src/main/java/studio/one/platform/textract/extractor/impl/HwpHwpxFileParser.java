@@ -99,7 +99,11 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                 String sectionPath = resolvePackagePath(entries, packageInfo.sectionFiles().get(i));
                 byte[] sectionBytes = entries.get(sectionPath);
                 if (sectionBytes == null) {
-                    warnings.add(new ParseWarning("hwpx.section.missing", "Missing section file", sectionPath, Map.of()));
+                    warnings.add(ParseWarning.partial(
+                            "hwpx.section.missing",
+                            "Missing section file",
+                            sectionPath,
+                            Map.of()));
                     continue;
                 }
                 Document section = parseXml(sectionBytes);
@@ -285,11 +289,18 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             HwpFlags flags = parseHwpFlags(header);
             List<ParseWarning> warnings = new ArrayList<>();
             if (flags.encrypted()) {
-                warnings.add(new ParseWarning("hwp.encrypted", "Encrypted HWP is not supported", "FileHeader", Map.of()));
+                warnings.add(ParseWarning.error(
+                        "hwp.encrypted",
+                        "Encrypted HWP is not supported",
+                        "FileHeader",
+                        Map.of()));
             }
             if (flags.distribution()) {
-                warnings.add(new ParseWarning("hwp.distribution", "Distribution HWP ViewText decryption is not supported",
-                        "FileHeader", Map.of()));
+                warnings.add(ParseWarning.partial(
+                        "hwp.distribution",
+                        "Distribution HWP ViewText decryption is not supported",
+                        "FileHeader",
+                        Map.of()));
             }
 
             List<BinDataRef> binDataRefs = readHwpBinDataRefs(root, flags.compressed(), warnings);
@@ -422,8 +433,11 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             }
             return refs;
         } catch (RuntimeException | IOException e) {
-            warnings.add(new ParseWarning("hwp.docinfo.parse", "Failed to parse DocInfo BinData",
-                    "DocInfo", Map.of("error", e.getMessage())));
+            warnings.add(ParseWarning.partial(
+                    "hwp.docinfo.parse",
+                    "Failed to parse DocInfo BinData",
+                    "DocInfo",
+                    Map.of("error", e.getMessage())));
             return List.of();
         }
     }
@@ -518,14 +532,21 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             int size = (header >>> 20) & 0xFFF;
             if (size == 0xFFF) {
                 if (pos + 4 > data.length) {
-                    warnings.add(new ParseWarning("hwp.record.eof", "Record extended size is truncated", "", Map.of()));
+                    warnings.add(ParseWarning.partial(
+                            "hwp.record.eof",
+                            "Record extended size is truncated",
+                            "",
+                            Map.of()));
                     break;
                 }
                 size = i32(data, pos);
                 pos += 4;
             }
             if (size < 0 || pos + size > data.length) {
-                warnings.add(new ParseWarning("hwp.record.eof", "Record data is truncated", "",
+                warnings.add(ParseWarning.partial(
+                        "hwp.record.eof",
+                        "Record data is truncated",
+                        "",
                         Map.of("tagId", tagId, "size", size)));
                 break;
             }
