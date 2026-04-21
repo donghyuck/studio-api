@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ParseWarningSeverity;
 import studio.one.platform.textract.model.ParsedFile;
 
 class HwpHwpxFileParserTest {
@@ -46,6 +47,27 @@ class HwpHwpxFileParserTest {
         assertFalse(result.blocks().isEmpty());
         assertEquals(1, result.images().size());
         assertEquals("image/png", result.images().get(0).contentType());
+    }
+
+    @Test
+    void parseStructuredEmitsCodeBasedWarningsForMissingHwpxSection() throws Exception {
+        ParsedFile result = parser.parseStructured(hwpxBytesWithMissingSection(), "application/hwpx", "missing.hwpx");
+
+        assertEquals(1, result.warnings().size());
+        assertEquals("hwpx.section.missing", result.warnings().get(0).code());
+        assertEquals("HWPX_SECTION_MISSING", result.warnings().get(0).canonicalCode());
+        assertTrue(result.warnings().get(0).partialParse());
+    }
+
+    @Test
+    void parseStructuredMarksEncryptedHwpAsErrorWarning() throws Exception {
+        ParsedFile result = parser.parseStructured(hwpBytesWithFlags(0x02), "application/x-hwp", "encrypted.hwp");
+
+        assertEquals(1, result.warnings().size());
+        assertEquals("hwp.encrypted", result.warnings().get(0).code());
+        assertEquals("HWP_ENCRYPTED", result.warnings().get(0).canonicalCode());
+        assertEquals(ParseWarningSeverity.ERROR, result.warnings().get(0).severity());
+        assertFalse(result.warnings().get(0).partialParse());
     }
 
     private byte[] hwpxBytes() throws Exception {
@@ -90,10 +112,35 @@ class HwpHwpxFileParserTest {
         return out.toByteArray();
     }
 
+    private byte[] hwpxBytesWithMissingSection() throws Exception {
+        Map<String, byte[]> entries = Map.of(
+                "Contents/content.hpf", """
+                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
+                          <opf:manifest>
+                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
+                          </opf:manifest>
+                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
+                        </opf:package>
+                        """.getBytes(UTF_8));
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(out)) {
+            for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue());
+                zip.closeEntry();
+            }
+        }
+        return out.toByteArray();
+    }
+
     private byte[] hwpBytes() throws Exception {
+        return hwpBytesWithFlags(0);
+    }
+
+    private byte[] hwpBytesWithFlags(int flags) throws Exception {
         try (POIFSFileSystem fs = new POIFSFileSystem();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            fs.getRoot().createDocument("FileHeader", new ByteArrayInputStream(fileHeader()));
+            fs.getRoot().createDocument("FileHeader", new ByteArrayInputStream(fileHeader(flags)));
             DirectoryEntry bodyText = fs.getRoot().createDirectory("BodyText");
             bodyText.createDocument("Section0", new ByteArrayInputStream(section("한글 본문")));
             DirectoryEntry binData = fs.getRoot().createDirectory("BinData");
@@ -103,11 +150,15 @@ class HwpHwpxFileParserTest {
         }
     }
 
-    private byte[] fileHeader() {
+    private byte[] fileHeader(int flags) {
         byte[] header = new byte[256];
         byte[] signature = "HWP Document File".getBytes(UTF_8);
         System.arraycopy(signature, 0, header, 0, signature.length);
         header[35] = 5;
+        header[36] = (byte) flags;
+        header[37] = (byte) (flags >>> 8);
+        header[38] = (byte) (flags >>> 16);
+        header[39] = (byte) (flags >>> 24);
         return header;
     }
 
