@@ -83,5 +83,26 @@ studio:
         language: kor+eng
 ```
 
+조금 더 짧고 README 친화적으로 줄인 버전도 가능합니다. 예를 들면:
+
+```md
+> [!NOTE]
+> 이미지 OCR은 `tess4j` 의존성만으로 동작하지 않는다.  
+> macOS / Linux / Windows 환경에 **Tesseract OCR 엔진**과 **언어 데이터(tessdata)** 가
+> 별도로 설치되어 있어야 한다.
+>
+> macOS(Homebrew) 예시:
+>
+> ```bash
+> brew install tesseract
+> brew install tesseract-lang
+> ```
+>
+> Apple Silicon 환경에서는 필요 시:
+>
+> ```bash
+> JAVA_TOOL_OPTIONS=-Djna.library.path=/opt/homebrew/lib
+> ```
+
 포맷별 parser는 관련 라이브러리가 classpath에 있을 때만 등록된다.
 예를 들어 HWP parser는 `org.apache.poi.poifs.filesystem.POIFSFileSystem`이 있어야 자동 구성된다.
