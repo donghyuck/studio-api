@@ -48,7 +48,13 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
             String text = cleanText(tesseract.doOCR(image));
             List<ParsedBlock> blocks = text == null || text.isBlank()
                     ? List.of()
-                    : List.of(ParsedBlock.text("image/ocr", BlockType.OCR_TEXT, text));
+                    : List.of(ParsedBlock.text(
+                            "image/ocr",
+                            BlockType.OCR_TEXT,
+                            text,
+                            null,
+                            0,
+                            Map.of()));
             ExtractedImage extractedImage = new ExtractedImage(
                     "image",
                     contentType,

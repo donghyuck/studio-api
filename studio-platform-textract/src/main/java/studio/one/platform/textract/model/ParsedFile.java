@@ -36,7 +36,7 @@ public record ParsedFile(
                 : Map.of("filename", filename);
         List<ParsedBlock> blocks = plainText == null || plainText.isBlank()
                 ? List.of()
-                : List.of(ParsedBlock.text("document", BlockType.DOCUMENT, plainText));
+                : List.of(ParsedBlock.text("document", BlockType.DOCUMENT, plainText, null, 0, Map.of()));
         return new ParsedFile(format, plainText, blocks, metadata, List.of(), List.of(), List.of(), List.of(), false);
     }
 }
