@@ -134,13 +134,7 @@ public abstract class AbstractFileParser implements FileParser {
         if (cells == null || cells.isEmpty()) {
             return "";
         }
-        Map<Integer, String> headers = cells.stream()
-                .filter(cell -> cell.row() < headerRowCount)
-                .collect(Collectors.toMap(
-                        ExtractedTableCell::col,
-                        cell -> value(cell.text()),
-                        (left, right) -> left.isBlank() ? right : left,
-                        LinkedHashMap::new));
+        Map<Integer, String> headers = tableHeaders(cells, headerRowCount);
         return cells.stream()
                 .collect(Collectors.groupingBy(
                         ExtractedTableCell::row,
@@ -161,6 +155,20 @@ public abstract class AbstractFileParser implements FileParser {
                 .collect(Collectors.joining(" | "));
     }
 
+    private Map<Integer, String> tableHeaders(List<ExtractedTableCell> cells, int headerRowCount) {
+        Map<Integer, String> headers = new LinkedHashMap<>();
+        cells.stream()
+                .filter(cell -> cell.row() < headerRowCount)
+                .sorted(Comparator.comparingInt(ExtractedTableCell::row).thenComparingInt(ExtractedTableCell::col))
+                .forEach(cell -> {
+                    String text = value(cell.text()).replace('\n', ' ').trim();
+                    for (int col = cell.col(); col < cell.col() + cell.colSpan(); col++) {
+                        headers.merge(col, text, this::mergeHeader);
+                    }
+                });
+        return headers;
+    }
+
     private String tableVectorCell(ExtractedTableCell cell, Map<Integer, String> headers, boolean dataRow) {
         String text = value(cell.text()).replace('\n', ' ').trim();
         if (!dataRow || headers.isEmpty()) {
@@ -168,6 +176,16 @@ public abstract class AbstractFileParser implements FileParser {
         }
         String header = headers.getOrDefault(cell.col(), "");
         return header.isBlank() ? text : header + ": " + text;
+    }
+
+    private String mergeHeader(String existing, String next) {
+        if (existing.isBlank()) {
+            return next;
+        }
+        if (next.isBlank() || existing.equals(next)) {
+            return existing;
+        }
+        return existing + " " + next;
     }
 
     private String value(String value) {

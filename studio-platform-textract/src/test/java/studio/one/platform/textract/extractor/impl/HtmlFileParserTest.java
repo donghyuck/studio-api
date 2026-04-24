@@ -60,8 +60,8 @@ class HtmlFileParserTest {
         String html = """
                 <main>
                   <table>
-                    <tr><th rowspan="2">구분</th><th colspan="2">값</th></tr>
-                    <tr><td>A</td><td>B</td></tr>
+                    <tr><th>A</th><th colspan="2">B</th></tr>
+                    <tr><td>1</td><td>2</td><td>3</td></tr>
                   </table>
                 </main>
                 """;
@@ -70,8 +70,39 @@ class HtmlFileParserTest {
 
         ExtractedTableCell first = result.tables().get(0).cells().get(0);
         ExtractedTableCell second = result.tables().get(0).cells().get(1);
-        assertEquals(2, first.rowSpan());
+        ExtractedTableCell thirdDataCell = result.tables().get(0).cells().get(4);
+        assertEquals(1, first.rowSpan());
         assertEquals(2, second.colSpan());
         assertEquals("table[0]/row[0]/cell[0]", first.sourceRef());
+        assertEquals(2, thirdDataCell.col());
+        assertEquals("A | B\nA: 1 | B: 2 | B: 3", result.tables().get(0).vectorText());
+    }
+
+    @Test
+    void parseStructuredKeepsHtmlRowspanLogicalColumns() {
+        String html = """
+                <main>
+                  <table>
+                    <tr><th rowspan="2">구분</th><th>값</th></tr>
+                    <tr><td>A</td></tr>
+                  </table>
+                </main>
+                """;
+
+        ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "rowspan.html");
+
+        ExtractedTableCell rowDataCell = result.tables().get(0).cells().get(2);
+        assertEquals(1, rowDataCell.col());
+        assertEquals("구분 | 값\n값: A", result.tables().get(0).vectorText());
+    }
+
+    @Test
+    void parseStructuredKeepsPlainVectorTextWhenHtmlTableHasNoHeader() {
+        String html = "<main><table><tr><td>A</td><td>B</td></tr></table></main>";
+
+        ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "plain.html");
+
+        assertEquals(0, result.tables().get(0).headerRowCount());
+        assertEquals("A | B", result.tables().get(0).vectorText());
     }
 }
