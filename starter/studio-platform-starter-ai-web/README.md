@@ -64,7 +64,16 @@ studio:
 | 메서드 | 경로 | 설명 | 권한 |
 |---|---|---|---|
 | `POST` | `{basePath}/chat` | 채팅 완성 요청 | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/stream` | SSE 채팅 스트림 | `services:ai_chat write` |
 | `POST` | `{basePath}/chat/rag` | RAG 컨텍스트 주입 후 채팅 | `services:ai_chat write` |
+| `GET` | `{basePath}/chat/conversations` | conversation 목록 조회 | `services:ai_chat read` |
+| `GET` | `{basePath}/chat/conversations/{conversationId}` | conversation 상세 및 메시지 조회 | `services:ai_chat read` |
+| `DELETE` | `{basePath}/chat/conversations/{conversationId}` | conversation 삭제 | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/regenerate` | 마지막 user turn 기준 assistant 응답 재생성 | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/truncate` | 특정 메시지 이후 conversation 절단 | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/fork` | 특정 메시지까지 새 conversation으로 fork | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/compact` | conversation summary 저장 및 compact 상태 표시 | `services:ai_chat write` |
+| `POST` | `{basePath}/chat/cancel` | conversation cancel 상태 표시 | `services:ai_chat write` |
 | `POST` | `{basePath}/query-rewrite` | 검색 쿼리 리라이트 | `services:ai_chat read` |
 | `GET`  | `{basePath}/info/providers` | 프로바이더 및 벡터 스토어 상태 조회 | `services:ai_chat read` 또는 `services:ai_embedding read` |
 | `POST` | `{mgmtBasePath}/embedding` | 텍스트 임베딩 벡터 생성 | `services:ai_embedding write` |
@@ -141,8 +150,74 @@ Content-Type: application/json
 | `studio.ai.endpoints.chat.memory.ttl` | `30m` | 마지막 접근 이후 conversation 보관 시간 |
 
 이 memory는 단일 앱 인스턴스의 in-memory cache다. 애플리케이션 재시작 시 사라지며, 다중 인스턴스 간 공유되지 않는다.
-운영에서 여러 인스턴스 간 대화 memory가 필요하면 `ChatMemoryStore`를 외부 저장소 기반 구현으로 교체한다.
-장기 보관, 감사 로그, conversation 목록 조회, 삭제 API 용도로 사용하지 않는다.
+운영에서 여러 인스턴스 간 대화 memory가 필요하면 `ChatMemoryStore`와 `ConversationRepositoryPort`를 외부 저장소 기반 구현으로 교체한다.
+
+memory가 활성화된 `/chat`, `/chat/rag`, `/chat/stream` 요청은 conversation repository에도 기록된다.
+기본 구현은 단일 인스턴스용 `InMemoryConversationRepository`이며, conversation 목록/상세/삭제/regenerate/fork/truncate/compact/cancel API의 개발 및 smoke 용도다.
+장기 보관, 감사 로그, 다중 인스턴스 공유가 필요하면 운영 저장소 구현을 별도 Bean으로 등록한다.
+
+### Streaming Chat 예시
+
+```http
+POST /api/ai/chat/stream
+Authorization: Bearer <token>
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "provider": "openai",
+  "messages": [
+    {"role": "user", "content": "짧게 설명해줘"}
+  ],
+  "memory": {
+    "enabled": true,
+    "conversationId": "chat-123"
+  }
+}
+```
+
+SSE event type은 `delta`, `usage`, `complete`, `error`이다. 각 event data에는 `requestId`가 포함되어 stream lifecycle을 추적할 수 있다.
+Spring MVC의 `StreamingResponseBody`를 사용하므로 WebFlux/Netty event-loop에서 직접 소비하지 않는다.
+
+### Conversation API 예시
+
+```http
+GET /api/ai/chat/conversations?offset=0&limit=20
+Authorization: Bearer <token>
+```
+
+목록 항목에는 `conversationId`, `title`, `summary`, `messageCount`, `lastUpdatedAt`, `status`가 포함된다.
+상세 API는 동일 conversation의 active message 목록을 함께 반환한다.
+
+```http
+POST /api/ai/chat/regenerate
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "conversationId": "chat-123"
+}
+```
+
+`regenerate`는 마지막 user turn까지의 메시지로 provider를 다시 호출하고 마지막 assistant 응답을 대체한다.
+`truncate`와 `fork`는 `messageId`가 필수다.
+
+```json
+{
+  "conversationId": "chat-123",
+  "messageId": "message-id-for-truncate-or-fork",
+  "newConversationId": "chat-copy"
+}
+```
+
+`compact`는 `summary`가 필수이며, `cancel`은 `conversationId`만 사용한다.
+
+```json
+{
+  "conversationId": "chat-123",
+  "summary": "압축 요약"
+}
+```
 
 ### RAG Chat 예시
 

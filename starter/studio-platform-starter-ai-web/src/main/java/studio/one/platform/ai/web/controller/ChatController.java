@@ -23,23 +23,37 @@ package studio.one.platform.ai.web.controller;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.security.Principal;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 import jakarta.validation.Valid;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
@@ -47,6 +61,9 @@ import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
+import studio.one.platform.ai.core.chat.ChatResponseMetadata;
+import studio.one.platform.ai.core.chat.ChatStreamEvent;
+import studio.one.platform.ai.core.chat.ChatStreamEventType;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
@@ -57,6 +74,11 @@ import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
+import studio.one.platform.ai.web.dto.ConversationDetailDto;
+import studio.one.platform.ai.web.dto.ConversationMessageActionRequestDto;
+import studio.one.platform.ai.web.dto.ConversationSummaryDto;
+import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -80,6 +102,8 @@ public class ChatController {
     private final boolean allowClientDebug;
     private final ChatMemoryStore chatMemoryStore;
     private final boolean chatMemoryEnabled;
+    private final ConversationChatService conversationChatService;
+    private final ObjectMapper objectMapper;
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
         this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
@@ -107,12 +131,40 @@ public class ChatController {
             boolean allowClientDebug,
             ChatMemoryStore chatMemoryStore,
             boolean chatMemoryEnabled) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, null);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, conversationChatService,
+                Jackson2ObjectMapperBuilder.json().build());
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
         this.allowClientDebug = allowClientDebug;
         this.chatMemoryStore = chatMemoryStore;
         this.chatMemoryEnabled = chatMemoryEnabled;
+        this.conversationChatService = conversationChatService;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     /**
@@ -160,9 +212,34 @@ public class ChatController {
 
     private ResponseEntity<ApiResponse<ChatResponseDto>> chatInternal(ChatRequestDto request, Principal principal) {
         ChatMemoryContext memory = resolveMemory(request, principal);
-        ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request, toDomainMessages(request, memory.history())));
+        List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
+        ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request, domainMessages));
         int memoryMessageCount = appendMemory(memory, request.messages(), response);
+        appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).toList(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
+    }
+
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<StreamingResponseBody> stream(
+            @Valid @RequestBody ChatRequestDto request,
+            Principal principal) {
+        ChatMemoryContext memory = resolveMemory(request, principal);
+        List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
+        ChatPort port = chatPort(request.provider());
+        ChatRequest domainRequest = toDomainChatRequest(request, domainMessages);
+        String requestId = UUID.randomUUID().toString();
+        StreamingResponseBody body = outputStream -> writeStreamEvents(
+                outputStream,
+                requestId,
+                port,
+                domainRequest,
+                memory,
+                request.messages().stream().map(this::toDomainMessage).toList(),
+                principal);
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .body(body);
     }
 
     /**
@@ -236,6 +313,7 @@ public class ChatController {
 
         ChatResponse response = chatPort(chat.provider()).chat(toDomainChatRequest(augmented));
         int memoryMessageCount = appendMemory(memory, chat.messages(), response);
+        appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(
                 response,
                 diagnostics,
@@ -243,8 +321,111 @@ public class ChatController {
                 memoryMetadata(memory, memoryMessageCount))));
     }
 
+    @GetMapping("/conversations")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','read')")
+    public ResponseEntity<ApiResponse<List<ConversationSummaryDto>>> conversations(
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "20") int limit,
+            Principal principal) {
+        String ownerId = conversationChatService.ownerId(principal);
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.list(ownerId, offset, limit)));
+    }
+
+    @GetMapping("/conversations/{conversationId}")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','read')")
+    public ResponseEntity<ApiResponse<ConversationDetailDto>> conversation(
+            @PathVariable String conversationId,
+            Principal principal) {
+        return ResponseEntity.ok(ApiResponse.ok(
+                conversationChatService.detail(conversationChatService.ownerId(principal), conversationId)));
+    }
+
+    @DeleteMapping("/conversations/{conversationId}")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> deleteConversation(
+            @PathVariable String conversationId,
+            Principal principal) {
+        boolean deleted = conversationChatService.delete(conversationChatService.ownerId(principal), conversationId);
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("conversationId", conversationId, "deleted", deleted)));
+    }
+
+    @PostMapping("/regenerate")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<ApiResponse<ChatResponseDto>> regenerate(
+            @Valid @RequestBody ConversationActionRequestDto request,
+            Principal principal) {
+        String ownerId = conversationChatService.ownerId(principal);
+        List<ChatMessage> messages = conversationChatService.messagesForRegenerate(ownerId, request.conversationId()).stream()
+                .map(studio.one.platform.ai.core.chat.ChatConversationMessage::message)
+                .toList();
+        ChatRequestDto chat = request.chat();
+        String provider = chat == null ? null : chat.provider();
+        ChatRequest domainRequest = toDomainChatRequest(chat == null ? minimalChatRequest(messages) : chat, messages);
+        ChatResponse response = chatPort(provider).chat(domainRequest);
+        int messageCount = conversationChatService.replaceLastAssistantResponse(ownerId, request.conversationId(), response);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false,
+                conversationMetadata(request.conversationId(), messageCount))));
+    }
+
+    @PostMapping("/truncate")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<ApiResponse<ConversationDetailDto>> truncate(
+            @Valid @RequestBody ConversationMessageActionRequestDto request,
+            Principal principal) {
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.truncate(
+                conversationChatService.ownerId(principal),
+                request.conversationId(),
+                request.messageId())));
+    }
+
+    @PostMapping("/fork")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<ApiResponse<ConversationDetailDto>> fork(
+            @Valid @RequestBody ConversationMessageActionRequestDto request,
+            Principal principal) {
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.fork(
+                conversationChatService.ownerId(principal),
+                request.conversationId(),
+                request.messageId(),
+                request.newConversationId())));
+    }
+
+    @PostMapping("/compact")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<ApiResponse<ConversationDetailDto>> compact(
+            @Valid @RequestBody ConversationActionRequestDto request,
+            Principal principal) {
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.compact(
+                conversationChatService.ownerId(principal),
+                request.conversationId(),
+                request.summary())));
+    }
+
+    @PostMapping("/cancel")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
+    public ResponseEntity<ApiResponse<ConversationDetailDto>> cancel(
+            @Valid @RequestBody ConversationActionRequestDto request,
+            Principal principal) {
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.cancel(
+                conversationChatService.ownerId(principal),
+                request.conversationId())));
+    }
+
     private ChatRequest toDomainChatRequest(ChatRequestDto request) {
         return toDomainChatRequest(request, toDomainMessages(request));
+    }
+
+    private ChatRequestDto minimalChatRequest(List<ChatMessage> messages) {
+        return new ChatRequestDto(
+                null,
+                null,
+                toDtoMessages(messages),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null);
     }
 
     private ChatRequest toDomainChatRequest(ChatRequestDto request, List<ChatMessage> messages) {
@@ -405,11 +586,90 @@ public class ChatController {
     private Map<String, Object> memoryMetadata(ChatMemoryContext memory, int memoryMessageCount) {
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("memoryEnabled", memory.enabled());
+        metadata.put(ChatResponseMetadata.KEY_MEMORY_USED, memory.enabled());
         if (memory.enabled()) {
             metadata.put("conversationId", memory.conversationId());
+            metadata.put(ChatResponseMetadata.KEY_CONVERSATION_ID, memory.conversationId());
             metadata.put("memoryMessageCount", memoryMessageCount);
         }
         return metadata;
+    }
+
+    private Map<String, Object> conversationMetadata(String conversationId, int messageCount) {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("conversationId", conversationId);
+        metadata.put(ChatResponseMetadata.KEY_CONVERSATION_ID, conversationId);
+        metadata.put("memoryMessageCount", messageCount);
+        return metadata;
+    }
+
+    private void appendConversation(
+            Principal principal,
+            ChatMemoryContext memory,
+            List<ChatMessage> requestMessages,
+            ChatResponse response) {
+        if (!memory.enabled() || conversationChatService == null) {
+            return;
+        }
+        conversationChatService.appendTurn(
+                conversationChatService.ownerId(principal),
+                memory.conversationId(),
+                requestMessages,
+                response);
+    }
+
+    private void writeStreamEvents(
+            OutputStream outputStream,
+            String requestId,
+            ChatPort port,
+            ChatRequest request,
+            ChatMemoryContext memory,
+            List<ChatMessage> requestMessages,
+            Principal principal) throws IOException {
+        StringBuilder assistant = new StringBuilder();
+        ChatStreamEvent last = null;
+        boolean streamFailed = false;
+        try (java.util.stream.Stream<ChatStreamEvent> events = port.stream(request)) {
+            Iterator<ChatStreamEvent> iterator = events.iterator();
+            while (iterator.hasNext()) {
+                ChatStreamEvent event = iterator.next();
+                last = event;
+                if (event.type() == ChatStreamEventType.ERROR) {
+                    streamFailed = true;
+                }
+                if (event.type() == ChatStreamEventType.DELTA) {
+                    assistant.append(event.delta());
+                }
+                writeSse(outputStream, requestId, event);
+            }
+        } catch (RuntimeException ex) {
+            ChatStreamEvent error = ChatStreamEvent.error(errorMessage(ex), ChatResponseMetadata.empty());
+            writeSse(outputStream, requestId, error);
+            return;
+        }
+        if (!streamFailed && memory.enabled() && assistant.length() > 0) {
+            ChatResponse response = new ChatResponse(
+                    List.of(ChatMessage.assistant(assistant.toString())),
+                    last == null ? "" : last.model(),
+                    last == null ? Map.of() : last.metadata().toMap());
+            appendMemory(memory, toDtoMessages(requestMessages), response);
+            appendConversation(principal, memory, requestMessages, response);
+        }
+    }
+
+    private void writeSse(OutputStream outputStream, String requestId, ChatStreamEvent event) throws IOException {
+        Map<String, Object> payload = new HashMap<>(event.toMap());
+        payload.put("requestId", requestId);
+        String serialized = "event: " + event.type().value() + "\n"
+                + "data: " + objectMapper.writeValueAsString(payload) + "\n\n";
+        outputStream.write(serialized.getBytes(StandardCharsets.UTF_8));
+        outputStream.flush();
+    }
+
+    private String errorMessage(RuntimeException ex) {
+        return ex.getMessage() == null || ex.getMessage().isBlank()
+                ? ex.getClass().getSimpleName()
+                : ex.getMessage();
     }
 
     private record ObjectScope(String objectType, String objectId) {
