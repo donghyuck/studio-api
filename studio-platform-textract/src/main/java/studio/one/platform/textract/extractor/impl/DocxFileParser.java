@@ -154,7 +154,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
         }
         String markdown = String.join("\n", markdownRows);
-        tables.add(new ExtractedTable(path, markdown, cells, Map.of()));
+        tables.add(new ExtractedTable(path, markdown, cells, tableMetadata(path, "docx")));
         blocks.add(new ParsedBlock(path, BlockType.TABLE, path, markdown, null, List.of(), blockMetadata(path, order)));
         return 1;
     }
@@ -193,6 +193,13 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         if (order != null) {
             metadata.put(ParsedBlock.KEY_ORDER, order);
         }
+        return metadata;
+    }
+
+    private Map<String, Object> tableMetadata(String path, String format) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ExtractedTable.KEY_SOURCE_REF, path);
+        metadata.put(ExtractedTable.KEY_FORMAT, format);
         return metadata;
     }
 

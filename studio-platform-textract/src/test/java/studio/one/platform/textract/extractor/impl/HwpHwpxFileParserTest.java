@@ -36,6 +36,12 @@ class HwpHwpxFileParserTest {
         assertEquals(4, result.tables().get(0).cells().size());
         assertEquals(1, result.images().size());
         assertTrue(result.blocks().stream().anyMatch(block -> block.type() == BlockType.TABLE));
+        assertEquals("section[0]/p[3]/tbl[1]", result.tables().get(0).sourceRef());
+        assertEquals("hwpx", result.tables().get(0).format());
+        assertEquals("section[0]/p[5]/pic[0]", result.images().get(0).sourceRef());
+        assertEquals(java.util.List.of("section[0]/p[5]/pic[0]"), result.images().get(0).sourceRefs());
+        assertEquals("Contents/BinData/image1.png", result.images().get(0).binDataRef());
+        assertEquals("image1", result.images().get(0).packageId());
     }
 
     @Test
@@ -47,6 +53,7 @@ class HwpHwpxFileParserTest {
         assertFalse(result.blocks().isEmpty());
         assertEquals(1, result.images().size());
         assertEquals("image/png", result.images().get(0).contentType());
+        assertEquals("BIN0001.png", result.images().get(0).binDataRef());
     }
 
     @Test

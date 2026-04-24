@@ -114,13 +114,30 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             for (PackageItem item : packageInfo.binDataItems()) {
                 String path = resolvePackagePath(entries, item.href());
                 byte[] data = entries.get(path);
+                List<String> sourceRefs = packageInfo.referencedImages().getOrDefault(item.id(), List.of());
+                Map<String, Object> imageMetadata = new LinkedHashMap<>();
+                imageMetadata.put("bytes", data == null ? 0 : data.length);
+                imageMetadata.put(ExtractedImage.KEY_PACKAGE_ID, item.id());
+                imageMetadata.put(ExtractedImage.KEY_BIN_DATA_REF, path);
+                if (sourceRefs.size() == 1) {
+                    imageMetadata.put(ExtractedImage.KEY_SOURCE_REF, sourceRefs.get(0));
+                } else if (!sourceRefs.isEmpty()) {
+                    imageMetadata.put(ExtractedImage.KEY_SOURCE_REFS, List.copyOf(sourceRefs));
+                }
                 images.add(new ExtractedImage(
                         "bindata/" + item.id(),
                         item.mediaType(),
                         path,
                         null,
                         null,
-                        Map.of("bytes", data == null ? 0 : data.length, "packageId", item.id())));
+                        imageMetadata));
+                if (sourceRefs.isEmpty()) {
+                    warnings.add(ParseWarning.partial(
+                            "image.mapping.partial",
+                            "Image binary has no paragraph/source mapping",
+                            path,
+                            Map.of(ExtractedImage.KEY_PACKAGE_ID, item.id())));
+                }
             }
 
             return new ParsedFile(
@@ -189,7 +206,9 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                 Optional<String> imageRef = findHwpxImageRef((Element) child);
                 imageRef.ifPresent(ref -> paragraphText.append("[IMAGE:").append(ref).append("]"));
                 if (imageRef.isPresent()) {
-                    packageInfo.referencedImages().put(imageRef.get(), path + "/pic[" + i + "]");
+                    packageInfo.referencedImages()
+                            .computeIfAbsent(imageRef.get(), ignored -> new ArrayList<>())
+                            .add(path + "/pic[" + i + "]");
                 }
             }
         }
@@ -244,7 +263,13 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             }
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
         }
-        return new ExtractedTable(path, String.join("\n", markdownRows), cells, Map.of("format", "hwpx"));
+        return new ExtractedTable(
+                path,
+                String.join("\n", markdownRows),
+                cells,
+                Map.of(
+                        ExtractedTable.KEY_FORMAT, "hwpx",
+                        ExtractedTable.KEY_SOURCE_REF, path));
     }
 
     private String collectDescendantText(Node node) {
@@ -492,7 +517,11 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                     entry.getName(),
                     null,
                     null,
-                    Map.of("bytes", data.length, "storageId", id)));
+                    Map.of(
+                            "bytes", data.length,
+                            "storageId", id,
+                            ExtractedImage.KEY_BIN_DATA_REF, entry.getName(),
+                            ExtractedImage.KEY_SOURCE_REF, "bindata/" + entry.getName())));
         }
         return images;
     }
@@ -808,7 +837,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
     }
 
     private record PackageInfo(List<String> sectionFiles, List<PackageItem> binDataItems,
-            Map<String, String> referencedImages) {
+            Map<String, List<String>> referencedImages) {
     }
 
     private record HwpFlags(boolean compressed, boolean encrypted, boolean distribution) {
