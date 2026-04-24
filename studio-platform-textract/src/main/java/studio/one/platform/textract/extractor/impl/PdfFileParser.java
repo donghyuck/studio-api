@@ -1,5 +1,6 @@
 package studio.one.platform.textract.extractor.impl;
 
+import java.awt.geom.Point2D;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,14 +9,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.apache.pdfbox.cos.COSName;
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.contentstream.PDFGraphicsStreamEngine;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDResources;
-import org.apache.pdfbox.pdmodel.graphics.PDXObject;
-import org.apache.pdfbox.pdmodel.graphics.form.PDFormXObject;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImage;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.http.MediaType;
 
@@ -141,31 +139,14 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
         for (int pageIndex = 0; pageIndex < document.getNumberOfPages(); pageIndex++) {
             PDPage page = document.getPage(pageIndex);
             String pagePath = "page[" + (pageIndex + 1) + "]";
-            appendImages(page.getResources(), images, pagePath, pagePath);
+            DrawnImageCollector collector = new DrawnImageCollector(page, pagePath);
+            collector.processPage(page);
+            images.addAll(collector.images());
         }
         return images;
     }
 
-    private void appendImages(
-            PDResources resources,
-            List<ExtractedImage> images,
-            String sourceRef,
-            String binDataRefPrefix) throws IOException {
-        if (resources == null) {
-            return;
-        }
-        for (COSName name : resources.getXObjectNames()) {
-            PDXObject xObject = resources.getXObject(name);
-            String objectRef = sourceRef + "/xobject[" + name.getName() + "]";
-            if (xObject instanceof PDImageXObject image) {
-                images.add(toExtractedImage(image, objectRef, binDataRefPrefix + "/" + name.getName()));
-            } else if (xObject instanceof PDFormXObject form) {
-                appendImages(form.getResources(), images, objectRef, binDataRefPrefix + "/" + name.getName());
-            }
-        }
-    }
-
-    private ExtractedImage toExtractedImage(PDImageXObject image, String sourceRef, String binDataRef) {
+    private ExtractedImage toExtractedImage(PDImage image, String sourceRef, String binDataRef) {
         String suffix = image.getSuffix();
         String filename = suffix == null || suffix.isBlank()
                 ? binDataRef
@@ -238,6 +219,9 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             int tableIndex,
             int startLine) {
         if (rows.isEmpty()) {
+            return tableIndex;
+        }
+        if (rows.size() == 1) {
             return tableIndex;
         }
         int columnCount = rows.get(0).size();
@@ -453,5 +437,88 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
     }
 
     private record TableExtraction(List<ExtractedTable> tables, List<ParseWarning> warnings) {
+    }
+
+    private class DrawnImageCollector extends PDFGraphicsStreamEngine {
+
+        private final String pagePath;
+        private final List<ExtractedImage> images = new ArrayList<>();
+        private int imageIndex;
+
+        DrawnImageCollector(PDPage page, String pagePath) {
+            super(page);
+            this.pagePath = pagePath;
+        }
+
+        List<ExtractedImage> images() {
+            return images;
+        }
+
+        @Override
+        public void drawImage(PDImage image) {
+            String sourceRef = pagePath + "/image[" + imageIndex + "]";
+            images.add(toExtractedImage(image, sourceRef, sourceRef));
+            imageIndex++;
+        }
+
+        @Override
+        public void appendRectangle(Point2D p0, Point2D p1, Point2D p2, Point2D p3) {
+            // Geometry is not needed for image reference extraction.
+        }
+
+        @Override
+        public void clip(int windingRule) {
+            // No-op.
+        }
+
+        @Override
+        public void moveTo(float x, float y) {
+            // No-op.
+        }
+
+        @Override
+        public void lineTo(float x, float y) {
+            // No-op.
+        }
+
+        @Override
+        public void curveTo(float x1, float y1, float x2, float y2, float x3, float y3) {
+            // No-op.
+        }
+
+        @Override
+        public Point2D getCurrentPoint() {
+            return new Point2D.Float(0, 0);
+        }
+
+        @Override
+        public void closePath() {
+            // No-op.
+        }
+
+        @Override
+        public void endPath() {
+            // No-op.
+        }
+
+        @Override
+        public void strokePath() {
+            // No-op.
+        }
+
+        @Override
+        public void fillPath(int windingRule) {
+            // No-op.
+        }
+
+        @Override
+        public void fillAndStrokePath(int windingRule) {
+            // No-op.
+        }
+
+        @Override
+        public void shadingFill(org.apache.pdfbox.cos.COSName shadingName) {
+            // No-op.
+        }
     }
 }

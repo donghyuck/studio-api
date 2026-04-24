@@ -10,6 +10,7 @@ import java.util.List;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
@@ -146,8 +147,17 @@ class PdfFileParserTest {
         assertEquals("image/png", image.mimeType());
         assertEquals(1, image.width());
         assertEquals(1, image.height());
-        assertTrue(image.sourceRef().startsWith("page[1]/xobject["));
-        assertTrue(image.binDataRef().startsWith("page[1]/"));
+        assertEquals("page[1]/image[0]", image.sourceRef());
+        assertEquals("page[1]/image[0]", image.binDataRef());
+    }
+
+    @Test
+    void parseStructuredIgnoresUnusedImageXObjectResources() throws Exception {
+        byte[] bytes = pdfWithUnusedImageResource();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "unused-image.pdf");
+
+        assertEquals(0, result.images().size());
     }
 
     @Test
@@ -190,6 +200,17 @@ class PdfFileParserTest {
         assertTrue(result.plainText().contains("This is a normal paragraph"));
     }
 
+    @Test
+    void parseStructuredIgnoresSingleAlignedLineWithoutTableWarning() throws Exception {
+        byte[] bytes = pdfWithSingleAlignedLine();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "single-aligned.pdf");
+
+        assertEquals(0, result.tables().size());
+        assertEquals(0, result.warnings().size());
+        assertTrue(result.plainText().contains("Total"));
+    }
+
     private byte[] pdfWithTwoPages() throws Exception {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -209,6 +230,19 @@ class PdfFileParserTest {
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
                 contentStream.drawImage(image, 50, 700, 20, 20);
             }
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithUnusedImageResource() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            PDResources resources = new PDResources();
+            resources.add(PDImageXObject.createFromByteArray(document, PNG_BYTES, "unused.png"));
+            page.setResources(resources);
             document.save(out);
             return out.toByteArray();
         }
@@ -256,6 +290,23 @@ class PdfFileParserTest {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             addPage(document, "This is a normal paragraph", "with regular spacing", "and no table");
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithSingleAlignedLine() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(50, 750);
+                contentStream.showText("Total    100");
+                contentStream.endText();
+            }
             document.save(out);
             return out.toByteArray();
         }
