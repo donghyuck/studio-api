@@ -3,7 +3,6 @@ package studio.one.platform.textract.extractor.impl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -74,7 +73,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                     DocumentFormat.DOCX,
                     text,
                     blocks,
-                    metadata(contentType, filename),
+                    fileMetadata(contentType, filename),
                     List.of(),
                     List.of(),
                     tables,
@@ -205,35 +204,4 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         return BlockType.PARAGRAPH;
     }
 
-    private Map<String, Object> blockMetadata(String path) {
-        return blockMetadata(path, null);
-    }
-
-    private Map<String, Object> blockMetadata(String path, Integer order) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
-        if (order != null) {
-            metadata.put(ParsedBlock.KEY_ORDER, order);
-        }
-        return metadata;
-    }
-
-    private Map<String, Object> tableMetadata(String path, String format) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ExtractedTable.KEY_SOURCE_REF, path);
-        metadata.put(ExtractedTable.KEY_FORMAT, format);
-        return metadata;
-    }
-
-    private Map<String, Object> metadata(String contentType, String filename) {
-        if (filename == null || filename.isBlank()) {
-            return contentType == null || contentType.isBlank()
-                    ? Map.of()
-                    : Map.of("contentType", contentType);
-        }
-        if (contentType == null || contentType.isBlank()) {
-            return Map.of("filename", filename);
-        }
-        return Map.of("filename", filename, "contentType", contentType);
-    }
 }

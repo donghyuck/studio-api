@@ -83,7 +83,7 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
                     DocumentFormat.PDF,
                     text,
                     blocks,
-                    metadata(contentType, filename),
+                    fileMetadata(contentType, filename),
                     List.of(),
                     pageBlocks,
                     List.of(),
@@ -226,27 +226,6 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
 
     private String normalizeBoundaryLine(String line) {
         return line == null ? "" : line.trim().replaceAll("\\s+", " ");
-    }
-
-    private Map<String, Object> blockMetadata(String path, Integer order) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
-        if (order != null) {
-            metadata.put(ParsedBlock.KEY_ORDER, order);
-        }
-        return metadata;
-    }
-
-    private Map<String, Object> metadata(String contentType, String filename) {
-        if (filename == null || filename.isBlank()) {
-            return contentType == null || contentType.isBlank()
-                    ? Map.of()
-                    : Map.of("contentType", contentType);
-        }
-        if (contentType == null || contentType.isBlank()) {
-            return Map.of("filename", filename);
-        }
-        return Map.of("filename", filename, "contentType", contentType);
     }
 
     private void appendLine(StringBuilder paragraph, String line, int previousLineLength) {

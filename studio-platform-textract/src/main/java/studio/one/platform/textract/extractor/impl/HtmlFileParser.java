@@ -85,7 +85,7 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
                     DocumentFormat.HTML,
                     text,
                     blocks,
-                    metadata(contentType, filename),
+                    fileMetadata(contentType, filename),
                     List.of(),
                     List.of(),
                     tables,
@@ -169,22 +169,4 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
         return element.tagName() + "[" + order + "]";
     }
 
-    private Map<String, Object> blockMetadata(String path, int order) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
-        metadata.put(ParsedBlock.KEY_ORDER, order);
-        return metadata;
-    }
-
-    private Map<String, Object> metadata(String contentType, String filename) {
-        if (filename == null || filename.isBlank()) {
-            return contentType == null || contentType.isBlank()
-                    ? Map.of()
-                    : Map.of("contentType", contentType);
-        }
-        if (contentType == null || contentType.isBlank()) {
-            return Map.of("filename", filename);
-        }
-        return Map.of("filename", filename, "contentType", contentType);
-    }
 }

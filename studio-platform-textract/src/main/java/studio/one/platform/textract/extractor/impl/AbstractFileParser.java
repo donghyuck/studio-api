@@ -1,10 +1,14 @@
 package studio.one.platform.textract.extractor.impl;
 
 import java.util.Locale;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.textract.extractor.FileParser;
+import studio.one.platform.textract.model.ExtractedTable;
+import studio.one.platform.textract.model.ParsedBlock;
 
 @Slf4j
 public abstract class AbstractFileParser implements FileParser {
@@ -58,6 +62,38 @@ public abstract class AbstractFileParser implements FileParser {
         normalized = CONTROL_CHARS.matcher(normalized).replaceAll("");
         normalized = MULTI_BLANK_LINES.matcher(normalized).replaceAll("\n\n");
         return normalized.trim();
+    }
+
+    protected Map<String, Object> fileMetadata(String contentType, String filename) {
+        if (filename == null || filename.isBlank()) {
+            return contentType == null || contentType.isBlank()
+                    ? Map.of()
+                    : Map.of("contentType", contentType);
+        }
+        if (contentType == null || contentType.isBlank()) {
+            return Map.of("filename", filename);
+        }
+        return Map.of("filename", filename, "contentType", contentType);
+    }
+
+    protected Map<String, Object> blockMetadata(String sourceRef) {
+        return blockMetadata(sourceRef, null);
+    }
+
+    protected Map<String, Object> blockMetadata(String sourceRef, Integer order) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ParsedBlock.KEY_SOURCE_REF, sourceRef);
+        if (order != null) {
+            metadata.put(ParsedBlock.KEY_ORDER, order);
+        }
+        return metadata;
+    }
+
+    protected Map<String, Object> tableMetadata(String sourceRef, String format) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ExtractedTable.KEY_SOURCE_REF, sourceRef);
+        metadata.put(ExtractedTable.KEY_FORMAT, format);
+        return metadata;
     }
 
     /**

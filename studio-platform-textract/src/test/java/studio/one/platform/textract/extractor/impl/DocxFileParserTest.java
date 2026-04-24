@@ -1,13 +1,15 @@
 package studio.one.platform.textract.extractor.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.math.BigInteger;
 
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFFootnote;
 import org.apache.poi.xwpf.usermodel.XWPFHeader;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +70,37 @@ class DocxFileParserTest {
         assertEquals(1, result.blocks().get(1).order());
     }
 
+    @Test
+    void parseStructuredAssignsListItemBlockTypeFromNumbering() throws Exception {
+        byte[] bytes = docxWithNumberedParagraph();
+
+        ParsedFile result = new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "list.docx");
+
+        ParsedBlock listBlock = result.blocks().stream()
+                .filter(block -> block.blockType() == BlockType.LIST_ITEM)
+                .findFirst()
+                .orElseThrow();
+        assertEquals("목록 항목", listBlock.text());
+        assertEquals(0, listBlock.order());
+    }
+
+    @Test
+    void parseStructuredAssignsFootnoteBlockTypeAndProvenance() throws Exception {
+        byte[] bytes = docxWithFootnote();
+
+        ParsedFile result = new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "footnote.docx");
+
+        ParsedBlock footnoteBlock = result.blocks().stream()
+                .filter(block -> block.blockType() == BlockType.FOOTNOTE)
+                .findFirst()
+                .orElseThrow();
+        assertEquals("각주 본문", footnoteBlock.text());
+        assertTrue(footnoteBlock.sourceRef().startsWith("footnote["));
+        assertTrue(footnoteBlock.order() != null && footnoteBlock.order() > 0);
+    }
+
     private byte[] docxWithParagraphAndTable() throws Exception {
         try (XWPFDocument document = new XWPFDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -99,6 +132,28 @@ class DocxFileParserTest {
             document.createParagraph().createRun().setText("첫 문단");
             document.createParagraph();
             document.createParagraph().createRun().setText("둘째 문단");
+            document.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] docxWithNumberedParagraph() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            XWPFParagraph paragraph = document.createParagraph();
+            paragraph.setNumID(BigInteger.ONE);
+            paragraph.createRun().setText("목록 항목");
+            document.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] docxWithFootnote() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            document.createParagraph().createRun().setText("본문 문단");
+            XWPFFootnote footnote = document.createFootnote();
+            footnote.createParagraph().createRun().setText("각주 본문");
             document.write(out);
             return out.toByteArray();
         }

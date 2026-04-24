@@ -60,7 +60,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
                     DocumentFormat.IMAGE,
                     text,
                     blocks,
-                    metadata(contentType, filename),
+                    fileMetadata(contentType, filename),
                     List.of(),
                     List.of(),
                     List.of(),
@@ -113,15 +113,4 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         return metadata;
     }
 
-    private Map<String, Object> metadata(String contentType, String filename) {
-        if (filename == null || filename.isBlank()) {
-            return contentType == null || contentType.isBlank()
-                    ? Map.of()
-                    : Map.of("contentType", contentType);
-        }
-        if (contentType == null || contentType.isBlank()) {
-            return Map.of("filename", filename);
-        }
-        return Map.of("filename", filename, "contentType", contentType);
-    }
 }
