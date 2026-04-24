@@ -104,6 +104,10 @@ JNA가 native library를 찾지 못하면 다음 JVM 옵션이 필요할 수 있
 export JAVA_TOOL_OPTIONS="-Djna.library.path=/opt/homebrew/lib"
 ```
 
+`JAVA_TOOL_OPTIONS`는 해당 shell에서 실행되는 모든 JVM 프로세스에 적용된다.
+Gradle, Maven, IDE 실행에도 영향을 줄 수 있으므로 운영 환경에서는 애플리케이션 기동 스크립트나 서비스 설정에
+`-Djna.library.path=/opt/homebrew/lib`를 직접 추가하는 방식을 우선 검토한다.
+
 ### application.yml 예시
 
 ```yaml
@@ -113,6 +117,9 @@ studio:
       enabled: true
       max-extract-bytes: 10485760
       tesseract:
+        # macOS(Apple Silicon): /opt/homebrew/share/tessdata
+        # Linux: /usr/share/tessdata 또는 /usr/share/tesseract-ocr/4.00/tessdata
+        # Windows: C:\Program Files\Tesseract-OCR\tessdata
         datapath: /opt/homebrew/share/tessdata
         language: kor+eng
 ```
@@ -125,9 +132,16 @@ studio:
 Linux 계열에서는 `datapath`가 `/usr/share/tesseract-ocr/4.00/tessdata` 또는 `/usr/share/tessdata`일 수 있다.
 설치 배포판에 따라 실제 경로를 확인해서 맞춰야 한다.
 
+Windows에서는 Tesseract 설치 경로에 따라 `datapath`가
+`C:\Program Files\Tesseract-OCR\tessdata`일 수 있다.
+native library 로딩 오류가 나면 `tesseract.exe`가 있는 디렉터리를 `PATH`에 추가하거나,
+애플리케이션 JVM 옵션에 `-Djna.library.path=C:\Program Files\Tesseract-OCR`를 지정한다.
+
 ### 자주 발생하는 오류
 
-`Unable to load library 'tesseract'`
+```text
+Unable to load library 'tesseract'
+```
 
 - `Tesseract` 엔진이 설치되지 않았거나
 - JNA가 native library 경로를 찾지 못했거나
@@ -135,7 +149,9 @@ Linux 계열에서는 `datapath`가 `/usr/share/tesseract-ocr/4.00/tessdata` 또
 
 우선 `tesseract --version`으로 설치 여부를 확인하고, 필요하면 `-Djna.library.path=/opt/homebrew/lib`를 추가한다.
 
-`language data not found`
+```text
+language data not found
+```
 
 - `tessdata`가 설치되지 않았거나
 - `datapath`가 `tessdata` 상위 또는 잘못된 디렉터리를 가리키는 경우다.
