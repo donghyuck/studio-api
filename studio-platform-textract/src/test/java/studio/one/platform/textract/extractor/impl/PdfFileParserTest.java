@@ -4,22 +4,29 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Base64;
 import java.util.List;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDResources;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ExtractedImage;
+import studio.one.platform.textract.model.ExtractedTable;
 import studio.one.platform.textract.model.ParsedFile;
 
 class PdfFileParserTest {
 
     private final PdfFileParser parser = new PdfFileParser();
+    private static final byte[] PNG_BYTES = Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
     @Test
     void cleanPdfTextCompactsFragmentedShortLines() {
@@ -129,11 +136,182 @@ class PdfFileParserTest {
         assertEquals("page[1]/paragraph[0]", result.blocks().get(0).sourceRef());
     }
 
+    @Test
+    void parseStructuredExtractsImageXObjectWithPageSourceRef() throws Exception {
+        byte[] bytes = pdfWithImage();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "image.pdf");
+
+        assertEquals(1, result.images().size());
+        ExtractedImage image = result.images().get(0);
+        assertEquals("image/png", image.mimeType());
+        assertEquals(1, image.width());
+        assertEquals(1, image.height());
+        assertEquals("page[1]/image[0]", image.sourceRef());
+        assertEquals("page[1]/image[0]", image.binDataRef());
+    }
+
+    @Test
+    void parseStructuredIgnoresUnusedImageXObjectResources() throws Exception {
+        byte[] bytes = pdfWithUnusedImageResource();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "unused-image.pdf");
+
+        assertEquals(0, result.images().size());
+    }
+
+    @Test
+    void parseStructuredReconstructsSimpleAlignedTableCandidate() throws Exception {
+        byte[] bytes = pdfWithTableText();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "table.pdf");
+
+        assertEquals(1, result.tables().size());
+        ExtractedTable table = result.tables().get(0);
+        assertEquals("pdf", table.format());
+        assertEquals("page[1]/table[0]", table.sourceRef());
+        assertEquals(4, table.cellCount());
+        assertEquals("""
+                | Name | Score |
+                | --- | --- |
+                | Alice | 90 |""", table.markdown());
+        assertEquals("Name", table.cells().get(0).text());
+        assertTrue(table.cells().get(0).header());
+        int tableBlockIndex = blockIndex(result, BlockType.TABLE);
+        assertTrue(tableBlockIndex > 0);
+        assertEquals(2, result.blocks().get(tableBlockIndex).order());
+    }
+
+    @Test
+    void parseStructuredWarnsForAmbiguousTableCandidateWithoutFalseTable() throws Exception {
+        byte[] bytes = pdfWithUnevenColumnTableCandidate();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "ambiguous-table.pdf");
+
+        assertEquals(0, result.tables().size());
+        assertEquals(1, result.warnings().size());
+        assertEquals("TABLE_RECONSTRUCTION_PARTIAL", result.warnings().get(0).canonicalCode());
+        assertTrue(result.warnings().get(0).partialParse());
+    }
+
+    @Test
+    void parseStructuredDoesNotCreateTableForNormalParagraphSpacing() throws Exception {
+        byte[] bytes = pdfWithNormalParagraph();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "normal.pdf");
+
+        assertEquals(0, result.tables().size());
+        assertEquals(0, result.warnings().size());
+        assertTrue(result.plainText().contains("This is a normal paragraph"));
+    }
+
+    @Test
+    void parseStructuredIgnoresSingleAlignedLineWithoutTableWarning() throws Exception {
+        byte[] bytes = pdfWithSingleAlignedLine();
+
+        ParsedFile result = parser.parseStructured(bytes, "application/pdf", "single-aligned.pdf");
+
+        assertEquals(0, result.tables().size());
+        assertEquals(0, result.warnings().size());
+        assertTrue(result.plainText().contains("Total"));
+    }
+
     private byte[] pdfWithTwoPages() throws Exception {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             addPage(document, "Common header", "First page body", "Common footer");
             addPage(document, "Common header", "Second page body", "Common footer");
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithImage() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            PDImageXObject image = PDImageXObject.createFromByteArray(document, PNG_BYTES, "inline.png");
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.drawImage(image, 50, 700, 20, 20);
+            }
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithUnusedImageResource() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            PDResources resources = new PDResources();
+            resources.add(PDImageXObject.createFromByteArray(document, PNG_BYTES, "unused.png"));
+            page.setResources(resources);
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithTableText() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(50, 750);
+                contentStream.showText("Name    Score");
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("Alice   90");
+                contentStream.endText();
+            }
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithUnevenColumnTableCandidate() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(50, 750);
+                contentStream.showText("Name    Score");
+                contentStream.newLineAtOffset(0, -20);
+                contentStream.showText("Alice   90    Passed");
+                contentStream.endText();
+            }
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithNormalParagraph() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            addPage(document, "This is a normal paragraph", "with regular spacing", "and no table");
+            document.save(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] pdfWithSingleAlignedLine() throws Exception {
+        try (PDDocument document = new PDDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(50, 750);
+                contentStream.showText("Total    100");
+                contentStream.endText();
+            }
             document.save(out);
             return out.toByteArray();
         }
@@ -153,5 +331,14 @@ class PdfFileParserTest {
             contentStream.showText(footer);
             contentStream.endText();
         }
+    }
+
+    private int blockIndex(ParsedFile result, BlockType blockType) {
+        for (int index = 0; index < result.blocks().size(); index++) {
+            if (result.blocks().get(index).blockType() == blockType) {
+                return index;
+            }
+        }
+        return -1;
     }
 }

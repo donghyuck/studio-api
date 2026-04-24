@@ -1,14 +1,19 @@
 package studio.one.platform.textract.extractor.impl;
 
+import java.awt.geom.Point2D;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.contentstream.PDFGraphicsStreamEngine;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImage;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.http.MediaType;
 
@@ -17,6 +22,10 @@ import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.StructuredFileParser;
 import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ExtractedImage;
+import studio.one.platform.textract.model.ExtractedTable;
+import studio.one.platform.textract.model.ExtractedTableCell;
+import studio.one.platform.textract.model.ParseWarning;
 import studio.one.platform.textract.model.ParsedBlock;
 import studio.one.platform.textract.model.ParsedFile;
 
@@ -47,6 +56,8 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             stripper.setSortByPosition(true);
             List<String> pages = extractPages(document, stripper);
             List<String> cleanedPages = cleanPdfPages(pages);
+            List<ExtractedImage> images = extractImages(document);
+            TableExtraction tableExtraction = extractTables(cleanedPages);
             List<ParsedBlock> pageBlocks = new ArrayList<>();
             List<ParsedBlock> blocks = new ArrayList<>();
             int order = 0;
@@ -78,6 +89,17 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
                             blockMetadata(paragraphPath, order)));
                     order++;
                 }
+                for (ExtractedTable table : tablesOnPage(tableExtraction.tables(), pagePath)) {
+                    blocks.add(new ParsedBlock(
+                            table.sourceRef(),
+                            BlockType.TABLE,
+                            table.sourceRef(),
+                            table.markdown(),
+                            pageNumber,
+                            List.of(),
+                            blockMetadata(table.sourceRef(), order)));
+                    order++;
+                }
             }
             String text = cleanText(cleanedPages.stream()
                     .filter(page -> page != null && !page.isBlank())
@@ -87,10 +109,10 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
                     text,
                     blocks,
                     fileMetadata(contentType, filename),
-                    List.of(),
+                    tableExtraction.warnings(),
                     pageBlocks,
-                    List.of(),
-                    List.of(),
+                    tableExtraction.tables(),
+                    images,
                     false);
         } catch (IOException e) {
             throw new FileParseException("Failed to parse PDF file: " + safeFilename(filename), e);
@@ -110,6 +132,162 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             pages.add(stripper.getText(document));
         }
         return pages;
+    }
+
+    private List<ExtractedImage> extractImages(PDDocument document) throws IOException {
+        List<ExtractedImage> images = new ArrayList<>();
+        for (int pageIndex = 0; pageIndex < document.getNumberOfPages(); pageIndex++) {
+            PDPage page = document.getPage(pageIndex);
+            String pagePath = "page[" + (pageIndex + 1) + "]";
+            DrawnImageCollector collector = new DrawnImageCollector(page, pagePath);
+            collector.processPage(page);
+            images.addAll(collector.images());
+        }
+        return images;
+    }
+
+    private ExtractedImage toExtractedImage(PDImage image, String sourceRef, String binDataRef) {
+        String suffix = image.getSuffix();
+        String filename = suffix == null || suffix.isBlank()
+                ? binDataRef
+                : binDataRef + "." + suffix;
+        Map<String, Object> metadata = new LinkedHashMap<>(imageMetadata(sourceRef));
+        metadata.put(ExtractedImage.KEY_BIN_DATA_REF, binDataRef);
+        return new ExtractedImage(
+                sourceRef,
+                imageContentType(suffix),
+                filename,
+                image.getWidth(),
+                image.getHeight(),
+                metadata);
+    }
+
+    private String imageContentType(String suffix) {
+        if (suffix == null || suffix.isBlank()) {
+            return null;
+        }
+        return switch (suffix.toLowerCase()) {
+            case "jpg", "jpeg" -> "image/jpeg";
+            case "png" -> "image/png";
+            case "tif", "tiff" -> "image/tiff";
+            case "gif" -> "image/gif";
+            default -> null;
+        };
+    }
+
+    private List<ExtractedTable> tablesOnPage(List<ExtractedTable> tables, String pagePath) {
+        return tables.stream()
+                .filter(table -> table.sourceRef().startsWith(pagePath + "/"))
+                .toList();
+    }
+
+    private TableExtraction extractTables(List<String> pages) {
+        List<ExtractedTable> tables = new ArrayList<>();
+        List<ParseWarning> warnings = new ArrayList<>();
+        int tableIndex = 0;
+        for (int pageIndex = 0; pageIndex < pages.size(); pageIndex++) {
+            String page = pages.get(pageIndex);
+            if (page == null || page.isBlank()) {
+                continue;
+            }
+            List<List<String>> rows = new ArrayList<>();
+            int candidateStartLine = -1;
+            List<String> lines = page.lines().toList();
+            for (int lineIndex = 0; lineIndex <= lines.size(); lineIndex++) {
+                String line = lineIndex < lines.size() ? lines.get(lineIndex) : "";
+                List<String> cells = splitTableCells(line);
+                if (cells.size() >= 2) {
+                    if (rows.isEmpty()) {
+                        candidateStartLine = lineIndex;
+                    }
+                    rows.add(cells);
+                    continue;
+                }
+                tableIndex = flushTableCandidate(
+                        tables,
+                        warnings,
+                        rows,
+                        pageIndex + 1,
+                        tableIndex,
+                        candidateStartLine);
+                rows = new ArrayList<>();
+                candidateStartLine = -1;
+            }
+        }
+        return new TableExtraction(tables, warnings);
+    }
+
+    private int flushTableCandidate(
+            List<ExtractedTable> tables,
+            List<ParseWarning> warnings,
+            List<List<String>> rows,
+            int pageNumber,
+            int tableIndex,
+            int startLine) {
+        if (rows.isEmpty()) {
+            return tableIndex;
+        }
+        if (rows.size() == 1) {
+            return tableIndex;
+        }
+        int columnCount = rows.get(0).size();
+        boolean rectangular = rows.size() >= 2
+                && columnCount >= 2
+                && rows.stream().allMatch(row -> row.size() == columnCount);
+        String sourceRef = "page[" + pageNumber + "]/table[" + tableIndex + "]";
+        if (!rectangular) {
+            warnings.add(ParseWarning.partial(
+                    "TABLE_RECONSTRUCTION_PARTIAL",
+                    "PDF table candidate could not be reconstructed safely.",
+                    sourceRef,
+                    Map.of("line", Math.max(0, startLine))));
+            return tableIndex + 1;
+        }
+        List<ExtractedTableCell> cells = new ArrayList<>();
+        List<String> markdownRows = new ArrayList<>();
+        for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
+            List<String> row = rows.get(rowIndex);
+            List<String> markdownCells = new ArrayList<>();
+            for (int colIndex = 0; colIndex < row.size(); colIndex++) {
+                String cellSourceRef = sourceRef + "/row[" + rowIndex + "]/cell[" + colIndex + "]";
+                Map<String, Object> metadata = new LinkedHashMap<>();
+                metadata.put(ExtractedTableCell.KEY_SOURCE_REF, cellSourceRef);
+                if (rowIndex == 0) {
+                    metadata.put(ExtractedTableCell.KEY_HEADER, true);
+                }
+                cells.add(new ExtractedTableCell(rowIndex, colIndex, 1, 1, row.get(colIndex), metadata));
+                markdownCells.add(row.get(colIndex));
+            }
+            markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
+            if (rowIndex == 0) {
+                markdownRows.add("| " + row.stream()
+                        .map(ignored -> "---")
+                        .collect(Collectors.joining(" | ")) + " |");
+            }
+        }
+        String markdown = String.join("\n", markdownRows);
+        Map<String, Object> metadata = new LinkedHashMap<>(tableMetadata(sourceRef, "pdf"));
+        metadata.put(ExtractedTable.KEY_HEADER_ROW_COUNT, 1);
+        metadata.put(ExtractedTable.KEY_VECTOR_TEXT, rows.stream()
+                .map(row -> String.join(" ", row))
+                .collect(Collectors.joining("\n")));
+        tables.add(new ExtractedTable(sourceRef, markdown, cells, metadata));
+        return tableIndex + 1;
+    }
+
+    private List<String> splitTableCells(String line) {
+        String cleaned = cleanText(line);
+        if (cleaned == null || cleaned.isBlank()) {
+            return List.of();
+        }
+        String[] cells = cleaned.split("\\s{2,}");
+        if (cells.length < 2) {
+            return List.of();
+        }
+        return Arrays.stream(cells)
+                .map(String::trim)
+                .filter(cell -> !cell.isBlank())
+                .toList();
     }
 
     List<String> cleanPdfPages(List<String> rawPages) {
@@ -267,5 +445,91 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
         }
         paragraphs.add(paragraph.toString());
         paragraph.setLength(0);
+    }
+
+    private record TableExtraction(List<ExtractedTable> tables, List<ParseWarning> warnings) {
+    }
+
+    private class DrawnImageCollector extends PDFGraphicsStreamEngine {
+
+        private final String pagePath;
+        private final List<ExtractedImage> images = new ArrayList<>();
+        private int imageIndex;
+
+        DrawnImageCollector(PDPage page, String pagePath) {
+            super(page);
+            this.pagePath = pagePath;
+        }
+
+        List<ExtractedImage> images() {
+            return images;
+        }
+
+        @Override
+        public void drawImage(PDImage image) {
+            String sourceRef = pagePath + "/image[" + imageIndex + "]";
+            images.add(toExtractedImage(image, sourceRef, sourceRef));
+            imageIndex++;
+        }
+
+        @Override
+        public void appendRectangle(Point2D p0, Point2D p1, Point2D p2, Point2D p3) {
+            // Geometry is not needed for image reference extraction.
+        }
+
+        @Override
+        public void clip(int windingRule) {
+            // No-op.
+        }
+
+        @Override
+        public void moveTo(float x, float y) {
+            // No-op.
+        }
+
+        @Override
+        public void lineTo(float x, float y) {
+            // No-op.
+        }
+
+        @Override
+        public void curveTo(float x1, float y1, float x2, float y2, float x3, float y3) {
+            // No-op.
+        }
+
+        @Override
+        public Point2D getCurrentPoint() {
+            return new Point2D.Float(0, 0);
+        }
+
+        @Override
+        public void closePath() {
+            // No-op.
+        }
+
+        @Override
+        public void endPath() {
+            // No-op.
+        }
+
+        @Override
+        public void strokePath() {
+            // No-op.
+        }
+
+        @Override
+        public void fillPath(int windingRule) {
+            // No-op.
+        }
+
+        @Override
+        public void fillAndStrokePath(int windingRule) {
+            // No-op.
+        }
+
+        @Override
+        public void shadingFill(org.apache.pdfbox.cos.COSName shadingName) {
+            // No-op.
+        }
     }
 }
