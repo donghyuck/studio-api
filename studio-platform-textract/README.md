@@ -72,6 +72,40 @@ HWP/HWPX parser는 `rhwp`의 파싱 흐름을 Java 서비스용 경량 추출기
 자동설정은 `starter/studio-platform-textract-starter`가 제공한다.
 설정 prefix는 기존과 같은 `studio.features.text`를 사용한다.
 
+## OCR 설정
+
+이미지 OCR은 `net.sourceforge.tess4j:tess4j` 의존성만으로 바로 동작하지 않는다.
+`tess4j`는 Java wrapper이고, 실제 OCR 엔진은 외부 `Tesseract` 바이너리와 `tessdata` 언어 데이터가 담당한다.
+
+OCR을 사용하려면 다음이 모두 준비되어야 한다.
+
+- `Tesseract` 엔진 설치
+- `tessdata` 언어 데이터 설치
+- `studio.features.text.tesseract.datapath`가 `tessdata` 디렉터리를 가리키도록 설정
+- 필요 시 native library 검색 경로(`jna.library.path`) 설정
+
+### macOS (Homebrew) 설치 예시
+
+```bash
+brew install tesseract
+brew install tesseract-lang
+```
+
+Apple Silicon(macOS on arm64) 환경에서는 Homebrew 기본 경로가 `/opt/homebrew` 이므로,
+JNA가 native library를 찾지 못하면 다음 JVM 옵션이 필요할 수 있다.
+
+```bash
+-Djna.library.path=/opt/homebrew/lib
+```
+
+예를 들어 shell 환경 변수로는 다음처럼 줄 수 있다.
+
+```bash
+export JAVA_TOOL_OPTIONS="-Djna.library.path=/opt/homebrew/lib"
+```
+
+### application.yml 예시
+
 ```yaml
 studio:
   features:
@@ -79,30 +113,36 @@ studio:
       enabled: true
       max-extract-bytes: 10485760
       tesseract:
-        datapath: /usr/share/tesseract-ocr/4.00/tessdata
+        datapath: /opt/homebrew/share/tessdata
         language: kor+eng
 ```
 
-조금 더 짧고 README 친화적으로 줄인 버전도 가능합니다. 예를 들면:
+설정 값 설명:
 
-```md
-> [!NOTE]
-> 이미지 OCR은 `tess4j` 의존성만으로 동작하지 않는다.  
-> macOS / Linux / Windows 환경에 **Tesseract OCR 엔진**과 **언어 데이터(tessdata)** 가
-> 별도로 설치되어 있어야 한다.
->
-> macOS(Homebrew) 예시:
->
-> ```bash
-> brew install tesseract
-> brew install tesseract-lang
-> ```
->
-> Apple Silicon 환경에서는 필요 시:
->
-> ```bash
-> JAVA_TOOL_OPTIONS=-Djna.library.path=/opt/homebrew/lib
-> ```
+- `datapath`: `kor.traineddata`, `eng.traineddata` 같은 언어 파일이 들어 있는 `tessdata` 디렉터리 경로
+- `language`: Tesseract 언어 코드. 여러 언어는 `kor+eng`처럼 `+`로 연결
+
+Linux 계열에서는 `datapath`가 `/usr/share/tesseract-ocr/4.00/tessdata` 또는 `/usr/share/tessdata`일 수 있다.
+설치 배포판에 따라 실제 경로를 확인해서 맞춰야 한다.
+
+### 자주 발생하는 오류
+
+`Unable to load library 'tesseract'`
+
+- `Tesseract` 엔진이 설치되지 않았거나
+- JNA가 native library 경로를 찾지 못했거나
+- Apple Silicon에서 `/opt/homebrew/lib`가 `jna.library.path`에 포함되지 않은 경우다.
+
+우선 `tesseract --version`으로 설치 여부를 확인하고, 필요하면 `-Djna.library.path=/opt/homebrew/lib`를 추가한다.
+
+`language data not found`
+
+- `tessdata`가 설치되지 않았거나
+- `datapath`가 `tessdata` 상위 또는 잘못된 디렉터리를 가리키는 경우다.
+
+`datapath`에는 언어 파일이 직접 들어 있는 `tessdata` 경로를 넣어야 한다.
+예를 들어 `kor.traineddata`가 `/opt/homebrew/share/tessdata/kor.traineddata`에 있으면
+`datapath`는 `/opt/homebrew/share/tessdata`여야 한다.
 
 포맷별 parser는 관련 라이브러리가 classpath에 있을 때만 등록된다.
 예를 들어 HWP parser는 `org.apache.poi.poifs.filesystem.POIFSFileSystem`이 있어야 자동 구성된다.
