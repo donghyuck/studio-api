@@ -174,8 +174,16 @@ public abstract class AbstractFileParser implements FileParser {
         if (!dataRow || headers.isEmpty()) {
             return text;
         }
-        String header = headers.getOrDefault(cell.col(), "");
+        String header = tableHeader(cell, headers);
         return header.isBlank() ? text : header + ": " + text;
+    }
+
+    private String tableHeader(ExtractedTableCell cell, Map<Integer, String> headers) {
+        String header = "";
+        for (int col = cell.col(); col < cell.col() + cell.colSpan(); col++) {
+            header = mergeHeader(header, headers.getOrDefault(col, ""));
+        }
+        return header;
     }
 
     private String mergeHeader(String existing, String next) {

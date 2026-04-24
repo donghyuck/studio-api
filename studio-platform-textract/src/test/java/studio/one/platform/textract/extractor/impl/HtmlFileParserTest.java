@@ -97,6 +97,24 @@ class HtmlFileParserTest {
     }
 
     @Test
+    void parseStructuredUsesAllSpannedHeadersForHtmlDataColspan() {
+        String html = """
+                <main>
+                  <table>
+                    <tr><th>Q1</th><th>Q2</th></tr>
+                    <tr><td colspan="2">100</td></tr>
+                  </table>
+                </main>
+                """;
+
+        ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "data-colspan.html");
+
+        ExtractedTableCell dataCell = result.tables().get(0).cells().get(2);
+        assertEquals(2, dataCell.colSpan());
+        assertEquals("Q1 | Q2\nQ1 Q2: 100", result.tables().get(0).vectorText());
+    }
+
+    @Test
     void parseStructuredKeepsPlainVectorTextWhenHtmlTableHasNoHeader() {
         String html = "<main><table><tr><td>A</td><td>B</td></tr></table></main>";
 
