@@ -19,4 +19,7 @@ tasks.named<org.gradle.jvm.tasks.Jar>("jar").configure {
 dependencies {
     implementation(project(":studio-platform")) 
 
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.assertj:assertj-core")
+
 }

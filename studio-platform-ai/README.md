@@ -10,6 +10,9 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 
 ## 설계
 - `ChatPort` / `EmbeddingPort` / `VectorStorePort`: 공급자 중립 포트 인터페이스
+- `ChatResponseMetadata` / `TokenUsage`: provider 응답 metadata의 typed view
+- `ChatStreamEvent`: provider-neutral streaming event 계약 (`delta`, `usage`, `complete`, `error`)
+- `ConversationRepositoryPort`: conversation 저장소 구현을 위한 포트
 - `AiProviderRegistry`: 공급자 이름을 키로 ChatPort/EmbeddingPort를 관리하는 레지스트리
 - `TextChunker`: 긴 문서를 임베딩에 적합한 크기로 분할하는 전략 인터페이스
 - `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 정의하는 RAG facade 계약
@@ -21,6 +24,10 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 | 타입 | 패키지 | 설명 |
 |---|---|---|
 | `ChatPort` | `core.chat` | 챗 완성 요청/응답 계약 |
+| `ChatResponseMetadata` | `core.chat` | token usage, latency, provider, resolved model, memory, conversation metadata typed view |
+| `ChatStreamEvent` | `core.chat` | streaming chat event 계약 |
+| `ConversationRepositoryPort` | `core.chat` | conversation/message 저장소 포트 |
+| `ChatConversation` / `ChatConversationMessage` / `ChatConversationSummary` | `core.chat` | conversation API 구현을 위한 provider-neutral 모델 |
 | `EmbeddingPort` | `core.embedding` | 텍스트 임베딩 벡터 생성 계약 |
 | `VectorStorePort` | `core.vector` | 벡터 저장/검색/하이브리드 검색 계약 |
 | `AiProviderRegistry` | `core.registry` | 공급자별 ChatPort/EmbeddingPort 룩업 |
@@ -55,6 +62,42 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 `scope=chunk` 또는 `both`는 chunk별 keyword를 추가해 긴 파일에서 chunk 의미가 희석되는 문제를 줄이는 기반을 제공한다.
 현재 PostgreSQL hybrid SQL ranking은 기존 `simple` text search config 동작을 유지한다.
 
+## Chat metadata
+`ChatResponse.metadata()` map은 기존 호환성을 위해 유지한다. 신규 코드는 `ChatResponse.typedMetadata()`로 표준 metadata를 타입 안전하게 읽을 수 있다.
+
+| key | 타입 | 설명 |
+|---|---|---|
+| `tokenUsage` | `TokenUsage` 또는 map | 입력/출력/전체 token 사용량 |
+| `latencyMs` | `Long` | provider 호출 latency |
+| `provider` | `String` | 실제 사용 provider |
+| `resolvedModel` | `String` | 최종 선택된 model 이름 |
+| `memoryUsed` | `Boolean` | conversation memory 사용 여부 |
+| `conversationId` | `String` | 연결된 conversation 식별자 |
+
+기존 `modelName`, `tokenUsage` map 등 legacy metadata key는 제거하지 않는다. `resolvedModel`이 없으면 typed view는 `modelName`을 fallback으로 사용할 수 있다.
+
+## Chat streaming
+`ChatPort.stream(ChatRequest)`는 provider-neutral stream 계약이다. 기본 구현은 기존 `chat(ChatRequest)` 결과를 `delta`, `usage`, `complete` event sequence로 변환하는 fallback이다. native streaming provider는 이 메서드를 override하면 된다.
+
+stream event type:
+
+- `delta`: assistant text 조각
+- `usage`: token/latency/provider metadata
+- `complete`: stream 완료
+- `error`: provider 호출 실패
+
+이 계약은 Reactor, Spring Web, SSE 구현체에 의존하지 않는다. HTTP `text/event-stream` 변환은 web starter 책임이다.
+
+## Conversation contracts
+`ConversationRepositoryPort`는 conversation platform 구현을 위한 저장소 포트다. 이 모듈은 JPA/JDBC/InMemory 구현을 제공하지 않고, 아래 동작에 필요한 중립 계약만 제공한다.
+
+- conversation 목록/상세/삭제
+- message 저장과 조회
+- assistant 응답 regenerate를 위한 replacement
+- `truncate`, `fork`, `compact`, `cancel` 최소 연산
+
+`ChatConversationSummary`는 목록 API에서 필요한 `conversationId`, `ownerId`, `title`, `summary`, `messageCount`, `lastUpdatedAt`, `status`를 표현한다.
+
 ## RAG diagnostics
 `studio-platform-starter-ai`의 기본 RAG 구현은 diagnostics가 활성화된 경우 마지막 RAG 검색의 strategy,
 result count, score threshold, hybrid weight, object scope, topK를 `RagRetrievalDiagnostics`로 기록한다.
@@ -82,7 +125,10 @@ dependencies {
 ```java
 // 레지스트리에서 포트 조회
 ChatPort chat = aiProviderRegistry.chatPort("openai");
-ChatResponse response = chat.chat(new ChatRequest(messages));
+ChatResponse response = chat.chat(ChatRequest.builder()
+    .messages(messages)
+    .build());
+ChatResponseMetadata metadata = response.typedMetadata();
 
 // RAG 인덱싱
 ragPipelineService.index(RagIndexRequest.builder()
