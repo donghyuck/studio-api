@@ -103,8 +103,8 @@ public class RecursiveChunker implements Chunker {
     private void linkNeighbors(ChunkingContext context, List<Chunk> chunks) {
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
-            String previousChunkId = i == 0 ? null : chunkId(context.sourceDocumentId(), i - 1);
-            String nextChunkId = i == chunks.size() - 1 ? null : chunkId(context.sourceDocumentId(), i + 1);
+            String previousChunkId = i == 0 ? null : chunks.get(i - 1).id();
+            String nextChunkId = i == chunks.size() - 1 ? null : chunks.get(i + 1).id();
             ChunkMetadata metadata = ChunkMetadata.builder(chunk.metadata().strategy(), chunk.metadata().order())
                     .sourceDocumentId(chunk.metadata().sourceDocumentId())
                     .parentId(chunk.metadata().parentId())

@@ -85,6 +85,9 @@ It also creates deterministic parent section ids and links each child chunk thro
 - `blockIds`
 - `confidence`
 
+Neighbor links do not cross parent section boundaries. If a document starts without a heading, the first parent context
+uses an empty `section` value and body-only `parentChunkContent`.
+
 The strategy does not parse files, run OCR, call embedding APIs, call LLMs, or write vector stores.
 
 When `studio-platform-textract` is available, `TextractNormalizedDocumentAdapter` can convert `ParsedFile` into `NormalizedDocument`:

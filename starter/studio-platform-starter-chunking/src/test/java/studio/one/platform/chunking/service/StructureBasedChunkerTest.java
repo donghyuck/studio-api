@@ -83,6 +83,62 @@ class StructureBasedChunkerTest {
     }
 
     @Test
+    void doesNotLinkChildChunksAcrossSectionParents() {
+        StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(
+                        block(NormalizedBlockType.HEADING, "First", "h1", 0, 0.99d),
+                        block(NormalizedBlockType.PARAGRAPH, "First body", "p1", 1, 0.90d),
+                        block(NormalizedBlockType.HEADING, "Second", "h2", 2, 0.99d),
+                        block(NormalizedBlockType.PARAGRAPH, "Second body", "p2", 3, 0.90d)))
+                .build();
+
+        List<Chunk> chunks = chunker.chunk(document, context(document, 120, 0));
+
+        assertThat(chunks).hasSize(2);
+        assertThat(chunks.get(0).metadata().parentChunkId()).isEqualTo("doc-parent-0");
+        assertThat(chunks.get(0).metadata().previousChunkId()).isNull();
+        assertThat(chunks.get(0).metadata().nextChunkId()).isNull();
+        assertThat(chunks.get(1).metadata().parentChunkId()).isEqualTo("doc-parent-2");
+        assertThat(chunks.get(1).metadata().previousChunkId()).isNull();
+        assertThat(chunks.get(1).metadata().nextChunkId()).isNull();
+    }
+
+    @Test
+    void createsParentContextForDocumentsWithoutHeading() {
+        StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(
+                        block(NormalizedBlockType.PARAGRAPH, "Intro body", "p1", 0, 0.90d),
+                        block(NormalizedBlockType.PARAGRAPH, "More body", "p2", 1, 0.80d)))
+                .build();
+
+        List<Chunk> chunks = chunker.chunk(document, context(document, 120, 0));
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).metadata().section()).isEmpty();
+        assertThat(chunks.get(0).metadata().parentChunkId()).isEqualTo("doc-parent-0");
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "Intro body\n\nMore body");
+    }
+
+    @Test
+    void standardBlockIdsAndConfidenceAreStoredOnlyAsMetadataFields() {
+        StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(block(NormalizedBlockType.PARAGRAPH, "Body", "p1", 0, 0.90d)))
+                .build();
+
+        Chunk chunk = chunker.chunk(document, context(document, 120, 0)).get(0);
+
+        assertThat(chunk.metadata().attributes())
+                .doesNotContainKeys(ChunkMetadata.KEY_BLOCK_IDS, ChunkMetadata.KEY_CONFIDENCE);
+        assertThat(chunk.metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_BLOCK_IDS, List.of("p1"))
+                .containsEntry(ChunkMetadata.KEY_CONFIDENCE, 0.90d);
+    }
+
+    @Test
     void tokenUnitUsesDeterministicEstimateWithoutTokenizer() {
         StructureBasedChunker chunker = new StructureBasedChunker(8, 0, new RecursiveChunker(8, 0));
         NormalizedDocument document = NormalizedDocument.builder("doc")

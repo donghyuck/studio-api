@@ -68,7 +68,7 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
             ParentChunk parentChunk = createParentChunk(document, context, section, maxSize, overlap, unit);
             childOrder = appendChildChunks(document, context, section, parentChunk, maxSize, overlap, unit, chunks, childOrder);
         }
-        return linkNeighbors(chunks);
+        return linkNeighborsWithinParent(chunks);
     }
 
     private ParentChunk createParentChunk(
@@ -192,8 +192,6 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         putIfPresent(attributes, ChunkMetadata.KEY_CHUNK_TYPE, chunkType.value());
         putIfPresent(attributes, ChunkMetadata.KEY_MAX_SIZE, maxSize);
         putIfPresent(attributes, ChunkMetadata.KEY_OVERLAP, overlap);
-        putIfPresent(attributes, ChunkMetadata.KEY_BLOCK_IDS, collectBlockIds(blocks));
-        putIfPresent(attributes, ChunkMetadata.KEY_CONFIDENCE, aggregateConfidence(blocks));
         putIfPresent(attributes, ChunkMetadata.KEY_SOURCE_REFS, blocks.stream()
                 .map(NormalizedBlock::effectiveSourceRef)
                 .filter(ref -> ref != null && !ref.isBlank())
@@ -343,7 +341,7 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
     }
 
     private ChunkType resolveParentChunkType(Section section) {
-        if (section.parentBlocks().stream().anyMatch(block -> block.slide() != null)) {
+        if (section.parentBlocks().stream().anyMatch(block -> block.slide() != null && block.page() == null)) {
             return ChunkType.SLIDE;
         }
         return ChunkType.PARENT;
@@ -372,20 +370,22 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         return values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
     }
 
-    private List<Chunk> linkNeighbors(List<Chunk> chunks) {
+    private List<Chunk> linkNeighborsWithinParent(List<Chunk> chunks) {
         if (chunks.isEmpty()) {
             return chunks;
         }
         List<Chunk> linked = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
+            Chunk previous = i == 0 ? null : chunks.get(i - 1);
+            Chunk next = i == chunks.size() - 1 ? null : chunks.get(i + 1);
             ChunkMetadata metadata = ChunkMetadata.builder(chunk.metadata().strategy(), chunk.metadata().order())
                     .sourceDocumentId(chunk.metadata().sourceDocumentId())
                     .parentId(chunk.metadata().parentId())
                     .chunkType(chunk.metadata().chunkType())
                     .parentChunkId(chunk.metadata().parentChunkId())
-                    .previousChunkId(i == 0 ? null : chunks.get(i - 1).id())
-                    .nextChunkId(i == chunks.size() - 1 ? null : chunks.get(i + 1).id())
+                    .previousChunkId(sameParent(chunk, previous) ? previous.id() : null)
+                    .nextChunkId(sameParent(chunk, next) ? next.id() : null)
                     .section(chunk.metadata().section())
                     .objectType(chunk.metadata().objectType())
                     .objectId(chunk.metadata().objectId())
@@ -400,6 +400,10 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
             linked.add(Chunk.of(chunk.id(), chunk.content(), metadata));
         }
         return linked;
+    }
+
+    private boolean sameParent(Chunk current, Chunk other) {
+        return other != null && Objects.equals(current.metadata().parentChunkId(), other.metadata().parentChunkId());
     }
 
     private record Section(String headingPath, int startOrder, List<NormalizedBlock> blocks,

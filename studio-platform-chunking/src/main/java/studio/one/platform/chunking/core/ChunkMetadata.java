@@ -1,6 +1,7 @@
 package studio.one.platform.chunking.core;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -23,7 +24,7 @@ public record ChunkMetadata(
         Integer endOffset,
         Integer tokenCount,
         Integer charCount,
-        java.util.List<String> blockIds,
+        List<String> blockIds,
         Double confidence,
         Map<String, Object> attributes) {
 
@@ -84,7 +85,7 @@ public record ChunkMetadata(
             Integer charCount,
             Map<String, Object> attributes) {
         this(sourceDocumentId, parentId, ChunkType.CHILD, null, null, null, section, order, strategy,
-                objectType, objectId, startOffset, endOffset, tokenCount, charCount, java.util.List.of(), null,
+                objectType, objectId, startOffset, endOffset, tokenCount, charCount, List.of(), null,
                 attributes);
     }
 
@@ -146,9 +147,9 @@ public record ChunkMetadata(
         return Map.copyOf(sanitized);
     }
 
-    private static java.util.List<String> sanitizeList(java.util.List<String> values) {
+    private static List<String> sanitizeList(List<String> values) {
         if (values == null || values.isEmpty()) {
-            return java.util.List.of();
+            return List.of();
         }
         return values.stream()
                 .filter(Objects::nonNull)
@@ -174,7 +175,7 @@ public record ChunkMetadata(
         private Integer endOffset;
         private Integer tokenCount;
         private Integer charCount;
-        private java.util.List<String> blockIds = java.util.List.of();
+        private List<String> blockIds = List.of();
         private Double confidence;
         private Map<String, Object> attributes = Map.of();
 
@@ -248,7 +249,7 @@ public record ChunkMetadata(
             return this;
         }
 
-        public Builder blockIds(java.util.List<String> blockIds) {
+        public Builder blockIds(List<String> blockIds) {
             this.blockIds = blockIds;
             return this;
         }

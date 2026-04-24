@@ -9,7 +9,8 @@ public enum ChunkType {
     TABLE("table"),
     OCR("ocr"),
     IMAGE_CAPTION("image-caption"),
-    SLIDE("slide");
+    SLIDE("slide"),
+    UNKNOWN("unknown");
 
     private final String value;
 
@@ -31,6 +32,6 @@ public enum ChunkType {
                 return type;
             }
         }
-        throw new IllegalArgumentException("Unsupported chunk type: " + value);
+        return UNKNOWN;
     }
 }

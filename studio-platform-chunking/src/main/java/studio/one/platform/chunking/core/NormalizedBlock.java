@@ -1,7 +1,9 @@
 package studio.one.platform.chunking.core;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Parser-neutral logical block prepared for chunking.
@@ -16,7 +18,7 @@ public record NormalizedBlock(
         Integer order,
         String parentBlockId,
         String headingPath,
-        java.util.List<String> blockIds,
+        List<String> blockIds,
         Double confidence,
         Map<String, Object> metadata) {
 
@@ -47,7 +49,7 @@ public record NormalizedBlock(
             Integer order,
             String parentBlockId,
             Map<String, Object> metadata) {
-        this(id, type, text, sourceRef, page, slide, order, parentBlockId, "", java.util.List.of(), null, metadata);
+        this(id, type, text, sourceRef, page, slide, order, parentBlockId, "", List.of(), null, metadata);
     }
 
     public boolean hasText() {
@@ -82,9 +84,9 @@ public record NormalizedBlock(
         return Map.copyOf(sanitized);
     }
 
-    private static java.util.List<String> sanitizeList(java.util.List<String> values, String fallbackId, String fallbackSourceRef) {
-        java.util.List<String> sanitized = values == null ? java.util.List.of() : values.stream()
-                .filter(java.util.Objects::nonNull)
+    private static List<String> sanitizeList(List<String> values, String fallbackId, String fallbackSourceRef) {
+        List<String> sanitized = values == null ? List.of() : values.stream()
+                .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .distinct()
@@ -93,9 +95,9 @@ public record NormalizedBlock(
             return sanitized;
         }
         if (fallbackSourceRef != null && !fallbackSourceRef.isBlank()) {
-            return java.util.List.of(fallbackSourceRef);
+            return List.of(fallbackSourceRef);
         }
-        return fallbackId == null || fallbackId.isBlank() ? java.util.List.of() : java.util.List.of(fallbackId);
+        return fallbackId == null || fallbackId.isBlank() ? List.of() : List.of(fallbackId);
     }
 
     private static String normalize(String value) {
@@ -112,7 +114,7 @@ public record NormalizedBlock(
         private Integer order;
         private String parentBlockId;
         private String headingPath;
-        private java.util.List<String> blockIds = java.util.List.of();
+        private List<String> blockIds = List.of();
         private Double confidence;
         private Map<String, Object> metadata = Map.of();
 
@@ -156,7 +158,7 @@ public record NormalizedBlock(
             return this;
         }
 
-        public Builder blockIds(java.util.List<String> blockIds) {
+        public Builder blockIds(List<String> blockIds) {
             this.blockIds = blockIds;
             return this;
         }

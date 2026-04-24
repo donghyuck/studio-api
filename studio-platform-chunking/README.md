@@ -79,7 +79,9 @@ without schema breaks.
 - Child chunks are the default retrieval unit.
 - Parent chunks are modeled by deterministic `parentChunkId` values.
 - Parent chunk content can be persisted additively as `parentChunkContent` when a strategy needs parent context recovery.
-- `previousChunkId` and `nextChunkId` link adjacent child chunks.
+- `previousChunkId` and `nextChunkId` link adjacent child chunks within the same parent section only.
+- Documents that start without a heading still receive a parent context with an empty `section` value and body-only
+  `parentChunkContent`.
 - `blockIds`, `headingPath`, `page`, `slide`, `sourceRef`, and `confidence` preserve provenance needed for later
   context expansion.
 

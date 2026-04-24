@@ -97,4 +97,10 @@ class ChunkMetadataTest {
         assertThat(metadata.blockIds()).isEmpty();
         assertThat(metadata.confidence()).isNull();
     }
+
+    @Test
+    void chunkTypeFallsBackSafelyForUnknownPersistedValues() {
+        assertThat(ChunkType.from("unexpected-value")).isEqualTo(ChunkType.UNKNOWN);
+        assertThat(ChunkType.from(null)).isEqualTo(ChunkType.CHILD);
+    }
 }
