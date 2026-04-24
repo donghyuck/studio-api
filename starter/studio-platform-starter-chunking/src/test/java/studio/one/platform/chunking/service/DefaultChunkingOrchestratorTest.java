@@ -105,4 +105,17 @@ class DefaultChunkingOrchestratorTest {
         assertThat(chunks).hasSize(1);
         assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.STRUCTURE_BASED);
     }
+
+    @Test
+    void returnsEmptyChunksForBlankNormalizedDocument() {
+        ChunkingProperties properties = new ChunkingProperties();
+        RecursiveChunker recursiveChunker = new RecursiveChunker(80, 0);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(80, 0), recursiveChunker,
+                        new StructureBasedChunker(80, 0, recursiveChunker)));
+
+        assertThat(orchestrator.chunk(NormalizedDocument.builder("doc").build())).isEmpty();
+        assertThat(orchestrator.chunk((NormalizedDocument) null)).isEmpty();
+    }
 }

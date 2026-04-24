@@ -34,7 +34,7 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
 
     @Override
     public List<Chunk> chunk(NormalizedDocument document) {
-        if (document.chunkableText().isBlank()) {
+        if (document == null || document.chunkableText().isBlank()) {
             return List.of();
         }
         ChunkingContext context = document.toContextBuilder()
