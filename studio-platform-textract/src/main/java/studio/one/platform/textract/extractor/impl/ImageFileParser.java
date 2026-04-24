@@ -3,6 +3,8 @@ package studio.one.platform.textract.extractor.impl;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +27,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
     private final Tesseract tesseract; // Spring Bean 으로 주입받는 것을 권장
 
     public ImageFileParser(String tesseractDataPath, String language) {
-        this.tesseract = new  Tesseract();
+        this.tesseract = new Tesseract();
         this.tesseract.setDatapath(tesseractDataPath);
         this.tesseract.setLanguage(language);
     }
@@ -46,27 +48,19 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
                 throw new FileParseException("Unsupported or corrupt image: " + safeFilename(filename));
             }
             String text = cleanText(tesseract.doOCR(image));
-            List<ParsedBlock> blocks = text == null || text.isBlank()
-                    ? List.of()
-                    : List.of(ParsedBlock.text(
-                            "image/ocr",
-                            BlockType.OCR_TEXT,
-                            text,
-                            null,
-                            0,
-                            Map.of()));
+            List<ParsedBlock> blocks = ocrLineBlocks(text);
             ExtractedImage extractedImage = new ExtractedImage(
                     "image",
                     contentType,
                     filename,
                     image.getWidth(),
                     image.getHeight(),
-                    Map.of("ocr", true));
+                    imageMetadata(blocks.size()));
             return new ParsedFile(
                     DocumentFormat.IMAGE,
                     text,
                     blocks,
-                    metadata(contentType, filename),
+                    fileMetadata(contentType, filename),
                     List.of(),
                     List.of(),
                     List.of(),
@@ -82,15 +76,41 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         return parseStructured(bytes, contentType, filename).plainText();
     }
 
-    private Map<String, Object> metadata(String contentType, String filename) {
-        if (filename == null || filename.isBlank()) {
-            return contentType == null || contentType.isBlank()
-                    ? Map.of()
-                    : Map.of("contentType", contentType);
+    List<ParsedBlock> ocrLineBlocks(String text) {
+        if (text == null || text.isBlank()) {
+            return List.of();
         }
-        if (contentType == null || contentType.isBlank()) {
-            return Map.of("filename", filename);
+        List<ParsedBlock> blocks = new ArrayList<>();
+        String[] lines = text.split("\\n");
+        for (String line : lines) {
+            String cleanedLine = cleanText(line);
+            if (cleanedLine == null || cleanedLine.isBlank()) {
+                continue;
+            }
+            int order = blocks.size();
+            String path = "image/ocr/line[" + order + "]";
+            blocks.add(ParsedBlock.text(path, BlockType.OCR_TEXT, cleanedLine, null, order, ocrBlockMetadata(path, order)));
         }
-        return Map.of("filename", filename, "contentType", contentType);
+        return blocks;
     }
+
+    private Map<String, Object> ocrBlockMetadata(String path, int order) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
+        metadata.put(ParsedBlock.KEY_ORDER, order);
+        metadata.put("ocr", true);
+        metadata.put("ocrUnit", "line");
+        metadata.put("confidenceAvailable", false);
+        return metadata;
+    }
+
+    private Map<String, Object> imageMetadata(int ocrLineCount) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ExtractedImage.KEY_SOURCE_REF, "image");
+        metadata.put("ocr", true);
+        metadata.put("ocrLineCount", ocrLineCount);
+        metadata.put("confidenceAvailable", false);
+        return metadata;
+    }
+
 }

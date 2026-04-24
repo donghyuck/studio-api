@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-04-24
+
+### 변경됨
+- 이슈 #235 대응으로 `HtmlFileParser.parse()`가 기존 `Jsoup.text()` 기반 plain text 전용 추출에서 `parseStructured(...).plainText()` 경로를 사용하도록 변경됐다.
+- HTML 추출은 `script`, `style`, `nav`, `aside`, `footer`, `form` 등 boilerplate 후보를 제거하고 `h1`-`h6`, `p`, `li`, `table`, `img` 기반 semantic block을 구성한다.
+- PDF/PPTX/HTML 파서에 구조화 block/provenance 추출을 추가하고, DOCX footnote/list 및 OCR line block metadata를 보강했다.
+
+### 검증
+- `./gradlew :studio-platform-textract:test`
+- `./gradlew :studio-platform-textract:build`
+
 ## 2026-04-20
 
 ### 변경됨

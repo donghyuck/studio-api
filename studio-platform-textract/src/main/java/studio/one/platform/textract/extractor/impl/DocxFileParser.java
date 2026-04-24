@@ -3,13 +3,13 @@ package studio.one.platform.textract.extractor.impl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFFootnote;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
@@ -66,13 +66,14 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                         BlockType.FOOTER,
                         order);
             }
+            order = appendFootnotes(doc.getFootnotes(), sb, blocks, order);
 
             String text = cleanText(sb.toString());
             return new ParsedFile(
                     DocumentFormat.DOCX,
                     text,
                     blocks,
-                    metadata(contentType, filename),
+                    fileMetadata(contentType, filename),
                     List.of(),
                     List.of(),
                     tables,
@@ -105,6 +106,23 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                 case PARAGRAPH -> order += appendParagraph((XWPFParagraph) element, sb, blocks, path, containerType, order);
                 case TABLE -> order += appendTable((XWPFTable) element, sb, blocks, tables, path, order);
                 default -> { /* ignore other elements */ }
+            }
+        }
+        return order;
+    }
+
+    private int appendFootnotes(
+            List<XWPFFootnote> footnotes,
+            StringBuilder sb,
+            List<ParsedBlock> blocks,
+            int startOrder) {
+        int order = startOrder;
+        for (int footnoteIndex = 0; footnoteIndex < footnotes.size(); footnoteIndex++) {
+            XWPFFootnote footnote = footnotes.get(footnoteIndex);
+            List<XWPFParagraph> paragraphs = footnote.getParagraphs();
+            for (int paragraphIndex = 0; paragraphIndex < paragraphs.size(); paragraphIndex++) {
+                String path = "footnote[" + footnoteIndex + "]/paragraph[" + paragraphIndex + "]";
+                order += appendParagraph(paragraphs.get(paragraphIndex), sb, blocks, path, BlockType.FOOTNOTE, order);
             }
         }
         return order;
@@ -160,8 +178,11 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
     }
 
     private BlockType resolveParagraphType(XWPFParagraph paragraph, BlockType containerType) {
-        if (containerType == BlockType.HEADER || containerType == BlockType.FOOTER) {
+        if (containerType == BlockType.HEADER || containerType == BlockType.FOOTER || containerType == BlockType.FOOTNOTE) {
             return containerType;
+        }
+        if (paragraph.getNumID() != null) {
+            return BlockType.LIST_ITEM;
         }
         String style = paragraph.getStyle();
         if (style == null) {
@@ -183,35 +204,4 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         return BlockType.PARAGRAPH;
     }
 
-    private Map<String, Object> blockMetadata(String path) {
-        return blockMetadata(path, null);
-    }
-
-    private Map<String, Object> blockMetadata(String path, Integer order) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
-        if (order != null) {
-            metadata.put(ParsedBlock.KEY_ORDER, order);
-        }
-        return metadata;
-    }
-
-    private Map<String, Object> tableMetadata(String path, String format) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ExtractedTable.KEY_SOURCE_REF, path);
-        metadata.put(ExtractedTable.KEY_FORMAT, format);
-        return metadata;
-    }
-
-    private Map<String, Object> metadata(String contentType, String filename) {
-        if (filename == null || filename.isBlank()) {
-            return contentType == null || contentType.isBlank()
-                    ? Map.of()
-                    : Map.of("contentType", contentType);
-        }
-        if (contentType == null || contentType.isBlank()) {
-            return Map.of("filename", filename);
-        }
-        return Map.of("filename", filename, "contentType", contentType);
-    }
 }
