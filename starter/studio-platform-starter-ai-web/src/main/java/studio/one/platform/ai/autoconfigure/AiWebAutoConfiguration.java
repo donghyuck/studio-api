@@ -13,6 +13,7 @@ import org.springframework.lang.Nullable;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
+import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
@@ -26,6 +27,8 @@ import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.VectorController;
+import studio.one.platform.ai.web.service.ConversationChatService;
+import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.constant.PropertyKeys;
 
@@ -48,17 +51,30 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(ConversationRepositoryPort.class)
+    ConversationRepositoryPort conversationRepositoryPort() {
+        return new InMemoryConversationRepository();
+    }
+
+    @Bean
+    ConversationChatService conversationChatService(ConversationRepositoryPort repositoryPort) {
+        return new ConversationChatService(repositoryPort);
+    }
+
+    @Bean
     ChatController chatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagContextBuilder ragContextBuilder,
             AiWebRagProperties ragProperties,
             AiWebChatProperties chatProperties,
-            @Nullable ChatMemoryStore chatMemoryStore) {
+            @Nullable ChatMemoryStore chatMemoryStore,
+            ConversationChatService conversationChatService) {
         return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
                 chatMemoryStore,
-                chatProperties.getMemory().isEnabled());
+                chatProperties.getMemory().isEnabled(),
+                conversationChatService);
     }
 
     @Bean

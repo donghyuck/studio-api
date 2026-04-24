@@ -11,6 +11,9 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +29,8 @@ import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
+import studio.one.platform.ai.core.chat.ChatResponseMetadata;
+import studio.one.platform.ai.core.chat.ChatStreamEvent;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
@@ -36,7 +41,12 @@ import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
+import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
+import studio.one.platform.ai.web.dto.ConversationDetailDto;
+import studio.one.platform.ai.web.dto.ConversationSummaryDto;
+import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
+import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.web.dto.ApiResponse;
 
 class ChatControllerTest {
@@ -233,8 +243,126 @@ class ChatControllerTest {
                 .containsExactly("USER:hello", "ASSISTANT:default", "USER:next");
         assertThat(response.metadata())
                 .containsEntry("memoryEnabled", true)
+                .containsEntry("memoryUsed", true)
                 .containsEntry("conversationId", "chat-1")
                 .containsEntry("memoryMessageCount", 4);
+    }
+
+    @Test
+    void streamWritesSseEventsWithRequestId() throws Exception {
+        when(defaultChatPort.stream(any(ChatRequest.class))).thenReturn(Stream.of(
+                ChatStreamEvent.delta("hel", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.delta("lo", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.usage(ChatResponseMetadata.empty()),
+                ChatStreamEvent.complete("model", ChatResponseMetadata.empty())));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        controller.stream(new ChatRequestDto(
+                null,
+                null,
+                List.of(new ChatMessageDto("user", "hello")),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null), null).getBody().writeTo(output);
+
+        String body = output.toString(StandardCharsets.UTF_8);
+        assertThat(body)
+                .contains("event: delta")
+                .contains("event: usage")
+                .contains("event: complete")
+                .contains("\"requestId\"");
+    }
+
+    @Test
+    void conversationApisListDetailAndDeleteMemoryConversation() {
+        controller = conversationController();
+
+        controller.chat(memoryChat("chat-1", "hello"));
+
+        List<ConversationSummaryDto> conversations = controller.conversations(0, 20, null)
+                .getBody()
+                .getData();
+        assertThat(conversations).hasSize(1);
+        assertThat(conversations.get(0).conversationId()).isEqualTo("chat-1");
+        assertThat(conversations.get(0).messageCount()).isEqualTo(2);
+
+        ConversationDetailDto detail = controller.conversation("chat-1", null).getBody().getData();
+        assertThat(detail.messages())
+                .extracting(message -> message.role() + ":" + message.content())
+                .containsExactly("user:hello", "assistant:default");
+
+        assertThat(controller.deleteConversation("chat-1", null).getBody().getData())
+                .containsEntry("deleted", true);
+        assertThat(controller.conversations(0, 20, null).getBody().getData()).isEmpty();
+    }
+
+    @Test
+    void conversationApisKeepPrincipalScopesSeparate() {
+        controller = conversationController();
+
+        controller.chat(memoryChat("chat-1", "hello from user a"), () -> "user-a");
+        controller.chat(memoryChat("chat-1", "hello from user b"), () -> "user-b");
+
+        ConversationDetailDto userA = controller.conversation("chat-1", () -> "user-a").getBody().getData();
+        ConversationDetailDto userB = controller.conversation("chat-1", () -> "user-b").getBody().getData();
+
+        assertThat(userA.messages())
+                .extracting(message -> message.role() + ":" + message.content())
+                .containsExactly("user:hello from user a", "assistant:default");
+        assertThat(userB.messages())
+                .extracting(message -> message.role() + ":" + message.content())
+                .containsExactly("user:hello from user b", "assistant:default");
+    }
+
+    @Test
+    void regenerateReplacesLastAssistantResponse() {
+        controller = conversationController();
+        when(defaultChatPort.chat(any())).thenReturn(response("first"), response("regenerated"));
+
+        controller.chat(memoryChat("chat-1", "hello"));
+        ChatResponseDto regenerated = controller.regenerate(
+                new ConversationActionRequestDto("chat-1", null, null, null, null),
+                null).getBody().getData();
+
+        assertThat(regenerated.messages().get(0).content()).isEqualTo("regenerated");
+        ConversationDetailDto detail = controller.conversation("chat-1", null).getBody().getData();
+        assertThat(detail.messages())
+                .extracting(message -> message.role() + ":" + message.content())
+                .containsExactly("user:hello", "assistant:regenerated");
+    }
+
+    @Test
+    void truncateForkCompactAndCancelConversation() {
+        controller = conversationController();
+        controller.chat(memoryChat("chat-1", "hello"));
+        controller.chat(memoryChat("chat-1", "next"));
+        ConversationDetailDto detail = controller.conversation("chat-1", null).getBody().getData();
+        String firstMessageId = detail.messages().get(0).messageId();
+
+        ConversationDetailDto forked = controller.fork(
+                new ConversationActionRequestDto("chat-1", firstMessageId, "chat-copy", null, null),
+                null).getBody().getData();
+        assertThat(forked.conversationId()).isEqualTo("chat-copy");
+        assertThat(forked.messages()).hasSize(1);
+
+        ConversationDetailDto truncated = controller.truncate(
+                new ConversationActionRequestDto("chat-1", firstMessageId, null, null, null),
+                null).getBody().getData();
+        assertThat(truncated.messages()).hasSize(1);
+
+        ConversationDetailDto compacted = controller.compact(
+                new ConversationActionRequestDto("chat-1", null, null, "short summary", null),
+                null).getBody().getData();
+        assertThat(compacted.status()).isEqualTo("compacted");
+        assertThat(compacted.summary()).isEqualTo("short summary");
+
+        ConversationDetailDto cancelled = controller.cancel(
+                new ConversationActionRequestDto("chat-1", null, null, null, null),
+                null).getBody().getData();
+        assertThat(cancelled.status()).isEqualTo("cancelled");
     }
 
     @Test
@@ -630,6 +758,11 @@ class ChatControllerTest {
     private ChatController memoryController() {
         return new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), false,
                 memoryStore(), true);
+    }
+
+    private ChatController conversationController() {
+        return new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), false,
+                memoryStore(), true, new ConversationChatService(new InMemoryConversationRepository()));
     }
 
     private ChatMemoryStore memoryStore() {
