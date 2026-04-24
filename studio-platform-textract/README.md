@@ -42,13 +42,68 @@ List<ParsedBlock> blocks = parsed.blocks();
 | 포맷 | 추출 범위 | 주요 의존성 |
 | --- | --- | --- |
 | TXT/CSV/LOG | 전체 텍스트 | JDK |
-| HTML | Jsoup 기반 텍스트 | `org.jsoup:jsoup` |
-| PDF | PDFBox 기반 텍스트 | `org.apache.pdfbox:pdfbox` |
-| DOCX | 문단, 표, header/footer 텍스트 | `org.apache.poi:poi-ooxml` |
-| PPTX | slide text shape 텍스트 | `org.apache.poi:poi-ooxml` |
-| Image | Tesseract OCR 텍스트, 이미지 metadata | `net.sourceforge.tess4j:tess4j` |
+| HTML | Jsoup 기반 semantic block, 표, 이미지 src/alt | `org.jsoup:jsoup` |
+| PDF | PDFBox 기반 page/paragraph, 표 후보, 실제 content stream 이미지 | `org.apache.pdfbox:pdfbox` |
+| DOCX | 문단, 표, header/footer/footnote/list, 내장 이미지/caption | `org.apache.poi:poi-ooxml` |
+| PPTX | slide title/body/footer, picture shape, caption 후보 | `org.apache.poi:poi-ooxml` |
+| Image | Tesseract OCR line/word, confidence, bbox, warning metadata | `net.sourceforge.tess4j:tess4j` |
 | HWPX | 문단, 표, 이미지 BinData 참조 | JDK ZIP/XML |
 | HWP | BodyText 문단, BinData 이미지 목록 | `org.apache.poi:poi` |
+
+## 구조화 결과 계약
+
+`ParsedFile`은 벡터화 파이프라인의 원천 입력으로 사용할 수 있는 구조화 결과를 제공한다.
+이 모듈은 chunking, embedding, vector indexing을 수행하지 않는다.
+
+- `plainText`: 기존 문자열 추출 호환용 fallback 텍스트
+- `blocks`: `TITLE`, `HEADING`, `PARAGRAPH`, `LIST_ITEM`, `TABLE`, `IMAGE_CAPTION`, `HEADER`, `FOOTER`, `FOOTNOTE`, `OCR_TEXT` 등 구조 block
+- `pages`: PDF page, PPTX slide처럼 page/slide 단위 provenance가 필요한 block
+- `tables`: 표 markdown, cell 목록, `vectorText`, `headerRowCount`, sourceRef/format metadata
+- `images`: 이미지 sourceRef, sourceRefs, binDataRef, packageId, caption, src/altText, OCR metadata
+- `warnings`: `canonicalCode`, `severity`, `sourceRef`, `blockRef`, `partialParse` 기반 warning/error
+
+### 표 vector text
+
+표는 `ExtractedTable.markdown()`을 유지하면서, 벡터화 입력에는 `ExtractedTable.vectorText()` 사용을 권장한다.
+`vectorText`는 header row가 있으면 data cell을 `header: value` 형태로 정규화한다.
+HTML table은 `rowspan`/`colspan`을 고려해 logical column provenance를 계산한다.
+
+```java
+for (ExtractedTable table : parsed.tables()) {
+    String textForEmbedding = table.vectorText();
+    String sourceRef = table.sourceRef();
+    int headerRows = table.headerRowCount();
+}
+```
+
+각 `ExtractedTableCell`은 `row`, `col`, `rowSpan`, `colSpan`, `sourceRef`, `order`, `header`를 제공한다.
+
+### 이미지와 OCR metadata
+
+이미지는 포맷별로 가능한 provenance를 보존한다.
+
+- HTML: `src`, `altText`
+- DOCX/PPTX: embedded image filename/content type/size, caption 후보, sourceRef
+- PDF: page content stream에서 실제 draw된 image sourceRef
+- HWP/HWPX: BinData 경로, packageId, sourceRefs
+- OCR image: line 단위 `OCR_TEXT` block, word metadata, line/word bbox, confidence
+
+OCR confidence가 낮으면 `OCR_LOW_CONFIDENCE` warning이 생성된다.
+word-level minimum confidence를 사용하므로 line 평균 confidence가 threshold보다 높아도 낮은 confidence word를 감지할 수 있다.
+
+### warning/failure 구분
+
+부분 지원 또는 손실 가능성은 `ParseWarning`으로 표현한다.
+complete failure는 `FileParseException`으로 실패한다.
+
+주요 warning code 예:
+
+- `HWP_ENCRYPTED`
+- `HWPX_SECTION_MISSING`
+- `TABLE_RECONSTRUCTION_PARTIAL`
+- `IMAGE_MAPPING_PARTIAL`
+- `PPTX_LINKED_IMAGE_PARTIAL`
+- `OCR_LOW_CONFIDENCE`
 
 ## HWP/HWPX 지원 범위
 
