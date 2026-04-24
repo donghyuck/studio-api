@@ -90,7 +90,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                     images,
                     false);
 
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             throw new FileParseException("Failed to parse DOCX file: " + safeFilename(filename), e);
         }
     }

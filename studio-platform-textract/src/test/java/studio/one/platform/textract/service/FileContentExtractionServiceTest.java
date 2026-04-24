@@ -66,8 +66,9 @@ class FileContentExtractionServiceTest {
 
     @Test
     void extractTextRejectsOversizedFiles() throws Exception {
+        RecordingParser parser = new RecordingParser();
         FileContentExtractionService service = new FileContentExtractionService(
-                new FileParserFactory(List.of(new RecordingParser())),
+                new FileParserFactory(List.of(parser)),
                 4);
         Path temp = Files.createTempFile("large-attachment", ".txt");
         temp.toFile().deleteOnExit();
@@ -77,6 +78,28 @@ class FileContentExtractionServiceTest {
 
         assertThrows(FileParseException.class,
                 () -> service.extractText("text/plain", "large.txt", temp.toFile()));
+        assertEquals(0, parser.invocations);
+    }
+
+    @Test
+    void parseStructuredAcceptsFilesAtExactLimitAndRejectsOversizedFilesBeforeParserDispatch() throws Exception {
+        RecordingParser parser = new RecordingParser();
+        FileContentExtractionService service = new FileContentExtractionService(
+                new FileParserFactory(List.of(parser)),
+                4);
+        Path exact = Files.createTempFile("exact-attachment", ".txt");
+        Path oversized = Files.createTempFile("oversized-attachment", ".txt");
+        exact.toFile().deleteOnExit();
+        oversized.toFile().deleteOnExit();
+        Files.writeString(exact, "abcd", UTF_8);
+        Files.writeString(oversized, "abcde", UTF_8);
+
+        service.parseStructured("text/plain", "exact.txt", exact.toFile());
+        assertEquals(1, parser.invocations);
+
+        assertThrows(FileParseException.class,
+                () -> service.parseStructured("text/plain", "large.txt", oversized.toFile()));
+        assertEquals(1, parser.invocations);
     }
 
     private static final class RecordingParser implements FileParser {

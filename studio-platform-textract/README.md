@@ -162,3 +162,21 @@ language data not found
 
 포맷별 parser는 관련 라이브러리가 classpath에 있을 때만 등록된다.
 예를 들어 HWP parser는 `org.apache.poi.poifs.filesystem.POIFSFileSystem`이 있어야 자동 구성된다.
+
+## 운영 품질 검증
+
+상용 운영 품질 기준에서는 정상 golden path뿐 아니라 실패/부분 성공/resource bound를 함께 확인한다.
+
+권장 검증 명령:
+
+```bash
+./gradlew :studio-platform-textract:test
+```
+
+운영 failure matrix는 다음 기준을 지킨다.
+
+- corrupt PDF/DOCX/PPTX/image/HWPX 입력은 complete failure로 `FileParseException`을 발생시킨다.
+- HTML은 Jsoup parser 특성상 malformed markup을 best-effort로 복구할 수 있으며, corrupt binary 포맷과 동일한 failure로 취급하지 않는다.
+- partial support는 `ParseWarning`의 `canonicalCode`, `severity`, `partialParse`로 구분한다.
+- oversized file/InputStream은 parser dispatch 전에 차단되어야 한다.
+- 포맷별 golden test는 구조화 결과의 block/table/image/warning contract 회귀를 방지한다.

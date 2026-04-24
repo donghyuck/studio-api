@@ -107,7 +107,7 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
                     images,
                     false);
 
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             throw new FileParseException("Failed to parse PPTX file: " + safeFilename(filename), e);
         }
     }
