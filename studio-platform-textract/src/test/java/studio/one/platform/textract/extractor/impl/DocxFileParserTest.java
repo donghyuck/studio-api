@@ -30,6 +30,8 @@ class DocxFileParserTest {
         assertEquals(4, result.tables().get(0).cells().size());
         assertEquals("A1", result.tables().get(0).cells().get(0).text());
         assertEquals("| A1 | B1 |", result.tables().get(0).markdown().split("\\n")[0]);
+        assertEquals("body/element[1]", result.tables().get(0).sourceRef());
+        assertEquals("docx", result.tables().get(0).format());
     }
 
     private byte[] docxWithParagraphAndTable() throws Exception {

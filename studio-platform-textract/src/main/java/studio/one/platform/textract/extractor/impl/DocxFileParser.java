@@ -3,6 +3,7 @@ package studio.one.platform.textract.extractor.impl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -125,8 +126,15 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
         }
         String markdown = String.join("\n", markdownRows);
-        tables.add(new ExtractedTable(path, markdown, cells, Map.of()));
+        tables.add(new ExtractedTable(path, markdown, cells, tableMetadata(path, "docx")));
         blocks.add(new ParsedBlock(path, BlockType.TABLE, path, markdown, null, List.of(), Map.of()));
+    }
+
+    private Map<String, Object> tableMetadata(String path, String format) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ExtractedTable.KEY_SOURCE_REF, path);
+        metadata.put(ExtractedTable.KEY_FORMAT, format);
+        return metadata;
     }
 
     private Map<String, Object> metadata(String contentType, String filename) {
