@@ -10,6 +10,8 @@ import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
+import studio.one.platform.chunking.core.NormalizedDocument;
+import studio.one.platform.chunking.core.NormalizedDocumentChunker;
 
 public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
 
@@ -30,11 +32,31 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
         return selectChunker(effectiveContext).chunk(effectiveContext);
     }
 
+    @Override
+    public List<Chunk> chunk(NormalizedDocument document) {
+        if (document.chunkableText().isBlank()) {
+            return List.of();
+        }
+        ChunkingContext context = document.toContextBuilder()
+                .strategy(ChunkingStrategyType.STRUCTURE_BASED)
+                .maxSize(properties.getMaxSize())
+                .overlap(properties.getOverlap())
+                .build();
+        Chunker chunker = selectChunker(context);
+        if (chunker instanceof NormalizedDocumentChunker normalizedDocumentChunker) {
+            return normalizedDocumentChunker.chunk(document, context);
+        }
+        return chunker.chunk(context);
+    }
+
     private Chunker selectChunker(ChunkingContext context) {
         ChunkingStrategyType strategy = context.strategy() == null ? properties.strategyType() : context.strategy();
-        if (strategy != ChunkingStrategyType.FIXED_SIZE && strategy != ChunkingStrategyType.RECURSIVE) {
+        if (strategy != ChunkingStrategyType.FIXED_SIZE
+                && strategy != ChunkingStrategyType.RECURSIVE
+                && strategy != ChunkingStrategyType.STRUCTURE_BASED) {
             throw new IllegalArgumentException(
-                    "Unsupported Phase 1 chunking strategy: " + strategy + ". Supported values are FIXED_SIZE and RECURSIVE.");
+                    "Unsupported pure chunking strategy: " + strategy
+                            + ". Supported values are FIXED_SIZE, RECURSIVE, and STRUCTURE_BASED.");
         }
         Chunker chunker = chunkers.get(strategy);
         if (chunker == null) {

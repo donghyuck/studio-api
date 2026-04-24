@@ -15,10 +15,10 @@ Phase 1 supports:
 
 - `recursive` (default)
 - `fixed-size`
+- `structure-based`
 
 Planned Phase 2 strategies:
 
-- `structure-based`
 - `semantic` (AI-linked, not in this pure starter)
 - `llm-based` (AI-linked, not in this pure starter)
 
@@ -36,7 +36,7 @@ studio:
 | Property | Default | Description |
 | --- | --- | --- |
 | `studio.chunking.enabled` | `true` | Registers default chunking beans when enabled. |
-| `studio.chunking.strategy` | `recursive` | Phase 1 strategy. Supported values: `recursive`, `fixed-size`. |
+| `studio.chunking.strategy` | `recursive` | Pure chunking strategy. Supported values: `recursive`, `fixed-size`, `structure-based`. |
 | `studio.chunking.max-size` | `800` | Maximum chunk size in characters. |
 | `studio.chunking.overlap` | `100` | Character overlap carried from the previous chunk. |
 
@@ -49,8 +49,9 @@ Applications can override the default behavior by registering custom beans:
 - `ChunkingOrchestrator`
 - `FixedSizeChunker`
 - `RecursiveChunker`
+- `StructureBasedChunker`
 
-`DefaultChunkingOrchestrator` receives all `Chunker` beans, but Phase 1 only executes `FIXED_SIZE` and `RECURSIVE`.
+`DefaultChunkingOrchestrator` receives all `Chunker` beans and executes `FIXED_SIZE`, `RECURSIVE`, and `STRUCTURE_BASED`.
 
 ## Recursive Strategy
 
@@ -69,3 +70,30 @@ Chunk ids are deterministic:
 ```
 
 `chunkOrder` starts at `0`.
+
+## Structure-Based Strategy
+
+`StructureBasedChunker` consumes `NormalizedDocument` and preserves parser provenance in `ChunkMetadata`.
+It keeps heading boundaries as `section` / `headingPath`, packs paragraph-like blocks by configured size, and emits table, OCR text, and image-caption blocks as standalone chunks.
+
+The strategy does not parse files, run OCR, call embedding APIs, call LLMs, or write vector stores.
+
+When `studio-platform-textract` is available, `TextractNormalizedDocumentAdapter` can convert `ParsedFile` into `NormalizedDocument`:
+
+```java
+ParsedFile parsedFile = fileContentExtractionService.parseStructured(...);
+NormalizedDocument document = new TextractNormalizedDocumentAdapter()
+        .adapt("doc-1", parsedFile);
+List<Chunk> chunks = chunkingOrchestrator.chunk(document);
+```
+
+The adapter maps:
+
+- `ParsedBlock` to normalized heading, paragraph, list, footnote, OCR, and other logical blocks.
+- `ExtractedTable.vectorText()` to table chunks.
+- `ExtractedImage.caption()`, `altText()`, or `ocrText()` to image-caption/OCR chunks.
+
+## Size Policy
+
+Character size remains the default policy. `ChunkUnit.TOKEN` uses a deterministic estimate based on compacted character length and does not call an external tokenizer.
+Structure-based overlap is conservative: heading, table, OCR, and image-caption boundaries are not carried as overlap tails.

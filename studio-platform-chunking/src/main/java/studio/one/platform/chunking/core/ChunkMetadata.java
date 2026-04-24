@@ -32,6 +32,18 @@ public record ChunkMetadata(
     public static final String KEY_END_OFFSET = "endOffset";
     public static final String KEY_TOKEN_COUNT = "tokenCount";
     public static final String KEY_CHAR_COUNT = "charCount";
+    public static final String KEY_SOURCE_REF = "sourceRef";
+    public static final String KEY_SOURCE_REFS = "sourceRefs";
+    public static final String KEY_BLOCK_TYPE = "blockType";
+    public static final String KEY_PAGE = "page";
+    public static final String KEY_SLIDE = "slide";
+    public static final String KEY_PARENT_BLOCK_ID = "parentBlockId";
+    public static final String KEY_HEADING_PATH = "headingPath";
+    public static final String KEY_SOURCE_FORMAT = "sourceFormat";
+    public static final String KEY_TOKEN_ESTIMATE = "tokenEstimate";
+    public static final String KEY_CHUNK_UNIT = "chunkUnit";
+    public static final String KEY_MAX_SIZE = "maxSize";
+    public static final String KEY_OVERLAP = "overlap";
 
     public ChunkMetadata {
         if (order < 0) {
@@ -159,6 +171,13 @@ public record ChunkMetadata(
 
         public Builder attributes(Map<String, Object> attributes) {
             this.attributes = attributes;
+            return this;
+        }
+
+        public Builder attribute(String key, Object value) {
+            Map<String, Object> merged = new LinkedHashMap<>(attributes);
+            merged.put(key, value);
+            this.attributes = merged;
             return this;
         }
 

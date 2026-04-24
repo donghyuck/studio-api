@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.service.StructureBasedChunker;
 import studio.one.platform.chunking.service.FixedSizeChunker;
 import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.core.ChunkingContext;
@@ -22,6 +23,7 @@ class ChunkingAutoConfigurationTest {
                 .hasSingleBean(ChunkingProperties.class)
                 .hasSingleBean(FixedSizeChunker.class)
                 .hasSingleBean(RecursiveChunker.class)
+                .hasSingleBean(StructureBasedChunker.class)
                 .hasSingleBean(ChunkingOrchestrator.class));
     }
 
@@ -31,6 +33,7 @@ class ChunkingAutoConfigurationTest {
                 .run(context -> assertThat(context)
                         .doesNotHaveBean(FixedSizeChunker.class)
                         .doesNotHaveBean(RecursiveChunker.class)
+                        .doesNotHaveBean(StructureBasedChunker.class)
                         .doesNotHaveBean(ChunkingOrchestrator.class));
     }
 
