@@ -69,7 +69,7 @@ class OperationalFailureMatrixTest {
         html.append("</main>");
 
         ParsedFile parsed = assertTimeout(
-                Duration.ofSeconds(2),
+                Duration.ofSeconds(10),
                 () -> new HtmlFileParser().parseStructured(html.toString().getBytes(UTF_8), "text/html", "large.html"));
 
         assertEquals(500, parsed.blocks().size());

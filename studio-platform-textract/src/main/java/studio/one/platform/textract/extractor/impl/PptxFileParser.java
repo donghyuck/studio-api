@@ -9,6 +9,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.poi.UnsupportedFileFormatException;
+import org.apache.poi.ooxml.POIXMLException;
 import org.apache.poi.util.Units;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
@@ -107,7 +109,7 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
                     images,
                     false);
 
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | POIXMLException | UnsupportedFileFormatException e) {
             throw new FileParseException("Failed to parse PPTX file: " + safeFilename(filename), e);
         }
     }

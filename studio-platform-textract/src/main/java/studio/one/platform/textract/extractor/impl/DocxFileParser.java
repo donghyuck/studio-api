@@ -8,7 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.poi.UnsupportedFileFormatException;
 import org.apache.poi.common.usermodel.PictureType;
+import org.apache.poi.ooxml.POIXMLException;
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -90,7 +92,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                     images,
                     false);
 
-        } catch (IOException | RuntimeException e) {
+        } catch (IOException | POIXMLException | UnsupportedFileFormatException e) {
             throw new FileParseException("Failed to parse DOCX file: " + safeFilename(filename), e);
         }
     }
