@@ -38,6 +38,9 @@ import studio.one.platform.textract.model.ParsedFile;
 
 class FormatGoldenTest {
 
+    private static final String FIELD = "|";
+    private static final String ROW = "↵";
+
     @Test
     void pdfGoldenKeepsPageAndParagraphProvenance() throws Exception {
         ParsedFile result = new PdfFileParser().parseStructured(pdfBytes(), "application/pdf", "golden.pdf");
@@ -45,10 +48,10 @@ class FormatGoldenTest {
         GoldenSnapshot snapshot = snapshot(result);
 
         assertEquals(DocumentFormat.PDF.name(), snapshot.format());
-        assertEquals(List.of("PAGE:1:page[1]:0", "PAGE:2:page[2]:2"), snapshot.pages());
+        assertEquals(List.of("PAGE|1|page[1]|0", "PAGE|2|page[2]|2"), snapshot.pages());
         assertEquals(List.of(
-                "PARAGRAPH:1:page[1]/paragraph[0]:1:First page body Second paragraph",
-                "PARAGRAPH:2:page[2]/paragraph[0]:3:Second page body"), snapshot.blocks());
+                "PARAGRAPH|1|page[1]/paragraph[0]|1|First page body↵Second paragraph",
+                "PARAGRAPH|2|page[2]/paragraph[0]|3|Second page body"), snapshot.blocks());
         assertTrue(snapshot.plainText().contains("First page body"));
     }
 
@@ -62,13 +65,13 @@ class FormatGoldenTest {
         GoldenSnapshot snapshot = snapshot(result);
 
         assertEquals(DocumentFormat.DOCX.name(), snapshot.format());
-        assertTrue(snapshot.blocks().contains("HEADING::body/element[0]:0:문서 제목"));
-        assertTrue(snapshot.blocks().contains("LIST_ITEM::body/element[2]:2:목록 항목"));
-        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("TABLE::body/element[3]:3:")));
-        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("HEADER::header[0]/element[0]:")));
-        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("FOOTER::footer[0]/element[0]:")));
-        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("FOOTNOTE::footnote[")));
-        assertEquals(List.of("docx:body/element[3]:2x2:4"), snapshot.tables());
+        assertTrue(snapshot.blocks().contains("HEADING||body/element[0]|0|문서 제목"));
+        assertTrue(snapshot.blocks().contains("LIST_ITEM||body/element[2]|2|목록 항목"));
+        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("TABLE||body/element[3]|3|")));
+        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("HEADER||header[0]/element[0]|")));
+        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("FOOTER||footer[0]/element[0]|")));
+        assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("FOOTNOTE||footnote[")));
+        assertEquals(List.of("docx|body/element[3]|2x2|4"), snapshot.tables());
     }
 
     @Test
@@ -81,11 +84,11 @@ class FormatGoldenTest {
         GoldenSnapshot snapshot = snapshot(result);
 
         assertEquals(DocumentFormat.PPTX.name(), snapshot.format());
-        assertEquals(List.of("PAGE::slide[1]:0"), snapshot.pages());
+        assertEquals(List.of("PAGE||slide[1]|0"), snapshot.pages());
         assertEquals(List.of(
-                "TITLE:1:slide[1]/shape[0]:0:슬라이드 제목",
-                "PARAGRAPH:1:slide[1]/shape[1]:1:본문 내용",
-                "FOOTER:1:slide[1]/shape[2]:2:푸터"), snapshot.blocks());
+                "TITLE|1|slide[1]/shape[0]|0|슬라이드 제목",
+                "PARAGRAPH|1|slide[1]/shape[1]|1|본문 내용",
+                "FOOTER|1|slide[1]/shape[2]|2|푸터"), snapshot.blocks());
     }
 
     @Test
@@ -96,13 +99,13 @@ class FormatGoldenTest {
 
         assertEquals(DocumentFormat.HTML.name(), snapshot.format());
         assertEquals(List.of(
-                "TITLE::h1[0]:0:문서 제목",
-                "PARAGRAPH::p[1]:1:본문 문단",
-                "LIST_ITEM::li[2]:2:목록 항목",
-                "TABLE::table[3]:3:| A | B | | 1 | 2 |",
-                "IMAGE_CAPTION::img[4]:4:대표 이미지"), snapshot.blocks());
-        assertEquals(List.of("html:table[3]:2x2:4"), snapshot.tables());
-        assertEquals(List.of(":img[4]:hero.png"), snapshot.images());
+                "TITLE||h1[0]|0|문서 제목",
+                "PARAGRAPH||p[1]|1|본문 문단",
+                "LIST_ITEM||li[2]|2|목록 항목",
+                "TABLE||table[3]|3|| A | B |↵| 1 | 2 |",
+                "IMAGE_CAPTION||img[4]|4|대표 이미지"), snapshot.blocks());
+        assertEquals(List.of("html|table[3]|2x2|4"), snapshot.tables());
+        assertEquals(List.of("|img[4]|hero.png"), snapshot.images());
         assertTrue(!snapshot.plainText().contains("메뉴 링크"));
     }
 
@@ -117,9 +120,9 @@ class FormatGoldenTest {
         GoldenSnapshot partialSnapshot = snapshot(partial);
 
         assertEquals(DocumentFormat.HWPX.name(), snapshot.format());
-        assertEquals(List.of("hwpx:section[0]/p[3]/tbl[1]:2x2:4"), snapshot.tables());
-        assertEquals(List.of("image/png:section[0]/p[5]/pic[0]:Contents/BinData/image1.png"), snapshot.images());
-        assertEquals(List.of("WARNING:HWPX_SECTION_MISSING:true:section0.xml"), partialSnapshot.warnings());
+        assertEquals(List.of("hwpx|section[0]/p[3]/tbl[1]|2x2|4"), snapshot.tables());
+        assertEquals(List.of("image/png|section[0]/p[5]/pic[0]|Contents/BinData/image1.png"), snapshot.images());
+        assertEquals(List.of("WARNING|HWPX_SECTION_MISSING|true|section0.xml"), partialSnapshot.warnings());
     }
 
     @Test
@@ -129,8 +132,8 @@ class FormatGoldenTest {
         ParsedFile parsed = parser.parseStructured(hwpBytesWithFlags(0), "application/x-hwp", "golden.hwp");
         ParsedFile encrypted = parser.parseStructured(hwpBytesWithFlags(0x02), "application/x-hwp", "encrypted.hwp");
 
-        assertEquals(List.of("PARAGRAPH::section[0]/paragraph[0]:0:한글 본문"), snapshot(parsed).blocks());
-        assertEquals(List.of("ERROR:HWP_ENCRYPTED:false:FileHeader"), snapshot(encrypted).warnings());
+        assertEquals(List.of("PARAGRAPH||section[0]/paragraph[0]|0|한글 본문"), snapshot(parsed).blocks());
+        assertEquals(List.of("ERROR|HWP_ENCRYPTED|false|FileHeader"), snapshot(encrypted).warnings());
     }
 
     @Test
@@ -139,12 +142,12 @@ class FormatGoldenTest {
                 첫 줄
                 둘째 줄
                 """).stream()
-                .map(block -> block.blockType() + ":" + block.sourceRef() + ":" + block.order() + ":" + block.text())
+                .map(block -> block.blockType() + FIELD + block.sourceRef() + FIELD + block.order() + FIELD + block.text())
                 .toList();
 
         assertEquals(List.of(
-                "OCR_TEXT:image/ocr/line[0]:0:첫 줄",
-                "OCR_TEXT:image/ocr/line[1]:1:둘째 줄"), blocks);
+                "OCR_TEXT|image/ocr/line[0]|0|첫 줄",
+                "OCR_TEXT|image/ocr/line[1]|1|둘째 줄"), blocks);
     }
 
     private GoldenSnapshot snapshot(ParsedFile file) {
@@ -153,41 +156,45 @@ class FormatGoldenTest {
                 file.plainText(),
                 file.blocks().stream()
                         .map(block -> block.blockType()
-                                + ":" + blockLocation(block.page(), block.slide())
-                                + ":" + block.sourceRef()
-                                + ":" + value(block.order())
-                                + ":" + normalize(block.text()))
+                                + FIELD + blockLocation(block.page(), block.slide())
+                                + FIELD + block.sourceRef()
+                                + FIELD + value(block.order())
+                                + FIELD + normalize(block.text()))
                         .toList(),
                 file.pages().stream()
                         .map(page -> page.blockType()
-                                + ":" + value(page.page())
-                                + ":" + page.sourceRef()
-                                + ":" + value(page.order()))
+                                + FIELD + value(page.page())
+                                + FIELD + page.sourceRef()
+                                + FIELD + value(page.order()))
                         .toList(),
                 file.tables().stream()
                         .map(table -> table.format()
-                                + ":" + table.sourceRef()
-                                + ":" + table.rowCount() + "x" + table.cells().stream()
+                                + FIELD + table.sourceRef()
+                                + FIELD + table.rowCount() + "x" + table.cells().stream()
                                         .mapToInt(cell -> cell.col() + cell.colSpan())
                                         .max()
                                         .orElse(0)
-                                + ":" + table.cellCount())
+                                + FIELD + table.cellCount())
                         .toList(),
                 file.images().stream()
                         .map(image -> image.mimeType()
-                                + ":" + image.sourceRef()
-                                + ":" + imageReference(image.filename(), image.binDataRef()))
+                                + FIELD + image.sourceRef()
+                                + FIELD + imageReference(image.filename(), image.binDataRef()))
                         .toList(),
                 file.warnings().stream()
                         .map(warning -> warning.severity()
-                                + ":" + warning.canonicalCode()
-                                + ":" + warning.partialParse()
-                                + ":" + warning.sourceRef())
+                                + FIELD + warning.canonicalCode()
+                                + FIELD + warning.partialParse()
+                                + FIELD + warning.sourceRef())
                         .toList());
     }
 
     private String normalize(String value) {
-        return value.replace('\n', ' ').replaceAll("\\s+", " ").trim();
+        return value.replace("\r\n", "\n")
+                .replace('\r', '\n')
+                .replace("\n", ROW)
+                .replaceAll("[ \\t]+", " ")
+                .trim();
     }
 
     private String value(Object value) {
@@ -205,6 +212,7 @@ class FormatGoldenTest {
     private byte[] pdfBytes() throws Exception {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            // Golden output intentionally omits these repeated boundaries; this guards the PDF boundary heuristic.
             addPdfPage(document, "Common header", "First page body", "Second paragraph", "Common footer");
             addPdfPage(document, "Common header", "Second page body", null, "Common footer");
             document.save(out);
