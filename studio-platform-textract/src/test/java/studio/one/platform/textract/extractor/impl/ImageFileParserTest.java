@@ -50,6 +50,20 @@ class ImageFileParserTest {
     }
 
     @Test
+    void ocrLineBlocksKeepBboxAndWordsWhenTokenConfidenceIsUnavailable() {
+        List<ParsedBlock> blocks = new ImageFileParser("/tmp", "kor+eng").ocrLineBlocks(List.of(
+                new ImageFileParser.OcrToken("첫", null, new Rectangle(10, 10, 8, 10)),
+                new ImageFileParser.OcrToken("줄", null, new Rectangle(24, 10, 8, 10))));
+
+        assertEquals(1, blocks.size());
+        assertEquals(false, blocks.get(0).metadata().get(ExtractedImage.KEY_CONFIDENCE_AVAILABLE));
+        assertEquals(Map.of("x", 10, "y", 10, "width", 22, "height", 10), blocks.get(0).metadata().get(ImageFileParser.KEY_BBOX));
+        assertEquals(2, blocks.get(0).metadata().get(ImageFileParser.KEY_WORD_COUNT));
+        List<?> words = (List<?>) blocks.get(0).metadata().get(ImageFileParser.KEY_WORDS);
+        assertEquals(2, words.size());
+    }
+
+    @Test
     void ocrWarningsReportLowConfidenceWithoutTesseractDependency() {
         ImageFileParser parser = new ImageFileParser("/tmp", "kor+eng");
         List<ParsedBlock> blocks = parser.ocrLineBlocks(List.of(
@@ -60,5 +74,19 @@ class ImageFileParserTest {
         assertEquals(1, warnings.size());
         assertEquals("OCR_LOW_CONFIDENCE", warnings.get(0).canonicalCode());
         assertTrue(warnings.get(0).metadata().containsKey(ImageFileParser.KEY_MIN_CONFIDENCE));
+    }
+
+    @Test
+    void ocrWarningsUseWordMinimumConfidenceInsteadOfLineAverage() {
+        ImageFileParser parser = new ImageFileParser("/tmp", "kor+eng");
+        List<ParsedBlock> blocks = parser.ocrLineBlocks(List.of(
+                new ImageFileParser.OcrToken("흐림", 0.42d, new Rectangle(10, 10, 20, 10)),
+                new ImageFileParser.OcrToken("선명", 0.92d, new Rectangle(40, 10, 20, 10))));
+
+        List<ParseWarning> warnings = parser.ocrWarnings(blocks);
+
+        assertEquals(0.67d, blocks.get(0).confidence(), 0.0001d);
+        assertEquals(1, warnings.size());
+        assertEquals(0.42d, warnings.get(0).metadata().get(ImageFileParser.KEY_MIN_CONFIDENCE));
     }
 }

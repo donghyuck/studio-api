@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import net.sourceforge.tess4j.ITessAPI;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
-import net.sourceforge.tess4j.Word;
 import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.StructuredFileParser;
@@ -59,9 +58,16 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
             if (image == null) {
                 throw new FileParseException("Unsupported or corrupt image: " + safeFilename(filename));
             }
-            String text = cleanText(tesseract.doOCR(image));
             List<OcrToken> tokens = ocrTokens(image);
-            List<ParsedBlock> blocks = tokens.isEmpty() ? ocrLineBlocks(text) : ocrLineBlocks(tokens);
+            List<ParsedBlock> blocks;
+            String text;
+            if (tokens.isEmpty()) {
+                text = cleanText(tesseract.doOCR(image));
+                blocks = ocrLineBlocks(text);
+            } else {
+                blocks = ocrLineBlocks(tokens);
+                text = plainText(blocks);
+            }
             OcrQuality quality = OcrQuality.fromBlocks(blocks);
             ExtractedImage extractedImage = new ExtractedImage(
                     "image",
@@ -75,7 +81,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
                     text,
                     blocks,
                     fileMetadata(contentType, filename),
-                    ocrWarnings(blocks),
+                    ocrWarnings(quality),
                     List.of(),
                     List.of(),
                     List.of(extractedImage),
@@ -121,6 +127,13 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         return blocks;
     }
 
+    private String plainText(List<ParsedBlock> blocks) {
+        return cleanText(blocks.stream()
+                .map(ParsedBlock::text)
+                .filter(text -> text != null && !text.isBlank())
+                .collect(Collectors.joining("\n")));
+    }
+
     List<ParsedBlock> ocrLineBlocks(List<OcrToken> tokens) {
         if (tokens == null || tokens.isEmpty()) {
             return List.of();
@@ -155,8 +168,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         metadata.put(ExtractedImage.KEY_OCR_APPLIED, true);
         metadata.put(ExtractedImage.KEY_OCR_UNIT, "line");
         metadata.put(ExtractedImage.KEY_CONFIDENCE_AVAILABLE, confidence != null);
-        if (confidence != null) {
-            metadata.put(ParsedBlock.KEY_CONFIDENCE, confidence);
+        if (tokens != null && !tokens.isEmpty()) {
             metadata.put(KEY_WORD_COUNT, tokens.size());
             metadata.put(KEY_BBOX, bbox(union(tokens.stream()
                     .map(OcrToken::bbox)
@@ -164,6 +176,14 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
             metadata.put(KEY_WORDS, tokens.stream()
                     .map(this::wordMetadata)
                     .toList());
+            Double minConfidence = minConfidence(tokens);
+            if (minConfidence != null) {
+                metadata.put(KEY_MIN_CONFIDENCE, minConfidence);
+            }
+        }
+        if (confidence != null) {
+            metadata.put(ParsedBlock.KEY_CONFIDENCE, confidence);
+            metadata.put(KEY_AVERAGE_CONFIDENCE, confidence);
         }
         return metadata;
     }
@@ -178,7 +198,10 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
     }
 
     List<ParseWarning> ocrWarnings(List<ParsedBlock> blocks) {
-        OcrQuality quality = OcrQuality.fromBlocks(blocks);
+        return ocrWarnings(OcrQuality.fromBlocks(blocks));
+    }
+
+    private List<ParseWarning> ocrWarnings(OcrQuality quality) {
         if (!quality.confidenceAvailable() || quality.minConfidence() >= LOW_CONFIDENCE_THRESHOLD) {
             return List.of();
         }
@@ -247,6 +270,17 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         return values.stream().mapToDouble(Double::doubleValue).average().orElse(0d);
     }
 
+    private Double minConfidence(List<OcrToken> tokens) {
+        List<Double> values = tokens.stream()
+                .map(OcrToken::confidence)
+                .filter(confidence -> confidence != null)
+                .toList();
+        if (values.isEmpty()) {
+            return null;
+        }
+        return values.stream().mapToDouble(Double::doubleValue).min().orElse(1d);
+    }
+
     private Double normalizeConfidence(float confidence) {
         if (confidence < 0) {
             return null;
@@ -298,12 +332,20 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
                     .map(ParsedBlock::confidence)
                     .filter(confidence -> confidence != null)
                     .toList();
+            List<Double> minValues = blocks.stream()
+                    .map(block -> block.metadata().get(KEY_MIN_CONFIDENCE))
+                    .filter(Number.class::isInstance)
+                    .map(Number.class::cast)
+                    .map(Number::doubleValue)
+                    .toList();
             if (values.isEmpty()) {
                 return new OcrQuality(false, 1d, 1d);
             }
             return new OcrQuality(
                     true,
-                    values.stream().mapToDouble(Double::doubleValue).min().orElse(1d),
+                    minValues.isEmpty()
+                            ? values.stream().mapToDouble(Double::doubleValue).min().orElse(1d)
+                            : minValues.stream().mapToDouble(Double::doubleValue).min().orElse(1d),
                     values.stream().mapToDouble(Double::doubleValue).average().orElse(1d));
         }
     }
