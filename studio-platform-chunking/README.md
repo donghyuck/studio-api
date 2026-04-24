@@ -22,6 +22,8 @@
 - `NormalizedDocument`: parser-neutral structured input for structure-aware chunking.
 - `NormalizedBlock`: parser-neutral logical block with source provenance.
 - `NormalizedDocumentChunker`: chunker extension for normalized documents.
+- `ChunkContextExpander`: contract for expanding a retrieved child chunk into answer context.
+- `ChunkContextExpansionRequest` / `ChunkContextExpansion`: request/result models for context expansion.
 
 ## Metadata Rules
 
@@ -84,6 +86,26 @@ without schema breaks.
   `parentChunkContent`.
 - `blockIds`, `headingPath`, `page`, `slide`, `sourceRef`, and `confidence` preserve provenance needed for later
   context expansion.
+
+## Context Expansion Contract
+
+`ChunkContextExpander` defines how a retrieved child chunk can be expanded into a larger answer context. The contract is
+implementation-neutral and does not perform retrieval, embedding, vector store access, LLM calls, or parser work.
+
+```java
+ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(retrievedChunk)
+        .availableChunks(candidateChunks)
+        .previousWindow(1)
+        .nextWindow(1)
+        .includeParentContent(true)
+        .build();
+
+ChunkContextExpansion expansion = expander.expand(request);
+String answerContext = expansion.content();
+```
+
+Built-in strategy identifiers are `parent-child`, `window`, `heading`, `table`, `custom`, and `unknown`.
+Concrete expansion implementations live in starter modules.
 
 ## Dependency Boundary
 
