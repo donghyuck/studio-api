@@ -81,6 +81,39 @@ class PdfFileParserTest {
     }
 
     @Test
+    void cleanPdfPagesKeepsBoundaryLinesBelowRepeatedRatio() {
+        List<String> result = parser.cleanPdfPages(List.of(
+                """
+                우연히 같은 첫 줄
+                첫 페이지 본문
+                끝1
+                """,
+                """
+                우연히 같은 첫 줄
+                둘째 페이지 본문
+                끝2
+                """,
+                """
+                다른 첫 줄
+                셋째 페이지 본문
+                끝3
+                """,
+                """
+                또 다른 첫 줄
+                넷째 페이지 본문
+                끝4
+                """,
+                """
+                마지막 첫 줄
+                다섯째 페이지 본문
+                끝5
+                """));
+
+        assertTrue(result.get(0).contains("우연히 같은 첫 줄"));
+        assertTrue(result.get(1).contains("우연히 같은 첫 줄"));
+    }
+
+    @Test
     void parseStructuredReturnsParagraphBlocksAndPageProvenance() throws Exception {
         byte[] bytes = pdfWithTwoPages();
 
@@ -90,7 +123,9 @@ class PdfFileParserTest {
         assertTrue(result.plainText().contains("First page body"));
         assertEquals(2, result.pages().size());
         assertTrue(result.blocks().stream().allMatch(block -> block.blockType() == BlockType.PARAGRAPH));
+        assertEquals(0, result.pages().get(0).order());
         assertEquals(1, result.blocks().get(0).page());
+        assertEquals(1, result.blocks().get(0).order());
         assertEquals("page[1]/paragraph[0]", result.blocks().get(0).sourceRef());
     }
 

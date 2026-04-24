@@ -5,6 +5,7 @@ import java.awt.geom.Rectangle2D;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -112,7 +113,7 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
     }
 
     private Map<String, Object> blockMetadata(String path, int slide, int order) {
-        Map<String, Object> metadata = blockMetadata(path, Integer.valueOf(order));
+        Map<String, Object> metadata = new LinkedHashMap<>(blockMetadata(path, Integer.valueOf(order)));
         metadata.put(ParsedBlock.KEY_SLIDE, slide);
         return metadata;
     }

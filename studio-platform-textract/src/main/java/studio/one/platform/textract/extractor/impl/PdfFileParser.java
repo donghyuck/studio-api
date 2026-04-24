@@ -23,6 +23,8 @@ import studio.one.platform.textract.model.ParsedFile;
 @Slf4j
 public class PdfFileParser extends AbstractFileParser implements StructuredFileParser {
 
+    private static final double REPEATED_BOUNDARY_RATIO = 0.50d;
+
     @Override
     public boolean supports(String contentType, String filename) {
         try {
@@ -62,6 +64,7 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
                         pageNumber,
                         order,
                         blockMetadata(pagePath, order)));
+                order++;
                 List<String> paragraphs = splitParagraphs(pageText);
                 for (int paragraphIndex = 0; paragraphIndex < paragraphs.size(); paragraphIndex++) {
                     String paragraph = paragraphs.get(paragraphIndex);
@@ -123,7 +126,7 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             }
         }
         List<String> repeatedBoundaries = boundaryFrequency.entrySet().stream()
-                .filter(entry -> rawPages.size() > 1 && entry.getValue() >= 2)
+                .filter(entry -> isRepeatedBoundary(entry.getValue(), rawPages.size()))
                 .map(Map.Entry::getKey)
                 .toList();
         List<String> cleaned = new ArrayList<>();
@@ -132,6 +135,10 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             cleaned.add(cleanPdfText(pageWithoutRepeatedBoundaries));
         }
         return cleaned;
+    }
+
+    private boolean isRepeatedBoundary(int count, int pageCount) {
+        return pageCount > 1 && count >= Math.max(2, (int) Math.ceil(pageCount * REPEATED_BOUNDARY_RATIO));
     }
 
     String cleanPdfText(String raw) {

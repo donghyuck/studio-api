@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -78,7 +77,7 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
             }
 
             String text = cleanText(sb.toString());
-            if ((text == null || text.isBlank()) && root != null) {
+            if (text == null || text.isBlank()) {
                 text = cleanText(root.text());
             }
             return new ParsedFile(
@@ -137,14 +136,11 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
                 markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
             }
         }
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ExtractedTable.KEY_SOURCE_REF, path);
-        metadata.put(ExtractedTable.KEY_FORMAT, "html");
-        return new ExtractedTable(path, String.join("\n", markdownRows), cells, metadata);
+        return new ExtractedTable(path, String.join("\n", markdownRows), cells, tableMetadata(path, "html"));
     }
 
     private ExtractedImage extractImage(Element image, String path) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
+        Map<String, Object> metadata = blockMetadata(path);
         metadata.put(ExtractedImage.KEY_SOURCE_REF, path);
         String source = image.attr("src");
         if (source != null && !source.isBlank()) {
