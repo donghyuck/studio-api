@@ -1,5 +1,6 @@
 package studio.one.platform.textract.model;
 
+import static java.util.Map.entry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
@@ -56,17 +57,18 @@ class ExtractedStructureTest {
                 "image1.png",
                 null,
                 null,
-                Map.of(
-                        ExtractedImage.KEY_SOURCE_REF, "section[0]/pic[1]",
-                        ExtractedImage.KEY_BIN_DATA_REF, "Contents/BinData/image1.png",
-                        ExtractedImage.KEY_PACKAGE_ID, "image1",
-                        ExtractedImage.KEY_CAPTION, "그림 설명",
-                        ExtractedImage.KEY_SRC, "media/image1.png",
-                        ExtractedImage.KEY_ALT_TEXT, "대체 텍스트",
-                        ExtractedImage.KEY_OCR_TEXT, "OCR 텍스트",
-                        ExtractedImage.KEY_OCR_APPLIED, true,
-                        ExtractedImage.KEY_OCR_UNIT, "line",
-                        ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false));
+                Map.ofEntries(
+                        entry(ExtractedImage.KEY_SOURCE_REF, "section[0]/pic[1]"),
+                        entry(ExtractedImage.KEY_BIN_DATA_REF, "Contents/BinData/image1.png"),
+                        entry(ExtractedImage.KEY_PACKAGE_ID, "image1"),
+                        entry(ExtractedImage.KEY_CAPTION, "그림 설명"),
+                        entry(ExtractedImage.KEY_SRC, "media/image1.png"),
+                        entry(ExtractedImage.KEY_ALT_TEXT, "대체 텍스트"),
+                        entry(ExtractedImage.KEY_OCR_TEXT, "OCR 텍스트"),
+                        entry(ExtractedImage.KEY_OCR_APPLIED, true),
+                        entry(ExtractedImage.KEY_OCR_UNIT, "line"),
+                        entry(ExtractedImage.KEY_OCR_LINE_COUNT, 3),
+                        entry(ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false)));
 
         assertEquals("image/png", image.mimeType());
         assertEquals("section[0]/pic[1]", image.sourceRef());
@@ -79,6 +81,7 @@ class ExtractedStructureTest {
         assertEquals("OCR 텍스트", image.ocrText());
         assertEquals(true, image.ocrApplied());
         assertEquals("line", image.ocrUnit());
+        assertEquals(3, image.ocrLineCount());
         assertEquals(false, image.confidenceAvailable());
     }
 

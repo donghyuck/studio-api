@@ -41,6 +41,8 @@ class HtmlFileParserTest {
         assertEquals(1, result.tables().size());
         assertEquals("html", result.tables().get(0).format());
         assertEquals(1, result.images().size());
+        assertEquals("hero.png", result.images().get(0).src());
+        assertEquals("대표 이미지", result.images().get(0).altText());
         assertFalse(result.plainText().contains("메뉴 링크"));
         assertFalse(result.plainText().contains("푸터"));
     }

@@ -24,6 +24,7 @@ public record ExtractedImage(
     public static final String KEY_OCR_TEXT = "ocrText";
     public static final String KEY_OCR_APPLIED = "ocrApplied";
     public static final String KEY_OCR_UNIT = "ocrUnit";
+    public static final String KEY_OCR_LINE_COUNT = "ocrLineCount";
     public static final String KEY_CONFIDENCE_AVAILABLE = "confidenceAvailable";
 
     public ExtractedImage {
@@ -89,6 +90,17 @@ public record ExtractedImage(
     public String ocrUnit() {
         Object value = metadata.get(KEY_OCR_UNIT);
         return value instanceof String stringValue ? stringValue : "";
+    }
+
+    public int ocrLineCount() {
+        Object value = metadata.get(KEY_OCR_LINE_COUNT);
+        if (value instanceof Integer integerValue) {
+            return Math.max(0, integerValue);
+        }
+        if (value instanceof Number numberValue) {
+            return Math.max(0, numberValue.intValue());
+        }
+        return 0;
     }
 
     public boolean confidenceAvailable() {
