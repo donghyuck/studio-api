@@ -3,14 +3,20 @@ package studio.one.platform.textract.extractor.impl;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.apache.poi.common.usermodel.PictureType;
+import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.IBodyElement;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFFootnote;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFPicture;
+import org.apache.poi.xwpf.usermodel.XWPFPictureData;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.apache.poi.xwpf.usermodel.XWPFTableCell;
 import org.apache.poi.xwpf.usermodel.XWPFTableRow;
@@ -19,6 +25,7 @@ import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.StructuredFileParser;
 import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
 import studio.one.platform.textract.model.ExtractedTableCell;
 import studio.one.platform.textract.model.ParsedBlock;
@@ -43,15 +50,17 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             StringBuilder sb = new StringBuilder();
             List<ParsedBlock> blocks = new ArrayList<>();
             List<ExtractedTable> tables = new ArrayList<>();
+            List<ExtractedImage> images = new ArrayList<>();
             int order = 0;
 
-            order = appendBodyElements(doc.getBodyElements(), sb, blocks, tables, "body", null, order);
+            order = appendBodyElements(doc.getBodyElements(), sb, blocks, tables, images, "body", null, order);
             for (int i = 0; i < doc.getHeaderList().size(); i++) {
                 order = appendBodyElements(
                         doc.getHeaderList().get(i).getBodyElements(),
                         sb,
                         blocks,
                         tables,
+                        images,
                         "header[" + i + "]",
                         BlockType.HEADER,
                         order);
@@ -62,11 +71,12 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                         sb,
                         blocks,
                         tables,
+                        images,
                         "footer[" + i + "]",
                         BlockType.FOOTER,
                         order);
             }
-            order = appendFootnotes(doc.getFootnotes(), sb, blocks, order);
+            order = appendFootnotes(doc.getFootnotes(), sb, blocks, images, order);
 
             String text = cleanText(sb.toString());
             return new ParsedFile(
@@ -77,7 +87,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                     List.of(),
                     List.of(),
                     tables,
-                    List.of(),
+                    images,
                     false);
 
         } catch (IOException e) {
@@ -95,6 +105,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             StringBuilder sb,
             List<ParsedBlock> blocks,
             List<ExtractedTable> tables,
+            List<ExtractedImage> images,
             String parentPath,
             BlockType containerType,
             int startOrder) {
@@ -103,8 +114,9 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             IBodyElement element = elements.get(i);
             String path = parentPath + "/element[" + i + "]";
             switch (element.getElementType()) {
-                case PARAGRAPH -> order += appendParagraph((XWPFParagraph) element, sb, blocks, path, containerType, order);
-                case TABLE -> order += appendTable((XWPFTable) element, sb, blocks, tables, path, order);
+                case PARAGRAPH -> order += appendParagraph(
+                        (XWPFParagraph) element, sb, blocks, images, path, containerType, order);
+                case TABLE -> order += appendTable((XWPFTable) element, sb, blocks, tables, images, path, order);
                 default -> { /* ignore other elements */ }
             }
         }
@@ -115,6 +127,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             List<XWPFFootnote> footnotes,
             StringBuilder sb,
             List<ParsedBlock> blocks,
+            List<ExtractedImage> images,
             int startOrder) {
         int order = startOrder;
         for (int footnoteIndex = 0; footnoteIndex < footnotes.size(); footnoteIndex++) {
@@ -122,7 +135,8 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             List<XWPFParagraph> paragraphs = footnote.getParagraphs();
             for (int paragraphIndex = 0; paragraphIndex < paragraphs.size(); paragraphIndex++) {
                 String path = "footnote[" + footnoteIndex + "]/paragraph[" + paragraphIndex + "]";
-                order += appendParagraph(paragraphs.get(paragraphIndex), sb, blocks, path, BlockType.FOOTNOTE, order);
+                order += appendParagraph(
+                        paragraphs.get(paragraphIndex), sb, blocks, images, path, BlockType.FOOTNOTE, order);
             }
         }
         return order;
@@ -132,10 +146,12 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             XWPFParagraph p,
             StringBuilder sb,
             List<ParsedBlock> blocks,
+            List<ExtractedImage> images,
             String path,
             BlockType containerType,
             int order) {
         String text = p.getText();
+        appendParagraphImages(p, images, path, cleanText(text));
         if (text != null && !text.isBlank()) {
             String trimmed = text.trim();
             sb.append(trimmed).append("\n");
@@ -150,6 +166,7 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             StringBuilder sb,
             List<ParsedBlock> blocks,
             List<ExtractedTable> tables,
+            List<ExtractedImage> images,
             String path,
             int order) {
         List<ExtractedTableCell> cells = new ArrayList<>();
@@ -165,7 +182,9 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             List<XWPFTableCell> tableCells = row.getTableCells();
             List<String> markdownCells = new ArrayList<>();
             for (int colIndex = 0; colIndex < tableCells.size(); colIndex++) {
-                String cellText = cleanText(tableCells.get(colIndex).getText());
+                XWPFTableCell cell = tableCells.get(colIndex);
+                String cellText = cleanText(cell.getText());
+                appendCellImages(cell, images, path + "/row[" + rowIndex + "]/cell[" + colIndex + "]", cellText);
                 cells.add(new ExtractedTableCell(rowIndex, colIndex, 1, 1, cellText, Map.of()));
                 markdownCells.add(cellText == null ? "" : cellText.replace("\n", " "));
             }
@@ -175,6 +194,67 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         tables.add(new ExtractedTable(path, markdown, cells, tableMetadata(path, "docx")));
         blocks.add(new ParsedBlock(path, BlockType.TABLE, path, markdown, null, List.of(), blockMetadata(path, order)));
         return 1;
+    }
+
+    private void appendCellImages(XWPFTableCell cell, List<ExtractedImage> images, String path, String caption) {
+        List<XWPFParagraph> paragraphs = cell.getParagraphs();
+        for (int paragraphIndex = 0; paragraphIndex < paragraphs.size(); paragraphIndex++) {
+            appendParagraphImages(
+                    paragraphs.get(paragraphIndex),
+                    images,
+                    path + "/paragraph[" + paragraphIndex + "]",
+                    caption);
+        }
+    }
+
+    private void appendParagraphImages(
+            XWPFParagraph paragraph,
+            List<ExtractedImage> images,
+            String path,
+            String caption) {
+        List<XWPFRun> runs = paragraph.getRuns();
+        for (int runIndex = 0; runIndex < runs.size(); runIndex++) {
+            List<XWPFPicture> pictures = runs.get(runIndex).getEmbeddedPictures();
+            for (int pictureIndex = 0; pictureIndex < pictures.size(); pictureIndex++) {
+                String sourceRef = path + "/run[" + runIndex + "]/picture[" + pictureIndex + "]";
+                images.add(toExtractedImage(pictures.get(pictureIndex), sourceRef, caption));
+            }
+        }
+    }
+
+    private ExtractedImage toExtractedImage(XWPFPicture picture, String sourceRef, String caption) {
+        XWPFPictureData data = picture.getPictureData();
+        String filename = data == null ? "" : data.getFileName();
+        String contentType = null;
+        if (data != null) {
+            PictureType type = data.getPictureTypeEnum();
+            contentType = type == null ? null : type.getContentType();
+        }
+        Map<String, Object> metadata = new LinkedHashMap<>(imageMetadata(sourceRef));
+        if (data != null) {
+            metadata.put(ExtractedImage.KEY_BIN_DATA_REF, filename);
+        }
+        String description = cleanText(picture.getDescription());
+        if (description != null && !description.isBlank()) {
+            metadata.put(ExtractedImage.KEY_ALT_TEXT, description);
+        }
+        if (caption != null && !caption.isBlank()) {
+            metadata.put(ExtractedImage.KEY_CAPTION, caption);
+        }
+        return new ExtractedImage(
+                sourceRef,
+                contentType,
+                filename,
+                toPixels(picture.getWidth()),
+                toPixels(picture.getDepth()),
+                metadata);
+    }
+
+    private Integer toPixels(double emu) {
+        if (emu <= 0) {
+            return null;
+        }
+        return Math.max(1, (int) Math.round(emu / Units.EMU_PER_PIXEL));
     }
 
     private BlockType resolveParagraphType(XWPFParagraph paragraph, BlockType containerType) {
