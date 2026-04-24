@@ -86,6 +86,15 @@ stream event type:
 - `complete`: stream 완료
 - `error`: provider 호출 실패
 
+event payload는 `ChatStreamEvent.toMap()` 기준으로 비어 있지 않은 필드만 포함한다.
+예를 들어 기본 fallback stream은 아래 순서를 보장한다.
+
+```json
+{"type":"delta","delta":"답변 조각","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
+{"type":"usage","metadata":{"tokenUsage":{"inputTokens":10,"outputTokens":5,"totalTokens":15},"latencyMs":120}}
+{"type":"complete","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
+```
+
 이 계약은 Reactor, Spring Web, SSE 구현체에 의존하지 않는다. HTTP `text/event-stream` 변환은 web starter 책임이다.
 
 ## Conversation contracts

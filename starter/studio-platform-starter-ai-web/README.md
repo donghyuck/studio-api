@@ -149,12 +149,36 @@ Content-Type: application/json
 | `studio.ai.endpoints.chat.memory.max-conversations` | `1000` | 인스턴스 메모리에 보관할 최대 conversation 수 |
 | `studio.ai.endpoints.chat.memory.ttl` | `30m` | 마지막 접근 이후 conversation 보관 시간 |
 
+응답 metadata는 기존 map 구조를 유지하면서 provider/model/latency/memory 정보를 추가한다.
+
+```json
+{
+  "messages": [
+    {"role": "assistant", "content": "안녕하세요"}
+  ],
+  "model": "gpt-4o-mini",
+  "metadata": {
+    "provider": "OPENAI",
+    "resolvedModel": "gpt-4o-mini",
+    "latencyMs": 120,
+    "memoryUsed": true,
+    "conversationId": "chat-123",
+    "tokenUsage": {
+      "inputTokens": 10,
+      "outputTokens": 5,
+      "totalTokens": 15
+    }
+  }
+}
+```
+
 이 memory는 단일 앱 인스턴스의 in-memory cache다. 애플리케이션 재시작 시 사라지며, 다중 인스턴스 간 공유되지 않는다.
 운영에서 여러 인스턴스 간 대화 memory가 필요하면 `ChatMemoryStore`와 `ConversationRepositoryPort`를 외부 저장소 기반 구현으로 교체한다.
 
 memory가 활성화된 `/chat`, `/chat/rag`, `/chat/stream` 요청은 conversation repository에도 기록된다.
 기본 구현은 단일 인스턴스용 `InMemoryConversationRepository`이며, conversation 목록/상세/삭제/regenerate/fork/truncate/compact/cancel API의 개발 및 smoke 용도다.
 장기 보관, 감사 로그, 다중 인스턴스 공유가 필요하면 운영 저장소 구현을 별도 Bean으로 등록한다.
+기존 `/chat` 응답 shape는 유지되며, conversation 관련 필드는 metadata에 additive하게 추가된다.
 
 ### Streaming Chat 예시
 
@@ -178,6 +202,17 @@ Accept: text/event-stream
 
 SSE event type은 `delta`, `usage`, `complete`, `error`이다. 각 event data에는 `requestId`가 포함되어 stream lifecycle을 추적할 수 있다.
 Spring MVC의 `StreamingResponseBody`를 사용하므로 WebFlux/Netty event-loop에서 직접 소비하지 않는다.
+
+```text
+event: delta
+data: {"type":"delta","requestId":"...","delta":"짧게","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
+
+event: usage
+data: {"type":"usage","requestId":"...","metadata":{"tokenUsage":{"inputTokens":10,"outputTokens":5,"totalTokens":15},"latencyMs":120}}
+
+event: complete
+data: {"type":"complete","requestId":"...","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
+```
 
 ### Conversation API 예시
 
