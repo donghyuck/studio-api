@@ -13,6 +13,7 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.service.DefaultChunkingOrchestrator;
 import studio.one.platform.chunking.service.FixedSizeChunker;
 import studio.one.platform.chunking.service.RecursiveChunker;
+import studio.one.platform.chunking.service.StructureBasedChunker;
 
 @AutoConfiguration
 @EnableConfigurationProperties(ChunkingProperties.class)
@@ -29,6 +30,14 @@ public class ChunkingAutoConfiguration {
     @ConditionalOnMissingBean
     public RecursiveChunker recursiveChunker(ChunkingProperties properties) {
         return new RecursiveChunker(properties.getMaxSize(), properties.getOverlap());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StructureBasedChunker structureBasedChunker(
+            ChunkingProperties properties,
+            RecursiveChunker recursiveChunker) {
+        return new StructureBasedChunker(properties.getMaxSize(), properties.getOverlap(), recursiveChunker);
     }
 
     @Bean

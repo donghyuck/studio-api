@@ -8,4 +8,11 @@ import java.util.List;
 public interface ChunkingOrchestrator {
 
     List<Chunk> chunk(ChunkingContext context);
+
+    default List<Chunk> chunk(NormalizedDocument document) {
+        if (document == null || document.chunkableText().isBlank()) {
+            return List.of();
+        }
+        return chunk(document.toContextBuilder().build());
+    }
 }

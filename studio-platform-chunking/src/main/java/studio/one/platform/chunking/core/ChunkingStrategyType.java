@@ -32,6 +32,6 @@ public enum ChunkingStrategyType {
         }
         throw new IllegalArgumentException("Unsupported chunking strategy: " + value
                 + ". Known values are: fixed-size, recursive, structure-based, semantic, llm-based. "
-                + "Phase 1 starter support is limited to fixed-size and recursive.");
+                + "Pure chunking starter support is limited to fixed-size, recursive, and structure-based.");
     }
 }
