@@ -87,7 +87,7 @@ stream event type:
 - `error`: provider 호출 실패
 
 event payload는 `ChatStreamEvent.toMap()` 기준으로 비어 있지 않은 필드만 포함한다.
-예를 들어 기본 fallback stream은 아래 순서를 보장한다.
+예를 들어 기본 fallback stream은 아래 순서를 보장한다. `requestId`는 HTTP SSE adapter가 추가하는 web 전용 필드이므로 core event에는 포함되지 않는다.
 
 ```jsonl
 {"type":"delta","delta":"답변 조각","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}

@@ -205,13 +205,13 @@ Spring MVC의 `StreamingResponseBody`를 사용하므로 WebFlux/Netty event-loo
 
 ```text
 event: delta
-data: {"type":"delta","requestId":"...","delta":"짧게","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
+data: {"type":"delta","requestId":"req-abc123","delta":"짧게","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
 
 event: usage
-data: {"type":"usage","requestId":"...","metadata":{"tokenUsage":{"inputTokens":10,"outputTokens":5,"totalTokens":15},"latencyMs":120}}
+data: {"type":"usage","requestId":"req-abc123","metadata":{"tokenUsage":{"inputTokens":10,"outputTokens":5,"totalTokens":15},"latencyMs":120}}
 
 event: complete
-data: {"type":"complete","requestId":"...","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
+data: {"type":"complete","requestId":"req-abc123","model":"gpt-4o-mini","metadata":{"provider":"OPENAI","resolvedModel":"gpt-4o-mini"}}
 ```
 
 ### Conversation API 예시

@@ -17,6 +17,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -87,6 +88,10 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(context).hasSingleBean(ConversationChatService.class);
             assertThat(context).hasSingleBean(ObjectMapper.class);
             assertThat(context).doesNotHaveBean(ChatMemoryStore.class);
+
+            ChatController controller = context.getBean(ChatController.class);
+            ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
+            assertThat(ReflectionTestUtils.getField(controller, "objectMapper")).isSameAs(objectMapper);
 
             AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
             assertThat(registry.defaultProvider()).isEqualTo("openai");
