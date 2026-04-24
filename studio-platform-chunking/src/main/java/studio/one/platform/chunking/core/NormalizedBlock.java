@@ -37,6 +37,19 @@ public record NormalizedBlock(
         metadata = sanitize(metadata);
     }
 
+    public NormalizedBlock(
+            String id,
+            NormalizedBlockType type,
+            String text,
+            String sourceRef,
+            Integer page,
+            Integer slide,
+            Integer order,
+            String parentBlockId,
+            Map<String, Object> metadata) {
+        this(id, type, text, sourceRef, page, slide, order, parentBlockId, "", java.util.List.of(), null, metadata);
+    }
+
     public boolean hasText() {
         return !text.isBlank();
     }

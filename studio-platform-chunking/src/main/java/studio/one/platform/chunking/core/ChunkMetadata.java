@@ -70,6 +70,24 @@ public record ChunkMetadata(
         attributes = sanitize(attributes);
     }
 
+    public ChunkMetadata(
+            String sourceDocumentId,
+            String parentId,
+            String section,
+            int order,
+            ChunkingStrategyType strategy,
+            String objectType,
+            String objectId,
+            Integer startOffset,
+            Integer endOffset,
+            Integer tokenCount,
+            Integer charCount,
+            Map<String, Object> attributes) {
+        this(sourceDocumentId, parentId, ChunkType.CHILD, null, null, null, section, order, strategy,
+                objectType, objectId, startOffset, endOffset, tokenCount, charCount, java.util.List.of(), null,
+                attributes);
+    }
+
     public static Builder builder(ChunkingStrategyType strategy, int order) {
         return new Builder(strategy, order);
     }
