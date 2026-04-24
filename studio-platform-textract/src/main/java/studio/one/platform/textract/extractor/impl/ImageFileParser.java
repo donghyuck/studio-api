@@ -98,18 +98,18 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
         metadata.put(ParsedBlock.KEY_ORDER, order);
-        metadata.put("ocr", true);
-        metadata.put("ocrUnit", "line");
-        metadata.put("confidenceAvailable", false);
+        metadata.put(ExtractedImage.KEY_OCR_APPLIED, true);
+        metadata.put(ExtractedImage.KEY_OCR_UNIT, "line");
+        metadata.put(ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false);
         return metadata;
     }
 
     private Map<String, Object> imageMetadata(int ocrLineCount) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put(ExtractedImage.KEY_SOURCE_REF, "image");
-        metadata.put("ocr", true);
-        metadata.put("ocrLineCount", ocrLineCount);
-        metadata.put("confidenceAvailable", false);
+        metadata.put(ExtractedImage.KEY_OCR_APPLIED, true);
+        metadata.put(ExtractedImage.KEY_OCR_LINE_COUNT, ocrLineCount);
+        metadata.put(ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false);
         return metadata;
     }
 

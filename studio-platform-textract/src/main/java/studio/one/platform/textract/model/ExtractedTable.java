@@ -14,6 +14,8 @@ public record ExtractedTable(
 
     public static final String KEY_SOURCE_REF = "sourceRef";
     public static final String KEY_FORMAT = "format";
+    public static final String KEY_VECTOR_TEXT = "vectorText";
+    public static final String KEY_HEADER_ROW_COUNT = "headerRowCount";
 
     public ExtractedTable {
         cells = cells == null ? List.of() : List.copyOf(cells);
@@ -28,6 +30,22 @@ public record ExtractedTable(
     public String format() {
         Object value = metadata.get(KEY_FORMAT);
         return value instanceof String stringValue ? stringValue : "";
+    }
+
+    public String vectorText() {
+        Object value = metadata.get(KEY_VECTOR_TEXT);
+        return value instanceof String stringValue && !stringValue.isBlank() ? stringValue : markdown;
+    }
+
+    public int headerRowCount() {
+        Object value = metadata.get(KEY_HEADER_ROW_COUNT);
+        if (value instanceof Integer integerValue) {
+            return Math.max(0, integerValue);
+        }
+        if (value instanceof Number numberValue) {
+            return Math.max(0, numberValue.intValue());
+        }
+        return 0;
     }
 
     public int rowCount() {

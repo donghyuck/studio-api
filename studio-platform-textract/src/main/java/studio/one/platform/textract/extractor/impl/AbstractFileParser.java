@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.textract.extractor.FileParser;
+import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
 import studio.one.platform.textract.model.ParsedBlock;
 
@@ -93,6 +94,12 @@ public abstract class AbstractFileParser implements FileParser {
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put(ExtractedTable.KEY_SOURCE_REF, sourceRef);
         metadata.put(ExtractedTable.KEY_FORMAT, format);
+        return metadata;
+    }
+
+    protected Map<String, Object> imageMetadata(String sourceRef) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ExtractedImage.KEY_SOURCE_REF, sourceRef);
         return metadata;
     }
 

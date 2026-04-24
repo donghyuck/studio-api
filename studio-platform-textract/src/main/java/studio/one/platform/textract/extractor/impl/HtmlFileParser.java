@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -141,15 +140,14 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
     }
 
     private ExtractedImage extractImage(Element image, String path) {
-        Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put(ExtractedImage.KEY_SOURCE_REF, path);
+        Map<String, Object> metadata = imageMetadata(path);
         String source = image.attr("src");
         if (source != null && !source.isBlank()) {
-            metadata.put("src", source);
+            metadata.put(ExtractedImage.KEY_SRC, source);
         }
         String alt = image.attr("alt");
         if (alt != null && !alt.isBlank()) {
-            metadata.put("alt", alt);
+            metadata.put(ExtractedImage.KEY_ALT_TEXT, alt);
         }
         return new ExtractedImage(path, null, source, null, null, metadata);
     }

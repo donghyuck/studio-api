@@ -13,9 +13,22 @@ public record ExtractedTableCell(
         String text,
         Map<String, Object> metadata) {
 
+    public static final String KEY_SOURCE_REF = "sourceRef";
+    public static final String KEY_HEADER = "header";
+
     public ExtractedTableCell {
         rowSpan = Math.max(1, rowSpan);
         colSpan = Math.max(1, colSpan);
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+    }
+
+    public String sourceRef() {
+        Object value = metadata.get(KEY_SOURCE_REF);
+        return value instanceof String stringValue ? stringValue : "";
+    }
+
+    public boolean header() {
+        Object value = metadata.get(KEY_HEADER);
+        return value instanceof Boolean booleanValue && booleanValue;
     }
 }
