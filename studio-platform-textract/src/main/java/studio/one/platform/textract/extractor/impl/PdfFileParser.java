@@ -89,17 +89,17 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
                             blockMetadata(paragraphPath, order)));
                     order++;
                 }
-            }
-            for (ExtractedTable table : tableExtraction.tables()) {
-                blocks.add(new ParsedBlock(
-                        table.sourceRef(),
-                        BlockType.TABLE,
-                        table.sourceRef(),
-                        table.markdown(),
-                        null,
-                        List.of(),
-                        blockMetadata(table.sourceRef(), order)));
-                order++;
+                for (ExtractedTable table : tablesOnPage(tableExtraction.tables(), pagePath)) {
+                    blocks.add(new ParsedBlock(
+                            table.sourceRef(),
+                            BlockType.TABLE,
+                            table.sourceRef(),
+                            table.markdown(),
+                            pageNumber,
+                            List.of(),
+                            blockMetadata(table.sourceRef(), order)));
+                    order++;
+                }
             }
             String text = cleanText(cleanedPages.stream()
                     .filter(page -> page != null && !page.isBlank())
@@ -171,8 +171,14 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             case "png" -> "image/png";
             case "tif", "tiff" -> "image/tiff";
             case "gif" -> "image/gif";
-            default -> "image/" + suffix.toLowerCase();
+            default -> null;
         };
+    }
+
+    private List<ExtractedTable> tablesOnPage(List<ExtractedTable> tables, String pagePath) {
+        return tables.stream()
+                .filter(table -> table.sourceRef().startsWith(pagePath + "/"))
+                .toList();
     }
 
     private TableExtraction extractTables(List<String> pages) {
@@ -253,6 +259,11 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
                 markdownCells.add(row.get(colIndex));
             }
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
+            if (rowIndex == 0) {
+                markdownRows.add("| " + row.stream()
+                        .map(ignored -> "---")
+                        .collect(Collectors.joining(" | ")) + " |");
+            }
         }
         String markdown = String.join("\n", markdownRows);
         Map<String, Object> metadata = new LinkedHashMap<>(tableMetadata(sourceRef, "pdf"));

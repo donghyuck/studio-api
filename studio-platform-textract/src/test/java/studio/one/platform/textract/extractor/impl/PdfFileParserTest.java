@@ -171,15 +171,20 @@ class PdfFileParserTest {
         assertEquals("pdf", table.format());
         assertEquals("page[1]/table[0]", table.sourceRef());
         assertEquals(4, table.cellCount());
-        assertEquals("| Name | Score |", table.markdown().split("\\n")[0]);
+        assertEquals("""
+                | Name | Score |
+                | --- | --- |
+                | Alice | 90 |""", table.markdown());
         assertEquals("Name", table.cells().get(0).text());
         assertTrue(table.cells().get(0).header());
-        assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.TABLE));
+        int tableBlockIndex = blockIndex(result, BlockType.TABLE);
+        assertTrue(tableBlockIndex > 0);
+        assertEquals(2, result.blocks().get(tableBlockIndex).order());
     }
 
     @Test
     void parseStructuredWarnsForAmbiguousTableCandidateWithoutFalseTable() throws Exception {
-        byte[] bytes = pdfWithAmbiguousTableText();
+        byte[] bytes = pdfWithUnevenColumnTableCandidate();
 
         ParsedFile result = parser.parseStructured(bytes, "application/pdf", "ambiguous-table.pdf");
 
@@ -267,7 +272,7 @@ class PdfFileParserTest {
         }
     }
 
-    private byte[] pdfWithAmbiguousTableText() throws Exception {
+    private byte[] pdfWithUnevenColumnTableCandidate() throws Exception {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             PDPage page = new PDPage();
@@ -326,5 +331,14 @@ class PdfFileParserTest {
             contentStream.showText(footer);
             contentStream.endText();
         }
+    }
+
+    private int blockIndex(ParsedFile result, BlockType blockType) {
+        for (int index = 0; index < result.blocks().size(); index++) {
+            if (result.blocks().get(index).blockType() == blockType) {
+                return index;
+            }
+        }
+        return -1;
     }
 }
