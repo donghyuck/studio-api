@@ -56,7 +56,7 @@ public class GoogleGenAiChatPortFactoryConfiguration {
                             .genAiClient(client)
                             .defaultOptions(defaultOptions)
                             .build();
-            return new GoogleSpringAiChatAdapter(chatModel);
+            return new GoogleSpringAiChatAdapter(chatModel, provider.getType().name(), model);
         }
 
         private static String requireText(String value, String message) {

@@ -12,6 +12,10 @@ public class GoogleSpringAiChatAdapter extends SpringAiChatAdapter {
         super(chatModel);
     }
 
+    public GoogleSpringAiChatAdapter(ChatModel chatModel, String provider, String configuredModel) {
+        super(chatModel, provider, configuredModel);
+    }
+
     @Override
     protected ChatOptions createChatOptions(ChatRequest request) {
         GoogleGenAiChatOptions.Builder builder = GoogleGenAiChatOptions.builder();
