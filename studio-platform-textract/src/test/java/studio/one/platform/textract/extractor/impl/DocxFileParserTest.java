@@ -3,22 +3,31 @@ package studio.one.platform.textract.extractor.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
+import java.util.Base64;
 
+import org.apache.poi.util.Units;
+import org.apache.poi.xwpf.usermodel.Document;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFFootnote;
 import org.apache.poi.xwpf.usermodel.XWPFHeader;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
+import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ParsedBlock;
 import studio.one.platform.textract.model.ParsedFile;
 
 class DocxFileParserTest {
+
+    private static final byte[] PNG_BYTES = Base64.getDecoder().decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
 
     @Test
     void parseStructuredReturnsParagraphTextAndTableCells() throws Exception {
@@ -101,6 +110,25 @@ class DocxFileParserTest {
         assertTrue(footnoteBlock.order() != null && footnoteBlock.order() > 0);
     }
 
+    @Test
+    void parseStructuredExtractsEmbeddedImageWithCaptionAndSourceRef() throws Exception {
+        byte[] bytes = docxWithEmbeddedImage();
+
+        ParsedFile result = new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "image.docx");
+
+        assertEquals(1, result.images().size());
+        ExtractedImage image = result.images().get(0);
+        assertEquals("image/png", image.mimeType());
+        assertEquals("image1.png", image.filename());
+        assertTrue(image.sourceRef().startsWith("body/element[0]/run[1]/picture[0]"));
+        assertEquals("그림 1 설명", image.caption());
+        assertEquals("image1.png", image.binDataRef());
+        assertEquals(1, image.width());
+        assertEquals(1, image.height());
+        assertTrue(result.plainText().contains("그림 1 설명"));
+    }
+
     private byte[] docxWithParagraphAndTable() throws Exception {
         try (XWPFDocument document = new XWPFDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -154,6 +182,23 @@ class DocxFileParserTest {
             document.createParagraph().createRun().setText("본문 문단");
             XWPFFootnote footnote = document.createFootnote();
             footnote.createParagraph().createRun().setText("각주 본문");
+            document.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] docxWithEmbeddedImage() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            XWPFParagraph paragraph = document.createParagraph();
+            paragraph.createRun().setText("그림 1 설명");
+            XWPFRun imageRun = paragraph.createRun();
+            imageRun.addPicture(
+                    new ByteArrayInputStream(PNG_BYTES),
+                    Document.PICTURE_TYPE_PNG,
+                    "inline.png",
+                    Units.pixelToEMU(24),
+                    Units.pixelToEMU(12));
             document.write(out);
             return out.toByteArray();
         }
