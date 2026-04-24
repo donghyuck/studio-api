@@ -30,6 +30,7 @@ class NormalizedDocumentTest {
         assertThat(document.blocks()).extracting(NormalizedBlock::text).containsExactly("first", "second");
         assertThat(document.chunkableText()).isEqualTo("first\n\nsecond");
         assertThat(document.blocks().get(0).effectiveSourceRef()).isEqualTo("page[1]/h[0]");
+        assertThat(document.blocks().get(0).blockIds()).containsExactly("page[1]/h[0]");
     }
 
     @Test
@@ -47,5 +48,23 @@ class NormalizedDocumentTest {
                 .containsEntry(ChunkMetadata.KEY_SOURCE_REF, "page[1]/table[0]")
                 .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "TABLE")
                 .containsEntry(ChunkMetadata.KEY_TOKEN_ESTIMATE, 12);
+    }
+
+    @Test
+    void legacyBlockConstructorDefaultsNewStructuredFields() {
+        NormalizedBlock block = new NormalizedBlock(
+                "block-1",
+                NormalizedBlockType.PARAGRAPH,
+                "content",
+                "page[1]/p[0]",
+                1,
+                null,
+                0,
+                "",
+                Map.of());
+
+        assertThat(block.headingPath()).isEmpty();
+        assertThat(block.blockIds()).containsExactly("page[1]/p[0]");
+        assertThat(block.confidence()).isNull();
     }
 }

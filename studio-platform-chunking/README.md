@@ -6,6 +6,7 @@
 
 - Define immutable chunking request/result models.
 - Define strategy-neutral chunking extension points.
+- Model search-oriented child chunks and expansion-oriented parent relationships.
 - Keep chunking contracts independent from Spring, Spring AI, JDBC, and vector-store implementations.
 
 ## Core Types
@@ -15,6 +16,7 @@
 - `ChunkingContext`: immutable input context for chunk generation.
 - `Chunk`: immutable chunk content with metadata.
 - `ChunkMetadata`: standard metadata for vector indexing.
+- `ChunkType`: logical chunk role such as `child`, `parent`, `table`, `ocr`.
 - `ChunkingStrategyType`: supported strategy identifiers.
 - `ChunkUnit`: size unit for character-based or token-based chunking.
 - `NormalizedDocument`: parser-neutral structured input for structure-aware chunking.
@@ -29,8 +31,11 @@
 - `ChunkMetadata.order` is intended to map to the same value as `chunkOrder` when persisted by downstream modules.
 - Structured provenance keys are standardized for downstream consumers:
   - `sourceRef`, `sourceRefs`, `blockType`, `page`, `slide`
-  - `parentBlockId`, `headingPath`, `sourceFormat`
+  - `parentBlockId`, `headingPath`, `sourceFormat`, `blockIds`, `confidence`
   - `tokenEstimate`, `chunkUnit`, `maxSize`, `overlap`
+- Parent-child relationship keys are additive and do not replace legacy keys:
+  - `chunkType`, `parentChunkId`, `parentChunkContent`, `previousChunkId`, `nextChunkId`
+- `parentId` remains for legacy compatibility and is not redefined as `parentChunkId`.
 
 ## Structured Input
 
@@ -49,10 +54,36 @@ Structured chunking should use normalized blocks:
 NormalizedDocument document = NormalizedDocument.builder("doc-1")
         .sourceFormat("PDF")
         .blocks(List.of(
-                NormalizedBlock.builder(NormalizedBlockType.HEADING, "Install").order(0).build(),
-                NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "Install the engine.").order(1).build()))
+                NormalizedBlock.builder(NormalizedBlockType.HEADING, "Install")
+                        .id("page[1]/h[0]")
+                        .order(0)
+                        .headingPath("Install")
+                        .blockIds(List.of("page[1]/h[0]"))
+                        .confidence(0.98d)
+                        .build(),
+                NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "Install the engine.")
+                        .id("page[1]/p[1]")
+                        .order(1)
+                        .blockIds(List.of("page[1]/p[1]"))
+                        .confidence(0.92d)
+                        .build()))
         .build();
 ```
+
+## Parent-Child Model
+
+The compatibility return type remains `List<Chunk>`, and the default output remains search-oriented child chunks.
+Parent section chunks are modeled through additive metadata links so downstream indexing can keep indexing child chunks
+without schema breaks.
+
+- Child chunks are the default retrieval unit.
+- Parent chunks are modeled by deterministic `parentChunkId` values.
+- Parent chunk content can be persisted additively as `parentChunkContent` when a strategy needs parent context recovery.
+- `previousChunkId` and `nextChunkId` link adjacent child chunks within the same parent section only.
+- Documents that start without a heading still receive a parent context with an empty `section` value and body-only
+  `parentChunkContent`.
+- `blockIds`, `headingPath`, `page`, `slide`, `sourceRef`, and `confidence` preserve provenance needed for later
+  context expansion.
 
 ## Dependency Boundary
 
