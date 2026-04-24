@@ -73,4 +73,28 @@ class ChunkMetadataTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("order");
     }
+
+    @Test
+    void legacyConstructorDefaultsNewParentChildFields() {
+        ChunkMetadata metadata = new ChunkMetadata(
+                "doc-1",
+                "parent-1",
+                "section",
+                1,
+                ChunkingStrategyType.RECURSIVE,
+                "attachment",
+                "123",
+                0,
+                10,
+                null,
+                10,
+                Map.of());
+
+        assertThat(metadata.chunkType()).isEqualTo(ChunkType.CHILD);
+        assertThat(metadata.parentChunkId()).isNull();
+        assertThat(metadata.previousChunkId()).isNull();
+        assertThat(metadata.nextChunkId()).isNull();
+        assertThat(metadata.blockIds()).isEmpty();
+        assertThat(metadata.confidence()).isNull();
+    }
 }

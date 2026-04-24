@@ -49,4 +49,22 @@ class NormalizedDocumentTest {
                 .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "TABLE")
                 .containsEntry(ChunkMetadata.KEY_TOKEN_ESTIMATE, 12);
     }
+
+    @Test
+    void legacyBlockConstructorDefaultsNewStructuredFields() {
+        NormalizedBlock block = new NormalizedBlock(
+                "block-1",
+                NormalizedBlockType.PARAGRAPH,
+                "content",
+                "page[1]/p[0]",
+                1,
+                null,
+                0,
+                "",
+                Map.of());
+
+        assertThat(block.headingPath()).isEmpty();
+        assertThat(block.blockIds()).containsExactly("page[1]/p[0]");
+        assertThat(block.confidence()).isNull();
+    }
 }
