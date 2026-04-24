@@ -200,6 +200,13 @@ studio:
 `ChatPort.stream(ChatRequest)`는 Java `Stream` 기반 동기 계약이므로 WebFlux/Netty event-loop thread에서 직접 소비하지 말고 web 계층에서 별도 scheduler 또는 blocking boundary를 둔다.
 HTTP `text/event-stream` endpoint 변환은 `starter-ai-web` 책임이다.
 
+호환성 기준:
+
+- 기존 `ChatResponse.metadata()` map은 유지되며 신규 key는 additive하게 추가된다.
+- `resolvedModel`은 response metadata model, request model, configured model 순서로 결정된다.
+- native stream이 빈 stream을 반환하거나 unsupported를 명시하면 fallback stream으로 대체된다.
+- stream 도중 provider 오류가 발생하면 오류를 숨기지 않고 소비 시점에 전파한다. HTTP error event 변환은 web starter가 담당한다.
+
 ### RAG 청킹 설정
 
 `starter:studio-platform-starter-chunking`이 classpath에 있으면 `RagPipelineService`는 신규

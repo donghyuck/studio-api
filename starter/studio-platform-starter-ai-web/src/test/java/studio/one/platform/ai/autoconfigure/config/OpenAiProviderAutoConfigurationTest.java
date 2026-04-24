@@ -17,11 +17,15 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.autoconfigure.AiWebAutoConfiguration;
 import studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
+import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
@@ -37,6 +41,7 @@ import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.dto.EmbeddingRequestDto;
 import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
+import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -79,7 +84,14 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(context).hasSingleBean(ChatController.class);
             assertThat(context).hasSingleBean(EmbeddingController.class);
             assertThat(context).hasSingleBean(AiInfoController.class);
+            assertThat(context).hasSingleBean(ConversationRepositoryPort.class);
+            assertThat(context).hasSingleBean(ConversationChatService.class);
+            assertThat(context).hasSingleBean(ObjectMapper.class);
             assertThat(context).doesNotHaveBean(ChatMemoryStore.class);
+
+            ChatController controller = context.getBean(ChatController.class);
+            ObjectMapper objectMapper = context.getBean(ObjectMapper.class);
+            assertThat(ReflectionTestUtils.getField(controller, "objectMapper")).isSameAs(objectMapper);
 
             AiProviderRegistry registry = context.getBean(AiProviderRegistry.class);
             assertThat(registry.defaultProvider()).isEqualTo("openai");
