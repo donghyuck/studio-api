@@ -25,8 +25,10 @@ class TextractNormalizedDocumentAdapterTest {
                 DocumentFormat.HTML,
                 "plain",
                 List.of(
-                        ParsedBlock.text("body/h1", BlockType.HEADING, "Title", 1, 0, Map.of()),
-                        ParsedBlock.text("body/table[0]", BlockType.TABLE, "| A |\n| --- |\n| 1 |", 1, 1, Map.of()),
+                        ParsedBlock.text("body/h1", BlockType.HEADING, "Title", 1, 0,
+                                Map.of(ParsedBlock.KEY_CONFIDENCE, 0.98d)),
+                        ParsedBlock.text("body/table[0]", BlockType.TABLE, "| A |\n| --- |\n| 1 |", 1, 1,
+                                Map.of(ParsedBlock.KEY_CONFIDENCE, 0.87d)),
                         ParsedBlock.text("body/p[1]", BlockType.PARAGRAPH, "After table", 1, 2, Map.of())),
                 Map.of("filename", "sample.html"),
                 List.of(),
@@ -34,7 +36,8 @@ class TextractNormalizedDocumentAdapterTest {
                 List.of(new ExtractedTable(
                         "body/table[0]",
                         "| A |\n| --- |\n| 1 |",
-                        List.of(new ExtractedTableCell(0, 0, 1, 1, "A", Map.of())),
+                        List.of(new ExtractedTableCell(0, 0, 1, 1, "A",
+                                Map.of(ExtractedTableCell.KEY_SOURCE_REF, "body/table[0]/cell[0,0]"))),
                         Map.of(ExtractedTable.KEY_VECTOR_TEXT, "A: 1", ExtractedTable.KEY_SOURCE_REF, "body/table[0]"))),
                 List.of(new ExtractedImage(
                         "body/img[0]",
@@ -60,5 +63,9 @@ class TextractNormalizedDocumentAdapterTest {
                 .contains("Title", "A: 1", "After table", "architecture diagram")
                 .doesNotContain("| A |\n| --- |\n| 1 |");
         assertThat(document.blocks().get(1).order()).isEqualTo(1);
+        assertThat(document.blocks().get(0).confidence()).isEqualTo(0.98d);
+        assertThat(document.blocks().get(1).blockIds()).containsExactly("body/table[0]/cell[0,0]");
+        assertThat(document.blocks().get(1).confidence()).isEqualTo(0.87d);
+        assertThat(document.blocks().get(3).blockIds()).containsExactly("body/img[0]");
     }
 }

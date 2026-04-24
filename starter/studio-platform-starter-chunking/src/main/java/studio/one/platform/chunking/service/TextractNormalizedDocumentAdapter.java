@@ -14,6 +14,7 @@ import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.textract.model.BlockType;
 import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
+import studio.one.platform.textract.model.ExtractedTableCell;
 import studio.one.platform.textract.model.ParsedBlock;
 import studio.one.platform.textract.model.ParsedFile;
 
@@ -81,6 +82,8 @@ public class TextractNormalizedDocumentAdapter {
                 .slide(block.slide())
                 .order(block.order())
                 .parentBlockId(block.parentBlockId())
+                .blockIds(List.of(block.id()))
+                .confidence(block.confidence())
                 .metadata(block.metadata())
                 .build();
     }
@@ -97,6 +100,8 @@ public class TextractNormalizedDocumentAdapter {
                 .slide(tableBlock == null ? null : tableBlock.slide())
                 .order(tableBlock == null ? null : tableBlock.order())
                 .parentBlockId(tableBlock == null ? null : tableBlock.parentBlockId())
+                .blockIds(tableCellRefs(table, tableBlock))
+                .confidence(tableBlock == null ? null : tableBlock.confidence())
                 .metadata(metadata)
                 .build();
     }
@@ -111,8 +116,24 @@ public class TextractNormalizedDocumentAdapter {
         return NormalizedBlock.builder(image.ocrApplied() ? NormalizedBlockType.OCR_TEXT : NormalizedBlockType.IMAGE_CAPTION, text)
                 .id(image.path())
                 .sourceRef(image.sourceRef())
+                .blockIds(image.sourceRefs().isEmpty() ? List.of(image.path()) : image.sourceRefs())
                 .metadata(metadata)
                 .build();
+    }
+
+    private List<String> tableCellRefs(ExtractedTable table, ParsedBlock tableBlock) {
+        List<String> refs = table.cells().stream()
+                .map(ExtractedTableCell::sourceRef)
+                .filter(ref -> ref != null && !ref.isBlank())
+                .distinct()
+                .toList();
+        if (!refs.isEmpty()) {
+            return refs;
+        }
+        if (tableBlock != null && tableBlock.id() != null && !tableBlock.id().isBlank()) {
+            return List.of(tableBlock.id());
+        }
+        return table.path() == null || table.path().isBlank() ? List.of() : List.of(table.path());
     }
 
     private String filename(Map<String, Object> metadata) {

@@ -8,6 +8,7 @@ import java.util.regex.Pattern;
 
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
@@ -81,6 +82,7 @@ public class RecursiveChunker implements Chunker {
             String content = current.toString().trim();
             chunks.add(chunk(context, content, order, cursor, cursor + content.length()));
         }
+        linkNeighbors(context, chunks);
         return chunks;
     }
 
@@ -88,6 +90,7 @@ public class RecursiveChunker implements Chunker {
         String id = chunkId(context.sourceDocumentId(), order);
         ChunkMetadata metadata = ChunkMetadata.builder(strategy(), order)
                 .sourceDocumentId(context.sourceDocumentId())
+                .chunkType(ChunkType.CHILD)
                 .objectType(context.objectType())
                 .objectId(context.objectId())
                 .startOffset(startOffset)
@@ -95,6 +98,33 @@ public class RecursiveChunker implements Chunker {
                 .charCount(content.length())
                 .build();
         return Chunk.of(id, content, metadata);
+    }
+
+    private void linkNeighbors(ChunkingContext context, List<Chunk> chunks) {
+        for (int i = 0; i < chunks.size(); i++) {
+            Chunk chunk = chunks.get(i);
+            String previousChunkId = i == 0 ? null : chunkId(context.sourceDocumentId(), i - 1);
+            String nextChunkId = i == chunks.size() - 1 ? null : chunkId(context.sourceDocumentId(), i + 1);
+            ChunkMetadata metadata = ChunkMetadata.builder(chunk.metadata().strategy(), chunk.metadata().order())
+                    .sourceDocumentId(chunk.metadata().sourceDocumentId())
+                    .parentId(chunk.metadata().parentId())
+                    .chunkType(chunk.metadata().chunkType())
+                    .parentChunkId(chunk.metadata().parentChunkId())
+                    .previousChunkId(previousChunkId)
+                    .nextChunkId(nextChunkId)
+                    .section(chunk.metadata().section())
+                    .objectType(chunk.metadata().objectType())
+                    .objectId(chunk.metadata().objectId())
+                    .startOffset(chunk.metadata().startOffset())
+                    .endOffset(chunk.metadata().endOffset())
+                    .tokenCount(chunk.metadata().tokenCount())
+                    .charCount(chunk.metadata().charCount())
+                    .blockIds(chunk.metadata().blockIds())
+                    .confidence(chunk.metadata().confidence())
+                    .attributes(chunk.metadata().attributes())
+                    .build();
+            chunks.set(i, Chunk.of(chunk.id(), chunk.content(), metadata));
+        }
     }
 
     private List<String> splitRecursively(String text, int maxSize) {

@@ -5,6 +5,7 @@ import java.util.List;
 
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
@@ -48,7 +49,10 @@ public class FixedSizeChunker implements Chunker {
             int end = Math.min(start + maxSize, text.length());
             String content = text.substring(start, end).trim();
             if (!content.isBlank()) {
-                chunks.add(chunk(context, content, order++, start, end));
+                int currentOrder = order++;
+                chunks.add(chunk(context, content, currentOrder, start, end,
+                        currentOrder == 0 ? null : chunkId(context.sourceDocumentId(), currentOrder - 1),
+                        end == text.length() ? null : chunkId(context.sourceDocumentId(), currentOrder + 1)));
             }
             if (end == text.length()) {
                 break;
@@ -59,10 +63,20 @@ public class FixedSizeChunker implements Chunker {
         return chunks;
     }
 
-    private Chunk chunk(ChunkingContext context, String content, int order, int startOffset, int endOffset) {
+    private Chunk chunk(
+            ChunkingContext context,
+            String content,
+            int order,
+            int startOffset,
+            int endOffset,
+            String previousChunkId,
+            String nextChunkId) {
         String id = chunkId(context.sourceDocumentId(), order);
         ChunkMetadata metadata = ChunkMetadata.builder(strategy(), order)
                 .sourceDocumentId(context.sourceDocumentId())
+                .chunkType(ChunkType.CHILD)
+                .previousChunkId(previousChunkId)
+                .nextChunkId(nextChunkId)
                 .objectType(context.objectType())
                 .objectId(context.objectId())
                 .startOffset(startOffset)

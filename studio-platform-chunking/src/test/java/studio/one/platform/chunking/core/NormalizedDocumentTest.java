@@ -30,6 +30,7 @@ class NormalizedDocumentTest {
         assertThat(document.blocks()).extracting(NormalizedBlock::text).containsExactly("first", "second");
         assertThat(document.chunkableText()).isEqualTo("first\n\nsecond");
         assertThat(document.blocks().get(0).effectiveSourceRef()).isEqualTo("page[1]/h[0]");
+        assertThat(document.blocks().get(0).blockIds()).containsExactly("page[1]/h[0]");
     }
 
     @Test

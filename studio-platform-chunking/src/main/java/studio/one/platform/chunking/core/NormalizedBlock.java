@@ -15,10 +15,16 @@ public record NormalizedBlock(
         Integer slide,
         Integer order,
         String parentBlockId,
+        String headingPath,
+        java.util.List<String> blockIds,
+        Double confidence,
         Map<String, Object> metadata) {
 
     public static final String KEY_ROW_COUNT = "rowCount";
     public static final String KEY_CELL_COUNT = "cellCount";
+    public static final String KEY_HEADING_PATH = "headingPath";
+    public static final String KEY_BLOCK_IDS = "blockIds";
+    public static final String KEY_CONFIDENCE = "confidence";
 
     public NormalizedBlock {
         id = normalize(id);
@@ -26,6 +32,8 @@ public record NormalizedBlock(
         text = text == null ? "" : text.trim();
         sourceRef = normalize(sourceRef);
         parentBlockId = normalize(parentBlockId);
+        headingPath = normalize(headingPath);
+        blockIds = sanitizeList(blockIds, id, sourceRef);
         metadata = sanitize(metadata);
     }
 
@@ -61,6 +69,22 @@ public record NormalizedBlock(
         return Map.copyOf(sanitized);
     }
 
+    private static java.util.List<String> sanitizeList(java.util.List<String> values, String fallbackId, String fallbackSourceRef) {
+        java.util.List<String> sanitized = values == null ? java.util.List.of() : values.stream()
+                .filter(java.util.Objects::nonNull)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
+                .toList();
+        if (!sanitized.isEmpty()) {
+            return sanitized;
+        }
+        if (fallbackSourceRef != null && !fallbackSourceRef.isBlank()) {
+            return java.util.List.of(fallbackSourceRef);
+        }
+        return fallbackId == null || fallbackId.isBlank() ? java.util.List.of() : java.util.List.of(fallbackId);
+    }
+
     private static String normalize(String value) {
         return value == null ? "" : value.trim();
     }
@@ -74,6 +98,9 @@ public record NormalizedBlock(
         private Integer slide;
         private Integer order;
         private String parentBlockId;
+        private String headingPath;
+        private java.util.List<String> blockIds = java.util.List.of();
+        private Double confidence;
         private Map<String, Object> metadata = Map.of();
 
         private Builder(NormalizedBlockType type, String text) {
@@ -111,13 +138,29 @@ public record NormalizedBlock(
             return this;
         }
 
+        public Builder headingPath(String headingPath) {
+            this.headingPath = headingPath;
+            return this;
+        }
+
+        public Builder blockIds(java.util.List<String> blockIds) {
+            this.blockIds = blockIds;
+            return this;
+        }
+
+        public Builder confidence(Double confidence) {
+            this.confidence = confidence;
+            return this;
+        }
+
         public Builder metadata(Map<String, Object> metadata) {
             this.metadata = metadata;
             return this;
         }
 
         public NormalizedBlock build() {
-            return new NormalizedBlock(id, type, text, sourceRef, page, slide, order, parentBlockId, metadata);
+            return new NormalizedBlock(id, type, text, sourceRef, page, slide, order, parentBlockId,
+                    headingPath, blockIds, confidence, metadata);
         }
     }
 }

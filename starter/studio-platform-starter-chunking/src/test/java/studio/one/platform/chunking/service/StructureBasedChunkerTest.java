@@ -24,23 +24,31 @@ class StructureBasedChunkerTest {
         NormalizedDocument document = NormalizedDocument.builder("doc")
                 .sourceFormat("PDF")
                 .blocks(List.of(
-                        block(NormalizedBlockType.HEADING, "Install", "page[1]/h[0]", 0),
-                        block(NormalizedBlockType.PARAGRAPH, "Install the engine.", "page[1]/p[1]", 1),
-                        block(NormalizedBlockType.PARAGRAPH, "Configure tessdata.", "page[1]/p[2]", 2)))
+                        block(NormalizedBlockType.HEADING, "Install", "page[1]/h[0]", 0, 0.99d),
+                        block(NormalizedBlockType.PARAGRAPH, "Install the engine.", "page[1]/p[1]", 1, 0.90d),
+                        block(NormalizedBlockType.PARAGRAPH, "Configure tessdata.", "page[1]/p[2]", 2, 0.80d)))
                 .build();
 
         List<Chunk> chunks = chunker.chunk(document, context(document, 120, 0));
 
         assertThat(chunks).hasSize(1);
-        assertThat(chunks.get(0).content()).contains("Install", "Install the engine.", "Configure tessdata.");
+        assertThat(chunks.get(0).content()).isEqualTo("Install the engine.\n\nConfigure tessdata.");
         assertThat(chunks.get(0).metadata().section()).isEqualTo("Install");
+        assertThat(chunks.get(0).metadata().chunkType()).isEqualTo(studio.one.platform.chunking.core.ChunkType.CHILD);
+        assertThat(chunks.get(0).metadata().parentChunkId()).isEqualTo("doc-parent-0");
+        assertThat(chunks.get(0).metadata().blockIds()).containsExactly("page[1]/p[1]", "page[1]/p[2]");
+        assertThat(chunks.get(0).metadata().confidence()).isCloseTo((0.90d + 0.80d) / 2, org.assertj.core.data.Offset.offset(0.0001d));
         assertThat(chunks.get(0).metadata().toMap())
-                .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "HEADING")
+                .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "PARAGRAPH")
                 .containsEntry(ChunkMetadata.KEY_SOURCE_FORMAT, "PDF")
+                .containsEntry(ChunkMetadata.KEY_CHUNK_TYPE, "child")
                 .containsEntry(ChunkMetadata.KEY_HEADING_PATH, "Install")
+                .containsEntry(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "Install\n\nInstall the engine.\n\nConfigure tessdata.")
+                .containsEntry(ChunkMetadata.KEY_PARENT_CHUNK_BLOCK_IDS, List.of("page[1]/h[0]", "page[1]/p[1]", "page[1]/p[2]"))
                 .containsEntry(ChunkMetadata.KEY_CHUNK_UNIT, "character")
                 .containsEntry(ChunkMetadata.KEY_MAX_SIZE, 120)
                 .containsEntry(ChunkMetadata.KEY_OVERLAP, 0)
+                .containsEntry(ChunkMetadata.KEY_BLOCK_IDS, List.of("page[1]/p[1]", "page[1]/p[2]"))
                 .containsKey(ChunkMetadata.KEY_SOURCE_REFS);
     }
 
@@ -50,19 +58,26 @@ class StructureBasedChunkerTest {
         NormalizedDocument document = NormalizedDocument.builder("doc")
                 .sourceFormat("HTML")
                 .blocks(List.of(
-                        block(NormalizedBlockType.HEADING, "Metrics", "h1", 0),
-                        block(NormalizedBlockType.TABLE, "Name: Alice\nScore: 90", "table[0]", 1),
-                        block(NormalizedBlockType.OCR_TEXT, "scanned caption", "image[0]/ocr", 2)))
+                        block(NormalizedBlockType.HEADING, "Metrics", "h1", 0, 0.99d),
+                        block(NormalizedBlockType.TABLE, "Name: Alice\nScore: 90", "table[0]", 1, 0.88d),
+                        block(NormalizedBlockType.OCR_TEXT, "scanned caption", "image[0]/ocr", 2, 0.77d)))
                 .build();
 
         List<Chunk> chunks = chunker.chunk(document, context(document, 120, 10));
 
         assertThat(chunks).extracting(Chunk::content)
-                .containsExactly("Metrics", "Name: Alice\nScore: 90", "scanned caption");
-        assertThat(chunks.get(1).metadata().toMap())
+                .containsExactly("Name: Alice\nScore: 90", "scanned caption");
+        assertThat(chunks.get(0).metadata().previousChunkId()).isNull();
+        assertThat(chunks.get(0).metadata().nextChunkId()).isEqualTo("doc-1");
+        assertThat(chunks.get(1).metadata().previousChunkId()).isEqualTo("doc-0");
+        assertThat(chunks.get(1).metadata().nextChunkId()).isNull();
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_TYPE, "table")
                 .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "TABLE")
-                .containsEntry(ChunkMetadata.KEY_SOURCE_REF, "table[0]");
-        assertThat(chunks.get(2).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_SOURCE_REF, "table[0]")
+                .containsEntry(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "Metrics\n\nName: Alice\nScore: 90\n\nscanned caption");
+        assertThat(chunks.get(1).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_TYPE, "ocr")
                 .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "OCR_TEXT")
                 .containsEntry(ChunkMetadata.KEY_SOURCE_REF, "image[0]/ocr");
     }
@@ -72,8 +87,8 @@ class StructureBasedChunkerTest {
         StructureBasedChunker chunker = new StructureBasedChunker(8, 0, new RecursiveChunker(8, 0));
         NormalizedDocument document = NormalizedDocument.builder("doc")
                 .blocks(List.of(
-                        block(NormalizedBlockType.PARAGRAPH, "alpha beta gamma delta", "p1", 0),
-                        block(NormalizedBlockType.PARAGRAPH, "epsilon zeta eta theta", "p2", 1)))
+                        block(NormalizedBlockType.PARAGRAPH, "alpha beta gamma delta", "p1", 0, 0.95d),
+                        block(NormalizedBlockType.PARAGRAPH, "epsilon zeta eta theta", "p2", 1, 0.85d)))
                 .build();
 
         List<Chunk> chunks = chunker.chunk(document, document.toContextBuilder()
@@ -104,11 +119,13 @@ class StructureBasedChunkerTest {
                 .isEqualTo(ChunkingStrategyType.RECURSIVE);
     }
 
-    private NormalizedBlock block(NormalizedBlockType type, String text, String sourceRef, int order) {
+    private NormalizedBlock block(NormalizedBlockType type, String text, String sourceRef, int order, double confidence) {
         return NormalizedBlock.builder(type, text)
                 .id(sourceRef)
                 .sourceRef(sourceRef)
                 .order(order)
+                .blockIds(List.of(sourceRef))
+                .confidence(confidence)
                 .metadata(Map.of("format", "test"))
                 .build();
     }

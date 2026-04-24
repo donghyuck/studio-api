@@ -21,9 +21,15 @@ class ChunkMetadataTest {
         ChunkMetadata metadata = ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 2)
                 .sourceDocumentId("doc-1")
                 .parentId(" ")
+                .chunkType(ChunkType.CHILD)
+                .parentChunkId("parent-1")
+                .previousChunkId("doc-1-1")
+                .nextChunkId("doc-1-3")
                 .section(null)
                 .objectType("attachment")
                 .objectId("123")
+                .blockIds(java.util.List.of("block-1", " ", "block-2"))
+                .confidence(0.92d)
                 .attributes(attributes)
                 .build();
 
@@ -32,10 +38,16 @@ class ChunkMetadataTest {
         assertThat(metadata.toMap())
                 .containsEntry("existing", "value")
                 .containsEntry("sourceDocumentId", "doc-1")
+                .containsEntry("chunkType", "child")
+                .containsEntry("parentChunkId", "parent-1")
+                .containsEntry("previousChunkId", "doc-1-1")
+                .containsEntry("nextChunkId", "doc-1-3")
                 .containsEntry("chunkOrder", 2)
                 .containsEntry("strategy", "recursive")
                 .containsEntry("objectType", "attachment")
                 .containsEntry("objectId", "123")
+                .containsEntry("blockIds", java.util.List.of("block-1", "block-2"))
+                .containsEntry("confidence", 0.92d)
                 .doesNotContainKeys("parentId", "section");
     }
 
