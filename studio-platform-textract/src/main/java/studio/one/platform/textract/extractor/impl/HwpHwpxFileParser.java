@@ -258,7 +258,8 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                 int rowSpan = attrInt(firstDescendant(cell, "cellSpan").orElse(null), "rowSpan", 1);
                 int colSpan = attrInt(firstDescendant(cell, "cellSpan").orElse(null), "colSpan", 1);
                 String text = collectDescendantText(cell);
-                cells.add(new ExtractedTableCell(rowIndex, colIndex, rowSpan, colSpan, text, Map.of()));
+                String cellSourceRef = path + "/row[" + rowIndex + "]/cell[" + colIndex + "]";
+                cells.add(tableCell(rowIndex, colIndex, rowSpan, colSpan, text, cellSourceRef, cells.size(), rowIndex == 0));
                 markdownCells.add(text.replace('\n', ' '));
             }
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
@@ -267,9 +268,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                 path,
                 String.join("\n", markdownRows),
                 cells,
-                Map.of(
-                        ExtractedTable.KEY_FORMAT, "hwpx",
-                        ExtractedTable.KEY_SOURCE_REF, path));
+                tableMetadata(path, "hwpx", cells, cells.isEmpty() ? 0 : 1));
     }
 
     private String collectDescendantText(Node node) {

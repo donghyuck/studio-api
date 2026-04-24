@@ -18,6 +18,7 @@ class ExtractedStructureTest {
                 List.of(
                         new ExtractedTableCell(0, 0, 1, 1, "A1", Map.of(
                                 ExtractedTableCell.KEY_SOURCE_REF, "body/table[0]/row[0]/cell[0]",
+                                ExtractedTableCell.KEY_ORDER, 0,
                                 ExtractedTableCell.KEY_HEADER, true)),
                         new ExtractedTableCell(0, 1, 1, 1, "B1", Map.of()),
                         new ExtractedTableCell(1, 0, 1, 1, "A2", Map.of())),
@@ -35,6 +36,7 @@ class ExtractedStructureTest {
         assertEquals(3, table.cellCount());
         assertEquals("body/table[0]/row[0]/cell[0]", table.cells().get(0).sourceRef());
         assertEquals(true, table.cells().get(0).header());
+        assertEquals(0, table.cells().get(0).order());
     }
 
     @Test

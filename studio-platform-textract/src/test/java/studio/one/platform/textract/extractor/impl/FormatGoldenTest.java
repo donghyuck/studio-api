@@ -71,7 +71,7 @@ class FormatGoldenTest {
         assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("HEADER||header[0]/element[0]|")));
         assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("FOOTER||footer[0]/element[0]|")));
         assertTrue(snapshot.blocks().stream().anyMatch(block -> block.startsWith("FOOTNOTE||footnote[")));
-        assertEquals(List.of("docx|body/element[3]|2x2|4"), snapshot.tables());
+        assertEquals(List.of("docx|body/element[3]|2x2|4|A1 | B1↵A1: A2 | B1: B2"), snapshot.tables());
     }
 
     @Test
@@ -104,7 +104,7 @@ class FormatGoldenTest {
                 "LIST_ITEM||li[2]|2|목록 항목",
                 "TABLE||table[3]|3|| A | B |↵| 1 | 2 |",
                 "IMAGE_CAPTION||img[4]|4|대표 이미지"), snapshot.blocks());
-        assertEquals(List.of("html|table[3]|2x2|4"), snapshot.tables());
+        assertEquals(List.of("html|table[3]|2x2|4|A | B↵A: 1 | B: 2"), snapshot.tables());
         assertEquals(List.of("|img[4]|hero.png"), snapshot.images());
         assertTrue(!snapshot.plainText().contains("메뉴 링크"));
     }
@@ -120,7 +120,7 @@ class FormatGoldenTest {
         GoldenSnapshot partialSnapshot = snapshot(partial);
 
         assertEquals(DocumentFormat.HWPX.name(), snapshot.format());
-        assertEquals(List.of("hwpx|section[0]/p[3]/tbl[1]|2x2|4"), snapshot.tables());
+        assertEquals(List.of("hwpx|section[0]/p[3]/tbl[1]|2x2|4|A1 | B1↵A1: A2 | B1: B2"), snapshot.tables());
         assertEquals(List.of("image/png|section[0]/p[5]/pic[0]|Contents/BinData/image1.png"), snapshot.images());
         assertEquals(List.of("WARNING|HWPX_SECTION_MISSING|true|section0.xml"), partialSnapshot.warnings());
     }
@@ -174,7 +174,8 @@ class FormatGoldenTest {
                                         .mapToInt(cell -> cell.col() + cell.colSpan())
                                         .max()
                                         .orElse(0)
-                                + FIELD + table.cellCount())
+                                + FIELD + table.cellCount()
+                                + FIELD + normalize(table.vectorText()))
                         .toList(),
                 file.images().stream()
                         .map(image -> image.mimeType()

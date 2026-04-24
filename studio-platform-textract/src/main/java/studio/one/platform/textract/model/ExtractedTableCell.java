@@ -15,6 +15,7 @@ public record ExtractedTableCell(
 
     public static final String KEY_SOURCE_REF = "sourceRef";
     public static final String KEY_HEADER = "header";
+    public static final String KEY_ORDER = "order";
 
     public ExtractedTableCell {
         rowSpan = Math.max(1, rowSpan);
@@ -30,5 +31,16 @@ public record ExtractedTableCell(
     public boolean header() {
         Object value = metadata.get(KEY_HEADER);
         return value instanceof Boolean booleanValue && booleanValue;
+    }
+
+    public Integer order() {
+        Object value = metadata.get(KEY_ORDER);
+        if (value instanceof Integer integerValue) {
+            return integerValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue();
+        }
+        return null;
     }
 }

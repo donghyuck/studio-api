@@ -123,20 +123,71 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
         List<ExtractedTableCell> cells = new ArrayList<>();
         List<String> markdownRows = new ArrayList<>();
         Elements rows = table.select("tr");
+        List<Integer> occupiedUntilRows = new ArrayList<>();
         for (int rowIndex = 0; rowIndex < rows.size(); rowIndex++) {
             Elements rowCells = rows.get(rowIndex).select("th, td");
             List<String> markdownCells = new ArrayList<>();
-            for (int colIndex = 0; colIndex < rowCells.size(); colIndex++) {
-                Element cell = rowCells.get(colIndex);
+            int logicalCol = 0;
+            for (int domColIndex = 0; domColIndex < rowCells.size(); domColIndex++) {
+                logicalCol = nextAvailableColumn(occupiedUntilRows, logicalCol, rowIndex);
+                Element cell = rowCells.get(domColIndex);
                 String text = cleanText(cell.text());
-                cells.add(new ExtractedTableCell(rowIndex, colIndex, 1, 1, text, Map.of()));
+                int rowSpan = attrInt(cell.attr("rowspan"), 1);
+                int colSpan = attrInt(cell.attr("colspan"), 1);
+                String cellSourceRef = path + "/row[" + rowIndex + "]/cell[" + domColIndex + "]";
+                boolean header = "th".equals(cell.tagName());
+                cells.add(tableCell(rowIndex, logicalCol, rowSpan, colSpan, text, cellSourceRef, cells.size(), header));
+                occupyColumns(occupiedUntilRows, logicalCol, colSpan, rowIndex + rowSpan);
+                logicalCol += colSpan;
                 markdownCells.add(text == null ? "" : text.replace("\n", " "));
             }
             if (!markdownCells.isEmpty()) {
                 markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
             }
         }
-        return new ExtractedTable(path, String.join("\n", markdownRows), cells, tableMetadata(path, "html"));
+        return new ExtractedTable(path, String.join("\n", markdownRows), cells, tableMetadata(path, "html", cells, headerRowCount(cells)));
+    }
+
+    private int attrInt(String value, int defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    private int headerRowCount(List<ExtractedTableCell> cells) {
+        int headerRows = 0;
+        while (hasHeaderCell(cells, headerRows)) {
+            headerRows++;
+        }
+        return headerRows;
+    }
+
+    private boolean hasHeaderCell(List<ExtractedTableCell> cells, int rowIndex) {
+        return cells.stream()
+                .filter(cell -> cell.row() == rowIndex)
+                .anyMatch(ExtractedTableCell::header);
+    }
+
+    private int nextAvailableColumn(List<Integer> occupiedUntilRows, int col, int rowIndex) {
+        int next = col;
+        while (next < occupiedUntilRows.size() && occupiedUntilRows.get(next) > rowIndex) {
+            next++;
+        }
+        return next;
+    }
+
+    private void occupyColumns(List<Integer> occupiedUntilRows, int startCol, int colSpan, int occupiedUntilRow) {
+        for (int col = startCol; col < startCol + colSpan; col++) {
+            while (occupiedUntilRows.size() <= col) {
+                occupiedUntilRows.add(0);
+            }
+            occupiedUntilRows.set(col, Math.max(occupiedUntilRows.get(col), occupiedUntilRow));
+        }
     }
 
     private ExtractedImage extractImage(Element image, String path) {

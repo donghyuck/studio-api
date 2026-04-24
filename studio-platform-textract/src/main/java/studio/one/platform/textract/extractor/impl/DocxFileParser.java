@@ -185,13 +185,14 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
                 XWPFTableCell cell = tableCells.get(colIndex);
                 String cellText = cleanText(cell.getText());
                 appendCellImages(cell, images, path + "/row[" + rowIndex + "]/cell[" + colIndex + "]", cellText);
-                cells.add(new ExtractedTableCell(rowIndex, colIndex, 1, 1, cellText, Map.of()));
+                String cellSourceRef = path + "/row[" + rowIndex + "]/cell[" + colIndex + "]";
+                cells.add(tableCell(rowIndex, colIndex, 1, 1, cellText, cellSourceRef, cells.size(), rowIndex == 0));
                 markdownCells.add(cellText == null ? "" : cellText.replace("\n", " "));
             }
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
         }
         String markdown = String.join("\n", markdownRows);
-        tables.add(new ExtractedTable(path, markdown, cells, tableMetadata(path, "docx")));
+        tables.add(new ExtractedTable(path, markdown, cells, tableMetadata(path, "docx", cells, cells.isEmpty() ? 0 : 1)));
         blocks.add(new ParsedBlock(path, BlockType.TABLE, path, markdown, null, List.of(), blockMetadata(path, order)));
         return 1;
     }
