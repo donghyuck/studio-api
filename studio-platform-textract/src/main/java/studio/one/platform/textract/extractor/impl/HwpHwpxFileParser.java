@@ -198,7 +198,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                 ExtractedTable table = parseHwpxTable((Element) child, path + "/tbl[" + i + "]");
                 tables.add(table);
                 blocks.add(new ParsedBlock(table.path(), BlockType.TABLE, table.path(), table.markdown(),
-                        null, List.of(), table.metadata()));
+                        null, List.of(), ParsedBlock.metadata(table.path(), blocks.size(), null, null, table.metadata())));
                 if (!table.markdown().isBlank()) {
                     paragraphText.append('\n').append(table.markdown()).append('\n');
                 }
@@ -218,7 +218,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                 plain.append('\n');
             }
             plain.append(text);
-            blocks.add(ParsedBlock.text(path, BlockType.PARAGRAPH, text));
+            blocks.add(ParsedBlock.text(path, BlockType.PARAGRAPH, text, null, blocks.size(), Map.of()));
         }
     }
 
@@ -385,7 +385,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                     plain.append('\n');
                 }
                 plain.append(text);
-                blocks.add(ParsedBlock.text(path, BlockType.PARAGRAPH, text));
+                blocks.add(ParsedBlock.text(path, BlockType.PARAGRAPH, text, null, blocks.size(), Map.of()));
                 paragraphOrder++;
             }
         }

@@ -43,13 +43,28 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             StringBuilder sb = new StringBuilder();
             List<ParsedBlock> blocks = new ArrayList<>();
             List<ExtractedTable> tables = new ArrayList<>();
+            int order = 0;
 
-            appendBodyElements(doc.getBodyElements(), sb, blocks, tables, "body");
+            order = appendBodyElements(doc.getBodyElements(), sb, blocks, tables, "body", null, order);
             for (int i = 0; i < doc.getHeaderList().size(); i++) {
-                appendBodyElements(doc.getHeaderList().get(i).getBodyElements(), sb, blocks, tables, "header[" + i + "]");
+                order = appendBodyElements(
+                        doc.getHeaderList().get(i).getBodyElements(),
+                        sb,
+                        blocks,
+                        tables,
+                        "header[" + i + "]",
+                        BlockType.HEADER,
+                        order);
             }
             for (int i = 0; i < doc.getFooterList().size(); i++) {
-                appendBodyElements(doc.getFooterList().get(i).getBodyElements(), sb, blocks, tables, "footer[" + i + "]");
+                order = appendBodyElements(
+                        doc.getFooterList().get(i).getBodyElements(),
+                        sb,
+                        blocks,
+                        tables,
+                        "footer[" + i + "]",
+                        BlockType.FOOTER,
+                        order);
             }
 
             String text = cleanText(sb.toString());
@@ -74,38 +89,51 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         return parseStructured(bytes, contentType, filename).plainText();
     }
 
-    private void appendBodyElements(
+    private int appendBodyElements(
             List<IBodyElement> elements,
             StringBuilder sb,
             List<ParsedBlock> blocks,
             List<ExtractedTable> tables,
-            String parentPath) {
+            String parentPath,
+            BlockType containerType,
+            int startOrder) {
+        int order = startOrder;
         for (int i = 0; i < elements.size(); i++) {
             IBodyElement element = elements.get(i);
             String path = parentPath + "/element[" + i + "]";
             switch (element.getElementType()) {
-                case PARAGRAPH -> appendParagraph((XWPFParagraph) element, sb, blocks, path);
-                case TABLE -> appendTable((XWPFTable) element, sb, blocks, tables, path);
+                case PARAGRAPH -> order += appendParagraph((XWPFParagraph) element, sb, blocks, path, containerType, order);
+                case TABLE -> order += appendTable((XWPFTable) element, sb, blocks, tables, path, order);
                 default -> { /* ignore other elements */ }
             }
         }
+        return order;
     }
 
-    private void appendParagraph(XWPFParagraph p, StringBuilder sb, List<ParsedBlock> blocks, String path) {
+    private int appendParagraph(
+            XWPFParagraph p,
+            StringBuilder sb,
+            List<ParsedBlock> blocks,
+            String path,
+            BlockType containerType,
+            int order) {
         String text = p.getText();
         if (text != null && !text.isBlank()) {
             String trimmed = text.trim();
             sb.append(trimmed).append("\n");
-            blocks.add(ParsedBlock.text(path, BlockType.PARAGRAPH, trimmed));
+            blocks.add(ParsedBlock.text(path, resolveParagraphType(p, containerType), trimmed, null, order, blockMetadata(path)));
+            return 1;
         }
+        return 0;
     }
 
-    private void appendTable(
+    private int appendTable(
             XWPFTable table,
             StringBuilder sb,
             List<ParsedBlock> blocks,
             List<ExtractedTable> tables,
-            String path) {
+            String path,
+            int order) {
         List<ExtractedTableCell> cells = new ArrayList<>();
         List<String> markdownRows = new ArrayList<>();
         for (int rowIndex = 0; rowIndex < table.getRows().size(); rowIndex++) {
@@ -127,7 +155,45 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         }
         String markdown = String.join("\n", markdownRows);
         tables.add(new ExtractedTable(path, markdown, cells, tableMetadata(path, "docx")));
-        blocks.add(new ParsedBlock(path, BlockType.TABLE, path, markdown, null, List.of(), Map.of()));
+        blocks.add(new ParsedBlock(path, BlockType.TABLE, path, markdown, null, List.of(), blockMetadata(path, order)));
+        return 1;
+    }
+
+    private BlockType resolveParagraphType(XWPFParagraph paragraph, BlockType containerType) {
+        if (containerType == BlockType.HEADER || containerType == BlockType.FOOTER) {
+            return containerType;
+        }
+        String style = paragraph.getStyle();
+        if (style == null) {
+            return BlockType.PARAGRAPH;
+        }
+        String normalized = style.trim().toLowerCase();
+        if (normalized.contains("title")) {
+            return BlockType.TITLE;
+        }
+        if (normalized.startsWith("heading") || normalized.startsWith("header")) {
+            return BlockType.HEADING;
+        }
+        if (normalized.contains("footnote")) {
+            return BlockType.FOOTNOTE;
+        }
+        if (normalized.contains("list")) {
+            return BlockType.LIST_ITEM;
+        }
+        return BlockType.PARAGRAPH;
+    }
+
+    private Map<String, Object> blockMetadata(String path) {
+        return blockMetadata(path, null);
+    }
+
+    private Map<String, Object> blockMetadata(String path, Integer order) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ParsedBlock.KEY_SOURCE_REF, path);
+        if (order != null) {
+            metadata.put(ParsedBlock.KEY_ORDER, order);
+        }
+        return metadata;
     }
 
     private Map<String, Object> tableMetadata(String path, String format) {
