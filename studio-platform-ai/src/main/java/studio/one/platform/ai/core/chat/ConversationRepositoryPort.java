@@ -18,12 +18,16 @@ public interface ConversationRepositoryPort {
 
     ChatConversationMessage saveMessage(ChatConversationMessage message);
 
-    List<ChatConversationMessage> listMessages(String conversationId);
+    List<ChatConversationMessage> listMessages(String conversationId, int offset, int limit);
 
     boolean replaceAssistantResponse(String conversationId, String assistantMessageId, ChatConversationMessage replacement);
 
     boolean truncateAfter(String conversationId, String messageId);
 
+    /**
+     * Creates a new conversation id supplied by the caller.
+     * Implementations must reject duplicate {@code newConversationId} values.
+     */
     ChatConversation fork(String conversationId, String fromMessageId, String newConversationId);
 
     ChatConversation compact(String conversationId, String summary);

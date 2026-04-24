@@ -11,6 +11,9 @@ public record TokenUsage(Integer inputTokens, Integer outputTokens, Integer tota
     public static final String KEY_INPUT_TOKENS = "inputTokens";
     public static final String KEY_OUTPUT_TOKENS = "outputTokens";
     public static final String KEY_TOTAL_TOKENS = "totalTokens";
+    public static final String LEGACY_PROMPT_TOKENS = "promptTokens";
+    public static final String LEGACY_COMPLETION_TOKENS = "completionTokens";
+    public static final String LEGACY_TOTAL_TOKENS_SNAKE_CASE = "total_tokens";
 
     public TokenUsage {
         inputTokens = nonNegative(inputTokens);
@@ -32,9 +35,9 @@ public record TokenUsage(Integer inputTokens, Integer outputTokens, Integer tota
         }
         if (value instanceof Map<?, ?> map) {
             return new TokenUsage(
-                    integerValue(map.get(KEY_INPUT_TOKENS), map.get("promptTokens")),
-                    integerValue(map.get(KEY_OUTPUT_TOKENS), map.get("completionTokens")),
-                    integerValue(map.get(KEY_TOTAL_TOKENS), map.get("totalTokens")));
+                    integerValue(map.get(KEY_INPUT_TOKENS), map.get(LEGACY_PROMPT_TOKENS)),
+                    integerValue(map.get(KEY_OUTPUT_TOKENS), map.get(LEGACY_COMPLETION_TOKENS)),
+                    integerValue(map.get(KEY_TOTAL_TOKENS), map.get(LEGACY_TOTAL_TOKENS_SNAKE_CASE)));
         }
         return empty();
     }

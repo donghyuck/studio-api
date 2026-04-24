@@ -41,6 +41,18 @@ class ChatResponseMetadataTest {
     }
 
     @Test
+    void tokenUsageSupportsLegacyKeys() {
+        TokenUsage usage = TokenUsage.from(Map.of(
+                TokenUsage.LEGACY_PROMPT_TOKENS, "11",
+                TokenUsage.LEGACY_COMPLETION_TOKENS, 7,
+                TokenUsage.LEGACY_TOTAL_TOKENS_SNAKE_CASE, 18L));
+
+        assertThat(usage.inputTokens()).isEqualTo(11);
+        assertThat(usage.outputTokens()).isEqualTo(7);
+        assertThat(usage.totalTokens()).isEqualTo(18);
+    }
+
+    @Test
     void chatPortDefaultStreamFallsBackToChatResponseEvents() {
         ChatPort port = request -> new ChatResponse(
                 List.of(ChatMessage.assistant("delta")),
@@ -56,5 +68,21 @@ class ChatResponseMetadataTest {
                 .containsExactly(ChatStreamEventType.DELTA, ChatStreamEventType.USAGE, ChatStreamEventType.COMPLETE);
         assertThat(events.get(0).delta()).isEqualTo("delta");
         assertThat(events.get(0).metadata().provider()).isEqualTo("test");
+    }
+
+    @Test
+    void chatPortDefaultStreamKeepsExceptionTypeWhenMessageIsMissing() {
+        ChatPort port = request -> {
+            throw new NullPointerException();
+        };
+        ChatRequest request = ChatRequest.builder()
+                .messages(List.of(ChatMessage.user("hi")))
+                .build();
+
+        List<ChatStreamEvent> events = port.stream(request).toList();
+
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).type()).isEqualTo(ChatStreamEventType.ERROR);
+        assertThat(events.get(0).errorMessage()).isEqualTo("NullPointerException");
     }
 }

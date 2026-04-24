@@ -19,7 +19,12 @@ public interface ChatPort {
                     ChatStreamEvent.usage(response.typedMetadata()),
                     ChatStreamEvent.complete(response.model(), response.typedMetadata())));
         } catch (RuntimeException e) {
-            return Stream.of(ChatStreamEvent.error(e.getMessage(), ChatResponseMetadata.empty()));
+            return Stream.of(ChatStreamEvent.error(errorMessage(e), ChatResponseMetadata.empty()));
         }
+    }
+
+    private static String errorMessage(RuntimeException e) {
+        String message = e.getMessage();
+        return message == null || message.isBlank() ? e.getClass().getSimpleName() : message;
     }
 }

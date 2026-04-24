@@ -48,4 +48,22 @@ class ConversationContractTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("messageId");
     }
+
+    @Test
+    void conversationRequiresStableId() {
+        assertThatThrownBy(() -> new ChatConversation(
+                "",
+                "user-1",
+                "Title",
+                "",
+                ConversationStatus.ACTIVE,
+                "",
+                "",
+                0,
+                Instant.now(),
+                Instant.now(),
+                Map.of()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("conversationId");
+    }
 }

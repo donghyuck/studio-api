@@ -97,6 +97,8 @@ stream event type:
 - `truncate`, `fork`, `compact`, `cancel` 최소 연산
 
 `ChatConversationSummary`는 목록 API에서 필요한 `conversationId`, `ownerId`, `title`, `summary`, `messageCount`, `lastUpdatedAt`, `status`를 표현한다.
+message 조회는 장기 conversation을 고려해 `offset`/`limit` 기반 페이지네이션을 계약에 포함한다.
+`fork`는 호출자가 새 conversation id를 제공하는 방식이며, 구현체는 중복 `newConversationId`를 거부해야 한다.
 
 ## RAG diagnostics
 `studio-platform-starter-ai`의 기본 RAG 구현은 diagnostics가 활성화된 경우 마지막 RAG 검색의 strategy,
