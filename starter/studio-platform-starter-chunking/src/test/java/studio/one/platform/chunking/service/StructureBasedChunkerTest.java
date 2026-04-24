@@ -89,17 +89,19 @@ class StructureBasedChunkerTest {
     }
 
     @Test
-    void textContextStillReportsStructureBasedStrategy() {
-        StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
+    void textContextFallsBackToRecursiveChunkingForOversizedPlainText() {
+        StructureBasedChunker chunker = new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0));
 
-        List<Chunk> chunks = chunker.chunk(ChunkingContext.builder("plain text")
+        List<Chunk> chunks = chunker.chunk(ChunkingContext.builder("alpha beta gamma")
                 .sourceDocumentId("doc")
                 .strategy(ChunkingStrategyType.STRUCTURE_BASED)
+                .maxSize(10)
+                .overlap(0)
                 .build());
 
-        assertThat(chunks).hasSize(1);
+        assertThat(chunks).extracting(Chunk::content).containsExactly("alpha beta", "gamma");
         assertThat(chunks.get(0).metadata().strategy())
-                .isEqualTo(ChunkingStrategyType.STRUCTURE_BASED);
+                .isEqualTo(ChunkingStrategyType.RECURSIVE);
     }
 
     private NormalizedBlock block(NormalizedBlockType type, String text, String sourceRef, int order) {

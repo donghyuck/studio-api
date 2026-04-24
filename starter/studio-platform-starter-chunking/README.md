@@ -93,6 +93,11 @@ The adapter maps:
 - `ExtractedTable.vectorText()` to table chunks.
 - `ExtractedImage.caption()`, `altText()`, or `ocrText()` to image-caption/OCR chunks.
 
+When a parsed table block and an `ExtractedTable` share the same `sourceRef`, the adapter keeps one table block based on
+`ExtractedTable.vectorText()` and carries over the parsed table block order/provenance. `ExtractedImage` does not currently
+carry an independent order value, so image-caption/OCR chunks are sorted after ordered parsed blocks unless the source
+metadata provides a future ordering field.
+
 ## Size Policy
 
 Character size remains the default policy. `ChunkUnit.TOKEN` uses a deterministic estimate based on compacted character length and does not call an external tokenizer.

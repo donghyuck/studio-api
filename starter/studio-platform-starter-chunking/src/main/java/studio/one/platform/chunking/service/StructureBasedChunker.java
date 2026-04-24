@@ -46,18 +46,7 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         if (context.text() == null || context.text().isBlank()) {
             return List.of();
         }
-        NormalizedDocument document = NormalizedDocument.builder(context.sourceDocumentId())
-                .plainText(context.text())
-                .sourceFormat(context.contentType())
-                .filename(context.filename())
-                .blocks(List.of(NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, context.text())
-                        .sourceRef("document")
-                        .order(0)
-                        .metadata(context.metadata())
-                        .build()))
-                .metadata(context.metadata())
-                .build();
-        return chunk(document, context);
+        return fallbackChunker.chunk(context);
     }
 
     @Override
@@ -147,23 +136,33 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
             ChunkUnit unit) {
         Map<String, Object> attributes = new LinkedHashMap<>(document.metadata());
         NormalizedBlock first = blocks.get(0);
-        attributes.put(ChunkMetadata.KEY_SOURCE_FORMAT, document.sourceFormat());
-        attributes.put(ChunkMetadata.KEY_SOURCE_REF, first.effectiveSourceRef());
-        attributes.put(ChunkMetadata.KEY_BLOCK_TYPE, first.type().name());
-        attributes.put(ChunkMetadata.KEY_PAGE, first.page());
-        attributes.put(ChunkMetadata.KEY_SLIDE, first.slide());
-        attributes.put(ChunkMetadata.KEY_PARENT_BLOCK_ID, first.parentBlockId());
-        attributes.put(ChunkMetadata.KEY_HEADING_PATH, headingPath);
-        attributes.put(ChunkMetadata.KEY_TOKEN_ESTIMATE, ChunkSizing.estimateTokens(content(blocks)));
-        attributes.put(ChunkMetadata.KEY_CHUNK_UNIT, unit.value());
-        attributes.put(ChunkMetadata.KEY_MAX_SIZE, maxSize);
-        attributes.put(ChunkMetadata.KEY_OVERLAP, overlap);
-        attributes.put(ChunkMetadata.KEY_SOURCE_REFS, blocks.stream()
+        putIfPresent(attributes, ChunkMetadata.KEY_SOURCE_FORMAT, document.sourceFormat());
+        putIfPresent(attributes, ChunkMetadata.KEY_SOURCE_REF, first.effectiveSourceRef());
+        putIfPresent(attributes, ChunkMetadata.KEY_BLOCK_TYPE, first.type().name());
+        putIfPresent(attributes, ChunkMetadata.KEY_PAGE, first.page());
+        putIfPresent(attributes, ChunkMetadata.KEY_SLIDE, first.slide());
+        putIfPresent(attributes, ChunkMetadata.KEY_PARENT_BLOCK_ID, first.parentBlockId());
+        putIfPresent(attributes, ChunkMetadata.KEY_HEADING_PATH, headingPath);
+        putIfPresent(attributes, ChunkMetadata.KEY_TOKEN_ESTIMATE, ChunkSizing.estimateTokens(content(blocks)));
+        putIfPresent(attributes, ChunkMetadata.KEY_CHUNK_UNIT, unit.value());
+        putIfPresent(attributes, ChunkMetadata.KEY_MAX_SIZE, maxSize);
+        putIfPresent(attributes, ChunkMetadata.KEY_OVERLAP, overlap);
+        putIfPresent(attributes, ChunkMetadata.KEY_SOURCE_REFS, blocks.stream()
                 .map(NormalizedBlock::effectiveSourceRef)
                 .filter(ref -> ref != null && !ref.isBlank())
                 .distinct()
                 .toList());
         return attributes;
+    }
+
+    private void putIfPresent(Map<String, Object> attributes, String key, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof String text && text.isBlank()) {
+            return;
+        }
+        attributes.put(key, value);
     }
 
     private String content(List<NormalizedBlock> blocks) {

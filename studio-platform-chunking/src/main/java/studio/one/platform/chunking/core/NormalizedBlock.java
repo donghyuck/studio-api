@@ -17,6 +17,9 @@ public record NormalizedBlock(
         String parentBlockId,
         Map<String, Object> metadata) {
 
+    public static final String KEY_ROW_COUNT = "rowCount";
+    public static final String KEY_CELL_COUNT = "cellCount";
+
     public NormalizedBlock {
         id = normalize(id);
         type = type == null ? NormalizedBlockType.UNKNOWN : type;

@@ -24,7 +24,10 @@ class TextractNormalizedDocumentAdapterTest {
         ParsedFile parsedFile = new ParsedFile(
                 DocumentFormat.HTML,
                 "plain",
-                List.of(ParsedBlock.text("body/h1", BlockType.HEADING, "Title", 1, 0, Map.of())),
+                List.of(
+                        ParsedBlock.text("body/h1", BlockType.HEADING, "Title", 1, 0, Map.of()),
+                        ParsedBlock.text("body/table[0]", BlockType.TABLE, "| A |\n| --- |\n| 1 |", 1, 1, Map.of()),
+                        ParsedBlock.text("body/p[1]", BlockType.PARAGRAPH, "After table", 1, 2, Map.of())),
                 Map.of("filename", "sample.html"),
                 List.of(),
                 List.of(),
@@ -48,8 +51,14 @@ class TextractNormalizedDocumentAdapterTest {
         assertThat(document.sourceFormat()).isEqualTo("HTML");
         assertThat(document.filename()).isEqualTo("sample.html");
         assertThat(document.blocks()).extracting(block -> block.type())
-                .containsExactly(NormalizedBlockType.HEADING, NormalizedBlockType.TABLE, NormalizedBlockType.IMAGE_CAPTION);
+                .containsExactly(
+                        NormalizedBlockType.HEADING,
+                        NormalizedBlockType.TABLE,
+                        NormalizedBlockType.PARAGRAPH,
+                        NormalizedBlockType.IMAGE_CAPTION);
         assertThat(document.blocks()).extracting(block -> block.text())
-                .contains("Title", "A: 1", "architecture diagram");
+                .contains("Title", "A: 1", "After table", "architecture diagram")
+                .doesNotContain("| A |\n| --- |\n| 1 |");
+        assertThat(document.blocks().get(1).order()).isEqualTo(1);
     }
 }

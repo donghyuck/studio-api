@@ -1,13 +1,17 @@
 package studio.one.platform.chunking.service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
+import studio.one.platform.textract.model.BlockType;
 import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
 import studio.one.platform.textract.model.ParsedBlock;
@@ -21,11 +25,17 @@ public class TextractNormalizedDocumentAdapter {
         }
 
         List<NormalizedBlock> blocks = new ArrayList<>();
+        Map<String, ParsedBlock> tableBlocks = tableBlocks(parsedFile.blocks());
+        List<String> tableRefs = parsedFile.tables().stream()
+                .map(ExtractedTable::sourceRef)
+                .filter(ref -> ref != null && !ref.isBlank())
+                .toList();
         parsedFile.blocks().stream()
+                .filter(block -> !isExtractedTableBlock(block, tableRefs))
                 .map(this::fromBlock)
                 .forEach(blocks::add);
         parsedFile.tables().stream()
-                .map(this::fromTable)
+                .map(table -> fromTable(table, tableBlocks.get(table.sourceRef())))
                 .forEach(blocks::add);
         parsedFile.images().stream()
                 .map(this::fromImage)
@@ -41,6 +51,28 @@ public class TextractNormalizedDocumentAdapter {
                 .build();
     }
 
+    private Map<String, ParsedBlock> tableBlocks(List<ParsedBlock> blocks) {
+        return blocks.stream()
+                .filter(block -> block.blockType() == BlockType.TABLE)
+                .filter(block -> block.sourceRef() != null && !block.sourceRef().isBlank())
+                .collect(Collectors.toMap(
+                        ParsedBlock::sourceRef,
+                        Function.identity(),
+                        this::firstByOrder,
+                        LinkedHashMap::new));
+    }
+
+    private ParsedBlock firstByOrder(ParsedBlock left, ParsedBlock right) {
+        return Comparator.comparing(
+                ParsedBlock::order,
+                Comparator.nullsLast(Integer::compareTo))
+                .compare(left, right) <= 0 ? left : right;
+    }
+
+    private boolean isExtractedTableBlock(ParsedBlock block, List<String> tableRefs) {
+        return block.blockType() == BlockType.TABLE && tableRefs.contains(block.sourceRef());
+    }
+
     private NormalizedBlock fromBlock(ParsedBlock block) {
         return NormalizedBlock.builder(NormalizedBlockType.from(block.blockType().name()), block.text())
                 .id(block.id())
@@ -53,14 +85,18 @@ public class TextractNormalizedDocumentAdapter {
                 .build();
     }
 
-    private NormalizedBlock fromTable(ExtractedTable table) {
+    private NormalizedBlock fromTable(ExtractedTable table, ParsedBlock tableBlock) {
         Map<String, Object> metadata = new LinkedHashMap<>(table.metadata());
-        metadata.put("rowCount", table.rowCount());
-        metadata.put("cellCount", table.cellCount());
-        metadata.put("headerRowCount", table.headerRowCount());
+        metadata.put(NormalizedBlock.KEY_ROW_COUNT, table.rowCount());
+        metadata.put(NormalizedBlock.KEY_CELL_COUNT, table.cellCount());
+        metadata.put(ExtractedTable.KEY_HEADER_ROW_COUNT, table.headerRowCount());
         return NormalizedBlock.builder(NormalizedBlockType.TABLE, table.vectorText())
                 .id(table.path())
                 .sourceRef(table.sourceRef())
+                .page(tableBlock == null ? null : tableBlock.page())
+                .slide(tableBlock == null ? null : tableBlock.slide())
+                .order(tableBlock == null ? null : tableBlock.order())
+                .parentBlockId(tableBlock == null ? null : tableBlock.parentBlockId())
                 .metadata(metadata)
                 .build();
     }
