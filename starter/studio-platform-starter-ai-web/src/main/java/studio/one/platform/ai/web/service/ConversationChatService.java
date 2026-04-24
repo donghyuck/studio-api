@@ -137,7 +137,7 @@ public class ConversationChatService {
     public int replaceLastAssistantResponse(String ownerId, String conversationId, ChatResponse response) {
         ChatConversation conversation = requireConversation(ownerId, conversationId);
         List<ChatConversationMessage> messages = repository.listMessages(conversation.conversationId(), 0, 500);
-        int lastAssistant = lastMessageIndex(messages, ChatMessageRole.ASSISTANT);
+        int assistantAfterLastUser = assistantAfterLastUser(messages);
         ChatConversationMessage replacement = new ChatConversationMessage(
                 UUID.randomUUID().toString(),
                 conversation.conversationId(),
@@ -150,10 +150,10 @@ public class ConversationChatService {
                 true,
                 Instant.now(),
                 response.metadata());
-        if (lastAssistant >= 0) {
+        if (assistantAfterLastUser >= 0) {
             repository.replaceAssistantResponse(
                     conversation.conversationId(),
-                    messages.get(lastAssistant).messageId(),
+                    messages.get(assistantAfterLastUser).messageId(),
                     replacement);
         } else {
             repository.saveMessage(replacement);
@@ -224,6 +224,19 @@ public class ConversationChatService {
     private int lastMessageIndex(List<ChatConversationMessage> messages, ChatMessageRole role) {
         for (int i = messages.size() - 1; i >= 0; i--) {
             if (messages.get(i).message().role() == role) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int assistantAfterLastUser(List<ChatConversationMessage> messages) {
+        int lastUser = lastMessageIndex(messages, ChatMessageRole.USER);
+        if (lastUser < 0) {
+            return -1;
+        }
+        for (int i = lastUser + 1; i < messages.size(); i++) {
+            if (messages.get(i).message().role() == ChatMessageRole.ASSISTANT) {
                 return i;
             }
         }

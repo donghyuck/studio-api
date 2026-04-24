@@ -619,11 +619,15 @@ public class ChatController {
             Principal principal) throws IOException {
         StringBuilder assistant = new StringBuilder();
         ChatStreamEvent last = null;
+        boolean streamFailed = false;
         try (java.util.stream.Stream<ChatStreamEvent> events = port.stream(request)) {
             Iterator<ChatStreamEvent> iterator = events.iterator();
             while (iterator.hasNext()) {
                 ChatStreamEvent event = iterator.next();
                 last = event;
+                if (event.type() == ChatStreamEventType.ERROR) {
+                    streamFailed = true;
+                }
                 if (event.type() == ChatStreamEventType.DELTA) {
                     assistant.append(event.delta());
                 }
@@ -634,7 +638,7 @@ public class ChatController {
             writeSse(outputStream, requestId, error);
             return;
         }
-        if (memory.enabled() && assistant.length() > 0) {
+        if (!streamFailed && memory.enabled() && assistant.length() > 0) {
             ChatResponse response = new ChatResponse(
                     List.of(ChatMessage.assistant(assistant.toString())),
                     last == null ? "" : last.model(),

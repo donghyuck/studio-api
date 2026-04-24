@@ -277,6 +277,20 @@ class ChatControllerTest {
     }
 
     @Test
+    void streamDoesNotStorePartialAssistantWhenErrorEventOccurs() throws Exception {
+        controller = conversationController();
+        when(defaultChatPort.stream(any(ChatRequest.class))).thenReturn(Stream.of(
+                ChatStreamEvent.delta("partial", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.error("provider failed", ChatResponseMetadata.empty())));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        controller.stream(memoryChat("chat-1", "hello"), null).getBody().writeTo(output);
+
+        assertThat(output.toString(StandardCharsets.UTF_8)).contains("event: error");
+        assertThat(controller.conversations(0, 20, null).getBody().getData()).isEmpty();
+    }
+
+    @Test
     void conversationApisListDetailAndDeleteMemoryConversation() {
         controller = conversationController();
 
@@ -332,6 +346,24 @@ class ChatControllerTest {
         assertThat(detail.messages())
                 .extracting(message -> message.role() + ":" + message.content())
                 .containsExactly("user:hello", "assistant:regenerated");
+    }
+
+    @Test
+    void regenerateAppendsAssistantWhenLastUserHasNoAssistantYet() {
+        controller = conversationController();
+        when(defaultChatPort.chat(any())).thenReturn(response("first"), response("second"), response("regenerated"));
+        controller.chat(memoryChat("chat-1", "hello"));
+        controller.chat(memoryChat("chat-1", "next"));
+        ConversationDetailDto before = controller.conversation("chat-1", null).getBody().getData();
+        String secondUserId = before.messages().get(2).messageId();
+
+        controller.truncate(new ConversationActionRequestDto("chat-1", secondUserId, null, null, null), null);
+        controller.regenerate(new ConversationActionRequestDto("chat-1", null, null, null, null), null);
+
+        ConversationDetailDto detail = controller.conversation("chat-1", null).getBody().getData();
+        assertThat(detail.messages())
+                .extracting(message -> message.role() + ":" + message.content())
+                .containsExactly("user:hello", "assistant:first", "user:next", "assistant:regenerated");
     }
 
     @Test
