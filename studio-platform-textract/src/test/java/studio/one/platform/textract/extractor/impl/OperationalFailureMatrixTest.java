@@ -30,21 +30,43 @@ import studio.one.platform.textract.model.ParsedFile;
 class OperationalFailureMatrixTest {
 
     @Test
-    void corruptBinaryFormatsFailFastAsCompleteParseFailures() throws Exception {
+    void corruptPdfFailsAsCompleteParseFailure() {
         byte[] corrupt = "not a supported document".getBytes(UTF_8);
 
         assertThrows(FileParseException.class,
                 () -> new PdfFileParser().parseStructured(corrupt, "application/pdf", "corrupt.pdf"));
+    }
+
+    @Test
+    void corruptDocxFailsAsCompleteParseFailure() {
+        byte[] corrupt = "not a supported document".getBytes(UTF_8);
+
         assertThrows(FileParseException.class,
                 () -> new DocxFileParser().parseStructured(corrupt,
                         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                         "corrupt.docx"));
+    }
+
+    @Test
+    void corruptPptxFailsAsCompleteParseFailure() {
+        byte[] corrupt = "not a supported document".getBytes(UTF_8);
+
         assertThrows(FileParseException.class,
                 () -> new PptxFileParser().parseStructured(corrupt,
                         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
                         "corrupt.pptx"));
+    }
+
+    @Test
+    void corruptImageFailsAsCompleteParseFailure() {
+        byte[] corrupt = "not a supported document".getBytes(UTF_8);
+
         assertThrows(FileParseException.class,
                 () -> new ImageFileParser("/tmp", "kor+eng").parseStructured(corrupt, "image/png", "corrupt.png"));
+    }
+
+    @Test
+    void corruptHwpxFailsAsCompleteParseFailure() throws Exception {
         assertThrows(FileParseException.class,
                 () -> new HwpHwpxFileParser().parseStructured(corruptHwpxBytes(), "application/hwpx", "corrupt.hwpx"));
     }
@@ -133,8 +155,8 @@ class OperationalFailureMatrixTest {
         byte[] header = new byte[256];
         byte[] signature = "HWP Document File".getBytes(UTF_8);
         System.arraycopy(signature, 0, header, 0, signature.length);
-        header[35] = 5;
-        header[36] = 0x02;
+        header[35] = 5; // Version field offset 32-35; byte 35 stores major version in this fixture.
+        header[36] = 0x02; // Property flags offset 36-39; bit 1 marks encrypted HWP.
         return hwpOleWithFileHeader(header);
     }
 
