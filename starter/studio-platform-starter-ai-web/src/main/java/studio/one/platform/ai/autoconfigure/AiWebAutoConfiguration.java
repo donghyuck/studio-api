@@ -1,5 +1,7 @@
 package studio.one.platform.ai.autoconfigure;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -8,6 +10,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.lang.Nullable;
 
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
@@ -62,6 +65,12 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(ObjectMapper.class)
+    ObjectMapper aiWebObjectMapper() {
+        return Jackson2ObjectMapperBuilder.json().build();
+    }
+
+    @Bean
     ChatController chatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
@@ -69,12 +78,14 @@ public class AiWebAutoConfiguration {
             AiWebRagProperties ragProperties,
             AiWebChatProperties chatProperties,
             @Nullable ChatMemoryStore chatMemoryStore,
-            ConversationChatService conversationChatService) {
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper) {
         return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
                 chatMemoryStore,
                 chatProperties.getMemory().isEnabled(),
-                conversationChatService);
+                conversationChatService,
+                objectMapper);
     }
 
     @Bean

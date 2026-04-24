@@ -200,13 +200,21 @@ Content-Type: application/json
 ```
 
 `regenerate`는 마지막 user turn까지의 메시지로 provider를 다시 호출하고 마지막 assistant 응답을 대체한다.
-`truncate`, `fork`, `compact`, `cancel`은 다음 공통 request shape를 사용한다.
+`truncate`와 `fork`는 `messageId`가 필수다.
 
 ```json
 {
   "conversationId": "chat-123",
   "messageId": "message-id-for-truncate-or-fork",
-  "newConversationId": "chat-copy",
+  "newConversationId": "chat-copy"
+}
+```
+
+`compact`는 `summary`가 필수이며, `cancel`은 `conversationId`만 사용한다.
+
+```json
+{
+  "conversationId": "chat-123",
   "summary": "압축 요약"
 }
 ```

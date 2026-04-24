@@ -43,6 +43,7 @@ import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationDetailDto;
+import studio.one.platform.ai.web.dto.ConversationMessageActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationSummaryDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
@@ -291,6 +292,29 @@ class ChatControllerTest {
     }
 
     @Test
+    void streamFlushesErrorEventWhenIteratorFails() throws Exception {
+        when(defaultChatPort.stream(any(ChatRequest.class))).thenReturn(Stream.generate(() -> {
+            throw new IllegalStateException("provider failed");
+        }));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        controller.stream(new ChatRequestDto(
+                null,
+                null,
+                List.of(new ChatMessageDto("user", "hello")),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null), null).getBody().writeTo(output);
+
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("event: error")
+                .contains("provider failed");
+    }
+
+    @Test
     void conversationApisListDetailAndDeleteMemoryConversation() {
         controller = conversationController();
 
@@ -332,6 +356,18 @@ class ChatControllerTest {
     }
 
     @Test
+    void conversationDetailCanReadBeyondSingleRepositoryPage() {
+        controller = conversationController();
+
+        for (int i = 0; i < 251; i++) {
+            controller.chat(memoryChat("chat-1", "hello " + i));
+        }
+
+        ConversationDetailDto detail = controller.conversation("chat-1", null).getBody().getData();
+        assertThat(detail.messages()).hasSize(502);
+    }
+
+    @Test
     void regenerateReplacesLastAssistantResponse() {
         controller = conversationController();
         when(defaultChatPort.chat(any())).thenReturn(response("first"), response("regenerated"));
@@ -357,7 +393,7 @@ class ChatControllerTest {
         ConversationDetailDto before = controller.conversation("chat-1", null).getBody().getData();
         String secondUserId = before.messages().get(2).messageId();
 
-        controller.truncate(new ConversationActionRequestDto("chat-1", secondUserId, null, null, null), null);
+        controller.truncate(new ConversationMessageActionRequestDto("chat-1", secondUserId, null), null);
         controller.regenerate(new ConversationActionRequestDto("chat-1", null, null, null, null), null);
 
         ConversationDetailDto detail = controller.conversation("chat-1", null).getBody().getData();
@@ -375,13 +411,13 @@ class ChatControllerTest {
         String firstMessageId = detail.messages().get(0).messageId();
 
         ConversationDetailDto forked = controller.fork(
-                new ConversationActionRequestDto("chat-1", firstMessageId, "chat-copy", null, null),
+                new ConversationMessageActionRequestDto("chat-1", firstMessageId, "chat-copy"),
                 null).getBody().getData();
         assertThat(forked.conversationId()).isEqualTo("chat-copy");
         assertThat(forked.messages()).hasSize(1);
 
         ConversationDetailDto truncated = controller.truncate(
-                new ConversationActionRequestDto("chat-1", firstMessageId, null, null, null),
+                new ConversationMessageActionRequestDto("chat-1", firstMessageId, null),
                 null).getBody().getData();
         assertThat(truncated.messages()).hasSize(1);
 

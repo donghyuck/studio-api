@@ -41,6 +41,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -75,6 +76,7 @@ import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationDetailDto;
+import studio.one.platform.ai.web.dto.ConversationMessageActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationSummaryDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.constant.PropertyKeys;
@@ -101,7 +103,7 @@ public class ChatController {
     private final ChatMemoryStore chatMemoryStore;
     private final boolean chatMemoryEnabled;
     private final ConversationChatService conversationChatService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
         this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
@@ -141,6 +143,20 @@ public class ChatController {
             ChatMemoryStore chatMemoryStore,
             boolean chatMemoryEnabled,
             ConversationChatService conversationChatService) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, conversationChatService,
+                Jackson2ObjectMapperBuilder.json().build());
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
@@ -148,6 +164,7 @@ public class ChatController {
         this.chatMemoryStore = chatMemoryStore;
         this.chatMemoryEnabled = chatMemoryEnabled;
         this.conversationChatService = conversationChatService;
+        this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }
 
     /**
@@ -310,8 +327,8 @@ public class ChatController {
             @RequestParam(defaultValue = "0") int offset,
             @RequestParam(defaultValue = "20") int limit,
             Principal principal) {
-        return ResponseEntity.ok(ApiResponse.ok(
-                conversationService().list(conversationService().ownerId(principal), offset, limit)));
+        String ownerId = conversationChatService.ownerId(principal);
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.list(ownerId, offset, limit)));
     }
 
     @GetMapping("/conversations/{conversationId}")
@@ -320,7 +337,7 @@ public class ChatController {
             @PathVariable String conversationId,
             Principal principal) {
         return ResponseEntity.ok(ApiResponse.ok(
-                conversationService().detail(conversationService().ownerId(principal), conversationId)));
+                conversationChatService.detail(conversationChatService.ownerId(principal), conversationId)));
     }
 
     @DeleteMapping("/conversations/{conversationId}")
@@ -328,7 +345,7 @@ public class ChatController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> deleteConversation(
             @PathVariable String conversationId,
             Principal principal) {
-        boolean deleted = conversationService().delete(conversationService().ownerId(principal), conversationId);
+        boolean deleted = conversationChatService.delete(conversationChatService.ownerId(principal), conversationId);
         return ResponseEntity.ok(ApiResponse.ok(Map.of("conversationId", conversationId, "deleted", deleted)));
     }
 
@@ -337,15 +354,15 @@ public class ChatController {
     public ResponseEntity<ApiResponse<ChatResponseDto>> regenerate(
             @Valid @RequestBody ConversationActionRequestDto request,
             Principal principal) {
-        String ownerId = conversationService().ownerId(principal);
-        List<ChatMessage> messages = conversationService().messagesForRegenerate(ownerId, request.conversationId()).stream()
+        String ownerId = conversationChatService.ownerId(principal);
+        List<ChatMessage> messages = conversationChatService.messagesForRegenerate(ownerId, request.conversationId()).stream()
                 .map(studio.one.platform.ai.core.chat.ChatConversationMessage::message)
                 .toList();
         ChatRequestDto chat = request.chat();
         String provider = chat == null ? null : chat.provider();
         ChatRequest domainRequest = toDomainChatRequest(chat == null ? minimalChatRequest(messages) : chat, messages);
         ChatResponse response = chatPort(provider).chat(domainRequest);
-        int messageCount = conversationService().replaceLastAssistantResponse(ownerId, request.conversationId(), response);
+        int messageCount = conversationChatService.replaceLastAssistantResponse(ownerId, request.conversationId(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false,
                 conversationMetadata(request.conversationId(), messageCount))));
     }
@@ -353,10 +370,10 @@ public class ChatController {
     @PostMapping("/truncate")
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
     public ResponseEntity<ApiResponse<ConversationDetailDto>> truncate(
-            @Valid @RequestBody ConversationActionRequestDto request,
+            @Valid @RequestBody ConversationMessageActionRequestDto request,
             Principal principal) {
-        return ResponseEntity.ok(ApiResponse.ok(conversationService().truncate(
-                conversationService().ownerId(principal),
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.truncate(
+                conversationChatService.ownerId(principal),
                 request.conversationId(),
                 request.messageId())));
     }
@@ -364,10 +381,10 @@ public class ChatController {
     @PostMapping("/fork")
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write')")
     public ResponseEntity<ApiResponse<ConversationDetailDto>> fork(
-            @Valid @RequestBody ConversationActionRequestDto request,
+            @Valid @RequestBody ConversationMessageActionRequestDto request,
             Principal principal) {
-        return ResponseEntity.ok(ApiResponse.ok(conversationService().fork(
-                conversationService().ownerId(principal),
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.fork(
+                conversationChatService.ownerId(principal),
                 request.conversationId(),
                 request.messageId(),
                 request.newConversationId())));
@@ -378,8 +395,8 @@ public class ChatController {
     public ResponseEntity<ApiResponse<ConversationDetailDto>> compact(
             @Valid @RequestBody ConversationActionRequestDto request,
             Principal principal) {
-        return ResponseEntity.ok(ApiResponse.ok(conversationService().compact(
-                conversationService().ownerId(principal),
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.compact(
+                conversationChatService.ownerId(principal),
                 request.conversationId(),
                 request.summary())));
     }
@@ -389,8 +406,8 @@ public class ChatController {
     public ResponseEntity<ApiResponse<ConversationDetailDto>> cancel(
             @Valid @RequestBody ConversationActionRequestDto request,
             Principal principal) {
-        return ResponseEntity.ok(ApiResponse.ok(conversationService().cancel(
-                conversationService().ownerId(principal),
+        return ResponseEntity.ok(ApiResponse.ok(conversationChatService.cancel(
+                conversationChatService.ownerId(principal),
                 request.conversationId())));
     }
 
@@ -599,14 +616,6 @@ public class ChatController {
                 memory.conversationId(),
                 requestMessages,
                 response);
-    }
-
-    private ConversationChatService conversationService() {
-        if (conversationChatService == null) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                    "Conversation service is not configured");
-        }
-        return conversationChatService;
     }
 
     private void writeStreamEvents(

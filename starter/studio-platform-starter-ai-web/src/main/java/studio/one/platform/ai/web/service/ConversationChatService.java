@@ -27,6 +27,8 @@ public class ConversationChatService {
 
     private static final String OWNER_ANONYMOUS = "anonymous";
 
+    private static final int MESSAGE_PAGE_SIZE = 500;
+
     private final ConversationRepositoryPort repository;
 
     public ConversationChatService(ConversationRepositoryPort repository) {
@@ -59,7 +61,7 @@ public class ConversationChatService {
 
     public ConversationDetailDto detail(String ownerId, String conversationId) {
         ChatConversation conversation = requireConversation(ownerId, conversationId);
-        List<ConversationMessageDto> messages = repository.listMessages(conversation.conversationId(), 0, 500).stream()
+        List<ConversationMessageDto> messages = allMessages(conversation.conversationId()).stream()
                 .map(this::toDto)
                 .toList();
         return new ConversationDetailDto(
@@ -120,12 +122,12 @@ public class ConversationChatService {
                     Instant.now(),
                     Map.of()));
         }
-        return repository.listMessages(conversation.conversationId(), 0, 500).size();
+        return conversation.messageCount() + stored.size();
     }
 
     public List<ChatConversationMessage> messagesForRegenerate(String ownerId, String conversationId) {
         ChatConversation conversation = requireConversation(ownerId, conversationId);
-        List<ChatConversationMessage> messages = repository.listMessages(conversation.conversationId(), 0, 500);
+        List<ChatConversationMessage> messages = allMessages(conversation.conversationId());
         int lastUser = lastMessageIndex(messages, ChatMessageRole.USER);
         if (lastUser < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -136,7 +138,7 @@ public class ConversationChatService {
 
     public int replaceLastAssistantResponse(String ownerId, String conversationId, ChatResponse response) {
         ChatConversation conversation = requireConversation(ownerId, conversationId);
-        List<ChatConversationMessage> messages = repository.listMessages(conversation.conversationId(), 0, 500);
+        List<ChatConversationMessage> messages = allMessages(conversation.conversationId());
         int assistantAfterLastUser = assistantAfterLastUser(messages);
         ChatConversationMessage replacement = new ChatConversationMessage(
                 UUID.randomUUID().toString(),
@@ -155,10 +157,11 @@ public class ConversationChatService {
                     conversation.conversationId(),
                     messages.get(assistantAfterLastUser).messageId(),
                     replacement);
+            return conversation.messageCount();
         } else {
             repository.saveMessage(replacement);
+            return conversation.messageCount() + 1;
         }
-        return repository.listMessages(conversation.conversationId(), 0, 500).size();
     }
 
     public ConversationDetailDto truncate(String ownerId, String conversationId, String messageId) {
@@ -219,6 +222,22 @@ public class ConversationChatService {
                 message.message().content(),
                 message.createdAt(),
                 message.metadata());
+    }
+
+    private List<ChatConversationMessage> allMessages(String conversationId) {
+        List<ChatConversationMessage> all = new ArrayList<>();
+        int offset = 0;
+        while (true) {
+            List<ChatConversationMessage> page = repository.listMessages(conversationId, offset, MESSAGE_PAGE_SIZE);
+            if (page.isEmpty()) {
+                return List.copyOf(all);
+            }
+            all.addAll(page);
+            if (page.size() < MESSAGE_PAGE_SIZE) {
+                return List.copyOf(all);
+            }
+            offset += page.size();
+        }
     }
 
     private int lastMessageIndex(List<ChatConversationMessage> messages, ChatMessageRole role) {
