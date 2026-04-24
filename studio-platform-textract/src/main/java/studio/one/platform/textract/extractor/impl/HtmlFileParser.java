@@ -143,7 +143,7 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
         Map<String, Object> metadata = imageMetadata(path);
         String source = image.attr("src");
         if (source != null && !source.isBlank()) {
-            metadata.put("src", source);
+            metadata.put(ExtractedImage.KEY_SRC, source);
         }
         String alt = image.attr("alt");
         if (alt != null && !alt.isBlank()) {

@@ -19,9 +19,12 @@ public record ExtractedImage(
     public static final String KEY_BIN_DATA_REF = "binDataRef";
     public static final String KEY_PACKAGE_ID = "packageId";
     public static final String KEY_CAPTION = "caption";
+    public static final String KEY_SRC = "src";
     public static final String KEY_ALT_TEXT = "altText";
     public static final String KEY_OCR_TEXT = "ocrText";
     public static final String KEY_OCR_APPLIED = "ocrApplied";
+    public static final String KEY_OCR_UNIT = "ocrUnit";
+    public static final String KEY_CONFIDENCE_AVAILABLE = "confidenceAvailable";
 
     public ExtractedImage {
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
@@ -63,6 +66,11 @@ public record ExtractedImage(
         return value instanceof String stringValue ? stringValue : "";
     }
 
+    public String src() {
+        Object value = metadata.get(KEY_SRC);
+        return value instanceof String stringValue ? stringValue : "";
+    }
+
     public String altText() {
         Object value = metadata.get(KEY_ALT_TEXT);
         return value instanceof String stringValue ? stringValue : "";
@@ -75,6 +83,16 @@ public record ExtractedImage(
 
     public boolean ocrApplied() {
         Object value = metadata.get(KEY_OCR_APPLIED);
+        return value instanceof Boolean booleanValue && booleanValue;
+    }
+
+    public String ocrUnit() {
+        Object value = metadata.get(KEY_OCR_UNIT);
+        return value instanceof String stringValue ? stringValue : "";
+    }
+
+    public boolean confidenceAvailable() {
+        Object value = metadata.get(KEY_CONFIDENCE_AVAILABLE);
         return value instanceof Boolean booleanValue && booleanValue;
     }
 }

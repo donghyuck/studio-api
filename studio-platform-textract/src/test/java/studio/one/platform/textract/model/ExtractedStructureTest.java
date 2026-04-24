@@ -61,9 +61,12 @@ class ExtractedStructureTest {
                         ExtractedImage.KEY_BIN_DATA_REF, "Contents/BinData/image1.png",
                         ExtractedImage.KEY_PACKAGE_ID, "image1",
                         ExtractedImage.KEY_CAPTION, "그림 설명",
+                        ExtractedImage.KEY_SRC, "media/image1.png",
                         ExtractedImage.KEY_ALT_TEXT, "대체 텍스트",
                         ExtractedImage.KEY_OCR_TEXT, "OCR 텍스트",
-                        ExtractedImage.KEY_OCR_APPLIED, true));
+                        ExtractedImage.KEY_OCR_APPLIED, true,
+                        ExtractedImage.KEY_OCR_UNIT, "line",
+                        ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false));
 
         assertEquals("image/png", image.mimeType());
         assertEquals("section[0]/pic[1]", image.sourceRef());
@@ -71,9 +74,12 @@ class ExtractedStructureTest {
         assertEquals("Contents/BinData/image1.png", image.binDataRef());
         assertEquals("image1", image.packageId());
         assertEquals("그림 설명", image.caption());
+        assertEquals("media/image1.png", image.src());
         assertEquals("대체 텍스트", image.altText());
         assertEquals("OCR 텍스트", image.ocrText());
         assertEquals(true, image.ocrApplied());
+        assertEquals("line", image.ocrUnit());
+        assertEquals(false, image.confidenceAvailable());
     }
 
     @Test
