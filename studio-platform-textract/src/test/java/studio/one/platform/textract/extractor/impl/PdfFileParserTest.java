@@ -177,6 +177,10 @@ class PdfFileParserTest {
                 | Alice | 90 |""", table.markdown());
         assertEquals("Name", table.cells().get(0).text());
         assertTrue(table.cells().get(0).header());
+        assertEquals("Name | Score\nName: Alice | Score: 90", table.vectorText());
+        assertEquals(1, table.headerRowCount());
+        assertEquals("page[1]/table[0]/row[0]/cell[0]", table.cells().get(0).sourceRef());
+        assertEquals(0, table.cells().get(0).order());
         int tableBlockIndex = blockIndex(result, BlockType.TABLE);
         assertTrue(tableBlockIndex > 0);
         assertEquals(2, result.blocks().get(tableBlockIndex).order());

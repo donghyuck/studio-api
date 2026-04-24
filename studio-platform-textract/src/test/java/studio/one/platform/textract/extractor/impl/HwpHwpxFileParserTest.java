@@ -38,6 +38,11 @@ class HwpHwpxFileParserTest {
         assertTrue(result.blocks().stream().anyMatch(block -> block.type() == BlockType.TABLE));
         assertEquals("section[0]/p[3]/tbl[1]", result.tables().get(0).sourceRef());
         assertEquals("hwpx", result.tables().get(0).format());
+        assertEquals("A1 | B1\nA1: A2 | B1: B2", result.tables().get(0).vectorText());
+        assertEquals(1, result.tables().get(0).headerRowCount());
+        assertEquals("section[0]/p[3]/tbl[1]/row[0]/cell[0]", result.tables().get(0).cells().get(0).sourceRef());
+        assertEquals(0, result.tables().get(0).cells().get(0).order());
+        assertTrue(result.tables().get(0).cells().get(0).header());
         assertEquals("section[0]/p[5]/pic[0]", result.images().get(0).sourceRef());
         assertEquals(java.util.List.of("section[0]/p[5]/pic[0]"), result.images().get(0).sourceRefs());
         assertEquals("Contents/BinData/image1.png", result.images().get(0).binDataRef());

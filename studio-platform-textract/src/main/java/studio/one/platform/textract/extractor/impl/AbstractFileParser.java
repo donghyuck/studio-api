@@ -2,13 +2,17 @@ package studio.one.platform.textract.extractor.impl;
 
 import java.util.Locale;
 import java.util.LinkedHashMap;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.textract.extractor.FileParser;
 import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
+import studio.one.platform.textract.model.ExtractedTableCell;
 import studio.one.platform.textract.model.ParsedBlock;
 
 @Slf4j
@@ -95,6 +99,79 @@ public abstract class AbstractFileParser implements FileParser {
         metadata.put(ExtractedTable.KEY_SOURCE_REF, sourceRef);
         metadata.put(ExtractedTable.KEY_FORMAT, format);
         return metadata;
+    }
+
+    protected Map<String, Object> tableMetadata(
+            String sourceRef,
+            String format,
+            List<ExtractedTableCell> cells,
+            int headerRowCount) {
+        Map<String, Object> metadata = tableMetadata(sourceRef, format);
+        metadata.put(ExtractedTable.KEY_HEADER_ROW_COUNT, Math.max(0, headerRowCount));
+        metadata.put(ExtractedTable.KEY_VECTOR_TEXT, tableVectorText(cells, headerRowCount));
+        return metadata;
+    }
+
+    protected ExtractedTableCell tableCell(
+            int row,
+            int col,
+            int rowSpan,
+            int colSpan,
+            String text,
+            String sourceRef,
+            int order,
+            boolean header) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(ExtractedTableCell.KEY_SOURCE_REF, sourceRef);
+        metadata.put(ExtractedTableCell.KEY_ORDER, order);
+        if (header) {
+            metadata.put(ExtractedTableCell.KEY_HEADER, true);
+        }
+        return new ExtractedTableCell(row, col, rowSpan, colSpan, text, metadata);
+    }
+
+    private String tableVectorText(List<ExtractedTableCell> cells, int headerRowCount) {
+        if (cells == null || cells.isEmpty()) {
+            return "";
+        }
+        Map<Integer, String> headers = cells.stream()
+                .filter(cell -> cell.row() < headerRowCount)
+                .collect(Collectors.toMap(
+                        ExtractedTableCell::col,
+                        cell -> value(cell.text()),
+                        (left, right) -> left.isBlank() ? right : left,
+                        LinkedHashMap::new));
+        return cells.stream()
+                .collect(Collectors.groupingBy(
+                        ExtractedTableCell::row,
+                        LinkedHashMap::new,
+                        Collectors.toList()))
+                .entrySet()
+                .stream()
+                .map(entry -> tableVectorRow(entry.getValue(), headers, entry.getKey() >= headerRowCount))
+                .filter(row -> !row.isBlank())
+                .collect(Collectors.joining("\n"));
+    }
+
+    private String tableVectorRow(List<ExtractedTableCell> rowCells, Map<Integer, String> headers, boolean dataRow) {
+        return rowCells.stream()
+                .sorted(Comparator.comparingInt(ExtractedTableCell::col))
+                .map(cell -> tableVectorCell(cell, headers, dataRow))
+                .filter(value -> !value.isBlank())
+                .collect(Collectors.joining(" | "));
+    }
+
+    private String tableVectorCell(ExtractedTableCell cell, Map<Integer, String> headers, boolean dataRow) {
+        String text = value(cell.text()).replace('\n', ' ').trim();
+        if (!dataRow || headers.isEmpty()) {
+            return text;
+        }
+        String header = headers.getOrDefault(cell.col(), "");
+        return header.isBlank() ? text : header + ": " + text;
+    }
+
+    private String value(String value) {
+        return value == null ? "" : value;
     }
 
     protected Map<String, Object> imageMetadata(String sourceRef) {

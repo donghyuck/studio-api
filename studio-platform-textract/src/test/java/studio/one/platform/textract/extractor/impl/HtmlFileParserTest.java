@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.model.BlockType;
+import studio.one.platform.textract.model.ExtractedTable;
+import studio.one.platform.textract.model.ExtractedTableCell;
 import studio.one.platform.textract.model.ParsedFile;
 
 class HtmlFileParserTest {
@@ -39,11 +41,37 @@ class HtmlFileParserTest {
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.LIST_ITEM));
         assertTrue(result.blocks().stream().anyMatch(block -> block.blockType() == BlockType.TABLE));
         assertEquals(1, result.tables().size());
-        assertEquals("html", result.tables().get(0).format());
+        ExtractedTable table = result.tables().get(0);
+        assertEquals("html", table.format());
+        assertEquals("A | B\nA: 1 | B: 2", table.vectorText());
+        assertEquals(1, table.headerRowCount());
+        assertEquals("table[3]/row[0]/cell[0]", table.cells().get(0).sourceRef());
+        assertEquals(0, table.cells().get(0).order());
+        assertTrue(table.cells().get(0).header());
         assertEquals(1, result.images().size());
         assertEquals("hero.png", result.images().get(0).src());
         assertEquals("대표 이미지", result.images().get(0).altText());
         assertFalse(result.plainText().contains("메뉴 링크"));
         assertFalse(result.plainText().contains("푸터"));
+    }
+
+    @Test
+    void parseStructuredKeepsHtmlTableSpanMetadata() {
+        String html = """
+                <main>
+                  <table>
+                    <tr><th rowspan="2">구분</th><th colspan="2">값</th></tr>
+                    <tr><td>A</td><td>B</td></tr>
+                  </table>
+                </main>
+                """;
+
+        ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "span.html");
+
+        ExtractedTableCell first = result.tables().get(0).cells().get(0);
+        ExtractedTableCell second = result.tables().get(0).cells().get(1);
+        assertEquals(2, first.rowSpan());
+        assertEquals(2, second.colSpan());
+        assertEquals("table[0]/row[0]/cell[0]", first.sourceRef());
     }
 }

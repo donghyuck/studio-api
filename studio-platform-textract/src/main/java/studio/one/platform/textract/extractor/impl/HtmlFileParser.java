@@ -129,14 +129,33 @@ public class HtmlFileParser extends AbstractFileParser implements StructuredFile
             for (int colIndex = 0; colIndex < rowCells.size(); colIndex++) {
                 Element cell = rowCells.get(colIndex);
                 String text = cleanText(cell.text());
-                cells.add(new ExtractedTableCell(rowIndex, colIndex, 1, 1, text, Map.of()));
+                int rowSpan = attrInt(cell.attr("rowspan"), 1);
+                int colSpan = attrInt(cell.attr("colspan"), 1);
+                String cellSourceRef = path + "/row[" + rowIndex + "]/cell[" + colIndex + "]";
+                boolean header = "th".equals(cell.tagName()) || rowIndex == 0;
+                cells.add(tableCell(rowIndex, colIndex, rowSpan, colSpan, text, cellSourceRef, cells.size(), header));
                 markdownCells.add(text == null ? "" : text.replace("\n", " "));
             }
             if (!markdownCells.isEmpty()) {
                 markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
             }
         }
-        return new ExtractedTable(path, String.join("\n", markdownRows), cells, tableMetadata(path, "html"));
+        return new ExtractedTable(path, String.join("\n", markdownRows), cells, tableMetadata(path, "html", cells, headerRowCount(cells)));
+    }
+
+    private int attrInt(String value, int defaultValue) {
+        if (value == null || value.isBlank()) {
+            return defaultValue;
+        }
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    private int headerRowCount(List<ExtractedTableCell> cells) {
+        return cells.stream().anyMatch(ExtractedTableCell::header) ? 1 : 0;
     }
 
     private ExtractedImage extractImage(Element image, String path) {

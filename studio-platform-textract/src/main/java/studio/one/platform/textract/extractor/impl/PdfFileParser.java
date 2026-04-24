@@ -250,12 +250,7 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             List<String> markdownCells = new ArrayList<>();
             for (int colIndex = 0; colIndex < row.size(); colIndex++) {
                 String cellSourceRef = sourceRef + "/row[" + rowIndex + "]/cell[" + colIndex + "]";
-                Map<String, Object> metadata = new LinkedHashMap<>();
-                metadata.put(ExtractedTableCell.KEY_SOURCE_REF, cellSourceRef);
-                if (rowIndex == 0) {
-                    metadata.put(ExtractedTableCell.KEY_HEADER, true);
-                }
-                cells.add(new ExtractedTableCell(rowIndex, colIndex, 1, 1, row.get(colIndex), metadata));
+                cells.add(tableCell(rowIndex, colIndex, 1, 1, row.get(colIndex), cellSourceRef, cells.size(), rowIndex == 0));
                 markdownCells.add(row.get(colIndex));
             }
             markdownRows.add("| " + String.join(" | ", markdownCells) + " |");
@@ -266,11 +261,7 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             }
         }
         String markdown = String.join("\n", markdownRows);
-        Map<String, Object> metadata = new LinkedHashMap<>(tableMetadata(sourceRef, "pdf"));
-        metadata.put(ExtractedTable.KEY_HEADER_ROW_COUNT, 1);
-        metadata.put(ExtractedTable.KEY_VECTOR_TEXT, rows.stream()
-                .map(row -> String.join(" ", row))
-                .collect(Collectors.joining("\n")));
+        Map<String, Object> metadata = tableMetadata(sourceRef, "pdf", cells, 1);
         tables.add(new ExtractedTable(sourceRef, markdown, cells, metadata));
         return tableIndex + 1;
     }
