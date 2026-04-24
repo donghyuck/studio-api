@@ -38,6 +38,7 @@ public record ChunkContextExpansion(
             List<Chunk> contextChunks,
             ChunkContextExpansionStrategy strategy,
             Map<String, Object> metadata) {
+        Objects.requireNonNull(seedChunk, "seedChunk must not be null");
         return new ChunkContextExpansion(seedChunk, contextChunks, joinedContent(contextChunks, seedChunk), strategy,
                 metadata);
     }
