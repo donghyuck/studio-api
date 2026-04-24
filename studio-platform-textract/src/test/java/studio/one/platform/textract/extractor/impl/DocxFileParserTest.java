@@ -121,12 +121,26 @@ class DocxFileParserTest {
         ExtractedImage image = result.images().get(0);
         assertEquals("image/png", image.mimeType());
         assertEquals("image1.png", image.filename());
-        assertTrue(image.sourceRef().startsWith("body/element[0]/run[1]/picture[0]"));
+        assertEquals("body/element[0]/run[1]/picture[0]", image.sourceRef());
         assertEquals("그림 1 설명", image.caption());
         assertEquals("image1.png", image.binDataRef());
         assertEquals(1, image.width());
         assertEquals(1, image.height());
         assertTrue(result.plainText().contains("그림 1 설명"));
+    }
+
+    @Test
+    void parseStructuredExtractsTableCellEmbeddedImageWithCellSourceRef() throws Exception {
+        byte[] bytes = docxWithTableCellImage();
+
+        ParsedFile result = new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "cell-image.docx");
+
+        assertEquals(1, result.images().size());
+        ExtractedImage image = result.images().get(0);
+        assertEquals("body/element[0]/row[0]/cell[0]/paragraph[0]/run[1]/picture[0]", image.sourceRef());
+        assertEquals("셀 이미지 설명", image.caption());
+        assertEquals("image1.png", image.binDataRef());
     }
 
     private byte[] docxWithParagraphAndTable() throws Exception {
@@ -199,6 +213,24 @@ class DocxFileParserTest {
                     "inline.png",
                     Units.pixelToEMU(24),
                     Units.pixelToEMU(12));
+            document.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] docxWithTableCellImage() throws Exception {
+        try (XWPFDocument document = new XWPFDocument();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            XWPFTable table = document.createTable(1, 1);
+            XWPFParagraph paragraph = table.getRow(0).getCell(0).getParagraphs().get(0);
+            paragraph.createRun().setText("셀 이미지 설명");
+            XWPFRun imageRun = paragraph.createRun();
+            imageRun.addPicture(
+                    new ByteArrayInputStream(PNG_BYTES),
+                    Document.PICTURE_TYPE_PNG,
+                    "cell.png",
+                    Units.pixelToEMU(10),
+                    Units.pixelToEMU(10));
             document.write(out);
             return out.toByteArray();
         }
