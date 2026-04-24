@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.poi.util.Units;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFPictureData;
 import org.apache.poi.xslf.usermodel.XSLFPictureShape;
@@ -53,12 +54,13 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
                 boolean titleSeen = false;
                 XSLFSlide slide = ppt.getSlides().get(slideIndex);
                 List<TextCandidate> textCandidates = new ArrayList<>();
+                List<PictureCandidate> pictureCandidates = new ArrayList<>();
                 int shapeIndex = 0;
                 for (XSLFShape shape : slide.getShapes()) {
+                    String path = "slide[" + (slideIndex + 1) + "]/shape[" + shapeIndex + "]";
                     if (shape instanceof XSLFTextShape textShape) {
                         String text = cleanText(textShape.getText());
                         if (text != null && !text.isBlank()) {
-                            String path = "slide[" + (slideIndex + 1) + "]/shape[" + shapeIndex + "]";
                             BlockType blockType = resolveTextShapeType(textShape, pageSize, titleSeen);
                             if (blockType == BlockType.TITLE) {
                                 titleSeen = true;
@@ -75,10 +77,12 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
                             slideText.append(text).append("\n");
                             order++;
                         }
+                    } else if (shape instanceof XSLFPictureShape pictureShape) {
+                        pictureCandidates.add(new PictureCandidate(pictureShape, path));
                     }
                     shapeIndex++;
                 }
-                appendSlideImages(slide, images, warnings, textCandidates, slideIndex + 1);
+                appendSlideImages(pictureCandidates, images, warnings, textCandidates);
                 String cleanedSlideText = cleanText(slideText.toString());
                 if (cleanedSlideText != null && !cleanedSlideText.isBlank()) {
                     String path = "slide[" + (slideIndex + 1) + "]";
@@ -122,25 +126,19 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
     }
 
     private void appendSlideImages(
-            XSLFSlide slide,
+            List<PictureCandidate> pictureCandidates,
             List<ExtractedImage> images,
             List<ParseWarning> warnings,
-            List<TextCandidate> textCandidates,
-            int slideNumber) {
-        int shapeIndex = 0;
-        for (XSLFShape shape : slide.getShapes()) {
-            if (shape instanceof XSLFPictureShape pictureShape) {
-                String sourceRef = "slide[" + slideNumber + "]/shape[" + shapeIndex + "]";
-                if (pictureShape.isExternalLinkedPicture()) {
-                    warnings.add(ParseWarning.partial(
-                            "PPTX_LINKED_IMAGE_PARTIAL",
-                            "Linked PPTX image metadata is partially supported.",
-                            sourceRef,
-                            Map.of()));
-                }
-                images.add(toExtractedImage(pictureShape, sourceRef, textCandidates));
+            List<TextCandidate> textCandidates) {
+        for (PictureCandidate candidate : pictureCandidates) {
+            if (candidate.pictureShape().isExternalLinkedPicture()) {
+                warnings.add(ParseWarning.partial(
+                        "PPTX_LINKED_IMAGE_PARTIAL",
+                        "Linked PPTX image metadata is partially supported.",
+                        candidate.sourceRef(),
+                        Map.of()));
             }
-            shapeIndex++;
+            images.add(toExtractedImage(candidate.pictureShape(), candidate.sourceRef(), textCandidates));
         }
     }
 
@@ -156,7 +154,6 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
         Map<String, Object> metadata = new LinkedHashMap<>(imageMetadata(sourceRef));
         if (data != null) {
             metadata.put(ExtractedImage.KEY_BIN_DATA_REF, filename);
-            metadata.put(ExtractedImage.KEY_PACKAGE_ID, filename);
         }
         String shapeName = cleanText(pictureShape.getShapeName());
         if (shapeName != null && !shapeName.isBlank()) {
@@ -200,14 +197,14 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
         if (dimension != null && dimension.width > 0) {
             return dimension.width;
         }
-        return anchor == null || anchor.getWidth() <= 0 ? null : Math.max(1, (int) Math.round(anchor.getWidth()));
+        return anchor == null || anchor.getWidth() <= 0 ? null : Units.pointsToPixel(anchor.getWidth());
     }
 
     private Integer imageHeight(Dimension dimension, Rectangle2D anchor) {
         if (dimension != null && dimension.height > 0) {
             return dimension.height;
         }
-        return anchor == null || anchor.getHeight() <= 0 ? null : Math.max(1, (int) Math.round(anchor.getHeight()));
+        return anchor == null || anchor.getHeight() <= 0 ? null : Units.pointsToPixel(anchor.getHeight());
     }
 
     private Map<String, Object> blockMetadata(String path, int slide, int order) {
@@ -217,5 +214,8 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
     }
 
     private record TextCandidate(String text, Rectangle2D anchor) {
+    }
+
+    private record PictureCandidate(XSLFPictureShape pictureShape, String sourceRef) {
     }
 }

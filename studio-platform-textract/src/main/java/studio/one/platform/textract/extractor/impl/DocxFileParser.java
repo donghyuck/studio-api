@@ -233,7 +233,6 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
         Map<String, Object> metadata = new LinkedHashMap<>(imageMetadata(sourceRef));
         if (data != null) {
             metadata.put(ExtractedImage.KEY_BIN_DATA_REF, filename);
-            metadata.put(ExtractedImage.KEY_PACKAGE_ID, filename);
         }
         String description = cleanText(picture.getDescription());
         if (description != null && !description.isBlank()) {

@@ -59,8 +59,8 @@ class PptxFileParserTest {
         assertEquals("image1.png", image.filename());
         assertEquals("slide[1]/shape[1]", image.sourceRef());
         assertEquals("그림 설명", image.caption());
-        assertEquals(120, image.width());
-        assertEquals(80, image.height());
+        assertEquals(160, image.width());
+        assertEquals(107, image.height());
         assertTrue(result.plainText().contains("그림 설명"));
     }
 
