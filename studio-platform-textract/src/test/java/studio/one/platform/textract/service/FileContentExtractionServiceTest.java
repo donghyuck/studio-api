@@ -52,6 +52,19 @@ class FileContentExtractionServiceTest {
     }
 
     @Test
+    void parseStructuredRejectsOversizedInputStreamsBeforeParserDispatch() {
+        RecordingParser parser = new RecordingParser();
+        FileContentExtractionService service = new FileContentExtractionService(
+                new FileParserFactory(List.of(parser)),
+                4);
+        InputStream oversized = new ByteArrayInputStream("abcde".getBytes(UTF_8));
+
+        assertThrows(FileParseException.class,
+                () -> service.parseStructured("text/plain", "large.txt", oversized));
+        assertEquals(0, parser.invocations);
+    }
+
+    @Test
     void extractTextRejectsOversizedFiles() throws Exception {
         FileContentExtractionService service = new FileContentExtractionService(
                 new FileParserFactory(List.of(new RecordingParser())),
@@ -68,6 +81,7 @@ class FileContentExtractionServiceTest {
 
     private static final class RecordingParser implements FileParser {
         private byte[] lastBytes;
+        private int invocations;
 
         @Override
         public boolean supports(String contentType, String filename) {
@@ -76,6 +90,7 @@ class FileContentExtractionServiceTest {
 
         @Override
         public String parse(byte[] bytes, String contentType, String filename) {
+            invocations++;
             lastBytes = bytes;
             return "parsed";
         }
