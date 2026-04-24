@@ -88,11 +88,12 @@ public class SpringAiChatAdapter implements ChatPort {
         Prompt prompt = options == null ? new Prompt(messages) : new Prompt(messages, options);
         long startedAt = System.nanoTime();
         try {
+            // ChatPort exposes a synchronous Stream contract; callers must not consume it on an event-loop thread.
             Iterator<org.springframework.ai.chat.model.ChatResponse> source =
                     chatModel.stream(prompt).toIterable().iterator();
             Iterator<ChatStreamEvent> events = new SpringAiStreamIterator(source, request, startedAt);
             return StreamSupport.stream(Spliterators.spliteratorUnknownSize(events, 0), false);
-        } catch (UnsupportedOperationException | IllegalStateException e) {
+        } catch (UnsupportedOperationException e) {
             return ChatPort.super.stream(request);
         }
     }
@@ -128,20 +129,26 @@ public class SpringAiChatAdapter implements ChatPort {
             long latencyMs,
             String requestedModel) {
         Map<String, Object> metadata = new LinkedHashMap<>();
-        metadata.put("responseId", response.getMetadata().getId());
-        metadata.put("modelName", response.getMetadata().getModel());
+        org.springframework.ai.chat.metadata.ChatResponseMetadata responseMetadata = response.getMetadata();
+        if (responseMetadata != null) {
+            metadata.put("responseId", responseMetadata.getId());
+            metadata.put("modelName", responseMetadata.getModel());
+        }
         metadata.put(ChatResponseMetadata.KEY_PROVIDER, provider);
         metadata.put(ChatResponseMetadata.KEY_RESOLVED_MODEL, resolvedModel(response, requestedModel));
         metadata.put(ChatResponseMetadata.KEY_LATENCY_MS, latencyMs);
-        if (response.getMetadata().getUsage() != null) {
-            metadata.put(ChatResponseMetadata.KEY_TOKEN_USAGE, toTokenUsageMap(response.getMetadata().getUsage()));
+        if (responseMetadata != null && responseMetadata.getUsage() != null) {
+            metadata.put(ChatResponseMetadata.KEY_TOKEN_USAGE, toTokenUsageMap(responseMetadata.getUsage()));
         }
-        metadata.put("chatResponseMetadata", response.getMetadata());
+        if (responseMetadata != null) {
+            metadata.put("chatResponseMetadata", responseMetadata);
+        }
         return metadata;
     }
 
     private String resolvedModel(org.springframework.ai.chat.model.ChatResponse response, String requestedModel) {
-        return firstNonBlank(response.getMetadata().getModel(), requestedModel, configuredModel);
+        org.springframework.ai.chat.metadata.ChatResponseMetadata responseMetadata = response.getMetadata();
+        return firstNonBlank(responseMetadata == null ? null : responseMetadata.getModel(), requestedModel, configuredModel);
     }
 
     private Map<String, Integer> toTokenUsageMap(Usage usage) {

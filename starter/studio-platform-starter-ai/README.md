@@ -196,6 +196,8 @@ studio:
 | `latencyMs` | provider 호출 latency |
 
 `ChatPort.stream(ChatRequest)`는 native Spring AI `ChatModel.stream(Prompt)`를 우선 사용한다. native streaming이 지원되지 않거나 명시적으로 unsupported인 경우 기존 `chat()` 호출 결과를 `delta`, `usage`, `complete` event sequence로 변환하는 fallback을 사용한다.
+`usage` / `complete` event의 `tokenUsage`는 provider가 마지막 stream chunk에 제공한 usage metadata를 기준으로 한다.
+`ChatPort.stream(ChatRequest)`는 Java `Stream` 기반 동기 계약이므로 WebFlux/Netty event-loop thread에서 직접 소비하지 말고 web 계층에서 별도 scheduler 또는 blocking boundary를 둔다.
 HTTP `text/event-stream` endpoint 변환은 `starter-ai-web` 책임이다.
 
 ### RAG 청킹 설정

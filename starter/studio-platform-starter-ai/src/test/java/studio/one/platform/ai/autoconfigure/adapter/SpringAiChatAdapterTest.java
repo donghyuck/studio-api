@@ -81,6 +81,25 @@ class SpringAiChatAdapterTest {
     }
 
     @Test
+    void handlesMissingSpringMetadataAndFallsBackToConfiguredModel() {
+        ChatModel model = mock(ChatModel.class);
+        when(model.call(any(org.springframework.ai.chat.prompt.Prompt.class)))
+                .thenReturn(new ChatResponse(
+                        List.of(new Generation(new AssistantMessage("hello"))),
+                        null));
+        SpringAiChatAdapter adapter = new SpringAiChatAdapter(model, "OPENAI", "configured-model");
+
+        studio.one.platform.ai.core.chat.ChatResponse response = adapter.chat(ChatRequest.builder()
+                .messages(List.of(ChatMessage.user("hello")))
+                .build());
+
+        assertThat(response.model()).isEqualTo("configured-model");
+        assertThat(response.metadata()).doesNotContainKeys("responseId", "modelName", "chatResponseMetadata");
+        assertThat(response.typedMetadata().provider()).isEqualTo("OPENAI");
+        assertThat(response.typedMetadata().resolvedModel()).isEqualTo("configured-model");
+    }
+
+    @Test
     void mapsNativeSpringAiStreamIntoChatStreamEvents() {
         ChatModel model = mock(ChatModel.class);
         when(model.stream(any(Prompt.class)))
@@ -158,5 +177,17 @@ class SpringAiChatAdapterTest {
         assertThat(events).extracting(ChatStreamEvent::type)
                 .containsExactly(ChatStreamEventType.DELTA, ChatStreamEventType.USAGE, ChatStreamEventType.COMPLETE);
         assertThat(events.get(0).delta()).isEqualTo("fallback");
+    }
+
+    @Test
+    void propagatesNativeStreamRuntimeFailures() {
+        ChatModel model = mock(ChatModel.class);
+        when(model.stream(any(Prompt.class))).thenReturn(Flux.error(new IllegalStateException("provider broken")));
+        SpringAiChatAdapter adapter = new SpringAiChatAdapter(model, "OPENAI", "configured-model");
+
+        assertThatThrownBy(() -> adapter.stream(ChatRequest.builder()
+                .messages(List.of(ChatMessage.user("hello")))
+                .build()).toList())
+                .hasMessageContaining("provider broken");
     }
 }
