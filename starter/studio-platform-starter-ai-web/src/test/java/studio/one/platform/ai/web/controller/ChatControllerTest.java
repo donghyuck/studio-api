@@ -48,9 +48,17 @@ import studio.one.platform.ai.web.dto.ConversationSummaryDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
+import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.core.ChunkContextExpander;
+import studio.one.platform.chunking.core.ChunkContextExpansion;
+import studio.one.platform.chunking.core.ChunkContextExpansionRequest;
+import studio.one.platform.chunking.core.ChunkContextExpansionStrategy;
+import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.web.dto.ApiResponse;
 
 class ChatControllerTest {
+
+    private static final String KEY_CHUNK_ID = "chunkId";
 
     @Mock
     private AiProviderRegistry providerRegistry;
@@ -544,6 +552,46 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatUsesObjectScopedCandidatesForContextExpansion() {
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 12_000, true, List.of(new TestWindowExpander())));
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("attachment", "123", 12))
+                .thenReturn(List.of(
+                        new RagSearchResult("chunk-1", "previous",
+                                chunkMetadata("chunk-1", null, "chunk-2", 0), 1.0d),
+                        new RagSearchResult("chunk-2", "seed",
+                                chunkMetadata("chunk-2", "chunk-1", "chunk-3", 1), 1.0d),
+                        new RagSearchResult("chunk-3", "next",
+                                chunkMetadata("chunk-3", "chunk-2", null, 2), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123"));
+
+        verify(ragPipelineService).listByObject("attachment", "123", 12);
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("previous\nseed\nnext")
+                .contains("docId=chunk-2")
+                .contains("score=0.900");
+    }
+
+    @Test
     void ragChatLimitsContextChunks() {
         controller = new ChatController(providerRegistry, ragPipelineService, new RagContextBuilder(2, 12_000, true));
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
@@ -866,5 +914,41 @@ class ChatControllerTest {
                 null,
                 null,
                 3);
+    }
+
+    private Map<String, Object> chunkMetadata(String chunkId) {
+        return chunkMetadata(chunkId, "chunk-1", "chunk-3", 1);
+    }
+
+    private Map<String, Object> chunkMetadata(String chunkId, String previousChunkId, String nextChunkId, int order) {
+        return Map.ofEntries(
+                Map.entry(ChunkMetadata.KEY_OBJECT_TYPE, "attachment"),
+                Map.entry(ChunkMetadata.KEY_OBJECT_ID, "123"),
+                Map.entry(KEY_CHUNK_ID, chunkId),
+                Map.entry(ChunkMetadata.KEY_CHUNK_ORDER, order),
+                Map.entry(ChunkMetadata.KEY_PREVIOUS_CHUNK_ID, previousChunkId == null ? "" : previousChunkId),
+                Map.entry(ChunkMetadata.KEY_NEXT_CHUNK_ID, nextChunkId == null ? "" : nextChunkId));
+    }
+
+    private static final class TestWindowExpander implements ChunkContextExpander {
+
+        @Override
+        public ChunkContextExpansionStrategy strategy() {
+            return ChunkContextExpansionStrategy.WINDOW;
+        }
+
+        @Override
+        public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
+            String content = request.availableChunks().stream()
+                    .map(Chunk::content)
+                    .reduce((left, right) -> left + "\n" + right)
+                    .orElse(request.seedChunk().content());
+            return new ChunkContextExpansion(
+                    request.seedChunk(),
+                    request.availableChunks(),
+                    content,
+                    strategy(),
+                    Map.of());
+        }
     }
 }

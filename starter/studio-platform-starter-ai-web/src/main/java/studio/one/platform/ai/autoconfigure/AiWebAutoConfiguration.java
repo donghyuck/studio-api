@@ -2,6 +2,7 @@ package studio.one.platform.ai.autoconfigure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -34,6 +35,7 @@ import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.chunking.core.ChunkContextExpander;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(ChatPort.class)
@@ -42,8 +44,10 @@ import studio.one.platform.constant.PropertyKeys;
 public class AiWebAutoConfiguration {
 
     @Bean
-    RagContextBuilder ragContextBuilder(AiWebRagProperties properties) {
-        return new RagContextBuilder(properties);
+    RagContextBuilder ragContextBuilder(
+            AiWebRagProperties properties,
+            ObjectProvider<ChunkContextExpander> contextExpanders) {
+        return new RagContextBuilder(properties, contextExpanders.stream().toList());
     }
 
     @Bean

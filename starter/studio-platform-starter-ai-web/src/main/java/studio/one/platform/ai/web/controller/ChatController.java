@@ -291,7 +291,13 @@ public class ChatController {
         }
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
 
-        String context = ragContextBuilder.build(ragResults);
+        List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
+                ragResults,
+                objectType,
+                objectId,
+                ragTopK,
+                ragQuery == null || ragQuery.isBlank());
+        String context = ragContextBuilder.build(ragResults, expansionCandidates);
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
         augmentedMessages.add(new ChatMessageDto("system", context));
@@ -551,6 +557,29 @@ public class ChatController {
             }
         }
         throw new IllegalArgumentException("RAG query is empty");
+    }
+
+    private List<RagSearchResult> contextExpansionCandidates(
+            List<RagSearchResult> ragResults,
+            String objectType,
+            String objectId,
+            int ragTopK,
+            boolean resultsAlreadyObjectCandidates) {
+        if (!ragContextBuilder.supportsExpansion()
+                || objectType == null || objectId == null
+                || objectType.isBlank() || objectId.isBlank()) {
+            return ragResults;
+        }
+        if (resultsAlreadyObjectCandidates) {
+            return ragResults;
+        }
+        int limit = Math.max(ragTopK, 1) * 4;
+        try {
+            List<RagSearchResult> candidates = ragPipelineService.listByObject(objectType, objectId, limit);
+            return candidates == null || candidates.isEmpty() ? ragResults : candidates;
+        } catch (RuntimeException ignored) {
+            return ragResults;
+        }
     }
 
     private ChatMemoryContext resolveMemory(ChatRequestDto request, Principal principal) {
