@@ -213,6 +213,9 @@ HTTP `text/event-stream` endpoint 변환은 `starter-ai-web` 책임이다.
 
 `starter:studio-platform-starter-chunking`이 classpath에 있으면 `RagPipelineService`는 신규
 `ChunkingOrchestrator`를 사용한다. 없으면 기존 `TextChunker` 기반 fallback이 적용된다.
+`TextChunker`와 `OverlapTextChunker`는 deprecated legacy fallback이다. 신규 RAG indexing 또는
+구조화 chunking 확장은 `starter:studio-platform-starter-chunking`의 auto-configuration과
+`studio-platform-chunking`의 `ChunkingOrchestrator`를 기준으로 구현한다.
 
 ```yaml
 studio:
@@ -230,7 +233,7 @@ studio:
 | `studio.chunking.max-size` | `800` | chunk 최대 문자 수 |
 | `studio.chunking.overlap` | `100` | 이전 chunk tail을 다음 chunk에 포함할 문자 수 |
 
-기존 `studio.ai.pipeline.chunk-size`, `studio.ai.pipeline.chunk-overlap`는 legacy `TextChunker` fallback 설정이다.
+기존 `studio.ai.pipeline.chunk-size`, `studio.ai.pipeline.chunk-overlap`는 deprecated legacy `TextChunker` fallback 설정이다.
 신규 `ChunkingOrchestrator` 경로에서는 `studio.chunking.*`가 기준이다.
 
 ### RAG 파이프라인 튜닝

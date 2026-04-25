@@ -8,7 +8,17 @@ import org.junit.jupiter.api.Test;
 
 import studio.one.platform.ai.core.chunk.TextChunk;
 
+@SuppressWarnings("deprecation")
 public class OverlapTextChunkerTest {
+
+    @Test
+    public void legacyOverlapChunkerIsDeprecatedWithoutRemoval() {
+        Deprecated deprecated = OverlapTextChunker.class.getAnnotation(Deprecated.class);
+
+        assertThat(deprecated).isNotNull();
+        assertThat(deprecated.since()).isEqualTo("2.x");
+        assertThat(deprecated.forRemoval()).isFalse();
+    }
 
     @Test
     public void splitsLongSingleParagraphIntoBoundedChunks() {
