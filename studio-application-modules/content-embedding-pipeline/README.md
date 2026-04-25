@@ -68,6 +68,8 @@ RAG 색인은 `TextractNormalizedDocumentAdapter`, `ChunkingOrchestrator`, `Embe
 
 컨트롤러는 `studio.features.attachment.web.mgmt-base-path`(기본 `/api/mgmt/attachments`) 경로에 등록된다.
 따라서 attachment-service의 `web.enabled=true`와 `mgmt-base-path` 설정을 공유한다.
+`content-embedding-pipeline`은 application module이므로 컨트롤러와 구조화 색인 컴포넌트는 애플리케이션의
+component scan 범위에 포함되어야 등록된다.
 
 | 메서드 | 경로 | 설명 | 권한 |
 |--------|------|------|------|

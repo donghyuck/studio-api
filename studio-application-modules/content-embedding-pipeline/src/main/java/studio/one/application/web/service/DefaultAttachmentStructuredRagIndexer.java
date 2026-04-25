@@ -1,4 +1,4 @@
-package studio.one.application.web.controller;
+package studio.one.application.web.service;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -21,6 +21,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
@@ -35,7 +36,7 @@ import studio.one.platform.textract.service.FileContentExtractionService;
         "studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter",
         "studio.one.platform.textract.model.ParsedFile"
 })
-class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
+public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
     private final ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider;
     private final ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider;
@@ -54,7 +55,11 @@ class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIn
         ChunkingOrchestrator chunkingOrchestrator = chunkingOrchestratorProvider.getIfAvailable();
         EmbeddingPort embeddingPort = embeddingPortProvider.getIfAvailable();
         VectorStorePort vectorStore = vectorStoreProvider.getIfAvailable();
-        if (adapter == null || chunkingOrchestrator == null || embeddingPort == null || vectorStore == null) {
+        if (adapter == null
+                || chunkingOrchestrator == null
+                || embeddingPort == null
+                || vectorStore == null
+                || !hasObjectScope(objectType, objectId)) {
             return false;
         }
 
@@ -78,10 +83,10 @@ class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIn
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
             Map<String, Object> chunkMetadata = new HashMap<>(metadata);
+            chunkMetadata.remove(ChunkMetadata.KEY_CHUNK_ORDER);
             mergeChunkMetadata(chunkMetadata, chunk.metadata().toMap());
             chunkMetadata.put("documentId", documentId);
             chunkMetadata.put("chunkId", chunk.id());
-            chunkMetadata.put("chunkOrder", i);
             chunkMetadata.put("chunkLength", chunk.content().length());
             documents.add(new VectorDocument(
                     chunk.id(),
@@ -91,6 +96,11 @@ class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIn
         }
         vectorStore.replaceByObject(objectType, objectId, documents);
         return true;
+    }
+
+    private boolean hasObjectScope(String objectType, String objectId) {
+        return objectType != null && !objectType.isBlank()
+                && objectId != null && !objectId.isBlank();
     }
 
     private NormalizedDocument enrichMetadata(

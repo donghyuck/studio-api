@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -31,6 +32,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.web.service.AttachmentStructuredRagIndexer;
+import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -213,7 +216,7 @@ class AttachmentEmbeddingPipelineControllerTest {
         Chunk chunk = Chunk.of(
                 "doc-1#0",
                 "structured text",
-                ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, 0)
+                ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, 7)
                         .sourceDocumentId("doc-1")
                         .objectType("attachment")
                         .objectId("1")
@@ -265,8 +268,63 @@ class AttachmentEmbeddingPipelineControllerTest {
                             && "1".equals(metadata.get("objectId"))
                             && "manual".equals(metadata.get("category"))
                             && "Intro".equals(metadata.get("section"))
+                            && Integer.valueOf(7).equals(metadata.get("chunkOrder"))
                             && metadata.containsKey("strategy");
                 }));
+    }
+
+    @Test
+    void ragIndexReopensInputStreamWhenStructuredIndexerFallsBack() throws Exception {
+        AttachmentStructuredRagIndexer structuredRagIndexer = (attachment, documentId, objectType, objectId,
+                metadata, extractor, inputStream) -> {
+            inputStream.readAllBytes();
+            return false;
+        };
+        configureMockMvc(structuredRagIndexer);
+
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("structured".getBytes(StandardCharsets.UTF_8)))
+                .thenReturn(new ByteArrayInputStream("fallback".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(8L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("fallback text");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isAccepted());
+
+        verify(attachmentService, times(2)).getInputStream(attachment);
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
+                "fallback text".equals(request.text())));
+    }
+
+    @Test
+    void structuredIndexerFallsBackWithoutReplacingWhenObjectScopeIsMissing() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+
+        boolean indexed = indexer.index(
+                mock(Attachment.class),
+                "doc-1",
+                null,
+                null,
+                Map.of(),
+                extractionService,
+                new ByteArrayInputStream("content".getBytes(StandardCharsets.UTF_8)));
+
+        org.assertj.core.api.Assertions.assertThat(indexed).isFalse();
+        verifyNoInteractions(extractionService, vectorStore);
     }
 
     private static <T> ObjectProvider<T> provider(T value) {
