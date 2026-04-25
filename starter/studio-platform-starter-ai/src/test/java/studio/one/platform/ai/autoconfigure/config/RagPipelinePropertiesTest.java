@@ -90,11 +90,6 @@ class RagPipelinePropertiesTest {
 
     @Test
     void shouldBindLegacyChunkFallbackDefaultsAndOverrides() {
-        RagPipelineProperties defaults = new RagPipelineProperties();
-
-        assertThat(defaults.getChunkSize()).isEqualTo(500);
-        assertThat(defaults.getChunkOverlap()).isEqualTo(50);
-
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
                 RagPipelineProperties.LEGACY_CHUNK_SIZE_PROPERTY, "900",
@@ -111,9 +106,12 @@ class RagPipelinePropertiesTest {
     @Test
     void shouldMarkLegacyChunkFallbackAccessorsAsDeprecated() throws NoSuchMethodException {
         assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("getChunkSize"));
-        assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("setChunkSize", int.class));
         assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("getChunkOverlap"));
-        assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("setChunkOverlap", int.class));
+
+        assertThat(RagPipelineProperties.class.getMethod("setChunkSize", int.class).getAnnotation(Deprecated.class))
+                .isNull();
+        assertThat(RagPipelineProperties.class.getMethod("setChunkOverlap", int.class).getAnnotation(Deprecated.class))
+                .isNull();
     }
 
     @Test

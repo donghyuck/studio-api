@@ -12,8 +12,8 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = PropertyKeys.AI.PREFIX + ".pipeline")
 public class RagPipelineProperties {
 
-    public static final String LEGACY_CHUNK_SIZE_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-size";
-    public static final String LEGACY_CHUNK_OVERLAP_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-overlap";
+    static final String LEGACY_CHUNK_SIZE_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-size";
+    static final String LEGACY_CHUNK_OVERLAP_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-overlap";
 
     private int chunkSize = 500;
     private int chunkOverlap = 50;
@@ -40,11 +40,10 @@ public class RagPipelineProperties {
     }
 
     /**
-     * @deprecated Use {@code studio.chunking.max-size} from
-     *             {@code starter:studio-platform-starter-chunking} for new RAG
-     *             chunking.
+     * Binds the deprecated legacy fallback chunk size property. Kept non-deprecated
+     * so Spring Boot configuration binding does not report the setter itself as a
+     * deprecated invocation path.
      */
-    @Deprecated(since = "2.x", forRemoval = false)
     public void setChunkSize(int chunkSize) {
         this.chunkSize = chunkSize;
     }
@@ -64,11 +63,10 @@ public class RagPipelineProperties {
     }
 
     /**
-     * @deprecated Use {@code studio.chunking.overlap} from
-     *             {@code starter:studio-platform-starter-chunking} for new RAG
-     *             chunking.
+     * Binds the deprecated legacy fallback chunk overlap property. Kept
+     * non-deprecated so Spring Boot configuration binding does not report the
+     * setter itself as a deprecated invocation path.
      */
-    @Deprecated(since = "2.x", forRemoval = false)
     public void setChunkOverlap(int chunkOverlap) {
         this.chunkOverlap = chunkOverlap;
     }
