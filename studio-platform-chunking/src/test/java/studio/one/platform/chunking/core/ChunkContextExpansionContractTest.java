@@ -58,7 +58,7 @@ class ChunkContextExpansionContractTest {
     }
 
     @Test
-    void expansionFactoryRejectsNullSeedWithStableMessage() {
+    void expansionFactoryRejectsNullSeed() {
         assertThatThrownBy(() -> ChunkContextExpansion.of(null, List.of(), ChunkContextExpansionStrategy.WINDOW))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessageContaining("seedChunk");

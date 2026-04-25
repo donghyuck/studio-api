@@ -1,6 +1,5 @@
 package studio.one.platform.chunking.core;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -8,6 +7,8 @@ import java.util.Optional;
 
 /**
  * Input for expanding a retrieval child chunk into a larger answer context.
+ * {@code availableChunks} is expected to be a small, pre-filtered candidate set
+ * around the seed chunk, not an entire corpus or unbounded retrieval result.
  */
 public record ChunkContextExpansionRequest(
         Chunk seedChunk,
@@ -26,7 +27,7 @@ public record ChunkContextExpansionRequest(
         if (nextWindow < 0) {
             throw new IllegalArgumentException("nextWindow must not be negative");
         }
-        options = sanitize(options);
+        options = ChunkMetadataMaps.sanitize(options);
     }
 
     public static Builder builder(Chunk seedChunk) {
@@ -57,23 +58,6 @@ public record ChunkContextExpansionRequest(
         return chunks.stream()
                 .filter(Objects::nonNull)
                 .toList();
-    }
-
-    private static Map<String, Object> sanitize(Map<String, Object> values) {
-        if (values == null || values.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, Object> sanitized = new LinkedHashMap<>();
-        values.forEach((key, value) -> {
-            if (key == null || key.isBlank() || value == null) {
-                return;
-            }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
-                return;
-            }
-            sanitized.put(key, value);
-        });
-        return Map.copyOf(sanitized);
     }
 
     public static final class Builder {

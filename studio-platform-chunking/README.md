@@ -91,6 +91,8 @@ without schema breaks.
 
 `ChunkContextExpander` defines how a retrieved child chunk can be expanded into a larger answer context. The contract is
 implementation-neutral and does not perform retrieval, embedding, vector store access, LLM calls, or parser work.
+`Chunk` itself rejects blank content, so expansion content is also non-blank. `availableChunks` should be a small,
+pre-filtered candidate set around the seed chunk, not an entire corpus or unbounded retrieval result.
 
 ```java
 ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(retrievedChunk)

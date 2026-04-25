@@ -1,12 +1,12 @@
 package studio.one.platform.chunking.core;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 /**
  * Expanded context returned by a {@link ChunkContextExpander}.
+ * The content is non-blank because {@link Chunk} also rejects blank content.
  */
 public record ChunkContextExpansion(
         Chunk seedChunk,
@@ -23,7 +23,7 @@ public record ChunkContextExpansion(
             throw new IllegalArgumentException("content must not be blank");
         }
         strategy = strategy == null ? ChunkContextExpansionStrategy.UNKNOWN : strategy;
-        metadata = sanitize(metadata);
+        metadata = ChunkMetadataMaps.sanitize(metadata);
     }
 
     public static ChunkContextExpansion of(
@@ -64,20 +64,4 @@ public record ChunkContextExpansion(
                 .toList();
     }
 
-    private static Map<String, Object> sanitize(Map<String, Object> values) {
-        if (values == null || values.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, Object> sanitized = new LinkedHashMap<>();
-        values.forEach((key, value) -> {
-            if (key == null || key.isBlank() || value == null) {
-                return;
-            }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
-                return;
-            }
-            sanitized.put(key, value);
-        });
-        return Map.copyOf(sanitized);
-    }
 }
