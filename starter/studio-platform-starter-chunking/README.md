@@ -153,6 +153,32 @@ chunk.metadata().blockIds();       // [page[1]/p[1], page[1]/p[2]]
 The default return value remains the child chunk list for compatibility. Parent content is persisted additively in child
 metadata so later context-expansion strategies can recover section context without changing the indexing contract.
 
+## Context Expansion
+
+The starter provides pure in-memory `ChunkContextExpander` implementations for expanding a retrieved child chunk after
+vector search. They consume only the supplied `seedChunk` and a small pre-filtered `availableChunks` list; they do not
+call embedding APIs, vector stores, LLMs, parsers, or OCR engines.
+
+- `WindowChunkContextExpander`: follows `previousChunkId` / `nextChunkId` links up to the requested window.
+- `ParentChildChunkContextExpander`: restores `parentChunkContent` when present, otherwise joins siblings with the same
+  `parentChunkId`.
+- `HeadingChunkContextExpander`: joins chunks with the same `section` / heading context.
+- `TableChunkContextExpander`: keeps table chunks as a single retrieval unit and can restore stored parent context.
+
+```java
+ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(retrievedChunk)
+        .availableChunks(candidateChunks)
+        .previousWindow(1)
+        .nextWindow(1)
+        .includeParentContent(true)
+        .build();
+
+ChunkContextExpansion expansion = windowChunkContextExpander.expand(request);
+```
+
+`availableChunks` should already be scoped by the caller, for example to neighbor chunks from the same document or the
+top retrieval candidates for the same parent. Passing an entire corpus defeats the contract and can increase memory use.
+
 ## Size Policy
 
 Character size remains the default policy. `ChunkUnit.TOKEN` uses a deterministic estimate based on compacted character length and does not call an external tokenizer.
