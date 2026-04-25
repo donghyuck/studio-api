@@ -5,11 +5,11 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -40,7 +40,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@Configuration
+@AutoConfiguration(afterName = "studio.one.platform.chunking.autoconfigure.ChunkingAutoConfiguration")
 @EnableConfigurationProperties(RagPipelineProperties.class)
 @RequiredArgsConstructor
 @Slf4j
@@ -50,6 +50,7 @@ public class RagPipelineConfiguration {
         private final ObjectProvider<I18n> i18nProvider;
 
         @Bean
+        @ConditionalOnMissingBean({ TextChunker.class, ChunkingOrchestrator.class })
         public TextChunker textChunker(RagPipelineProperties properties) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -99,7 +100,8 @@ public class RagPipelineConfiguration {
 
         @Bean(name = { RagPipelineService.SERVICE_NAME, RagPipelineService.LEGACY_SERVICE_NAME })
         RagPipelineService ragPipelineService(EmbeddingPort embeddingPort, VectorStorePort vectorStorePort,
-                        TextChunker textChunker, Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
+                        ObjectProvider<TextChunker> textChunkerProvider,
+                        Cache<String, List<Double>> embeddingCache, Retry embeddingRetry,
                         ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider,
                         ObjectProvider<TextCleaner> textCleanerProvider,
@@ -110,7 +112,8 @@ public class RagPipelineConfiguration {
                                 AiProviderRegistryConfiguration.FEATURE_NAME,
                                 LogUtils.blue(RagPipelineService.class, true), LogUtils.red(State.CREATED.toString())));
 
-                return DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker,
+                return DefaultRagPipelineService.create(embeddingPort, vectorStorePort,
+                                textChunkerProvider.getIfAvailable(),
                                 chunkingOrchestratorProvider.getIfAvailable(), embeddingCache,
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),

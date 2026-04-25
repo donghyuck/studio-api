@@ -45,4 +45,5 @@ dependencies {
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.springframework:spring-jdbc")
     testImplementation(project(":studio-platform"))
+    testImplementation(project(":starter:studio-platform-starter-chunking"))
 } 
