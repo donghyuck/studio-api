@@ -70,7 +70,12 @@ class ExtractedStructureTest {
                         entry(ExtractedImage.KEY_OCR_APPLIED, true),
                         entry(ExtractedImage.KEY_OCR_UNIT, "line"),
                         entry(ExtractedImage.KEY_OCR_LINE_COUNT, 3),
-                        entry(ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false)));
+                        entry(ExtractedImage.KEY_CONFIDENCE_AVAILABLE, false),
+                        entry(ExtractedImage.KEY_PAGE, 2),
+                        entry(ExtractedImage.KEY_SLIDE, 3),
+                        entry(ExtractedImage.KEY_ORDER, 4),
+                        entry(ExtractedImage.KEY_PARENT_BLOCK_ID, "body/p[1]"),
+                        entry(ExtractedImage.KEY_CONFIDENCE, 0.75d)));
 
         assertEquals("image/png", image.mimeType());
         assertEquals("section[0]/pic[1]", image.sourceRef());
@@ -85,6 +90,11 @@ class ExtractedStructureTest {
         assertEquals("line", image.ocrUnit());
         assertEquals(3, image.ocrLineCount());
         assertEquals(false, image.confidenceAvailable());
+        assertEquals(2, image.page());
+        assertEquals(3, image.slide());
+        assertEquals(4, image.order());
+        assertEquals("body/p[1]", image.parentBlockId());
+        assertEquals(0.75d, image.confidence());
     }
 
     @Test

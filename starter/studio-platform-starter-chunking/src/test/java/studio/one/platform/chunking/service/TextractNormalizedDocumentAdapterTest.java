@@ -49,9 +49,9 @@ class TextractNormalizedDocumentAdapterTest {
                         Map.of(ExtractedImage.KEY_ALT_TEXT, "architecture diagram",
                                 ExtractedImage.KEY_SOURCE_REF, "body/img[0]",
                                 ExtractedImage.KEY_SOURCE_REFS, List.of("body/img[0]", "body/img[0]/caption"),
-                                ParsedBlock.KEY_ORDER, 3,
-                                ParsedBlock.KEY_PARENT_BLOCK_ID, "body/p[1]",
-                                ParsedBlock.KEY_CONFIDENCE, 0.76d,
+                                ExtractedImage.KEY_ORDER, 3,
+                                ExtractedImage.KEY_PARENT_BLOCK_ID, "body/p[1]",
+                                ExtractedImage.KEY_CONFIDENCE, 0.76d,
                                 NormalizedBlock.KEY_HEADING_PATH, "Title"))),
                 false);
 
@@ -70,6 +70,7 @@ class TextractNormalizedDocumentAdapterTest {
                 .doesNotContain("| A |\n| --- |\n| 1 |");
         assertThat(document.blocks().get(1).order()).isEqualTo(1);
         assertThat(document.blocks().get(0).confidence()).isEqualTo(0.98d);
+        assertThat(document.blocks().get(0).headingPath()).isEmpty();
         assertThat(document.blocks().get(2).headingPath()).isEqualTo("Title");
         assertThat(document.blocks().get(1).headingPath()).isEqualTo("Title");
         assertThat(document.blocks().get(1).blockIds()).containsExactly("body/table[0]/cell[0,0]");
@@ -79,6 +80,29 @@ class TextractNormalizedDocumentAdapterTest {
         assertThat(document.blocks().get(3).headingPath()).isEqualTo("Title");
         assertThat(document.blocks().get(3).blockIds()).containsExactly("body/img[0]", "body/img[0]/caption");
         assertThat(document.blocks().get(3).confidence()).isEqualTo(0.76d);
+    }
+
+    @Test
+    void infersHeadingPathByBlockOrderEvenWhenParserReturnsUnorderedBlocks() {
+        ParsedFile parsedFile = new ParsedFile(
+                DocumentFormat.TEXT,
+                "Title\nBody",
+                List.of(
+                        ParsedBlock.text("body/p[0]", BlockType.PARAGRAPH, "Body", 1, 2, Map.of()),
+                        ParsedBlock.text("body/h1", BlockType.HEADING, "Title", 1, 0, Map.of())),
+                Map.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                false);
+
+        NormalizedDocument document = new TextractNormalizedDocumentAdapter().adapt("doc", parsedFile);
+
+        assertThat(document.blocks()).extracting(NormalizedBlock::sourceRef)
+                .containsExactly("body/h1", "body/p[0]");
+        assertThat(document.blocks().get(0).headingPath()).isEmpty();
+        assertThat(document.blocks().get(1).headingPath()).isEqualTo("Title");
     }
 
     @Test

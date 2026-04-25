@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
@@ -79,12 +78,17 @@ public class TextractNormalizedDocumentAdapter {
     private Map<ParsedBlock, String> headingPaths(List<ParsedBlock> blocks) {
         Map<ParsedBlock, String> paths = new HashMap<>();
         String current = "";
+        // Heading context is inferred in document order, then looked up by block so
+        // adapters can preserve parser output order without losing section context.
         for (ParsedBlock block : sortedBlocks(blocks)) {
             String explicit = stringMetadata(block.metadata(), NormalizedBlock.KEY_HEADING_PATH);
+            if (isHeading(block)) {
+                paths.put(block, "");
+                current = firstNonBlank(explicit, block.text(), current);
+                continue;
+            }
             if (!explicit.isBlank()) {
                 current = explicit;
-            } else if (isHeading(block)) {
-                current = block.text();
             }
             paths.put(block, current);
         }
@@ -154,13 +158,13 @@ public class TextractNormalizedDocumentAdapter {
         return NormalizedBlock.builder(image.ocrApplied() ? NormalizedBlockType.OCR_TEXT : NormalizedBlockType.IMAGE_CAPTION, text)
                 .id(image.path())
                 .sourceRef(image.sourceRef())
-                .page(integerMetadata(image.metadata(), ChunkMetadata.KEY_PAGE))
-                .slide(integerMetadata(image.metadata(), ParsedBlock.KEY_SLIDE))
-                .order(integerMetadata(image.metadata(), ParsedBlock.KEY_ORDER))
-                .parentBlockId(stringMetadata(image.metadata(), ParsedBlock.KEY_PARENT_BLOCK_ID))
+                .page(image.page())
+                .slide(image.slide())
+                .order(image.order())
+                .parentBlockId(image.parentBlockId())
                 .headingPath(stringMetadata(image.metadata(), NormalizedBlock.KEY_HEADING_PATH))
                 .blockIds(image.sourceRefs().isEmpty() ? List.of(image.path()) : image.sourceRefs())
-                .confidence(doubleMetadata(image.metadata(), ParsedBlock.KEY_CONFIDENCE))
+                .confidence(image.confidence())
                 .metadata(metadata)
                 .build();
     }
@@ -188,28 +192,6 @@ public class TextractNormalizedDocumentAdapter {
     private String stringMetadata(Map<String, Object> metadata, String key) {
         Object value = metadata.get(key);
         return value instanceof String stringValue ? stringValue : "";
-    }
-
-    private Integer integerMetadata(Map<String, Object> metadata, String key) {
-        Object value = metadata.get(key);
-        if (value instanceof Integer integerValue) {
-            return integerValue;
-        }
-        if (value instanceof Number numberValue) {
-            return numberValue.intValue();
-        }
-        return null;
-    }
-
-    private Double doubleMetadata(Map<String, Object> metadata, String key) {
-        Object value = metadata.get(key);
-        if (value instanceof Double doubleValue) {
-            return doubleValue;
-        }
-        if (value instanceof Number numberValue) {
-            return numberValue.doubleValue();
-        }
-        return null;
     }
 
     private String firstNonBlank(String... values) {
