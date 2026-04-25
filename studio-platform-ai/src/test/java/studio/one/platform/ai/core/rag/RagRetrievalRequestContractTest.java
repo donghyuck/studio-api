@@ -32,6 +32,18 @@ class RagRetrievalRequestContractTest {
     }
 
     @Test
+    void metadataFilterUsesValueSemanticsAndAllowsPartialObjectScope() {
+        MetadataFilter left = new MetadataFilter(" attachment ", null);
+        MetadataFilter right = MetadataFilter.objectScope("attachment", null);
+
+        assertThat(left).isEqualTo(right);
+        assertThat(left.hashCode()).isEqualTo(right.hashCode());
+        assertThat(left.hasObjectScope()).isTrue();
+        assertThat(left.matchesObjectScope(java.util.Map.of("objectType", "ATTACHMENT"))).isTrue();
+        assertThat(left.toString()).contains("attachment");
+    }
+
+    @Test
     void legacyVectorSearchRequestConstructorKeepsEmptyFilterAndMinScore() {
         VectorSearchRequest request = new VectorSearchRequest(List.of(0.1d, 0.2d), 5);
 

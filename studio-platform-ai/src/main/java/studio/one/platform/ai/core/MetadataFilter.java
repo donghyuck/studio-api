@@ -1,13 +1,16 @@
 package studio.one.platform.ai.core;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Provider-neutral metadata filter for retrieval requests.
  * <p>
  * The first supported convention is object scope filtering through
- * {@code objectType}/{@code objectId}. Additional metadata predicates can be
- * added later without replacing existing request contracts.
+ * {@code objectType}/{@code objectId}. Supplying only one of the two fields is
+ * intentional and means "filter by this single metadata key". Additional
+ * metadata predicates can be added later without replacing existing request
+ * contracts.
  */
 public final class MetadataFilter {
 
@@ -56,6 +59,31 @@ public final class MetadataFilter {
         boolean typeOk = objectType == null || objectType.equalsIgnoreCase(stringValue(metadata.get("objectType")));
         boolean idOk = objectId == null || objectId.equals(stringValue(metadata.get("objectId")));
         return typeOk && idOk;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) {
+            return true;
+        }
+        if (!(other instanceof MetadataFilter that)) {
+            return false;
+        }
+        return Objects.equals(objectType, that.objectType)
+                && Objects.equals(objectId, that.objectId);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(objectType, objectId);
+    }
+
+    @Override
+    public String toString() {
+        return "MetadataFilter{"
+                + "objectType='" + objectType + '\''
+                + ", objectId='" + objectId + '\''
+                + '}';
     }
 
     private static String normalize(String value) {
