@@ -1,28 +1,28 @@
 # Studio Platform Starter Chunking
 
-`studio-platform-starter-chunking` provides auto-configured chunking strategies for Studio RAG indexing.
+`studio-platform-starter-chunking`은 Studio RAG indexing에 사용할 chunking 전략 구현체와 Spring Boot auto-configuration을 제공합니다.
 
-## Responsibility
+## 책임 범위
 
-- Provides pure chunking implementations for text and normalized structured documents.
-- Registers chunking beans with `@ConditionalOnMissingBean` so applications can override them.
-- Keeps Spring AI, embedding, vector storage, and web endpoint concerns out of this starter.
-- Leaves `starter:studio-platform-starter-ai-web` as an HTTP adapter only.
+- 텍스트와 normalized structured document를 위한 순수 chunking 구현체를 제공합니다.
+- 애플리케이션이 bean을 교체할 수 있도록 `@ConditionalOnMissingBean` 기반으로 등록합니다.
+- Spring AI, embedding, vector storage, web endpoint 책임을 포함하지 않습니다.
+- `starter:studio-platform-starter-ai-web`은 HTTP adapter, AI starter는 embedding/vector/RAG 소비자 역할로 남깁니다.
 
-## Supported Strategies
+## 지원 전략
 
-Phase 1 supports:
+Phase 1 지원 전략:
 
 - `recursive` (default)
 - `fixed-size`
 - `structure-based`
 
-Planned Phase 2 strategies:
+Phase 2 후보이며 이 starter에는 포함하지 않는 전략:
 
-- `semantic` (AI-linked, not in this pure starter)
-- `llm-based` (AI-linked, not in this pure starter)
+- `semantic` (AI-linked)
+- `llm-based` (AI-linked)
 
-## Configuration
+## 설정
 
 ```yaml
 studio:
@@ -33,29 +33,33 @@ studio:
     overlap: 100
 ```
 
-| Property | Default | Description |
+| Property | Default | 설명 |
 | --- | --- | --- |
-| `studio.chunking.enabled` | `true` | Registers default chunking beans when enabled. |
-| `studio.chunking.strategy` | `recursive` | Pure chunking strategy. Supported values: `recursive`, `fixed-size`, `structure-based`. |
-| `studio.chunking.max-size` | `800` | Maximum chunk size in characters. |
-| `studio.chunking.overlap` | `100` | Character overlap carried from the previous chunk. |
+| `studio.chunking.enabled` | `true` | 기본 chunking bean 등록 여부입니다. |
+| `studio.chunking.strategy` | `recursive` | 기본 순수 chunking 전략입니다. 지원값: `recursive`, `fixed-size`, `structure-based`. |
+| `studio.chunking.max-size` | `800` | character 기준 최대 chunk size입니다. |
+| `studio.chunking.overlap` | `100` | 이전 chunk에서 이어받는 character overlap입니다. |
 
-Invalid `max-size <= 0`, `overlap < 0`, or `overlap >= max-size` settings fail fast during auto-configuration.
+`max-size <= 0`, `overlap < 0`, `overlap >= max-size` 설정은 auto-configuration 단계에서 fail-fast 됩니다.
 
 ## Override
 
-Applications can override the default behavior by registering custom beans:
+애플리케이션은 다음 bean을 직접 등록해 기본 동작을 교체할 수 있습니다.
 
 - `ChunkingOrchestrator`
 - `FixedSizeChunker`
 - `RecursiveChunker`
 - `StructureBasedChunker`
+- `WindowChunkContextExpander`
+- `ParentChildChunkContextExpander`
+- `HeadingChunkContextExpander`
+- `TableChunkContextExpander`
 
-`DefaultChunkingOrchestrator` receives all `Chunker` beans and executes `FIXED_SIZE`, `RECURSIVE`, and `STRUCTURE_BASED`.
+`DefaultChunkingOrchestrator`는 모든 `Chunker` bean을 받아 `FIXED_SIZE`, `RECURSIVE`, `STRUCTURE_BASED`를 실행합니다.
 
 ## Recursive Strategy
 
-`RecursiveChunker` splits in this order:
+`RecursiveChunker`는 다음 순서로 분할합니다.
 
 1. blank paragraph
 2. newline
@@ -63,19 +67,21 @@ Applications can override the default behavior by registering custom beans:
 4. whitespace
 5. fixed-size fallback
 
-Chunk ids are deterministic:
+chunk id는 deterministic합니다.
 
 ```text
 {sourceDocumentId}-{chunkOrder}
 ```
 
-`chunkOrder` starts at `0`.
+`chunkOrder`는 `0`부터 시작합니다.
 
 ## Structure-Based Strategy
 
-`StructureBasedChunker` consumes `NormalizedDocument` and preserves parser provenance in `ChunkMetadata`.
-It keeps heading boundaries as `section` / `headingPath`, packs paragraph-like blocks by configured size, and emits table, OCR text, and image-caption blocks as standalone child chunks.
-It also creates deterministic parent section ids and links each child chunk through additive metadata:
+`StructureBasedChunker`는 `NormalizedDocument`를 입력으로 받아 parser provenance를 `ChunkMetadata`에 보존합니다.
+heading boundary는 `section` / `headingPath`로 유지하고, paragraph-like block은 size 정책에 따라 pack합니다.
+table, OCR text, image-caption block은 standalone child chunk로 생성합니다.
+
+각 child chunk는 additive metadata로 parent/neighbor/provenance 정보를 보존합니다.
 
 - `chunkType`
 - `parentChunkId`
@@ -85,12 +91,12 @@ It also creates deterministic parent section ids and links each child chunk thro
 - `blockIds`
 - `confidence`
 
-Neighbor links do not cross parent section boundaries. If a document starts without a heading, the first parent context
-uses an empty `section` value and body-only `parentChunkContent`.
+neighbor link는 parent section boundary를 넘지 않습니다.
+heading 없이 시작하는 문서는 빈 `section` 값과 body-only `parentChunkContent`를 사용합니다.
 
-The strategy does not parse files, run OCR, call embedding APIs, call LLMs, or write vector stores.
+이 전략은 파일 parsing, OCR 실행, embedding API 호출, LLM 호출, vector store 저장을 하지 않습니다.
 
-When `studio-platform-textract` is available, `TextractNormalizedDocumentAdapter` can convert `ParsedFile` into `NormalizedDocument`:
+`studio-platform-textract`가 classpath에 있으면 `TextractNormalizedDocumentAdapter`로 `ParsedFile`을 `NormalizedDocument`로 변환할 수 있습니다.
 
 ```java
 ParsedFile parsedFile = fileContentExtractionService.parseStructured(...);
@@ -99,23 +105,19 @@ NormalizedDocument document = new TextractNormalizedDocumentAdapter()
 List<Chunk> chunks = chunkingOrchestrator.chunk(document);
 ```
 
-The adapter maps:
+adapter mapping:
 
-- `ParsedBlock` to normalized heading, paragraph, list, footnote, OCR, and other logical blocks.
-- `ExtractedTable.vectorText()` to table chunks.
-- `ExtractedImage.caption()`, `altText()`, or `ocrText()` to image-caption/OCR chunks.
-- `ParsedBlock.confidence()`, inferred `headingPath`, and table/image source references into normalized provenance fields.
-- image metadata keys such as `order`, `page`, `slide`, `parentBlockId`, `headingPath`, and `confidence` when the
-  parser already provides them.
+- `ParsedBlock`은 heading, paragraph, list, footnote, OCR 등 normalized block으로 매핑합니다.
+- `ExtractedTable.vectorText()`는 table chunk text로 사용합니다.
+- `ExtractedImage.caption()`, `altText()`, `ocrText()`는 image-caption/OCR chunk text 후보로 사용합니다.
+- `ParsedBlock.confidence()`, inferred `headingPath`, table/image source reference를 normalized provenance field로 전달합니다.
+- image metadata의 `order`, `page`, `slide`, `parentBlockId`, `headingPath`, `confidence`는 parser가 제공한 경우 보존합니다.
 
-When a parsed table block and an `ExtractedTable` share the same `sourceRef`, the adapter keeps one table block based on
-`ExtractedTable.vectorText()` and carries over the parsed table block order/provenance. `ExtractedImage` does not currently
-carry an independent order value, so image-caption/OCR chunks are sorted after ordered parsed blocks unless the source
-metadata provides a future ordering field.
-If a parser returns only `plainText` without structured blocks, the normalized document keeps that text as the
-compatibility fallback for text-based chunking.
+parsed table block과 `ExtractedTable`이 같은 `sourceRef`를 공유하면 중복 table block을 만들지 않고,
+`ExtractedTable.vectorText()` 기반 table block 하나만 유지합니다. 이때 parsed table block의 order/provenance를 넘겨받습니다.
+parser가 structured block 없이 `plainText`만 반환하면 normalized document는 해당 text를 text chunking fallback으로 유지합니다.
 
-### Parent-Child Example
+### Parent-Child 예시
 
 ```java
 NormalizedDocument document = NormalizedDocument.builder("doc-1")
@@ -150,20 +152,27 @@ chunk.metadata().nextChunkId();    // null for a single child
 chunk.metadata().blockIds();       // [page[1]/p[1], page[1]/p[2]]
 ```
 
-The default return value remains the child chunk list for compatibility. Parent content is persisted additively in child
-metadata so later context-expansion strategies can recover section context without changing the indexing contract.
+기본 반환값은 호환성을 위해 child chunk list입니다.
+parent content는 child metadata에 additive로 저장되므로 indexing contract를 바꾸지 않고도 이후 context expansion에서 section context를 복구할 수 있습니다.
+
+### 하위 호환성
+
+- text-only 호출은 계속 `ChunkingContext`와 configured text strategy를 사용합니다.
+- `StructureBasedChunker.chunk(ChunkingContext)`는 fallback text chunker로 위임하므로 oversized plain text도 기존 recursive/fixed-size 방식으로 분할됩니다.
+- `DefaultChunkingOrchestrator.chunk(NormalizedDocument)`는 opt-in이며 `STRUCTURE_BASED`만 사용합니다.
+- parent chunk는 기본적으로 별도 indexing record로 반환되지 않습니다. parent context는 child metadata에 저장됩니다.
+- context expander는 chunk retrieval을 직접 수행하지 않습니다. caller가 storage/retrieval layer에서 작은 `availableChunks` 후보 목록을 전달해야 합니다.
 
 ## Context Expansion
 
-The starter provides pure in-memory `ChunkContextExpander` implementations for expanding a retrieved child chunk after
-vector search. They consume only the supplied `seedChunk` and a small pre-filtered `availableChunks` list; they do not
-call embedding APIs, vector stores, LLMs, parsers, or OCR engines.
+starter는 vector search 이후 검색된 child chunk를 답변 context로 확장하기 위한 순수 in-memory `ChunkContextExpander` 구현체를 제공합니다.
+이 구현체들은 전달받은 `seedChunk`와 작은 pre-filtered `availableChunks` 목록만 소비합니다.
+embedding API, vector store, LLM, parser, OCR engine을 호출하지 않습니다.
 
-- `WindowChunkContextExpander`: follows `previousChunkId` / `nextChunkId` links up to the requested window.
-- `ParentChildChunkContextExpander`: restores `parentChunkContent` when present, otherwise joins siblings with the same
-  `parentChunkId`.
-- `HeadingChunkContextExpander`: joins chunks with the same `section` / heading context.
-- `TableChunkContextExpander`: keeps table chunks as a single retrieval unit and can restore stored parent context.
+- `WindowChunkContextExpander`: `previousChunkId` / `nextChunkId` link를 요청된 window만큼 따라갑니다.
+- `ParentChildChunkContextExpander`: `parentChunkContent`가 있으면 우선 사용하고, 없으면 같은 `parentChunkId` sibling을 join합니다.
+- `HeadingChunkContextExpander`: 같은 `section` / heading context의 chunk를 join합니다.
+- `TableChunkContextExpander`: table chunk를 atomic retrieval unit으로 유지하고 저장된 parent context를 복구할 수 있습니다.
 
 ```java
 ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(retrievedChunk)
@@ -176,10 +185,21 @@ ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(retr
 ChunkContextExpansion expansion = windowChunkContextExpander.expand(request);
 ```
 
-`availableChunks` should already be scoped by the caller, for example to neighbor chunks from the same document or the
-top retrieval candidates for the same parent. Passing an entire corpus defeats the contract and can increase memory use.
+`availableChunks`는 caller가 이미 범위를 좁힌 후보여야 합니다.
+예를 들어 같은 문서의 neighbor chunk, 같은 parent의 sibling chunk, 또는 같은 heading section에서 검색된 상위 후보만 전달합니다.
+전체 corpus를 전달하면 계약 의도에 맞지 않고 메모리 사용량이 증가할 수 있습니다.
+
+권장 routing:
+
+| Retrieved chunk | Recommended expander |
+| --- | --- |
+| neighbor link가 있는 paragraph/list child | `WindowChunkContextExpander` |
+| `parentChunkContent`가 있는 child | `ParentChildChunkContextExpander` |
+| 같은 heading section의 복수 hit | `HeadingChunkContextExpander` |
+| table chunk | `TableChunkContextExpander` |
 
 ## Size Policy
 
-Character size remains the default policy. `ChunkUnit.TOKEN` uses a deterministic estimate based on compacted character length and does not call an external tokenizer.
-Structure-based overlap is conservative: heading, table, OCR, and image-caption boundaries are not carried as overlap tails.
+기본 size 정책은 character 기준입니다.
+`ChunkUnit.TOKEN`은 외부 tokenizer를 호출하지 않고 compacted character length 기반 deterministic estimate를 사용합니다.
+structure-based overlap은 보수적으로 동작하며 heading, table, OCR, image-caption boundary는 overlap tail로 넘기지 않습니다.
