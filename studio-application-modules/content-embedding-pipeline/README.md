@@ -20,19 +20,22 @@
 AttachmentService.getInputStream()    ← attachment-service 모듈 제공
     │
     ▼
-FileContentExtractionService.extractText()   ← studio-platform-textract-starter 제공
-    │  텍스트 추출 (PDF, DOCX, 텍스트 등)
+FileContentExtractionService.extractText()   ← 임베딩 생성 경로
+FileContentExtractionService.parseStructured() ← 구조화 RAG 색인 경로
+    │
     ▼
 EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
     │  임베딩 벡터 생성
     ▼
     ├─ [storeVector=true] VectorStorePort.upsert()    ← 선택적 벡터 저장
     │
-    └─ [RAG 인덱싱] RagPipelineService.index()        ← 선택적 RAG 인덱스 등록
+    └─ [RAG 인덱싱]
+        ├─ [구조화 빈 사용 가능] ChunkingOrchestrator + VectorStorePort.replaceByObject()
+        └─ [fallback] RagPipelineService.index()
 ```
 
-청킹은 `RagPipelineService` 구현체에 위임된다. `starter:studio-platform-starter-chunking`이 있으면
-recursive/fixed-size 전략으로 chunk를 만들고, 없으면 기존 `TextChunker` fallback을 사용한다.
+RAG 색인은 `TextractNormalizedDocumentAdapter`, `ChunkingOrchestrator`, `EmbeddingPort`, `VectorStorePort`가 모두 있으면
+구조화 문서 청킹 경로를 자동 사용한다. 하나라도 없으면 기존 `RagPipelineService.index()` 경로로 fallback한다.
 `studio.ai.pipeline.cleaner.enabled=true`이면 `RagPipelineService`가 chunking 전에 추출 텍스트를 정제한다.
 
 ## 주요 서비스 클래스와 역할
@@ -41,6 +44,7 @@ recursive/fixed-size 전략으로 chunk를 만들고, 없으면 기존 `TextChun
 |--------|------|
 | `AttachmentEmbeddingPipelineController` | 임베딩 생성/저장, 벡터 존재 여부 확인, RAG 인덱싱/검색 REST 엔드포인트 제공 |
 | `FileContentExtractionService` | 파일 MIME 타입과 이름을 기반으로 텍스트 추출. 구현체는 `studio-platform-textract-starter`가 제공한다 |
+| `TextractNormalizedDocumentAdapter` | `ParsedFile`을 structure-based chunking 입력인 `NormalizedDocument`로 변환한다 |
 | `EmbeddingPort` | 텍스트 리스트를 받아 임베딩 벡터 반환. `studio-platform-ai` AI 어댑터(OpenAI 등)가 구현체를 제공한다 |
 | `VectorStorePort` | 벡터 문서 업서트/존재 확인/메타데이터 조회. 벡터 DB 어댑터가 구현체를 제공한다 |
 | `RagPipelineService` | 텍스트 인덱싱 및 시맨틱 검색. RAG 파이프라인 스타터가 구현체를 제공한다 |
@@ -55,9 +59,10 @@ recursive/fixed-size 전략으로 chunk를 만들고, 없으면 기존 `TextChun
 | `VectorStorePort` | 벡터 저장 시 필수 | 벡터 DB 어댑터 (예: pgvector, Qdrant 스타터) |
 | `RagPipelineService` | RAG 인덱싱/검색 시 필수 | RAG 파이프라인 스타터 |
 | `ChunkingOrchestrator` | RAG chunking 확장 시 선택 | `starter:studio-platform-starter-chunking` |
+| `TextractNormalizedDocumentAdapter` | 구조화 RAG 색인 시 선택 | `starter:studio-platform-starter-chunking` |
 
 빈이 없는 경우 해당 엔드포인트는 `501 NOT_IMPLEMENTED`를 반환한다.
-`ChunkingOrchestrator`는 선택 빈이며 없으면 RAG 구현체의 legacy `TextChunker` fallback이 사용된다.
+구조화 색인에 필요한 선택 빈이 부족하면 기존 `RagPipelineService.index()` fallback이 사용된다.
 
 ## REST 엔드포인트
 
@@ -125,7 +130,9 @@ Content-Type: application/json
 
 {
   "query": "Spring Boot 자동 구성 방법",
-  "topK": 5
+  "topK": 5,
+  "objectType": "attachment",
+  "objectId": "101"
 }
 ```
 

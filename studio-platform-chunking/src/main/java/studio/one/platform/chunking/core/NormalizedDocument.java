@@ -47,7 +47,18 @@ public record NormalizedDocument(
                 .sourceDocumentId(sourceDocumentId)
                 .filename(filename)
                 .contentType(sourceFormat)
+                .objectType(stringMetadata(ChunkMetadata.KEY_OBJECT_TYPE))
+                .objectId(stringMetadata(ChunkMetadata.KEY_OBJECT_ID))
                 .metadata(metadata);
+    }
+
+    private String stringMetadata(String key) {
+        Object value = metadata.get(key);
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.isBlank() ? null : text;
     }
 
     public static Builder builder(String sourceDocumentId) {

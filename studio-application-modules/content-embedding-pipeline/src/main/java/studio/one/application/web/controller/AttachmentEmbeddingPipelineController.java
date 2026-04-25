@@ -50,6 +50,7 @@ import studio.one.application.web.dto.EmbeddingVectorDto;
 import studio.one.application.web.dto.SearchRequest;
 import studio.one.application.web.dto.SearchResponse;
 import studio.one.application.web.dto.SearchResult;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -94,6 +95,7 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
+    private final ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider;
     private final ObjectProvider<I18n> i18nProvider;
 
     /**
@@ -240,18 +242,26 @@ public class AttachmentEmbeddingPipelineController {
         if (attachmentId <= 0) {
             return ResponseEntity.badRequest().build();
         }
-        RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
         FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
-        if (ragPipeline == null || extractor == null) {
+        if (extractor == null) {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
         }
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         try (InputStream in = attachmentService.getInputStream(attachment)) {
-            String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
             String documentId = resolveDocumentId(request, attachmentId);
             String objectType = resolveObjectType(request);
             String objectId = resolveObjectId(request, attachmentId);
             Map<String, Object> metadata = buildMetadata(request, attachment, objectType, objectId);
+            AttachmentStructuredRagIndexer structuredIndexer = structuredRagIndexerProvider.getIfAvailable();
+            if (structuredIndexer != null
+                    && structuredIndexer.index(attachment, documentId, objectType, objectId, metadata, extractor, in)) {
+                return ResponseEntity.accepted().build();
+            }
+            RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
+            if (ragPipeline == null) {
+                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+            }
+            String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
             List<String> keywords = request != null && request.keywords() != null ? request.keywords() : List.of();
             boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction()); 
             ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords));
@@ -272,7 +282,8 @@ public class AttachmentEmbeddingPipelineController {
         if (request == null || request.query() == null || request.query().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(request.query(), request.topK()));
+        MetadataFilter filter = MetadataFilter.objectScope(request.objectType(), request.objectId());
+        List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(request.query(), request.topK(), filter));
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),

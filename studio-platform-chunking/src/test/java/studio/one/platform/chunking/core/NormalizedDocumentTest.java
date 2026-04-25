@@ -67,4 +67,19 @@ class NormalizedDocumentTest {
         assertThat(block.blockIds()).containsExactly("page[1]/p[0]");
         assertThat(block.confidence()).isNull();
     }
+
+    @Test
+    void contextBuilderCarriesObjectScopeFromMetadata() {
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .plainText("hello")
+                .metadata(Map.of(
+                        ChunkMetadata.KEY_OBJECT_TYPE, "attachment",
+                        ChunkMetadata.KEY_OBJECT_ID, 42))
+                .build();
+
+        ChunkingContext context = document.toContextBuilder().build();
+
+        assertThat(context.objectType()).isEqualTo("attachment");
+        assertThat(context.objectId()).isEqualTo("42");
+    }
 }
