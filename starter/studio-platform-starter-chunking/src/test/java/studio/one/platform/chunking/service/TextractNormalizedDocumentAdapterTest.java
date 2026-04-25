@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.textract.extractor.DocumentFormat;
@@ -46,7 +47,12 @@ class TextractNormalizedDocumentAdapterTest {
                         10,
                         20,
                         Map.of(ExtractedImage.KEY_ALT_TEXT, "architecture diagram",
-                                ExtractedImage.KEY_SOURCE_REF, "body/img[0]"))),
+                                ExtractedImage.KEY_SOURCE_REF, "body/img[0]",
+                                ExtractedImage.KEY_SOURCE_REFS, List.of("body/img[0]", "body/img[0]/caption"),
+                                ParsedBlock.KEY_ORDER, 3,
+                                ParsedBlock.KEY_PARENT_BLOCK_ID, "body/p[1]",
+                                ParsedBlock.KEY_CONFIDENCE, 0.76d,
+                                NormalizedBlock.KEY_HEADING_PATH, "Title"))),
                 false);
 
         NormalizedDocument document = new TextractNormalizedDocumentAdapter().adapt("doc", parsedFile);
@@ -64,8 +70,34 @@ class TextractNormalizedDocumentAdapterTest {
                 .doesNotContain("| A |\n| --- |\n| 1 |");
         assertThat(document.blocks().get(1).order()).isEqualTo(1);
         assertThat(document.blocks().get(0).confidence()).isEqualTo(0.98d);
+        assertThat(document.blocks().get(2).headingPath()).isEqualTo("Title");
+        assertThat(document.blocks().get(1).headingPath()).isEqualTo("Title");
         assertThat(document.blocks().get(1).blockIds()).containsExactly("body/table[0]/cell[0,0]");
         assertThat(document.blocks().get(1).confidence()).isEqualTo(0.87d);
-        assertThat(document.blocks().get(3).blockIds()).containsExactly("body/img[0]");
+        assertThat(document.blocks().get(3).order()).isEqualTo(3);
+        assertThat(document.blocks().get(3).parentBlockId()).isEqualTo("body/p[1]");
+        assertThat(document.blocks().get(3).headingPath()).isEqualTo("Title");
+        assertThat(document.blocks().get(3).blockIds()).containsExactly("body/img[0]", "body/img[0]/caption");
+        assertThat(document.blocks().get(3).confidence()).isEqualTo(0.76d);
+    }
+
+    @Test
+    void keepsPlainTextFallbackWhenStructuredBlocksAreMissing() {
+        ParsedFile parsedFile = new ParsedFile(
+                DocumentFormat.TEXT,
+                "plain fallback",
+                List.of(),
+                Map.of("filename", "fallback.txt"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                false);
+
+        NormalizedDocument document = new TextractNormalizedDocumentAdapter().adapt("doc", parsedFile);
+
+        assertThat(document.blocks()).isEmpty();
+        assertThat(document.chunkableText()).isEqualTo("plain fallback");
+        assertThat(document.filename()).isEqualTo("fallback.txt");
     }
 }

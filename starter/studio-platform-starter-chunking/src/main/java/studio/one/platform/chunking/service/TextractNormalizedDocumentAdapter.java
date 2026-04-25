@@ -2,12 +2,14 @@ package studio.one.platform.chunking.service;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
@@ -27,16 +29,20 @@ public class TextractNormalizedDocumentAdapter {
 
         List<NormalizedBlock> blocks = new ArrayList<>();
         Map<String, ParsedBlock> tableBlocks = tableBlocks(parsedFile.blocks());
+        Map<ParsedBlock, String> headingPaths = headingPaths(parsedFile.blocks());
         List<String> tableRefs = parsedFile.tables().stream()
                 .map(ExtractedTable::sourceRef)
                 .filter(ref -> ref != null && !ref.isBlank())
                 .toList();
         parsedFile.blocks().stream()
                 .filter(block -> !isExtractedTableBlock(block, tableRefs))
-                .map(this::fromBlock)
+                .map(block -> fromBlock(block, headingPaths.get(block)))
                 .forEach(blocks::add);
         parsedFile.tables().stream()
-                .map(table -> fromTable(table, tableBlocks.get(table.sourceRef())))
+                .map(table -> {
+                    ParsedBlock tableBlock = tableBlocks.get(table.sourceRef());
+                    return fromTable(table, tableBlock, tableBlock == null ? "" : headingPaths.get(tableBlock));
+                })
                 .forEach(blocks::add);
         parsedFile.images().stream()
                 .map(this::fromImage)
@@ -70,11 +76,38 @@ public class TextractNormalizedDocumentAdapter {
                 .compare(left, right) <= 0 ? left : right;
     }
 
+    private Map<ParsedBlock, String> headingPaths(List<ParsedBlock> blocks) {
+        Map<ParsedBlock, String> paths = new HashMap<>();
+        String current = "";
+        for (ParsedBlock block : sortedBlocks(blocks)) {
+            String explicit = stringMetadata(block.metadata(), NormalizedBlock.KEY_HEADING_PATH);
+            if (!explicit.isBlank()) {
+                current = explicit;
+            } else if (isHeading(block)) {
+                current = block.text();
+            }
+            paths.put(block, current);
+        }
+        return paths;
+    }
+
+    private List<ParsedBlock> sortedBlocks(List<ParsedBlock> blocks) {
+        return blocks.stream()
+                .sorted(Comparator.comparing(
+                        ParsedBlock::order,
+                        Comparator.nullsLast(Integer::compareTo)))
+                .toList();
+    }
+
     private boolean isExtractedTableBlock(ParsedBlock block, List<String> tableRefs) {
         return block.blockType() == BlockType.TABLE && tableRefs.contains(block.sourceRef());
     }
 
-    private NormalizedBlock fromBlock(ParsedBlock block) {
+    private boolean isHeading(ParsedBlock block) {
+        return block.blockType() == BlockType.TITLE || block.blockType() == BlockType.HEADING;
+    }
+
+    private NormalizedBlock fromBlock(ParsedBlock block, String headingPath) {
         return NormalizedBlock.builder(NormalizedBlockType.from(block.blockType().name()), block.text())
                 .id(block.id())
                 .sourceRef(block.sourceRef())
@@ -82,17 +115,21 @@ public class TextractNormalizedDocumentAdapter {
                 .slide(block.slide())
                 .order(block.order())
                 .parentBlockId(block.parentBlockId())
+                .headingPath(firstNonBlank(stringMetadata(block.metadata(), NormalizedBlock.KEY_HEADING_PATH), headingPath))
                 .blockIds(List.of(block.id()))
                 .confidence(block.confidence())
                 .metadata(block.metadata())
                 .build();
     }
 
-    private NormalizedBlock fromTable(ExtractedTable table, ParsedBlock tableBlock) {
+    private NormalizedBlock fromTable(ExtractedTable table, ParsedBlock tableBlock, String headingPath) {
         Map<String, Object> metadata = new LinkedHashMap<>(table.metadata());
         metadata.put(NormalizedBlock.KEY_ROW_COUNT, table.rowCount());
         metadata.put(NormalizedBlock.KEY_CELL_COUNT, table.cellCount());
         metadata.put(ExtractedTable.KEY_HEADER_ROW_COUNT, table.headerRowCount());
+        String effectiveHeadingPath = firstNonBlank(
+                stringMetadata(table.metadata(), NormalizedBlock.KEY_HEADING_PATH),
+                headingPath);
         return NormalizedBlock.builder(NormalizedBlockType.TABLE, table.vectorText())
                 .id(table.path())
                 .sourceRef(table.sourceRef())
@@ -100,6 +137,7 @@ public class TextractNormalizedDocumentAdapter {
                 .slide(tableBlock == null ? null : tableBlock.slide())
                 .order(tableBlock == null ? null : tableBlock.order())
                 .parentBlockId(tableBlock == null ? null : tableBlock.parentBlockId())
+                .headingPath(effectiveHeadingPath)
                 .blockIds(tableCellRefs(table, tableBlock))
                 .confidence(tableBlock == null ? null : tableBlock.confidence())
                 .metadata(metadata)
@@ -116,7 +154,13 @@ public class TextractNormalizedDocumentAdapter {
         return NormalizedBlock.builder(image.ocrApplied() ? NormalizedBlockType.OCR_TEXT : NormalizedBlockType.IMAGE_CAPTION, text)
                 .id(image.path())
                 .sourceRef(image.sourceRef())
+                .page(integerMetadata(image.metadata(), ChunkMetadata.KEY_PAGE))
+                .slide(integerMetadata(image.metadata(), ParsedBlock.KEY_SLIDE))
+                .order(integerMetadata(image.metadata(), ParsedBlock.KEY_ORDER))
+                .parentBlockId(stringMetadata(image.metadata(), ParsedBlock.KEY_PARENT_BLOCK_ID))
+                .headingPath(stringMetadata(image.metadata(), NormalizedBlock.KEY_HEADING_PATH))
                 .blockIds(image.sourceRefs().isEmpty() ? List.of(image.path()) : image.sourceRefs())
+                .confidence(doubleMetadata(image.metadata(), ParsedBlock.KEY_CONFIDENCE))
                 .metadata(metadata)
                 .build();
     }
@@ -139,6 +183,33 @@ public class TextractNormalizedDocumentAdapter {
     private String filename(Map<String, Object> metadata) {
         Object value = metadata.get("filename");
         return value instanceof String stringValue ? stringValue : "";
+    }
+
+    private String stringMetadata(Map<String, Object> metadata, String key) {
+        Object value = metadata.get(key);
+        return value instanceof String stringValue ? stringValue : "";
+    }
+
+    private Integer integerMetadata(Map<String, Object> metadata, String key) {
+        Object value = metadata.get(key);
+        if (value instanceof Integer integerValue) {
+            return integerValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue();
+        }
+        return null;
+    }
+
+    private Double doubleMetadata(Map<String, Object> metadata, String key) {
+        Object value = metadata.get(key);
+        if (value instanceof Double doubleValue) {
+            return doubleValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.doubleValue();
+        }
+        return null;
     }
 
     private String firstNonBlank(String... values) {
