@@ -11,19 +11,33 @@ import studio.one.platform.ai.core.MetadataFilter;
 public final class VectorSearchRequest {
 
     private final List<Double> embedding;
+    private final String queryText;
     private final int topK;
     private final MetadataFilter metadataFilter;
     private final Double minScore;
+    private final boolean includeText;
+    private final boolean includeMetadata;
 
     public VectorSearchRequest(List<Double> embedding, int topK) {
-        this(embedding, topK, MetadataFilter.empty(), null);
+        this(embedding, null, topK, MetadataFilter.empty(), null, true, true);
     }
 
     public VectorSearchRequest(List<Double> embedding, int topK, MetadataFilter metadataFilter) {
-        this(embedding, topK, metadataFilter, null);
+        this(embedding, null, topK, metadataFilter, null, true, true);
     }
 
     public VectorSearchRequest(List<Double> embedding, int topK, MetadataFilter metadataFilter, Double minScore) {
+        this(embedding, null, topK, metadataFilter, minScore, true, true);
+    }
+
+    public VectorSearchRequest(
+            List<Double> embedding,
+            String queryText,
+            int topK,
+            MetadataFilter metadataFilter,
+            Double minScore,
+            boolean includeText,
+            boolean includeMetadata) {
         this.embedding = List.copyOf(Objects.requireNonNull(embedding, "embedding"));
         if (embedding.isEmpty()) {
             throw new IllegalArgumentException("Search embedding must not be empty");
@@ -35,12 +49,27 @@ public final class VectorSearchRequest {
             throw new IllegalArgumentException("minScore must be greater than or equal to zero");
         }
         this.topK = topK;
+        this.queryText = queryText == null || queryText.isBlank() ? null : queryText.trim();
         this.metadataFilter = metadataFilter == null ? MetadataFilter.empty() : metadataFilter;
         this.minScore = minScore;
+        this.includeText = includeText;
+        this.includeMetadata = includeMetadata;
     }
 
+    /**
+     * @deprecated since 2026-04-25. Use {@link #queryVector()}.
+     */
+    @Deprecated(forRemoval = false)
     public List<Double> embedding() {
+        return queryVector();
+    }
+
+    public List<Double> queryVector() {
         return embedding;
+    }
+
+    public String queryText() {
+        return queryText;
     }
 
     public int topK() {
@@ -57,5 +86,13 @@ public final class VectorSearchRequest {
 
     public boolean hasMinScore() {
         return minScore != null;
+    }
+
+    public boolean includeText() {
+        return includeText;
+    }
+
+    public boolean includeMetadata() {
+        return includeMetadata;
     }
 }

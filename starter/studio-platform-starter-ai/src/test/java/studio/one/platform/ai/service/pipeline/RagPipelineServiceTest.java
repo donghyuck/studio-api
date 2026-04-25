@@ -251,7 +251,7 @@ class RagPipelineServiceTest {
         ragPipelineService.index(request);
 
         verify(vectorStorePort).deleteByObject("attachment", "42");
-        verify(vectorStorePort, never()).upsert(any());
+        verify(vectorStorePort, never()).upsert(org.mockito.ArgumentMatchers.<List<VectorDocument>>any());
         verify(vectorStorePort, never()).replaceByObject(anyString(), anyString(), any());
     }
 
