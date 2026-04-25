@@ -3,6 +3,8 @@
 ## 2026-04-25
 
 ### 변경됨
+- 이슈 #299/#300 대응으로 `starter-ai` README에 legacy RAG chunk 설정 migration guide를 추가했다.
+- `studio.ai.pipeline.chunk-size`와 `studio.ai.pipeline.chunk-overlap`는 deprecated `TextChunker` fallback 전용 설정으로 표시하고, 기존 binding 호환성 테스트를 보강했다.
 - 이슈 #297 대응으로 `starter-ai`의 기본 `TextChunker` bean 생성을 `ChunkingOrchestrator`가 없을 때의 legacy fallback으로 제한했다.
 - `RagPipelineService` auto-configuration은 `TextChunker`를 optional로 받아 orchestrator-only 환경에서도 동작하도록 했다.
 - `AiAutoConfiguration`은 `ChunkingAutoConfiguration` 이후 평가되도록 정렬해 chunking starter가 제공하는 `ChunkingOrchestrator`를 우선 감지한다.
@@ -20,8 +22,8 @@
 
 ### 검증
 - `./gradlew :starter:studio-platform-starter-ai:test`
-- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
 - `git diff --check`
+- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
 - `./gradlew :studio-platform-user:test --tests 'studio.one.base.user.persistence.jpa.ApplicationGroupMembershipJpaRepositorySearchTest' --tests 'studio.one.base.user.persistence.jdbc.ApplicationGroupMembershipJdbcRepositoryTest'`
 - `./gradlew :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test`
 
