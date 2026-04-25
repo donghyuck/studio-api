@@ -231,6 +231,27 @@ class VectorContractsTest {
     }
 
     @Test
+    void vectorStoreDefaultAggregateSearchHonorsIncludeFlags() {
+        TestVectorStore store = new TestVectorStore(List.of(new VectorSearchResult(record(Map.of()).toVectorDocument(), 0.8d)));
+        VectorSearchRequest request = new VectorSearchRequest(
+                List.of(0.1d),
+                null,
+                3,
+                MetadataFilter.empty(),
+                null,
+                false,
+                false);
+
+        VectorSearchResults results = store.searchRecords(request);
+
+        assertThat(results.hits()).hasSize(1);
+        assertThat(results.hits().get(0).text()).isNull();
+        assertThat(results.hits().get(0).metadata()).isEmpty();
+        assertThat(results.hits().get(0).documentId()).isEqualTo("doc-1");
+        assertThat(results.hits().get(0).chunkId()).isEqualTo("chunk-1");
+    }
+
+    @Test
     void vectorSearchHitAdaptsLegacySearchResultMetadata() {
         VectorSearchHit hit = VectorSearchHit.from(new VectorSearchResult(
                 new VectorDocument("record-1", "chunk text", Map.of(

@@ -48,7 +48,7 @@ public interface VectorStorePort {
     default VectorSearchResults searchRecords(VectorSearchRequest request) {
         long startedAt = System.nanoTime();
         List<VectorSearchHit> hits = search(request).stream()
-                .map(VectorSearchHit::from)
+                .map(result -> VectorSearchHit.from(result, request.includeText(), request.includeMetadata()))
                 .toList();
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         return new VectorSearchResults(hits, elapsedMs);

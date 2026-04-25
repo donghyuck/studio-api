@@ -49,6 +49,10 @@ public final class VectorSearchHit {
     }
 
     public static VectorSearchHit from(VectorSearchResult result) {
+        return from(result, true, true);
+    }
+
+    public static VectorSearchHit from(VectorSearchResult result, boolean includeText, boolean includeMetadata) {
         Objects.requireNonNull(result, "result");
         VectorDocument document = result.document();
         Map<String, Object> metadata = document.metadata();
@@ -58,14 +62,14 @@ public final class VectorSearchHit {
                 documentId,
                 stringMetadata(metadata, VectorRecord.KEY_CHUNK_ID, document.id()),
                 stringMetadata(metadata, VectorRecord.KEY_PARENT_CHUNK_ID, null),
-                document.content(),
+                includeText ? document.content() : null,
                 result.score(),
                 stringMetadata(metadata, VectorRecord.KEY_CHUNK_TYPE, null),
                 stringMetadata(metadata, VectorRecord.KEY_HEADING_PATH, null),
                 stringMetadata(metadata, VectorRecord.KEY_SOURCE_REF, null),
                 integerMetadata(metadata, VectorRecord.KEY_PAGE),
                 integerMetadata(metadata, VectorRecord.KEY_SLIDE),
-                metadata);
+                includeMetadata ? metadata : Map.of());
     }
 
     public String id() {
