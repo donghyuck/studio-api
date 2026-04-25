@@ -12,6 +12,9 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = PropertyKeys.AI.PREFIX + ".pipeline")
 public class RagPipelineProperties {
 
+    public static final String LEGACY_CHUNK_SIZE_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-size";
+    public static final String LEGACY_CHUNK_OVERLAP_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-overlap";
+
     private int chunkSize = 500;
     private int chunkOverlap = 50;
     private final CacheProperties cache = new CacheProperties();
@@ -22,18 +25,50 @@ public class RagPipelineProperties {
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
     private final KeywordsProperties keywords = new KeywordsProperties();
 
+    /**
+     * Deprecated legacy fallback chunk size. This property is only used when no
+     * {@code ChunkingOrchestrator} bean is available and starter-ai creates the
+     * deprecated {@code TextChunker} fallback.
+     *
+     * @deprecated Use {@code studio.chunking.max-size} from
+     *             {@code starter:studio-platform-starter-chunking} for new RAG
+     *             chunking.
+     */
+    @Deprecated(since = "2.x", forRemoval = false)
     public int getChunkSize() {
         return chunkSize;
     }
 
+    /**
+     * @deprecated Use {@code studio.chunking.max-size} from
+     *             {@code starter:studio-platform-starter-chunking} for new RAG
+     *             chunking.
+     */
+    @Deprecated(since = "2.x", forRemoval = false)
     public void setChunkSize(int chunkSize) {
         this.chunkSize = chunkSize;
     }
 
+    /**
+     * Deprecated legacy fallback chunk overlap. This property is only used when no
+     * {@code ChunkingOrchestrator} bean is available and starter-ai creates the
+     * deprecated {@code TextChunker} fallback.
+     *
+     * @deprecated Use {@code studio.chunking.overlap} from
+     *             {@code starter:studio-platform-starter-chunking} for new RAG
+     *             chunking.
+     */
+    @Deprecated(since = "2.x", forRemoval = false)
     public int getChunkOverlap() {
         return chunkOverlap;
     }
 
+    /**
+     * @deprecated Use {@code studio.chunking.overlap} from
+     *             {@code starter:studio-platform-starter-chunking} for new RAG
+     *             chunking.
+     */
+    @Deprecated(since = "2.x", forRemoval = false)
     public void setChunkOverlap(int chunkOverlap) {
         this.chunkOverlap = chunkOverlap;
     }

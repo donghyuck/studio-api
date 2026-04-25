@@ -240,6 +240,39 @@ studio:
 기존 `studio.ai.pipeline.chunk-size`, `studio.ai.pipeline.chunk-overlap`는 deprecated legacy `TextChunker` fallback 설정이다.
 신규 `ChunkingOrchestrator` 경로에서는 `studio.chunking.*`가 기준이다.
 
+#### legacy RAG chunk 설정 migration
+
+신규 RAG indexing에서는 `starter:studio-platform-starter-chunking`을 추가하고 `studio.chunking.*` 설정을 사용한다.
+`studio.ai.pipeline.*` chunk 설정은 `ChunkingOrchestrator` bean이 없어서 `starter-ai`가 deprecated
+`OverlapTextChunker` fallback을 생성하는 경우에만 적용된다.
+
+| legacy 설정 | 신규 설정 | 적용 조건 |
+|---|---|---|
+| `studio.ai.pipeline.chunk-size` | `studio.chunking.max-size` | legacy `TextChunker` fallback에서만 legacy key 적용 |
+| `studio.ai.pipeline.chunk-overlap` | `studio.chunking.overlap` | legacy `TextChunker` fallback에서만 legacy key 적용 |
+
+Migration 예시:
+
+```yaml
+# legacy fallback only
+studio:
+  ai:
+    pipeline:
+      chunk-size: 500
+      chunk-overlap: 50
+
+# recommended
+studio:
+  chunking:
+    max-size: 800
+    overlap: 100
+```
+
+`starter:studio-platform-starter-chunking`이 classpath에 있고 `ChunkingOrchestrator`가 등록되면
+기본 `OverlapTextChunker` bean은 생성되지 않는다. 이때 `studio.ai.pipeline.chunk-size`와
+`studio.ai.pipeline.chunk-overlap`은 신규 chunking 경로에 전달되지 않는다. 신규 경로의 chunk 크기와
+overlap은 `studio.chunking.max-size`, `studio.chunking.overlap`로 조정한다.
+
 ### RAG 파이프라인 튜닝
 
 이슈 #202부터 RAG 검색과 객체 범위 조회 제한은 운영 설정으로 조정할 수 있다. 기본값은 기존 동작과 유사하게 유지하되,

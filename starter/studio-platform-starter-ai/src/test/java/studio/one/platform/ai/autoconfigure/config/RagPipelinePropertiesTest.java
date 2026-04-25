@@ -9,14 +9,18 @@ import org.springframework.boot.context.properties.source.ConfigurationPropertyS
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
+import java.lang.reflect.Method;
 import java.util.Map;
 
+@SuppressWarnings("deprecation")
 class RagPipelinePropertiesTest {
 
     @Test
     void shouldExposeRetrievalAndObjectScopeDefaults() {
         RagPipelineProperties properties = new RagPipelineProperties();
 
+        assertThat(properties.getChunkSize()).isEqualTo(500);
+        assertThat(properties.getChunkOverlap()).isEqualTo(50);
         assertThat(properties.getRetrieval().getVectorWeight()).isEqualTo(0.7d);
         assertThat(properties.getRetrieval().getLexicalWeight()).isEqualTo(0.3d);
         assertThat(properties.getRetrieval().getMinRelevanceScore()).isEqualTo(0.15d);
@@ -85,6 +89,34 @@ class RagPipelinePropertiesTest {
     }
 
     @Test
+    void shouldBindLegacyChunkFallbackDefaultsAndOverrides() {
+        RagPipelineProperties defaults = new RagPipelineProperties();
+
+        assertThat(defaults.getChunkSize()).isEqualTo(500);
+        assertThat(defaults.getChunkOverlap()).isEqualTo(50);
+
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+                RagPipelineProperties.LEGACY_CHUNK_SIZE_PROPERTY, "900",
+                RagPipelineProperties.LEGACY_CHUNK_OVERLAP_PROPERTY, "90")));
+
+        RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
+                .bind("studio.ai.pipeline", Bindable.of(RagPipelineProperties.class))
+                .orElseThrow(() -> new AssertionError("RagPipelineProperties binding failed"));
+
+        assertThat(properties.getChunkSize()).isEqualTo(900);
+        assertThat(properties.getChunkOverlap()).isEqualTo(90);
+    }
+
+    @Test
+    void shouldMarkLegacyChunkFallbackAccessorsAsDeprecated() throws NoSuchMethodException {
+        assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("getChunkSize"));
+        assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("setChunkSize", int.class));
+        assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("getChunkOverlap"));
+        assertDeprecatedFallbackAccessor(RagPipelineProperties.class.getMethod("setChunkOverlap", int.class));
+    }
+
+    @Test
     void shouldExposeVectorStoreDefaultsAndOverrides() {
         VectorStoreProperties defaults = new VectorStoreProperties();
         assertThat(defaults.getPostgres().getTextSearchConfig()).isEqualTo("simple");
@@ -98,5 +130,13 @@ class RagPipelinePropertiesTest {
                 .orElseThrow(() -> new AssertionError("VectorStoreProperties binding failed"));
 
         assertThat(properties.getPostgres().getTextSearchConfig()).isEqualTo("simple");
+    }
+
+    private void assertDeprecatedFallbackAccessor(Method method) {
+        Deprecated deprecated = method.getAnnotation(Deprecated.class);
+
+        assertThat(deprecated).isNotNull();
+        assertThat(deprecated.since()).isEqualTo("2.x");
+        assertThat(deprecated.forRemoval()).isFalse();
     }
 }
