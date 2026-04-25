@@ -347,7 +347,15 @@ public class ApplicationGroupServiceImpl
     @Override
     @Transactional(readOnly = true)
     public Page<ApplicationGroupMemberSummary> getMemberSummaries(Long groupId, @Nullable String q, Pageable pageable) {
-        return membershipRepo.findMemberSummariesByGroupId(groupId, q, pageable);
+        return membershipRepo.findMemberSummariesByGroupId(groupId, normalizeSearchKeyword(q), pageable);
+    }
+
+    @Nullable
+    private static String normalizeSearchKeyword(@Nullable String q) {
+        if (q == null || q.isBlank()) {
+            return null;
+        }
+        return q.trim();
     }
 
     @Override

@@ -150,3 +150,10 @@ studio:
 - 사용자 스키마는 `studio-platform-user-default`에 포함된다:
   `studio-platform-user-default/src/main/resources/schema/user/{db}/V300__create_user_tables.sql`
   (`docs/flyway-versioning.md`의 user 범위 V300-V399 참고)
+- PostgreSQL에서는 그룹 멤버 summary 검색의 `username`/`name`/`email` 부분 검색을 위해
+  `schema/user/postgres/V301__optimize_group_member_summary_search.sql`가 `pg_trgm` 확장과
+  `lower(...)` GIN trigram index를 추가한다. 운영 DB의 Flyway 계정은 `CREATE EXTENSION IF NOT EXISTS pg_trgm`
+  실행 권한을 가져야 한다.
+- MySQL/MariaDB의 V301 migration은 PostgreSQL 전용 최적화와 버전 이력을 맞추기 위한 schema-neutral migration이다.
+  선행 wildcard 검색(`LIKE '%keyword%'`)은 일반 B-tree index로 안정적으로 최적화되지 않으므로 별도 full-text/search 정책이 필요하면
+  후속 DB별 설계로 분리한다.

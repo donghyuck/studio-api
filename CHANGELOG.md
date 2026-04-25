@@ -3,11 +3,16 @@
 ## 2026-04-25
 
 ### 변경됨
+- 이슈 #188 대응으로 PostgreSQL 그룹 멤버 summary 검색에 `pg_trgm` 기반 `lower(username|name|email)` GIN trigram index migration을 추가했다.
+- MySQL/MariaDB에는 PostgreSQL 전용 검색 최적화와 schema version 이력을 맞추기 위한 V301 schema-neutral migration을 추가했다.
+- 그룹 멤버 summary 검색에서 blank keyword를 null keyword와 동일하게 전체 조회로 처리하도록 service/JPA repository 경로를 정리했다.
+- 그룹 멤버 summary repository 검색 테스트에 null, blank, username/name/email 매칭 케이스를 추가했다.
 - 이슈 #281 대응으로 `studio-platform-chunking`과 `starter:studio-platform-starter-chunking` README를 한국어 기준으로 현행화했다.
 - chunk metadata key reference, parent-child 모델, context expansion 계약, textract 연계, 하위 호환성 기준을 문서화했다.
 - README 예시와 실제 public API가 어긋나지 않도록 parent-child chunking, context expansion, text fallback 문서 시나리오 테스트를 추가했다.
 
 ### 검증
+- `./gradlew :studio-platform-user:test --tests 'studio.one.base.user.persistence.jpa.ApplicationGroupMembershipJpaRepositorySearchTest' --tests 'studio.one.base.user.persistence.jdbc.ApplicationGroupMembershipJdbcRepositoryTest'`
 - `./gradlew :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test`
 - `git diff --check`
 
