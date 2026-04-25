@@ -32,6 +32,8 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 | `ChatConversation` / `ChatConversationMessage` / `ChatConversationSummary` | `core.chat` | conversation API 구현을 위한 provider-neutral 모델 |
 | `EmbeddingPort` | `core.embedding` | 텍스트 임베딩 벡터 생성 계약 |
 | `VectorStorePort` | `core.vector` | 벡터 저장/검색/하이브리드 검색 계약 |
+| `VectorRecord` | `core.vector` | RAG chunk 저장을 표현하는 core vector storage 모델 |
+| `VectorDocument` / `VectorSearchResult` | `core.vector` | 기존 vector 저장/검색 호출자 호환성을 위해 유지하는 모델 |
 | `AiProviderRegistry` | `core.registry` | 공급자별 ChatPort/EmbeddingPort 룩업 |
 | `TextChunker` | `core.chunk` | 문서를 TextChunk 리스트로 분할 |
 | `RagPipelineService` | `service.pipeline` | 인덱싱/검색 RAG facade 계약 |
@@ -73,7 +75,8 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 중복 계약은 만들지 않는다.
 
 - 새 `EmbeddingPort` 또는 `VectorStorePort` 대신 기존 포트를 확장한다.
-- 새 `VectorRecord` 대신 `VectorDocument`를 사용한다.
+- `VectorRecord`는 RAG chunk 저장을 표현하는 core vector storage 모델이다.
+- 기존 `VectorDocument`와 `VectorSearchResult`는 기존 호출자 호환성을 위해 유지한다.
 - 새 context assembly 계약은 아직 만들지 않는다. web context 조립은 `starter-ai-web`의 `RagContextBuilder`, chunk 주변 문맥 확장은 `studio-platform-chunking`의 `ChunkContextExpander`를 우선 사용한다.
 
 ## Chat metadata
@@ -130,7 +133,9 @@ result count, score threshold, hybrid weight, object scope, topK를 `RagRetrieva
 Web API에서 client debug 노출 여부는 `studio-platform-starter-ai-web` 설정이 결정한다.
 
 ## 구현 분리 원칙
-이 모듈은 구현체를 포함하지 않는다. 의존성 역전 원칙에 따라 애플리케이션은 `ChatPort` 등 포트만 참조하며, 공급자별 어댑터는 스타터 모듈이 조건부로 등록한다. 공급자를 교체하거나 추가할 때 이 모듈을 수정할 필요가 없다.
+이 모듈은 구현체를 포함하지 않는다. `ai.core`는 provider 구현과 DB 구현에 의존하지 않는 계약 계층으로 유지한다.
+의존성 역전 원칙에 따라 애플리케이션은 `ChatPort` 등 포트만 참조하며, 공급자별 어댑터는 스타터 모듈이 조건부로 등록한다.
+공급자를 교체하거나 추가할 때 이 모듈을 수정할 필요가 없다. Adapter 구현과 RAG pipeline 구현 변경은 이 core 계약 문서의 범위 밖이다.
 
 ## 사용법
 - `studio-platform-starter-ai` 의존성 추가 (런타임 구현 포함)

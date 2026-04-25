@@ -11,6 +11,21 @@ public interface VectorStorePort {
 
     void upsert(List<VectorDocument> documents);
 
+    default void upsert(VectorRecord record) {
+        Objects.requireNonNull(record, "record");
+        upsertAll(List.of(record));
+    }
+
+    default void upsertAll(List<VectorRecord> records) {
+        Objects.requireNonNull(records, "records");
+        if (records.isEmpty()) {
+            return;
+        }
+        upsert(records.stream()
+                .map(VectorRecord::toVectorDocument)
+                .toList());
+    }
+
     default void deleteByObject(String objectType, String objectId) {
         throw new UnsupportedOperationException("deleteByObject is not implemented");
     }
@@ -29,6 +44,31 @@ public interface VectorStorePort {
     }
 
     List<VectorSearchResult> search(VectorSearchRequest request);
+
+    default VectorSearchResults searchRecords(VectorSearchRequest request) {
+        long startedAt = System.nanoTime();
+        List<VectorSearchHit> hits = search(request).stream()
+                .map(VectorSearchHit::from)
+                .toList();
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        return new VectorSearchResults(hits, elapsedMs);
+    }
+
+    default VectorSearchResults searchWithFilter(VectorSearchRequest request) {
+        return searchRecords(request);
+    }
+
+    default void deleteByDocumentId(String documentId) {
+        throw new UnsupportedOperationException("deleteByDocumentId is not implemented");
+    }
+
+    default void deleteByChunkId(String chunkId) {
+        throw new UnsupportedOperationException("deleteByChunkId is not implemented");
+    }
+
+    default boolean existsByContentHash(String contentHash) {
+        return false;
+    }
 
     /**
      * 지정된 objectType/objectId 조합의 벡터가 존재하는지 여부를 반환한다.

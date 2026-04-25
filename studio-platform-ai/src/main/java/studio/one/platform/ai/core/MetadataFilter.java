@@ -1,5 +1,7 @@
 package studio.one.platform.ai.core;
 
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -14,14 +16,29 @@ import java.util.Objects;
  */
 public final class MetadataFilter {
 
-    private static final MetadataFilter EMPTY = new MetadataFilter(null, null);
+    private static final String KEY_OBJECT_TYPE = "objectType";
+    private static final String KEY_OBJECT_ID = "objectId";
+    private static final MetadataFilter EMPTY = new MetadataFilter(Map.of(), Map.of(), Map.of());
 
     private final String objectType;
     private final String objectId;
+    private final Map<String, Object> equalsCriteria;
+    private final Map<String, List<Object>> inCriteria;
+    private final Map<String, MetadataRange<?>> rangeCriteria;
 
     public MetadataFilter(String objectType, String objectId) {
-        this.objectType = normalize(objectType);
-        this.objectId = normalize(objectId);
+        this(objectScopeEquals(objectType, objectId), Map.of(), Map.of());
+    }
+
+    public MetadataFilter(
+            Map<String, Object> equalsCriteria,
+            Map<String, List<Object>> inCriteria,
+            Map<String, MetadataRange<?>> rangeCriteria) {
+        this.equalsCriteria = sanitizeEquals(equalsCriteria);
+        this.inCriteria = sanitizeIn(inCriteria);
+        this.rangeCriteria = sanitizeRanges(rangeCriteria);
+        this.objectType = normalize(stringValue(this.equalsCriteria.get(KEY_OBJECT_TYPE)));
+        this.objectId = normalize(stringValue(this.equalsCriteria.get(KEY_OBJECT_ID)));
     }
 
     public static MetadataFilter empty() {
@@ -31,6 +48,14 @@ public final class MetadataFilter {
     public static MetadataFilter objectScope(String objectType, String objectId) {
         MetadataFilter filter = new MetadataFilter(objectType, objectId);
         return filter.hasObjectScope() ? filter : EMPTY;
+    }
+
+    public static MetadataFilter of(
+            Map<String, Object> equalsCriteria,
+            Map<String, List<Object>> inCriteria,
+            Map<String, MetadataRange<?>> rangeCriteria) {
+        MetadataFilter filter = new MetadataFilter(equalsCriteria, inCriteria, rangeCriteria);
+        return filter.isEmpty() ? EMPTY : filter;
     }
 
     public String objectType() {
@@ -46,7 +71,19 @@ public final class MetadataFilter {
     }
 
     public boolean isEmpty() {
-        return !hasObjectScope();
+        return equalsCriteria.isEmpty() && inCriteria.isEmpty() && rangeCriteria.isEmpty();
+    }
+
+    public Map<String, Object> equalsCriteria() {
+        return equalsCriteria;
+    }
+
+    public Map<String, List<Object>> inCriteria() {
+        return inCriteria;
+    }
+
+    public Map<String, MetadataRange<?>> rangeCriteria() {
+        return rangeCriteria;
     }
 
     public boolean matchesObjectScope(Map<String, Object> metadata) {
@@ -70,12 +107,15 @@ public final class MetadataFilter {
             return false;
         }
         return Objects.equals(objectType, that.objectType)
-                && Objects.equals(objectId, that.objectId);
+                && Objects.equals(objectId, that.objectId)
+                && Objects.equals(equalsCriteria, that.equalsCriteria)
+                && Objects.equals(inCriteria, that.inCriteria)
+                && Objects.equals(rangeCriteria, that.rangeCriteria);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(objectType, objectId);
+        return Objects.hash(objectType, objectId, equalsCriteria, inCriteria, rangeCriteria);
     }
 
     @Override
@@ -83,7 +123,75 @@ public final class MetadataFilter {
         return "MetadataFilter{"
                 + "objectType='" + objectType + '\''
                 + ", objectId='" + objectId + '\''
+                + ", equalsCriteria=" + equalsCriteria
+                + ", inCriteria=" + inCriteria
+                + ", rangeCriteria=" + rangeCriteria
                 + '}';
+    }
+
+    private static Map<String, Object> objectScopeEquals(String objectType, String objectId) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        String normalizedObjectType = normalize(objectType);
+        String normalizedObjectId = normalize(objectId);
+        if (normalizedObjectType != null) {
+            values.put(KEY_OBJECT_TYPE, normalizedObjectType);
+        }
+        if (normalizedObjectId != null) {
+            values.put(KEY_OBJECT_ID, normalizedObjectId);
+        }
+        return values;
+    }
+
+    private static Map<String, Object> sanitizeEquals(Map<String, Object> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> sanitized = new LinkedHashMap<>();
+        values.forEach((key, value) -> {
+            String normalizedKey = normalize(key);
+            if (normalizedKey != null && value != null
+                    && (!(value instanceof String text) || !text.isBlank())) {
+                sanitized.put(normalizedKey, value instanceof String text ? text.trim() : value);
+            }
+        });
+        return Map.copyOf(sanitized);
+    }
+
+    private static Map<String, List<Object>> sanitizeIn(Map<String, List<Object>> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, List<Object>> sanitized = new LinkedHashMap<>();
+        values.forEach((key, candidates) -> {
+            String normalizedKey = normalize(key);
+            if (normalizedKey == null || candidates == null || candidates.isEmpty()) {
+                return;
+            }
+            List<Object> sanitizedCandidates = candidates.stream()
+                    .filter(Objects::nonNull)
+                    .filter(value -> !(value instanceof String text) || !text.isBlank())
+                    .map(value -> value instanceof String text ? text.trim() : value)
+                    .distinct()
+                    .toList();
+            if (!sanitizedCandidates.isEmpty()) {
+                sanitized.put(normalizedKey, sanitizedCandidates);
+            }
+        });
+        return Map.copyOf(sanitized);
+    }
+
+    private static Map<String, MetadataRange<?>> sanitizeRanges(Map<String, MetadataRange<?>> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, MetadataRange<?>> sanitized = new LinkedHashMap<>();
+        values.forEach((key, value) -> {
+            String normalizedKey = normalize(key);
+            if (normalizedKey != null && value != null) {
+                sanitized.put(normalizedKey, value);
+            }
+        });
+        return Map.copyOf(sanitized);
     }
 
     private static String normalize(String value) {
