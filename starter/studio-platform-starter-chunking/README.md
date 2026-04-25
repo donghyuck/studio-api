@@ -104,12 +104,16 @@ The adapter maps:
 - `ParsedBlock` to normalized heading, paragraph, list, footnote, OCR, and other logical blocks.
 - `ExtractedTable.vectorText()` to table chunks.
 - `ExtractedImage.caption()`, `altText()`, or `ocrText()` to image-caption/OCR chunks.
-- `ParsedBlock.confidence()` and table/image source references into normalized provenance fields.
+- `ParsedBlock.confidence()`, inferred `headingPath`, and table/image source references into normalized provenance fields.
+- image metadata keys such as `order`, `page`, `slide`, `parentBlockId`, `headingPath`, and `confidence` when the
+  parser already provides them.
 
 When a parsed table block and an `ExtractedTable` share the same `sourceRef`, the adapter keeps one table block based on
 `ExtractedTable.vectorText()` and carries over the parsed table block order/provenance. `ExtractedImage` does not currently
 carry an independent order value, so image-caption/OCR chunks are sorted after ordered parsed blocks unless the source
 metadata provides a future ordering field.
+If a parser returns only `plainText` without structured blocks, the normalized document keeps that text as the
+compatibility fallback for text-based chunking.
 
 ### Parent-Child Example
 

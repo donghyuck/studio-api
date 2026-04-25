@@ -26,6 +26,11 @@ public record ExtractedImage(
     public static final String KEY_OCR_UNIT = "ocrUnit";
     public static final String KEY_OCR_LINE_COUNT = "ocrLineCount";
     public static final String KEY_CONFIDENCE_AVAILABLE = "confidenceAvailable";
+    public static final String KEY_PAGE = "page";
+    public static final String KEY_SLIDE = "slide";
+    public static final String KEY_ORDER = "order";
+    public static final String KEY_PARENT_BLOCK_ID = "parentBlockId";
+    public static final String KEY_CONFIDENCE = "confidence";
 
     public ExtractedImage {
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
@@ -106,5 +111,44 @@ public record ExtractedImage(
     public boolean confidenceAvailable() {
         Object value = metadata.get(KEY_CONFIDENCE_AVAILABLE);
         return value instanceof Boolean booleanValue && booleanValue;
+    }
+
+    public Integer page() {
+        return integerValue(KEY_PAGE);
+    }
+
+    public Integer slide() {
+        return integerValue(KEY_SLIDE);
+    }
+
+    public Integer order() {
+        return integerValue(KEY_ORDER);
+    }
+
+    public String parentBlockId() {
+        Object value = metadata.get(KEY_PARENT_BLOCK_ID);
+        return value instanceof String stringValue ? stringValue : "";
+    }
+
+    public Double confidence() {
+        Object value = metadata.get(KEY_CONFIDENCE);
+        if (value instanceof Double doubleValue) {
+            return doubleValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.doubleValue();
+        }
+        return null;
+    }
+
+    private Integer integerValue(String key) {
+        Object value = metadata.get(key);
+        if (value instanceof Integer integerValue) {
+            return integerValue;
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.intValue();
+        }
+        return null;
     }
 }
