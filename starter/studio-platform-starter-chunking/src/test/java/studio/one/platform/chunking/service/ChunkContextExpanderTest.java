@@ -57,6 +57,25 @@ class ChunkContextExpanderTest {
     }
 
     @Test
+    void windowExpansionStopsWhenLinksCycleOutsideSeed() {
+        Chunk seed = chunk("doc-1", "seed", 1, "parent", null, "doc-2", "Install", ChunkType.CHILD,
+                Map.of());
+        Chunk next = chunk("doc-2", "next", 2, "parent", null, "doc-3", "Install", ChunkType.CHILD,
+                Map.of());
+        Chunk cycle = chunk("doc-3", "cycle", 3, "parent", null, "doc-2", "Install", ChunkType.CHILD,
+                Map.of());
+
+        ChunkContextExpansion expansion = new WindowChunkContextExpander().expand(
+                ChunkContextExpansionRequest.builder(seed)
+                        .availableChunks(List.of(seed, next, cycle))
+                        .nextWindow(5)
+                        .build());
+
+        assertThat(expansion.contextChunks()).containsExactly(seed, next, cycle);
+        assertThat(expansion.content()).isEqualTo("seed\n\nnext\n\ncycle");
+    }
+
+    @Test
     void parentChildExpansionPrefersStoredParentContentAndKeepsSiblingOrder() {
         Chunk seed = chunk("doc-1", "child", 1, "parent", null, null, "Install", ChunkType.CHILD,
                 Map.of(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "Install\n\nchild\n\nnext"));
@@ -122,6 +141,18 @@ class ChunkContextExpanderTest {
         assertThat(expansion.contextChunks()).containsExactly(table);
         assertThat(expansion.content()).isEqualTo("Metrics\n\nName: Alice");
         assertThat(expansion.metadata()).containsEntry(ChunkMetadata.KEY_CHUNK_TYPE, "table");
+    }
+
+    @Test
+    void tableExpansionReturnsNonTableSeedUnchanged() {
+        Chunk paragraph = chunk("doc-1", "Body", 0, "parent", null, null, "Install", ChunkType.CHILD, Map.of());
+
+        ChunkContextExpansion expansion = new TableChunkContextExpander().expand(
+                ChunkContextExpansionRequest.builder(paragraph).build());
+
+        assertThat(expansion.contextChunks()).containsExactly(paragraph);
+        assertThat(expansion.content()).isEqualTo("Body");
+        assertThat(expansion.metadata()).containsEntry(ChunkMetadata.KEY_CHUNK_TYPE, "child");
     }
 
     private Chunk chunk(

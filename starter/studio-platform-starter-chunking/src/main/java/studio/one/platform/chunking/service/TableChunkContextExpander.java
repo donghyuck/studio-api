@@ -11,6 +11,11 @@ import studio.one.platform.chunking.core.ChunkContextExpansionStrategy;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
 
+/**
+ * Expands table chunks as atomic retrieval units.
+ * Non-table seed chunks are returned unchanged so callers can safely route
+ * through this expander without pre-validating the chunk type.
+ */
 public class TableChunkContextExpander implements ChunkContextExpander {
 
     @Override

@@ -2,8 +2,11 @@ package studio.one.platform.chunking.service;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkContextExpander;
@@ -30,19 +33,21 @@ public class WindowChunkContextExpander implements ChunkContextExpander {
                 request.seedChunk(),
                 context,
                 strategy(),
-                Map.of("previousCount", previous.size(), "nextCount", next.size()));
+                metadata(previous.size(), next.size()));
     }
 
     private List<Chunk> collectPrevious(ChunkContextExpansionRequest request) {
         List<Chunk> chunks = new ArrayList<>();
         Chunk current = request.seedChunk();
+        Set<String> visited = new HashSet<>();
+        visited.add(request.seedChunk().id());
         for (int i = 0; i < request.previousWindow(); i++) {
             String previousChunkId = current.metadata().previousChunkId();
             if (previousChunkId == null || previousChunkId.isBlank()) {
                 break;
             }
             Chunk previous = request.chunkById(previousChunkId).orElse(null);
-            if (previous == null || request.seedChunk().id().equals(previous.id()) || chunks.contains(previous)) {
+            if (previous == null || !visited.add(previous.id())) {
                 break;
             }
             chunks.add(previous);
@@ -55,18 +60,27 @@ public class WindowChunkContextExpander implements ChunkContextExpander {
     private List<Chunk> collectNext(ChunkContextExpansionRequest request) {
         List<Chunk> chunks = new ArrayList<>();
         Chunk current = request.seedChunk();
+        Set<String> visited = new HashSet<>();
+        visited.add(request.seedChunk().id());
         for (int i = 0; i < request.nextWindow(); i++) {
             String nextChunkId = current.metadata().nextChunkId();
             if (nextChunkId == null || nextChunkId.isBlank()) {
                 break;
             }
             Chunk next = request.chunkById(nextChunkId).orElse(null);
-            if (next == null || request.seedChunk().id().equals(next.id()) || chunks.contains(next)) {
+            if (next == null || !visited.add(next.id())) {
                 break;
             }
             chunks.add(next);
             current = next;
         }
         return chunks;
+    }
+
+    private Map<String, Object> metadata(int previousCount, int nextCount) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.putAll(ChunkContextExpansionSupport.metadata("previousCount", previousCount));
+        metadata.putAll(ChunkContextExpansionSupport.metadata("nextCount", nextCount));
+        return metadata;
     }
 }

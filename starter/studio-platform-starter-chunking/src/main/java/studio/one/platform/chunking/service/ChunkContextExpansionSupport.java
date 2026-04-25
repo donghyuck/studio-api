@@ -55,12 +55,7 @@ final class ChunkContextExpansionSupport {
     }
 
     static ChunkType chunkType(Chunk chunk) {
-        ChunkType type = chunk.metadata().chunkType();
-        if (type != null) {
-            return type;
-        }
-        Object value = chunk.metadata().toMap().get(ChunkMetadata.KEY_CHUNK_TYPE);
-        return value instanceof String stringValue ? ChunkType.from(stringValue) : ChunkType.CHILD;
+        return chunk.metadata().chunkType();
     }
 
     static String parentContent(Chunk chunk) {
