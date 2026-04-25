@@ -41,6 +41,7 @@
 | Key | 목적 | 호환성 |
 | --- | --- | --- |
 | `sourceDocumentId` | 생성된 chunk를 원본 문서 단위로 묶는 식별자입니다. | 기존 key |
+| `parentId` | legacy parent 식별자입니다. `parentChunkId`와 의미가 다릅니다. | 기존 key |
 | `chunkOrder` | 저장/정렬용 chunk 순서입니다. | 기존 key, order 기준 유지 |
 | `strategy` | `recursive`, `structure-based` 등 chunking 전략입니다. | 기존 key |
 | `chunkType` | `child`, `parent`, `table`, `ocr`, `image-caption` 등 검색 역할입니다. | 추가 key |

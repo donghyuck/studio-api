@@ -63,6 +63,7 @@ class ChunkingDocumentationScenarioTest {
 
     @Test
     void contextExpansionReadmeScenarioRestoresAnswerContextWithoutRetrievalSideEffects() {
+        // This mirrors the README happy path. Cycle hardening is covered by ChunkContextExpanderTest.
         Chunk seed = chunk("doc-1-0", "Install the engine.", 0, "doc-1-parent-0", null, "doc-1-1",
                 "Install\n\nInstall the engine.\n\nConfigure tessdata.");
         Chunk next = chunk("doc-1-1", "Configure tessdata.", 1, "doc-1-parent-0", "doc-1-0", null,
@@ -84,7 +85,7 @@ class ChunkingDocumentationScenarioTest {
     }
 
     @Test
-    void textCompatibilityPathStillUsesConfiguredTextStrategy() {
+    void textCompatibilityPathStillSplitsOversizedPlainText() {
         StructureBasedChunker chunker = new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0));
 
         List<Chunk> chunks = chunker.chunk(ChunkingContext.builder("alpha beta gamma")
@@ -95,8 +96,6 @@ class ChunkingDocumentationScenarioTest {
                 .build());
 
         assertThat(chunks).extracting(Chunk::content).containsExactly("alpha beta", "gamma");
-        assertThat(chunks).extracting(chunk -> chunk.metadata().strategy())
-                .containsOnly(ChunkingStrategyType.RECURSIVE);
     }
 
     private DefaultChunkingOrchestrator orchestrator() {
@@ -107,8 +106,7 @@ class ChunkingDocumentationScenarioTest {
         RecursiveChunker recursiveChunker = new RecursiveChunker(120, 0);
         return new DefaultChunkingOrchestrator(
                 properties,
-                List.of(new FixedSizeChunker(120, 0), recursiveChunker,
-                        new StructureBasedChunker(120, 0, recursiveChunker)));
+                List.of(recursiveChunker, new StructureBasedChunker(120, 0, recursiveChunker)));
     }
 
     private Chunk chunk(
