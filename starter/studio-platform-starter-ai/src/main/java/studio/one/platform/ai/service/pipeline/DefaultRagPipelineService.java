@@ -13,6 +13,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 
 import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -265,9 +266,16 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     @Override
     public List<RagSearchResult> search(RagSearchRequest request) {
+        MetadataFilter filter = request.metadataFilter();
+        if (filter.hasObjectScope()) {
+            return searchByObject(
+                    new RagSearchRequest(request.query(), request.topK()),
+                    filter.objectType(),
+                    filter.objectId());
+        }
         clearDiagnostics();
         List<Double> queryEmbedding = embedWithCache(request.query());
-        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
+        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK(), filter);
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
@@ -282,7 +290,10 @@ public class DefaultRagPipelineService implements RagPipelineService {
     public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
         clearDiagnostics();
         List<Double> queryEmbedding = embedWithCache(request.query());
-        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
+        VectorSearchRequest searchRequest = new VectorSearchRequest(
+                queryEmbedding,
+                request.topK(),
+                MetadataFilter.objectScope(objectType, objectId));
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,

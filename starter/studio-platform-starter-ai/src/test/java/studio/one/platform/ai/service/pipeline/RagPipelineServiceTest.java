@@ -11,6 +11,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -374,6 +375,42 @@ class RagPipelineServiceTest {
         assertThat(result.documentId()).isEqualTo("doc-1");
         assertThat(result.metadata()).containsEntry("author", "test");
         assertThat(result.score()).isEqualTo(0.9);
+    }
+
+    @Test
+    void shouldSearchWithMetadataFilterUsingObjectScopedRetrievalPath() {
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                2,
+                MetadataFilter.objectScope("attachment", "42"));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearchByObject(
+                eq("hello"),
+                eq("attachment"),
+                eq("42"),
+                any(VectorSearchRequest.class),
+                anyDouble(),
+                anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-filtered", "chunk", Map.of("objectType", "attachment", "objectId", "42"), List.of()),
+                        0.9)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-filtered");
+        verify(vectorStorePort).hybridSearchByObject(
+                eq("hello"),
+                eq("attachment"),
+                eq("42"),
+                org.mockito.ArgumentMatchers.argThat(searchRequest ->
+                        searchRequest.metadataFilter().hasObjectScope()
+                                && "attachment".equals(searchRequest.metadataFilter().objectType())
+                                && "42".equals(searchRequest.metadataFilter().objectId())),
+                anyDouble(),
+                anyDouble());
     }
 
     @Test

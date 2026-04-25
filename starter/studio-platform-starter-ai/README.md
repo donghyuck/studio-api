@@ -180,6 +180,8 @@ studio:
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
 `objectType`/`objectId` 메타데이터를 함께 저장하면 AI web starter의 RAG chat API에서 특정 파일이나 객체 범위에 한정해 답변할 수 있다.
 같은 `objectType`/`objectId`를 재색인하면 기존 chunk를 삭제한 뒤 새 chunk를 저장해 stale chunk가 남지 않도록 한다.
+검색 요청은 기존 `searchByObject(...)`와 함께 `RagSearchRequest`의 `MetadataFilter.objectScope(...)` 경로도 지원한다.
+두 경로는 같은 객체 범위 retrieval 동작을 사용한다.
 
 ### Chat metadata / streaming
 
@@ -323,6 +325,12 @@ studio:
 - `studio-platform-starter-ai-web` — AI HTTP 엔드포인트를 노출하는 짝 스타터 (이 스타터와 함께 사용)
 - `studio-application-modules/content-embedding-pipeline` — 이 스타터의 `EmbeddingPort`/`VectorStorePort`를 소비하는 임베딩 파이프라인 모듈
 - `docs/dev/spring-ai-openai.md` — OpenAI provider의 Spring AI 전환 방향과 롤백 참고 문서
+
+## Adapter 분리 원칙
+
+이 스타터는 현재 Spring AI provider adapter와 pgvector `VectorStorePort` adapter를 함께 자동 구성한다.
+첫 호환 범위에서는 기존 자동 구성을 유지하지만, 새 provider-specific 구현이나 새 vector DB 구현은 `studio-platform-ai` core에 넣지 않는다.
+반복 사용이 확인된 provider/vector DB 구현은 별도 adapter 또는 starter 모듈로 분리하는 방향을 우선한다.
 
 ## 5) 참고 사항
 

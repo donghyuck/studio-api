@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -130,7 +131,11 @@ public class VectorController {
 
         VectorStorePort store = requireVectorStore();
         List<Double> queryEmbedding = resolveEmbedding(request);
-        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
+        VectorSearchRequest searchRequest = new VectorSearchRequest(
+                queryEmbedding,
+                request.topK(),
+                MetadataFilter.objectScope(request.objectType(), request.objectId()),
+                request.minScore());
         List<VectorSearchResult> results = executeSearch(store, request, searchRequest);
         List<VectorSearchResultDto> payload = results.stream()
                 .map(this::toVectorSearchResultDto)
@@ -164,13 +169,14 @@ public class VectorController {
     private List<VectorSearchResult> executeSearch(VectorStorePort store, VectorSearchRequestDto request,
             VectorSearchRequest searchRequest) {
         boolean useHybrid = Boolean.TRUE.equals(request.hybrid());
-        boolean hasObjectFilter = hasText(request.objectType()) || hasText(request.objectId());
+        MetadataFilter filter = searchRequest.metadataFilter();
+        boolean hasObjectFilter = filter.hasObjectScope();
         List<VectorSearchResult> results;
         if (!useHybrid) {
             results = hasObjectFilter
-                    ? store.searchByObject(request.objectType(), request.objectId(), searchRequest)
+                    ? store.searchByObject(filter.objectType(), filter.objectId(), searchRequest)
                     : store.search(searchRequest);
-            return applyMinScore(results, request.minScore());
+            return applyMinScore(results, searchRequest.minScore());
         }
         if (request.query() == null || request.query().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hybrid search requires a query string");
@@ -178,13 +184,13 @@ public class VectorController {
         results = hasObjectFilter
                 ? store.hybridSearchByObject(
                         request.query(),
-                        request.objectType(),
-                        request.objectId(),
+                        filter.objectType(),
+                        filter.objectId(),
                         searchRequest,
                         HYBRID_VECTOR_WEIGHT,
                         HYBRID_LEXICAL_WEIGHT)
                 : store.hybridSearch(request.query(), searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT);
-        return applyMinScore(results, request.minScore());
+        return applyMinScore(results, searchRequest.minScore());
     }
 
     private List<Double> normalizeEmbedding(List<Double> embedding, int expectedDim) {
