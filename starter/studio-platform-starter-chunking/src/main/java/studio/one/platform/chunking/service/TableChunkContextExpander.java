@@ -21,10 +21,11 @@ public class TableChunkContextExpander implements ChunkContextExpander {
     @Override
     public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
         Chunk seed = request.seedChunk();
+        ChunkType chunkType = ChunkContextExpansionSupport.chunkType(seed);
         Map<String, Object> metadata = ChunkContextExpansionSupport.metadata(
                 ChunkMetadata.KEY_CHUNK_TYPE,
-                ChunkContextExpansionSupport.chunkType(seed).value());
-        if (ChunkContextExpansionSupport.chunkType(seed) != ChunkType.TABLE) {
+                chunkType.value());
+        if (chunkType != ChunkType.TABLE) {
             return ChunkContextExpansion.of(seed, List.of(seed), strategy(), metadata);
         }
         String parentContent = request.includeParentContent()

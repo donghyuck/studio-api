@@ -2,7 +2,6 @@ package studio.one.platform.chunking.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkContextExpander;
@@ -22,7 +21,8 @@ public class ParentChildChunkContextExpander implements ChunkContextExpander {
     public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
         Chunk seed = request.seedChunk();
         String parentChunkId = seed.metadata().parentChunkId();
-        List<Chunk> contextChunks = ChunkContextExpansionSupport.sameParent(parentChunkId, candidates(request));
+        List<Chunk> contextChunks = ChunkContextExpansionSupport.sameParent(parentChunkId,
+                ChunkContextExpansionSupport.withSeed(seed, request.availableChunks()));
         if (contextChunks.isEmpty()) {
             contextChunks = List.of(seed);
         }
@@ -38,11 +38,4 @@ public class ParentChildChunkContextExpander implements ChunkContextExpander {
         return ChunkContextExpansion.of(seed, contextChunks, strategy(), metadata);
     }
 
-    private List<Chunk> candidates(ChunkContextExpansionRequest request) {
-        if (request.availableChunks().contains(request.seedChunk())) {
-            return request.availableChunks();
-        }
-        return Stream.concat(request.availableChunks().stream(), Stream.of(request.seedChunk()))
-                .toList();
-    }
 }

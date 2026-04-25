@@ -75,6 +75,25 @@ class ChunkContextExpanderTest {
     }
 
     @Test
+    void parentChildExpansionDeduplicatesAvailableChunkWithSameSeedId() {
+        Chunk staleSeed = chunk("doc-1", "stale", 1, "parent", null, null, "Install", ChunkType.CHILD,
+                Map.of());
+        Chunk seed = chunk("doc-1", "fresh", 1, "parent", null, null, "Install", ChunkType.CHILD,
+                Map.of());
+        Chunk next = chunk("doc-2", "next", 2, "parent", null, null, "Install", ChunkType.CHILD,
+                Map.of());
+
+        ChunkContextExpansion expansion = new ParentChildChunkContextExpander().expand(
+                ChunkContextExpansionRequest.builder(seed)
+                        .availableChunks(List.of(staleSeed, next))
+                        .includeParentContent(false)
+                        .build());
+
+        assertThat(expansion.contextChunks()).containsExactly(seed, next);
+        assertThat(expansion.content()).isEqualTo("fresh\n\nnext");
+    }
+
+    @Test
     void headingExpansionUsesSameSectionCandidates() {
         Chunk seed = chunk("doc-1", "seed", 1, "parent-a", null, null, "Install", ChunkType.CHILD, Map.of());
         Chunk sameHeading = chunk("doc-2", "same", 2, "parent-a", null, null, "Install", ChunkType.CHILD, Map.of());

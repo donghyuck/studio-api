@@ -2,7 +2,6 @@ package studio.one.platform.chunking.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkContextExpander;
@@ -22,7 +21,8 @@ public class HeadingChunkContextExpander implements ChunkContextExpander {
     public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
         Chunk seed = request.seedChunk();
         String section = seed.metadata().section();
-        List<Chunk> contextChunks = ChunkContextExpansionSupport.sameSection(section, candidates(request));
+        List<Chunk> contextChunks = ChunkContextExpansionSupport.sameSection(section,
+                ChunkContextExpansionSupport.withSeed(seed, request.availableChunks()));
         if (contextChunks.isEmpty()) {
             contextChunks = List.of(seed);
         }
@@ -33,11 +33,4 @@ public class HeadingChunkContextExpander implements ChunkContextExpander {
                 ChunkContextExpansionSupport.metadata(ChunkMetadata.KEY_SECTION, section));
     }
 
-    private List<Chunk> candidates(ChunkContextExpansionRequest request) {
-        if (request.availableChunks().contains(request.seedChunk())) {
-            return request.availableChunks();
-        }
-        return Stream.concat(request.availableChunks().stream(), Stream.of(request.seedChunk()))
-                .toList();
-    }
 }

@@ -15,11 +15,25 @@ final class ChunkContextExpansionSupport {
     }
 
     static List<Chunk> order(List<Chunk> chunks) {
-        return chunks.stream()
-                .filter(chunk -> chunk != null && chunk.content() != null && !chunk.content().isBlank())
-                .distinct()
+        Map<String, Chunk> unique = new LinkedHashMap<>();
+        chunks.stream()
+                .filter(ChunkContextExpansionSupport::hasContent)
+                .forEach(chunk -> unique.putIfAbsent(chunk.id(), chunk));
+        return unique.values().stream()
                 .sorted(Comparator.comparingInt(chunk -> chunk.metadata().order()))
                 .toList();
+    }
+
+    static List<Chunk> withSeed(Chunk seed, List<Chunk> chunks) {
+        Map<String, Chunk> unique = new LinkedHashMap<>();
+        if (chunks != null) {
+            chunks.stream()
+                    .filter(ChunkContextExpansionSupport::hasContent)
+                    .filter(chunk -> !chunk.id().equals(seed.id()))
+                    .forEach(chunk -> unique.putIfAbsent(chunk.id(), chunk));
+        }
+        unique.put(seed.id(), seed);
+        return List.copyOf(unique.values());
     }
 
     static List<Chunk> sameParent(String parentChunkId, List<Chunk> chunks) {
@@ -62,5 +76,9 @@ final class ChunkContextExpansionSupport {
             }
         }
         return metadata;
+    }
+
+    private static boolean hasContent(Chunk chunk) {
+        return chunk != null && chunk.content() != null && !chunk.content().isBlank();
     }
 }
