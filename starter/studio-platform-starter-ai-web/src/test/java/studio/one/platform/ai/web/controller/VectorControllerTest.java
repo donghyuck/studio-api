@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -56,6 +57,24 @@ class VectorControllerTest {
         assertThat(response.getBody().getData().get(0).id()).isEqualTo("doc-1");
         assertThat(response.getBody().getData().get(0).documentId()).isEqualTo("doc-1");
         verify(vectorStorePort).searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void passesObjectFilterAndMinScoreThroughCoreSearchRequest() {
+        ArgumentCaptor<VectorSearchRequest> captor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        when(embeddingPort.embed(any()))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-1", "chunk", Map.of(), List.of()),
+                        0.8d)));
+
+        controller.search(new VectorSearchRequestDto("hello", null, 3, false, "attachment", "42", 0.4d));
+
+        verify(vectorStorePort).searchByObject(eq("attachment"), eq("42"), captor.capture());
+        assertThat(captor.getValue().metadataFilter().objectType()).isEqualTo("attachment");
+        assertThat(captor.getValue().metadataFilter().objectId()).isEqualTo("42");
+        assertThat(captor.getValue().minScore()).isEqualTo(0.4d);
     }
 
     @Test

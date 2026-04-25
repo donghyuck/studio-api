@@ -34,6 +34,10 @@ String plainText = parsed.plainText();
 List<ParsedBlock> blocks = parsed.blocks();
 ```
 
+구조화 RAG 색인은 `parseStructured(...)` 결과를 조립 모듈에서 `TextractNormalizedDocumentAdapter`로
+`NormalizedDocument`로 변환한 뒤 `ChunkingOrchestrator`에 전달하는 흐름을 권장한다.
+이 모듈은 chunking, embedding, vector indexing을 직접 수행하지 않는다.
+
 `FileParser.parse(byte[], String, String)`은 하위 호환을 위해 계속 `String`을 반환한다.
 새 parser는 `StructuredFileParser.parseStructured(...)`를 구현하고, `parse(...)`는 `ParsedFile.plainText()`를 반환하도록 구성한다.
 

@@ -64,6 +64,7 @@ import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.chat.ChatResponseMetadata;
 import studio.one.platform.ai.core.chat.ChatStreamEvent;
 import studio.one.platform.ai.core.chat.ChatStreamEventType;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
@@ -280,8 +281,10 @@ public class ChatController {
         } else {
             String resolvedQuery = resolveRagQuery(request);
             if (hasFilter) {
-                ragResults = ragPipelineService.searchByObject(
-                        new RagSearchRequest(resolvedQuery, ragTopK), objectType, objectId);
+                ragResults = ragPipelineService.search(new RagSearchRequest(
+                        resolvedQuery,
+                        ragTopK,
+                        MetadataFilter.objectScope(objectType, objectId)));
             } else {
                 ragResults = ragPipelineService.search(new RagSearchRequest(resolvedQuery, ragTopK));
             }

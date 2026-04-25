@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -96,7 +97,10 @@ public class RagController {
     @PostMapping("/search")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<SearchResponse> search(@Valid @RequestBody SearchRequest request) {
-        List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest(request.query(), request.topK()));
+        List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest(
+                request.query(),
+                request.topK(),
+                MetadataFilter.objectScope(request.objectType(), request.objectId())));
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),

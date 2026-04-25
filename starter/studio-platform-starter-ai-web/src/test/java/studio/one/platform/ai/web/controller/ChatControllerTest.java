@@ -476,7 +476,7 @@ class ChatControllerTest {
     void ragChatStoresOnlyConversationMessagesWhenMemoryIsEnabled() {
         controller = memoryController();
         ArgumentCaptor<ChatRequest> captor = ArgumentCaptor.forClass(ChatRequest.class);
-        when(ragPipelineService.searchByObject(any(RagSearchRequest.class), any(), any()))
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 0.9d)));
 
         controller.chatWithRag(new ChatRagRequestDto(
@@ -511,7 +511,8 @@ class ChatControllerTest {
     @Test
     void ragChatAddsContextAndClientSystemPromptAndSearchesByObject() {
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
-        when(ragPipelineService.searchByObject(any(RagSearchRequest.class), any(), any()))
+        ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 0.9d)));
 
         controller.chatWithRag(new ChatRagRequestDto(
@@ -530,8 +531,9 @@ class ChatControllerTest {
                 "attachment",
                 "123"));
 
-        verify(ragPipelineService).searchByObject(any(RagSearchRequest.class), org.mockito.Mockito.eq("attachment"),
-                org.mockito.Mockito.eq("123"));
+        verify(ragPipelineService).search(ragCaptor.capture());
+        assertThat(ragCaptor.getValue().metadataFilter().objectType()).isEqualTo("attachment");
+        assertThat(ragCaptor.getValue().metadataFilter().objectId()).isEqualTo("123");
         verify(googleChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages()).hasSize(3);
         assertThat(chatCaptor.getValue().messages().get(0).role().name()).isEqualTo("SYSTEM");

@@ -13,6 +13,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 
 import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -266,8 +267,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
     @Override
     public List<RagSearchResult> search(RagSearchRequest request) {
         clearDiagnostics();
+        MetadataFilter filter = request.metadataFilter();
+        if (filter.hasObjectScope()) {
+            return searchObjectScope(request.query(), request.topK(), filter);
+        }
         List<Double> queryEmbedding = embedWithCache(request.query());
-        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
+        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK(), filter);
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
@@ -281,21 +286,32 @@ public class DefaultRagPipelineService implements RagPipelineService {
     @Override
     public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
         clearDiagnostics();
-        List<Double> queryEmbedding = embedWithCache(request.query());
-        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK());
+        MetadataFilter filter = MetadataFilter.objectScope(objectType, objectId);
+        if (filter.isEmpty()) {
+            filter = request.metadataFilter();
+        }
+        return searchObjectScope(request.query(), request.topK(), filter);
+    }
+
+    private List<RagSearchResult> searchObjectScope(String queryText, int topK, MetadataFilter filter) {
+        List<Double> queryEmbedding = embedWithCache(queryText);
+        VectorSearchRequest searchRequest = new VectorSearchRequest(
+                queryEmbedding,
+                topK,
+                filter);
         List<VectorSearchResult> results = searchWithFallback(
-                request.query(),
+                queryText,
                 searchRequest,
                 query -> vectorStorePort.hybridSearchByObject(
                         query,
-                        objectType,
-                        objectId,
+                        filter.objectType(),
+                        filter.objectId(),
                         searchRequest,
                         options.vectorWeight(),
                         options.lexicalWeight()),
-                () -> vectorStorePort.searchByObject(objectType, objectId, searchRequest),
-                objectType,
-                objectId);
+                () -> vectorStorePort.searchByObject(filter.objectType(), filter.objectId(), searchRequest),
+                filter.objectType(),
+                filter.objectId());
         return toRagSearchResults(results);
     }
 

@@ -281,6 +281,8 @@ Content-Type: application/json
 
 RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않도록 제한된다.
 문자 수 한도는 context header를 포함해 계산하며, 한도를 초과하는 chunk는 문장 중간에서 자르지 않고 통째로 제외한다.
+현재 context assembly 구현은 web starter 내부의 `RagContextBuilder`가 담당한다.
+별도 core `ContextAssembler` 계약은 만들지 않고, chunk 주변 문맥 확장은 `studio-platform-chunking`의 `ChunkContextExpander`를 우선 사용한다.
 
 ```yaml
 studio:
@@ -334,6 +336,24 @@ Content-Type: application/json
   "useLlmKeywordExtraction": true
 }
 ```
+
+### RAG 검색 예시
+
+```http
+POST /api/mgmt/ai/rag/search
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "query": "검색어",
+  "topK": 5,
+  "objectType": "attachment",
+  "objectId": "123"
+}
+```
+
+`objectType`/`objectId`는 core `MetadataFilter.objectScope(...)`로 변환되어 RAG pipeline에 전달된다.
+둘 다 생략하면 전체 RAG 인덱스 검색을 수행한다.
 
 ### 파일 기반 RAG 흐름
 

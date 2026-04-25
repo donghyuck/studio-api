@@ -18,11 +18,13 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 - `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 정의하는 RAG facade 계약
 - `TextCleaner` / `KeywordExtractor` / `PromptRenderer`: RAG 전처리와 프롬프트 확장점 계약
 - `RagPipelineOptions` 계열: 기본 RAG 구현을 대체하거나 테스트할 때 사용할 설정 계약
+- `MetadataFilter`: retrieval 요청에서 `objectType`/`objectId` metadata convention을 표현하는 최소 필터 계약
 
 ## 주요 타입
 
 | 타입 | 패키지 | 설명 |
 |---|---|---|
+| `MetadataFilter` | `core` | RAG/vector retrieval 요청의 object scope metadata filter |
 | `ChatPort` | `core.chat` | 챗 완성 요청/응답 계약 |
 | `ChatResponseMetadata` | `core.chat` | token usage, latency, provider, resolved model, memory, conversation metadata typed view |
 | `ChatStreamEvent` | `core.chat` | streaming chat event 계약 |
@@ -61,6 +63,18 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 기본 `scope=document`는 기존 동작과 동일하게 문서 단위 keyword만 기록한다.
 `scope=chunk` 또는 `both`는 chunk별 keyword를 추가해 긴 파일에서 chunk 의미가 희석되는 문제를 줄이는 기반을 제공한다.
 현재 PostgreSQL hybrid SQL ranking은 기존 `simple` text search config 동작을 유지한다.
+
+## RAG retrieval filters
+
+`MetadataFilter`는 RAG와 vector 검색 요청에서 객체 범위 metadata convention을 표준화한다.
+현재 표준 필드는 `objectType`과 `objectId`이며, 기존 `searchByObject(...)` API는 하위 호환을 위해 유지한다.
+신규 호출자는 `RagSearchRequest` 또는 `VectorSearchRequest`에 `MetadataFilter.objectScope(...)`를 담아 같은 객체 범위 검색을 요청할 수 있다.
+
+중복 계약은 만들지 않는다.
+
+- 새 `EmbeddingPort` 또는 `VectorStorePort` 대신 기존 포트를 확장한다.
+- 새 `VectorRecord` 대신 `VectorDocument`를 사용한다.
+- 새 context assembly 계약은 아직 만들지 않는다. web context 조립은 `starter-ai-web`의 `RagContextBuilder`, chunk 주변 문맥 확장은 `studio-platform-chunking`의 `ChunkContextExpander`를 우선 사용한다.
 
 ## Chat metadata
 `ChatResponse.metadata()` map은 기존 호환성을 위해 유지한다. 신규 코드는 `ChatResponse.typedMetadata()`로 표준 metadata를 타입 안전하게 읽을 수 있다.
@@ -151,6 +165,10 @@ ragPipelineService.index(RagIndexRequest.builder()
 // RAG 검색
 List<RagSearchResult> results = ragPipelineService.searchByObject(
     new RagSearchRequest("검색어", 5), "article", "42");
+
+// filter 기반 RAG 검색
+List<RagSearchResult> filtered = ragPipelineService.search(
+    new RagSearchRequest("검색어", 5, MetadataFilter.objectScope("article", "42")));
 ```
 
 ## 관련 모듈
