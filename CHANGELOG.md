@@ -3,6 +3,9 @@
 ## 2026-04-25
 
 ### 변경됨
+- 이슈 #297 대응으로 `starter-ai`의 기본 `TextChunker` bean 생성을 `ChunkingOrchestrator`가 없을 때의 legacy fallback으로 제한했다.
+- `RagPipelineService` auto-configuration은 `TextChunker`를 optional로 받아 orchestrator-only 환경에서도 동작하도록 했다.
+- `AiAutoConfiguration`은 `ChunkingAutoConfiguration` 이후 평가되도록 정렬해 chunking starter가 제공하는 `ChunkingOrchestrator`를 우선 감지한다.
 - 이슈 #295 대응으로 `starter-ai`의 RAG indexing chunking 분기를 `RagChunker` adapter로 분리했다.
 - `DefaultRagPipelineService`는 `ChunkingOrchestrator` 우선 경로와 deprecated `TextChunker` fallback 변환을 직접 다루지 않고 adapter 결과만 사용하도록 정리했다.
 - 이슈 #293 대응으로 `studio-platform-ai`의 `TextChunk`/`TextChunker`와 `starter-ai`의 `OverlapTextChunker`를 deprecated legacy fallback으로 표시했다.
@@ -16,6 +19,9 @@
 - README 예시와 실제 public API가 어긋나지 않도록 parent-child chunking, context expansion, text fallback 문서 시나리오 테스트를 추가했다.
 
 ### 검증
+- `./gradlew :starter:studio-platform-starter-ai:test`
+- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
+- `git diff --check`
 - `./gradlew :starter:studio-platform-starter-ai:test`
 - `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
 - `git diff --check`

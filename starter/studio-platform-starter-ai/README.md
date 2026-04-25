@@ -218,6 +218,8 @@ HTTP `text/event-stream` endpoint 변환은 `starter-ai-web` 책임이다.
 `studio-platform-chunking`의 `ChunkingOrchestrator`를 기준으로 구현한다.
 `DefaultRagPipelineService` 내부에서는 `RagChunker` adapter가 `ChunkingOrchestrator` 우선 경로와
 legacy fallback 변환을 캡슐화한다.
+auto-configuration도 같은 기준을 따른다. `ChunkingOrchestrator` bean이 있으면 기본
+`OverlapTextChunker` bean을 만들지 않고, 없을 때만 legacy fallback bean을 등록한다.
 
 ```yaml
 studio:
