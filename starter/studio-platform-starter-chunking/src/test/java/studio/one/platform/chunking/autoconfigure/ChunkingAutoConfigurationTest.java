@@ -14,6 +14,7 @@ import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
 import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.service.StructureBasedChunker;
 import studio.one.platform.chunking.service.TableChunkContextExpander;
+import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
 import studio.one.platform.chunking.service.WindowChunkContextExpander;
 
 class ChunkingAutoConfigurationTest {
@@ -32,6 +33,7 @@ class ChunkingAutoConfigurationTest {
                 .hasSingleBean(ParentChildChunkContextExpander.class)
                 .hasSingleBean(HeadingChunkContextExpander.class)
                 .hasSingleBean(TableChunkContextExpander.class)
+                .hasSingleBean(TextractNormalizedDocumentAdapter.class)
                 .hasSingleBean(ChunkingOrchestrator.class));
     }
 
@@ -46,7 +48,16 @@ class ChunkingAutoConfigurationTest {
                         .doesNotHaveBean(ParentChildChunkContextExpander.class)
                         .doesNotHaveBean(HeadingChunkContextExpander.class)
                         .doesNotHaveBean(TableChunkContextExpander.class)
+                        .doesNotHaveBean(TextractNormalizedDocumentAdapter.class)
                         .doesNotHaveBean(ChunkingOrchestrator.class));
+    }
+
+    @Test
+    void allowsCustomTextractNormalizedDocumentAdapterOverride() {
+        TextractNormalizedDocumentAdapter custom = new TextractNormalizedDocumentAdapter();
+
+        contextRunner.withBean(TextractNormalizedDocumentAdapter.class, () -> custom)
+                .run(context -> assertThat(context.getBean(TextractNormalizedDocumentAdapter.class)).isSameAs(custom));
     }
 
     @Test

@@ -22,9 +22,11 @@ dependencies {
     compileOnly(project(":studio-platform")) 
     compileOnly(project(":studio-platform-data")) 
     compileOnly(project(":studio-platform-textract"))
+    compileOnly(project(":studio-platform-chunking"))
     compileOnly(project(":studio-platform-user")) 
     compileOnly(project(":studio-platform-security"))  
     compileOnly(project(":studio-platform-ai"))  
+    compileOnly(project(":starter:studio-platform-starter-chunking"))
     compileOnly(project(":studio-application-modules:attachment-service"))
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
@@ -35,6 +37,8 @@ dependencies {
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-data"))
     testImplementation(project(":studio-platform-textract"))
+    testImplementation(project(":studio-platform-chunking"))
     testImplementation(project(":studio-platform-ai"))
+    testImplementation(project(":starter:studio-platform-starter-chunking"))
     testImplementation(project(":studio-application-modules:attachment-service"))
 }

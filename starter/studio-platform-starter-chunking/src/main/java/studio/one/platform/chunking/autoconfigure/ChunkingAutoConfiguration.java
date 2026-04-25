@@ -3,10 +3,12 @@ package studio.one.platform.chunking.autoconfigure;
 import java.util.List;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
@@ -17,6 +19,7 @@ import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
 import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.service.StructureBasedChunker;
 import studio.one.platform.chunking.service.TableChunkContextExpander;
+import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
 import studio.one.platform.chunking.service.WindowChunkContextExpander;
 
 @AutoConfiguration
@@ -75,5 +78,16 @@ public class ChunkingAutoConfiguration {
             List<Chunker> chunkers) {
         properties.validate();
         return new DefaultChunkingOrchestrator(properties, chunkers);
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "studio.one.platform.textract.model.ParsedFile")
+    static class TextractAdapterConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        TextractNormalizedDocumentAdapter textractNormalizedDocumentAdapter() {
+            return new TextractNormalizedDocumentAdapter();
+        }
     }
 }
