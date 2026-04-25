@@ -6,11 +6,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import studio.one.platform.chunking.core.ChunkingOrchestrator;
-import studio.one.platform.chunking.service.StructureBasedChunker;
-import studio.one.platform.chunking.service.FixedSizeChunker;
-import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.core.ChunkingContext;
+import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.service.FixedSizeChunker;
+import studio.one.platform.chunking.service.HeadingChunkContextExpander;
+import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
+import studio.one.platform.chunking.service.RecursiveChunker;
+import studio.one.platform.chunking.service.StructureBasedChunker;
+import studio.one.platform.chunking.service.TableChunkContextExpander;
+import studio.one.platform.chunking.service.WindowChunkContextExpander;
 
 class ChunkingAutoConfigurationTest {
 
@@ -24,6 +28,10 @@ class ChunkingAutoConfigurationTest {
                 .hasSingleBean(FixedSizeChunker.class)
                 .hasSingleBean(RecursiveChunker.class)
                 .hasSingleBean(StructureBasedChunker.class)
+                .hasSingleBean(WindowChunkContextExpander.class)
+                .hasSingleBean(ParentChildChunkContextExpander.class)
+                .hasSingleBean(HeadingChunkContextExpander.class)
+                .hasSingleBean(TableChunkContextExpander.class)
                 .hasSingleBean(ChunkingOrchestrator.class));
     }
 
@@ -34,6 +42,10 @@ class ChunkingAutoConfigurationTest {
                         .doesNotHaveBean(FixedSizeChunker.class)
                         .doesNotHaveBean(RecursiveChunker.class)
                         .doesNotHaveBean(StructureBasedChunker.class)
+                        .doesNotHaveBean(WindowChunkContextExpander.class)
+                        .doesNotHaveBean(ParentChildChunkContextExpander.class)
+                        .doesNotHaveBean(HeadingChunkContextExpander.class)
+                        .doesNotHaveBean(TableChunkContextExpander.class)
                         .doesNotHaveBean(ChunkingOrchestrator.class));
     }
 
