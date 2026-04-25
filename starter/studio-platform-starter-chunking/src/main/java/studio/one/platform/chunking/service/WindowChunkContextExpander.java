@@ -42,7 +42,7 @@ public class WindowChunkContextExpander implements ChunkContextExpander {
                 break;
             }
             Chunk previous = request.chunkById(previousChunkId).orElse(null);
-            if (previous == null || chunks.contains(previous)) {
+            if (previous == null || request.seedChunk().id().equals(previous.id()) || chunks.contains(previous)) {
                 break;
             }
             chunks.add(previous);
@@ -61,7 +61,7 @@ public class WindowChunkContextExpander implements ChunkContextExpander {
                 break;
             }
             Chunk next = request.chunkById(nextChunkId).orElse(null);
-            if (next == null || chunks.contains(next)) {
+            if (next == null || request.seedChunk().id().equals(next.id()) || chunks.contains(next)) {
                 break;
             }
             chunks.add(next);

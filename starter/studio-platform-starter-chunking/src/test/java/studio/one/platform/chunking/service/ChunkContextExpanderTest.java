@@ -40,6 +40,23 @@ class ChunkContextExpanderTest {
     }
 
     @Test
+    void windowExpansionStopsWhenLinksCycleBackToSeed() {
+        Chunk seed = chunk("doc-1", "seed", 1, "parent", "doc-0", null, "Install", ChunkType.CHILD,
+                Map.of());
+        Chunk previous = chunk("doc-0", "previous", 0, "parent", "doc-1", null, "Install", ChunkType.CHILD,
+                Map.of());
+
+        ChunkContextExpansion expansion = new WindowChunkContextExpander().expand(
+                ChunkContextExpansionRequest.builder(seed)
+                        .availableChunks(List.of(previous, seed))
+                        .previousWindow(3)
+                        .build());
+
+        assertThat(expansion.contextChunks()).containsExactly(previous, seed);
+        assertThat(expansion.content()).isEqualTo("previous\n\nseed");
+    }
+
+    @Test
     void parentChildExpansionPrefersStoredParentContentAndKeepsSiblingOrder() {
         Chunk seed = chunk("doc-1", "child", 1, "parent", null, null, "Install", ChunkType.CHILD,
                 Map.of(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "Install\n\nchild\n\nnext"));
