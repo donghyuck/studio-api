@@ -51,10 +51,10 @@ public interface ApplicationGroupMembershipJpaRepository
             join ApplicationUser u on u.userId = gm.id.userId
            where gm.id.groupId = :groupId
              and (
-                   :keyword is null
-                or lower(u.username) like lower(concat('%', CAST(:keyword AS String), '%'))
-                or lower(u.name) like lower(concat('%', CAST(:keyword AS String), '%'))
-                or lower(u.email) like lower(concat('%', CAST(:keyword AS String), '%'))
+                   :#{#keyword == null || #keyword.trim().isEmpty()} = true
+                or lower(u.username) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
+                or lower(u.name) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
+                or lower(u.email) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
              )
           """,
       countQuery = """
@@ -63,10 +63,10 @@ public interface ApplicationGroupMembershipJpaRepository
             join ApplicationUser u on u.userId = gm.id.userId
            where gm.id.groupId = :groupId
              and (
-                   :keyword is null
-                or lower(u.username) like lower(concat('%', CAST(:keyword AS String), '%'))
-                or lower(u.name) like lower(concat('%', CAST(:keyword AS String), '%'))
-                or lower(u.email) like lower(concat('%', CAST(:keyword AS String), '%'))
+                   :#{#keyword == null || #keyword.trim().isEmpty()} = true
+                or lower(u.username) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
+                or lower(u.name) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
+                or lower(u.email) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
              )
           """)
   Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(
