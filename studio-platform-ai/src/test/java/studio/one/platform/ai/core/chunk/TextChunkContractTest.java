@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 class TextChunkContractTest {
 
     @Test
-    void legacyChunkContractsAreDeprecatedWithoutRemoval() {
+    void legacyChunkContractsStayDeprecatedButNotScheduledForRemoval() {
         Deprecated chunkDeprecated = TextChunk.class.getAnnotation(Deprecated.class);
         Deprecated chunkerDeprecated = TextChunker.class.getAnnotation(Deprecated.class);
 

@@ -52,6 +52,7 @@ import java.util.regex.Pattern;
  */
 
 @Deprecated(since = "2.x", forRemoval = false)
+@SuppressWarnings("deprecation")
 public class OverlapTextChunker implements TextChunker {
 
     private final int chunkSize;

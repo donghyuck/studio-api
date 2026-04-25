@@ -12,7 +12,7 @@ import studio.one.platform.ai.core.chunk.TextChunk;
 public class OverlapTextChunkerTest {
 
     @Test
-    public void legacyOverlapChunkerIsDeprecatedWithoutRemoval() {
+    public void legacyOverlapChunkerStaysDeprecatedButNotScheduledForRemoval() {
         Deprecated deprecated = OverlapTextChunker.class.getAnnotation(Deprecated.class);
 
         assertThat(deprecated).isNotNull();
