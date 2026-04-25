@@ -13,6 +13,11 @@ import java.util.Objects;
  * intentional and means "filter by this single metadata key". Additional
  * metadata predicates can be added later without replacing existing request
  * contracts.
+ * <p>
+ * {@link #objectScope(String, String)} and {@link #of(Map, Map, Map)} use the
+ * same convention: when {@code equalsCriteria} contains {@code objectType} or
+ * {@code objectId}, {@link #hasObjectScope()} returns {@code true} and
+ * {@link #objectType()}/{@link #objectId()} expose those normalized values.
  */
 public final class MetadataFilter {
 
@@ -50,6 +55,12 @@ public final class MetadataFilter {
         return filter.hasObjectScope() ? filter : EMPTY;
     }
 
+    /**
+     * Creates a general metadata filter.
+     * <p>
+     * {@code equalsCriteria} keys named {@code objectType} and {@code objectId}
+     * are also treated as the legacy object scope convention.
+     */
     public static MetadataFilter of(
             Map<String, Object> equalsCriteria,
             Map<String, List<Object>> inCriteria,

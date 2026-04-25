@@ -7,6 +7,13 @@ import java.util.Objects;
 
 /**
  * RAG chunk record persisted by a vector store.
+ * <p>
+ * Standard metadata keys such as {@link #KEY_CHUNK_INDEX},
+ * {@link #KEY_PREVIOUS_CHUNK_ID}, {@link #KEY_NEXT_CHUNK_ID},
+ * {@link #KEY_TENANT_ID}, {@link #KEY_CREATED_AT}, and {@link #KEY_INDEXED_AT}
+ * are pass-through metadata keys. They are intentionally not promoted to
+ * constructor fields until the core contract has a stable need for first-class
+ * accessors.
  */
 public final class VectorRecord {
 
@@ -46,6 +53,13 @@ public final class VectorRecord {
     private final Integer slide;
     private final Map<String, Object> metadata;
 
+    /**
+     * Creates a vector record.
+     * <p>
+     * Prefer {@link #builder()} for new call sites because this constructor has
+     * many adjacent {@link String} parameters and is retained for binary/source
+     * compatibility.
+     */
     public VectorRecord(
             String id,
             String documentId,
@@ -86,6 +100,10 @@ public final class VectorRecord {
         this.page = page;
         this.slide = slide;
         this.metadata = sanitize(metadata);
+    }
+
+    public static Builder builder() {
+        return new Builder();
     }
 
     public String id() {
@@ -166,6 +184,124 @@ public final class VectorRecord {
 
     public VectorDocument toVectorDocument() {
         return new VectorDocument(id, text, toMetadata(), embedding);
+    }
+
+    public static final class Builder {
+
+        private String id;
+        private String documentId;
+        private String chunkId;
+        private String parentChunkId;
+        private String contentHash;
+        private String text;
+        private List<Double> embedding;
+        private String embeddingModel;
+        private Integer embeddingDimension;
+        private String chunkType;
+        private String headingPath;
+        private String sourceRef;
+        private Integer page;
+        private Integer slide;
+        private Map<String, Object> metadata;
+
+        private Builder() {
+        }
+
+        public Builder id(String id) {
+            this.id = id;
+            return this;
+        }
+
+        public Builder documentId(String documentId) {
+            this.documentId = documentId;
+            return this;
+        }
+
+        public Builder chunkId(String chunkId) {
+            this.chunkId = chunkId;
+            return this;
+        }
+
+        public Builder parentChunkId(String parentChunkId) {
+            this.parentChunkId = parentChunkId;
+            return this;
+        }
+
+        public Builder contentHash(String contentHash) {
+            this.contentHash = contentHash;
+            return this;
+        }
+
+        public Builder text(String text) {
+            this.text = text;
+            return this;
+        }
+
+        public Builder embedding(List<Double> embedding) {
+            this.embedding = embedding;
+            return this;
+        }
+
+        public Builder embeddingModel(String embeddingModel) {
+            this.embeddingModel = embeddingModel;
+            return this;
+        }
+
+        public Builder embeddingDimension(int embeddingDimension) {
+            this.embeddingDimension = embeddingDimension;
+            return this;
+        }
+
+        public Builder chunkType(String chunkType) {
+            this.chunkType = chunkType;
+            return this;
+        }
+
+        public Builder headingPath(String headingPath) {
+            this.headingPath = headingPath;
+            return this;
+        }
+
+        public Builder sourceRef(String sourceRef) {
+            this.sourceRef = sourceRef;
+            return this;
+        }
+
+        public Builder page(Integer page) {
+            this.page = page;
+            return this;
+        }
+
+        public Builder slide(Integer slide) {
+            this.slide = slide;
+            return this;
+        }
+
+        public Builder metadata(Map<String, Object> metadata) {
+            this.metadata = metadata;
+            return this;
+        }
+
+        public VectorRecord build() {
+            List<Double> vector = Objects.requireNonNull(embedding, "embedding");
+            int dimension = embeddingDimension == null ? vector.size() : embeddingDimension;
+            return new VectorRecord(
+                    id,
+                    documentId,
+                    chunkId,
+                    parentChunkId,
+                    contentHash,
+                    text,
+                    vector,
+                    embeddingModel,
+                    dimension,
+                    chunkType,
+                    headingPath,
+                    sourceRef,
+                    page,
+                    slide,
+                    metadata);
+        }
     }
 
     private static void put(Map<String, Object> values, String key, Object value) {

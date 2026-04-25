@@ -183,6 +183,31 @@ class VectorContractsTest {
     }
 
     @Test
+    void vectorRecordBuilderCreatesRecordWithoutLongConstructorOrderingRisk() {
+        VectorRecord record = VectorRecord.builder()
+                .id("record-1")
+                .documentId("doc-1")
+                .chunkId("chunk-1")
+                .parentChunkId("parent-1")
+                .contentHash("hash-1")
+                .text("chunk text")
+                .embedding(List.of(0.1d, 0.2d))
+                .embeddingModel("embedding-model")
+                .chunkType("child")
+                .headingPath("Intro")
+                .sourceRef("page[1]/p[0]")
+                .page(1)
+                .metadata(Map.of(VectorRecord.KEY_CHUNK_INDEX, 7))
+                .build();
+
+        assertThat(record.embeddingDimension()).isEqualTo(2);
+        assertThat(record.toMetadata())
+                .containsEntry(VectorRecord.KEY_DOCUMENT_ID, "doc-1")
+                .containsEntry(VectorRecord.KEY_CHUNK_ID, "chunk-1")
+                .containsEntry(VectorRecord.KEY_CHUNK_INDEX, 7);
+    }
+
+    @Test
     void vectorRecordRejectsInvalidRequiredFields() {
         assertThatThrownBy(() -> record("", List.of(0.1d), 1, Map.of()))
                 .isInstanceOf(IllegalArgumentException.class)

@@ -88,6 +88,12 @@ public final class VectorSearchHit {
         return parentChunkId;
     }
 
+    /**
+     * Returns chunk text when requested.
+     * <p>
+     * This value can be {@code null} when the originating
+     * {@link VectorSearchRequest#includeText()} is {@code false}.
+     */
     public String text() {
         return text;
     }

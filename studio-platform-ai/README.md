@@ -71,11 +71,17 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 `MetadataFilter`는 RAG와 vector 검색 요청에서 객체 범위 metadata convention을 표준화한다.
 현재 표준 필드는 `objectType`과 `objectId`이며, 기존 `searchByObject(...)` API는 하위 호환을 위해 유지한다.
 신규 호출자는 `RagSearchRequest` 또는 `VectorSearchRequest`에 `MetadataFilter.objectScope(...)`를 담아 같은 객체 범위 검색을 요청할 수 있다.
+`MetadataFilter.of(...)`의 `equalsCriteria`에 `objectType` 또는 `objectId` key가 있으면 동일한 object scope convention으로 해석되어 `hasObjectScope()`가 `true`를 반환한다.
 
 중복 계약은 만들지 않는다.
 
 - 새 `EmbeddingPort` 또는 `VectorStorePort` 대신 기존 포트를 확장한다.
-- `VectorRecord`는 RAG chunk 저장을 표현하는 core vector storage 모델이다.
+- `VectorRecord`는 RAG chunk 저장을 표현하는 core vector storage 모델이다. 신규 호출자는 긴 생성자 대신 `VectorRecord.builder()`를 우선 사용한다.
+- `chunkIndex`, `previousChunkId`, `nextChunkId`, `tenantId`, `createdAt`, `indexedAt`은 표준 metadata key로만 정의한다. first-class field가 아니므로 `metadata` map을 통해 전달한다.
+- `embeddingDimension`은 `Number` metadata로 소비해야 한다. 현재 `VectorRecord.toMetadata()`는 Java `Integer` 값을 저장하지만 adapter는 DB/driver별 숫자 타입 차이를 고려해 `Number`로 읽어야 한다.
+- `VectorSearchRequest.includeText=false`이면 `VectorSearchHit.text()`는 `null`일 수 있고, `includeMetadata=false`이면 `metadata()`는 empty map일 수 있다.
+- `VectorStorePort.searchWithFilter(...)`는 filtered-search override를 위한 확장점이며 기본 구현은 `searchRecords(...)`에 위임한다.
+- `VectorStorePort.existsByContentHash(...)`의 기본 `false`는 미구현 fallback이다. content hash deduplication이 필요한 adapter는 반드시 override해야 한다.
 - 기존 `VectorDocument`와 `VectorSearchResult`는 기존 호출자 호환성을 위해 유지한다.
 - 새 context assembly 계약은 아직 만들지 않는다. web context 조립은 `starter-ai-web`의 `RagContextBuilder`, chunk 주변 문맥 확장은 `studio-platform-chunking`의 `ChunkContextExpander`를 우선 사용한다.
 

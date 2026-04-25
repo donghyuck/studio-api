@@ -45,6 +45,14 @@ public interface VectorStorePort {
 
     List<VectorSearchResult> search(VectorSearchRequest request);
 
+    /**
+     * Searches chunk records and adapts legacy {@link VectorSearchResult} hits to
+     * the aggregate RAG result contract.
+     * <p>
+     * The default implementation delegates to {@link #search(VectorSearchRequest)}
+     * for compatibility. Implementations that can execute metadata predicates
+     * natively should override this method or {@link #searchWithFilter(VectorSearchRequest)}.
+     */
     default VectorSearchResults searchRecords(VectorSearchRequest request) {
         long startedAt = System.nanoTime();
         List<VectorSearchHit> hits = search(request).stream()
@@ -54,6 +62,14 @@ public interface VectorStorePort {
         return new VectorSearchResults(hits, elapsedMs);
     }
 
+    /**
+     * Extension point for vector stores that have a distinct filtered search path.
+     * <p>
+     * By default this is an alias of {@link #searchRecords(VectorSearchRequest)} so
+     * existing stores keep working. Store adapters should override it when
+     * {@link VectorSearchRequest#metadataFilter()} can be pushed down to the
+     * backend.
+     */
     default VectorSearchResults searchWithFilter(VectorSearchRequest request) {
         return searchRecords(request);
     }
@@ -66,6 +82,13 @@ public interface VectorStorePort {
         throw new UnsupportedOperationException("deleteByChunkId is not implemented");
     }
 
+    /**
+     * Returns whether a record with the given content hash exists.
+     * <p>
+     * The default {@code false} means the adapter has not implemented the lookup;
+     * callers that rely on hash-based deduplication should require an adapter
+     * override rather than treating the default as authoritative absence.
+     */
     default boolean existsByContentHash(String contentHash) {
         return false;
     }
