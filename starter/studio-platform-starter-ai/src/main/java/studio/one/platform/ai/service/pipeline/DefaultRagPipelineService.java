@@ -36,6 +36,7 @@ import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Slf4j
+@SuppressWarnings("deprecation")
 public class DefaultRagPipelineService implements RagPipelineService {
 
     private final EmbeddingPort embeddingPort;

@@ -36,6 +36,7 @@ import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 
+@SuppressWarnings("deprecation")
 class RagQualitySmokeTest {
 
     private static final String ATTACHMENT = "attachment";

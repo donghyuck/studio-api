@@ -33,6 +33,11 @@ import java.util.regex.Pattern;
  * <p>입력 텍스트를 정규화(CR/LF 통합, 과도한 빈줄 제거)한 뒤 문단 단위로 이어붙여
  * 지정된 길이(chunkSize)에 도달하면 청크를 생성하고, overlap 길이만큼 꼬리를 다음 청크에
  * 이어붙여 연속성을 유지한다. chunk_id는 문서 ID에 인덱스와 랜덤 UUID를 덧붙여 생성한다.
+ *
+ * @deprecated since 2.x. Use {@code starter:studio-platform-starter-chunking}
+ * and {@link studio.one.platform.chunking.core.ChunkingOrchestrator} for new RAG
+ * indexing code. This class is retained only as the legacy fallback when the
+ * chunking starter is not available.
  * 
  * @author  donghyuck, son
  * @since 2025-12-02
@@ -46,6 +51,8 @@ import java.util.regex.Pattern;
  * </pre>
  */
 
+@Deprecated(since = "2.x", forRemoval = false)
+@SuppressWarnings("deprecation")
 public class OverlapTextChunker implements TextChunker {
 
     private final int chunkSize;

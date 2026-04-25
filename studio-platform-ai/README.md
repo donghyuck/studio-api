@@ -14,7 +14,7 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 - `ChatStreamEvent`: provider-neutral streaming event 계약 (`delta`, `usage`, `complete`, `error`)
 - `ConversationRepositoryPort`: conversation 저장소 구현을 위한 포트
 - `AiProviderRegistry`: 공급자 이름을 키로 ChatPort/EmbeddingPort를 관리하는 레지스트리
-- `TextChunker`: 긴 문서를 임베딩에 적합한 크기로 분할하는 전략 인터페이스
+- `TextChunker`: legacy fallback용 텍스트 chunking 인터페이스. 신규 RAG indexing은 `studio-platform-chunking`의 `ChunkingOrchestrator`를 사용한다.
 - `RagPipelineService`: 인덱싱(`index`)과 검색(`search`, `searchByObject`, `listByObject`)을 정의하는 RAG facade 계약
 - `TextCleaner` / `KeywordExtractor` / `PromptRenderer`: RAG 전처리와 프롬프트 확장점 계약
 - `RagPipelineOptions` 계열: 기본 RAG 구현을 대체하거나 테스트할 때 사용할 설정 계약
@@ -35,7 +35,7 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 | `VectorRecord` | `core.vector` | RAG chunk 저장을 표현하는 core vector storage 모델 |
 | `VectorDocument` / `VectorSearchResult` | `core.vector` | 기존 vector 저장/검색 호출자 호환성을 위해 유지하는 모델 |
 | `AiProviderRegistry` | `core.registry` | 공급자별 ChatPort/EmbeddingPort 룩업 |
-| `TextChunker` | `core.chunk` | 문서를 TextChunk 리스트로 분할 |
+| `TextChunk` / `TextChunker` | `core.chunk` | deprecated legacy fallback 계약. 신규 코드는 `studio-platform-chunking` 사용 |
 | `RagPipelineService` | `service.pipeline` | 인덱싱/검색 RAG facade 계약 |
 | `TextCleaner` | `service.cleaning` | 색인 전 추출 텍스트 정제 계약 |
 | `KeywordExtractor` | `service.keyword` | 색인/검색 keyword 추출 계약 |
@@ -76,6 +76,7 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 중복 계약은 만들지 않는다.
 
 - 새 `EmbeddingPort` 또는 `VectorStorePort` 대신 기존 포트를 확장한다.
+- 새 chunking 계약은 이 모듈에 추가하지 않는다. `core.chunk.TextChunk`와 `core.chunk.TextChunker`는 deprecated legacy fallback이며, 신규 구현은 `studio-platform-chunking`의 `Chunk`, `ChunkingContext`, `ChunkingOrchestrator`를 사용한다.
 - `VectorRecord`는 RAG chunk 저장을 표현하는 core vector storage 모델이다. 신규 호출자는 긴 생성자 대신 `VectorRecord.builder()`를 우선 사용한다.
 - `chunkIndex`, `previousChunkId`, `nextChunkId`, `tenantId`, `createdAt`, `indexedAt`은 표준 metadata key로만 정의한다. first-class field가 아니므로 `metadata` map을 통해 전달한다.
 - `embeddingDimension`은 `Number` metadata로 소비해야 한다. 현재 `VectorRecord.toMetadata()`는 Java `Integer` 값을 저장하지만 adapter는 DB/driver별 숫자 타입 차이를 고려해 `Number`로 읽어야 한다.

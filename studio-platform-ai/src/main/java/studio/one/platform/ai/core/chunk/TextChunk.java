@@ -4,7 +4,13 @@ import java.util.Objects;
 
 /**
  * Represents a chunk of text prepared for embedding.
+ *
+ * @deprecated since 2.x. Use {@code studio.one.platform.chunking.core.Chunk}
+ * and {@code studio.one.platform.chunking.core.ChunkingOrchestrator} from
+ * {@code studio-platform-chunking} for new RAG indexing code. This type remains
+ * only for the legacy {@code starter-ai} fallback path.
  */
+@Deprecated(since = "2.x", forRemoval = false)
 public final class TextChunk {
 
     private final String id;

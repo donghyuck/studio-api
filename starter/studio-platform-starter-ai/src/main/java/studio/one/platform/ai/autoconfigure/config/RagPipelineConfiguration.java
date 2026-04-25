@@ -44,6 +44,7 @@ import studio.one.platform.util.LogUtils;
 @EnableConfigurationProperties(RagPipelineProperties.class)
 @RequiredArgsConstructor
 @Slf4j
+@SuppressWarnings("deprecation")
 public class RagPipelineConfiguration {
 
         private final ObjectProvider<I18n> i18nProvider;
