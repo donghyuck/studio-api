@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-04-25
+
+### 변경됨
+- 이슈 #281 대응으로 `studio-platform-chunking`과 `starter:studio-platform-starter-chunking` README를 한국어 기준으로 현행화했다.
+- chunk metadata key reference, parent-child 모델, context expansion 계약, textract 연계, 하위 호환성 기준을 문서화했다.
+- README 예시와 실제 public API가 어긋나지 않도록 parent-child chunking, context expansion, text fallback 문서 시나리오 테스트를 추가했다.
+
+### 검증
+- `./gradlew :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test`
+- `git diff --check`
+
 ## 2026-04-24
 
 ### 변경됨
