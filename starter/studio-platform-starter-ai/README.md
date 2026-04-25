@@ -216,6 +216,8 @@ HTTP `text/event-stream` endpoint 변환은 `starter-ai-web` 책임이다.
 `TextChunker`와 `OverlapTextChunker`는 deprecated legacy fallback이다. 신규 RAG indexing 또는
 구조화 chunking 확장은 `starter:studio-platform-starter-chunking`의 auto-configuration과
 `studio-platform-chunking`의 `ChunkingOrchestrator`를 기준으로 구현한다.
+`DefaultRagPipelineService` 내부에서는 `RagChunker` adapter가 `ChunkingOrchestrator` 우선 경로와
+legacy fallback 변환을 캡슐화한다.
 
 ```yaml
 studio:

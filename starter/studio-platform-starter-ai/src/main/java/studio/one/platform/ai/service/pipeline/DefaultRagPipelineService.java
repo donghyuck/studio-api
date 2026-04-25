@@ -14,7 +14,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.MetadataFilter;
-import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
@@ -31,8 +30,6 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaningResult;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
-import studio.one.platform.chunking.core.Chunk;
-import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Slf4j
@@ -41,8 +38,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     private final EmbeddingPort embeddingPort;
     private final VectorStorePort vectorStorePort;
-    private final TextChunker textChunker;
-    private final ChunkingOrchestrator chunkingOrchestrator;
+    private final RagChunker ragChunker;
     private final Cache<String, List<Double>> embeddingCache;
     private final Retry retry;
     private final KeywordExtractor keywordExtractor;
@@ -62,7 +58,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagPipelineOptions options,
             RagPipelineDiagnosticsOptions diagnosticsOptions,
             RagKeywordOptions keywordOptions) {
-        this(embeddingPort, vectorStorePort, textChunker, null, embeddingCache, retry, keywordExtractor, textCleaner,
+        this(embeddingPort, vectorStorePort, createChunker(textChunker, null), embeddingCache, retry, keywordExtractor, textCleaner,
                 options, diagnosticsOptions, keywordOptions);
     }
 
@@ -77,11 +73,24 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagPipelineOptions options,
             RagPipelineDiagnosticsOptions diagnosticsOptions,
             RagKeywordOptions keywordOptions) {
+        this(embeddingPort, vectorStorePort, createChunker(textChunker, chunkingOrchestrator), embeddingCache, retry,
+                keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions);
+    }
+
+    private DefaultRagPipelineService(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            RagChunker ragChunker,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options,
+            RagPipelineDiagnosticsOptions diagnosticsOptions,
+            RagKeywordOptions keywordOptions) {
 
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
-        this.textChunker = Objects.requireNonNull(textChunker, "textChunker");
-        this.chunkingOrchestrator = chunkingOrchestrator;
+        this.ragChunker = Objects.requireNonNull(ragChunker, "ragChunker");
         this.embeddingCache = Objects.requireNonNull(embeddingCache, "embeddingCache");
         this.retry = Objects.requireNonNull(retry, "retry");
         this.keywordExtractor = keywordExtractor;
@@ -167,6 +176,13 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 embeddingCache, retry, keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions);
     }
 
+    private static RagChunker createChunker(TextChunker textChunker, ChunkingOrchestrator chunkingOrchestrator) {
+        if (chunkingOrchestrator != null) {
+            return new OrchestratedRagChunker(chunkingOrchestrator);
+        }
+        return new LegacyTextChunkerAdapter(textChunker);
+    }
+
     @Override
     public void index(RagIndexRequest request) {
 
@@ -174,7 +190,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
         TextCleaningResult cleaning = cleanText(request.text());
         String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
-        List<IndexedChunk> chunks = chunk(indexedText, request);
+        List<RagPipelineChunk> chunks = chunk(indexedText, request);
         List<VectorDocument> documents = new ArrayList<>(chunks.size());
         List<String> documentKeywords = keywordOptions.scope().includesDocument()
                 ? resolveDocumentKeywords(request, indexedText)
@@ -190,7 +206,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
             baseMetadata.put("keywordsText", String.join(" ", documentKeywords));
         }
         int order = 0;
-        for (IndexedChunk chunk : chunks) {
+        for (RagPipelineChunk chunk : chunks) {
             List<Double> embedding = embedWithCache(chunk.content());
             Map<String, Object> metadata = new HashMap<>(baseMetadata);
             mergeChunkMetadata(metadata, chunk.metadata());
@@ -207,8 +223,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
             metadata.put("chunkLength", chunk.content().length());
             documents.add(new VectorDocument(chunk.id(), chunk.content(), metadata, embedding));
         }
-        String objectType = normalizeObjectScope(baseMetadata.get("objectType"));
-        String objectId = normalizeObjectScope(baseMetadata.get("objectId"));
+        String objectType = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectType"));
+        String objectId = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectId"));
         if (objectType != null && objectId != null) {
             if (documents.isEmpty()) {
                 vectorStorePort.deleteByObject(objectType, objectId);
@@ -220,31 +236,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
     }
 
-    private List<IndexedChunk> chunk(String indexedText, RagIndexRequest request) {
+    private List<RagPipelineChunk> chunk(String indexedText, RagIndexRequest request) {
         if (indexedText == null || indexedText.isBlank()) {
             return List.of();
         }
-        if (chunkingOrchestrator == null) {
-            return textChunker.chunk(request.documentId(), indexedText).stream()
-                    .map(chunk -> new IndexedChunk(chunk.id(), chunk.content(), Map.of()))
-                    .toList();
-        }
-        Map<String, Object> metadata = request.metadata();
-        ChunkingContext context = ChunkingContext.configuredDefaults(indexedText)
-                .sourceDocumentId(request.documentId())
-                .contentType(normalizeObjectScope(metadata.get("contentType")))
-                .filename(normalizeObjectScope(metadata.get("filename")))
-                .objectType(normalizeObjectScope(metadata.get("objectType")))
-                .objectId(normalizeObjectScope(metadata.get("objectId")))
-                .metadata(metadata)
-                .build();
-        return chunkingOrchestrator.chunk(context).stream()
-                .map(this::toIndexedChunk)
-                .toList();
-    }
-
-    private IndexedChunk toIndexedChunk(Chunk chunk) {
-        return new IndexedChunk(chunk.id(), chunk.content(), chunk.metadata().toMap());
+        return ragChunker.chunk(indexedText, request);
     }
 
     private void mergeChunkMetadata(Map<String, Object> metadata, Map<String, Object> chunkMetadata) {
@@ -254,16 +250,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
             }
         });
     }
-
-    private String normalizeObjectScope(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String text = value.toString();
-        return text.isBlank() ? null : text;
-    }
-
-    private record IndexedChunk(String id, String content, Map<String, Object> metadata) {}
 
     @Override
     public List<RagSearchResult> search(RagSearchRequest request) {
