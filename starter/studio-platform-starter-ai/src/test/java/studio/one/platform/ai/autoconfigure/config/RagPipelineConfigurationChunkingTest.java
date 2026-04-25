@@ -72,4 +72,19 @@ class RagPipelineConfigurationChunkingTest {
                     assertThat(context).hasSingleBean(RagPipelineService.class);
                 });
     }
+
+    @Test
+    void keepsUserDefinedTextChunkerWithoutCreatingDefaultWhenChunkingOrchestratorAlsoExists() {
+        TextChunker customChunker = (documentId, text) -> List.of();
+
+        contextRunner.withBean(TextChunker.class, () -> customChunker)
+                .withBean(ChunkingOrchestrator.class, () -> request -> List.of())
+                .run(context -> {
+                    assertThat(context).hasSingleBean(TextChunker.class);
+                    assertThat(context).doesNotHaveBean(OverlapTextChunker.class);
+                    assertThat(context.getBean(TextChunker.class)).isSameAs(customChunker);
+                    assertThat(context).hasSingleBean(ChunkingOrchestrator.class);
+                    assertThat(context).hasSingleBean(RagPipelineService.class);
+                });
+    }
 }

@@ -22,14 +22,8 @@
 - `./gradlew :starter:studio-platform-starter-ai:test`
 - `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
 - `git diff --check`
-- `./gradlew :starter:studio-platform-starter-ai:test`
-- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
-- `git diff --check`
-- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-chunking:test`
-- `git diff --check`
 - `./gradlew :studio-platform-user:test --tests 'studio.one.base.user.persistence.jpa.ApplicationGroupMembershipJpaRepositorySearchTest' --tests 'studio.one.base.user.persistence.jdbc.ApplicationGroupMembershipJdbcRepositoryTest'`
 - `./gradlew :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test`
-- `git diff --check`
 
 ## 2026-04-24
 
