@@ -232,6 +232,68 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldRouteConstructorWithChunkingOrchestratorWithoutLegacyTextChunker() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                null,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+        RagIndexRequest request = new RagIndexRequest("doc-orchestrated-null-legacy", "alpha beta", Map.of(
+                "objectType", "attachment",
+                "objectId", "42"));
+        Chunk chunk = Chunk.of(
+                "doc-orchestrated-null-legacy-0",
+                "alpha beta",
+                ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0)
+                        .sourceDocumentId("doc-orchestrated-null-legacy")
+                        .objectType("attachment")
+                        .objectId("42")
+                        .build());
+        when(chunkingOrchestrator.chunk(any(ChunkingContext.class))).thenReturn(List.of(chunk));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        verify(vectorStorePort).replaceByObject(eq("attachment"), eq("42"), documentsCaptor.capture());
+        assertThat(documentsCaptor.getValue().get(0).id()).isEqualTo("doc-orchestrated-null-legacy-0");
+    }
+
+    @Test
+    void shouldRouteConstructorWithoutChunkingOrchestratorToLegacyTextChunker() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                null,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+        RagIndexRequest request = new RagIndexRequest("doc-legacy", "alpha beta", Map.of());
+        when(textChunker.chunk("doc-legacy", "alpha beta"))
+                .thenReturn(List.of(new TextChunk("doc-legacy-0", "alpha beta")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        verify(textChunker).chunk("doc-legacy", "alpha beta");
+        verify(vectorStorePort).upsert(documentsCaptor.capture());
+        assertThat(documentsCaptor.getValue().get(0).id()).isEqualTo("doc-legacy-0");
+    }
+
+    @Test
     void shouldDeleteObjectScopedChunksWhenNewIndexHasNoChunks() {
         ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,

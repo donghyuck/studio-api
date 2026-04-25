@@ -22,10 +22,10 @@ final class OrchestratedRagChunker implements RagChunker {
         Map<String, Object> metadata = request.metadata();
         ChunkingContext context = ChunkingContext.configuredDefaults(indexedText)
                 .sourceDocumentId(request.documentId())
-                .contentType(normalizeObjectScope(metadata.get("contentType")))
-                .filename(normalizeObjectScope(metadata.get("filename")))
-                .objectType(normalizeObjectScope(metadata.get("objectType")))
-                .objectId(normalizeObjectScope(metadata.get("objectId")))
+                .contentType(RagChunkingMetadata.normalizeObjectScope(metadata.get("contentType")))
+                .filename(RagChunkingMetadata.normalizeObjectScope(metadata.get("filename")))
+                .objectType(RagChunkingMetadata.normalizeObjectScope(metadata.get("objectType")))
+                .objectId(RagChunkingMetadata.normalizeObjectScope(metadata.get("objectId")))
                 .metadata(metadata)
                 .build();
         return chunkingOrchestrator.chunk(context).stream()
@@ -37,11 +37,4 @@ final class OrchestratedRagChunker implements RagChunker {
         return new RagPipelineChunk(chunk.id(), chunk.content(), chunk.metadata().toMap());
     }
 
-    private String normalizeObjectScope(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String text = value.toString();
-        return text.isBlank() ? null : text;
-    }
 }

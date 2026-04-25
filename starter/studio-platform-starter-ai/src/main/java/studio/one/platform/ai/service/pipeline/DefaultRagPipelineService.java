@@ -177,11 +177,10 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     private static RagChunker createChunker(TextChunker textChunker, ChunkingOrchestrator chunkingOrchestrator) {
-        RagChunker legacyChunker = new LegacyTextChunkerAdapter(textChunker);
-        if (chunkingOrchestrator == null) {
-            return legacyChunker;
+        if (chunkingOrchestrator != null) {
+            return new OrchestratedRagChunker(chunkingOrchestrator);
         }
-        return new OrchestratedRagChunker(chunkingOrchestrator);
+        return new LegacyTextChunkerAdapter(textChunker);
     }
 
     @Override
@@ -224,8 +223,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
             metadata.put("chunkLength", chunk.content().length());
             documents.add(new VectorDocument(chunk.id(), chunk.content(), metadata, embedding));
         }
-        String objectType = normalizeObjectScope(baseMetadata.get("objectType"));
-        String objectId = normalizeObjectScope(baseMetadata.get("objectId"));
+        String objectType = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectType"));
+        String objectId = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectId"));
         if (objectType != null && objectId != null) {
             if (documents.isEmpty()) {
                 vectorStorePort.deleteByObject(objectType, objectId);
@@ -250,14 +249,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 metadata.putIfAbsent(key, value);
             }
         });
-    }
-
-    private String normalizeObjectScope(Object value) {
-        if (value == null) {
-            return null;
-        }
-        String text = value.toString();
-        return text.isBlank() ? null : text;
     }
 
     @Override
