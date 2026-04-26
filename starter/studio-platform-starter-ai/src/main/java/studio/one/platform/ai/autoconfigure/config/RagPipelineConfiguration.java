@@ -27,6 +27,10 @@ import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.pipeline.DefaultRagPipelineService;
+import studio.one.platform.ai.service.pipeline.DefaultRagIndexJobService;
+import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
@@ -119,6 +123,20 @@ public class RagPipelineConfiguration {
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),
                                 ragKeywordOptions(properties));
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(RagIndexJobRepository.class)
+        RagIndexJobRepository ragIndexJobRepository() {
+                return new InMemoryRagIndexJobRepository();
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(RagIndexJobService.class)
+        RagIndexJobService ragIndexJobService(
+                        RagIndexJobRepository ragIndexJobRepository,
+                        RagPipelineService ragPipelineService) {
+                return new DefaultRagIndexJobService(ragIndexJobRepository, ragPipelineService);
         }
 
         @Bean

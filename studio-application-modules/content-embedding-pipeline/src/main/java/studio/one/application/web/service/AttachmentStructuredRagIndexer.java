@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.textract.service.FileContentExtractionService;
 
 public interface AttachmentStructuredRagIndexer {
@@ -24,6 +25,17 @@ public interface AttachmentStructuredRagIndexer {
             Map<String, Object> metadata,
             FileContentExtractionService extractor,
             InputStream inputStream) throws IOException;
+
+    default boolean index(Attachment attachment,
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            FileContentExtractionService extractor,
+            InputStream inputStream,
+            RagIndexProgressListener listener) throws IOException {
+        return index(attachment, documentId, objectType, objectId, metadata, extractor, inputStream);
+    }
 
     default Optional<AttachmentRagIndexDiagnostics> latestDiagnostics() {
         return Optional.empty();

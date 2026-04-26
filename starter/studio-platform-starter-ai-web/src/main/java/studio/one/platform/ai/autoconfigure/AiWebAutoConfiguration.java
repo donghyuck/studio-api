@@ -3,6 +3,7 @@ package studio.one.platform.ai.autoconfigure;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -30,10 +31,12 @@ import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
+import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.chunking.core.ChunkContextExpander;
 
@@ -112,8 +115,19 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    RagController ragController(RagPipelineService ragPipelineService) {
-        return new RagController(ragPipelineService);
+    RagController ragController(
+            RagPipelineService ragPipelineService,
+            @Nullable RagIndexJobService ragIndexJobService) {
+        return new RagController(ragPipelineService, ragIndexJobService);
+    }
+
+    @Bean
+    @ConditionalOnBean(RagIndexJobService.class)
+    RagIndexJobController ragIndexJobController(
+            RagIndexJobService ragIndexJobService,
+            RagPipelineService ragPipelineService,
+            @Nullable VectorStorePort vectorStorePort) {
+        return new RagIndexJobController(ragIndexJobService, ragPipelineService, vectorStorePort);
     }
 
     @Bean

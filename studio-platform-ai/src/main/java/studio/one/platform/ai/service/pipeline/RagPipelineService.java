@@ -17,6 +17,10 @@ public interface RagPipelineService {
 
     void index(RagIndexRequest request);
 
+    default void index(RagIndexRequest request, RagIndexProgressListener listener) {
+        index(request);
+    }
+
     List<RagSearchResult> search(RagSearchRequest request);
 
     List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId);
