@@ -24,8 +24,10 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
@@ -58,7 +60,21 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             Map<String, Object> metadata,
             FileContentExtractionService extractor,
             InputStream inputStream) throws IOException {
+        return index(attachment, documentId, objectType, objectId, metadata, extractor, inputStream,
+                RagIndexProgressListener.noop());
+    }
+
+    @Override
+    public boolean index(Attachment attachment,
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            FileContentExtractionService extractor,
+            InputStream inputStream,
+            RagIndexProgressListener listener) throws IOException {
         latestDiagnostics.remove();
+        RagIndexProgressListener progress = listener == null ? RagIndexProgressListener.noop() : listener;
         TextractNormalizedDocumentAdapter adapter = normalizedDocumentAdapterProvider.getIfAvailable();
         ChunkingOrchestrator chunkingOrchestrator = chunkingOrchestratorProvider.getIfAvailable();
         EmbeddingPort embeddingPort = embeddingPortProvider.getIfAvailable();
@@ -69,22 +85,29 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             return false;
         }
 
+        progress.onStep(RagIndexJobStep.EXTRACTING);
         ParsedFile parsedFile = extractor.parseStructured(attachment.getContentType(), attachment.getName(), inputStream);
         NormalizedDocument normalizedDocument = adapter.adapt(documentId, parsedFile);
         NormalizedDocument document = enrichMetadata(documentId, normalizedDocument, metadata);
+        progress.onStep(RagIndexJobStep.CHUNKING);
         List<Chunk> chunks = chunkingOrchestrator.chunk(document);
+        progress.onChunkCount(chunks.size());
         if (chunks.isEmpty()) {
             latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(parsedFile.blocks().size(), 0, 0));
+            progress.onStep(RagIndexJobStep.INDEXING);
             vectorStore.replaceRecordsByObject(objectType, objectId, List.of());
+            progress.onIndexedCount(0);
             return true;
         }
 
+        progress.onStep(RagIndexJobStep.EMBEDDING);
         EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(
                 chunks.stream().map(Chunk::content).toList()));
         List<EmbeddingVector> vectors = response.vectors();
         if (vectors.size() != chunks.size()) {
             throw new IllegalStateException("Embedding response size does not match chunk count");
         }
+        progress.onEmbeddedCount(vectors.size());
 
         List<VectorRecord> records = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
@@ -124,7 +147,9 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                     .metadata(chunkMetadata)
                     .build());
         }
+        progress.onStep(RagIndexJobStep.INDEXING);
         vectorStore.replaceRecordsByObject(objectType, objectId, records);
+        progress.onIndexedCount(records.size());
         latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(
                 parsedFile.blocks().size(),
                 chunks.size(),

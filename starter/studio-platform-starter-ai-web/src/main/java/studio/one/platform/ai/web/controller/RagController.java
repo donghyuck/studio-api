@@ -5,18 +5,25 @@ import java.util.Map;
 
 import jakarta.validation.Valid;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.MetadataFilter;
+import studio.one.platform.ai.core.rag.RagIndexJob;
+import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.IndexRequest;
 import studio.one.platform.ai.web.dto.SearchRequest;
@@ -39,10 +46,20 @@ import studio.one.platform.constant.PropertyKeys;
 @Validated
 public class RagController {
 
+    public static final String RAG_JOB_ID_HEADER = "X-RAG-Job-Id";
+
     private final RagPipelineService ragPipelineService;
+    @Nullable
+    private final RagIndexJobService ragIndexJobService;
 
     public RagController(RagPipelineService ragPipelineService) {
+        this(ragPipelineService, null);
+    }
+
+    public RagController(RagPipelineService ragPipelineService,
+            @Nullable RagIndexJobService ragIndexJobService) {
         this.ragPipelineService = ragPipelineService;
+        this.ragIndexJobService = ragIndexJobService;
     }
 
     /**
@@ -67,13 +84,24 @@ public class RagController {
         Map<String, Object> metadata = request.metadata() == null ? Map.of() : request.metadata();
         List<String> keywords = request.keywords() == null ? List.of() : request.keywords();
         boolean useLlmKeywords = Boolean.TRUE.equals(request.useLlmKeywordExtraction());
-        ragPipelineService.index(new RagIndexRequest(
+        RagIndexRequest indexRequest = new RagIndexRequest(
                 request.documentId(),
                 request.text(),
                 metadata,
                 keywords,
-                useLlmKeywords));
-        return ResponseEntity.accepted().build();
+                useLlmKeywords);
+        if (ragIndexJobService == null) {
+            ragPipelineService.index(indexRequest);
+            return ResponseEntity.accepted().build();
+        }
+        RagIndexJob job = ragIndexJobService.createJob(RagIndexJobCreateRequest.forIndexRequest(indexRequest));
+        RagIndexJob completed = ragIndexJobService.startJob(job.jobId());
+        if (completed.status() == RagIndexJobStatus.FAILED) {
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, completed.errorMessage());
+        }
+        return ResponseEntity.accepted()
+                .header(RAG_JOB_ID_HEADER, job.jobId())
+                .build();
     }
 
     /**

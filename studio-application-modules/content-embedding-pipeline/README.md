@@ -113,8 +113,11 @@ Content-Type: application/json
 
 서버 `studio.ai.endpoints.rag.diagnostics.allow-client-debug=true`와 요청 `debug=true`가 모두 설정되면
 `202 Accepted` 응답 헤더에 안전한 색인 diagnostics를 추가한다.
+`RagIndexJobService`가 있으면 기존 응답 body 없이 `X-RAG-Job-Id` 헤더도 함께 반환해
+`starter-ai-web`의 RAG job management API에서 상태와 로그를 추적할 수 있다.
 헤더는 `X-RAG-Index-Path`, `X-RAG-Index-Structured`, `X-RAG-Index-Fallback-Reason`,
-`X-RAG-Index-Parsed-Block-Count`, `X-RAG-Index-Chunk-Count`, `X-RAG-Index-Vector-Count`만 사용한다.
+`X-RAG-Index-Parsed-Block-Count`, `X-RAG-Index-Chunk-Count`, `X-RAG-Index-Vector-Count`,
+`X-RAG-Job-Id`만 사용한다.
 본문 텍스트, snippet, embedding vector, 사용자 metadata 값은 diagnostics 헤더에 포함하지 않는다.
 
 첨부 RAG 인덱싱은 metadata에 아래 값을 `putIfAbsent`로 보강한다. 요청 metadata에 같은 key가 있으면 요청 값을 유지한다.

@@ -125,6 +125,28 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldReportIndexProgressWhenListenerIsProvided() {
+        RagIndexRequest request = new RagIndexRequest("doc-progress", "hello world", Map.of());
+        RecordingProgressListener listener = new RecordingProgressListener();
+        when(textChunker.chunk("doc-progress", "hello world"))
+                .thenReturn(List.of(
+                        new TextChunk("doc-progress-0", "hello"),
+                        new TextChunk("doc-progress-1", "world")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request, listener);
+
+        assertThat(listener.steps).containsExactly(
+                studio.one.platform.ai.core.rag.RagIndexJobStep.CHUNKING,
+                studio.one.platform.ai.core.rag.RagIndexJobStep.EMBEDDING,
+                studio.one.platform.ai.core.rag.RagIndexJobStep.INDEXING);
+        assertThat(listener.chunkCounts).containsExactly(2);
+        assertThat(listener.embeddedCounts).containsExactly(1, 2);
+        assertThat(listener.indexedCounts).containsExactly(2);
+    }
+
+    @Test
     void shouldPersistVectorRecordMetadataThroughDefaultLegacyAdapter() {
         CapturingVectorStore store = new CapturingVectorStore();
         ragPipelineService = DefaultRagPipelineService.create(embeddingPort, store, textChunker, cache, retry,
@@ -972,6 +994,34 @@ class RagPipelineServiceTest {
         assertThat(diagnostics.toMetadata())
                 .containsEntry("strategy", "hybrid")
                 .doesNotContainKeys("content", "snippet", "text", "chunk");
+    }
+
+    private static final class RecordingProgressListener implements RagIndexProgressListener {
+
+        private final List<studio.one.platform.ai.core.rag.RagIndexJobStep> steps = new ArrayList<>();
+        private final List<Integer> chunkCounts = new ArrayList<>();
+        private final List<Integer> embeddedCounts = new ArrayList<>();
+        private final List<Integer> indexedCounts = new ArrayList<>();
+
+        @Override
+        public void onStep(studio.one.platform.ai.core.rag.RagIndexJobStep step) {
+            steps.add(step);
+        }
+
+        @Override
+        public void onChunkCount(int chunkCount) {
+            chunkCounts.add(chunkCount);
+        }
+
+        @Override
+        public void onEmbeddedCount(int embeddedCount) {
+            embeddedCounts.add(embeddedCount);
+        }
+
+        @Override
+        public void onIndexedCount(int indexedCount) {
+            indexedCounts.add(indexedCount);
+        }
     }
 
     private static final class CapturingVectorStore implements VectorStorePort {

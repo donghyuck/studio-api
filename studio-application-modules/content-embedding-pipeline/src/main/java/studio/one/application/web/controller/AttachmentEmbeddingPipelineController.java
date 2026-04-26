@@ -58,11 +58,16 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagIndexJob;
+import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
@@ -98,6 +103,7 @@ public class AttachmentEmbeddingPipelineController {
     private static final String HEADER_RAG_INDEX_PARSED_BLOCK_COUNT = "X-RAG-Index-Parsed-Block-Count";
     private static final String HEADER_RAG_INDEX_CHUNK_COUNT = "X-RAG-Index-Chunk-Count";
     private static final String HEADER_RAG_INDEX_VECTOR_COUNT = "X-RAG-Index-Vector-Count";
+    private static final String HEADER_RAG_JOB_ID = "X-RAG-Job-Id";
 
     private final AttachmentService attachmentService;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
@@ -105,6 +111,7 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
     private final ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider;
+    private final ObjectProvider<RagIndexJobService> ragIndexJobServiceProvider;
     private final ObjectProvider<I18n> i18nProvider;
 
     @Value("${studio.ai.endpoints.rag.diagnostics.allow-client-debug:false}")
@@ -263,42 +270,67 @@ public class AttachmentEmbeddingPipelineController {
         String objectType = resolveObjectType(request);
         String objectId = resolveObjectId(request, attachmentId);
         Map<String, Object> metadata = buildMetadata(request, attachment, objectType, objectId);
+        RagIndexJobService jobService = ragIndexJobServiceProvider.getIfAvailable();
+        RagIndexJob job = createJob(jobService, objectType, objectId, documentId);
+        RagIndexProgressListener progress = job == null
+                ? RagIndexProgressListener.noop()
+                : jobService.progressListener(job.jobId());
+        progress.onStarted();
         AttachmentStructuredRagIndexer structuredIndexer = structuredRagIndexerProvider.getIfAvailable();
         AttachmentRagIndexDiagnostics structuredDiagnostics = structuredIndexer == null
                 ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
                 : null;
-        if (structuredIndexer != null) {
-            try {
+        try {
+            if (structuredIndexer != null) {
                 try (InputStream in = attachmentService.getInputStream(attachment)) {
-                    if (structuredIndexer.index(attachment, documentId, objectType, objectId, metadata, extractor, in)) {
+                    if (structuredIndexer.index(
+                            attachment,
+                            documentId,
+                            objectType,
+                            objectId,
+                            metadata,
+                            extractor,
+                            in,
+                            progress)) {
+                        progress.onCompleted();
                         return accepted(request, structuredIndexer.latestDiagnostics()
-                                .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()));
+                                .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()), job);
                     }
                     structuredDiagnostics = structuredIndexer.latestDiagnostics()
                             .orElse(AttachmentRagIndexDiagnostics.fallback("structured_not_handled"));
+                } finally {
+                    structuredIndexer.clearDiagnostics();
                 }
-            } finally {
-                structuredIndexer.clearDiagnostics();
             }
+            RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
+            if (ragPipeline == null) {
+                progress.onError(null, RagIndexJobLogCode.SOURCE_UNSUPPORTED,
+                        "RAG pipeline service is not configured", null);
+                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+            }
+            try (InputStream in = attachmentService.getInputStream(attachment)) {
+                String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
+                List<String> keywords = request != null && request.keywords() != null ? request.keywords() : List.of();
+                boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction());
+                ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords), progress);
+            }
+            progress.onCompleted();
+            return accepted(request, AttachmentRagIndexDiagnostics.fallback(
+                    structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()), job);
+        } catch (IOException | RuntimeException ex) {
+            progress.onError(null, RagIndexJobLogCode.UNKNOWN_ERROR, "Attachment RAG index failed", ex.getMessage());
+            throw ex;
         }
-        RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
-        if (ragPipeline == null) {
-            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-        }
-        try (InputStream in = attachmentService.getInputStream(attachment)) {
-            String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
-            List<String> keywords = request != null && request.keywords() != null ? request.keywords() : List.of();
-            boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction());
-            ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords));
-        }
-        return accepted(request, AttachmentRagIndexDiagnostics.fallback(
-                structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()));
     }
 
     private ResponseEntity<Void> accepted(
             AttachmentRagIndexRequestDto request,
-            AttachmentRagIndexDiagnostics diagnostics) {
+            AttachmentRagIndexDiagnostics diagnostics,
+            RagIndexJob job) {
         ResponseEntity.BodyBuilder builder = ResponseEntity.accepted();
+        if (job != null) {
+            builder.header(HEADER_RAG_JOB_ID, job.jobId());
+        }
         if (allowClientDebug && request != null && Boolean.TRUE.equals(request.debug()) && diagnostics != null) {
             builder.header(HEADER_RAG_INDEX_PATH, diagnostics.path());
             builder.header(HEADER_RAG_INDEX_STRUCTURED, Boolean.toString(diagnostics.structured()));
@@ -308,6 +340,23 @@ public class AttachmentEmbeddingPipelineController {
             putCountHeader(builder, HEADER_RAG_INDEX_VECTOR_COUNT, diagnostics.vectorCount());
         }
         return builder.build();
+    }
+
+    private RagIndexJob createJob(
+            RagIndexJobService jobService,
+            String objectType,
+            String objectId,
+            String documentId) {
+        if (jobService == null) {
+            return null;
+        }
+        return jobService.createJob(new RagIndexJobCreateRequest(
+                objectType,
+                objectId,
+                documentId,
+                "attachment",
+                false,
+                null));
     }
 
     private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {

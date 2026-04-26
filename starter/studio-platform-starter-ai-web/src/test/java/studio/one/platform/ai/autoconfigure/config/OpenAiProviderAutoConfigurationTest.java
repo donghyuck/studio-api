@@ -29,12 +29,14 @@ import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
+import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
@@ -170,6 +172,39 @@ class OpenAiProviderAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(ChatMemoryStore.class);
                     assertThat(context).hasSingleBean(ChatController.class);
+                });
+    }
+
+    @Test
+    void passesRagContextExpansionCandidateSettingsToChatController() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.ai.endpoints.rag.context.expansion.candidate-multiplier=6",
+                        "studio.ai.endpoints.rag.context.expansion.max-candidates=30")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatController.class);
+
+                    ChatController controller = context.getBean(ChatController.class);
+                    assertThat(ReflectionTestUtils.getField(controller, "ragContextCandidateMultiplier"))
+                            .isEqualTo(6);
+                    assertThat(ReflectionTestUtils.getField(controller, "ragContextMaxCandidates"))
+                            .isEqualTo(30);
+                });
+    }
+
+    @Test
+    void registersRagIndexJobControllerWithDedicatedExecutorWhenJobServiceExists() {
+        contextRunner
+                .withBean(RagIndexJobService.class, () -> org.mockito.Mockito.mock(RagIndexJobService.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(RagIndexJobController.class);
+                    assertThat(context).hasBean("ragIndexJobExecutor");
+
+                    RagIndexJobController controller = context.getBean(RagIndexJobController.class);
+                    assertThat(ReflectionTestUtils.getField(controller, "jobExecutor"))
+                            .isSameAs(context.getBean("ragIndexJobExecutor"));
                 });
     }
 

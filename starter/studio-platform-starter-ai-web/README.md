@@ -81,8 +81,40 @@ studio:
 | `POST` | `{mgmtBasePath}/vectors/search` | 벡터 유사도 검색 | `services:ai_vector read` |
 | `POST` | `{mgmtBasePath}/rag/index` | 문서 RAG 인덱싱 | `services:ai_rag read` |
 | `POST` | `{mgmtBasePath}/rag/search` | RAG 시맨틱 검색 | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/jobs` | RAG 색인 job 목록 조회 | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/jobs/{jobId}` | RAG 색인 job 상세 조회 | `services:ai_rag read` |
+| `POST` | `{mgmtBasePath}/rag/jobs` | RAG 색인 job 생성 및 비동기 실행 | `services:ai_rag read` |
+| `POST` | `{mgmtBasePath}/rag/jobs/{jobId}/retry` | 실패 또는 완료 job 재시도 요청 | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/jobs/{jobId}/logs` | 단계별 색인 로그 조회 | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/jobs/{jobId}/chunks` | job의 object scope 기준 chunk 조회 | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/objects/{objectType}/{objectId}/chunks` | object scope 기준 chunk 조회 | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/objects/{objectType}/{objectId}/metadata` | object scope 기준 RAG metadata 조회 | `services:ai_rag read` |
 
 > `studio.ai.endpoints.enabled=false`이면 위 AI web endpoint 전체가 등록되지 않는다.
+
+### RAG Index Job Management
+
+RAG 운영 화면은 신규 job API를 사용해 색인 실행 상태, 단계별 로그, 색인된 chunk를 조회할 수 있다.
+기존 `POST {mgmtBasePath}/rag/index` 테스트 API는 응답 body 없이 `202 Accepted`를 유지하며,
+job 추적이 활성화된 경우 `X-RAG-Job-Id` 헤더만 추가한다. 신규 `POST {mgmtBasePath}/rag/jobs`는
+raw `text`를 필수로 받아 같은 `RagPipelineService`를 in-memory job service로 감싸 비동기 실행하고,
+응답 body에 생성된 job을 반환한다. attachment 같은 source 기반 실행은 이번 범위에서는 기존
+attachment RAG index API를 사용한다.
+
+Job `status`는 `PENDING`, `RUNNING`, `SUCCEEDED`, `WARNING`, `FAILED`, `CANCELLED`이며,
+`currentStep`은 `EXTRACTING`, `CHUNKING`, `EMBEDDING`, `INDEXING`, `COMPLETED`이다.
+`WARNING`은 색인은 완료됐지만 경고 로그가 있는 상태를 뜻한다. 기본 저장소는 단일 인스턴스용
+in-memory repository이므로 재시작 시 job 이력은 사라진다. 운영 장기 보관이 필요하면
+`RagIndexJobRepository`를 DB 기반 Bean으로 교체한다.
+`PENDING`/`RUNNING` job은 중복 실행을 막기 위해 retry 요청이 `409 Conflict`로 거절된다.
+
+운영 화면의 일반 흐름:
+
+1. `POST {mgmtBasePath}/rag/jobs`로 색인 job을 생성한다.
+2. `GET {mgmtBasePath}/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, count를 표시한다.
+3. `GET {mgmtBasePath}/rag/jobs/{jobId}/logs`로 경고와 오류 detail을 표시한다.
+4. 완료 후 `GET {mgmtBasePath}/rag/jobs/{jobId}/chunks` 또는 object scope chunk API로 색인 결과를 확인한다.
+5. 실패 또는 완료 상태가 된 뒤 `POST {mgmtBasePath}/rag/jobs/{jobId}/retry`를 호출한다.
 
 ### 채팅 요청 예시
 
@@ -314,8 +346,8 @@ studio:
 | `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.include-scores` | `true` | context에 retrieval score를 포함할지 여부 |
 | `studio.ai.endpoints.rag.context.expansion.enabled` | `true` | `ChunkContextExpander` 기반 주변 문맥 확장 사용 여부 |
-| `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 `ragTopK` 대비 후보 chunk 조회 배수 |
-| `studio.ai.endpoints.rag.context.expansion.max-candidates` | `100` | context expansion 후보 chunk 조회 limit 상한 |
+| `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 `ragTopK` 대비 후보 chunk 조회 배수. 런타임 최대 20으로 제한 |
+| `studio.ai.endpoints.rag.context.expansion.max-candidates` | `100` | context expansion 후보 chunk 조회 limit 상한. 런타임 최대 500으로 제한 |
 | `studio.ai.endpoints.rag.context.expansion.previous-window` | `1` | neighbor expansion에 전달할 이전 chunk window |
 | `studio.ai.endpoints.rag.context.expansion.next-window` | `1` | neighbor expansion에 전달할 다음 chunk window |
 | `studio.ai.endpoints.rag.context.expansion.include-parent-content` | `true` | parent/table expansion에서 parent content metadata를 사용할지 여부 |

@@ -24,6 +24,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -190,12 +191,20 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     @Override
     public void index(RagIndexRequest request) {
+        index(request, RagIndexProgressListener.noop());
+    }
+
+    @Override
+    public void index(RagIndexRequest request, RagIndexProgressListener listener) {
 
         log.debug("using llm keywords extract : {}", request.useLlmKeywordExtraction());
 
+        RagIndexProgressListener progress = listener == null ? RagIndexProgressListener.noop() : listener;
         TextCleaningResult cleaning = cleanText(request.text());
         String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
+        progress.onStep(RagIndexJobStep.CHUNKING);
         List<RagPipelineChunk> chunks = chunk(indexedText, request);
+        progress.onChunkCount(chunks.size());
         List<VectorRecord> records = new ArrayList<>(chunks.size());
         List<String> documentKeywords = keywordOptions.scope().includesDocument()
                 ? resolveDocumentKeywords(request, indexedText)
@@ -211,6 +220,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
             baseMetadata.put("keywordsText", String.join(" ", documentKeywords));
         }
         int order = 0;
+        progress.onStep(RagIndexJobStep.EMBEDDING);
         for (RagPipelineChunk chunk : chunks) {
             List<Double> embedding = embedWithCache(chunk.content());
             Map<String, Object> metadata = new HashMap<>(baseMetadata);
@@ -228,10 +238,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
             metadata.put(VectorRecord.KEY_CHUNK_INDEX, order);
             metadata.put("chunkLength", chunk.content().length());
             records.add(vectorRecord(request.documentId(), chunk, metadata, embedding));
+            progress.onEmbeddedCount(records.size());
             order++;
         }
         String objectType = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectType"));
         String objectId = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectId"));
+        progress.onStep(RagIndexJobStep.INDEXING);
         if (objectType != null && objectId != null) {
             if (records.isEmpty()) {
                 vectorStorePort.deleteByObject(objectType, objectId);
@@ -241,6 +253,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         } else if (!records.isEmpty()) {
             vectorStorePort.upsertAll(records);
         }
+        progress.onIndexedCount(records.size());
     }
 
     private VectorRecord vectorRecord(

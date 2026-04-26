@@ -658,6 +658,42 @@ class ChatControllerTest {
         verify(ragPipelineService).listByObject("attachment", "123", 25);
     }
 
+    @Test
+    void ragChatClampsExcessiveContextExpansionCandidateSettings() {
+        AiWebRagProperties.ExpansionProperties expansion = new AiWebRagProperties.ExpansionProperties();
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 12_000, true, expansion, TestWindowChunkContextExpander.asList()),
+                false,
+                null,
+                false,
+                new ConversationChatService(new InMemoryConversationRepository()),
+                Jackson2ObjectMapperBuilder.json().build(),
+                Integer.MAX_VALUE,
+                Integer.MAX_VALUE);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("attachment", "123", 500))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                Integer.MAX_VALUE,
+                "attachment",
+                "123"));
+
+        verify(ragPipelineService).listByObject("attachment", "123", 500);
+    }
+
     @SuppressWarnings("deprecation")
     @Test
     void ragChatKeepsExpansionPropertiesConstructorForCompatibility() {

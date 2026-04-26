@@ -3,6 +3,9 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #317 대응으로 RAG 색인 작업 management API와 in-memory job repository/service 계약을 추가했다.
+- `POST /api/mgmt/ai/rag/index`와 attachment RAG index API는 기존 empty `202 Accepted` 응답을 유지하면서 `X-RAG-Job-Id` 헤더를 additive하게 반환한다.
+- RAG 색인 진행 단계(`EXTRACTING`, `CHUNKING`, `EMBEDDING`, `INDEXING`, `COMPLETED`)와 chunk/embedding/index count, warning/error log를 조회할 수 있도록 했다.
 - 이슈 #313 대응으로 RAG metadata key reference를 `studio-platform-ai` README에 통합하고 관련 모듈 README에서 참조하도록 문서화했다.
 - 이슈 #312 대응으로 AI web vector 검색 경로가 내부적으로 `VectorSearchResults`/`VectorSearchHit` aggregate 계약을 사용하도록 연결했다.
 - `POST /api/mgmt/ai/vectors/search` 요청에서 `includeText`/`includeMetadata`를 optional field로 받아 core `VectorSearchRequest`에 전달한다.
@@ -18,6 +21,10 @@
 - context expansion candidate 조회 배수, 후보 조회 상한, previous/next window, parent content 포함 여부를 설정으로 분리했다.
 
 ### 검증
+- `./gradlew :studio-platform-ai:compileJava :starter:studio-platform-starter-ai:compileJava :starter:studio-platform-starter-ai-web:compileJava :studio-application-modules:content-embedding-pipeline:compileJava`
+- `./gradlew :studio-platform-ai:testClasses :starter:studio-platform-starter-ai:testClasses :starter:studio-platform-starter-ai-web:testClasses :studio-application-modules:content-embedding-pipeline:testClasses`
+- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
+- `git diff --check`
 - `./gradlew :starter:studio-platform-starter-ai:test :studio-platform-ai:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
 - `./gradlew :studio-platform-ai:test :studio-application-modules:content-embedding-pipeline:test :starter:studio-platform-starter-ai:test`

@@ -102,6 +102,8 @@ public class ChatController {
     private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
     private static final int DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER = 4;
     private static final int DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES = 100;
+    private static final int MAX_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER = 20;
+    private static final int MAX_CONTEXT_EXPANSION_CANDIDATES = 500;
 
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
@@ -171,8 +173,14 @@ public class ChatController {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
-        this.ragContextCandidateMultiplier = Math.max(1, ragContextCandidateMultiplier);
-        this.ragContextMaxCandidates = Math.max(1, ragContextMaxCandidates);
+        this.ragContextCandidateMultiplier = clamp(
+                ragContextCandidateMultiplier,
+                DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER,
+                MAX_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER);
+        this.ragContextMaxCandidates = clamp(
+                ragContextMaxCandidates,
+                DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES,
+                MAX_CONTEXT_EXPANSION_CANDIDATES);
         this.allowClientDebug = allowClientDebug;
         this.chatMemoryStore = chatMemoryStore;
         this.chatMemoryEnabled = chatMemoryEnabled;
@@ -659,6 +667,13 @@ public class ChatController {
     private int contextExpansionCandidateLimit(int ragTopK) {
         long requestedLimit = (long) Math.max(ragTopK, 1) * ragContextCandidateMultiplier;
         return (int) Math.min(ragContextMaxCandidates, requestedLimit);
+    }
+
+    private int clamp(int value, int defaultValue, int maxValue) {
+        if (value <= 0) {
+            return defaultValue;
+        }
+        return Math.min(value, maxValue);
     }
 
     private ChatMemoryContext resolveMemory(ChatRequestDto request, Principal principal) {

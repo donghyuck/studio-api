@@ -40,11 +40,15 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagIndexJob;
+import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
@@ -84,6 +88,13 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     private void configureMockMvc(AttachmentStructuredRagIndexer structuredRagIndexer, boolean allowClientDebug) {
+        configureMockMvc(structuredRagIndexer, allowClientDebug, null);
+    }
+
+    private void configureMockMvc(
+            AttachmentStructuredRagIndexer structuredRagIndexer,
+            boolean allowClientDebug,
+            RagIndexJobService ragIndexJobService) {
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
@@ -91,6 +102,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                 provider((VectorStorePort) null),
                 provider(ragPipelineService),
                 provider(structuredRagIndexer),
+                provider(ragIndexJobService),
                 provider((I18n) null));
         ReflectionTestUtils.setField(controller, "allowClientDebug", allowClientDebug);
 
@@ -200,7 +212,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                     && "sample.txt".equals(metadata.get("name"))
                     && "text/plain".equals(metadata.get("contentType"))
                     && Long.valueOf(5L).equals(metadata.get("size"));
-        }));
+        }), any(RagIndexProgressListener.class));
     }
 
     @Test
@@ -358,7 +370,37 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         verify(attachmentService, times(2)).getInputStream(attachment);
         verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
-                "fallback text".equals(request.text())));
+                "fallback text".equals(request.text())), any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void ragIndexAddsJobHeaderWhenJobServiceIsConfigured() throws Exception {
+        RagIndexJobService jobService = mock(RagIndexJobService.class);
+        configureMockMvc(null, false, jobService);
+        when(jobService.createJob(any(RagIndexJobCreateRequest.class)))
+                .thenReturn(RagIndexJob.pending(
+                        "job-1",
+                        "attachment",
+                        "1",
+                        "1",
+                        "attachment",
+                        java.time.Instant.parse("2026-04-26T00:00:00Z")));
+        when(jobService.progressListener("job-1")).thenReturn(RagIndexProgressListener.noop());
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("X-RAG-Job-Id", "job-1"));
     }
 
     @Test
