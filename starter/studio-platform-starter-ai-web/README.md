@@ -276,7 +276,7 @@ Content-Type: application/json
 }
 ```
 
-`objectType`/`objectId`를 지정하면 해당 객체 범위의 RAG 인덱스에서 검색한다. `ragQuery`가 없고
+`ragTopK`는 `1` 이상 `100` 이하만 허용한다. `objectType`/`objectId`를 지정하면 해당 객체 범위의 RAG 인덱스에서 검색한다. `ragQuery`가 없고
 객체 범위만 있으면 저장된 chunk를 순서대로 가져와 컨텍스트로 사용한다.
 
 RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않도록 제한된다.
@@ -300,6 +300,7 @@ studio:
           expansion:
             enabled: true
             candidate-multiplier: 4
+            max-candidates: 100
             previous-window: 1
             next-window: 1
             include-parent-content: true
@@ -313,7 +314,8 @@ studio:
 | `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.include-scores` | `true` | context에 retrieval score를 포함할지 여부 |
 | `studio.ai.endpoints.rag.context.expansion.enabled` | `true` | `ChunkContextExpander` 기반 주변 문맥 확장 사용 여부 |
-| `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 `ragTopK` 대비 후보 chunk 조회 배수. 실제 후보 조회 limit은 최대 `100`으로 제한 |
+| `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 `ragTopK` 대비 후보 chunk 조회 배수 |
+| `studio.ai.endpoints.rag.context.expansion.max-candidates` | `100` | context expansion 후보 chunk 조회 limit 상한 |
 | `studio.ai.endpoints.rag.context.expansion.previous-window` | `1` | neighbor expansion에 전달할 이전 chunk window |
 | `studio.ai.endpoints.rag.context.expansion.next-window` | `1` | neighbor expansion에 전달할 다음 chunk window |
 | `studio.ai.endpoints.rag.context.expansion.include-parent-content` | `true` | parent/table expansion에서 parent content metadata를 사용할지 여부 |

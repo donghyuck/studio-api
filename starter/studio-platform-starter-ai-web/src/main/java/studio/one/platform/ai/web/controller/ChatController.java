@@ -71,6 +71,7 @@ import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
@@ -100,12 +101,13 @@ public class ChatController {
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
     private static final int DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER = 4;
-    private static final int MAX_CONTEXT_EXPANSION_CANDIDATES = 100;
+    private static final int DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES = 100;
 
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
     private final RagContextBuilder ragContextBuilder;
     private final int ragContextCandidateMultiplier;
+    private final int ragContextMaxCandidates;
     private final boolean allowClientDebug;
     private final ChatMemoryStore chatMemoryStore;
     private final boolean chatMemoryEnabled;
@@ -164,16 +166,58 @@ public class ChatController {
             boolean chatMemoryEnabled,
             ConversationChatService conversationChatService,
             ObjectMapper objectMapper,
-            int ragContextCandidateMultiplier) {
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
         this.ragContextCandidateMultiplier = Math.max(1, ragContextCandidateMultiplier);
+        this.ragContextMaxCandidates = Math.max(1, ragContextMaxCandidates);
         this.allowClientDebug = allowClientDebug;
         this.chatMemoryStore = chatMemoryStore;
         this.chatMemoryEnabled = chatMemoryEnabled;
         this.conversationChatService = conversationChatService;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, chatMemoryStore,
+                chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES);
+    }
+
+    /**
+     * @deprecated Since 2.x. Pass scalar candidate settings to this controller and keep window/parent expansion
+     * options on {@link RagContextBuilder}.
+     */
+    @Deprecated(since = "2.x", forRemoval = false)
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            AiWebRagProperties.ExpansionProperties ragContextExpansion) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, chatMemoryStore,
+                chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextExpansion == null
+                        ? DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER
+                        : ragContextExpansion.getCandidateMultiplier(),
+                ragContextExpansion == null
+                        ? DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES
+                        : ragContextExpansion.getMaxCandidates());
     }
 
     public ChatController(
@@ -608,7 +652,7 @@ public class ChatController {
 
     private int contextExpansionCandidateLimit(int ragTopK) {
         long requestedLimit = (long) Math.max(ragTopK, 1) * ragContextCandidateMultiplier;
-        return (int) Math.min(MAX_CONTEXT_EXPANSION_CANDIDATES, requestedLimit);
+        return (int) Math.min(ragContextMaxCandidates, requestedLimit);
     }
 
     private ChatMemoryContext resolveMemory(ChatRequestDto request, Principal principal) {

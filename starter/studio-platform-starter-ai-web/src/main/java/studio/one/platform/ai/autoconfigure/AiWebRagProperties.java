@@ -56,6 +56,7 @@ public class AiWebRagProperties {
     public static class ExpansionProperties {
         private boolean enabled = true;
         private int candidateMultiplier = 4;
+        private int maxCandidates = 100;
         private int previousWindow = 1;
         private int nextWindow = 1;
         private boolean includeParentContent = true;
@@ -74,6 +75,14 @@ public class AiWebRagProperties {
 
         public void setCandidateMultiplier(int candidateMultiplier) {
             this.candidateMultiplier = Math.max(1, candidateMultiplier);
+        }
+
+        public int getMaxCandidates() {
+            return maxCandidates;
+        }
+
+        public void setMaxCandidates(int maxCandidates) {
+            this.maxCandidates = Math.max(1, maxCandidates);
         }
 
         public int getPreviousWindow() {

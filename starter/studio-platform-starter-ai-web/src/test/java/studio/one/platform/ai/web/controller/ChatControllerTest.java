@@ -632,10 +632,11 @@ class ChatControllerTest {
                 false,
                 new ConversationChatService(new InMemoryConversationRepository()),
                 Jackson2ObjectMapperBuilder.json().build(),
-                1_000);
+                1_000,
+                25);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
-        when(ragPipelineService.listByObject("attachment", "123", 100))
+        when(ragPipelineService.listByObject("attachment", "123", 25))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 1.0d)));
 
         controller.chatWithRag(new ChatRagRequestDto(
@@ -650,11 +651,49 @@ class ChatControllerTest {
                         null,
                         null),
                 "summary",
-                1_000,
+                100,
                 "attachment",
                 "123"));
 
-        verify(ragPipelineService).listByObject("attachment", "123", 100);
+        verify(ragPipelineService).listByObject("attachment", "123", 25);
+    }
+
+    @SuppressWarnings("deprecation")
+    @Test
+    void ragChatKeepsExpansionPropertiesConstructorForCompatibility() {
+        AiWebRagProperties.ExpansionProperties expansion = new AiWebRagProperties.ExpansionProperties();
+        expansion.setCandidateMultiplier(5);
+        expansion.setMaxCandidates(7);
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 12_000, true, expansion, TestWindowChunkContextExpander.asList()),
+                false,
+                null,
+                false,
+                new ConversationChatService(new InMemoryConversationRepository()),
+                Jackson2ObjectMapperBuilder.json().build(),
+                expansion);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("attachment", "123", 7))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123"));
+
+        verify(ragPipelineService).listByObject("attachment", "123", 7);
     }
 
     @Test
