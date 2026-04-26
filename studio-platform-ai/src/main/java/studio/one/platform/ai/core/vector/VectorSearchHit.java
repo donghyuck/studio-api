@@ -2,6 +2,7 @@ package studio.one.platform.ai.core.vector;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.StreamSupport;
 
 /**
  * RAG-oriented vector search hit with chunk provenance.
@@ -131,7 +132,7 @@ public final class VectorSearchHit {
         if (value == null) {
             return fallback;
         }
-        String text = value.toString().trim();
+        String text = value instanceof Iterable<?> iterable ? join(iterable) : value.toString().trim();
         return text.isBlank() ? fallback : text;
     }
 
@@ -143,6 +144,23 @@ public final class VectorSearchHit {
         if (value instanceof Number numberValue) {
             return numberValue.intValue();
         }
+        if (value instanceof String textValue && !textValue.isBlank()) {
+            try {
+                return Integer.valueOf(textValue.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
         return null;
+    }
+
+    private static String join(Iterable<?> values) {
+        return StreamSupport.stream(values.spliterator(), false)
+                .filter(Objects::nonNull)
+                .map(Object::toString)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .reduce((left, right) -> left + " > " + right)
+                .orElse("");
     }
 }
