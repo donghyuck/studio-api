@@ -1,7 +1,6 @@
 package studio.one.platform.ai.web.controller;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,8 +25,10 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorSearchHit;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
+import studio.one.platform.ai.core.vector.VectorSearchResults;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
@@ -133,11 +134,14 @@ public class VectorController {
         List<Double> queryEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 queryEmbedding,
+                request.query(),
                 request.topK(),
                 MetadataFilter.objectScope(request.objectType(), request.objectId()),
-                request.minScore());
-        List<VectorSearchResult> results = executeSearch(store, request, searchRequest);
-        List<VectorSearchResultDto> payload = results.stream()
+                request.minScore(),
+                request.includeText(),
+                request.includeMetadata());
+        VectorSearchResults results = executeSearch(store, request, searchRequest);
+        List<VectorSearchResultDto> payload = results.hits().stream()
                 .map(this::toVectorSearchResultDto)
                 .toList();
         return ResponseEntity.ok(ApiResponse.ok(payload));
@@ -166,22 +170,23 @@ public class VectorController {
         return List.copyOf(response.vectors().get(0).values());
     }
 
-    private List<VectorSearchResult> executeSearch(VectorStorePort store, VectorSearchRequestDto request,
+    private VectorSearchResults executeSearch(VectorStorePort store, VectorSearchRequestDto request,
             VectorSearchRequest searchRequest) {
         boolean useHybrid = Boolean.TRUE.equals(request.hybrid());
         MetadataFilter filter = searchRequest.metadataFilter();
         boolean hasObjectFilter = filter.hasObjectScope();
-        List<VectorSearchResult> results;
         if (!useHybrid) {
-            results = hasObjectFilter
-                    ? store.searchByObject(filter.objectType(), filter.objectId(), searchRequest)
-                    : store.search(searchRequest);
-            return applyMinScore(results, searchRequest.minScore());
+            if (hasObjectFilter) {
+                return toSearchResults(
+                        store.searchByObject(filter.objectType(), filter.objectId(), searchRequest),
+                        searchRequest);
+            }
+            return applyMinScore(store.searchWithFilter(searchRequest), searchRequest.minScore());
         }
         if (request.query() == null || request.query().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hybrid search requires a query string");
         }
-        results = hasObjectFilter
+        List<VectorSearchResult> results = hasObjectFilter
                 ? store.hybridSearchByObject(
                         request.query(),
                         filter.objectType(),
@@ -190,7 +195,7 @@ public class VectorController {
                         HYBRID_VECTOR_WEIGHT,
                         HYBRID_LEXICAL_WEIGHT)
                 : store.hybridSearch(request.query(), searchRequest, HYBRID_VECTOR_WEIGHT, HYBRID_LEXICAL_WEIGHT);
-        return applyMinScore(results, searchRequest.minScore());
+        return toSearchResults(results, searchRequest);
     }
 
     private List<Double> normalizeEmbedding(List<Double> embedding, int expectedDim) {
@@ -217,28 +222,32 @@ public class VectorController {
         return normalized;
     }
 
-    private VectorSearchResultDto toVectorSearchResultDto(VectorSearchResult result) {
-        VectorDocument document = result.document();
-        Map<String, Object> metadata = document.metadata();
+    private VectorSearchResultDto toVectorSearchResultDto(VectorSearchHit hit) {
         return new VectorSearchResultDto(
-                document.id(),
-                document.id(),
-                document.content(),
-                metadata == null ? Collections.emptyMap() : Map.copyOf(metadata),
-                result.score());
+                hit.id(),
+                hit.documentId(),
+                hit.text(),
+                hit.metadata(),
+                hit.score());
     }
 
-    private List<VectorSearchResult> applyMinScore(List<VectorSearchResult> results, Double minScore) {
+    private VectorSearchResults toSearchResults(List<VectorSearchResult> results, VectorSearchRequest request) {
+        long startedAt = System.nanoTime();
+        List<VectorSearchHit> hits = results.stream()
+                .map(result -> VectorSearchHit.from(result, request.includeText(), request.includeMetadata()))
+                .toList();
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        return applyMinScore(VectorSearchResults.of(hits, elapsedMs), request.minScore());
+    }
+
+    private VectorSearchResults applyMinScore(VectorSearchResults results, Double minScore) {
         if (minScore == null) {
             return results;
         }
-        return results.stream()
+        List<VectorSearchHit> hits = results.hits().stream()
                 .filter(result -> result.score() >= minScore)
                 .toList();
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
+        return VectorSearchResults.of(hits, results.elapsedMs());
     }
 
     private VectorStorePort requireVectorStore() {
