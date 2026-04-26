@@ -44,9 +44,77 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 | `RagRetrievalDiagnostics` | `core.rag` | RAG 검색 fallback 전략과 결과 상태 진단 모델 |
 | `AiProvider` | `core` | 지원 공급자 열거형 (OPENAI, OLLAMA, GOOGLE_AI_GEMINI) |
 
-## RAG metadata
+## RAG metadata key reference
+
+RAG metadata는 chunk 저장, retrieval filter, context expansion, provenance 표시를 위한 cross-module 계약이다.
+`studio-platform-ai`가 key 기준을 문서화하고, 실제 값 생성은 `starter-ai`, `starter-chunking`, `content-embedding-pipeline` 같은 조립 모듈이 담당한다.
+Provider-specific 구현이나 vector DB-specific 구현은 이 기준 문서의 범위가 아니다.
+
+`VectorRecord`의 first-class field(`documentId`, `chunkId`, `contentHash`, `embeddingModel`, `embeddingDimension` 등)는
+`VectorRecord.toMetadata()`에서 표준 key로 병합되며 record field 값이 우선한다.
+Pipeline enrichment 또는 custom metadata는 모듈별로 `putIfAbsent`를 우선 사용해 호출자가 전달한 값을 보존한다.
+Adapter는 아래 key를 `metadata` map에서 읽을 수 있어야 한다.
+
+### Identity and object scope
+
+| key | 표준 의미 | 생성/소비 기준 |
+|---|---|---|
+| `tenantId` | tenant 범위 식별자 | multi-tenant adapter가 필요할 때 metadata로 전달한다. |
+| `objectType` | RAG 객체 범위 type | `MetadataFilter.objectScope(...)`, `searchByObject(...)`, `replaceRecordsByObject(...)`에서 사용한다. |
+| `objectId` | RAG 객체 범위 id | 같은 `objectType`/`objectId` 재색인은 stale chunk 제거 기준이다. |
+| `documentId` | 원본 문서 id | `VectorRecord.documentId()`가 `toMetadata()`에 병합한다. |
+| `chunkId` | 검색 가능한 chunk id | `VectorRecord.chunkId()`가 `toMetadata()`에 병합한다. |
+| `parentChunkId` | child chunk의 parent section id | context expansion과 parent-child 복구에 사용한다. |
+| `previousChunkId` / `nextChunkId` | 같은 parent 안의 인접 chunk link | window context expansion 후보 탐색에 사용한다. |
+
+`objectType` 또는 `objectId` 중 하나만 있어도 object scope filter로 해석할 수 있다.
+정확한 동작은 store adapter의 filter 구현에 달려 있으므로, attachment RAG처럼 안전한 객체 범위 검색은 둘 다 제공하는 것을 권장한다.
+
+### Chunk ordering and compatibility
+
+| key | 표준 의미 | 호환성 기준 |
+|---|---|---|
+| `chunkIndex` | RAG chunk의 0-based index | 신규 core/vector 계약의 표준 순서 key다. |
+| `chunkOrder` | legacy persisted chunk 순서 | 기존 pgvector schema와 chunking Phase 1 호환을 위해 유지한다. |
+| `chunkType` | `child`, `parent`, `table`, `ocr`, `image-caption` 등 chunk 역할 | retrieval hit와 context expansion strategy 선택에 사용한다. |
+| `chunkLength` | 개별 chunk content 길이 | starter-ai 기본 pipeline이 기록한다. |
+| `chunkCount` | 한 index 요청에서 생성된 chunk 수 | starter-ai 기본 pipeline이 기록한다. |
+
+신규 코드는 `chunkIndex`를 우선 기록한다.
+기존 저장소와 정렬 쿼리 호환을 위해 `VectorStorePort`의 default adapter는 `chunkIndex`가 있으면 `chunkOrder`도 보강한다.
+`content-embedding-pipeline`의 구조화 색인 경로는 `ChunkMetadata.order`를 `chunkIndex`/`chunkOrder`로 매핑한다.
+`starter-ai` 기본 fallback pipeline은 반환된 chunk list의 순서를 기준으로 `chunkIndex`/`chunkOrder`를 기록한다.
+
+### Provenance and structure
+
+| key | 표준 의미 | 생성/소비 기준 |
+|---|---|---|
+| `headingPath` | 문서 section 경로 | structured chunking과 `VectorSearchHit` provenance에서 사용한다. |
+| `sourceRef` | 단일 source 위치 참조 | page/block/table 등 원문 위치를 표현한다. |
+| `sourceRefs` | 복수 source 위치 참조 | 여러 block을 합친 chunk에서 보존할 수 있다. |
+| `page` | 1-based page number 또는 parser 제공 page 값 | `VectorSearchHit`은 문자열/숫자를 `Integer`로 변환해 노출한다. |
+| `slide` | slide number | `VectorSearchHit`은 문자열/숫자를 `Integer`로 변환해 노출한다. |
+| `blockIds` | chunk를 구성한 structured block id 목록 | context expansion과 source trace에 사용한다. |
+| `parentBlockId` | parser block hierarchy의 parent id | structured provenance 보존용 key다. |
+| `sourceFormat` | PDF, DOCX 등 parser/source format | structured indexing provenance에 사용한다. |
+| `confidence` | OCR/parser confidence | 값이 있는 경우 metadata로 보존한다. |
+
+### Embedding and deduplication
+
+| key | 표준 의미 | 생성/소비 기준 |
+|---|---|---|
+| `contentHash` | chunk text hash | deduplication 또는 idempotency에 사용할 수 있다. |
+| `embeddingModel` | embedding 생성 model 이름 | provider가 값을 제공하지 않으면 일부 pipeline은 `unknown` placeholder를 기록한다. |
+| `embeddingDimension` | embedding vector dimension | Java `Integer`로 저장될 수 있으나 adapter는 `Number`로 읽어야 한다. |
+| `createdAt` | record 생성 시각 | adapter 또는 pipeline이 필요할 때 기록한다. |
+| `indexedAt` | index 요청 처리 시각 | content pipeline 같은 조립 모듈이 기록한다. |
+
+`VectorStorePort.existsByContentHash(...)`의 기본 `false`는 미구현 fallback이다.
+content hash deduplication이 필요한 adapter는 반드시 override해야 한다.
+
+### Pipeline enrichment
+
 `studio-platform-starter-ai`의 기본 `RagPipelineService` 구현은 색인 문서 metadata에 아래 key를 추가한다.
-호출자가 같은 key를 전달한 경우 기존 값을 보존한다.
 
 | key | 설명 |
 |---|---|
@@ -54,8 +122,6 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 | `cleanerPrompt` | 사용한 cleaner prompt 이름. cleaner 미사용 시 빈 문자열 |
 | `originalTextLength` | 원본 추출 텍스트 길이 |
 | `indexedTextLength` | 실제 chunking/indexing에 사용한 텍스트 길이 |
-| `chunkCount` | 생성된 chunk 수 |
-| `chunkLength` | 개별 chunk content 길이 |
 | `keywords` | 문서 단위 keyword 목록. `studio.ai.pipeline.keywords.scope=document|both`일 때 기록 |
 | `keywordsText` | 문서 단위 keyword를 공백으로 연결한 lexical 검색용 문자열 |
 | `chunkKeywords` | chunk 단위 keyword 목록. `scope=chunk|both`일 때 기록 |
@@ -64,7 +130,7 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친다.
 기본 `scope=document`는 기존 동작과 동일하게 문서 단위 keyword만 기록한다.
 `scope=chunk` 또는 `both`는 chunk별 keyword를 추가해 긴 파일에서 chunk 의미가 희석되는 문제를 줄이는 기반을 제공한다.
-현재 PostgreSQL hybrid SQL ranking은 기존 `simple` text search config 동작을 유지한다.
+구체적인 hybrid ranking과 text search config는 vector store adapter 문서를 따른다.
 
 ## RAG retrieval filters
 
