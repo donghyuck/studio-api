@@ -239,14 +239,24 @@ class VectorContractsTest {
     void vectorStoreDefaultRecordAdaptersAndAggregateSearchUseLegacyContract() {
         TestVectorStore store = new TestVectorStore(List.of(new VectorSearchResult(record(Map.of()).toVectorDocument(), 0.8d)));
 
-        store.upsert(record(Map.of()));
+        store.upsert(record(Map.of(VectorRecord.KEY_CHUNK_INDEX, 3)));
         store.upsertAll(List.of());
+        store.replaceRecordsByObject("attachment", "42", List.of(record("record-2", List.of(0.3d, 0.4d), 2,
+                Map.of(VectorRecord.KEY_CHUNK_INDEX, 7))));
         VectorSearchResults results = store.searchWithFilter(new VectorSearchRequest(List.of(0.1d), 3));
 
-        assertThat(store.operations()).containsExactly("upsert:1");
+        assertThat(store.operations()).containsExactly("upsert:1", "delete:attachment:42", "upsert:1");
         assertThat(store.upsertedDocuments())
                 .extracting(VectorDocument::id)
-                .containsExactly("record-1");
+                .containsExactly("record-1", "record-2");
+        assertThat(store.upsertedDocuments().get(0).metadata())
+                .containsEntry(VectorRecord.KEY_CHUNK_INDEX, 3)
+                .containsEntry("chunkOrder", 3);
+        assertThat(store.upsertedDocuments().get(1).metadata())
+                .containsEntry(VectorRecord.KEY_OBJECT_TYPE, "attachment")
+                .containsEntry(VectorRecord.KEY_OBJECT_ID, "42")
+                .containsEntry(VectorRecord.KEY_CHUNK_INDEX, 7)
+                .containsEntry("chunkOrder", 7);
         assertThat(results.elapsedMs()).isGreaterThanOrEqualTo(0L);
         assertThat(results.hits()).hasSize(1);
         assertThat(results.hits().get(0).documentId()).isEqualTo("doc-1");

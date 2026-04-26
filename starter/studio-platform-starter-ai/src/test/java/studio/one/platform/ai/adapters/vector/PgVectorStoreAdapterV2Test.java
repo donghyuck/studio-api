@@ -24,6 +24,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import com.pgvector.PGvector;
 
 import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 
@@ -82,6 +83,50 @@ class PgVectorStoreAdapterV2Test {
     }
 
     @Test
+    void upsertRecordAdaptsChunkIndexForPgVectorBinding() {
+        VectorRecord record = VectorRecord.builder()
+                .id("record-1")
+                .documentId("doc-1")
+                .chunkId("chunk-1")
+                .contentHash("hash-1")
+                .text("record text")
+                .embedding(List.of(0.1d, 0.2d))
+                .embeddingModel("test-embedding")
+                .metadata(Map.of(
+                        VectorRecord.KEY_OBJECT_TYPE, "ARTICLE",
+                        VectorRecord.KEY_OBJECT_ID, "article-1",
+                        VectorRecord.KEY_CHUNK_INDEX, 7))
+                .build();
+
+        adapter.upsert(record);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<MapSqlParameterSource[]> batchCaptor = ArgumentCaptor.forClass(MapSqlParameterSource[].class);
+        verify(namedParameterJdbcTemplate).batchUpdate(org.mockito.Mockito.eq(UPSERT_SQL), batchCaptor.capture());
+        MapSqlParameterSource params = batchCaptor.getValue()[0];
+        assertThat(params.getValue("objectType")).isEqualTo("ARTICLE");
+        assertThat(params.getValue("objectId")).isEqualTo("article-1");
+        assertThat(params.getValue("chunkIndex")).isEqualTo(7);
+        assertThat(String.valueOf(params.getValue("metadata"))).contains("\"chunkOrder\":7");
+    }
+
+    @Test
+    void upsertDocumentReadsChunkIndexWhenChunkOrderIsMissing() {
+        VectorDocument document = new VectorDocument(
+                "doc-1",
+                "hello world",
+                Map.of("objectType", "ARTICLE", "objectId", "article-1", "chunkIndex", 9),
+                List.of(0.1d, 0.2d, 0.3d));
+
+        adapter.upsert(List.of(document));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<MapSqlParameterSource[]> batchCaptor = ArgumentCaptor.forClass(MapSqlParameterSource[].class);
+        verify(namedParameterJdbcTemplate).batchUpdate(anyString(), batchCaptor.capture());
+        assertThat(batchCaptor.getValue()[0].getValue("chunkIndex")).isEqualTo(9);
+    }
+
+    @Test
     void searchUsesSqlSetQueryAndMapsMetadataDocumentId() throws SQLException {
         when(namedParameterJdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
                 .thenAnswer(invocation -> {
@@ -130,6 +175,35 @@ class PgVectorStoreAdapterV2Test {
 
         verify(namedParameterJdbcTemplate).update(org.mockito.Mockito.eq(DELETE_BY_OBJECT_SQL), any(MapSqlParameterSource.class));
         verify(namedParameterJdbcTemplate).batchUpdate(org.mockito.Mockito.eq(UPSERT_SQL), any(MapSqlParameterSource[].class));
+    }
+
+    @Test
+    void replaceRecordsByObjectAdaptsScopeAndChunkIndexForPgVectorBinding() {
+        VectorRecord record = VectorRecord.builder()
+                .id("record-1")
+                .documentId("doc-1")
+                .chunkId("chunk-1")
+                .contentHash("hash-1")
+                .text("record text")
+                .embedding(List.of(0.1d, 0.2d))
+                .embeddingModel("test-embedding")
+                .metadata(Map.of(VectorRecord.KEY_CHUNK_INDEX, 7))
+                .build();
+
+        adapter.replaceRecordsByObject("ARTICLE", "article-1", List.of(record));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<MapSqlParameterSource[]> batchCaptor = ArgumentCaptor.forClass(MapSqlParameterSource[].class);
+        verify(namedParameterJdbcTemplate).update(org.mockito.Mockito.eq(DELETE_BY_OBJECT_SQL), any(MapSqlParameterSource.class));
+        verify(namedParameterJdbcTemplate).batchUpdate(org.mockito.Mockito.eq(UPSERT_SQL), batchCaptor.capture());
+        MapSqlParameterSource params = batchCaptor.getValue()[0];
+        assertThat(params.getValue("objectType")).isEqualTo("ARTICLE");
+        assertThat(params.getValue("objectId")).isEqualTo("article-1");
+        assertThat(params.getValue("chunkIndex")).isEqualTo(7);
+        assertThat(String.valueOf(params.getValue("metadata")))
+                .contains("\"objectType\":\"ARTICLE\"")
+                .contains("\"objectId\":\"article-1\"")
+                .contains("\"chunkOrder\":7");
     }
 
     @Test
