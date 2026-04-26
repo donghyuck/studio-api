@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -26,6 +27,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -77,6 +79,10 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     private void configureMockMvc(AttachmentStructuredRagIndexer structuredRagIndexer) {
+        configureMockMvc(structuredRagIndexer, false);
+    }
+
+    private void configureMockMvc(AttachmentStructuredRagIndexer structuredRagIndexer, boolean allowClientDebug) {
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
@@ -85,6 +91,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                 provider(ragPipelineService),
                 provider(structuredRagIndexer),
                 provider((I18n) null));
+        ReflectionTestUtils.setField(controller, "allowClientDebug", allowClientDebug);
 
         LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
@@ -205,7 +212,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                 provider(chunkingOrchestrator),
                 provider(embeddingPort),
                 provider(vectorStore));
-        configureMockMvc(structuredRagIndexer);
+        configureMockMvc(structuredRagIndexer, true);
 
         Attachment attachment = mock(Attachment.class);
         ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "structured text", "sample.txt");
@@ -241,12 +248,19 @@ class AttachmentEmbeddingPipelineControllerTest {
                         .content("""
                                 {
                                   "documentId": "doc-1",
+                                  "debug": true,
                                   "metadata": {
                                     "category": "manual"
                                   }
                                 }
                                 """))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("X-RAG-Index-Path", "structured"))
+                .andExpect(header().string("X-RAG-Index-Structured", "true"))
+                .andExpect(header().string("X-RAG-Index-Parsed-Block-Count", "1"))
+                .andExpect(header().string("X-RAG-Index-Chunk-Count", "1"))
+                .andExpect(header().string("X-RAG-Index-Vector-Count", "1"))
+                .andExpect(header().doesNotExist("X-RAG-Index-Fallback-Reason"));
 
         verify(extractionService).parseStructured(any(), any(), any(InputStream.class));
         verify(extractionService, never()).extractText(any(), any(), any(InputStream.class));
@@ -280,7 +294,7 @@ class AttachmentEmbeddingPipelineControllerTest {
             inputStream.readAllBytes();
             return false;
         };
-        configureMockMvc(structuredRagIndexer);
+        configureMockMvc(structuredRagIndexer, true);
 
         Attachment attachment = mock(Attachment.class);
         when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
@@ -295,12 +309,95 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
-                .andExpect(status().isAccepted());
+                        .content("""
+                                {
+                                  "debug": true
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("X-RAG-Index-Path", "fallback"))
+                .andExpect(header().string("X-RAG-Index-Structured", "false"))
+                .andExpect(header().string("X-RAG-Index-Fallback-Reason", "structured_not_handled"))
+                .andExpect(header().string("X-RAG-Index-Chunk-Count", "0"));
 
         verify(attachmentService, times(2)).getInputStream(attachment);
         verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
                 "fallback text".equals(request.text())));
+    }
+
+    @Test
+    void ragIndexDoesNotExposeDiagnosticsHeadersUnlessDebugIsRequested() throws Exception {
+        configureMockMvc(null, true);
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isAccepted())
+                .andExpect(header().doesNotExist("X-RAG-Index-Path"))
+                .andExpect(header().doesNotExist("X-RAG-Index-Fallback-Reason"));
+    }
+
+    @Test
+    void ragIndexDoesNotExposeDiagnosticsHeadersUnlessServerAllowsDebug() throws Exception {
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "debug": true
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(header().doesNotExist("X-RAG-Index-Path"))
+                .andExpect(header().doesNotExist("X-RAG-Index-Fallback-Reason"));
+    }
+
+    @Test
+    void ragIndexDoesNotEmitFakeCountsWhenCustomStructuredIndexerHasNoDiagnostics() throws Exception {
+        AttachmentStructuredRagIndexer structuredRagIndexer = (attachment, documentId, objectType, objectId,
+                metadata, extractor, inputStream) -> true;
+        configureMockMvc(structuredRagIndexer, true);
+
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "debug": true
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("X-RAG-Index-Path", "structured"))
+                .andExpect(header().string("X-RAG-Index-Structured", "true"))
+                .andExpect(header().doesNotExist("X-RAG-Index-Parsed-Block-Count"))
+                .andExpect(header().doesNotExist("X-RAG-Index-Chunk-Count"))
+                .andExpect(header().doesNotExist("X-RAG-Index-Vector-Count"));
     }
 
     @Test

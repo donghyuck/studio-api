@@ -3,6 +3,7 @@ package studio.one.application.web.service;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
+import java.util.Optional;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.platform.textract.service.FileContentExtractionService;
@@ -23,4 +24,11 @@ public interface AttachmentStructuredRagIndexer {
             Map<String, Object> metadata,
             FileContentExtractionService extractor,
             InputStream inputStream) throws IOException;
+
+    default Optional<AttachmentRagIndexDiagnostics> latestDiagnostics() {
+        return Optional.empty();
+    }
+
+    default void clearDiagnostics() {
+    }
 }

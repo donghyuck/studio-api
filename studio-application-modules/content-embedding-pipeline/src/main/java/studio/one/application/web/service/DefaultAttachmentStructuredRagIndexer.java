@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -42,6 +43,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private final ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider;
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
+    private final ThreadLocal<AttachmentRagIndexDiagnostics> latestDiagnostics = new ThreadLocal<>();
 
     @Override
     public boolean index(Attachment attachment,
@@ -51,15 +53,14 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             Map<String, Object> metadata,
             FileContentExtractionService extractor,
             InputStream inputStream) throws IOException {
+        latestDiagnostics.remove();
         TextractNormalizedDocumentAdapter adapter = normalizedDocumentAdapterProvider.getIfAvailable();
         ChunkingOrchestrator chunkingOrchestrator = chunkingOrchestratorProvider.getIfAvailable();
         EmbeddingPort embeddingPort = embeddingPortProvider.getIfAvailable();
         VectorStorePort vectorStore = vectorStoreProvider.getIfAvailable();
-        if (adapter == null
-                || chunkingOrchestrator == null
-                || embeddingPort == null
-                || vectorStore == null
-                || !hasObjectScope(objectType, objectId)) {
+        String fallbackReason = fallbackReason(adapter, chunkingOrchestrator, embeddingPort, vectorStore, objectType, objectId);
+        if (fallbackReason != null) {
+            latestDiagnostics.set(AttachmentRagIndexDiagnostics.fallback(fallbackReason));
             return false;
         }
 
@@ -69,6 +70,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         List<Chunk> chunks = chunkingOrchestrator.chunk(document);
         if (chunks.isEmpty()) {
             vectorStore.replaceByObject(objectType, objectId, List.of());
+            latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(parsedFile.blocks().size(), 0, 0));
             return true;
         }
 
@@ -95,12 +97,51 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                     List.copyOf(vectors.get(i).values())));
         }
         vectorStore.replaceByObject(objectType, objectId, documents);
+        latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(
+                parsedFile.blocks().size(),
+                chunks.size(),
+                vectors.size()));
         return true;
+    }
+
+    @Override
+    public Optional<AttachmentRagIndexDiagnostics> latestDiagnostics() {
+        return Optional.ofNullable(latestDiagnostics.get());
+    }
+
+    @Override
+    public void clearDiagnostics() {
+        latestDiagnostics.remove();
     }
 
     private boolean hasObjectScope(String objectType, String objectId) {
         return objectType != null && !objectType.isBlank()
                 && objectId != null && !objectId.isBlank();
+    }
+
+    private String fallbackReason(
+            TextractNormalizedDocumentAdapter adapter,
+            ChunkingOrchestrator chunkingOrchestrator,
+            EmbeddingPort embeddingPort,
+            VectorStorePort vectorStore,
+            String objectType,
+            String objectId) {
+        if (adapter == null) {
+            return "missing_normalized_document_adapter";
+        }
+        if (chunkingOrchestrator == null) {
+            return "missing_chunking_orchestrator";
+        }
+        if (embeddingPort == null) {
+            return "missing_embedding_port";
+        }
+        if (vectorStore == null) {
+            return "missing_vector_store";
+        }
+        if (!hasObjectScope(objectType, objectId)) {
+            return "missing_object_scope";
+        }
+        return null;
     }
 
     private NormalizedDocument enrichMetadata(

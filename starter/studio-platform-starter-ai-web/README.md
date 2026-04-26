@@ -327,6 +327,10 @@ studio:
 `ragDiagnostics`를 추가한다. diagnostics metadata에는 chunk 본문이나 snippet을 포함하지 않는다.
 result snippet 로그는 `studio.ai.pipeline.diagnostics.log-results=true`일 때만 debug level로 제한 길이만 출력한다.
 
+이슈 #305부터 같은 opt-in 조건에서 RAG context expansion diagnostics도
+`ChatResponseDto.metadata.ragContextDiagnostics`로 노출한다. 이 값은 확장 지원 여부, 적용 여부, 전략,
+후보/결과/확장 hit 수, fallback reason만 포함하며 chunk 본문, snippet, embedding vector는 포함하지 않는다.
+
 ### 임베딩 요청 예시
 
 ```http

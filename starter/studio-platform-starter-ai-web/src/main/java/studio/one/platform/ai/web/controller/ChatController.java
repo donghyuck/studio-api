@@ -363,7 +363,8 @@ public class ChatController {
                 objectId,
                 ragTopK,
                 ragQuery == null || ragQuery.isBlank());
-        String context = ragContextBuilder.build(ragResults, expansionCandidates);
+        RagContextBuilder.BuildResult contextResult = ragContextBuilder.buildWithDiagnostics(ragResults, expansionCandidates);
+        String context = contextResult.context();
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
         augmentedMessages.add(new ChatMessageDto("system", context));
@@ -389,11 +390,16 @@ public class ChatController {
         ChatResponse response = chatPort(chat.provider()).chat(toDomainChatRequest(augmented));
         int memoryMessageCount = appendMemory(memory, chat.messages(), response);
         appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
+        boolean exposeDiagnostics = shouldExposeDiagnostics(request);
+        Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
+        if (exposeDiagnostics && contextResult.diagnostics() != null) {
+            extraMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
+        }
         return ResponseEntity.ok(ApiResponse.ok(toDto(
                 response,
                 diagnostics,
-                shouldExposeDiagnostics(request),
-                memoryMetadata(memory, memoryMessageCount))));
+                exposeDiagnostics,
+                extraMetadata)));
     }
 
     @GetMapping("/conversations")

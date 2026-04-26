@@ -85,23 +85,59 @@ public class RagContextBuilder {
     }
 
     public String build(List<RagSearchResult> results, List<RagSearchResult> expansionCandidates) {
+        return buildWithDiagnostics(results, expansionCandidates).context();
+    }
+
+    public BuildResult buildWithDiagnostics(List<RagSearchResult> results, List<RagSearchResult> expansionCandidates) {
+        int resultCount = results == null ? 0 : results.size();
+        int candidateCount = expansionCandidates == null ? 0 : expansionCandidates.size();
+        boolean expansionSupported = supportsExpansion();
         if (results == null || results.isEmpty() || maxChunks == 0 || maxChars == 0) {
-            return NO_CONTEXT_MESSAGE;
+            return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
+                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, "no_context"));
         }
         StringBuilder sb = new StringBuilder(HEADER);
         if (sb.length() > maxChars) {
-            return NO_CONTEXT_MESSAGE;
+            return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
+                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, "context_limit"));
         }
         int count = Math.min(maxChunks, results.size());
+        int expandedHitCount = 0;
+        int fallbackHitCount = 0;
+        String strategy = null;
+        String fallbackReason = expansionSupported ? null : "disabled";
         for (int i = 0; i < count; i++) {
-            RagSearchResult result = expandResult(results.get(i), expansionCandidates);
-            String chunk = formatChunk(i + 1, result);
+            ExpansionAttempt attempt = expandResultWithDiagnostics(results.get(i), expansionCandidates);
+            String chunk = formatChunk(i + 1, attempt.result());
             if (!appendWithinLimit(sb, chunk)) {
                 break;
             }
+            if (attempt.expanded()) {
+                expandedHitCount++;
+                if (strategy == null) {
+                    strategy = attempt.strategy();
+                }
+            } else if (fallbackReason == null) {
+                fallbackHitCount++;
+                fallbackReason = attempt.fallbackReason();
+            } else {
+                fallbackHitCount++;
+            }
         }
         String context = sb.toString().trim();
-        return HEADER.trim().equals(context) ? NO_CONTEXT_MESSAGE : context;
+        if (HEADER.trim().equals(context)) {
+            return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
+                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, "no_context"));
+        }
+        return new BuildResult(context, new Diagnostics(
+                expansionSupported,
+                expandedHitCount > 0,
+                strategy,
+                expandedHitCount,
+                fallbackHitCount,
+                candidateCount,
+                resultCount,
+                fallbackReason));
     }
 
     private boolean appendWithinLimit(StringBuilder sb, String chunk) {
@@ -123,21 +159,26 @@ public class RagContextBuilder {
     }
 
     private RagSearchResult expandResult(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
+        return expandResultWithDiagnostics(result, expansionCandidates).result();
+    }
+
+    private ExpansionAttempt expandResultWithDiagnostics(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
         if (result == null || !supportsExpansion()) {
-            return result;
+            return new ExpansionAttempt(result, false, null, "disabled");
         }
         Optional<Chunk> seed = toChunk(result);
         if (seed.isEmpty() || !hasObjectScope(seed.get())) {
-            return result;
+            return new ExpansionAttempt(result, false, null, "missing_object_scope");
         }
         List<Chunk> availableChunks = availableChunks(seed.get(), expansionCandidates);
         if (availableChunks.isEmpty()) {
-            return result;
+            return new ExpansionAttempt(result, false, null, "no_candidates");
         }
         Optional<ChunkContextExpander> expander = selectExpander(seed.get());
         if (expander.isEmpty()) {
-            return result;
+            return new ExpansionAttempt(result, false, null, "no_expander");
         }
+        String strategy = expander.get().strategy().name().toLowerCase(java.util.Locale.ROOT);
         ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(seed.get())
                 .availableChunks(availableChunks)
                 .previousWindow(expansion.getPreviousWindow())
@@ -146,9 +187,13 @@ public class RagContextBuilder {
                 .build();
         try {
             ChunkContextExpansion expansion = expander.get().expand(request);
-            return new RagSearchResult(result.documentId(), expansion.content(), result.metadata(), result.score());
+            return new ExpansionAttempt(
+                    new RagSearchResult(result.documentId(), expansion.content(), result.metadata(), result.score()),
+                    true,
+                    strategy,
+                    null);
         } catch (RuntimeException ignored) {
-            return result;
+            return new ExpansionAttempt(result, false, strategy, "expander_failed");
         }
     }
 
@@ -278,5 +323,45 @@ public class RagContextBuilder {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    public record BuildResult(String context, Diagnostics diagnostics) {
+    }
+
+    public record Diagnostics(
+            boolean expansionSupported,
+            boolean applied,
+            String strategy,
+            int expandedHitCount,
+            int fallbackHitCount,
+            int candidateCount,
+            int resultCount,
+            String fallbackReason) {
+
+        public Map<String, Object> toMetadata() {
+            Map<String, Object> metadata = new LinkedHashMap<>();
+            metadata.put("expansionSupported", expansionSupported);
+            metadata.put("applied", applied);
+            put(metadata, "strategy", strategy);
+            metadata.put("expandedHitCount", expandedHitCount);
+            metadata.put("fallbackHitCount", fallbackHitCount);
+            metadata.put("candidateCount", candidateCount);
+            metadata.put("resultCount", resultCount);
+            put(metadata, "fallbackReason", fallbackReason);
+            return Map.copyOf(metadata);
+        }
+
+        private static void put(Map<String, Object> metadata, String key, Object value) {
+            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+                metadata.put(key, value);
+            }
+        }
+    }
+
+    private record ExpansionAttempt(
+            RagSearchResult result,
+            boolean expanded,
+            String strategy,
+            String fallbackReason) {
     }
 }

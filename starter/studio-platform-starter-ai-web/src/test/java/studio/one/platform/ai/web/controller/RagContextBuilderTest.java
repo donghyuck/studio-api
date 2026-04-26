@@ -92,6 +92,26 @@ class RagContextBuilderTest {
     }
 
     @Test
+    void diagnosticsPreservePartialExpansionFallbacks() {
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(
+                        result("chunk-2", "seed", metadata("chunk-2")),
+                        new RagSearchResult("legacy", "legacy", Map.of(RagContextBuilder.KEY_CHUNK_ID, "legacy"), 0.7d)),
+                List.of(
+                        result("chunk-1", "previous", metadata("chunk-1", null, "chunk-2", 0)),
+                        result("chunk-2", "seed", metadata("chunk-2", "chunk-1", "chunk-3", 1)),
+                        result("chunk-3", "next", metadata("chunk-3", "chunk-2", null, 2))));
+
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("applied", true)
+                .containsEntry("expandedHitCount", 1)
+                .containsEntry("fallbackHitCount", 1)
+                .containsEntry("fallbackReason", "missing_object_scope");
+    }
+
+    @Test
     void keepsCharacterBudgetAfterExpansion() {
         RagContextBuilder builder = new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList());
 
