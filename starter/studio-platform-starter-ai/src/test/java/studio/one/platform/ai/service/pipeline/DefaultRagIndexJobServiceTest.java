@@ -1,6 +1,7 @@
 package studio.one.platform.ai.service.pipeline;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.Map;
@@ -86,6 +87,22 @@ class DefaultRagIndexJobServiceTest {
         assertThat(pipeline.calls).isEqualTo(2);
         assertThat(retried.status()).isEqualTo(RagIndexJobStatus.SUCCEEDED);
         assertThat(retried.chunkCount()).isEqualTo(1);
+    }
+
+    @Test
+    void retryRejectsActiveJob() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of())));
+
+        assertThatThrownBy(() -> service.retryJob(job.jobId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot be retried");
     }
 
     private static class SuccessfulPipeline extends BasePipeline {

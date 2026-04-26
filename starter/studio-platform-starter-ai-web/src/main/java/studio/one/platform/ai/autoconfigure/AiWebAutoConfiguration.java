@@ -2,7 +2,10 @@ package studio.one.platform.ai.autoconfigure;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.util.concurrent.Executor;
+
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,6 +17,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.lang.Nullable;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
@@ -126,8 +130,22 @@ public class AiWebAutoConfiguration {
     RagIndexJobController ragIndexJobController(
             RagIndexJobService ragIndexJobService,
             RagPipelineService ragPipelineService,
-            @Nullable VectorStorePort vectorStorePort) {
-        return new RagIndexJobController(ragIndexJobService, ragPipelineService, vectorStorePort);
+            @Nullable VectorStorePort vectorStorePort,
+            @Qualifier("ragIndexJobExecutor") Executor ragIndexJobExecutor) {
+        return new RagIndexJobController(ragIndexJobService, ragPipelineService, vectorStorePort, ragIndexJobExecutor);
+    }
+
+    @Bean(name = "ragIndexJobExecutor")
+    @ConditionalOnBean(RagIndexJobService.class)
+    @ConditionalOnMissingBean(name = "ragIndexJobExecutor")
+    Executor ragIndexJobExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("rag-index-job-");
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(100);
+        executor.initialize();
+        return executor;
     }
 
     @Bean

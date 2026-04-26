@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import jakarta.validation.Valid;
 
@@ -23,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
@@ -48,10 +52,12 @@ import studio.one.platform.web.dto.ApiResponse;
 @Validated
 public class RagIndexJobController {
 
+    private static final Logger log = LoggerFactory.getLogger(RagIndexJobController.class);
     private static final int DEFAULT_CHUNK_LIMIT = 200;
 
     private final RagIndexJobService jobService;
     private final RagPipelineService ragPipelineService;
+    private final Executor jobExecutor;
     @Nullable
     private final VectorStorePort vectorStorePort;
 
@@ -59,9 +65,18 @@ public class RagIndexJobController {
             RagIndexJobService jobService,
             RagPipelineService ragPipelineService,
             @Nullable VectorStorePort vectorStorePort) {
+        this(jobService, ragPipelineService, vectorStorePort, Runnable::run);
+    }
+
+    public RagIndexJobController(
+            RagIndexJobService jobService,
+            RagPipelineService ragPipelineService,
+            @Nullable VectorStorePort vectorStorePort,
+            Executor jobExecutor) {
         this.jobService = Objects.requireNonNull(jobService, "jobService");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.vectorStorePort = vectorStorePort;
+        this.jobExecutor = Objects.requireNonNull(jobExecutor, "jobExecutor");
     }
 
     @GetMapping("/jobs")
@@ -94,15 +109,18 @@ public class RagIndexJobController {
     public ResponseEntity<ApiResponse<RagIndexJobDto>> createJob(
             @Valid @RequestBody RagIndexJobCreateRequestDto request) {
         RagIndexJob job = jobService.createJob(toCreateRequest(request));
-        CompletableFuture.runAsync(() -> jobService.startJob(job.jobId()));
+        dispatch(job.jobId(), () -> jobService.startJob(job.jobId()));
         return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(job)));
     }
 
     @PostMapping("/jobs/{jobId}/retry")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> retryJob(@PathVariable("jobId") String jobId) {
-        requireJob(jobId);
-        CompletableFuture.runAsync(() -> jobService.retryJob(jobId));
+        RagIndexJob job = requireJob(jobId);
+        if (job.status() == RagIndexJobStatus.PENDING || job.status() == RagIndexJobStatus.RUNNING) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "RAG index job is still active");
+        }
+        dispatch(jobId, () -> jobService.retryJob(jobId));
         return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(requireJob(jobId))));
     }
 
@@ -152,6 +170,9 @@ public class RagIndexJobController {
     }
 
     private RagIndexJobCreateRequest toCreateRequest(RagIndexJobCreateRequestDto request) {
+        if (!hasText(request.text())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "text is required for /rag/jobs");
+        }
         Map<String, Object> metadata = request.metadata() == null
                 ? new HashMap<>()
                 : new HashMap<>(request.metadata());
@@ -176,6 +197,25 @@ public class RagIndexJobController {
                 request.sourceType(),
                 Boolean.TRUE.equals(request.forceReindex()),
                 indexRequest);
+    }
+
+    private void dispatch(String jobId, Runnable task) {
+        try {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    task.run();
+                } catch (RuntimeException ex) {
+                    log.warn("RAG index job execution failed for jobId={}: {}", jobId, ex.getMessage(), ex);
+                }
+            }, jobExecutor);
+        } catch (RejectedExecutionException ex) {
+            jobService.progressListener(jobId).onError(
+                    null,
+                    studio.one.platform.ai.core.rag.RagIndexJobLogCode.UNKNOWN_ERROR,
+                    "RAG index job dispatch rejected",
+                    ex.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "RAG index job executor is busy", ex);
+        }
     }
 
     private RagIndexJob requireJob(String jobId) {

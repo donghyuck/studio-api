@@ -1,6 +1,7 @@
 package studio.one.platform.ai.web.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -11,6 +12,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
@@ -66,6 +68,27 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void createJobRejectsMissingTextForDefaultExecutor() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of(),
+                List.of(),
+                false)))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
     void listsFetchesRetriesAndReturnsLogs() {
         CapturingJobService jobService = new CapturingJobService();
         RagIndexJobController controller = new RagIndexJobController(
@@ -85,6 +108,18 @@ class RagIndexJobControllerTest {
         assertThat(logsResponse.getBody().getData())
                 .extracting(RagIndexJobLogDto::code)
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
+    }
+
+    @Test
+    void retryRejectsActiveJob() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.RUNNING),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.retryJob("job-1"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
     }
 
     @Test
@@ -132,14 +167,24 @@ class RagIndexJobControllerTest {
 
     private static class CapturingJobService implements RagIndexJobService {
 
-        private final RagIndexJob job = RagIndexJob.pending(
-                "job-1",
-                "attachment",
-                "42",
-                "doc-1",
-                "attachment",
-                java.time.Instant.parse("2026-04-26T00:00:00Z"));
+        private final RagIndexJob job;
         private RagIndexJobCreateRequest createdRequest;
+
+        CapturingJobService() {
+            this(RagIndexJobStatus.SUCCEEDED);
+        }
+
+        CapturingJobService(RagIndexJobStatus status) {
+            this.job = RagIndexJob.pending(
+                    "job-1",
+                    "attachment",
+                    "42",
+                    "doc-1",
+                    "attachment",
+                    java.time.Instant.parse("2026-04-26T00:00:00Z"))
+                    .withStatus(status, RagIndexJobStep.COMPLETED, null,
+                            java.time.Instant.parse("2026-04-26T00:00:01Z"));
+        }
 
         @Override
         public RagIndexJob createJob(RagIndexJobCreateRequest request) {

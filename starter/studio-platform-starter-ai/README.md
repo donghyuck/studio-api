@@ -193,7 +193,8 @@ RAG metadata key의 표준 의미와 legacy alias 기준은
 `RagIndexJobService`는 `RagPipelineService.index(request, listener)` overload를 사용해
 `CHUNKING`, `EMBEDDING`, `INDEXING`, `COMPLETED` 단계와 chunk/embedding/index count를 기록한다.
 기본 `InMemoryRagIndexJobRepository`는 운영 화면 개발 및 단일 인스턴스 smoke 용도이며, 외부 queue나
-분산 worker를 포함하지 않는다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은
+분산 worker를 포함하지 않는다. 재시도를 위해 최근 raw text 요청을 메모리에 보관하되 저장 request 수는
+bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은
 `RagIndexJobRepository` 계약으로 DB 기반 구현을 별도 Bean으로 등록한다.
 
 ### Chat metadata / streaming

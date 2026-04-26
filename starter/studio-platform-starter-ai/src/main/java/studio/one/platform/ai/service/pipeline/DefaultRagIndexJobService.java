@@ -6,7 +6,10 @@ import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
@@ -22,9 +25,13 @@ import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
 public class DefaultRagIndexJobService implements RagIndexJobService {
 
+    private static final int MAX_STORED_REQUESTS = 1_000;
+
     private final RagIndexJobRepository repository;
     private final RagPipelineService ragPipelineService;
     private final ConcurrentMap<String, RagIndexJobCreateRequest> requests = new ConcurrentHashMap<>();
+    private final Queue<String> requestOrder = new ConcurrentLinkedQueue<>();
+    private final Set<String> runningJobs = ConcurrentHashMap.newKeySet();
 
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
@@ -45,11 +52,28 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                 request.sourceType(),
                 Instant.now());
         requests.put(jobId, request);
+        requestOrder.add(jobId);
+        evictStoredRequests();
         return repository.save(job);
     }
 
     @Override
     public RagIndexJob startJob(String jobId) {
+        if (!runningJobs.add(jobId)) {
+            throw new IllegalStateException("RAG index job is already running: " + jobId);
+        }
+        try {
+            RagIndexJob job = requireJob(jobId);
+            if (job.status() != RagIndexJobStatus.PENDING) {
+                throw new IllegalStateException("RAG index job can only be started from PENDING status: " + jobId);
+            }
+            return runJob(jobId);
+        } finally {
+            runningJobs.remove(jobId);
+        }
+    }
+
+    private RagIndexJob runJob(String jobId) {
         RagIndexJobCreateRequest request = requests.get(jobId);
         RagIndexProgressListener listener = progressListener(jobId);
         listener.onStarted();
@@ -73,16 +97,27 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
     @Override
     public RagIndexJob retryJob(String jobId) {
-        RagIndexJob job = requireJob(jobId).resetForRetry(Instant.now());
-        repository.save(job);
-        repository.appendLog(log(
-                jobId,
-                RagIndexJobLogLevel.INFO,
-                null,
-                RagIndexJobLogCode.RETRY_REQUESTED,
-                "RAG index retry requested",
-                null));
-        return startJob(jobId);
+        if (!runningJobs.add(jobId)) {
+            throw new IllegalStateException("RAG index job is already running: " + jobId);
+        }
+        try {
+            RagIndexJob current = requireJob(jobId);
+            if (current.status() == RagIndexJobStatus.PENDING || current.status() == RagIndexJobStatus.RUNNING) {
+                throw new IllegalStateException("RAG index job cannot be retried while active: " + jobId);
+            }
+            RagIndexJob job = current.resetForRetry(Instant.now());
+            repository.save(job);
+            repository.appendLog(log(
+                    jobId,
+                    RagIndexJobLogLevel.INFO,
+                    null,
+                    RagIndexJobLogCode.RETRY_REQUESTED,
+                    "RAG index retry requested",
+                    null));
+            return runJob(jobId);
+        } finally {
+            runningJobs.remove(jobId);
+        }
     }
 
     @Override
@@ -136,6 +171,28 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             return RagIndexJobLogCode.VECTOR_UPSERT_FAILED;
         }
         return RagIndexJobLogCode.UNKNOWN_ERROR;
+    }
+
+    private void evictStoredRequests() {
+        while (requests.size() > MAX_STORED_REQUESTS) {
+            String oldestJobId = requestOrder.poll();
+            if (oldestJobId == null) {
+                return;
+            }
+            Optional<RagIndexJob> oldestJob = repository.findById(oldestJobId);
+            if (oldestJob
+                    .filter(job -> job.status() != RagIndexJobStatus.PENDING
+                            && job.status() != RagIndexJobStatus.RUNNING)
+                    .isPresent()) {
+                requests.remove(oldestJobId);
+            } else {
+                requestOrder.add(oldestJobId);
+                return;
+            }
+            if (requests.size() <= MAX_STORED_REQUESTS) {
+                return;
+            }
+        }
     }
 
     private class RepositoryBackedProgressListener implements RagIndexProgressListener {

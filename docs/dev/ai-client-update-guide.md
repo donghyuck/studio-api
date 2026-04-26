@@ -43,10 +43,33 @@
 | 벡터 검색 | `POST` | `/api/mgmt/ai/vectors/search` |
 | RAG 인덱싱 | `POST` | `/api/mgmt/ai/rag/index` |
 | RAG 검색 | `POST` | `/api/mgmt/ai/rag/search` |
+| RAG 색인 job 생성 | `POST` | `/api/mgmt/ai/rag/jobs` |
+| RAG 색인 job 목록 | `GET` | `/api/mgmt/ai/rag/jobs` |
+| RAG 색인 job 상세 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}` |
+| RAG 색인 job 로그 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}/logs` |
+| RAG 색인 job 재시도 | `POST` | `/api/mgmt/ai/rag/jobs/{jobId}/retry` |
+| RAG object chunk 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks` |
+| RAG object metadata 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/metadata` |
 
 기존 `/api/ai/embedding`, `/api/ai/vectors`, `/api/ai/rag/*` 경로를 계속 쓰는 환경은
 서버에서 `studio.ai.endpoints.mgmt-base-path=/api/ai`로 호환 설정했는지 확인한다.
 호환 설정이 없으면 클라이언트 호출 경로를 `/api/mgmt/ai`로 바꾼다.
+
+## RAG 색인 운영 화면
+
+기존 `POST /api/mgmt/ai/rag/index`와 `POST /api/mgmt/attachments/{attachmentId}/rag/index`는
+응답 body 없이 `202 Accepted`를 유지한다. 서버가 job tracking을 제공하면 응답 헤더
+`X-RAG-Job-Id`가 추가되므로, 클라이언트는 이 값을 이용해 job 상세와 로그를 조회할 수 있다.
+
+신규 `POST /api/mgmt/ai/rag/jobs`는 첫 범위에서 raw text 색인만 실행한다. 요청에는 `objectType`,
+`objectId`, `text`가 필요하며, source-only attachment 실행은 기존 attachment RAG index API를 사용한다.
+생성 후 운영 화면은 아래 순서로 동작한다.
+
+1. `POST /api/mgmt/ai/rag/jobs`로 job을 생성한다.
+2. `GET /api/mgmt/ai/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, `chunkCount`, `embeddedCount`, `indexedCount`를 표시한다.
+3. `GET /api/mgmt/ai/rag/jobs/{jobId}/logs`로 단계별 `INFO`/`WARN`/`ERROR` 로그를 표시한다.
+4. 완료 후 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks` 또는 object chunk API로 색인 결과를 보여준다.
+5. `FAILED`, `SUCCEEDED`, `WARNING`, `CANCELLED` 상태에서만 retry 버튼을 활성화한다. `PENDING`/`RUNNING` retry는 `409 Conflict`로 처리한다.
 
 ## 채팅 요청 변경
 
