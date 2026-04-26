@@ -261,7 +261,10 @@ class AttachmentEmbeddingPipelineControllerTest {
                                   "documentId": "doc-1",
                                   "debug": true,
                                   "metadata": {
-                                    "category": "manual"
+                                    "category": "manual",
+                                    "objectType": "caller-object",
+                                    "objectId": "caller-id",
+                                    "chunkIndex": 99
                                   }
                                 }
                                 """))

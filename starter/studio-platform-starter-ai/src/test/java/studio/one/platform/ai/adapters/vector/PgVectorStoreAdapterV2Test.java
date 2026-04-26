@@ -111,6 +111,22 @@ class PgVectorStoreAdapterV2Test {
     }
 
     @Test
+    void upsertDocumentReadsChunkIndexWhenChunkOrderIsMissing() {
+        VectorDocument document = new VectorDocument(
+                "doc-1",
+                "hello world",
+                Map.of("objectType", "ARTICLE", "objectId", "article-1", "chunkIndex", 9),
+                List.of(0.1d, 0.2d, 0.3d));
+
+        adapter.upsert(List.of(document));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<MapSqlParameterSource[]> batchCaptor = ArgumentCaptor.forClass(MapSqlParameterSource[].class);
+        verify(namedParameterJdbcTemplate).batchUpdate(anyString(), batchCaptor.capture());
+        assertThat(batchCaptor.getValue()[0].getValue("chunkIndex")).isEqualTo(9);
+    }
+
+    @Test
     void searchUsesSqlSetQueryAndMapsMetadataDocumentId() throws SQLException {
         when(namedParameterJdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
                 .thenAnswer(invocation -> {

@@ -98,10 +98,10 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             chunkMetadata.put("chunkLength", chunk.content().length());
             Object chunkOrder = standardChunkMetadata.get(ChunkMetadata.KEY_CHUNK_ORDER);
             if (chunkOrder != null) {
-                chunkMetadata.putIfAbsent(VectorRecord.KEY_CHUNK_INDEX, chunkOrder);
+                chunkMetadata.put(VectorRecord.KEY_CHUNK_INDEX, chunkOrder);
             }
-            chunkMetadata.putIfAbsent(VectorRecord.KEY_OBJECT_TYPE, objectType);
-            chunkMetadata.putIfAbsent(VectorRecord.KEY_OBJECT_ID, objectId);
+            chunkMetadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
+            chunkMetadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
             List<Double> embedding = List.copyOf(vectors.get(i).values());
             records.add(VectorRecord.builder()
                     .id(chunk.id())

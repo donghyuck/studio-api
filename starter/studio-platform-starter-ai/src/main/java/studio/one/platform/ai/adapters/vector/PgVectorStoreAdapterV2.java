@@ -245,7 +245,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     }
 
     private static int resolveChunkIndex(Map<String, Object> metadata) {
-        Object value = metadata.getOrDefault("chunkOrder", 0);
+        Object value = metadata.getOrDefault("chunkOrder", metadata.getOrDefault("chunkIndex", 0));
         if (value instanceof Number number) {
             return number.intValue();
         }
