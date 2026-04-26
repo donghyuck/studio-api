@@ -8,7 +8,6 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.ai.core.rag.RagSearchResult;
-import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkContextExpander;
 import studio.one.platform.chunking.core.ChunkContextExpansion;
 import studio.one.platform.chunking.core.ChunkContextExpansionRequest;
@@ -16,8 +15,6 @@ import studio.one.platform.chunking.core.ChunkContextExpansionStrategy;
 import studio.one.platform.chunking.core.ChunkMetadata;
 
 class RagContextBuilderTest {
-
-    private static final String KEY_CHUNK_ID = "chunkId";
 
     @Test
     void keepsExistingContextWhenNoExpanderIsConfigured() {
@@ -33,7 +30,7 @@ class RagContextBuilderTest {
 
     @Test
     void expandsChunkContextWhenObjectScopedMetadataIsAvailable() {
-        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, List.of(new JoiningWindowExpander()));
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList());
 
         String context = builder.build(
                 List.of(result("chunk-2", "seed", metadata("chunk-2"))),
@@ -56,7 +53,7 @@ class RagContextBuilderTest {
         String context = builder.build(List.of(new RagSearchResult(
                 "chunk-1",
                 "seed",
-                Map.of(KEY_CHUNK_ID, "chunk-1"),
+                Map.of(RagContextBuilder.KEY_CHUNK_ID, "chunk-1"),
                 0.9d)));
 
         assertThat(context).contains("seed");
@@ -65,7 +62,7 @@ class RagContextBuilderTest {
 
     @Test
     void keepsCharacterBudgetAfterExpansion() {
-        RagContextBuilder builder = new RagContextBuilder(8, 80, true, List.of(new JoiningWindowExpander()));
+        RagContextBuilder builder = new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList());
 
         String context = builder.build(
                 List.of(result("chunk-2", "seed", metadata("chunk-2"))),
@@ -91,32 +88,10 @@ class RagContextBuilderTest {
         return Map.ofEntries(
                 Map.entry(ChunkMetadata.KEY_OBJECT_TYPE, "attachment"),
                 Map.entry(ChunkMetadata.KEY_OBJECT_ID, "123"),
-                Map.entry(KEY_CHUNK_ID, chunkId),
+                Map.entry(RagContextBuilder.KEY_CHUNK_ID, chunkId),
                 Map.entry(ChunkMetadata.KEY_CHUNK_ORDER, order),
                 Map.entry(ChunkMetadata.KEY_PREVIOUS_CHUNK_ID, previousChunkId == null ? "" : previousChunkId),
                 Map.entry(ChunkMetadata.KEY_NEXT_CHUNK_ID, nextChunkId == null ? "" : nextChunkId));
-    }
-
-    private static final class JoiningWindowExpander implements ChunkContextExpander {
-
-        @Override
-        public ChunkContextExpansionStrategy strategy() {
-            return ChunkContextExpansionStrategy.WINDOW;
-        }
-
-        @Override
-        public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
-            String content = request.availableChunks().stream()
-                    .map(Chunk::content)
-                    .reduce((left, right) -> left + "\n" + right)
-                    .orElse(request.seedChunk().content());
-            return new ChunkContextExpansion(
-                    request.seedChunk(),
-                    request.availableChunks(),
-                    content,
-                    strategy(),
-                    Map.of());
-        }
     }
 
     private static final class CountingExpander implements ChunkContextExpander {

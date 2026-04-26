@@ -25,7 +25,7 @@ public class RagContextBuilder {
 
     private static final String NO_CONTEXT_MESSAGE = "참고할 문서가 없습니다. 일반적으로 답변하세요.";
     private static final String HEADER = "다음 문서 내용을 참고해 답변하세요:\n";
-    private static final String KEY_CHUNK_ID = "chunkId";
+    static final String KEY_CHUNK_ID = "chunkId";
     private static final String KEY_DOCUMENT_ID = "documentId";
 
     private final int maxChunks;
@@ -161,6 +161,8 @@ public class RagContextBuilder {
         return contextExpanders.stream()
                 .filter(expander -> expander.strategy() == preferred)
                 .findFirst()
+                // Fall back to WINDOW because it preserves the seed chunk and only
+                // adds explicitly linked neighbors when a specialized expander is absent.
                 .or(() -> contextExpanders.stream()
                         .filter(expander -> expander.strategy() == ChunkContextExpansionStrategy.WINDOW)
                         .findFirst());
@@ -196,7 +198,7 @@ public class RagContextBuilder {
         ChunkMetadata chunkMetadata = ChunkMetadata.builder(strategy(metadata), order)
                 .sourceDocumentId(firstText(metadata, ChunkMetadata.KEY_SOURCE_DOCUMENT_ID, KEY_DOCUMENT_ID))
                 .parentId(text(metadata.get(ChunkMetadata.KEY_PARENT_ID)))
-                .chunkType(ChunkType.from(text(metadata.get(ChunkMetadata.KEY_CHUNK_TYPE))))
+                .chunkType(chunkType(metadata))
                 .parentChunkId(text(metadata.get(ChunkMetadata.KEY_PARENT_CHUNK_ID)))
                 .previousChunkId(text(metadata.get(ChunkMetadata.KEY_PREVIOUS_CHUNK_ID)))
                 .nextChunkId(text(metadata.get(ChunkMetadata.KEY_NEXT_CHUNK_ID)))
@@ -207,6 +209,14 @@ public class RagContextBuilder {
                 .attributes(metadata)
                 .build();
         return Optional.of(Chunk.of(chunkId, result.content(), chunkMetadata));
+    }
+
+    private ChunkType chunkType(Map<String, Object> metadata) {
+        try {
+            return ChunkType.from(text(metadata.get(ChunkMetadata.KEY_CHUNK_TYPE)));
+        } catch (IllegalArgumentException ignored) {
+            return ChunkType.CHILD;
+        }
     }
 
     private ChunkingStrategyType strategy(Map<String, Object> metadata) {

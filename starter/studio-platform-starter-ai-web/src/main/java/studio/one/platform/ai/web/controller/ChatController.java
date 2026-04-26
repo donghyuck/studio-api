@@ -38,6 +38,8 @@ import jakarta.validation.Valid;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -95,6 +97,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @Validated
 public class ChatController {
 
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
 
     private final AiProviderRegistry providerRegistry;
@@ -577,7 +580,9 @@ public class ChatController {
         try {
             List<RagSearchResult> candidates = ragPipelineService.listByObject(objectType, objectId, limit);
             return candidates == null || candidates.isEmpty() ? ragResults : candidates;
-        } catch (RuntimeException ignored) {
+        } catch (RuntimeException ex) {
+            log.warn("RAG context expansion candidate fetch failed for objectType={}, objectId={}: {}",
+                    objectType, objectId, ex.getMessage());
             return ragResults;
         }
     }

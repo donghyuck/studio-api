@@ -48,17 +48,10 @@ import studio.one.platform.ai.web.dto.ConversationSummaryDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
-import studio.one.platform.chunking.core.Chunk;
-import studio.one.platform.chunking.core.ChunkContextExpander;
-import studio.one.platform.chunking.core.ChunkContextExpansion;
-import studio.one.platform.chunking.core.ChunkContextExpansionRequest;
-import studio.one.platform.chunking.core.ChunkContextExpansionStrategy;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.web.dto.ApiResponse;
 
 class ChatControllerTest {
-
-    private static final String KEY_CHUNK_ID = "chunkId";
 
     @Mock
     private AiProviderRegistry providerRegistry;
@@ -554,7 +547,7 @@ class ChatControllerTest {
     @Test
     void ragChatUsesObjectScopedCandidatesForContextExpansion() {
         controller = new ChatController(providerRegistry, ragPipelineService,
-                new RagContextBuilder(8, 12_000, true, List.of(new TestWindowExpander())));
+                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()));
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
@@ -924,31 +917,9 @@ class ChatControllerTest {
         return Map.ofEntries(
                 Map.entry(ChunkMetadata.KEY_OBJECT_TYPE, "attachment"),
                 Map.entry(ChunkMetadata.KEY_OBJECT_ID, "123"),
-                Map.entry(KEY_CHUNK_ID, chunkId),
+                Map.entry(RagContextBuilder.KEY_CHUNK_ID, chunkId),
                 Map.entry(ChunkMetadata.KEY_CHUNK_ORDER, order),
                 Map.entry(ChunkMetadata.KEY_PREVIOUS_CHUNK_ID, previousChunkId == null ? "" : previousChunkId),
                 Map.entry(ChunkMetadata.KEY_NEXT_CHUNK_ID, nextChunkId == null ? "" : nextChunkId));
-    }
-
-    private static final class TestWindowExpander implements ChunkContextExpander {
-
-        @Override
-        public ChunkContextExpansionStrategy strategy() {
-            return ChunkContextExpansionStrategy.WINDOW;
-        }
-
-        @Override
-        public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
-            String content = request.availableChunks().stream()
-                    .map(Chunk::content)
-                    .reduce((left, right) -> left + "\n" + right)
-                    .orElse(request.seedChunk().content());
-            return new ChunkContextExpansion(
-                    request.seedChunk(),
-                    request.availableChunks(),
-                    content,
-                    strategy(),
-                    Map.of());
-        }
     }
 }
