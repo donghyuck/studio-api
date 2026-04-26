@@ -19,6 +19,7 @@ import io.github.resilience4j.retry.Retry;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunker;
+import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -36,6 +37,7 @@ import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaningResult;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Slf4j
@@ -43,6 +45,7 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 public class DefaultRagPipelineService implements RagPipelineService {
 
     private final EmbeddingPort embeddingPort;
+    private final RagEmbeddingProfileResolver embeddingProfileResolver;
     private final VectorStorePort vectorStorePort;
     private final RagChunker ragChunker;
     private final Cache<String, List<Double>> embeddingCache;
@@ -65,7 +68,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagPipelineDiagnosticsOptions diagnosticsOptions,
             RagKeywordOptions keywordOptions) {
         this(embeddingPort, vectorStorePort, createChunker(textChunker, null), embeddingCache, retry, keywordExtractor, textCleaner,
-                options, diagnosticsOptions, keywordOptions);
+                options, diagnosticsOptions, keywordOptions, new SinglePortRagEmbeddingProfileResolver(embeddingPort));
     }
 
     public DefaultRagPipelineService(EmbeddingPort embeddingPort,
@@ -80,7 +83,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagPipelineDiagnosticsOptions diagnosticsOptions,
             RagKeywordOptions keywordOptions) {
         this(embeddingPort, vectorStorePort, createChunker(textChunker, chunkingOrchestrator), embeddingCache, retry,
-                keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions);
+                keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions,
+                new SinglePortRagEmbeddingProfileResolver(embeddingPort));
     }
 
     private DefaultRagPipelineService(EmbeddingPort embeddingPort,
@@ -92,9 +96,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
             TextCleaner textCleaner,
             RagPipelineOptions options,
             RagPipelineDiagnosticsOptions diagnosticsOptions,
-            RagKeywordOptions keywordOptions) {
+            RagKeywordOptions keywordOptions,
+            RagEmbeddingProfileResolver embeddingProfileResolver) {
 
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
+        this.embeddingProfileResolver = Objects.requireNonNull(embeddingProfileResolver, "embeddingProfileResolver");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
         this.ragChunker = Objects.requireNonNull(ragChunker, "ragChunker");
         this.embeddingCache = Objects.requireNonNull(embeddingCache, "embeddingCache");
@@ -164,7 +170,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagPipelineDiagnosticsOptions diagnosticsOptions,
             RagKeywordOptions keywordOptions) {
         return create(embeddingPort, vectorStorePort, textChunker, null, embeddingCache, retry,
-                keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions);
+                keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions,
+                new SinglePortRagEmbeddingProfileResolver(embeddingPort));
     }
 
     public static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
@@ -178,8 +185,26 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagPipelineOptions options,
             RagPipelineDiagnosticsOptions diagnosticsOptions,
             RagKeywordOptions keywordOptions) {
-        return new DefaultRagPipelineService(embeddingPort, vectorStorePort, textChunker, chunkingOrchestrator,
-                embeddingCache, retry, keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions);
+        return create(embeddingPort, vectorStorePort, textChunker, chunkingOrchestrator,
+                embeddingCache, retry, keywordExtractor, textCleaner, options, diagnosticsOptions,
+                keywordOptions, new SinglePortRagEmbeddingProfileResolver(embeddingPort));
+    }
+
+    public static DefaultRagPipelineService create(EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            TextChunker textChunker,
+            ChunkingOrchestrator chunkingOrchestrator,
+            Cache<String, List<Double>> embeddingCache,
+            Retry retry,
+            KeywordExtractor keywordExtractor,
+            TextCleaner textCleaner,
+            RagPipelineOptions options,
+            RagPipelineDiagnosticsOptions diagnosticsOptions,
+            RagKeywordOptions keywordOptions,
+            RagEmbeddingProfileResolver embeddingProfileResolver) {
+        return new DefaultRagPipelineService(embeddingPort, vectorStorePort, createChunker(textChunker, chunkingOrchestrator),
+                embeddingCache, retry, keywordExtractor, textCleaner, options, diagnosticsOptions, keywordOptions,
+                embeddingProfileResolver);
     }
 
     private static RagChunker createChunker(TextChunker textChunker, ChunkingOrchestrator chunkingOrchestrator) {
@@ -222,9 +247,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
         int order = 0;
         progress.onStep(RagIndexJobStep.EMBEDDING);
         for (RagPipelineChunk chunk : chunks) {
-            List<Double> embedding = embedWithCache(chunk.content());
+            ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request, chunk);
+            List<Double> embedding = embedWithCache(chunk.content(), resolvedEmbedding);
             Map<String, Object> metadata = new HashMap<>(baseMetadata);
             mergeChunkMetadata(metadata, chunk.metadata());
+            metadata.putAll(resolvedEmbedding.metadata());
             List<String> chunkKeywords = keywordOptions.scope().includesChunk()
                     ? resolveChunkKeywords(request, chunk.content())
                     : List.of();
@@ -357,10 +384,14 @@ public class DefaultRagPipelineService implements RagPipelineService {
         clearDiagnostics();
         MetadataFilter filter = request.metadataFilter();
         if (filter.hasObjectScope()) {
-            return searchObjectScope(request.query(), request.topK(), filter);
+            return searchObjectScope(request, filter);
         }
-        List<Double> queryEmbedding = embedWithCache(request.query());
-        VectorSearchRequest searchRequest = new VectorSearchRequest(queryEmbedding, request.topK(), filter);
+        ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request);
+        List<Double> queryEmbedding = embedWithCache(request.query(), resolvedEmbedding);
+        VectorSearchRequest searchRequest = new VectorSearchRequest(
+                queryEmbedding,
+                request.topK(),
+                embeddingFilter(filter, resolvedEmbedding));
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
@@ -378,28 +409,30 @@ public class DefaultRagPipelineService implements RagPipelineService {
         if (filter.isEmpty()) {
             filter = request.metadataFilter();
         }
-        return searchObjectScope(request.query(), request.topK(), filter);
+        return searchObjectScope(request, filter);
     }
 
-    private List<RagSearchResult> searchObjectScope(String queryText, int topK, MetadataFilter filter) {
-        List<Double> queryEmbedding = embedWithCache(queryText);
+    private List<RagSearchResult> searchObjectScope(RagSearchRequest request, MetadataFilter filter) {
+        ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request);
+        MetadataFilter searchFilter = embeddingFilter(filter, resolvedEmbedding);
+        List<Double> queryEmbedding = embedWithCache(request.query(), resolvedEmbedding);
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 queryEmbedding,
-                topK,
-                filter);
+                request.topK(),
+                searchFilter);
         List<VectorSearchResult> results = searchWithFallback(
-                queryText,
+                request.query(),
                 searchRequest,
                 query -> vectorStorePort.hybridSearchByObject(
                         query,
-                        filter.objectType(),
-                        filter.objectId(),
+                        searchFilter.objectType(),
+                        searchFilter.objectId(),
                         searchRequest,
                         options.vectorWeight(),
                         options.lexicalWeight()),
-                () -> vectorStorePort.searchByObject(filter.objectType(), filter.objectId(), searchRequest),
-                filter.objectType(),
-                filter.objectId());
+                () -> vectorStorePort.searchByObject(searchFilter.objectType(), searchFilter.objectId(), searchRequest),
+                searchFilter.objectType(),
+                searchFilter.objectId());
         return toRagSearchResults(results);
     }
 
@@ -448,20 +481,100 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     private List<Double> embedWithCache(String text) {
-        List<Double> cached = embeddingCache.getIfPresent(text);
+        return embedWithCache(text, resolveLegacyEmbedding());
+    }
+
+    private List<Double> embedWithCache(String text, ResolvedRagEmbedding resolvedEmbedding) {
+        String cacheKey = embeddingCacheKey(text, resolvedEmbedding);
+        List<Double> cached = embeddingCache.getIfPresent(cacheKey);
         if (cached != null) {
             return cached;
         }
-        EmbeddingResponse response = executeEmbedding(List.of(text));
+        EmbeddingResponse response = executeEmbedding(List.of(text), resolvedEmbedding);
         EmbeddingVector vector = response.vectors().get(0);
         List<Double> values = List.copyOf(vector.values());
-        embeddingCache.put(text, values);
+        embeddingCache.put(cacheKey, values);
         return values;
     }
 
-    private EmbeddingResponse executeEmbedding(List<String> texts) {
-        Supplier<EmbeddingResponse> supplier = () -> embeddingPort.embed(new EmbeddingRequest(texts));
+    private EmbeddingResponse executeEmbedding(List<String> texts, ResolvedRagEmbedding resolvedEmbedding) {
+        Supplier<EmbeddingResponse> supplier = () -> resolvedEmbedding.embeddingPort().embed(resolvedEmbedding.request(texts));
         return Retry.decorateSupplier(retry, supplier).get();
+    }
+
+    private ResolvedRagEmbedding resolveLegacyEmbedding() {
+        return embeddingProfileResolver.resolve(new RagEmbeddingSelection(null, null, null, EmbeddingInputType.TEXT));
+    }
+
+    private ResolvedRagEmbedding resolveEmbedding(RagIndexRequest request, RagPipelineChunk chunk) {
+        return embeddingProfileResolver.resolve(new RagEmbeddingSelection(
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                embeddingInputType(chunk.metadata())));
+    }
+
+    private ResolvedRagEmbedding resolveEmbedding(RagSearchRequest request) {
+        return embeddingProfileResolver.resolve(new RagEmbeddingSelection(
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                EmbeddingInputType.TEXT));
+    }
+
+    private MetadataFilter embeddingFilter(
+            MetadataFilter filter,
+            ResolvedRagEmbedding resolvedEmbedding) {
+        if (!hasResolvedEmbeddingMetadata(resolvedEmbedding)) {
+            return filter;
+        }
+        Map<String, Object> equals = new HashMap<>(filter.equalsCriteria());
+        if (resolvedEmbedding.model() != null) {
+            equals.put(VectorRecord.KEY_EMBEDDING_MODEL, resolvedEmbedding.model());
+        }
+        if (resolvedEmbedding.dimension() != null) {
+            equals.put(VectorRecord.KEY_EMBEDDING_DIMENSION, resolvedEmbedding.dimension());
+        }
+        if (resolvedEmbedding.provider() != null) {
+            equals.put(VectorRecord.KEY_EMBEDDING_PROVIDER, resolvedEmbedding.provider());
+        }
+        if (resolvedEmbedding.profileId() != null) {
+            equals.put(VectorRecord.KEY_EMBEDDING_PROFILE_ID, resolvedEmbedding.profileId());
+        }
+        return MetadataFilter.of(equals, filter.inCriteria(), filter.rangeCriteria());
+    }
+
+    private boolean hasResolvedEmbeddingMetadata(ResolvedRagEmbedding resolvedEmbedding) {
+        return resolvedEmbedding.profileId() != null
+                || resolvedEmbedding.provider() != null
+                || resolvedEmbedding.model() != null
+                || resolvedEmbedding.dimension() != null;
+    }
+
+    private String embeddingCacheKey(String text, ResolvedRagEmbedding resolvedEmbedding) {
+        return String.join("|",
+                text == null ? "" : text,
+                resolvedEmbedding.profileId() == null ? "" : resolvedEmbedding.profileId(),
+                resolvedEmbedding.provider() == null ? "" : resolvedEmbedding.provider(),
+                resolvedEmbedding.model() == null ? "" : resolvedEmbedding.model(),
+                resolvedEmbedding.inputType().name());
+    }
+
+    private EmbeddingInputType embeddingInputType(Map<String, Object> metadata) {
+        if (metadata == null) {
+            return EmbeddingInputType.TEXT;
+        }
+        ChunkType type = ChunkType.from(text(metadata.get(VectorRecord.KEY_CHUNK_TYPE)));
+        if (type == ChunkType.TABLE) {
+            return EmbeddingInputType.TABLE_TEXT;
+        }
+        if (type == ChunkType.IMAGE_CAPTION) {
+            return EmbeddingInputType.IMAGE_CAPTION;
+        }
+        if (type == ChunkType.OCR) {
+            return EmbeddingInputType.OCR_TEXT;
+        }
+        return EmbeddingInputType.TEXT;
     }
 
     private TextCleaningResult cleanText(String text) {

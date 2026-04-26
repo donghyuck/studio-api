@@ -23,6 +23,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.pgvector.PGvector;
 
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
@@ -150,6 +151,41 @@ class PgVectorStoreAdapterV2Test {
         assertThat(results.get(0).document().id()).isEqualTo("doc-42");
         assertThat(results.get(0).document().metadata()).containsEntry("topic", "alpha");
         verify(namedParameterJdbcTemplate).query(org.mockito.Mockito.eq(SEARCH_SQL), any(MapSqlParameterSource.class), any(RowMapper.class));
+    }
+
+    @Test
+    void searchAppliesMetadataEqualsAndInCriteriaToSqlSetQuery() throws Exception {
+        setField("searchSql", "SELECT object_id, text, metadata, (embedding <-> :vector) AS distance FROM chunks ORDER BY distance");
+        when(namedParameterJdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+                .thenReturn(List.of());
+        MetadataFilter filter = MetadataFilter.of(
+                Map.of(
+                        VectorRecord.KEY_OBJECT_TYPE, "attachment",
+                        VectorRecord.KEY_OBJECT_ID, "42",
+                        VectorRecord.KEY_EMBEDDING_PROFILE_ID, "retrieval",
+                        VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001"),
+                Map.of(VectorRecord.KEY_EMBEDDING_INPUT_TYPE, List.of("TEXT", "TABLE_TEXT")),
+                Map.of());
+
+        adapter.search(new VectorSearchRequest(List.of(0.2d, 0.3d), 3, filter));
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(namedParameterJdbcTemplate).query(sqlCaptor.capture(), paramsCaptor.capture(), any(RowMapper.class));
+        assertThat(sqlCaptor.getValue())
+                .contains("object_type = :metadataObjectType")
+                .contains("object_id = :metadataObjectId")
+                .contains("(metadata ->> :metadataEqualsKey0) = :metadataEqualsValue0")
+                .contains("(metadata ->> :metadataInKey0) IN (:metadataInValues0)")
+                .contains("ORDER BY distance");
+        MapSqlParameterSource params = paramsCaptor.getValue();
+        assertThat(params.getValue("metadataObjectType")).isEqualTo("attachment");
+        assertThat(params.getValue("metadataObjectId")).isEqualTo("42");
+        assertThat(params.getValue("metadataEqualsKey0")).isIn(
+                VectorRecord.KEY_EMBEDDING_PROFILE_ID,
+                VectorRecord.KEY_EMBEDDING_MODEL);
+        assertThat(params.getValue("metadataInKey0")).isEqualTo(VectorRecord.KEY_EMBEDDING_INPUT_TYPE);
+        assertThat(params.getValue("metadataInValues0")).isEqualTo(List.of("TEXT", "TABLE_TEXT"));
     }
 
     @Test

@@ -65,7 +65,12 @@ public class EmbeddingController {
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('services:ai_embedding','write')")
     public ResponseEntity<ApiResponse<EmbeddingResponseDto>> embed(@Valid @RequestBody EmbeddingRequestDto request) {
-        EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(request.texts()));
+        EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(
+                request.texts(),
+                request.provider(),
+                request.model(),
+                request.inputType(),
+                request.metadata()));
         return ResponseEntity.ok(ApiResponse.ok(new EmbeddingResponseDto(toEmbeddingVectors(response))));
     }
 

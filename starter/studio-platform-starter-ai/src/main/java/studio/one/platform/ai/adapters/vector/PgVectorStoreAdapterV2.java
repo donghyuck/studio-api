@@ -10,6 +10,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -17,11 +19,11 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
-
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 /**
@@ -45,6 +47,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
             return new VectorSearchResult(document, score);
         }
     };
+    private static final Pattern ORDER_BY_PATTERN = Pattern.compile("\\border\\s+by\\b", Pattern.CASE_INSENSITIVE);
 
     @SqlStatement("ai.vector.upsertChunk")
     private String upsertSql;
@@ -112,9 +115,10 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     @Override
     public List<VectorSearchResult> search(VectorSearchRequest request) {
         PGvector vector = toPgVector(request.embedding());
-        return namedParameterJdbcTemplate.query(searchSql, new MapSqlParameterSource()
+        MapSqlParameterSource params = metadataParams(request, true)
                 .addValue("vector", vector)
-                .addValue("limit", request.topK()), ROW_MAPPER);
+                .addValue("limit", request.topK());
+        return namedParameterJdbcTemplate.query(filteredSql(searchSql, request, true), params, ROW_MAPPER);
     }
 
     @Override
@@ -147,7 +151,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 .addValue("objectId", normalize(objectId))
                 .addValue("vector", vector)
                 .addValue("limit", request.topK());
-        return namedParameterJdbcTemplate.query(searchByObjectSql, params, ROW_MAPPER);
+        addMetadataParams(params, request, false);
+        return namedParameterJdbcTemplate.query(filteredSql(searchByObjectSql, request, false), params, ROW_MAPPER);
     }
 
     /**
@@ -167,7 +172,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 .addValue("vectorWeight", vectorWeight)
                 .addValue("lexicalWeight", lexicalWeight)
                 .addValue("limit", request.topK());
-        return namedParameterJdbcTemplate.query(hybridSearchSql, params, ROW_MAPPER);
+        addMetadataParams(params, request, true);
+        return namedParameterJdbcTemplate.query(filteredSql(hybridSearchSql, request, true), params, ROW_MAPPER);
     }
 
     @Override
@@ -182,7 +188,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 .addValue("objectType", normalize(objectType))
                 .addValue("objectId", normalize(objectId))
                 .addValue("limit", request.topK());
-        return namedParameterJdbcTemplate.query(hybridSearchByObjectSql, params, ROW_MAPPER);
+        addMetadataParams(params, request, false);
+        return namedParameterJdbcTemplate.query(filteredSql(hybridSearchByObjectSql, request, false), params, ROW_MAPPER);
     }
 
     @Override
@@ -283,6 +290,100 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         Map<String, Object> metadata = new HashMap<>(document.metadata());
         metadata.putIfAbsent("documentId", document.id());
         return metadata;
+    }
+
+    private static MapSqlParameterSource metadataParams(VectorSearchRequest request, boolean includeObjectColumns) {
+        return addMetadataParams(new MapSqlParameterSource(), request, includeObjectColumns);
+    }
+
+    private static MapSqlParameterSource addMetadataParams(
+            MapSqlParameterSource params,
+            VectorSearchRequest request,
+            boolean includeObjectColumns) {
+        MetadataFilter filter = request.metadataFilter();
+        int index = 0;
+        if (includeObjectColumns) {
+            if (filter.objectType() != null) {
+                params.addValue("metadataObjectType", filter.objectType());
+            }
+            if (filter.objectId() != null) {
+                params.addValue("metadataObjectId", filter.objectId());
+            }
+        }
+        for (Map.Entry<String, Object> entry : filter.equalsCriteria().entrySet()) {
+            if (isObjectScopeKey(entry.getKey())) {
+                continue;
+            }
+            params.addValue("metadataEqualsKey" + index, entry.getKey());
+            params.addValue("metadataEqualsValue" + index, Objects.toString(entry.getValue(), null));
+            index++;
+        }
+        index = 0;
+        for (Map.Entry<String, List<Object>> entry : filter.inCriteria().entrySet()) {
+            if (isObjectScopeKey(entry.getKey())) {
+                continue;
+            }
+            params.addValue("metadataInKey" + index, entry.getKey());
+            params.addValue("metadataInValues" + index, entry.getValue().stream()
+                    .map(value -> Objects.toString(value, null))
+                    .toList());
+            index++;
+        }
+        return params;
+    }
+
+    private static String filteredSql(String sql, VectorSearchRequest request, boolean includeObjectColumns) {
+        List<String> conditions = metadataConditions(request.metadataFilter(), includeObjectColumns);
+        if (conditions.isEmpty()) {
+            return sql;
+        }
+        int orderByIndex = lastOrderByIndex(sql);
+        String head = orderByIndex < 0 ? sql : sql.substring(0, orderByIndex);
+        String tail = orderByIndex < 0 ? "" : sql.substring(orderByIndex);
+        String conjunction = head.toLowerCase(java.util.Locale.ROOT).contains(" where ") ? " AND " : " WHERE ";
+        return head + conjunction + String.join(" AND ", conditions) + tail;
+    }
+
+    private static int lastOrderByIndex(String sql) {
+        Matcher matcher = ORDER_BY_PATTERN.matcher(sql);
+        int index = -1;
+        while (matcher.find()) {
+            index = matcher.start();
+        }
+        return index;
+    }
+
+    private static List<String> metadataConditions(MetadataFilter filter, boolean includeObjectColumns) {
+        List<String> conditions = new ArrayList<>();
+        if (includeObjectColumns) {
+            if (filter.objectType() != null) {
+                conditions.add("object_type = :metadataObjectType");
+            }
+            if (filter.objectId() != null) {
+                conditions.add("object_id = :metadataObjectId");
+            }
+        }
+        int index = 0;
+        for (Map.Entry<String, Object> entry : filter.equalsCriteria().entrySet()) {
+            if (isObjectScopeKey(entry.getKey())) {
+                continue;
+            }
+            conditions.add("(metadata ->> :metadataEqualsKey" + index + ") = :metadataEqualsValue" + index);
+            index++;
+        }
+        index = 0;
+        for (Map.Entry<String, List<Object>> entry : filter.inCriteria().entrySet()) {
+            if (isObjectScopeKey(entry.getKey())) {
+                continue;
+            }
+            conditions.add("(metadata ->> :metadataInKey" + index + ") IN (:metadataInValues" + index + ")");
+            index++;
+        }
+        return conditions;
+    }
+
+    private static boolean isObjectScopeKey(String key) {
+        return "objectType".equals(key) || "objectId".equals(key);
     }
 
     private static String normalize(String value) {

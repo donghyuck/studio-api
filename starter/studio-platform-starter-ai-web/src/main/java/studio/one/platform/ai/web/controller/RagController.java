@@ -89,7 +89,10 @@ public class RagController {
                 request.text(),
                 metadata,
                 keywords,
-                useLlmKeywords);
+                useLlmKeywords,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel());
         if (ragIndexJobService == null) {
             ragPipelineService.index(indexRequest);
             return ResponseEntity.accepted().build();
@@ -128,7 +131,10 @@ public class RagController {
         List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest(
                 request.query(),
                 request.topK(),
-                MetadataFilter.objectScope(request.objectType(), request.objectId())));
+                MetadataFilter.objectScope(request.objectType(), request.objectId()),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel()));
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),

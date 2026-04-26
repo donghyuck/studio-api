@@ -42,6 +42,7 @@ import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.chunking.core.ChunkContextExpander;
 
@@ -115,8 +116,9 @@ public class AiWebAutoConfiguration {
     @Bean
     VectorController vectorController(
             EmbeddingPort embeddingPort,
+            @Nullable RagEmbeddingProfileResolver embeddingProfileResolver,
             @Nullable VectorStorePort vectorStorePort) {
-        return new VectorController(embeddingPort, vectorStorePort);
+        return new VectorController(embeddingPort, embeddingProfileResolver, vectorStorePort);
     }
 
     @Bean

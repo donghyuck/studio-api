@@ -285,13 +285,19 @@ public class RagIndexJobController {
                     request.text(),
                     metadata,
                     request.keywords() == null ? List.of() : request.keywords(),
-                    Boolean.TRUE.equals(request.useLlmKeywordExtraction()));
+                    Boolean.TRUE.equals(request.useLlmKeywordExtraction()),
+                    request.embeddingProfileId(),
+                    request.embeddingProvider(),
+                    request.embeddingModel());
         }
         RagIndexJobSourceRequest sourceRequest = indexRequest == null
                 ? new RagIndexJobSourceRequest(
                         metadata,
                         request.keywords() == null ? List.of() : request.keywords(),
-                        Boolean.TRUE.equals(request.useLlmKeywordExtraction()))
+                        Boolean.TRUE.equals(request.useLlmKeywordExtraction()),
+                        request.embeddingProfileId(),
+                        request.embeddingProvider(),
+                        request.embeddingModel())
                 : null;
         return new CreateJobCommand(new RagIndexJobCreateRequest(
                 request.objectType(),

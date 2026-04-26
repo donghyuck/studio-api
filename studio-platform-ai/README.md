@@ -109,8 +109,11 @@ Adapter는 아래 key를 `metadata` map에서 읽을 수 있어야 한다.
 | key | 표준 의미 | 생성/소비 기준 |
 |---|---|---|
 | `contentHash` | chunk text hash | deduplication 또는 idempotency에 사용할 수 있다. |
+| `embeddingProvider` | embedding 생성 provider id | RAG profile 또는 request-level provider 선택 시 기록한다. |
+| `embeddingProfileId` | RAG embedding profile id | profile 기반 색인/검색에서 같은 embedding space를 추적한다. |
 | `embeddingModel` | embedding 생성 model 이름 | provider가 값을 제공하지 않으면 일부 pipeline은 `unknown` placeholder를 기록한다. |
 | `embeddingDimension` | embedding vector dimension | Java `Integer`로 저장될 수 있으나 adapter는 `Number`로 읽어야 한다. |
+| `embeddingInputType` | embedding 입력의 논리 유형 | `TEXT`, `TABLE_TEXT`, `IMAGE_CAPTION`, `OCR_TEXT` 중 하나다. 현재는 모두 텍스트 기반 embedding 입력이다. |
 | `createdAt` | record 생성 시각 | adapter 또는 pipeline이 필요할 때 기록한다. |
 | `indexedAt` | index 요청 처리 시각 | content pipeline 같은 조립 모듈이 기록한다. |
 

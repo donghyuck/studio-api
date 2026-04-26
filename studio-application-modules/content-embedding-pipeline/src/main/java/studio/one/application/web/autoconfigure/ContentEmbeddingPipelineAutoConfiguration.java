@@ -62,11 +62,14 @@ class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
                     normalizedDocumentAdapterProvider,
             ObjectProvider<studio.one.platform.chunking.core.ChunkingOrchestrator> chunkingOrchestratorProvider,
             ObjectProvider<studio.one.platform.ai.core.embedding.EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver>
+                    embeddingProfileResolverProvider,
             ObjectProvider<studio.one.platform.ai.core.vector.VectorStorePort> vectorStoreProvider) {
         return new studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer(
                 normalizedDocumentAdapterProvider,
                 chunkingOrchestratorProvider,
                 embeddingPortProvider,
+                embeddingProfileResolverProvider,
                 vectorStoreProvider);
     }
 }

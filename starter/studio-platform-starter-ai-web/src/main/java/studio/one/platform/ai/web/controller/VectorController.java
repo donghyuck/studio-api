@@ -24,12 +24,16 @@ import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
+import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchHit;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorSearchResults;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
+import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
 import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
@@ -57,11 +61,20 @@ public class VectorController {
 
     private final EmbeddingPort embeddingPort;
     @Nullable
+    private final RagEmbeddingProfileResolver embeddingProfileResolver;
+    @Nullable
     private final VectorStorePort vectorStorePort; 
 
     public VectorController(EmbeddingPort embeddingPort,
             @Nullable VectorStorePort vectorStorePort) {
+        this(embeddingPort, null, vectorStorePort);
+    }
+
+    public VectorController(EmbeddingPort embeddingPort,
+            @Nullable RagEmbeddingProfileResolver embeddingProfileResolver,
+            @Nullable VectorStorePort vectorStorePort) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
+        this.embeddingProfileResolver = embeddingProfileResolver;
         this.vectorStorePort = vectorStorePort; 
     }
 
@@ -131,12 +144,12 @@ public class VectorController {
             @Valid @RequestBody VectorSearchRequestDto request) {
 
         VectorStorePort store = requireVectorStore();
-        List<Double> queryEmbedding = resolveEmbedding(request);
+        ResolvedVectorEmbedding resolvedEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(
-                queryEmbedding,
+                resolvedEmbedding.values(),
                 request.query(),
                 request.topK(),
-                MetadataFilter.objectScope(request.objectType(), request.objectId()),
+                metadataFilter(request, resolvedEmbedding),
                 request.minScore(),
                 request.includeText(),
                 request.includeMetadata());
@@ -156,18 +169,59 @@ public class VectorController {
         return new VectorDocument(dto.id(), dto.content(), metadata, embedding);
     }
 
-    private List<Double> resolveEmbedding(VectorSearchRequestDto request) {
+    private MetadataFilter metadataFilter(VectorSearchRequestDto request, ResolvedVectorEmbedding resolvedEmbedding) {
+        MetadataFilter objectScope = MetadataFilter.objectScope(request.objectType(), request.objectId());
+        Map<String, Object> equals = new HashMap<>(objectScope.equalsCriteria());
+        putIfPresent(equals, "embeddingProfileId", resolvedEmbedding.profileId());
+        putIfPresent(equals, "embeddingProvider", resolvedEmbedding.provider());
+        putIfPresent(equals, "embeddingModel", resolvedEmbedding.model());
+        putIfPresent(equals, "embeddingDimension", resolvedEmbedding.dimension());
+        return MetadataFilter.of(equals, objectScope.inCriteria(), objectScope.rangeCriteria());
+    }
+
+    private void putIfPresent(Map<String, Object> values, String key, Object value) {
+        if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            values.put(key, value instanceof String text ? text.trim() : value);
+        }
+    }
+
+    private ResolvedVectorEmbedding resolveEmbedding(VectorSearchRequestDto request) {
         if (request.embedding() != null && !request.embedding().isEmpty()) {
-            return List.copyOf(request.embedding());
+            return new ResolvedVectorEmbedding(
+                    List.copyOf(request.embedding()),
+                    request.embeddingProfileId(),
+                    request.embeddingProvider(),
+                    request.embeddingModel(),
+                    request.embedding().size());
         }
         if (request.query() == null || request.query().isBlank()) {
             throw new IllegalArgumentException("Either query text or embedding values must be provided");
         }
- 
-
-        EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(List.of(request.query())));
+        EmbeddingResponse response;
+        ResolvedRagEmbedding resolved = null;
+        if (embeddingProfileResolver == null
+                || (request.embeddingProfileId() == null
+                && request.embeddingProvider() == null
+                && request.embeddingModel() == null)) {
+            response = embeddingPort.embed(new EmbeddingRequest(List.of(request.query())));
+        } else {
+            resolved = embeddingProfileResolver.resolve(new RagEmbeddingSelection(
+                    request.embeddingProfileId(),
+                    request.embeddingProvider(),
+                    request.embeddingModel(),
+                    EmbeddingInputType.TEXT));
+            response = resolved.embeddingPort().embed(resolved.request(List.of(request.query())));
+        }
         log.debug("embedding {} -> {}", request.query(), response.vectors().size());
-        return List.copyOf(response.vectors().get(0).values());
+        List<Double> values = List.copyOf(response.vectors().get(0).values());
+        return new ResolvedVectorEmbedding(
+                values,
+                resolved == null ? null : resolved.profileId(),
+                resolved == null ? null : resolved.provider(),
+                resolved == null ? null : resolved.model(),
+                resolved == null
+                        ? null
+                        : resolved.dimension() == null ? values.size() : resolved.dimension());
     }
 
     private VectorSearchResults executeSearch(VectorStorePort store, VectorSearchRequestDto request,
@@ -255,5 +309,13 @@ public class VectorController {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Vector store is not configured");
         }
         return vectorStorePort;
+    }
+
+    private record ResolvedVectorEmbedding(
+            List<Double> values,
+            String profileId,
+            String provider,
+            String model,
+            Integer dimension) {
     }
 }

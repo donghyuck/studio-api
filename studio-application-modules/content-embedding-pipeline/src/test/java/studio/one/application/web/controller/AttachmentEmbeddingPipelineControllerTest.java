@@ -278,12 +278,18 @@ class AttachmentEmbeddingPipelineControllerTest {
                         .content("""
                                 {
                                   "documentId": "doc-1",
+                                  "embeddingProfileId": "request-profile",
+                                  "embeddingProvider": "google",
+                                  "embeddingModel": "request-model",
                                   "debug": true,
                                   "metadata": {
                                     "category": "manual",
                                     "objectType": "caller-object",
                                     "objectId": "caller-id",
-                                    "chunkIndex": 99
+                                    "chunkIndex": 99,
+                                    "embeddingProfileId": "metadata-profile",
+                                    "embeddingProvider": "metadata-provider",
+                                    "embeddingModel": "metadata-model"
                                   }
                                 }
                                 """))
@@ -298,6 +304,10 @@ class AttachmentEmbeddingPipelineControllerTest {
         verify(extractionService).parseStructured(any(), any(), any(InputStream.class));
         verify(extractionService, never()).extractText(any(), any(), any(InputStream.class));
         verifyNoInteractions(ragPipelineService);
+        verify(embeddingPort).embed(argThat((EmbeddingRequest request) ->
+                "request-profile".equals(request.metadata().get("embeddingProfileId"))
+                        && "google".equals(request.provider())
+                        && "request-model".equals(request.model())));
         verify(vectorStore).replaceRecordsByObject(
                 argThat("attachment"::equals),
                 argThat("1"::equals),
@@ -312,7 +322,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                             && "doc-1#0".equals(record.chunkId())
                             && "structured text".equals(record.text())
                             && "parent-1".equals(record.parentChunkId())
-                            && "test-embedding".equals(record.embeddingModel())
+                            && "request-model".equals(record.embeddingModel())
                             && record.embeddingDimension() == 2
                             && "table".equals(record.chunkType())
                             && "Intro > Table".equals(record.headingPath())
@@ -336,7 +346,9 @@ class AttachmentEmbeddingPipelineControllerTest {
                             && "sample.txt#page=3".equals(metadata.get("sourceRef"))
                             && Integer.valueOf(3).equals(metadata.get("page"))
                             && Integer.valueOf(2).equals(metadata.get("slide"))
-                            && "test-embedding".equals(metadata.get("embeddingModel"))
+                            && "request-profile".equals(metadata.get("embeddingProfileId"))
+                            && "google".equals(metadata.get("embeddingProvider"))
+                            && "request-model".equals(metadata.get("embeddingModel"))
                             && Integer.valueOf(2).equals(metadata.get("embeddingDimension"))
                             && metadata.containsKey("strategy");
                 }));

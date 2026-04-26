@@ -1,7 +1,10 @@
 package studio.one.platform.ai.autoconfigure.config;
 
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
@@ -22,23 +25,29 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chunk.TextChunker;
+import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.rag.RagEmbeddingProfile;
+import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.pipeline.DefaultRagPipelineService;
+import studio.one.platform.ai.service.pipeline.DefaultRagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.DefaultRagIndexJobService;
 import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.JdbcRagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceExecutor;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.SinglePortRagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.constant.PropertyKeys;
@@ -49,7 +58,7 @@ import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration(afterName = "studio.one.platform.chunking.autoconfigure.ChunkingAutoConfiguration")
-@EnableConfigurationProperties(RagPipelineProperties.class)
+@EnableConfigurationProperties({RagPipelineProperties.class, RagEmbeddingProperties.class})
 @RequiredArgsConstructor
 @Slf4j
 @SuppressWarnings("deprecation")
@@ -113,7 +122,8 @@ public class RagPipelineConfiguration {
                         ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider,
                         ObjectProvider<TextCleaner> textCleanerProvider,
-                        RagPipelineProperties properties) {
+                        RagPipelineProperties properties,
+                        RagEmbeddingProfileResolver embeddingProfileResolver) {
 
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
@@ -126,7 +136,25 @@ public class RagPipelineConfiguration {
                                 embeddingRetry, keywordExtractorProvider.getIfAvailable(),
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),
-                                ragKeywordOptions(properties));
+                                ragKeywordOptions(properties),
+                                embeddingProfileResolver);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(RagEmbeddingProfileResolver.class)
+        RagEmbeddingProfileResolver ragEmbeddingProfileResolver(
+                        EmbeddingPort embeddingPort,
+                        ObjectProvider<AiProviderRegistry> providerRegistryProvider,
+                        RagEmbeddingProperties properties) {
+                AiProviderRegistry providerRegistry = providerRegistryProvider.getIfAvailable();
+                if (providerRegistry == null) {
+                        return new SinglePortRagEmbeddingProfileResolver(embeddingPort);
+                }
+                return new DefaultRagEmbeddingProfileResolver(
+                                embeddingPort,
+                                providerRegistry,
+                                properties.getDefaultEmbeddingProfile(),
+                                ragEmbeddingProfiles(properties));
         }
 
         @Bean
@@ -177,6 +205,46 @@ public class RagPipelineConfiguration {
                                 cleaner.getPrompt(),
                                 cleaner.getMaxInputChars(),
                                 cleaner.isFailOpen());
+        }
+
+        private Map<String, RagEmbeddingProfile> ragEmbeddingProfiles(RagEmbeddingProperties properties) {
+                Map<String, RagEmbeddingProfile> profiles = new LinkedHashMap<>();
+                properties.getEmbeddingProfiles().forEach((profileId, profile) -> {
+                        String normalizedId = normalize(profileId);
+                        if (normalizedId == null) {
+                                return;
+                        }
+                        profiles.put(normalizedId.toLowerCase(Locale.ROOT), new RagEmbeddingProfile(
+                                        normalizedId,
+                                        profile.getProvider(),
+                                        profile.getModel(),
+                                        profile.getDimension(),
+                                        embeddingInputTypes(profile.getSupportedInputTypes()),
+                                        profile.getMetadata()));
+                });
+                return profiles;
+        }
+
+        private List<EmbeddingInputType> embeddingInputTypes(List<String> values) {
+                if (values == null || values.isEmpty()) {
+                        return List.of(EmbeddingInputType.TEXT);
+                }
+                List<EmbeddingInputType> inputTypes = values.stream()
+                                .map(this::embeddingInputType)
+                                .distinct()
+                                .toList();
+                return inputTypes.isEmpty() ? List.of(EmbeddingInputType.TEXT) : inputTypes;
+        }
+
+        private EmbeddingInputType embeddingInputType(String value) {
+                if (value == null || value.isBlank()) {
+                        return EmbeddingInputType.TEXT;
+                }
+                return EmbeddingInputType.valueOf(value.trim().replace('-', '_').toUpperCase(Locale.ROOT));
+        }
+
+        private String normalize(String value) {
+                return value == null || value.isBlank() ? null : value.trim();
         }
 
         private RagPipelineOptions ragPipelineOptions(RagPipelineProperties properties) {

@@ -161,6 +161,10 @@ Chunk 조회 API는 기존 list 응답 호환을 유지한다. `/chunks`는 `lim
 `/chunks/page`는 `offset`, `limit`, `returned`, `hasMore`, `items`를 반환한다. `limit` 기본값과 최대값은
 200이며, `hasMore`는 서버가 요청한 범위보다 한 건 더 조회할 수 있을 때 `true`다.
 
+RAG 색인/검색 계열 요청은 기존 body를 유지하면서 `embeddingProfileId`, `embeddingProvider`,
+`embeddingModel` optional field를 받을 수 있다. 이 필드는 retrieval embedding 선택용이며,
+chat request의 `provider`/`model`은 답변 생성 모델 선택용이다.
+
 ### 채팅 요청 예시
 
 ```http
@@ -349,7 +353,8 @@ Content-Type: application/json
   "ragQuery": "핵심 내용 요약",
   "ragTopK": 3,
   "objectType": "attachment",
-  "objectId": "123"
+  "objectId": "123",
+  "embeddingProfileId": "retrieval-ko"
 }
 ```
 

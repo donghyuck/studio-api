@@ -14,5 +14,21 @@ public record RagIndexJobCreateRequestDto(
         String text,
         Map<String, Object> metadata,
         List<String> keywords,
-        Boolean useLlmKeywordExtraction) {
+        Boolean useLlmKeywordExtraction,
+        String embeddingProfileId,
+        String embeddingProvider,
+        String embeddingModel) {
+    public RagIndexJobCreateRequestDto(
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            Boolean forceReindex,
+            String text,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction) {
+        this(objectType, objectId, documentId, sourceType, forceReindex, text, metadata, keywords,
+                useLlmKeywordExtraction, null, null, null);
+    }
 }

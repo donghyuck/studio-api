@@ -13,6 +13,9 @@ public record AttachmentRagIndexRequestDto(
         Map<String, Object> metadata,
         List<String> keywords,
         Boolean useLlmKeywordExtraction,
+        String embeddingProfileId,
+        String embeddingProvider,
+        String embeddingModel,
         Boolean debug
 ) {
     public AttachmentRagIndexRequestDto(
@@ -22,6 +25,17 @@ public record AttachmentRagIndexRequestDto(
             Map<String, Object> metadata,
             List<String> keywords,
             Boolean useLlmKeywordExtraction) {
-        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction, null);
+        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction, null, null, null, null);
+    }
+
+    public AttachmentRagIndexRequestDto(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction,
+            Boolean debug) {
+        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction, null, null, null, debug);
     }
 }
