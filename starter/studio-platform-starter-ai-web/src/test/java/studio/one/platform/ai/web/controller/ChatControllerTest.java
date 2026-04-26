@@ -814,6 +814,7 @@ class ChatControllerTest {
                 false)).getBody().getData();
 
         assertThat(response.metadata()).doesNotContainKey("ragDiagnostics");
+        assertThat(response.metadata()).doesNotContainKey("ragContextDiagnostics");
     }
 
     @Test
@@ -840,6 +841,7 @@ class ChatControllerTest {
                 true)).getBody().getData();
 
         assertThat(response.metadata()).doesNotContainKey("ragDiagnostics");
+        assertThat(response.metadata()).doesNotContainKey("ragContextDiagnostics");
     }
 
     @Test
@@ -878,6 +880,53 @@ class ChatControllerTest {
                 .containsEntry("topK", 3)
                 .doesNotContainKeys("content", "snippet", "text", "chunk");
         assertThat(ragDiagnostics.values()).doesNotContain("sensitive file body");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragChatExposesSafeContextExpansionDiagnosticsWhenDebugIsAllowed() {
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()), true);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed sensitive body",
+                        chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("attachment", "123", 12))
+                .thenReturn(List.of(
+                        new RagSearchResult("chunk-1", "previous sensitive body",
+                                chunkMetadata("chunk-1", null, "chunk-2", 0), 1.0d),
+                        new RagSearchResult("chunk-2", "seed sensitive body",
+                                chunkMetadata("chunk-2", "chunk-1", "chunk-3", 1), 1.0d),
+                        new RagSearchResult("chunk-3", "next sensitive body",
+                                chunkMetadata("chunk-3", "chunk-2", null, 2), 1.0d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123",
+                true)).getBody().getData();
+
+        Map<String, Object> contextDiagnostics = (Map<String, Object>) response.metadata()
+                .get("ragContextDiagnostics");
+        assertThat(contextDiagnostics)
+                .containsEntry("expansionSupported", true)
+                .containsEntry("applied", true)
+                .containsEntry("strategy", "window")
+                .containsEntry("expandedHitCount", 1)
+                .containsEntry("candidateCount", 3)
+                .containsEntry("resultCount", 1)
+                .doesNotContainKeys("content", "snippet", "text", "chunk");
+        assertThat(contextDiagnostics.values()).doesNotContain("seed sensitive body", "previous sensitive body");
     }
 
     @Test

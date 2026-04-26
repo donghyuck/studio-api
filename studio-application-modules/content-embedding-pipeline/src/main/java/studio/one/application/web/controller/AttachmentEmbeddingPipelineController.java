@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -50,6 +51,7 @@ import studio.one.application.web.dto.EmbeddingVectorDto;
 import studio.one.application.web.dto.SearchRequest;
 import studio.one.application.web.dto.SearchResponse;
 import studio.one.application.web.dto.SearchResult;
+import studio.one.application.web.service.AttachmentRagIndexDiagnostics;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
@@ -90,6 +92,12 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 @Validated
 public class AttachmentEmbeddingPipelineController {
+    private static final String HEADER_RAG_INDEX_PATH = "X-RAG-Index-Path";
+    private static final String HEADER_RAG_INDEX_STRUCTURED = "X-RAG-Index-Structured";
+    private static final String HEADER_RAG_INDEX_FALLBACK_REASON = "X-RAG-Index-Fallback-Reason";
+    private static final String HEADER_RAG_INDEX_PARSED_BLOCK_COUNT = "X-RAG-Index-Parsed-Block-Count";
+    private static final String HEADER_RAG_INDEX_CHUNK_COUNT = "X-RAG-Index-Chunk-Count";
+    private static final String HEADER_RAG_INDEX_VECTOR_COUNT = "X-RAG-Index-Vector-Count";
 
     private final AttachmentService attachmentService;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
@@ -98,6 +106,9 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
     private final ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider;
     private final ObjectProvider<I18n> i18nProvider;
+
+    @Value("${studio.ai.endpoints.rag.diagnostics.allow-client-debug:false}")
+    private boolean allowClientDebug;
 
     /**
      * 첨부파일 텍스트를 추출해 임베딩을 생성하고, 구성된 경우 벡터 스토어에 업서트한다.
@@ -253,11 +264,21 @@ public class AttachmentEmbeddingPipelineController {
         String objectId = resolveObjectId(request, attachmentId);
         Map<String, Object> metadata = buildMetadata(request, attachment, objectType, objectId);
         AttachmentStructuredRagIndexer structuredIndexer = structuredRagIndexerProvider.getIfAvailable();
+        AttachmentRagIndexDiagnostics structuredDiagnostics = structuredIndexer == null
+                ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
+                : null;
         if (structuredIndexer != null) {
-            try (InputStream in = attachmentService.getInputStream(attachment)) {
-                if (structuredIndexer.index(attachment, documentId, objectType, objectId, metadata, extractor, in)) {
-                    return ResponseEntity.accepted().build();
+            try {
+                try (InputStream in = attachmentService.getInputStream(attachment)) {
+                    if (structuredIndexer.index(attachment, documentId, objectType, objectId, metadata, extractor, in)) {
+                        return accepted(request, structuredIndexer.latestDiagnostics()
+                                .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()));
+                    }
+                    structuredDiagnostics = structuredIndexer.latestDiagnostics()
+                            .orElse(AttachmentRagIndexDiagnostics.fallback("structured_not_handled"));
                 }
+            } finally {
+                structuredIndexer.clearDiagnostics();
             }
         }
         RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
@@ -270,7 +291,35 @@ public class AttachmentEmbeddingPipelineController {
             boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction());
             ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords));
         }
-        return ResponseEntity.accepted().build();
+        return accepted(request, AttachmentRagIndexDiagnostics.fallback(
+                structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()));
+    }
+
+    private ResponseEntity<Void> accepted(
+            AttachmentRagIndexRequestDto request,
+            AttachmentRagIndexDiagnostics diagnostics) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.accepted();
+        if (allowClientDebug && request != null && Boolean.TRUE.equals(request.debug()) && diagnostics != null) {
+            builder.header(HEADER_RAG_INDEX_PATH, diagnostics.path());
+            builder.header(HEADER_RAG_INDEX_STRUCTURED, Boolean.toString(diagnostics.structured()));
+            putHeader(builder, HEADER_RAG_INDEX_FALLBACK_REASON, diagnostics.fallbackReason());
+            putCountHeader(builder, HEADER_RAG_INDEX_PARSED_BLOCK_COUNT, diagnostics.parsedBlockCount());
+            putCountHeader(builder, HEADER_RAG_INDEX_CHUNK_COUNT, diagnostics.chunkCount());
+            putCountHeader(builder, HEADER_RAG_INDEX_VECTOR_COUNT, diagnostics.vectorCount());
+        }
+        return builder.build();
+    }
+
+    private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {
+        if (value != null && !value.isBlank()) {
+            builder.header(name, value);
+        }
+    }
+
+    private void putCountHeader(ResponseEntity.BodyBuilder builder, String name, int value) {
+        if (value >= 0) {
+            builder.header(name, Integer.toString(value));
+        }
     }
 
     /**

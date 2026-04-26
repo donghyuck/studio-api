@@ -12,6 +12,16 @@ public record AttachmentRagIndexRequestDto(
         String objectId,
         Map<String, Object> metadata,
         List<String> keywords,
-        Boolean useLlmKeywordExtraction
+        Boolean useLlmKeywordExtraction,
+        Boolean debug
 ) {
+    public AttachmentRagIndexRequestDto(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction) {
+        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction, null);
+    }
 }
