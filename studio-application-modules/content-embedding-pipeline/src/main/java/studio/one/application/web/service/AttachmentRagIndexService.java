@@ -15,6 +15,7 @@ import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.exception.NotFoundException;
@@ -35,14 +36,31 @@ public class AttachmentRagIndexService {
             String objectId,
             Map<String, Object> metadata,
             List<String> keywords,
-            Boolean useLlmKeywordExtraction) {
+            Boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
         return new AttachmentRagIndexCommand(
                 hasText(documentId) ? documentId.trim() : String.valueOf(attachmentId),
                 hasText(objectType) ? objectType.trim() : "attachment",
                 hasText(objectId) ? objectId.trim() : String.valueOf(attachmentId),
                 metadata,
                 keywords,
-                Boolean.TRUE.equals(useLlmKeywordExtraction));
+                Boolean.TRUE.equals(useLlmKeywordExtraction),
+                embeddingProfileId,
+                embeddingProvider,
+                embeddingModel);
+    }
+
+    public AttachmentRagIndexCommand command(long attachmentId,
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction) {
+        return command(attachmentId, documentId, objectType, objectId, metadata, keywords,
+                useLlmKeywordExtraction, null, null, null);
     }
 
     public boolean hasTextExtractor() {
@@ -98,7 +116,10 @@ public class AttachmentRagIndexService {
                         text,
                         metadata,
                         command.keywords(),
-                        command.useLlmKeywordExtraction()), progress);
+                        command.useLlmKeywordExtraction(),
+                        command.embeddingProfileId(),
+                        command.embeddingProvider(),
+                        command.embeddingModel()), progress);
             }
             return new AttachmentRagIndexResult(AttachmentRagIndexDiagnostics.fallback(
                     structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()));
@@ -121,11 +142,20 @@ public class AttachmentRagIndexService {
         metadata.putIfAbsent("name", attachment.getName());
         metadata.putIfAbsent("filename", attachment.getName());
         metadata.putIfAbsent("sourceType", "attachment");
+        putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_PROFILE_ID, command.embeddingProfileId());
+        putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_PROVIDER, command.embeddingProvider());
+        putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_MODEL, command.embeddingModel());
         metadata.putIfAbsent("indexedAt", Instant.now().toString());
         metadata.putIfAbsent("contentType", attachment.getContentType());
         metadata.putIfAbsent("size", attachment.getSize());
         metadata.putIfAbsent("chunkOrder", 0);
         return metadata;
+    }
+
+    private void putIfPresent(Map<String, Object> metadata, String key, String value) {
+        if (value != null && !value.isBlank()) {
+            metadata.put(key, value.trim());
+        }
     }
 
     private boolean hasText(String value) {

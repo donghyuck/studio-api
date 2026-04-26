@@ -18,18 +18,21 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
 
-import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
-import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.core.embedding.EmbeddingInputType;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
+import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
@@ -37,7 +40,6 @@ import studio.one.platform.textract.model.ParsedFile;
 import studio.one.platform.textract.service.FileContentExtractionService;
 
 @Component
-@RequiredArgsConstructor
 @ConditionalOnMissingBean(AttachmentStructuredRagIndexer.class)
 @ConditionalOnClass(name = {
         "studio.one.platform.chunking.core.ChunkingOrchestrator",
@@ -49,8 +51,30 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private final ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider;
     private final ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider;
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
+    private final ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ThreadLocal<AttachmentRagIndexDiagnostics> latestDiagnostics = new ThreadLocal<>();
+
+    public DefaultAttachmentStructuredRagIndexer(
+            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider) {
+        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider, null, vectorStoreProvider);
+    }
+
+    public DefaultAttachmentStructuredRagIndexer(
+            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider) {
+        this.normalizedDocumentAdapterProvider = normalizedDocumentAdapterProvider;
+        this.chunkingOrchestratorProvider = chunkingOrchestratorProvider;
+        this.embeddingPortProvider = embeddingPortProvider;
+        this.embeddingProfileResolverProvider = embeddingProfileResolverProvider;
+        this.vectorStoreProvider = vectorStoreProvider;
+    }
 
     @Override
     public boolean index(Attachment attachment,
@@ -101,14 +125,6 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
 
         progress.onStep(RagIndexJobStep.EMBEDDING);
-        EmbeddingResponse response = embeddingPort.embed(new EmbeddingRequest(
-                chunks.stream().map(Chunk::content).toList()));
-        List<EmbeddingVector> vectors = response.vectors();
-        if (vectors.size() != chunks.size()) {
-            throw new IllegalStateException("Embedding response size does not match chunk count");
-        }
-        progress.onEmbeddedCount(vectors.size());
-
         List<VectorRecord> records = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
@@ -116,6 +132,8 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             Map<String, Object> chunkMetadata = new HashMap<>(metadata);
             chunkMetadata.remove(ChunkMetadata.KEY_CHUNK_ORDER);
             mergeChunkMetadata(chunkMetadata, standardChunkMetadata);
+            ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(embeddingPort, chunkMetadata, chunk);
+            chunkMetadata.putAll(resolvedEmbedding.metadata());
             chunkMetadata.put(VectorRecord.KEY_DOCUMENT_ID, documentId);
             chunkMetadata.put(VectorRecord.KEY_CHUNK_ID, chunk.id());
             chunkMetadata.put("chunkLength", chunk.content().length());
@@ -125,7 +143,12 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             }
             chunkMetadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
             chunkMetadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
-            List<Double> embedding = List.copyOf(vectors.get(i).values());
+            EmbeddingVector vector = resolvedEmbedding.embeddingPort()
+                    .embed(resolvedEmbedding.request(List.of(chunk.content())))
+                    .vectors()
+                    .get(0);
+            progress.onEmbeddedCount(i + 1);
+            List<Double> embedding = List.copyOf(vector.values());
             records.add(VectorRecord.builder()
                     .id(chunk.id())
                     .documentId(documentId)
@@ -153,7 +176,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(
                 parsedFile.blocks().size(),
                 chunks.size(),
-                vectors.size()));
+                records.size()));
         return true;
     }
 
@@ -170,6 +193,43 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private boolean hasObjectScope(String objectType, String objectId) {
         return objectType != null && !objectType.isBlank()
                 && objectId != null && !objectId.isBlank();
+    }
+
+    private ResolvedRagEmbedding resolveEmbedding(
+            EmbeddingPort embeddingPort,
+            Map<String, Object> metadata,
+            Chunk chunk) {
+        RagEmbeddingProfileResolver resolver = embeddingProfileResolverProvider == null
+                ? null
+                : embeddingProfileResolverProvider.getIfAvailable();
+        RagEmbeddingSelection selection = new RagEmbeddingSelection(
+                text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
+                text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
+                text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)),
+                embeddingInputType(chunk.metadata().chunkType()));
+        if (resolver != null) {
+            return resolver.resolve(selection);
+        }
+        return new ResolvedRagEmbedding(
+                embeddingPort,
+                selection.profileId(),
+                selection.provider(),
+                selection.model(),
+                null,
+                selection.inputType());
+    }
+
+    private EmbeddingInputType embeddingInputType(ChunkType chunkType) {
+        if (chunkType == ChunkType.TABLE) {
+            return EmbeddingInputType.TABLE_TEXT;
+        }
+        if (chunkType == ChunkType.IMAGE_CAPTION) {
+            return EmbeddingInputType.IMAGE_CAPTION;
+        }
+        if (chunkType == ChunkType.OCR) {
+            return EmbeddingInputType.OCR_TEXT;
+        }
+        return EmbeddingInputType.TEXT;
     }
 
     private String fallbackReason(

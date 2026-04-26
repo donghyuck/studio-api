@@ -271,7 +271,10 @@ public class AttachmentEmbeddingPipelineController {
                 request == null ? null : request.objectId(),
                 request == null ? null : request.metadata(),
                 request == null ? null : request.keywords(),
-                request == null ? null : request.useLlmKeywordExtraction());
+                request == null ? null : request.useLlmKeywordExtraction(),
+                request == null ? null : request.embeddingProfileId(),
+                request == null ? null : request.embeddingProvider(),
+                request == null ? null : request.embeddingModel());
         RagIndexJobService jobService = ragIndexJobServiceProvider.getIfAvailable();
         RagIndexJob job = createJob(jobService, command);
         RagIndexProgressListener progress = job == null
@@ -324,7 +327,10 @@ public class AttachmentEmbeddingPipelineController {
                 new RagIndexJobSourceRequest(
                         command.metadata(),
                         command.keywords(),
-                        command.useLlmKeywordExtraction()));
+                        command.useLlmKeywordExtraction(),
+                        command.embeddingProfileId(),
+                        command.embeddingProvider(),
+                        command.embeddingModel()));
     }
 
     private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {
@@ -353,7 +359,13 @@ public class AttachmentEmbeddingPipelineController {
             return ResponseEntity.badRequest().build();
         }
         MetadataFilter filter = MetadataFilter.objectScope(request.objectType(), request.objectId());
-        List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(request.query(), request.topK(), filter));
+        List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(
+                request.query(),
+                request.topK(),
+                filter,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel()));
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),

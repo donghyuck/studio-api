@@ -19,7 +19,10 @@ public record VectorSearchRequestDto(
         @DecimalMax(value = "1.0", message = "minScore must be at most 1.0")
         Double minScore,
         Boolean includeText,
-        Boolean includeMetadata
+        Boolean includeMetadata,
+        String embeddingProfileId,
+        String embeddingProvider,
+        String embeddingModel
 ) {
     public VectorSearchRequestDto(
             String query,
@@ -29,7 +32,21 @@ public record VectorSearchRequestDto(
             String objectType,
             String objectId,
             Double minScore) {
-        this(query, embedding, topK, hybrid, objectType, objectId, minScore, null, null);
+        this(query, embedding, topK, hybrid, objectType, objectId, minScore, null, null, null, null, null);
+    }
+
+    public VectorSearchRequestDto(
+            String query,
+            List<Double> embedding,
+            Integer topK,
+            Boolean hybrid,
+            String objectType,
+            String objectId,
+            Double minScore,
+            Boolean includeText,
+            Boolean includeMetadata) {
+        this(query, embedding, topK, hybrid, objectType, objectId, minScore, includeText, includeMetadata,
+                null, null, null);
     }
 
     public VectorSearchRequestDto {

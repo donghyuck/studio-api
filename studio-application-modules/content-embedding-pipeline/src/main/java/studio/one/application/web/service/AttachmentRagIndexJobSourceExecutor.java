@@ -35,19 +35,37 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
                 ? RagIndexJobSourceRequest.empty()
                 : sourceRequest;
         long attachmentId = attachmentId(request, source);
-        AttachmentRagIndexCommand command = ragIndexService.command(
-                attachmentId,
-                request.documentId(),
-                request.objectType(),
-                request.objectId(),
-                source.metadata(),
-                source.keywords(),
-                source.useLlmKeywordExtraction());
+        AttachmentRagIndexCommand command = hasEmbeddingSelection(source)
+                ? ragIndexService.command(
+                        attachmentId,
+                        request.documentId(),
+                        request.objectType(),
+                        request.objectId(),
+                        source.metadata(),
+                        source.keywords(),
+                        source.useLlmKeywordExtraction(),
+                        source.embeddingProfileId(),
+                        source.embeddingProvider(),
+                        source.embeddingModel())
+                : ragIndexService.command(
+                        attachmentId,
+                        request.documentId(),
+                        request.objectType(),
+                        request.objectId(),
+                        source.metadata(),
+                        source.keywords(),
+                        source.useLlmKeywordExtraction());
         try {
             ragIndexService.index(attachmentId, command, listener);
         } catch (Exception ex) {
             throw new IllegalStateException("Attachment RAG index job failed", ex);
         }
+    }
+
+    private boolean hasEmbeddingSelection(RagIndexJobSourceRequest source) {
+        return source.embeddingProfileId() != null
+                || source.embeddingProvider() != null
+                || source.embeddingModel() != null;
     }
 
     private long attachmentId(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {

@@ -14,6 +14,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
+import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
@@ -35,6 +36,7 @@ import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
+import studio.one.platform.chunking.core.ChunkType;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -122,6 +124,103 @@ class RagPipelineServiceTest {
         assertThat(record.metadata()).containsEntry("chunkIndex", 0);
         assertThat(record.metadata()).containsEntry("chunkLength", 11);
         assertThat(record.embedding()).containsExactly(0.1, 0.2, 0.3);
+    }
+
+    @Test
+    void shouldRecordEmbeddingProfileAndChunkInputTypeMetadata() {
+        RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
+                embeddingPort,
+                selection.profileId(),
+                "google",
+                selection.model(),
+                768,
+                selection.inputType());
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                resolver);
+        RagIndexRequest request = new RagIndexRequest(
+                "doc-table",
+                "table text",
+                Map.of(),
+                List.of(),
+                false,
+                "retrieval",
+                "google",
+                "gemini-embedding-001");
+        when(chunkingOrchestrator.chunk(any(ChunkingContext.class)))
+                .thenReturn(List.of(Chunk.of(
+                        "doc-table-0",
+                        "table text",
+                        ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, 0)
+                                .chunkType(ChunkType.TABLE)
+                                .build())));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-table-0", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        ArgumentCaptor<EmbeddingRequest> embeddingRequest = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingPort).embed(embeddingRequest.capture());
+        assertThat(embeddingRequest.getValue().inputType()).isEqualTo(EmbeddingInputType.TABLE_TEXT);
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        VectorRecord record = recordsCaptor.getValue().get(0);
+        assertThat(record.metadata())
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROFILE_ID, "retrieval")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "google")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768)
+                .containsEntry(VectorRecord.KEY_EMBEDDING_INPUT_TYPE, "TABLE_TEXT");
+    }
+
+    @Test
+    void shouldRecordImageCaptionAndOcrInputTypeMetadata() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+        when(chunkingOrchestrator.chunk(any(ChunkingContext.class)))
+                .thenReturn(List.of(
+                        Chunk.of("doc-media-0", "caption", ChunkMetadata.builder(
+                                ChunkingStrategyType.STRUCTURE_BASED, 0)
+                                .chunkType(ChunkType.IMAGE_CAPTION)
+                                .build()),
+                        Chunk.of("doc-media-1", "ocr", ChunkMetadata.builder(
+                                ChunkingStrategyType.STRUCTURE_BASED, 1)
+                                .chunkType(ChunkType.OCR)
+                                .build())));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-media-0", List.of(0.1, 0.2)))))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-media-1", List.of(0.3, 0.4)))));
+
+        ragPipelineService.index(new RagIndexRequest("doc-media", "caption ocr", Map.of()));
+
+        ArgumentCaptor<EmbeddingRequest> embeddingRequest = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingPort, times(2)).embed(embeddingRequest.capture());
+        assertThat(embeddingRequest.getAllValues())
+                .extracting(EmbeddingRequest::inputType)
+                .containsExactly(EmbeddingInputType.IMAGE_CAPTION, EmbeddingInputType.OCR_TEXT);
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getValue())
+                .extracting(record -> record.metadata().get(VectorRecord.KEY_EMBEDDING_INPUT_TYPE))
+                .containsExactly("IMAGE_CAPTION", "OCR_TEXT");
     }
 
     @Test
@@ -387,6 +486,7 @@ class RagPipelineServiceTest {
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
+                null,
                 cache,
                 retry,
                 keywordExtractor,
@@ -427,6 +527,7 @@ class RagPipelineServiceTest {
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
+                null,
                 cache,
                 retry,
                 keywordExtractor,
@@ -459,6 +560,7 @@ class RagPipelineServiceTest {
                 embeddingPort,
                 vectorStorePort,
                 textChunker,
+                null,
                 cache,
                 retry,
                 keywordExtractor,
@@ -501,6 +603,85 @@ class RagPipelineServiceTest {
         assertThat(result.documentId()).isEqualTo("doc-1");
         assertThat(result.metadata()).containsEntry("author", "test");
         assertThat(result.score()).isEqualTo(0.9);
+    }
+
+    @Test
+    void shouldConstrainSearchToRequestedEmbeddingProfileMetadata() {
+        RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
+                embeddingPort,
+                selection.profileId(),
+                selection.provider(),
+                selection.model(),
+                768,
+                selection.inputType());
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                null,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                resolver);
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                2,
+                MetadataFilter.empty(),
+                "retrieval",
+                "google",
+                "gemini-embedding-001");
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(new VectorDocument("doc-1", "chunk", Map.of(), List.of()), 0.9)));
+
+        ragPipelineService.search(request);
+
+        ArgumentCaptor<VectorSearchRequest> searchRequest = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        verify(vectorStorePort).hybridSearch(eq("hello"), searchRequest.capture(), anyDouble(), anyDouble());
+        assertThat(searchRequest.getValue().metadataFilter().equalsCriteria())
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROFILE_ID, "retrieval")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "google")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768);
+    }
+
+    @Test
+    void shouldKeepLegacyMinimalSearchScopeWhenDefaultEmbeddingProfileIsConfigured() {
+        RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
+                embeddingPort,
+                "default-profile",
+                "google",
+                "gemini-embedding-001",
+                768,
+                selection.inputType());
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                null,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                resolver);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(new VectorDocument("doc-1", "chunk", Map.of(), List.of()), 0.9)));
+
+        ragPipelineService.search(new RagSearchRequest("hello", 2));
+
+        ArgumentCaptor<VectorSearchRequest> searchRequest = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        verify(vectorStorePort).hybridSearch(eq("hello"), searchRequest.capture(), anyDouble(), anyDouble());
+        assertThat(searchRequest.getValue().metadataFilter().isEmpty()).isTrue();
     }
 
     @Test

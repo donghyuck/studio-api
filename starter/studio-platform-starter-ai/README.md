@@ -72,6 +72,36 @@ studio:
           model: text-embedding-3-small
 ```
 
+`studio.ai.*`는 provider 선택, 활성화, Studio RAG orchestration 설정을 담당한다.
+provider SDK의 실제 API key, model, dimensions, temperature, base-url 같은 실행 옵션은
+`spring.ai.*`를 canonical source로 둔다. `studio.ai.providers.<id>.chat.model`과
+`studio.ai.providers.<id>.embedding.model`은 legacy/fallback 성격이며 Spring AI provider에서는
+가능하면 `spring.ai.*` 설정을 사용한다.
+
+RAG 색인/검색에서 embedding provider/model을 고정해 운영해야 하면 `studio.ai.rag.embedding-profiles`
+를 사용한다. profile은 Studio orchestration 설정이며 실제 provider SDK의 기본 API key/model/dimensions는
+계속 `spring.ai.*`가 소유한다.
+선택 우선순위는 요청의 `embeddingProfileId`, 요청의 `embeddingProvider`/`embeddingModel`, 기본
+`studio.ai.rag.default-embedding-profile`, 기본 `EmbeddingPort` 순서다. 요청이 provider/model만 지정하면
+기본 profile의 model/dimension을 섞어 쓰지 않는다.
+Spring AI adapter는 등록 시점의 `EmbeddingModel`을 사용하므로, profile/request의 `model`은 실제 Spring AI
+embedding model 설정과 일치해야 한다. 다른 model이 들어오면 metadata만 다른 vector space로 기록되는 것을 막기 위해
+요청을 거부한다. 여러 embedding model을 동시에 쓰려면 provider id/profile을 분리해 각각 다른 `EmbeddingPort`로
+등록하는 adapter 구성이 필요하다.
+
+```yaml
+studio:
+  ai:
+    rag:
+      default-embedding-profile: retrieval-ko
+      embedding-profiles:
+        retrieval-ko:
+          provider: gemini
+          model: gemini-embedding-001
+          dimension: 768
+          supported-input-types: [TEXT, TABLE_TEXT, IMAGE_CAPTION, OCR_TEXT]
+```
+
 ### OpenAI 예시
 
 ```yaml
@@ -184,6 +214,12 @@ studio:
 기본 구현은 RAG chunk 저장 모델로 `VectorRecord.builder()`를 사용하고, 기존 `VectorDocument` 기반
 store 구현은 `VectorStorePort`의 default adapter를 통해 계속 호환된다.
 `embeddingModel` metadata가 없으면 core 필수 필드 호환을 위해 `unknown` placeholder가 기록된다.
+RAG embedding profile 또는 요청 단위 embedding 선택이 사용되면 `embeddingProvider`,
+`embeddingModel`, `embeddingDimension`, `embeddingProfileId`, `embeddingInputType` metadata가 가능한 범위에서
+`VectorRecord`에 기록된다.
+검색 요청이 embedding 선택 필드를 포함하면 같은 metadata 기준을 `VectorSearchRequest.metadataFilter()`에 추가해
+다른 embedding space의 chunk가 섞이지 않도록 한다.
+minimal legacy 검색 요청에는 기존 색인 metadata가 없는 chunk와의 호환성을 위해 default profile filter를 강제로 붙이지 않는다.
 `objectType`/`objectId` 메타데이터를 함께 저장하면 AI web starter의 RAG chat API에서 특정 파일이나 객체 범위에 한정해 답변할 수 있다.
 같은 `objectType`/`objectId`를 재색인하면 기존 chunk를 삭제한 뒤 새 chunk를 저장해 stale chunk가 남지 않도록 한다.
 검색 요청은 기존 `searchByObject(...)`와 함께 `RagSearchRequest`의 `MetadataFilter.objectScope(...)` 경로도 지원한다.

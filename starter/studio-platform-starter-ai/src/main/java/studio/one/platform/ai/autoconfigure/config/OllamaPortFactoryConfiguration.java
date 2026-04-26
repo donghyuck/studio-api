@@ -52,7 +52,7 @@ public class OllamaPortFactoryConfiguration {
                             .ollamaApi(ollamaApi)
                             .defaultOptions(options)
                             .build();
-            return new SpringAiEmbeddingAdapter(embeddingModel);
+            return new SpringAiEmbeddingAdapter(embeddingModel, model);
         }
 
         private static String requireText(String value, String message) {

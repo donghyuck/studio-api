@@ -32,8 +32,11 @@ public final class VectorRecord {
     public static final String KEY_PAGE = "page";
     public static final String KEY_SLIDE = "slide";
     public static final String KEY_CONTENT_HASH = "contentHash";
+    public static final String KEY_EMBEDDING_PROVIDER = "embeddingProvider";
+    public static final String KEY_EMBEDDING_PROFILE_ID = "embeddingProfileId";
     public static final String KEY_EMBEDDING_MODEL = "embeddingModel";
     public static final String KEY_EMBEDDING_DIMENSION = "embeddingDimension";
+    public static final String KEY_EMBEDDING_INPUT_TYPE = "embeddingInputType";
     public static final String KEY_CREATED_AT = "createdAt";
     public static final String KEY_INDEXED_AT = "indexedAt";
 

@@ -358,9 +358,18 @@ public class ChatController {
                 ragResults = ragPipelineService.search(new RagSearchRequest(
                         resolvedQuery,
                         ragTopK,
-                        MetadataFilter.objectScope(objectType, objectId)));
+                        MetadataFilter.objectScope(objectType, objectId),
+                        request.embeddingProfileId(),
+                        request.embeddingProvider(),
+                        request.embeddingModel()));
             } else {
-                ragResults = ragPipelineService.search(new RagSearchRequest(resolvedQuery, ragTopK));
+                ragResults = ragPipelineService.search(new RagSearchRequest(
+                        resolvedQuery,
+                        ragTopK,
+                        MetadataFilter.empty(),
+                        request.embeddingProfileId(),
+                        request.embeddingProvider(),
+                        request.embeddingModel()));
             }
         }
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);

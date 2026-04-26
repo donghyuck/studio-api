@@ -58,7 +58,7 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
 
             org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel embeddingModel =
                     new org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel(connectionDetails, options);
-            return new SpringAiEmbeddingAdapter(embeddingModel);
+            return new SpringAiEmbeddingAdapter(embeddingModel, model);
         }
 
         private static String requireText(String value, String message) {
