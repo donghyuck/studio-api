@@ -166,4 +166,23 @@ class InMemoryRagIndexJobRepositoryTest {
                 .extracting(RagIndexJob::jobId)
                 .containsExactly("job-b");
     }
+
+    @Test
+    void cancelledJobIsNotOverwrittenByLateStatusOrCountUpdates() {
+        repository.save(RagIndexJob.pending("job-1", "attachment", "1", "doc-1", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.updateStatus("job-1", RagIndexJobStatus.RUNNING, RagIndexJobStep.INDEXING, null);
+        repository.updateStatus("job-1", RagIndexJobStatus.CANCELLED, RagIndexJobStep.INDEXING, "cancelled");
+
+        repository.updateCounts("job-1", 9, 9, 9, 9);
+        repository.updateStatus("job-1", RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null);
+
+        assertThat(repository.findById("job-1")).get()
+                .satisfies(job -> {
+                    assertThat(job.status()).isEqualTo(RagIndexJobStatus.CANCELLED);
+                    assertThat(job.currentStep()).isEqualTo(RagIndexJobStep.INDEXING);
+                    assertThat(job.chunkCount()).isZero();
+                    assertThat(job.indexedCount()).isZero();
+                });
+    }
 }

@@ -23,6 +23,10 @@ public interface RagIndexJobService {
 
     RagIndexJob startJob(String jobId);
 
+    default RagIndexJob cancelJob(String jobId) {
+        throw new UnsupportedOperationException("cancelJob is not implemented");
+    }
+
     RagIndexJob retryJob(String jobId);
 
     Optional<RagIndexJob> getJob(String jobId);

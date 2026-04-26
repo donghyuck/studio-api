@@ -239,6 +239,55 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void cancelAcceptsActiveJob() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.RUNNING),
+                mock(RagPipelineService.class),
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.cancelJob("job-1");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(response.getBody().getData().status()).isEqualTo(RagIndexJobStatus.CANCELLED);
+    }
+
+    @Test
+    void cancelRejectsTerminalJob() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.SUCCEEDED),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.cancelJob("job-1"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+    }
+
+    @Test
+    void cancelMapsUnsupportedServiceToNotImplemented() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new LegacyListJobService(),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.cancelJob("job-1"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(501));
+    }
+
+    @Test
+    void cancelMapsServiceRaceRejectionToConflict() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new RejectingCancelJobService(),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.cancelJob("job-1"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+    }
+
+    @Test
     void objectChunksReuseRagPipelineListByObject() {
         RagIndexJobService jobService = new CapturingJobService();
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
@@ -341,6 +390,14 @@ class RagIndexJobControllerTest {
         }
     }
 
+    private static class RejectingCancelJobService extends LegacyListJobService {
+
+        @Override
+        public RagIndexJob cancelJob(String jobId) {
+            throw new IllegalStateException("RAG index job can only be cancelled while active: " + jobId);
+        }
+    }
+
     private static class CapturingJobService implements RagIndexJobService {
 
         private final RagIndexJob job;
@@ -386,6 +443,18 @@ class RagIndexJobControllerTest {
         @Override
         public RagIndexJob retryJob(String jobId) {
             return job;
+        }
+
+        @Override
+        public RagIndexJob cancelJob(String jobId) {
+            if (job.status() != RagIndexJobStatus.PENDING && job.status() != RagIndexJobStatus.RUNNING) {
+                throw new IllegalStateException("RAG index job can only be cancelled while active: " + jobId);
+            }
+            return job.withStatus(
+                    RagIndexJobStatus.CANCELLED,
+                    job.currentStep(),
+                    "RAG index job cancelled",
+                    java.time.Instant.parse("2026-04-26T00:00:02Z"));
         }
 
         @Override

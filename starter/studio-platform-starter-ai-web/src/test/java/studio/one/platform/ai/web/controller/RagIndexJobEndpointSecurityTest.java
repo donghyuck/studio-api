@@ -52,6 +52,20 @@ class RagIndexJobEndpointSecurityTest {
     }
 
     @Test
+    void detectsAttachmentJobsByObjectTypeWhenSourceTypeIsRaw() {
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(job));
+
+        assertThat(security.isAttachmentJob("job-1")).isTrue();
+    }
+
+    @Test
     void detectsAttachmentObjectScopesForReadAuthorization() {
         RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(null));
 

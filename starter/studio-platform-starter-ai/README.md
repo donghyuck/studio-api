@@ -174,7 +174,7 @@ studio:
 | `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
 | `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
 | `RagIndexJobRepository` | RAG 색인 작업 상태/로그 저장소. 기본 구현은 단일 인스턴스용 in-memory repository |
-| `RagIndexJobService` | RAG 색인 작업 생성/조회/재시도와 progress listener 연결 |
+| `RagIndexJobService` | RAG 색인 작업 생성/조회/취소/재시도와 progress listener 연결 |
 | `RagIndexJobSourceExecutor` | source 기반 RAG job 실행 확장점. 등록된 Bean은 job service가 ordered stream으로 조회 |
 | `ChunkingOrchestrator` | `starter-chunking`이 있을 때 RAG indexing chunk 생성에 사용 |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
@@ -200,6 +200,8 @@ raw text가 없는 source 기반 job은 등록된 `RagIndexJobSourceExecutor`가
 분산 worker를 포함하지 않는다. 재시도를 위해 최근 raw text 요청을 메모리에 보관하되 저장 request 수는
 bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은
 `RagIndexJobRepository` 계약으로 DB 기반 구현을 별도 Bean으로 등록한다.
+`cancelJob(jobId)`는 `PENDING`/`RUNNING` job을 `CANCELLED`로 표시하고, 이미 도착한 late progress callback이
+취소 상태를 성공/실패로 덮어쓰지 않도록 방어한다. 실행 중인 외부 provider/vector 호출 자체를 강제 중단하지는 않는다.
 
 ### Chat metadata / streaming
 

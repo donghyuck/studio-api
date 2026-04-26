@@ -69,6 +69,9 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
             String errorMessage) {
         return jobs.compute(jobId, (ignored, current) -> {
             RagIndexJob existing = requireJob(jobId, current);
+            if (existing.status() == RagIndexJobStatus.CANCELLED && status != RagIndexJobStatus.CANCELLED) {
+                return existing;
+            }
             RagIndexJobStep nextStep = currentStep == null ? existing.currentStep() : currentStep;
             if ((status == RagIndexJobStatus.SUCCEEDED || status == RagIndexJobStatus.WARNING)
                     && nextStep == null) {
@@ -85,8 +88,13 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
             Integer embeddedCount,
             Integer indexedCount,
             Integer warningCount) {
-        return jobs.compute(jobId, (ignored, current) -> requireJob(jobId, current)
-                .withCounts(chunkCount, embeddedCount, indexedCount, warningCount));
+        return jobs.compute(jobId, (ignored, current) -> {
+            RagIndexJob existing = requireJob(jobId, current);
+            if (existing.status() == RagIndexJobStatus.CANCELLED) {
+                return existing;
+            }
+            return existing.withCounts(chunkCount, embeddedCount, indexedCount, warningCount);
+        });
     }
 
     @Override

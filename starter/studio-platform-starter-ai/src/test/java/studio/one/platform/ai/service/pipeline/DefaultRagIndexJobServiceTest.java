@@ -107,6 +107,86 @@ class DefaultRagIndexJobServiceTest {
     }
 
     @Test
+    void cancelsActiveJobAndRecordsLog() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of())));
+        repository.updateStatus(job.jobId(), RagIndexJobStatus.RUNNING, RagIndexJobStep.EMBEDDING, null);
+
+        RagIndexJob cancelled = service.cancelJob(job.jobId());
+
+        assertThat(cancelled.status()).isEqualTo(RagIndexJobStatus.CANCELLED);
+        assertThat(cancelled.currentStep()).isEqualTo(RagIndexJobStep.EMBEDDING);
+        assertThat(cancelled.errorMessage()).isEqualTo("RAG index job cancelled");
+        assertThat(service.getLogs(job.jobId()))
+                .anySatisfy(log -> assertThat(log.code()).isEqualTo(
+                        studio.one.platform.ai.core.rag.RagIndexJobLogCode.JOB_CANCELLED));
+    }
+
+    @Test
+    void cancelRejectsTerminalJob() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of())));
+        service.startJob(job.jobId());
+
+        assertThatThrownBy(() -> service.cancelJob(job.jobId()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("can only be cancelled");
+    }
+
+    @Test
+    void cancelledJobIgnoresLateCompletionCallbacks() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of())));
+        repository.updateStatus(job.jobId(), RagIndexJobStatus.RUNNING, RagIndexJobStep.INDEXING, null);
+        service.cancelJob(job.jobId());
+
+        RagIndexProgressListener listener = service.progressListener(job.jobId());
+        listener.onIndexedCount(9);
+        listener.onCompleted();
+
+        RagIndexJob current = service.getJob(job.jobId()).orElseThrow();
+        assertThat(current.status()).isEqualTo(RagIndexJobStatus.CANCELLED);
+        assertThat(current.indexedCount()).isZero();
+    }
+
+    @Test
+    void startJobStopsBeforePipelineWhenJobIsCancelledAfterStartTransition() {
+        CancellingOnStartRepository cancellingRepository = new CancellingOnStartRepository();
+        CountingPipeline pipeline = new CountingPipeline();
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(cancellingRepository, pipeline);
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of())));
+
+        RagIndexJob cancelled = service.startJob(job.jobId());
+
+        assertThat(cancelled.status()).isEqualTo(RagIndexJobStatus.CANCELLED);
+        assertThat(pipeline.calls).isZero();
+    }
+
+    @Test
     void delegatesNonTextSourceToMatchingExecutor() {
         CapturingSourceExecutor executor = new CapturingSourceExecutor();
         DefaultRagIndexJobService service = new DefaultRagIndexJobService(
@@ -207,6 +287,26 @@ class DefaultRagIndexJobServiceTest {
             listener.onEmbeddedCount(3);
             listener.onStep(RagIndexJobStep.INDEXING);
             listener.onIndexedCount(3);
+        }
+    }
+
+    private static class CancellingOnStartRepository extends InMemoryRagIndexJobRepository {
+
+        @Override
+        public RagIndexJob updateStatus(
+                String jobId,
+                RagIndexJobStatus status,
+                RagIndexJobStep currentStep,
+                String errorMessage) {
+            RagIndexJob updated = super.updateStatus(jobId, status, currentStep, errorMessage);
+            if (status == RagIndexJobStatus.RUNNING) {
+                return super.updateStatus(
+                        jobId,
+                        RagIndexJobStatus.CANCELLED,
+                        updated.currentStep(),
+                        "RAG index job cancelled");
+            }
+            return updated;
         }
     }
 
