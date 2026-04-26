@@ -3,6 +3,8 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #312 대응으로 AI web vector 검색 경로가 내부적으로 `VectorSearchResults`/`VectorSearchHit` aggregate 계약을 사용하도록 연결했다.
+- `POST /api/mgmt/ai/vectors/search` 요청에서 `includeText`/`includeMetadata`를 optional field로 받아 core `VectorSearchRequest`에 전달한다.
 - 이슈 #311 대응으로 `DefaultRagPipelineService`의 기본 RAG indexing 저장 경로를 `VectorRecord.builder()`와 `VectorStorePort.upsertAll(...)`/`replaceRecordsByObject(...)` 사용으로 전환했다.
 - `VectorRecord` metadata pass-through가 blank string 값을 보존하도록 해 기존 `cleanerPrompt=""` metadata 호환성을 유지했다.
 - 이슈 #309 대응으로 `VectorSearchHit.from(...)`이 문자열 숫자 `page`/`slide`와 iterable `headingPath`/`sourceRef` metadata를 안정적으로 변환하도록 보강했다.

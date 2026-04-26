@@ -391,6 +391,10 @@ Content-Type: application/json
 ### 벡터 검색 응답
 
 `POST /api/mgmt/ai/vectors/search` 응답 항목은 기존 `documentId`와 클라이언트 grid 호환용 `id`를 함께 반환한다.
+내부 검색 결과는 core `VectorSearchResults`/`VectorSearchHit` aggregate 계약으로 정규화하지만,
+HTTP 응답 shape는 기존 `List<VectorSearchResultDto>`를 유지한다.
+요청에 `includeText=false` 또는 `includeMetadata=false`를 전달하면 core `VectorSearchRequest`에 그대로 전달되어
+응답 항목의 `content`가 `null`이거나 `metadata`가 빈 객체일 수 있다.
 
 ```json
 {

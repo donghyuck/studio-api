@@ -21,8 +21,11 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.core.vector.VectorSearchHit;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
+import studio.one.platform.ai.core.vector.VectorSearchResults;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
@@ -57,6 +60,60 @@ class VectorControllerTest {
         assertThat(response.getBody().getData().get(0).id()).isEqualTo("doc-1");
         assertThat(response.getBody().getData().get(0).documentId()).isEqualTo("doc-1");
         verify(vectorStorePort).searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class));
+    }
+
+    @Test
+    void mapsVectorSearchHitProvenanceToLegacyResponseShape() {
+        when(embeddingPort.embed(any()))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
+        when(vectorStorePort.searchByObject(eq("attachment"), eq("42"), any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("chunk-1", "chunk", Map.of(
+                                VectorRecord.KEY_DOCUMENT_ID, "doc-1",
+                                VectorRecord.KEY_CHUNK_ID, "chunk-1",
+                                VectorRecord.KEY_SOURCE_REF, "page[1]/p[0]"), List.of()),
+                        0.8d)));
+
+        ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
+                new VectorSearchRequestDto("hello", null, 3, false, "attachment", "42", null));
+
+        VectorSearchResultDto result = response.getBody().getData().get(0);
+        assertThat(result.id()).isEqualTo("chunk-1");
+        assertThat(result.documentId()).isEqualTo("doc-1");
+        assertThat(result.content()).isEqualTo("chunk");
+        assertThat(result.metadata()).containsEntry(VectorRecord.KEY_SOURCE_REF, "page[1]/p[0]");
+    }
+
+    @Test
+    void usesAggregateVectorSearchForGlobalSearch() {
+        ArgumentCaptor<VectorSearchRequest> captor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        when(embeddingPort.embed(any()))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
+        when(vectorStorePort.searchWithFilter(any(VectorSearchRequest.class)))
+                .thenReturn(VectorSearchResults.of(List.of(new VectorSearchHit(
+                        "chunk-1",
+                        "doc-1",
+                        "chunk-1",
+                        null,
+                        "chunk",
+                        0.8d,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of("topic", "alpha"))), 2L));
+
+        ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
+                new VectorSearchRequestDto("hello", null, 3, false, null, null, null));
+
+        assertThat(response.getBody().getData()).hasSize(1);
+        assertThat(response.getBody().getData().get(0).documentId()).isEqualTo("doc-1");
+        assertThat(response.getBody().getData().get(0).metadata()).containsEntry("topic", "alpha");
+        verify(vectorStorePort).searchWithFilter(captor.capture());
+        assertThat(captor.getValue().queryText()).isEqualTo("hello");
+        assertThat(captor.getValue().includeText()).isTrue();
+        assertThat(captor.getValue().includeMetadata()).isTrue();
     }
 
     @Test
@@ -98,10 +155,12 @@ class VectorControllerTest {
     void filtersResultsByMinScore() {
         when(embeddingPort.embed(any()))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
-        when(vectorStorePort.search(any(VectorSearchRequest.class)))
-                .thenReturn(List.of(
-                        new VectorSearchResult(new VectorDocument("doc-low", "low", Map.of(), List.of()), 0.39d),
-                        new VectorSearchResult(new VectorDocument("doc-high", "high", Map.of(), List.of()), 0.61d)));
+        when(vectorStorePort.searchWithFilter(any(VectorSearchRequest.class)))
+                .thenReturn(VectorSearchResults.of(List.of(
+                        new VectorSearchHit("doc-low", "doc-low", "doc-low", null, "low", 0.39d,
+                                null, null, null, null, null, Map.of()),
+                        new VectorSearchHit("doc-high", "doc-high", "doc-high", null, "high", 0.61d,
+                                null, null, null, null, null, Map.of())), 1L));
 
         ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
                 new VectorSearchRequestDto("hello", null, 3, false, null, null, 0.4d));
@@ -109,6 +168,36 @@ class VectorControllerTest {
         assertThat(response.getBody().getData())
                 .extracting(VectorSearchResultDto::documentId)
                 .containsExactly("doc-high");
+    }
+
+    @Test
+    void passesIncludeTextAndIncludeMetadataThroughCoreSearchRequest() {
+        ArgumentCaptor<VectorSearchRequest> captor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        when(embeddingPort.embed(any()))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
+        when(vectorStorePort.searchWithFilter(any(VectorSearchRequest.class)))
+                .thenReturn(VectorSearchResults.of(List.of(new VectorSearchHit(
+                        "chunk-1",
+                        "doc-1",
+                        "chunk-1",
+                        null,
+                        null,
+                        0.8d,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of())), 1L));
+
+        ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
+                new VectorSearchRequestDto("hello", null, 3, false, null, null, null, false, false));
+
+        verify(vectorStorePort).searchWithFilter(captor.capture());
+        assertThat(captor.getValue().includeText()).isFalse();
+        assertThat(captor.getValue().includeMetadata()).isFalse();
+        assertThat(response.getBody().getData().get(0).content()).isNull();
+        assertThat(response.getBody().getData().get(0).metadata()).isEmpty();
     }
 
     @Test
@@ -151,10 +240,20 @@ class VectorControllerTest {
     void treatsBlankObjectFiltersAsAbsent() {
         when(embeddingPort.embed(any()))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
-        when(vectorStorePort.search(any(VectorSearchRequest.class)))
-                .thenReturn(List.of(new VectorSearchResult(
-                        new VectorDocument("doc-global", "chunk", Map.of(), List.of()),
-                        0.7d)));
+        when(vectorStorePort.searchWithFilter(any(VectorSearchRequest.class)))
+                .thenReturn(VectorSearchResults.of(List.of(new VectorSearchHit(
+                        "doc-global",
+                        "doc-global",
+                        "doc-global",
+                        null,
+                        "chunk",
+                        0.7d,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        Map.of())), 1L));
 
         ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
                 new VectorSearchRequestDto("hello", null, 3, false, "   ", "", null));
@@ -162,7 +261,7 @@ class VectorControllerTest {
         assertThat(response.getBody().getData())
                 .extracting(VectorSearchResultDto::documentId)
                 .containsExactly("doc-global");
-        verify(vectorStorePort).search(any(VectorSearchRequest.class));
+        verify(vectorStorePort).searchWithFilter(any(VectorSearchRequest.class));
     }
 
     @Test
