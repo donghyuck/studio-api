@@ -164,7 +164,9 @@ class VectorContractsTest {
         VectorRecord record = record(Map.of(
                 VectorRecord.KEY_DOCUMENT_ID, "caller-doc",
                 VectorRecord.KEY_CHUNK_INDEX, 7,
-                VectorRecord.KEY_TENANT_ID, "tenant-a"));
+                VectorRecord.KEY_TENANT_ID, "tenant-a",
+                "cleanerPrompt", "",
+                "rawLabel", "  keep spacing  "));
 
         VectorDocument document = record.toVectorDocument();
 
@@ -179,7 +181,9 @@ class VectorContractsTest {
                 .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "embedding-model")
                 .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 2)
                 .containsEntry(VectorRecord.KEY_CHUNK_INDEX, 7)
-                .containsEntry(VectorRecord.KEY_TENANT_ID, "tenant-a");
+                .containsEntry(VectorRecord.KEY_TENANT_ID, "tenant-a")
+                .containsEntry("cleanerPrompt", "")
+                .containsEntry("rawLabel", "  keep spacing  ");
     }
 
     @Test

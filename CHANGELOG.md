@@ -3,6 +3,8 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #311 대응으로 `DefaultRagPipelineService`의 기본 RAG indexing 저장 경로를 `VectorRecord.builder()`와 `VectorStorePort.upsertAll(...)`/`replaceRecordsByObject(...)` 사용으로 전환했다.
+- `VectorRecord` metadata pass-through가 blank string 값을 보존하도록 해 기존 `cleanerPrompt=""` metadata 호환성을 유지했다.
 - 이슈 #309 대응으로 `VectorSearchHit.from(...)`이 문자열 숫자 `page`/`slide`와 iterable `headingPath`/`sourceRef` metadata를 안정적으로 변환하도록 보강했다.
 - 이슈 #305 대응으로 첨부 RAG 색인과 web RAG context expansion에 opt-in diagnostics를 추가했다.
 - `POST /api/mgmt/attachments/{id}/rag/index`는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때 안전한 `X-RAG-Index-*` 헤더로 구조화/fallback 경로와 count 정보를 노출한다.
@@ -13,6 +15,7 @@
 - context expansion candidate 조회 배수, 후보 조회 상한, previous/next window, parent content 포함 여부를 설정으로 분리했다.
 
 ### 검증
+- `./gradlew :starter:studio-platform-starter-ai:test :studio-platform-ai:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
 - `./gradlew :studio-platform-ai:test :studio-application-modules:content-embedding-pipeline:test :starter:studio-platform-starter-ai:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test`

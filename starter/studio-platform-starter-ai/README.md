@@ -178,6 +178,9 @@ studio:
 | `TextCleaner` | `studio.ai.pipeline.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
 
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
+기본 구현은 RAG chunk 저장 모델로 `VectorRecord.builder()`를 사용하고, 기존 `VectorDocument` 기반
+store 구현은 `VectorStorePort`의 default adapter를 통해 계속 호환된다.
+`embeddingModel` metadata가 없으면 core 필수 필드 호환을 위해 `unknown` placeholder가 기록된다.
 `objectType`/`objectId` 메타데이터를 함께 저장하면 AI web starter의 RAG chat API에서 특정 파일이나 객체 범위에 한정해 답변할 수 있다.
 같은 `objectType`/`objectId`를 재색인하면 기존 chunk를 삭제한 뒤 새 chunk를 저장해 stale chunk가 남지 않도록 한다.
 검색 요청은 기존 `searchByObject(...)`와 함께 `RagSearchRequest`의 `MetadataFilter.objectScope(...)` 경로도 지원한다.
