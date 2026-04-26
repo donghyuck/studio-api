@@ -231,6 +231,9 @@ ai core는 이 인터페이스만 제공하며 attachment, textract, chunking, p
 정렬 조건은 별도 `RagIndexJobSort` 계약으로 전달한다. 기본 정렬은 `createdAt desc`이며,
 지원 sort 값은 `createdAt`, `startedAt`, `finishedAt`, `status`, `currentStep`, `objectType`,
 `objectId`, `documentId`, `sourceType`, `durationMs`이다.
+커스텀 `RagIndexJobService` 또는 `RagIndexJobRepository` 구현체가 정렬을 실제로 적용하려면
+`RagIndexJobSort`를 받는 3-arg overload를 override해야 한다. 기본 overload는 기존 구현체 호환을 위해
+2-arg 메서드로 위임하므로 sort 요청을 무시할 수 있다.
 
 ## 구현 분리 원칙
 이 모듈은 구현체를 포함하지 않는다. `ai.core`는 provider 구현과 DB 구현에 의존하지 않는 계약 계층으로 유지한다.
