@@ -294,10 +294,10 @@ class VectorContractsTest {
                         VectorRecord.KEY_CHUNK_ID, " chunk-1 ",
                         VectorRecord.KEY_PARENT_CHUNK_ID, "parent-1",
                         VectorRecord.KEY_CHUNK_TYPE, "paragraph",
-                        VectorRecord.KEY_HEADING_PATH, "Intro > Body",
-                        VectorRecord.KEY_SOURCE_REF, "file.pdf",
-                        VectorRecord.KEY_PAGE, 3L,
-                        VectorRecord.KEY_SLIDE, 2), List.of()),
+                        VectorRecord.KEY_HEADING_PATH, List.of("Intro", "Body"),
+                        VectorRecord.KEY_SOURCE_REF, List.of("file.pdf", "page=3"),
+                        VectorRecord.KEY_PAGE, "3",
+                        VectorRecord.KEY_SLIDE, " 2 "), List.of()),
                 0.93d));
 
         assertThat(hit.id()).isEqualTo("record-1");
@@ -308,10 +308,26 @@ class VectorContractsTest {
         assertThat(hit.score()).isEqualTo(0.93d);
         assertThat(hit.chunkType()).isEqualTo("paragraph");
         assertThat(hit.headingPath()).isEqualTo("Intro > Body");
-        assertThat(hit.sourceRef()).isEqualTo("file.pdf");
+        assertThat(hit.sourceRef()).isEqualTo("file.pdf > page=3");
         assertThat(hit.page()).isEqualTo(3);
         assertThat(hit.slide()).isEqualTo(2);
         assertThat(hit.metadata()).containsEntry(VectorRecord.KEY_DOCUMENT_ID, " doc-1 ");
+    }
+
+    @Test
+    void vectorSearchHitIgnoresBlankAndInvalidStructuredMetadataValues() {
+        VectorSearchHit hit = VectorSearchHit.from(new VectorSearchResult(
+                new VectorDocument("record-1", "chunk text", Map.of(
+                        VectorRecord.KEY_HEADING_PATH, List.of("", "  "),
+                        VectorRecord.KEY_SOURCE_REF, "  ",
+                        VectorRecord.KEY_PAGE, "three",
+                        VectorRecord.KEY_SLIDE, "  "), List.of()),
+                0.93d));
+
+        assertThat(hit.headingPath()).isNull();
+        assertThat(hit.sourceRef()).isNull();
+        assertThat(hit.page()).isNull();
+        assertThat(hit.slide()).isNull();
     }
 
     @Test
