@@ -12,6 +12,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
@@ -88,9 +89,10 @@ class InMemoryRagIndexJobRepositoryTest {
         assertThat(repository.findAll(RagIndexJobFilter.empty(),
                         new RagIndexJobPageRequest(
                                 1,
-                                1,
-                                RagIndexJobPageRequest.Sort.CREATED_AT,
-                                RagIndexJobPageRequest.Direction.DESC))
+                                1),
+                        new RagIndexJobSort(
+                                RagIndexJobSort.Field.CREATED_AT,
+                                RagIndexJobSort.Direction.DESC))
                 .jobs())
                 .extracting(RagIndexJob::jobId)
                 .containsExactly("job-3");
@@ -106,9 +108,10 @@ class InMemoryRagIndexJobRepositoryTest {
         assertThat(repository.findAll(RagIndexJobFilter.empty(),
                         new RagIndexJobPageRequest(
                                 0,
-                                10,
-                                RagIndexJobPageRequest.Sort.DOCUMENT_ID,
-                                RagIndexJobPageRequest.Direction.ASC))
+                                10),
+                        new RagIndexJobSort(
+                                RagIndexJobSort.Field.DOCUMENT_ID,
+                                RagIndexJobSort.Direction.ASC))
                 .jobs())
                 .extracting(RagIndexJob::jobId)
                 .containsExactly("job-2", "job-1");
@@ -130,11 +133,37 @@ class InMemoryRagIndexJobRepositoryTest {
         assertThat(repository.findAll(RagIndexJobFilter.empty(),
                         new RagIndexJobPageRequest(
                                 0,
-                                10,
-                                RagIndexJobPageRequest.Sort.FINISHED_AT,
-                                RagIndexJobPageRequest.Direction.DESC))
+                                10),
+                        new RagIndexJobSort(
+                                RagIndexJobSort.Field.FINISHED_AT,
+                                RagIndexJobSort.Direction.DESC))
                 .jobs())
                 .extracting(RagIndexJob::jobId)
                 .containsExactly("job-completed", "job-running");
+    }
+
+    @Test
+    void usesJobIdAsStableTieBreakerAcrossPages() {
+        repository.save(RagIndexJob.pending("job-b", "attachment", "1", "same-doc", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.save(RagIndexJob.pending("job-a", "attachment", "2", "same-doc", "attachment",
+                Instant.parse("2026-04-26T00:00:01Z")));
+
+        assertThat(repository.findAll(RagIndexJobFilter.empty(),
+                        new RagIndexJobPageRequest(0, 1),
+                        new RagIndexJobSort(
+                                RagIndexJobSort.Field.DOCUMENT_ID,
+                                RagIndexJobSort.Direction.ASC))
+                .jobs())
+                .extracting(RagIndexJob::jobId)
+                .containsExactly("job-a");
+        assertThat(repository.findAll(RagIndexJobFilter.empty(),
+                        new RagIndexJobPageRequest(1, 1),
+                        new RagIndexJobSort(
+                                RagIndexJobSort.Field.DOCUMENT_ID,
+                                RagIndexJobSort.Direction.ASC))
+                .jobs())
+                .extracting(RagIndexJob::jobId)
+                .containsExactly("job-b");
     }
 }

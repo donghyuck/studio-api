@@ -23,6 +23,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -158,8 +159,22 @@ class RagIndexJobControllerTest {
         assertThat(logsResponse.getBody().getData())
                 .extracting(RagIndexJobLogDto::code)
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
-        assertThat(jobService.pageRequest.sort()).isEqualTo(RagIndexJobPageRequest.Sort.CREATED_AT);
-        assertThat(jobService.pageRequest.direction()).isEqualTo(RagIndexJobPageRequest.Direction.DESC);
+        assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
+        assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void listJobsMapsSortAliasesAndDirectionFallback() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        controller.listJobs(null, null, null, null, 0, 10, " document-id ", "sideways");
+
+        assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
+        assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
     }
 
     @Test
@@ -223,6 +238,7 @@ class RagIndexJobControllerTest {
         private RagIndexJobCreateRequest createdRequest;
         private RagIndexJobSourceRequest createdSourceRequest;
         private RagIndexJobPageRequest pageRequest;
+        private RagIndexJobSort sort;
 
         CapturingJobService() {
             this(RagIndexJobStatus.SUCCEEDED);
@@ -271,6 +287,16 @@ class RagIndexJobControllerTest {
         @Override
         public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
             this.pageRequest = pageable;
+            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+        }
+
+        @Override
+        public RagIndexJobPage listJobs(
+                RagIndexJobFilter filter,
+                RagIndexJobPageRequest pageable,
+                RagIndexJobSort sort) {
+            this.pageRequest = pageable;
+            this.sort = sort;
             return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
         }
 

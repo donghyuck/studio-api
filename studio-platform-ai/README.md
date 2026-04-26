@@ -227,10 +227,10 @@ default wrapper로 추가됐다. 구현체는 listener를 통해 `CHUNKING`, `EM
 예를 들어 attachment 모듈은 `sourceType=attachment` 요청을 받아 기존 attachment 색인 pipeline을 실행할 수 있다.
 ai core는 이 인터페이스만 제공하며 attachment, textract, chunking, provider, vector DB 구현에는 의존하지 않는다.
 
-`RagIndexJobPageRequest`는 `offset`/`limit`과 optional `sort`/`direction`을 표현한다.
-기존 2-arg 생성자는 유지되며 기본 정렬은 `createdAt desc`이다. 지원 sort 값은 `createdAt`,
-`startedAt`, `finishedAt`, `status`, `currentStep`, `objectType`, `objectId`, `documentId`,
-`sourceType`, `durationMs`이다.
+`RagIndexJobPageRequest`는 기존 `offset`/`limit` record shape를 유지한다.
+정렬 조건은 별도 `RagIndexJobSort` 계약으로 전달한다. 기본 정렬은 `createdAt desc`이며,
+지원 sort 값은 `createdAt`, `startedAt`, `finishedAt`, `status`, `currentStep`, `objectType`,
+`objectId`, `documentId`, `sourceType`, `durationMs`이다.
 
 ## 구현 분리 원칙
 이 모듈은 구현체를 포함하지 않는다. `ai.core`는 provider 구현과 DB 구현에 의존하지 않는 계약 계층으로 유지한다.

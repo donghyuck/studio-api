@@ -33,6 +33,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -93,11 +94,10 @@ public class RagIndexJobController {
             @RequestParam(name = "direction", required = false) String direction) {
         RagIndexJobPage page = jobService.listJobs(
                 new RagIndexJobFilter(status, objectType, objectId, documentId),
-                new RagIndexJobPageRequest(
-                        offset,
-                        limit,
-                        RagIndexJobPageRequest.Sort.from(sort),
-                        RagIndexJobPageRequest.Direction.from(direction)));
+                new RagIndexJobPageRequest(offset, limit),
+                new RagIndexJobSort(
+                        RagIndexJobSort.Field.from(sort),
+                        RagIndexJobSort.Direction.from(direction)));
         return ResponseEntity.ok(ApiResponse.ok(new RagIndexJobListResponseDto(
                 page.jobs().stream().map(RagIndexJobDto::from).toList(),
                 page.total(),

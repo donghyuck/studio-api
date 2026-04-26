@@ -66,17 +66,15 @@ class RagIndexJobContractTest {
     @Test
     void pageRequestKeepsLegacyConstructorAndNormalizesSorting() {
         RagIndexJobPageRequest legacy = new RagIndexJobPageRequest(-1, 0);
+        RagIndexJobSort sort = new RagIndexJobSort(
+                RagIndexJobSort.Field.from(" document-id "),
+                RagIndexJobSort.Direction.from("asc"));
 
         assertThat(legacy.offset()).isZero();
         assertThat(legacy.limit()).isEqualTo(50);
-        assertThat(legacy.sort()).isEqualTo(RagIndexJobPageRequest.Sort.CREATED_AT);
-        assertThat(legacy.direction()).isEqualTo(RagIndexJobPageRequest.Direction.DESC);
-        assertThat(RagIndexJobPageRequest.Sort.from("document-id"))
-                .isEqualTo(RagIndexJobPageRequest.Sort.DOCUMENT_ID);
-        assertThat(RagIndexJobPageRequest.Direction.from("asc"))
-                .isEqualTo(RagIndexJobPageRequest.Direction.ASC);
-        assertThat(RagIndexJobPageRequest.Sort.from("unknown"))
-                .isEqualTo(RagIndexJobPageRequest.Sort.CREATED_AT);
+        assertThat(sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
+        assertThat(sort.direction()).isEqualTo(RagIndexJobSort.Direction.ASC);
+        assertThat(RagIndexJobSort.Field.from("unknown")).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
     }
 
     @Test

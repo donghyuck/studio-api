@@ -14,6 +14,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
@@ -36,11 +37,20 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
 
     @Override
     public RagIndexJobPage findAll(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
+        return findAll(filter, pageable, RagIndexJobSort.defaults());
+    }
+
+    @Override
+    public RagIndexJobPage findAll(
+            RagIndexJobFilter filter,
+            RagIndexJobPageRequest pageable,
+            RagIndexJobSort sort) {
         RagIndexJobFilter effectiveFilter = filter == null ? RagIndexJobFilter.empty() : filter;
         RagIndexJobPageRequest effectivePageable = pageable == null ? RagIndexJobPageRequest.defaults() : pageable;
+        RagIndexJobSort effectiveSort = sort == null ? RagIndexJobSort.defaults() : sort;
         List<RagIndexJob> matched = jobs.values().stream()
                 .filter(job -> matches(effectiveFilter, job))
-                .sorted(comparator(effectivePageable))
+                .sorted(comparator(effectiveSort))
                 .toList();
         int fromIndex = Math.min(effectivePageable.offset(), matched.size());
         int toIndex = Math.min(fromIndex + effectivePageable.limit(), matched.size());
@@ -101,9 +111,9 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
         return expected == null || expected.equals(actual);
     }
 
-    private Comparator<RagIndexJob> comparator(RagIndexJobPageRequest pageable) {
-        boolean descending = pageable.direction() == RagIndexJobPageRequest.Direction.DESC;
-        Comparator<RagIndexJob> comparator = switch (pageable.sort()) {
+    private Comparator<RagIndexJob> comparator(RagIndexJobSort sort) {
+        boolean descending = sort.direction() == RagIndexJobSort.Direction.DESC;
+        Comparator<RagIndexJob> comparator = switch (sort.field()) {
             case STARTED_AT -> comparingInstant(RagIndexJob::startedAt, descending);
             case FINISHED_AT -> comparingInstant(RagIndexJob::finishedAt, descending);
             case STATUS -> comparingText(job -> job.status().name(), descending);

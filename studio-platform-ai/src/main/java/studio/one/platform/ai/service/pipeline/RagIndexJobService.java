@@ -9,6 +9,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 
 public interface RagIndexJobService {
 
@@ -27,6 +28,13 @@ public interface RagIndexJobService {
     Optional<RagIndexJob> getJob(String jobId);
 
     RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable);
+
+    default RagIndexJobPage listJobs(
+            RagIndexJobFilter filter,
+            RagIndexJobPageRequest pageable,
+            RagIndexJobSort sort) {
+        return listJobs(filter, pageable);
+    }
 
     List<RagIndexJobLog> getLogs(String jobId);
 

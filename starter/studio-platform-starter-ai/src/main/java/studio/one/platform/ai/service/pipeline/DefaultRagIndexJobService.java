@@ -21,6 +21,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
@@ -169,6 +170,11 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     @Override
     public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
         return repository.findAll(filter, pageable);
+    }
+
+    @Override
+    public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable, RagIndexJobSort sort) {
+        return repository.findAll(filter, pageable, sort);
     }
 
     @Override
