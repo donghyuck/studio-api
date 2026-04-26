@@ -3,6 +3,7 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #327 대응으로 AI client update guide의 RAG chat attachment-only 제약, job 조회 권한, in-memory job 404 처리, chunk 조회 limit 안내를 보완했다.
 - 이슈 #325 대응으로 AI client update guide의 RAG job 운영 화면 API 목록과 polling/retry/cancel 흐름을 최신화했다.
 - 이슈 #323 대응으로 RAG index job cancel API(`POST /api/mgmt/ai/rag/jobs/{jobId}/cancel`)를 추가했다.
 - `RagIndexJobService.cancelJob(jobId)` 계약과 `JOB_CANCELLED` 로그 코드를 추가하고, 기본 in-memory job service/repository가 취소 상태를 late progress callback으로 덮어쓰지 않도록 보강했다.

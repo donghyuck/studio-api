@@ -61,13 +61,15 @@
 
 기존 `POST /api/mgmt/ai/rag/index`와 `POST /api/mgmt/attachments/{attachmentId}/rag/index`는
 응답 body 없이 `202 Accepted`를 유지한다. 서버가 job tracking을 제공하면 응답 헤더
-`X-RAG-Job-Id`가 추가되므로, 클라이언트는 이 값을 이용해 job 상세와 로그를 조회할 수 있다.
+`X-RAG-Job-Id`가 추가되므로, 클라이언트는 이 값을 이용해 job 상세를 조회할 수 있다.
+attachment job의 로그와 chunk까지 조회하려면 `services:ai_rag read`와 `features:attachment read`가 모두 필요하다.
 
 신규 `POST /api/mgmt/ai/rag/jobs`는 raw text 색인과 source 기반 색인을 모두 받을 수 있다.
 `text`가 있으면 `RagPipelineService` raw text 색인을 실행하고, `sourceType=attachment`와 `text`가 없으면
 attachment source executor가 기존 attachment RAG 색인 흐름을 비동기로 실행한다. attachment source job은
 attachment 쓰기 권한도 필요하다. 기존 attachment 전용 API를 사용하는 화면은 그대로 유지할 수 있고,
-응답 헤더의 `X-RAG-Job-Id`로 동일한 job 조회 화면에 연결하면 된다.
+응답 헤더의 `X-RAG-Job-Id`로 동일한 job 조회 화면에 연결할 수 있다. 단, attachment 전용 API 호출 권한과
+job 조회 권한은 별도이므로 job 화면 연결은 `services:ai_rag read` 권한이 있는 운영자 화면에서만 활성화한다.
 
 생성 요청 예시는 다음과 같다.
 
@@ -92,9 +94,17 @@ attachment 쓰기 권한도 필요하다. 기존 attachment 전용 API를 사용
 3. 목록 filter는 `status`, `objectType`, `objectId`, `documentId`를 사용한다.
 4. `GET /api/mgmt/ai/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, `chunkCount`, `embeddedCount`, `indexedCount`, `warningCount`를 표시한다.
 5. `GET /api/mgmt/ai/rag/jobs/{jobId}/logs`로 단계별 `INFO`/`WARN`/`ERROR` 로그를 표시한다.
-6. 완료 후 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks` 또는 object chunk API로 색인 결과를 보여준다.
+6. 완료 후 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks?limit=200` 또는 object chunk API로 색인 결과를 보여준다.
 7. `FAILED`, `SUCCEEDED`, `WARNING`, `CANCELLED` 상태이고 권한이 있을 때만 retry 버튼을 활성화한다. `PENDING`/`RUNNING` retry는 `409 Conflict`로 처리한다.
 8. `PENDING`, `RUNNING` 상태이고 권한이 있을 때만 cancel 버튼을 활성화한다. terminal job cancel은 `409 Conflict`로 처리한다.
+
+기본 job 저장소는 in-memory이므로 서버 재시작 또는 저장소 교체 정책에 따라 job 상세, 로그, chunk 조회가
+`404 Not Found`를 반환할 수 있다. polling 중 404를 받으면 해당 job polling을 중단하고 retry/cancel 버튼을
+비활성화한다. 필요하면 object metadata/chunk API로 현재 색인 상태를 다시 조회하거나 새 색인 job을 생성한다.
+
+`GET /api/mgmt/ai/rag/jobs/{jobId}/chunks`와 object chunk API는 `limit` query parameter를 받는다.
+서버 기본값과 최대값은 모두 200이며, 운영 화면의 색인 점검용 조회로 사용한다. 전체 chunk export가 필요하면
+별도 API를 설계한다.
 
 `status`와 버튼 동작 기준은 다음과 같다.
 
@@ -179,6 +189,9 @@ RAG job 운영 API 권한은 다음 기준으로 처리한다.
 클라이언트 기준:
 
 - 파일 기반 답변은 `objectType=attachment`, `objectId=<attachmentId>`를 보낸다.
+- 현재 2.x의 `/api/ai/chat/rag` object scope는 attachment 전용이다. object scope를 쓰는 요청에서
+  `objectType`이 `attachment`가 아니거나 `objectId`가 없으면 서버는 `400 Bad Request`로 처리한다.
+  `objectType`과 `objectId`를 모두 생략하고 `ragQuery`만 보내는 전역 RAG 검색은 별도 흐름으로 허용된다.
 - `ragQuery`가 있으면 객체 범위 안에서 검색한다.
 - `ragQuery`가 없고 객체 범위만 있으면 저장된 chunk를 순서대로 컨텍스트에 사용한다.
 - `ragTopK`는 화면의 최대 참고 문서 수와 맞춘다.
@@ -191,8 +204,10 @@ RAG job 운영 API 권한은 다음 기준으로 처리한다.
 
 1. 파일 업로드 또는 기존 첨부 선택을 완료한다.
 2. `POST /api/mgmt/attachments/{attachmentId}/rag/index`로 인덱싱을 요청한다.
-3. `GET /api/mgmt/attachments/{attachmentId}/rag/metadata`로 RAG metadata를 확인한다.
-4. `POST /api/ai/chat/rag`에 `objectType=attachment`, `objectId=<attachmentId>`를 넣어 질문한다.
+3. 응답에 `X-RAG-Job-Id`가 있으면 `services:ai_rag read` 권한이 있는 운영자 화면에서 job 상세를 polling한다.
+   attachment job 로그와 chunk 조회는 추가로 `features:attachment read` 권한이 있을 때만 활성화한다.
+4. `GET /api/mgmt/attachments/{attachmentId}/rag/metadata`로 RAG metadata를 확인한다.
+5. `POST /api/ai/chat/rag`에 `objectType=attachment`, `objectId=<attachmentId>`를 넣어 질문한다.
 
 재인덱싱 시 서버는 같은 `objectType`/`objectId`의 기존 chunk를 교체한다.
 클라이언트는 재인덱싱 완료 후 이전 검색 결과나 미리보기 캐시를 무효화한다.
