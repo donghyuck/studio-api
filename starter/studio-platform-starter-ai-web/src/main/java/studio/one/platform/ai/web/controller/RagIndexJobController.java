@@ -105,7 +105,9 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentSource(#request)"
+            + " or @endpointAuthz.can('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> createJob(
             @Valid @RequestBody RagIndexJobCreateRequestDto request) {
         RagIndexJob job = jobService.createJob(toCreateRequest(request));
@@ -114,7 +116,9 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs/{jobId}/retry")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
+            + " or @endpointAuthz.can('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> retryJob(@PathVariable("jobId") String jobId) {
         RagIndexJob job = requireJob(jobId);
         if (job.status() == RagIndexJobStatus.PENDING || job.status() == RagIndexJobStatus.RUNNING) {
@@ -170,8 +174,8 @@ public class RagIndexJobController {
     }
 
     private RagIndexJobCreateRequest toCreateRequest(RagIndexJobCreateRequestDto request) {
-        if (!hasText(request.text())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "text is required for /rag/jobs");
+        if (!hasText(request.text()) && !hasText(request.sourceType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "text or sourceType is required for /rag/jobs");
         }
         Map<String, Object> metadata = request.metadata() == null
                 ? new HashMap<>()
@@ -196,7 +200,10 @@ public class RagIndexJobController {
                 request.documentId(),
                 request.sourceType(),
                 Boolean.TRUE.equals(request.forceReindex()),
-                indexRequest);
+                indexRequest,
+                metadata,
+                request.keywords() == null ? List.of() : request.keywords(),
+                Boolean.TRUE.equals(request.useLlmKeywordExtraction()));
     }
 
     private void dispatch(String jobId, Runnable task) {

@@ -35,6 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
+import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
@@ -95,14 +96,19 @@ class AttachmentEmbeddingPipelineControllerTest {
             AttachmentStructuredRagIndexer structuredRagIndexer,
             boolean allowClientDebug,
             RagIndexJobService ragIndexJobService) {
+        AttachmentRagIndexService attachmentRagIndexService = new AttachmentRagIndexService(
+                attachmentService,
+                provider(extractionService),
+                provider(ragPipelineService),
+                provider(structuredRagIndexer));
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
                 provider(embeddingPort),
                 provider((VectorStorePort) null),
                 provider(ragPipelineService),
-                provider(structuredRagIndexer),
                 provider(ragIndexJobService),
+                attachmentRagIndexService,
                 provider((I18n) null));
         ReflectionTestUtils.setField(controller, "allowClientDebug", allowClientDebug);
 

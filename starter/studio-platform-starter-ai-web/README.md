@@ -97,9 +97,32 @@ studio:
 RAG 운영 화면은 신규 job API를 사용해 색인 실행 상태, 단계별 로그, 색인된 chunk를 조회할 수 있다.
 기존 `POST {mgmtBasePath}/rag/index` 테스트 API는 응답 body 없이 `202 Accepted`를 유지하며,
 job 추적이 활성화된 경우 `X-RAG-Job-Id` 헤더만 추가한다. 신규 `POST {mgmtBasePath}/rag/jobs`는
-raw `text`를 필수로 받아 같은 `RagPipelineService`를 in-memory job service로 감싸 비동기 실행하고,
-응답 body에 생성된 job을 반환한다. attachment 같은 source 기반 실행은 이번 범위에서는 기존
-attachment RAG index API를 사용한다.
+raw `text`가 있으면 같은 `RagPipelineService`를 in-memory job service로 감싸 비동기 실행하고,
+응답 body에 생성된 job을 반환한다. `text`가 없고 `sourceType`이 있으면 등록된
+`RagIndexJobSourceExecutor`가 해당 source를 실행한다. `content-embedding-pipeline`은
+`sourceType=attachment` job executor를 제공하며 기존 attachment RAG index 경로를 재사용한다.
+attachment source job 생성과 retry는 기존 attachment 색인 API와 동일하게 `features:attachment write`
+권한도 필요하다.
+
+attachment source job 예시:
+
+```http
+POST /api/mgmt/ai/rag/jobs
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "objectType": "attachment",
+  "objectId": "101",
+  "documentId": "doc-101",
+  "sourceType": "attachment",
+  "metadata": {
+    "category": "manual"
+  },
+  "keywords": ["spring", "java"],
+  "useLlmKeywordExtraction": false
+}
+```
 
 Job `status`는 `PENDING`, `RUNNING`, `SUCCEEDED`, `WARNING`, `FAILED`, `CANCELLED`이며,
 `currentStep`은 `EXTRACTING`, `CHUNKING`, `EMBEDDING`, `INDEXING`, `COMPLETED`이다.

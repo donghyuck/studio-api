@@ -29,6 +29,7 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
     private final RagIndexJobRepository repository;
     private final RagPipelineService ragPipelineService;
+    private final List<RagIndexJobSourceExecutor> sourceExecutors;
     private final ConcurrentMap<String, RagIndexJobCreateRequest> requests = new ConcurrentHashMap<>();
     private final Queue<String> requestOrder = new ConcurrentLinkedQueue<>();
     private final Set<String> runningJobs = ConcurrentHashMap.newKeySet();
@@ -36,8 +37,16 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
             RagPipelineService ragPipelineService) {
+        this(repository, ragPipelineService, List.of());
+    }
+
+    public DefaultRagIndexJobService(
+            RagIndexJobRepository repository,
+            RagPipelineService ragPipelineService,
+            List<RagIndexJobSourceExecutor> sourceExecutors) {
         this.repository = repository;
         this.ragPipelineService = ragPipelineService;
+        this.sourceExecutors = sourceExecutors == null ? List.of() : List.copyOf(sourceExecutors);
     }
 
     @Override
@@ -77,7 +86,7 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         RagIndexJobCreateRequest request = requests.get(jobId);
         RagIndexProgressListener listener = progressListener(jobId);
         listener.onStarted();
-        if (request == null || request.indexRequest() == null) {
+        if (request == null) {
             listener.onError(
                     RagIndexJobStep.EXTRACTING,
                     RagIndexJobLogCode.SOURCE_UNSUPPORTED,
@@ -86,13 +95,35 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             return requireJob(jobId);
         }
         try {
-            ragPipelineService.index(request.indexRequest(), listener);
+            if (request.indexRequest() != null) {
+                ragPipelineService.index(request.indexRequest(), listener);
+            } else {
+                Optional<RagIndexJobSourceExecutor> sourceExecutor = sourceExecutor(request);
+                if (sourceExecutor.isEmpty()) {
+                    listener.onError(
+                            RagIndexJobStep.EXTRACTING,
+                            RagIndexJobLogCode.SOURCE_UNSUPPORTED,
+                            "RAG index source is not executable by the default job service",
+                            request.sourceType());
+                    return requireJob(jobId);
+                }
+                sourceExecutor.get().execute(requireJob(jobId), request, listener);
+            }
             listener.onCompleted();
         } catch (RuntimeException ex) {
-            RagIndexJobStep step = requireJob(jobId).currentStep();
-            listener.onError(step, codeFor(step), "RAG index failed", ex.getMessage());
+            RagIndexJob current = requireJob(jobId);
+            if (current.status() != RagIndexJobStatus.FAILED) {
+                RagIndexJobStep step = current.currentStep();
+                listener.onError(step, codeFor(step), "RAG index failed", ex.getMessage());
+            }
         }
         return requireJob(jobId);
+    }
+
+    private Optional<RagIndexJobSourceExecutor> sourceExecutor(RagIndexJobCreateRequest request) {
+        return sourceExecutors.stream()
+                .filter(executor -> executor.supports(request))
+                .findFirst();
     }
 
     @Override

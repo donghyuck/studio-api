@@ -105,6 +105,51 @@ class DefaultRagIndexJobServiceTest {
                 .hasMessageContaining("cannot be retried");
     }
 
+    @Test
+    void delegatesNonTextSourceToMatchingExecutor() {
+        CapturingSourceExecutor executor = new CapturingSourceExecutor();
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(
+                repository,
+                new SuccessfulPipeline(),
+                List.of(executor));
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of("attachmentId", "42"),
+                List.of("alpha"),
+                true));
+
+        RagIndexJob completed = service.startJob(job.jobId());
+
+        assertThat(completed.status()).isEqualTo(RagIndexJobStatus.SUCCEEDED);
+        assertThat(completed.chunkCount()).isEqualTo(3);
+        assertThat(executor.request.metadata()).containsEntry("attachmentId", "42");
+        assertThat(executor.request.keywords()).containsExactly("alpha");
+    }
+
+    @Test
+    void marksUnsupportedNonTextSourceAsFailed() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null));
+
+        RagIndexJob failed = service.startJob(job.jobId());
+
+        assertThat(failed.status()).isEqualTo(RagIndexJobStatus.FAILED);
+        assertThat(service.getLogs(job.jobId()))
+                .anySatisfy(log -> assertThat(log.code()).isEqualTo(
+                        studio.one.platform.ai.core.rag.RagIndexJobLogCode.SOURCE_UNSUPPORTED));
+    }
+
     private static class SuccessfulPipeline extends BasePipeline {
 
         @Override
@@ -136,6 +181,27 @@ class DefaultRagIndexJobServiceTest {
             calls++;
             listener.onStep(RagIndexJobStep.CHUNKING);
             listener.onChunkCount(1);
+        }
+    }
+
+    private static class CapturingSourceExecutor implements RagIndexJobSourceExecutor {
+
+        private RagIndexJobCreateRequest request;
+
+        @Override
+        public boolean supports(RagIndexJobCreateRequest request) {
+            return "attachment".equals(request.sourceType());
+        }
+
+        @Override
+        public void execute(RagIndexJob job, RagIndexJobCreateRequest request, RagIndexProgressListener listener) {
+            this.request = request;
+            listener.onStep(RagIndexJobStep.CHUNKING);
+            listener.onChunkCount(3);
+            listener.onStep(RagIndexJobStep.EMBEDDING);
+            listener.onEmbeddedCount(3);
+            listener.onStep(RagIndexJobStep.INDEXING);
+            listener.onIndexedCount(3);
         }
     }
 

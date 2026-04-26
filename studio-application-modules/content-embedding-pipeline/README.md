@@ -44,6 +44,8 @@ RAG 색인은 `TextractNormalizedDocumentAdapter`, `ChunkingOrchestrator`, `Embe
 | 클래스 | 역할 |
 |--------|------|
 | `AttachmentEmbeddingPipelineController` | 임베딩 생성/저장, 벡터 존재 여부 확인, RAG 인덱싱/검색 REST 엔드포인트 제공 |
+| `AttachmentRagIndexService` | attachment RAG 색인 실행 흐름을 controller와 job executor가 함께 재사용하는 service |
+| `AttachmentRagIndexJobSourceExecutor` | `sourceType=attachment` RAG index job을 기존 attachment 색인 흐름으로 실행 |
 | `FileContentExtractionService` | 파일 MIME 타입과 이름을 기반으로 텍스트 추출. 구현체는 `studio-platform-textract-starter`가 제공한다 |
 | `TextractNormalizedDocumentAdapter` | `ParsedFile`을 structure-based chunking 입력인 `NormalizedDocument`로 변환한다 |
 | `EmbeddingPort` | 텍스트 리스트를 받아 임베딩 벡터 반환. `studio-platform-ai` AI 어댑터(OpenAI 등)가 구현체를 제공한다 |
@@ -115,6 +117,8 @@ Content-Type: application/json
 `202 Accepted` 응답 헤더에 안전한 색인 diagnostics를 추가한다.
 `RagIndexJobService`가 있으면 기존 응답 body 없이 `X-RAG-Job-Id` 헤더도 함께 반환해
 `starter-ai-web`의 RAG job management API에서 상태와 로그를 추적할 수 있다.
+`starter-ai-web`의 `POST /api/mgmt/ai/rag/jobs`에서도 `sourceType=attachment`, `objectType=attachment`,
+`objectId=<attachmentId>`를 보내면 동일한 attachment RAG 색인 흐름을 비동기 job으로 실행한다.
 헤더는 `X-RAG-Index-Path`, `X-RAG-Index-Structured`, `X-RAG-Index-Fallback-Reason`,
 `X-RAG-Index-Parsed-Block-Count`, `X-RAG-Index-Chunk-Count`, `X-RAG-Index-Vector-Count`,
 `X-RAG-Job-Id`만 사용한다.

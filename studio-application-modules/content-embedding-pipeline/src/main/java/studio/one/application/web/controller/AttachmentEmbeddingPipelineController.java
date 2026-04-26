@@ -23,8 +23,6 @@ package studio.one.application.web.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Instant;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,8 +49,11 @@ import studio.one.application.web.dto.EmbeddingVectorDto;
 import studio.one.application.web.dto.SearchRequest;
 import studio.one.application.web.dto.SearchResponse;
 import studio.one.application.web.dto.SearchResult;
+import studio.one.application.web.service.AttachmentRagIndexCommand;
 import studio.one.application.web.service.AttachmentRagIndexDiagnostics;
-import studio.one.application.web.service.AttachmentStructuredRagIndexer;
+import studio.one.application.web.service.AttachmentRagIndexResult;
+import studio.one.application.web.service.AttachmentRagIndexService;
+import studio.one.application.web.service.AttachmentRagIndexUnavailableException;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
@@ -60,8 +61,6 @@ import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
-import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
-import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
@@ -110,8 +109,8 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
-    private final ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider;
     private final ObjectProvider<RagIndexJobService> ragIndexJobServiceProvider;
+    private final AttachmentRagIndexService attachmentRagIndexService;
     private final ObjectProvider<I18n> i18nProvider;
 
     @Value("${studio.ai.endpoints.rag.diagnostics.allow-client-debug:false}")
@@ -261,64 +260,30 @@ public class AttachmentEmbeddingPipelineController {
         if (attachmentId <= 0) {
             return ResponseEntity.badRequest().build();
         }
-        FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
-        if (extractor == null) {
+        if (!attachmentRagIndexService.hasTextExtractor()) {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
         }
-        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        String documentId = resolveDocumentId(request, attachmentId);
-        String objectType = resolveObjectType(request);
-        String objectId = resolveObjectId(request, attachmentId);
-        Map<String, Object> metadata = buildMetadata(request, attachment, objectType, objectId);
+        AttachmentRagIndexCommand command = attachmentRagIndexService.command(
+                attachmentId,
+                request == null ? null : request.documentId(),
+                request == null ? null : request.objectType(),
+                request == null ? null : request.objectId(),
+                request == null ? null : request.metadata(),
+                request == null ? null : request.keywords(),
+                request == null ? null : request.useLlmKeywordExtraction());
         RagIndexJobService jobService = ragIndexJobServiceProvider.getIfAvailable();
-        RagIndexJob job = createJob(jobService, objectType, objectId, documentId);
+        RagIndexJob job = createJob(jobService, command);
         RagIndexProgressListener progress = job == null
                 ? RagIndexProgressListener.noop()
                 : jobService.progressListener(job.jobId());
         progress.onStarted();
-        AttachmentStructuredRagIndexer structuredIndexer = structuredRagIndexerProvider.getIfAvailable();
-        AttachmentRagIndexDiagnostics structuredDiagnostics = structuredIndexer == null
-                ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
-                : null;
         try {
-            if (structuredIndexer != null) {
-                try (InputStream in = attachmentService.getInputStream(attachment)) {
-                    if (structuredIndexer.index(
-                            attachment,
-                            documentId,
-                            objectType,
-                            objectId,
-                            metadata,
-                            extractor,
-                            in,
-                            progress)) {
-                        progress.onCompleted();
-                        return accepted(request, structuredIndexer.latestDiagnostics()
-                                .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()), job);
-                    }
-                    structuredDiagnostics = structuredIndexer.latestDiagnostics()
-                            .orElse(AttachmentRagIndexDiagnostics.fallback("structured_not_handled"));
-                } finally {
-                    structuredIndexer.clearDiagnostics();
-                }
-            }
-            RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
-            if (ragPipeline == null) {
-                progress.onError(null, RagIndexJobLogCode.SOURCE_UNSUPPORTED,
-                        "RAG pipeline service is not configured", null);
-                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-            }
-            try (InputStream in = attachmentService.getInputStream(attachment)) {
-                String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
-                List<String> keywords = request != null && request.keywords() != null ? request.keywords() : List.of();
-                boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction());
-                ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords), progress);
-            }
+            AttachmentRagIndexResult result = attachmentRagIndexService.index(attachmentId, command, progress);
             progress.onCompleted();
-            return accepted(request, AttachmentRagIndexDiagnostics.fallback(
-                    structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()), job);
+            return accepted(request, result.diagnostics(), job);
+        } catch (AttachmentRagIndexUnavailableException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
         } catch (IOException | RuntimeException ex) {
-            progress.onError(null, RagIndexJobLogCode.UNKNOWN_ERROR, "Attachment RAG index failed", ex.getMessage());
             throw ex;
         }
     }
@@ -344,19 +309,20 @@ public class AttachmentEmbeddingPipelineController {
 
     private RagIndexJob createJob(
             RagIndexJobService jobService,
-            String objectType,
-            String objectId,
-            String documentId) {
+            AttachmentRagIndexCommand command) {
         if (jobService == null) {
             return null;
         }
         return jobService.createJob(new RagIndexJobCreateRequest(
-                objectType,
-                objectId,
-                documentId,
+                command.objectType(),
+                command.objectId(),
+                command.documentId(),
                 "attachment",
                 false,
-                null));
+                null,
+                command.metadata(),
+                command.keywords(),
+                command.useLlmKeywordExtraction()));
     }
 
     private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {
@@ -400,47 +366,6 @@ public class AttachmentEmbeddingPipelineController {
         return response.vectors().stream()
                 .map(vector -> new EmbeddingVectorDto(vector.referenceId(), List.copyOf(vector.values())))
                 .toList();
-    }
-
-    private String resolveDocumentId(AttachmentRagIndexRequestDto request, long attachmentId) {
-        if (request != null && request.documentId() != null && !request.documentId().isBlank()) {
-            return request.documentId().trim();
-        }
-        return String.valueOf(attachmentId);
-    }
-
-    private String resolveObjectType(AttachmentRagIndexRequestDto request) {
-        if (request != null && request.objectType() != null && !request.objectType().isBlank()) {
-            return request.objectType().trim();
-        }
-        return "attachment";
-    }
-
-    private String resolveObjectId(AttachmentRagIndexRequestDto request, long attachmentId) {
-        if (request != null && request.objectId() != null && !request.objectId().isBlank()) {
-            return request.objectId().trim();
-        }
-        return String.valueOf(attachmentId);
-    }
-
-    private Map<String, Object> buildMetadata(AttachmentRagIndexRequestDto request,
-            Attachment attachment,
-            String objectType,
-            String objectId) {
-        Map<String, Object> metadata = request != null && request.metadata() != null
-                ? new HashMap<>(request.metadata())
-                : new HashMap<>();
-        metadata.putIfAbsent("objectType", objectType);
-        metadata.putIfAbsent("objectId", objectId);
-        metadata.putIfAbsent("attachmentId", attachment.getAttachmentId());
-        metadata.putIfAbsent("name", attachment.getName());
-        metadata.putIfAbsent("filename", attachment.getName());
-        metadata.putIfAbsent("sourceType", "attachment");
-        metadata.putIfAbsent("indexedAt", Instant.now().toString());
-        metadata.putIfAbsent("contentType", attachment.getContentType());
-        metadata.putIfAbsent("size", attachment.getSize());
-        metadata.putIfAbsent("chunkOrder", 0);
-        return metadata;
     }
 
     private void upsertVectorDocument(VectorStorePort vectorStore, Attachment attachment, String text, EmbeddingVector vector) {

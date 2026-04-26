@@ -68,7 +68,32 @@ class RagIndexJobControllerTest {
     }
 
     @Test
-    void createJobRejectsMissingTextForDefaultExecutor() {
+    void createJobAcceptsSourceRequestWithoutText() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of("attachmentId", "42"),
+                List.of("alpha"),
+                false));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(jobService.createdRequest.indexRequest()).isNull();
+        assertThat(jobService.createdRequest.sourceType()).isEqualTo("attachment");
+        assertThat(jobService.createdRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createJobRejectsMissingTextAndSourceType() {
         RagIndexJobController controller = new RagIndexJobController(
                 new CapturingJobService(),
                 mock(RagPipelineService.class),
@@ -78,7 +103,7 @@ class RagIndexJobControllerTest {
                 "attachment",
                 "42",
                 "doc-1",
-                "attachment",
+                null,
                 false,
                 null,
                 Map.of(),
