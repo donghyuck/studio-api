@@ -49,7 +49,11 @@ public class AiInfoController {
     public ResponseEntity<ApiResponse<AiInfoResponse>> providers() {
         List<ProviderInfo> providerInfos = new ArrayList<>();
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
-            providerInfos.add(mapProvider(entry.getKey(), entry.getValue()));
+            AiAdapterProperties.Provider provider = entry.getValue();
+            if (provider == null || provider.getType() == null) {
+                continue;
+            }
+            providerInfos.add(mapProvider(entry.getKey(), provider));
         }
         VectorInfo vectorInfo = new VectorInfo(
                 vectorStorePort != null,
@@ -65,7 +69,7 @@ public class AiInfoController {
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
         String baseUrl = switch (provider.getType()) {
-            case OPENAI -> firstNonBlank(environment.getProperty("spring.ai.openai.base-url"), provider.getBaseUrl());
+            case OPENAI -> environment.getProperty("spring.ai.openai.base-url");
             case OLLAMA -> firstNonBlank(environment.getProperty("spring.ai.ollama.base-url"), provider.getBaseUrl());
             case GOOGLE_AI_GEMINI -> provider.getBaseUrl();
         };

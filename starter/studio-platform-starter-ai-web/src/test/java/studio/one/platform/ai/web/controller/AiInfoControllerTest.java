@@ -50,4 +50,51 @@ class AiInfoControllerTest {
         AiInfoController.ProviderInfo ollamaInfo = body.getData().providers().get(1);
         assertThat(ollamaInfo.embedding().model()).isEqualTo("nomic-embed-text");
     }
+
+    @Test
+    void exposesOpenAiBaseUrlOnlyFromSpringAiCanonicalProperty() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("openai");
+
+        AiAdapterProperties.Provider openai = new AiAdapterProperties.Provider();
+        openai.setType(AiAdapterProperties.ProviderType.OPENAI);
+        openai.setBaseUrl("https://legacy.example.invalid");
+        properties.getProviders().put("openai", openai);
+
+        AiInfoController controller = new AiInfoController(
+                properties,
+                new AiWebChatProperties(),
+                new MockEnvironment(),
+                null);
+
+        ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
+
+        assertThat(body.getData().providers()).hasSize(1);
+        assertThat(body.getData().providers().get(0).baseUrl()).isNull();
+    }
+
+    @Test
+    void skipsProvidersWithoutType() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google-ai-gemini");
+
+        AiAdapterProperties.Provider incomplete = new AiAdapterProperties.Provider();
+        properties.getProviders().put("incomplete", incomplete);
+
+        AiAdapterProperties.Provider google = new AiAdapterProperties.Provider();
+        google.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        properties.getProviders().put("google-ai-gemini", google);
+
+        AiInfoController controller = new AiInfoController(
+                properties,
+                new AiWebChatProperties(),
+                new MockEnvironment(),
+                null);
+
+        ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
+
+        assertThat(body.getData().providers())
+                .extracting(AiInfoController.ProviderInfo::name)
+                .containsExactly("google-ai-gemini");
+    }
 }
