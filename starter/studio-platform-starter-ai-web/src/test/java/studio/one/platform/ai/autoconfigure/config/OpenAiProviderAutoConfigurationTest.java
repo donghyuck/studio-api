@@ -174,6 +174,24 @@ class OpenAiProviderAutoConfigurationTest {
     }
 
     @Test
+    void passesRagContextExpansionCandidateSettingsToChatController() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.ai.endpoints.rag.context.expansion.candidate-multiplier=6",
+                        "studio.ai.endpoints.rag.context.expansion.max-candidates=30")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ChatController.class);
+
+                    ChatController controller = context.getBean(ChatController.class);
+                    assertThat(ReflectionTestUtils.getField(controller, "ragContextCandidateMultiplier"))
+                            .isEqualTo(6);
+                    assertThat(ReflectionTestUtils.getField(controller, "ragContextMaxCandidates"))
+                            .isEqualTo(30);
+                });
+    }
+
+    @Test
     void exposesOpenAiFromInfoControllerInRuntimeContext() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
