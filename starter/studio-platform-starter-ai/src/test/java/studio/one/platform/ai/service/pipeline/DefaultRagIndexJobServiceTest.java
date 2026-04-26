@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
@@ -118,17 +119,15 @@ class DefaultRagIndexJobServiceTest {
                 "doc-1",
                 "attachment",
                 false,
-                null,
-                Map.of("attachmentId", "42"),
-                List.of("alpha"),
-                true));
+                null),
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "42"), List.of("alpha"), true));
 
         RagIndexJob completed = service.startJob(job.jobId());
 
         assertThat(completed.status()).isEqualTo(RagIndexJobStatus.SUCCEEDED);
         assertThat(completed.chunkCount()).isEqualTo(3);
-        assertThat(executor.request.metadata()).containsEntry("attachmentId", "42");
-        assertThat(executor.request.keywords()).containsExactly("alpha");
+        assertThat(executor.sourceRequest.metadata()).containsEntry("attachmentId", "42");
+        assertThat(executor.sourceRequest.keywords()).containsExactly("alpha");
     }
 
     @Test
@@ -187,15 +186,21 @@ class DefaultRagIndexJobServiceTest {
     private static class CapturingSourceExecutor implements RagIndexJobSourceExecutor {
 
         private RagIndexJobCreateRequest request;
+        private RagIndexJobSourceRequest sourceRequest;
 
         @Override
-        public boolean supports(RagIndexJobCreateRequest request) {
+        public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
             return "attachment".equals(request.sourceType());
         }
 
         @Override
-        public void execute(RagIndexJob job, RagIndexJobCreateRequest request, RagIndexProgressListener listener) {
+        public void execute(
+                RagIndexJob job,
+                RagIndexJobCreateRequest request,
+                RagIndexJobSourceRequest sourceRequest,
+                RagIndexProgressListener listener) {
             this.request = request;
+            this.sourceRequest = sourceRequest;
             listener.onStep(RagIndexJobStep.CHUNKING);
             listener.onChunkCount(3);
             listener.onStep(RagIndexJobStep.EMBEDDING);

@@ -51,6 +51,14 @@ class RagIndexJobEndpointSecurityTest {
         assertThat(security.isAttachmentJob("job-1")).isTrue();
     }
 
+    @Test
+    void detectsAttachmentObjectScopesForReadAuthorization() {
+        RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(null));
+
+        assertThat(security.isAttachmentObject("attachment")).isTrue();
+        assertThat(security.isAttachmentObject("article")).isFalse();
+    }
+
     private record StubJobService(RagIndexJob job) implements RagIndexJobService {
 
         @Override

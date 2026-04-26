@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 
 class AttachmentRagIndexJobSourceExecutorTest {
@@ -30,7 +31,21 @@ class AttachmentRagIndexJobSourceExecutorTest {
                 "doc-1",
                 "attachment",
                 false,
-                null))).isTrue();
+                null), RagIndexJobSourceRequest.empty())).isTrue();
+    }
+
+    @Test
+    void doesNotSupportObjectTypeOnlyAttachmentRequests() {
+        AttachmentRagIndexJobSourceExecutor executor = new AttachmentRagIndexJobSourceExecutor(
+                mock(AttachmentRagIndexService.class));
+
+        assertThat(executor.supports(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "custom-source",
+                false,
+                null), RagIndexJobSourceRequest.empty())).isFalse();
     }
 
     @Test
@@ -67,12 +82,11 @@ class AttachmentRagIndexJobSourceExecutorTest {
                 "doc-1",
                 "attachment",
                 false,
-                null,
-                Map.of("attachmentId", "42"),
-                List.of("alpha"),
-                true);
+                null);
+        RagIndexJobSourceRequest sourceRequest =
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "42"), List.of("alpha"), true);
 
-        executor.execute(job, request, RagIndexProgressListener.noop());
+        executor.execute(job, request, sourceRequest, RagIndexProgressListener.noop());
 
         verify(service).index(eq(42L), eq(command), any(RagIndexProgressListener.class));
     }

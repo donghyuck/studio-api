@@ -14,6 +14,12 @@ public interface RagIndexJobService {
 
     RagIndexJob createJob(RagIndexJobCreateRequest request);
 
+    default RagIndexJob createJob(
+            RagIndexJobCreateRequest request,
+            studio.one.platform.ai.core.rag.RagIndexJobSourceRequest sourceRequest) {
+        return createJob(request);
+    }
+
     RagIndexJob startJob(String jobId);
 
     RagIndexJob retryJob(String jobId);

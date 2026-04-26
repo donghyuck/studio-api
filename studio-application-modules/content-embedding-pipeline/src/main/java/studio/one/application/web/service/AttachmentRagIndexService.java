@@ -57,14 +57,14 @@ public class AttachmentRagIndexService {
         if (extractor == null) {
             throw new AttachmentRagIndexUnavailableException("Text extraction is not configured");
         }
-        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         RagIndexProgressListener progress = listener == null ? RagIndexProgressListener.noop() : listener;
-        Map<String, Object> metadata = buildMetadata(command, attachment);
-        AttachmentStructuredRagIndexer structuredIndexer = structuredRagIndexerProvider.getIfAvailable();
-        AttachmentRagIndexDiagnostics structuredDiagnostics = structuredIndexer == null
-                ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
-                : null;
         try {
+            Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+            Map<String, Object> metadata = buildMetadata(command, attachment);
+            AttachmentStructuredRagIndexer structuredIndexer = structuredRagIndexerProvider.getIfAvailable();
+            AttachmentRagIndexDiagnostics structuredDiagnostics = structuredIndexer == null
+                    ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
+                    : null;
             if (structuredIndexer != null) {
                 try (InputStream in = attachmentService.getInputStream(attachment)) {
                     if (structuredIndexer.index(
@@ -103,6 +103,9 @@ public class AttachmentRagIndexService {
             return new AttachmentRagIndexResult(AttachmentRagIndexDiagnostics.fallback(
                     structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()));
         } catch (AttachmentRagIndexUnavailableException ex) {
+            throw ex;
+        } catch (NotFoundException ex) {
+            progress.onError(null, RagIndexJobLogCode.SOURCE_UNSUPPORTED, "Attachment was not found", ex.getMessage());
             throw ex;
         } catch (IOException | RuntimeException ex) {
             progress.onError(null, RagIndexJobLogCode.UNKNOWN_ERROR, "Attachment RAG index failed", ex.getMessage());

@@ -18,6 +18,10 @@ public class RagIndexJobEndpointSecurity {
         return request != null && ATTACHMENT.equalsIgnoreCase(request.sourceType());
     }
 
+    public boolean isAttachmentObject(String objectType) {
+        return ATTACHMENT.equalsIgnoreCase(objectType);
+    }
+
     public boolean isAttachmentJob(String jobId) {
         return jobService.getJob(jobId)
                 .map(job -> ATTACHMENT.equalsIgnoreCase(job.sourceType()))

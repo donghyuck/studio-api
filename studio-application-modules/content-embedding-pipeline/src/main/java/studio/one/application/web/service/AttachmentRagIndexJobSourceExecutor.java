@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceExecutor;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 
@@ -17,25 +18,31 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
     private final AttachmentRagIndexService ragIndexService;
 
     @Override
-    public boolean supports(RagIndexJobCreateRequest request) {
+    public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
         if (request == null || request.indexRequest() != null) {
             return false;
         }
-        return ATTACHMENT.equalsIgnoreCase(request.sourceType())
-                || ATTACHMENT.equalsIgnoreCase(request.objectType());
+        return ATTACHMENT.equalsIgnoreCase(request.sourceType());
     }
 
     @Override
-    public void execute(RagIndexJob job, RagIndexJobCreateRequest request, RagIndexProgressListener listener) {
-        long attachmentId = attachmentId(request);
+    public void execute(
+            RagIndexJob job,
+            RagIndexJobCreateRequest request,
+            RagIndexJobSourceRequest sourceRequest,
+            RagIndexProgressListener listener) {
+        RagIndexJobSourceRequest source = sourceRequest == null
+                ? RagIndexJobSourceRequest.empty()
+                : sourceRequest;
+        long attachmentId = attachmentId(request, source);
         AttachmentRagIndexCommand command = ragIndexService.command(
                 attachmentId,
                 request.documentId(),
                 request.objectType(),
                 request.objectId(),
-                request.metadata(),
-                request.keywords(),
-                request.useLlmKeywordExtraction());
+                source.metadata(),
+                source.keywords(),
+                source.useLlmKeywordExtraction());
         try {
             ragIndexService.index(attachmentId, command, listener);
         } catch (Exception ex) {
@@ -43,8 +50,8 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
         }
     }
 
-    private long attachmentId(RagIndexJobCreateRequest request) {
-        Object metadataAttachmentId = request.metadata().get("attachmentId");
+    private long attachmentId(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+        Object metadataAttachmentId = sourceRequest.metadata().get("attachmentId");
         String value = metadataAttachmentId == null ? request.objectId() : metadataAttachmentId.toString();
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("attachmentId is required for attachment RAG index job");

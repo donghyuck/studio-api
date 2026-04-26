@@ -43,6 +43,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -383,7 +384,7 @@ class AttachmentEmbeddingPipelineControllerTest {
     void ragIndexAddsJobHeaderWhenJobServiceIsConfigured() throws Exception {
         RagIndexJobService jobService = mock(RagIndexJobService.class);
         configureMockMvc(null, false, jobService);
-        when(jobService.createJob(any(RagIndexJobCreateRequest.class)))
+        when(jobService.createJob(any(RagIndexJobCreateRequest.class), any(RagIndexJobSourceRequest.class)))
                 .thenReturn(RagIndexJob.pending(
                         "job-1",
                         "attachment",

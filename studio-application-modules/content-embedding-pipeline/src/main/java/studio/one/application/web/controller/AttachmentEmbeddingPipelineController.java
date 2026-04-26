@@ -61,6 +61,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
@@ -319,10 +320,11 @@ public class AttachmentEmbeddingPipelineController {
                 command.documentId(),
                 "attachment",
                 false,
-                null,
-                command.metadata(),
-                command.keywords(),
-                command.useLlmKeywordExtraction()));
+                null),
+                new RagIndexJobSourceRequest(
+                        command.metadata(),
+                        command.keywords(),
+                        command.useLlmKeywordExtraction()));
     }
 
     private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {
