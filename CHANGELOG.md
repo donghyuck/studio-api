@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-04-26
+
+### 변경됨
+- 이슈 #303 대응으로 `starter-ai-web`의 RAG context expansion을 `studio.ai.endpoints.rag.context.expansion.*` 설정으로 제어할 수 있도록 했다.
+- context expansion candidate 조회 배수, 후보 조회 상한, previous/next window, parent content 포함 여부를 설정으로 분리했다.
+
+### 검증
+- `./gradlew :starter:studio-platform-starter-ai-web:test`
+- `git diff --check`
+
 ## 2026-04-25
 
 ### 변경됨
@@ -23,11 +33,8 @@
 - README 예시와 실제 public API가 어긋나지 않도록 parent-child chunking, context expansion, text fallback 문서 시나리오 테스트를 추가했다.
 
 ### 검증
-- `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `./gradlew :studio-platform-chunking:test`
-- `git diff --check`
 - `./gradlew :starter:studio-platform-starter-ai:test`
-- `git diff --check`
 - `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
 - `./gradlew :studio-platform-user:test --tests 'studio.one.base.user.persistence.jpa.ApplicationGroupMembershipJpaRepositorySearchTest' --tests 'studio.one.base.user.persistence.jdbc.ApplicationGroupMembershipJdbcRepositoryTest'`
 - `./gradlew :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test`

@@ -89,7 +89,9 @@ public class AiWebAutoConfiguration {
                 chatMemoryStore,
                 chatProperties.getMemory().isEnabled(),
                 conversationChatService,
-                objectMapper);
+                objectMapper,
+                ragProperties.getContext().getExpansion().getCandidateMultiplier(),
+                ragProperties.getContext().getExpansion().getMaxCandidates());
     }
 
     @Bean

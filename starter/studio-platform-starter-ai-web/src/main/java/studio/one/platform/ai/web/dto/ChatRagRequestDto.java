@@ -1,6 +1,8 @@
 package studio.one.platform.ai.web.dto;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 /**
@@ -9,6 +11,8 @@ import jakarta.validation.constraints.NotNull;
 public record ChatRagRequestDto(
         @NotNull @Valid ChatRequestDto chat,
         String ragQuery,
+        @Min(value = 1, message = "ragTopK must be at least 1")
+        @Max(value = 100, message = "ragTopK must be at most 100")
         Integer ragTopK,
         String objectType,
         String objectId,

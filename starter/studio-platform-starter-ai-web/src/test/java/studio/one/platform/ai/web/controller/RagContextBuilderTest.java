@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.chunking.core.ChunkContextExpander;
 import studio.one.platform.chunking.core.ChunkContextExpansion;
@@ -61,6 +62,36 @@ class RagContextBuilderTest {
     }
 
     @Test
+    void doesNotExpandWhenExpansionIsDisabled() {
+        CountingExpander expander = new CountingExpander();
+        AiWebRagProperties.ExpansionProperties expansion = new AiWebRagProperties.ExpansionProperties();
+        expansion.setEnabled(false);
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, expansion, List.of(expander));
+
+        String context = builder.build(List.of(result("chunk-1", "seed", metadata("chunk-1"))));
+
+        assertThat(context).contains("seed");
+        assertThat(expander.calls).isZero();
+        assertThat(builder.supportsExpansion()).isFalse();
+    }
+
+    @Test
+    void passesExpansionWindowOptionsToExpander() {
+        RecordingExpander expander = new RecordingExpander();
+        AiWebRagProperties.ExpansionProperties expansion = new AiWebRagProperties.ExpansionProperties();
+        expansion.setPreviousWindow(2);
+        expansion.setNextWindow(3);
+        expansion.setIncludeParentContent(false);
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, expansion, List.of(expander));
+
+        builder.build(List.of(result("chunk-1", "seed", metadata("chunk-1"))));
+
+        assertThat(expander.previousWindow).isEqualTo(2);
+        assertThat(expander.nextWindow).isEqualTo(3);
+        assertThat(expander.includeParentContent).isFalse();
+    }
+
+    @Test
     void keepsCharacterBudgetAfterExpansion() {
         RagContextBuilder builder = new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList());
 
@@ -105,6 +136,25 @@ class RagContextBuilderTest {
         @Override
         public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
             calls++;
+            return ChunkContextExpansion.of(request.seedChunk(), List.of(request.seedChunk()), strategy());
+        }
+    }
+
+    private static final class RecordingExpander implements ChunkContextExpander {
+        private int previousWindow;
+        private int nextWindow;
+        private boolean includeParentContent = true;
+
+        @Override
+        public ChunkContextExpansionStrategy strategy() {
+            return ChunkContextExpansionStrategy.WINDOW;
+        }
+
+        @Override
+        public ChunkContextExpansion expand(ChunkContextExpansionRequest request) {
+            previousWindow = request.previousWindow();
+            nextWindow = request.nextWindow();
+            includeParentContent = request.includeParentContent();
             return ChunkContextExpansion.of(request.seedChunk(), List.of(request.seedChunk()), strategy());
         }
     }
