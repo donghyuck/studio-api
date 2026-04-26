@@ -152,19 +152,11 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
     @Override
     public RagIndexJob cancelJob(String jobId) {
-        RagIndexJob current = requireJob(jobId);
-        if (current.status() != RagIndexJobStatus.PENDING && current.status() != RagIndexJobStatus.RUNNING) {
-            throw new IllegalStateException("RAG index job can only be cancelled while active: " + jobId);
-        }
-        RagIndexJob cancelled = repository.updateStatus(
-                jobId,
-                RagIndexJobStatus.CANCELLED,
-                current.currentStep(),
-                "RAG index job cancelled");
+        RagIndexJob cancelled = repository.cancelJob(jobId, "RAG index job cancelled");
         repository.appendLog(log(
                 jobId,
                 RagIndexJobLogLevel.INFO,
-                current.currentStep(),
+                cancelled.currentStep(),
                 RagIndexJobLogCode.JOB_CANCELLED,
                 "RAG index job cancelled",
                 null));

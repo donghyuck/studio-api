@@ -172,7 +172,7 @@ class InMemoryRagIndexJobRepositoryTest {
         repository.save(RagIndexJob.pending("job-1", "attachment", "1", "doc-1", "attachment",
                 Instant.parse("2026-04-26T00:00:00Z")));
         repository.updateStatus("job-1", RagIndexJobStatus.RUNNING, RagIndexJobStep.INDEXING, null);
-        repository.updateStatus("job-1", RagIndexJobStatus.CANCELLED, RagIndexJobStep.INDEXING, "cancelled");
+        repository.cancelJob("job-1", "cancelled");
 
         repository.updateCounts("job-1", 9, 9, 9, 9);
         repository.updateStatus("job-1", RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null);
@@ -184,5 +184,50 @@ class InMemoryRagIndexJobRepositoryTest {
                     assertThat(job.chunkCount()).isZero();
                     assertThat(job.indexedCount()).isZero();
                 });
+    }
+
+    @Test
+    void cancelJobOnlyTransitionsActiveJobs() {
+        repository.save(RagIndexJob.pending("job-1", "attachment", "1", "doc-1", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.updateStatus("job-1", RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> repository.cancelJob("job-1", "cancelled"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("can only be cancelled");
+
+        assertThat(repository.findById("job-1")).get()
+                .extracting(RagIndexJob::status)
+                .isEqualTo(RagIndexJobStatus.SUCCEEDED);
+    }
+
+    @Test
+    void cancelledJobIgnoresLateNonCancelLogs() {
+        repository.save(RagIndexJob.pending("job-1", "attachment", "1", "doc-1", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.cancelJob("job-1", "cancelled");
+
+        repository.appendLog(new RagIndexJobLog(
+                "log-completed",
+                "job-1",
+                RagIndexJobLogLevel.INFO,
+                RagIndexJobStep.COMPLETED,
+                RagIndexJobLogCode.JOB_COMPLETED,
+                "completed",
+                null,
+                Instant.now()));
+        repository.appendLog(new RagIndexJobLog(
+                "log-cancelled",
+                "job-1",
+                RagIndexJobLogLevel.INFO,
+                RagIndexJobStep.INDEXING,
+                RagIndexJobLogCode.JOB_CANCELLED,
+                "cancelled",
+                null,
+                Instant.now()));
+
+        assertThat(repository.findLogs("job-1"))
+                .extracting(RagIndexJobLog::code)
+                .containsExactly(RagIndexJobLogCode.JOB_CANCELLED);
     }
 }

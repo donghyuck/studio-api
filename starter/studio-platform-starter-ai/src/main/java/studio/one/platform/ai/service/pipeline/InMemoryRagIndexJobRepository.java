@@ -82,6 +82,21 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
     }
 
     @Override
+    public RagIndexJob cancelJob(String jobId, String errorMessage) {
+        return jobs.compute(jobId, (ignored, current) -> {
+            RagIndexJob existing = requireJob(jobId, current);
+            if (existing.status() != RagIndexJobStatus.PENDING && existing.status() != RagIndexJobStatus.RUNNING) {
+                throw new IllegalStateException("RAG index job can only be cancelled while active: " + jobId);
+            }
+            return existing.withStatus(
+                    RagIndexJobStatus.CANCELLED,
+                    existing.currentStep(),
+                    errorMessage,
+                    Instant.now());
+        });
+    }
+
+    @Override
     public RagIndexJob updateCounts(
             String jobId,
             Integer chunkCount,
@@ -99,6 +114,12 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
 
     @Override
     public RagIndexJobLog appendLog(RagIndexJobLog log) {
+        RagIndexJob job = jobs.get(log.jobId());
+        if (job != null
+                && job.status() == RagIndexJobStatus.CANCELLED
+                && log.code() != studio.one.platform.ai.core.rag.RagIndexJobLogCode.JOB_CANCELLED) {
+            return log;
+        }
         logs.computeIfAbsent(log.jobId(), ignored -> new CopyOnWriteArrayList<>()).add(log);
         return log;
     }

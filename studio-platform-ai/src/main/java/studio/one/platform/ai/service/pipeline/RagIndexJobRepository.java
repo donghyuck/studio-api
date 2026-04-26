@@ -1,6 +1,7 @@
 package studio.one.platform.ai.service.pipeline;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
@@ -28,6 +29,15 @@ public interface RagIndexJobRepository {
     }
 
     RagIndexJob updateStatus(String jobId, RagIndexJobStatus status, RagIndexJobStep currentStep, String errorMessage);
+
+    default RagIndexJob cancelJob(String jobId, String errorMessage) {
+        RagIndexJob job = findById(jobId)
+                .orElseThrow(() -> new NoSuchElementException("RAG index job not found: " + jobId));
+        if (job.status() != RagIndexJobStatus.PENDING && job.status() != RagIndexJobStatus.RUNNING) {
+            throw new IllegalStateException("RAG index job can only be cancelled while active: " + jobId);
+        }
+        return updateStatus(jobId, RagIndexJobStatus.CANCELLED, job.currentStep(), errorMessage);
+    }
 
     RagIndexJob updateCounts(String jobId, Integer chunkCount, Integer embeddedCount, Integer indexedCount, Integer warningCount);
 

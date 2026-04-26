@@ -38,6 +38,22 @@ class RagIndexJobEndpointSecurityTest {
     }
 
     @Test
+    void detectsAttachmentCreateRequestsByObjectTypeWhenSourceTypeIsRaw() {
+        RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(null));
+
+        assertThat(security.isAttachmentSource(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                "content",
+                Map.of(),
+                List.of(),
+                false))).isTrue();
+    }
+
+    @Test
     void detectsAttachmentJobsForRetryAuthorization() {
         RagIndexJob job = RagIndexJob.pending(
                 "job-1",

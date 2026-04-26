@@ -15,7 +15,9 @@ public class RagIndexJobEndpointSecurity {
     private final RagIndexJobService jobService;
 
     public boolean isAttachmentSource(RagIndexJobCreateRequestDto request) {
-        return request != null && ATTACHMENT.equalsIgnoreCase(request.sourceType());
+        return request != null
+                && (ATTACHMENT.equalsIgnoreCase(request.sourceType())
+                        || ATTACHMENT.equalsIgnoreCase(request.objectType()));
     }
 
     public boolean isAttachmentObject(String objectType) {
