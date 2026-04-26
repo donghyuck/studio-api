@@ -68,7 +68,9 @@ public class OpenAiPortFactoryConfiguration {
                         "Spring AI EmbeddingModel bean is required for OPENAI provider. " +
                         "Ensure spring-ai-starter-model-openai is on the classpath and spring.ai.openai.api-key is configured.");
             }
-            return new SpringAiEmbeddingAdapter(embeddingModel);
+            return new SpringAiEmbeddingAdapter(
+                    embeddingModel,
+                    env.getProperty("spring.ai.openai.embedding.options.model"));
         }
     }
 }

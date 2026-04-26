@@ -178,6 +178,44 @@ class VectorControllerTest {
     }
 
     @Test
+    void validatesPrecomputedEmbeddingProfileSelectionAndAddsResolvedMetadataFilter() {
+        ArgumentCaptor<VectorSearchRequest> captor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        controller = new VectorController(
+                embeddingPort,
+                selection -> new ResolvedRagEmbedding(
+                        embeddingPort,
+                        selection.profileId(),
+                        "google",
+                        "gemini-embedding-001",
+                        768,
+                        EmbeddingInputType.TEXT),
+                vectorStorePort);
+        when(vectorStorePort.searchWithFilter(any(VectorSearchRequest.class)))
+                .thenReturn(VectorSearchResults.of(List.of(), 0L));
+
+        controller.search(new VectorSearchRequestDto(
+                null,
+                List.of(1.0, 0.0),
+                3,
+                false,
+                null,
+                null,
+                null,
+                true,
+                true,
+                "retrieval",
+                null,
+                null));
+
+        verify(vectorStorePort).searchWithFilter(captor.capture());
+        assertThat(captor.getValue().metadataFilter().equalsCriteria())
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROFILE_ID, "retrieval")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "google")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768);
+    }
+
+    @Test
     void usesHybridSearchWithinObjectScopeWhenRequested() {
         when(embeddingPort.embed(any()))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));

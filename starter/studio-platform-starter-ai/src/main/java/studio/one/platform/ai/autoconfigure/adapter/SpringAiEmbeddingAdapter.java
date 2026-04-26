@@ -2,6 +2,7 @@ package studio.one.platform.ai.autoconfigure.adapter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.ai.embedding.EmbeddingModel;
 
@@ -16,13 +17,25 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 public class SpringAiEmbeddingAdapter implements EmbeddingPort {
 
     private final EmbeddingModel embeddingModel;
+    private final String configuredModel;
 
     public SpringAiEmbeddingAdapter(EmbeddingModel embeddingModel) {
+        this(embeddingModel, null);
+    }
+
+    public SpringAiEmbeddingAdapter(EmbeddingModel embeddingModel, String configuredModel) {
         this.embeddingModel = embeddingModel;
+        this.configuredModel = normalize(configuredModel);
     }
 
     @Override
     public EmbeddingResponse embed(EmbeddingRequest request) {
+        if (request.model() != null && configuredModel != null
+                && !configuredModel.equals(request.model())) {
+            throw new IllegalArgumentException(
+                    "Embedding model '" + request.model()
+                            + "' does not match configured Spring AI embedding model '" + configuredModel + "'");
+        }
         org.springframework.ai.embedding.EmbeddingResponse response =
                 embeddingModel.embedForResponse(request.texts());
 
@@ -36,5 +49,9 @@ public class SpringAiEmbeddingAdapter implements EmbeddingPort {
             vectors.add(new EmbeddingVector(request.texts().get(index), values));
         }
         return new EmbeddingResponse(vectors);
+    }
+
+    private static String normalize(String value) {
+        return Objects.toString(value, "").isBlank() ? null : value.trim();
     }
 }

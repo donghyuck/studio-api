@@ -391,7 +391,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 queryEmbedding,
                 request.topK(),
-                embeddingFilter(filter, resolvedEmbedding));
+                embeddingFilter(filter, resolvedEmbedding, hasEmbeddingSelection(request)));
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
@@ -414,7 +414,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     private List<RagSearchResult> searchObjectScope(RagSearchRequest request, MetadataFilter filter) {
         ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request);
-        MetadataFilter searchFilter = embeddingFilter(filter, resolvedEmbedding);
+        MetadataFilter searchFilter = embeddingFilter(filter, resolvedEmbedding, hasEmbeddingSelection(request));
         List<Double> queryEmbedding = embedWithCache(request.query(), resolvedEmbedding);
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 queryEmbedding,
@@ -524,8 +524,9 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     private MetadataFilter embeddingFilter(
             MetadataFilter filter,
-            ResolvedRagEmbedding resolvedEmbedding) {
-        if (!hasResolvedEmbeddingMetadata(resolvedEmbedding)) {
+            ResolvedRagEmbedding resolvedEmbedding,
+            boolean selectedByRequest) {
+        if (!selectedByRequest || !hasResolvedEmbeddingMetadata(resolvedEmbedding)) {
             return filter;
         }
         Map<String, Object> equals = new HashMap<>(filter.equalsCriteria());
@@ -549,6 +550,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 || resolvedEmbedding.provider() != null
                 || resolvedEmbedding.model() != null
                 || resolvedEmbedding.dimension() != null;
+    }
+
+    private boolean hasEmbeddingSelection(RagSearchRequest request) {
+        return request.embeddingProfileId() != null
+                || request.embeddingProvider() != null
+                || request.embeddingModel() != null;
     }
 
     private String embeddingCacheKey(String text, ResolvedRagEmbedding resolvedEmbedding) {

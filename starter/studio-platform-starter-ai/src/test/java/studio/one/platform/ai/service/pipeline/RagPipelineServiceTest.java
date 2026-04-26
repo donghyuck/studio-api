@@ -183,6 +183,47 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldRecordImageCaptionAndOcrInputTypeMetadata() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults());
+        when(chunkingOrchestrator.chunk(any(ChunkingContext.class)))
+                .thenReturn(List.of(
+                        Chunk.of("doc-media-0", "caption", ChunkMetadata.builder(
+                                ChunkingStrategyType.STRUCTURE_BASED, 0)
+                                .chunkType(ChunkType.IMAGE_CAPTION)
+                                .build()),
+                        Chunk.of("doc-media-1", "ocr", ChunkMetadata.builder(
+                                ChunkingStrategyType.STRUCTURE_BASED, 1)
+                                .chunkType(ChunkType.OCR)
+                                .build())));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-media-0", List.of(0.1, 0.2)))))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-media-1", List.of(0.3, 0.4)))));
+
+        ragPipelineService.index(new RagIndexRequest("doc-media", "caption ocr", Map.of()));
+
+        ArgumentCaptor<EmbeddingRequest> embeddingRequest = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingPort, times(2)).embed(embeddingRequest.capture());
+        assertThat(embeddingRequest.getAllValues())
+                .extracting(EmbeddingRequest::inputType)
+                .containsExactly(EmbeddingInputType.IMAGE_CAPTION, EmbeddingInputType.OCR_TEXT);
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getValue())
+                .extracting(record -> record.metadata().get(VectorRecord.KEY_EMBEDDING_INPUT_TYPE))
+                .containsExactly("IMAGE_CAPTION", "OCR_TEXT");
+    }
+
+    @Test
     void shouldReportIndexProgressWhenListenerIsProvided() {
         RagIndexRequest request = new RagIndexRequest("doc-progress", "hello world", Map.of());
         RecordingProgressListener listener = new RecordingProgressListener();
@@ -610,7 +651,7 @@ class RagPipelineServiceTest {
     }
 
     @Test
-    void shouldConstrainSearchToDefaultEmbeddingProfileMetadata() {
+    void shouldKeepLegacyMinimalSearchScopeWhenDefaultEmbeddingProfileIsConfigured() {
         RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
                 embeddingPort,
                 "default-profile",
@@ -640,11 +681,7 @@ class RagPipelineServiceTest {
 
         ArgumentCaptor<VectorSearchRequest> searchRequest = ArgumentCaptor.forClass(VectorSearchRequest.class);
         verify(vectorStorePort).hybridSearch(eq("hello"), searchRequest.capture(), anyDouble(), anyDouble());
-        assertThat(searchRequest.getValue().metadataFilter().equalsCriteria())
-                .containsEntry(VectorRecord.KEY_EMBEDDING_PROFILE_ID, "default-profile")
-                .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "google")
-                .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001")
-                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768);
+        assertThat(searchRequest.getValue().metadataFilter().isEmpty()).isTrue();
     }
 
     @Test

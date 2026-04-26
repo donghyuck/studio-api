@@ -172,10 +172,12 @@ public class VectorController {
     private MetadataFilter metadataFilter(VectorSearchRequestDto request, ResolvedVectorEmbedding resolvedEmbedding) {
         MetadataFilter objectScope = MetadataFilter.objectScope(request.objectType(), request.objectId());
         Map<String, Object> equals = new HashMap<>(objectScope.equalsCriteria());
-        putIfPresent(equals, "embeddingProfileId", resolvedEmbedding.profileId());
-        putIfPresent(equals, "embeddingProvider", resolvedEmbedding.provider());
-        putIfPresent(equals, "embeddingModel", resolvedEmbedding.model());
-        putIfPresent(equals, "embeddingDimension", resolvedEmbedding.dimension());
+        if (hasEmbeddingSelection(request)) {
+            putIfPresent(equals, "embeddingProfileId", resolvedEmbedding.profileId());
+            putIfPresent(equals, "embeddingProvider", resolvedEmbedding.provider());
+            putIfPresent(equals, "embeddingModel", resolvedEmbedding.model());
+            putIfPresent(equals, "embeddingDimension", resolvedEmbedding.dimension());
+        }
         return MetadataFilter.of(equals, objectScope.inCriteria(), objectScope.rangeCriteria());
     }
 
@@ -187,29 +189,25 @@ public class VectorController {
 
     private ResolvedVectorEmbedding resolveEmbedding(VectorSearchRequestDto request) {
         if (request.embedding() != null && !request.embedding().isEmpty()) {
+            ResolvedRagEmbedding resolved = resolveSelection(request);
             return new ResolvedVectorEmbedding(
                     List.copyOf(request.embedding()),
-                    request.embeddingProfileId(),
-                    request.embeddingProvider(),
-                    request.embeddingModel(),
-                    request.embedding().size());
+                    resolved == null ? request.embeddingProfileId() : resolved.profileId(),
+                    resolved == null ? request.embeddingProvider() : resolved.provider(),
+                    resolved == null ? request.embeddingModel() : resolved.model(),
+                    resolved == null
+                            ? request.embedding().size()
+                            : resolved.dimension() == null ? request.embedding().size() : resolved.dimension());
         }
         if (request.query() == null || request.query().isBlank()) {
             throw new IllegalArgumentException("Either query text or embedding values must be provided");
         }
         EmbeddingResponse response;
         ResolvedRagEmbedding resolved = null;
-        if (embeddingProfileResolver == null
-                || (request.embeddingProfileId() == null
-                && request.embeddingProvider() == null
-                && request.embeddingModel() == null)) {
+        if (embeddingProfileResolver == null || !hasEmbeddingSelection(request)) {
             response = embeddingPort.embed(new EmbeddingRequest(List.of(request.query())));
         } else {
-            resolved = embeddingProfileResolver.resolve(new RagEmbeddingSelection(
-                    request.embeddingProfileId(),
-                    request.embeddingProvider(),
-                    request.embeddingModel(),
-                    EmbeddingInputType.TEXT));
+            resolved = resolveSelection(request);
             response = resolved.embeddingPort().embed(resolved.request(List.of(request.query())));
         }
         log.debug("embedding {} -> {}", request.query(), response.vectors().size());
@@ -222,6 +220,23 @@ public class VectorController {
                 resolved == null
                         ? null
                         : resolved.dimension() == null ? values.size() : resolved.dimension());
+    }
+
+    private ResolvedRagEmbedding resolveSelection(VectorSearchRequestDto request) {
+        if (embeddingProfileResolver == null || !hasEmbeddingSelection(request)) {
+            return null;
+        }
+        return embeddingProfileResolver.resolve(new RagEmbeddingSelection(
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                EmbeddingInputType.TEXT));
+    }
+
+    private boolean hasEmbeddingSelection(VectorSearchRequestDto request) {
+        return request.embeddingProfileId() != null
+                || request.embeddingProvider() != null
+                || request.embeddingModel() != null;
     }
 
     private VectorSearchResults executeSearch(VectorStorePort store, VectorSearchRequestDto request,
