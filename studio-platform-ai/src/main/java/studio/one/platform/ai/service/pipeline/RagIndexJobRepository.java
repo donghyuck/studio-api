@@ -8,6 +8,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
@@ -18,6 +19,13 @@ public interface RagIndexJobRepository {
     Optional<RagIndexJob> findById(String jobId);
 
     RagIndexJobPage findAll(RagIndexJobFilter filter, RagIndexJobPageRequest pageable);
+
+    default RagIndexJobPage findAll(
+            RagIndexJobFilter filter,
+            RagIndexJobPageRequest pageable,
+            RagIndexJobSort sort) {
+        return findAll(filter, pageable);
+    }
 
     RagIndexJob updateStatus(String jobId, RagIndexJobStatus status, RagIndexJobStep currentStep, String errorMessage);
 

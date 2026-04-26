@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 import java.util.Map;
@@ -12,7 +15,13 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
@@ -23,6 +32,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -147,7 +157,7 @@ class RagIndexJobControllerTest {
                 null);
 
         ResponseEntity<ApiResponse<RagIndexJobListResponseDto>> listResponse =
-                controller.listJobs(RagIndexJobStatus.PENDING, "attachment", "42", null, 0, 10);
+                controller.listJobs(RagIndexJobStatus.PENDING, "attachment", "42", null, 0, 10, "createdAt", "desc");
         ResponseEntity<ApiResponse<RagIndexJobDto>> detailResponse = controller.getJob("job-1");
         ResponseEntity<ApiResponse<RagIndexJobDto>> retryResponse = controller.retryJob("job-1");
         ResponseEntity<ApiResponse<List<RagIndexJobLogDto>>> logsResponse = controller.getLogs("job-1");
@@ -158,6 +168,62 @@ class RagIndexJobControllerTest {
         assertThat(logsResponse.getBody().getData())
                 .extracting(RagIndexJobLogDto::code)
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
+        assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
+        assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void listJobsMapsSortAliasesAndDirectionFallback() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        controller.listJobs(null, null, null, null, 0, 10, " document-id ", "sideways");
+
+        assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
+        assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void listJobsBindsSortQueryParametersThroughMvc() throws Exception {
+        CapturingJobService jobService = new CapturingJobService();
+        MockMvc mockMvc = jobControllerMockMvc(jobService);
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs")
+                        .param("sort", " document-id ")
+                        .param("direction", "sideways"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].jobId").value("job-1"));
+
+        assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
+        assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void listJobsUsesDefaultSortThroughMvc() throws Exception {
+        CapturingJobService jobService = new CapturingJobService();
+        MockMvc mockMvc = jobControllerMockMvc(jobService);
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs"))
+                .andExpect(status().isOk());
+
+        assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
+        assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void listJobsWithLegacyServiceFallsBackToTwoArgListJobsThroughMvc() throws Exception {
+        LegacyListJobService jobService = new LegacyListJobService();
+        MockMvc mockMvc = jobControllerMockMvc(jobService);
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs")
+                        .param("sort", "documentId")
+                        .param("direction", "asc"))
+                .andExpect(status().isOk());
+
+        assertThat(jobService.usedLegacyListJobs).isTrue();
     }
 
     @Test
@@ -215,11 +281,73 @@ class RagIndexJobControllerTest {
         verify(vectorStorePort).getMetadata("attachment", "42");
     }
 
+    private static MockMvc jobControllerMockMvc(RagIndexJobService jobService) {
+        return MockMvcBuilders.standaloneSetup(new RagIndexJobController(
+                        jobService,
+                        mock(RagPipelineService.class),
+                        null))
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(
+                        Jackson2ObjectMapperBuilder.json()
+                                .modules(new JavaTimeModule())
+                                .build()))
+                .build();
+    }
+
+    private static class LegacyListJobService implements RagIndexJobService {
+
+        private final RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                java.time.Instant.parse("2026-04-26T00:00:00Z"));
+        private boolean usedLegacyListJobs;
+
+        @Override
+        public RagIndexJob createJob(RagIndexJobCreateRequest request) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RagIndexJob startJob(String jobId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public RagIndexJob retryJob(String jobId) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Optional<RagIndexJob> getJob(String jobId) {
+            return Optional.of(job);
+        }
+
+        @Override
+        public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
+            usedLegacyListJobs = true;
+            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+        }
+
+        @Override
+        public List<RagIndexJobLog> getLogs(String jobId) {
+            return List.of();
+        }
+
+        @Override
+        public RagIndexProgressListener progressListener(String jobId) {
+            return RagIndexProgressListener.noop();
+        }
+    }
+
     private static class CapturingJobService implements RagIndexJobService {
 
         private final RagIndexJob job;
         private RagIndexJobCreateRequest createdRequest;
         private RagIndexJobSourceRequest createdSourceRequest;
+        private RagIndexJobPageRequest pageRequest;
+        private RagIndexJobSort sort;
 
         CapturingJobService() {
             this(RagIndexJobStatus.SUCCEEDED);
@@ -267,6 +395,17 @@ class RagIndexJobControllerTest {
 
         @Override
         public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
+            this.pageRequest = pageable;
+            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+        }
+
+        @Override
+        public RagIndexJobPage listJobs(
+                RagIndexJobFilter filter,
+                RagIndexJobPageRequest pageable,
+                RagIndexJobSort sort) {
+            this.pageRequest = pageable;
+            this.sort = sort;
             return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
         }
 
