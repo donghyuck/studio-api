@@ -284,6 +284,10 @@ class VectorContractsTest {
         assertThat(results.hits().get(0).metadata()).isEmpty();
         assertThat(results.hits().get(0).documentId()).isEqualTo("doc-1");
         assertThat(results.hits().get(0).chunkId()).isEqualTo("chunk-1");
+        assertThat(results.hits().get(0).headingPath()).isEqualTo("Intro");
+        assertThat(results.hits().get(0).sourceRef()).isEqualTo("page[1]/p[0]");
+        assertThat(results.hits().get(0).page()).isEqualTo(1);
+        assertThat(results.hits().get(0).slide()).isNull();
     }
 
     @Test
@@ -312,6 +316,22 @@ class VectorContractsTest {
         assertThat(hit.page()).isEqualTo(3);
         assertThat(hit.slide()).isEqualTo(2);
         assertThat(hit.metadata()).containsEntry(VectorRecord.KEY_DOCUMENT_ID, " doc-1 ");
+    }
+
+    @Test
+    void vectorSearchHitKeepsLegacyScalarMetadataContract() {
+        VectorSearchHit hit = VectorSearchHit.from(new VectorSearchResult(
+                new VectorDocument("record-1", "chunk text", Map.of(
+                        VectorRecord.KEY_HEADING_PATH, "Intro > Body",
+                        VectorRecord.KEY_SOURCE_REF, "file.pdf",
+                        VectorRecord.KEY_PAGE, 3L,
+                        VectorRecord.KEY_SLIDE, 2), List.of()),
+                0.93d));
+
+        assertThat(hit.headingPath()).isEqualTo("Intro > Body");
+        assertThat(hit.sourceRef()).isEqualTo("file.pdf");
+        assertThat(hit.page()).isEqualTo(3);
+        assertThat(hit.slide()).isEqualTo(2);
     }
 
     @Test
