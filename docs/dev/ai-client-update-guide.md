@@ -47,7 +47,9 @@
 | RAG 색인 job 목록 | `GET` | `/api/mgmt/ai/rag/jobs` |
 | RAG 색인 job 상세 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}` |
 | RAG 색인 job 로그 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}/logs` |
+| RAG 색인 job chunk 조회 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}/chunks` |
 | RAG 색인 job 재시도 | `POST` | `/api/mgmt/ai/rag/jobs/{jobId}/retry` |
+| RAG 색인 job 취소 | `POST` | `/api/mgmt/ai/rag/jobs/{jobId}/cancel` |
 | RAG object chunk 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks` |
 | RAG object metadata 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/metadata` |
 
@@ -61,15 +63,53 @@
 응답 body 없이 `202 Accepted`를 유지한다. 서버가 job tracking을 제공하면 응답 헤더
 `X-RAG-Job-Id`가 추가되므로, 클라이언트는 이 값을 이용해 job 상세와 로그를 조회할 수 있다.
 
-신규 `POST /api/mgmt/ai/rag/jobs`는 첫 범위에서 raw text 색인만 실행한다. 요청에는 `objectType`,
-`objectId`, `text`가 필요하며, source-only attachment 실행은 기존 attachment RAG index API를 사용한다.
-생성 후 운영 화면은 아래 순서로 동작한다.
+신규 `POST /api/mgmt/ai/rag/jobs`는 raw text 색인과 source 기반 색인을 모두 받을 수 있다.
+`text`가 있으면 `RagPipelineService` raw text 색인을 실행하고, `sourceType=attachment`와 `text`가 없으면
+attachment source executor가 기존 attachment RAG 색인 흐름을 비동기로 실행한다. attachment source job은
+attachment 쓰기 권한도 필요하다. 기존 attachment 전용 API를 사용하는 화면은 그대로 유지할 수 있고,
+응답 헤더의 `X-RAG-Job-Id`로 동일한 job 조회 화면에 연결하면 된다.
+
+생성 요청 예시는 다음과 같다.
+
+```json
+{
+  "objectType": "attachment",
+  "objectId": "123",
+  "documentId": "123",
+  "sourceType": "attachment",
+  "metadata": {
+    "attachmentId": "123"
+  },
+  "keywords": ["계약서"],
+  "useLlmKeywordExtraction": false
+}
+```
+
+운영 화면은 아래 순서로 동작한다.
 
 1. `POST /api/mgmt/ai/rag/jobs`로 job을 생성한다.
-2. `GET /api/mgmt/ai/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, `chunkCount`, `embeddedCount`, `indexedCount`를 표시한다.
-3. `GET /api/mgmt/ai/rag/jobs/{jobId}/logs`로 단계별 `INFO`/`WARN`/`ERROR` 로그를 표시한다.
-4. 완료 후 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks` 또는 object chunk API로 색인 결과를 보여준다.
-5. `FAILED`, `SUCCEEDED`, `WARNING`, `CANCELLED` 상태에서만 retry 버튼을 활성화한다. `PENDING`/`RUNNING` retry는 `409 Conflict`로 처리한다.
+2. 목록 화면은 `GET /api/mgmt/ai/rag/jobs?offset=0&limit=50&sort=createdAt&direction=desc`를 호출한다.
+3. 목록 filter는 `status`, `objectType`, `objectId`, `documentId`를 사용한다.
+4. `GET /api/mgmt/ai/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, `chunkCount`, `embeddedCount`, `indexedCount`, `warningCount`를 표시한다.
+5. `GET /api/mgmt/ai/rag/jobs/{jobId}/logs`로 단계별 `INFO`/`WARN`/`ERROR` 로그를 표시한다.
+6. 완료 후 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks` 또는 object chunk API로 색인 결과를 보여준다.
+7. `FAILED`, `SUCCEEDED`, `WARNING`, `CANCELLED` 상태에서만 retry 버튼을 활성화한다. `PENDING`/`RUNNING` retry는 `409 Conflict`로 처리한다.
+8. `PENDING`, `RUNNING` 상태에서만 cancel 버튼을 활성화한다. terminal job cancel은 `409 Conflict`로 처리한다.
+
+`status`와 버튼 동작 기준은 다음과 같다.
+
+| status | 화면 처리 | retry | cancel |
+|---|---|---|---|
+| `PENDING` | 대기 상태 표시 | 비활성 | 활성 |
+| `RUNNING` | `currentStep`와 count polling | 비활성 | 활성 |
+| `SUCCEEDED` | 완료 상태와 chunk 조회 링크 표시 | 활성 | 비활성 |
+| `WARNING` | 완료 상태와 경고 badge/log 표시 | 활성 | 비활성 |
+| `FAILED` | 오류 메시지와 retry 표시 | 활성 | 비활성 |
+| `CANCELLED` | 취소 상태 표시 | 활성 | 비활성 |
+
+`POST /api/mgmt/ai/rag/jobs/{jobId}/cancel`은 job 상태를 `CANCELLED`로 표시한다.
+서버 기본 구현은 이미 시작된 외부 provider/vector 호출을 강제로 중단하지 않으므로, 화면은 cancel 직후에도
+짧은 시간 동안 polling을 유지해 최종 `CANCELLED` 상태를 확인한다.
 
 ## 채팅 요청 변경
 
