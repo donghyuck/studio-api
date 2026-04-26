@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,6 +52,17 @@ import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.web.dto.ApiResponse;
 
 class RagIndexJobControllerTest {
+
+    @Test
+    void mutatingJobEndpointsRequireAiRagWritePermission() throws NoSuchMethodException {
+        Method createJob = RagIndexJobController.class.getMethod("createJob", RagIndexJobCreateRequestDto.class);
+        Method retryJob = RagIndexJobController.class.getMethod("retryJob", String.class);
+        Method cancelJob = RagIndexJobController.class.getMethod("cancelJob", String.class);
+
+        assertThat(preAuthorizeValue(createJob)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(retryJob)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(cancelJob)).contains("services:ai_rag','write");
+    }
 
     @Test
     void createJobBuildsIndexRequestAndReturnsAcceptedJob() {
@@ -383,6 +395,34 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void objectChunksPageReportsConfiguredLimitWhenControllerLimitIsLowerThanDefault() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                ragPipelineService,
+                null,
+                Runnable::run,
+                25);
+        when(ragPipelineService.listByObject("attachment", "42", 0, 26))
+                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 26)
+                        .mapToObj(index -> new RagSearchResult(
+                                "doc-1",
+                                "chunk " + index,
+                                Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-" + index),
+                                1.0d))
+                        .toList());
+
+        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
+                controller.objectChunksPage("attachment", "42", 0, 200);
+
+        RagIndexChunkPageResponseDto page = response.getBody().getData();
+        assertThat(page.limit()).isEqualTo(25);
+        assertThat(page.returned()).isEqualTo(25);
+        assertThat(page.hasMore()).isTrue();
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 26);
+    }
+
+    @Test
     void jobChunksPageReturnsNotFoundWhenJobIsMissingThroughMvc() throws Exception {
         MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
 
@@ -448,6 +488,21 @@ class RagIndexJobControllerTest {
                                 .build()))
                 .setControllerAdvice(new AiWebExceptionHandler())
                 .build();
+    }
+
+    private static String preAuthorizeValue(Method method) {
+        return java.util.Arrays.stream(method.getAnnotations())
+                .filter(annotation -> "org.springframework.security.access.prepost.PreAuthorize"
+                        .equals(annotation.annotationType().getName()))
+                .findFirst()
+                .map(annotation -> {
+                    try {
+                        return (String) annotation.annotationType().getMethod("value").invoke(annotation);
+                    } catch (ReflectiveOperationException ex) {
+                        throw new AssertionError("PreAuthorize value could not be read", ex);
+                    }
+                })
+                .orElseThrow(() -> new AssertionError("PreAuthorize annotation not found"));
     }
 
     private static class LegacyListJobService implements RagIndexJobService {

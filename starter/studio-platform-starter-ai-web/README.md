@@ -83,8 +83,8 @@ studio:
 | `POST` | `{mgmtBasePath}/rag/search` | RAG 시맨틱 검색 | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/jobs` | RAG 색인 job 목록 조회 | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/jobs/{jobId}` | RAG 색인 job 상세 조회 | `services:ai_rag read` |
-| `POST` | `{mgmtBasePath}/rag/jobs` | RAG 색인 job 생성 및 비동기 실행 | `services:ai_rag read` |
-| `POST` | `{mgmtBasePath}/rag/jobs/{jobId}/retry` | 실패 또는 완료 job 재시도 요청 | `services:ai_rag read` |
+| `POST` | `{mgmtBasePath}/rag/jobs` | RAG 색인 job 생성 및 비동기 실행 | `services:ai_rag write` |
+| `POST` | `{mgmtBasePath}/rag/jobs/{jobId}/retry` | 실패 또는 완료 job 재시도 요청 | `services:ai_rag write` |
 | `POST` | `{mgmtBasePath}/rag/jobs/{jobId}/cancel` | 진행 중인 job 취소 상태 표시 | `services:ai_rag write` |
 | `GET` | `{mgmtBasePath}/rag/jobs/{jobId}/logs` | 단계별 색인 로그 조회 | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/jobs/{jobId}/chunks` | job의 object scope 기준 chunk 조회 | `services:ai_rag read` |
@@ -104,8 +104,8 @@ raw `text`가 있으면 같은 `RagPipelineService`를 in-memory job service로 
 응답 body에 생성된 job을 반환한다. `text`가 없고 `sourceType`이 있으면 등록된
 `RagIndexJobSourceExecutor`가 해당 source를 실행한다. `content-embedding-pipeline`은
 `sourceType=attachment` job executor를 제공하며 기존 attachment RAG index 경로를 재사용한다.
-attachment source job 생성과 retry는 기존 attachment 색인 API와 동일하게 `features:attachment write`
-권한도 필요하다.
+job 생성과 retry는 `services:ai_rag write`가 필요하다. attachment source job 생성과 retry는 기존
+attachment 색인 API와 동일하게 `features:attachment write` 권한도 필요하다.
 
 attachment source job 예시:
 
@@ -133,6 +133,8 @@ Job `status`는 `PENDING`, `RUNNING`, `SUCCEEDED`, `WARNING`, `FAILED`, `CANCELL
 in-memory repository이므로 재시작 시 job 이력은 사라진다. 운영 장기 보관이 필요하면
 `RagIndexJobRepository`를 DB 기반 Bean으로 교체한다.
 `PENDING`/`RUNNING` job은 중복 실행을 막기 위해 retry 요청이 `409 Conflict`로 거절된다.
+JDBC repository를 사용하더라도 재시도 실행에 필요한 원본 request가 서버 메모리에 남아 있지 않으면
+retry는 `409 Conflict`로 거절된다.
 `POST {mgmtBasePath}/rag/jobs/{jobId}/cancel`은 `PENDING`/`RUNNING` job만 `CANCELLED`로 전환한다.
 외부 큐나 분산 worker를 사용하지 않는 기본 구현에서는 이미 실행 중인 provider/vector 호출을 강제로 중단하지 않고,
 늦게 도착한 progress callback이 취소 상태를 덮어쓰지 않도록 방어한다.

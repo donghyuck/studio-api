@@ -213,7 +213,8 @@ studio:
 
 `repository=jdbc`는 job 상태와 로그만 영속화한다. 재시도 실행에 필요한 원본 raw text/source request는
 기본 `DefaultRagIndexJobService`의 bounded memory cache에 남아 있을 때만 즉시 재실행할 수 있다.
-서버 재시작 후 장기 재시도까지 보장하려면 source별 request 복원 전략을 별도 구현한다.
+서버 재시작 또는 request cache eviction 이후에는 retry가 `409 Conflict`로 거절된다. 장기 재시도까지
+보장하려면 source별 request 복원 전략을 별도 구현한다.
 `cancelJob(jobId)`는 `PENDING`/`RUNNING` job을 `CANCELLED`로 표시하고, 이미 도착한 late progress callback이
 취소 상태를 성공/실패로 덮어쓰지 않도록 방어한다. 실행 중인 외부 provider/vector 호출 자체를 강제 중단하지는 않는다.
 

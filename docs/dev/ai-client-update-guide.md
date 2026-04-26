@@ -125,11 +125,11 @@ RAG job 운영 API 권한은 다음 기준으로 처리한다.
 
 | API | 기본 권한 | attachment job/object 추가 권한 |
 |---|---|---|
-| `POST /api/mgmt/ai/rag/jobs` | `services:ai_rag read` | `objectType=attachment` 또는 `sourceType=attachment`이면 `features:attachment write` |
+| `POST /api/mgmt/ai/rag/jobs` | `services:ai_rag write` | `objectType=attachment` 또는 `sourceType=attachment`이면 `features:attachment write` |
 | `GET /api/mgmt/ai/rag/jobs`, `GET /api/mgmt/ai/rag/jobs/{jobId}` | `services:ai_rag read` | 없음 |
 | `GET /api/mgmt/ai/rag/jobs/{jobId}/logs` | `services:ai_rag read` | attachment job이면 `features:attachment read` |
 | `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks`, `/chunks/page` | `services:ai_rag read` | attachment job이면 `features:attachment read` |
-| `POST /api/mgmt/ai/rag/jobs/{jobId}/retry` | `services:ai_rag read` | attachment job이면 `features:attachment write` |
+| `POST /api/mgmt/ai/rag/jobs/{jobId}/retry` | `services:ai_rag write` | attachment job이면 `features:attachment write` |
 | `POST /api/mgmt/ai/rag/jobs/{jobId}/cancel` | `services:ai_rag write` | attachment job이면 `features:attachment write` |
 | `GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks`, `/chunks/page` | `services:ai_rag read` | `objectType=attachment`이면 `features:attachment read` |
 | `GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/metadata` | `services:ai_rag read` | `objectType=attachment`이면 `features:attachment read` |
@@ -279,8 +279,8 @@ diagnostics에는 chunk 본문이 포함되지 않는다.
 | Provider 정보 | `services:ai_chat read` 또는 `services:ai_embedding read` |
 | 임베딩 생성 | `services:ai_embedding write` |
 | 벡터 업서트/검색 | `services:ai_vector read` |
-| RAG 인덱싱/검색/job 조회/retry | `services:ai_rag read` |
-| RAG job cancel | `services:ai_rag write` |
+| RAG 인덱싱/검색/job 조회 | `services:ai_rag read` |
+| RAG job 생성/retry/cancel | `services:ai_rag write` |
 | attachment RAG job 생성/retry/cancel | `features:attachment write` 추가 필요 |
 | attachment RAG job logs/chunks/object metadata | `features:attachment read` 추가 필요 |
 

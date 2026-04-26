@@ -61,6 +61,7 @@ public class RagIndexJobController {
     private final RagIndexJobService jobService;
     private final RagPipelineService ragPipelineService;
     private final Executor jobExecutor;
+    private final int maxChunkPageLimit;
     @Nullable
     private final VectorStorePort vectorStorePort;
 
@@ -76,10 +77,20 @@ public class RagIndexJobController {
             RagPipelineService ragPipelineService,
             @Nullable VectorStorePort vectorStorePort,
             Executor jobExecutor) {
+        this(jobService, ragPipelineService, vectorStorePort, jobExecutor, DEFAULT_CHUNK_LIMIT);
+    }
+
+    public RagIndexJobController(
+            RagIndexJobService jobService,
+            RagPipelineService ragPipelineService,
+            @Nullable VectorStorePort vectorStorePort,
+            Executor jobExecutor,
+            int maxChunkPageLimit) {
         this.jobService = Objects.requireNonNull(jobService, "jobService");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.vectorStorePort = vectorStorePort;
         this.jobExecutor = Objects.requireNonNull(jobExecutor, "jobExecutor");
+        this.maxChunkPageLimit = maxChunkPageLimit <= 0 ? DEFAULT_CHUNK_LIMIT : maxChunkPageLimit;
     }
 
     @GetMapping("/jobs")
@@ -113,7 +124,7 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentSource(#request)"
             + " or @endpointAuthz.can('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> createJob(
@@ -127,7 +138,7 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs/{jobId}/retry")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
             + " or @endpointAuthz.can('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> retryJob(@PathVariable("jobId") String jobId) {
@@ -320,7 +331,8 @@ public class RagIndexJobController {
     }
 
     private int boundedChunkLimit(int limit) {
-        return new RagIndexJobPageRequest(0, limit <= 0 ? DEFAULT_CHUNK_LIMIT : limit).limit();
+        int requestedLimit = limit <= 0 ? Math.min(DEFAULT_CHUNK_LIMIT, maxChunkPageLimit) : limit;
+        return Math.min(requestedLimit, maxChunkPageLimit);
     }
 
     private RagIndexChunkDto toChunkDto(RagSearchResult result) {
