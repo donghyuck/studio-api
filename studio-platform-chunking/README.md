@@ -35,6 +35,8 @@
 - 구조화 provenance key는 downstream 소비자를 위해 표준화합니다.
 - parent-child 관계 key는 additive metadata이며 기존 key를 대체하지 않습니다.
 - `parentId`는 legacy compatibility 용도로 유지하며 `parentChunkId`와 다른 의미입니다.
+- vector storage와 retrieval에서 소비하는 통합 기준은
+  [`studio-platform-ai` RAG metadata key reference](../studio-platform-ai/README.md#rag-metadata-key-reference)를 따릅니다.
 
 ### Metadata Key Reference
 

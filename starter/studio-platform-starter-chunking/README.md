@@ -98,6 +98,8 @@ heading 없이 시작하는 문서는 빈 `section` 값과 body-only `parentChun
 
 `studio-platform-textract`가 classpath에 있으면 `TextractNormalizedDocumentAdapter`로 `ParsedFile`을 `NormalizedDocument`로 변환할 수 있습니다.
 실제 파일 읽기, embedding 생성, vector upsert는 이 starter의 책임이 아니며, `content-embedding-pipeline` 같은 조립 모듈에서 실행합니다.
+구조화 chunk metadata가 vector storage에서 어떻게 해석되는지는
+[`studio-platform-ai` RAG metadata key reference](../../studio-platform-ai/README.md#rag-metadata-key-reference)를 기준으로 합니다.
 
 ```java
 ParsedFile parsedFile = fileContentExtractionService.parseStructured(...);

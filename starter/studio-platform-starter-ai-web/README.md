@@ -395,6 +395,8 @@ Content-Type: application/json
 HTTP 응답 shape는 기존 `List<VectorSearchResultDto>`를 유지한다.
 요청에 `includeText=false` 또는 `includeMetadata=false`를 전달하면 core `VectorSearchRequest`에 그대로 전달되어
 응답 항목의 `content`가 `null`이거나 `metadata`가 빈 객체일 수 있다.
+`documentId`, `chunkId`, `sourceRef`, `page`, `slide` 같은 provenance key는
+[`studio-platform-ai` RAG metadata key reference](../../studio-platform-ai/README.md#rag-metadata-key-reference)를 따른다.
 
 ```json
 {

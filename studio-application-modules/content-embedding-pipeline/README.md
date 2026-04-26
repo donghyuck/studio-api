@@ -118,6 +118,8 @@ Content-Type: application/json
 본문 텍스트, snippet, embedding vector, 사용자 metadata 값은 diagnostics 헤더에 포함하지 않는다.
 
 첨부 RAG 인덱싱은 metadata에 아래 값을 `putIfAbsent`로 보강한다. 요청 metadata에 같은 key가 있으면 요청 값을 유지한다.
+공통 RAG metadata key의 표준 의미와 `chunkIndex`/`chunkOrder` 호환 기준은
+[`studio-platform-ai` RAG metadata key reference](../../studio-platform-ai/README.md#rag-metadata-key-reference)를 따른다.
 
 | key | 설명 |
 |---|---|
