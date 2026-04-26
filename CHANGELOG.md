@@ -4,7 +4,7 @@
 
 ### 변경됨
 - 이슈 #303 대응으로 `starter-ai-web`의 RAG context expansion을 `studio.ai.endpoints.rag.context.expansion.*` 설정으로 제어할 수 있도록 했다.
-- context expansion candidate 조회 배수, previous/next window, parent content 포함 여부를 설정으로 분리하고 기본값은 기존 동작과 호환되게 유지했다.
+- context expansion candidate 조회 배수, previous/next window, parent content 포함 여부를 설정으로 분리하고 후보 조회 limit 상한을 적용했다.
 
 ### 검증
 - `./gradlew :starter:studio-platform-starter-ai-web:test`

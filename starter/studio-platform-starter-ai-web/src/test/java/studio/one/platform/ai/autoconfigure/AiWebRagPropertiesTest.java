@@ -43,7 +43,7 @@ class AiWebRagPropertiesTest {
     }
 
     @Test
-    void shouldExposeDiagnosticsDefaults() {
+    void shouldExposeContextExpansionAndDiagnosticsDefaults() {
         AiWebRagProperties properties = new AiWebRagProperties();
 
         assertThat(properties.getContext().getExpansion().isEnabled()).isTrue();
@@ -55,7 +55,7 @@ class AiWebRagPropertiesTest {
     }
 
     @Test
-    void shouldBindDiagnosticsOverrides() {
+    void shouldBindContextExpansionAndDiagnosticsOverrides() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
                 Map.entry("studio.ai.endpoints.rag.context.expansion.enabled", "false"),

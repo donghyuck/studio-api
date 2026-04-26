@@ -597,7 +597,7 @@ class ChatControllerTest {
                 false,
                 new ConversationChatService(new InMemoryConversationRepository()),
                 Jackson2ObjectMapperBuilder.json().build(),
-                expansion);
+                expansion.getCandidateMultiplier());
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
         when(ragPipelineService.listByObject("attachment", "123", 6))
@@ -620,6 +620,41 @@ class ChatControllerTest {
                 "123"));
 
         verify(ragPipelineService).listByObject("attachment", "123", 6);
+    }
+
+    @Test
+    void ragChatCapsContextExpansionCandidateLimit() {
+        AiWebRagProperties.ExpansionProperties expansion = new AiWebRagProperties.ExpansionProperties();
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 12_000, true, expansion, TestWindowChunkContextExpander.asList()),
+                false,
+                null,
+                false,
+                new ConversationChatService(new InMemoryConversationRepository()),
+                Jackson2ObjectMapperBuilder.json().build(),
+                1_000);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("attachment", "123", 100))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                1_000,
+                "attachment",
+                "123"));
+
+        verify(ragPipelineService).listByObject("attachment", "123", 100);
     }
 
     @Test
