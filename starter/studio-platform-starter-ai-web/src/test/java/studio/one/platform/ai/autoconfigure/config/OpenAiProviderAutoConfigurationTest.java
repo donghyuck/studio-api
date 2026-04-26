@@ -37,6 +37,7 @@ import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
+import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
@@ -200,6 +201,8 @@ class OpenAiProviderAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(RagIndexJobController.class);
+                    assertThat(context).hasSingleBean(RagIndexJobEndpointSecurity.class);
+                    assertThat(context).hasBean("ragIndexJobEndpointSecurity");
                     assertThat(context).hasBean("ragIndexJobExecutor");
 
                     RagIndexJobController controller = context.getBean(RagIndexJobController.class);

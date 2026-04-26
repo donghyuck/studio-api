@@ -37,6 +37,7 @@ import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
+import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
@@ -142,6 +143,13 @@ public class AiWebAutoConfiguration {
                 vectorStorePort,
                 ragIndexJobExecutor,
                 ragPipelineProperties.getObjectScope().getMaxListLimit());
+    }
+
+    @Bean(name = "ragIndexJobEndpointSecurity")
+    @ConditionalOnBean(RagIndexJobService.class)
+    @ConditionalOnMissingBean(name = "ragIndexJobEndpointSecurity")
+    RagIndexJobEndpointSecurity ragIndexJobEndpointSecurity(RagIndexJobService ragIndexJobService) {
+        return new RagIndexJobEndpointSecurity(ragIndexJobService);
     }
 
     @Bean(name = "ragIndexJobExecutor")
