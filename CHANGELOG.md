@@ -6,12 +6,15 @@
 - 이슈 #305 대응으로 첨부 RAG 색인과 web RAG context expansion에 opt-in diagnostics를 추가했다.
 - `POST /api/mgmt/attachments/{id}/rag/index`는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때 안전한 `X-RAG-Index-*` 헤더로 구조화/fallback 경로와 count 정보를 노출한다.
 - `POST /api/ai/chat/rag`는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때 `metadata.ragContextDiagnostics`에 context expansion 적용 상태를 노출한다.
+- 이슈 #304 대응으로 `content-embedding-pipeline`의 구조화 attachment RAG 색인 경로가 `VectorRecord.builder()`와 `VectorStorePort.replaceRecordsByObject(...)`를 사용하도록 전환됐다.
+- `VectorStorePort`에 record 기반 object-scope replace default adapter를 추가해 기존 `VectorDocument` 기반 store 구현과 호환되도록 했다.
 - 이슈 #303 대응으로 `starter-ai-web`의 RAG context expansion을 `studio.ai.endpoints.rag.context.expansion.*` 설정으로 제어할 수 있도록 했다.
 - context expansion candidate 조회 배수, 후보 조회 상한, previous/next window, parent content 포함 여부를 설정으로 분리했다.
 
 ### 검증
 - `./gradlew :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
 - `git diff --check`
+- `./gradlew :studio-platform-ai:test :studio-application-modules:content-embedding-pipeline:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `git diff --check`
 

@@ -2,11 +2,16 @@ package studio.one.application.web.service;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Objects;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -19,7 +24,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
-import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
@@ -69,8 +74,8 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         NormalizedDocument document = enrichMetadata(documentId, normalizedDocument, metadata);
         List<Chunk> chunks = chunkingOrchestrator.chunk(document);
         if (chunks.isEmpty()) {
-            vectorStore.replaceByObject(objectType, objectId, List.of());
             latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(parsedFile.blocks().size(), 0, 0));
+            vectorStore.replaceRecordsByObject(objectType, objectId, List.of());
             return true;
         }
 
@@ -81,22 +86,44 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             throw new IllegalStateException("Embedding response size does not match chunk count");
         }
 
-        List<VectorDocument> documents = new ArrayList<>(chunks.size());
+        List<VectorRecord> records = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
             Map<String, Object> chunkMetadata = new HashMap<>(metadata);
             chunkMetadata.remove(ChunkMetadata.KEY_CHUNK_ORDER);
             mergeChunkMetadata(chunkMetadata, chunk.metadata().toMap());
-            chunkMetadata.put("documentId", documentId);
-            chunkMetadata.put("chunkId", chunk.id());
+            chunkMetadata.put(VectorRecord.KEY_DOCUMENT_ID, documentId);
+            chunkMetadata.put(VectorRecord.KEY_CHUNK_ID, chunk.id());
             chunkMetadata.put("chunkLength", chunk.content().length());
-            documents.add(new VectorDocument(
-                    chunk.id(),
-                    chunk.content(),
-                    chunkMetadata,
-                    List.copyOf(vectors.get(i).values())));
+            Object chunkOrder = chunkMetadata.get(ChunkMetadata.KEY_CHUNK_ORDER);
+            if (chunkOrder != null) {
+                chunkMetadata.putIfAbsent(VectorRecord.KEY_CHUNK_INDEX, chunkOrder);
+            }
+            chunkMetadata.putIfAbsent(VectorRecord.KEY_OBJECT_TYPE, objectType);
+            chunkMetadata.putIfAbsent(VectorRecord.KEY_OBJECT_ID, objectId);
+            List<Double> embedding = List.copyOf(vectors.get(i).values());
+            records.add(VectorRecord.builder()
+                    .id(chunk.id())
+                    .documentId(documentId)
+                    .chunkId(chunk.id())
+                    .parentChunkId(text(chunkMetadata.get(VectorRecord.KEY_PARENT_CHUNK_ID)))
+                    .contentHash(contentHash(chunk.content()))
+                    .text(chunk.content())
+                    .embedding(embedding)
+                    .embeddingModel(embeddingModel(chunkMetadata))
+                    .embeddingDimension(embedding.size())
+                    .chunkType(text(chunkMetadata.get(VectorRecord.KEY_CHUNK_TYPE)))
+                    .headingPath(text(chunkMetadata.get(VectorRecord.KEY_HEADING_PATH)))
+                    .sourceRef(text(firstPresent(chunkMetadata,
+                            VectorRecord.KEY_SOURCE_REF,
+                            ChunkMetadata.KEY_SOURCE_REF,
+                            ChunkMetadata.KEY_SOURCE_REFS)))
+                    .page(integer(chunkMetadata.get(VectorRecord.KEY_PAGE)))
+                    .slide(integer(chunkMetadata.get(VectorRecord.KEY_SLIDE)))
+                    .metadata(chunkMetadata)
+                    .build());
         }
-        vectorStore.replaceByObject(objectType, objectId, documents);
+        vectorStore.replaceRecordsByObject(objectType, objectId, records);
         latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(
                 parsedFile.blocks().size(),
                 chunks.size(),
@@ -165,5 +192,64 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 metadata.putIfAbsent(key, value);
             }
         });
+    }
+
+    private Object firstPresent(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value != null && (!(value instanceof String textValue) || !textValue.isBlank())) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String embeddingModel(Map<String, Object> metadata) {
+        String embeddingModel = text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL));
+        return embeddingModel == null ? "unknown" : embeddingModel;
+    }
+
+    private String text(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            return join(iterable);
+        }
+        String text = Objects.toString(value, null);
+        return text == null || text.isBlank() ? null : text;
+    }
+
+    private String join(Iterable<?> values) {
+        String joined = java.util.stream.StreamSupport.stream(values.spliterator(), false)
+                .filter(Objects::nonNull)
+                .map(Objects::toString)
+                .filter(value -> !value.isBlank())
+                .reduce((left, right) -> left + " > " + right)
+                .orElse(null);
+        return joined == null || joined.isBlank() ? null : joined;
+    }
+
+    private Integer integer(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Integer.valueOf(text);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private String contentHash(String content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 digest is not available", ex);
+        }
     }
 }

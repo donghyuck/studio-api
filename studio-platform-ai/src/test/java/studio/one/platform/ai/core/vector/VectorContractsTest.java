@@ -241,12 +241,13 @@ class VectorContractsTest {
 
         store.upsert(record(Map.of()));
         store.upsertAll(List.of());
+        store.replaceRecordsByObject("attachment", "42", List.of(record("record-2", List.of(0.3d, 0.4d), 2, Map.of())));
         VectorSearchResults results = store.searchWithFilter(new VectorSearchRequest(List.of(0.1d), 3));
 
-        assertThat(store.operations()).containsExactly("upsert:1");
+        assertThat(store.operations()).containsExactly("upsert:1", "delete:attachment:42", "upsert:1");
         assertThat(store.upsertedDocuments())
                 .extracting(VectorDocument::id)
-                .containsExactly("record-1");
+                .containsExactly("record-1", "record-2");
         assertThat(results.elapsedMs()).isGreaterThanOrEqualTo(0L);
         assertThat(results.hits()).hasSize(1);
         assertThat(results.hits().get(0).documentId()).isEqualTo("doc-1");

@@ -43,11 +43,12 @@ import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
-import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.NormalizedDocument;
@@ -225,9 +226,19 @@ class AttachmentEmbeddingPipelineControllerTest {
                 "structured text",
                 ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, 7)
                         .sourceDocumentId("doc-1")
+                        .chunkType(ChunkType.TABLE)
+                        .parentChunkId("parent-1")
+                        .previousChunkId("prev-1")
+                        .nextChunkId("next-1")
                         .objectType("attachment")
                         .objectId("1")
                         .section("Intro")
+                        .attributes(Map.of(
+                                "headingPath", List.of("Intro", "Table"),
+                                "sourceRef", "sample.txt#page=3",
+                                "page", 3,
+                                "slide", 2,
+                                "embeddingModel", "test-embedding"))
                         .build());
 
         when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
@@ -265,17 +276,28 @@ class AttachmentEmbeddingPipelineControllerTest {
         verify(extractionService).parseStructured(any(), any(), any(InputStream.class));
         verify(extractionService, never()).extractText(any(), any(), any(InputStream.class));
         verifyNoInteractions(ragPipelineService);
-        verify(vectorStore).replaceByObject(
+        verify(vectorStore).replaceRecordsByObject(
                 argThat("attachment"::equals),
                 argThat("1"::equals),
-                argThat((List<VectorDocument> documents) -> {
-                    if (documents.size() != 1) {
+                argThat((List<VectorRecord> records) -> {
+                    if (records.size() != 1) {
                         return false;
                     }
-                    VectorDocument document = documents.get(0);
-                    Map<String, Object> metadata = document.metadata();
-                    return "doc-1#0".equals(document.id())
-                            && "structured text".equals(document.content())
+                    VectorRecord record = records.get(0);
+                    Map<String, Object> metadata = record.toMetadata();
+                    return "doc-1#0".equals(record.id())
+                            && "doc-1".equals(record.documentId())
+                            && "doc-1#0".equals(record.chunkId())
+                            && "structured text".equals(record.text())
+                            && "parent-1".equals(record.parentChunkId())
+                            && "test-embedding".equals(record.embeddingModel())
+                            && record.embeddingDimension() == 2
+                            && "table".equals(record.chunkType())
+                            && "Intro > Table".equals(record.headingPath())
+                            && "sample.txt#page=3".equals(record.sourceRef())
+                            && Integer.valueOf(3).equals(record.page())
+                            && Integer.valueOf(2).equals(record.slide())
+                            && record.contentHash() != null
                             && metadata.containsKey("documentId")
                             && "doc-1".equals(metadata.get("documentId"))
                             && "attachment".equals(metadata.get("objectType"))
@@ -283,6 +305,17 @@ class AttachmentEmbeddingPipelineControllerTest {
                             && "manual".equals(metadata.get("category"))
                             && "Intro".equals(metadata.get("section"))
                             && Integer.valueOf(7).equals(metadata.get("chunkOrder"))
+                            && Integer.valueOf(7).equals(metadata.get("chunkIndex"))
+                            && "table".equals(metadata.get("chunkType"))
+                            && "parent-1".equals(metadata.get("parentChunkId"))
+                            && "prev-1".equals(metadata.get("previousChunkId"))
+                            && "next-1".equals(metadata.get("nextChunkId"))
+                            && "Intro > Table".equals(metadata.get("headingPath"))
+                            && "sample.txt#page=3".equals(metadata.get("sourceRef"))
+                            && Integer.valueOf(3).equals(metadata.get("page"))
+                            && Integer.valueOf(2).equals(metadata.get("slide"))
+                            && "test-embedding".equals(metadata.get("embeddingModel"))
+                            && Integer.valueOf(2).equals(metadata.get("embeddingDimension"))
                             && metadata.containsKey("strategy");
                 }));
     }

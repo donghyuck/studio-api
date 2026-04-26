@@ -78,6 +78,7 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 - 새 `EmbeddingPort` 또는 `VectorStorePort` 대신 기존 포트를 확장한다.
 - 새 chunking 계약은 이 모듈에 추가하지 않는다. `core.chunk.TextChunk`와 `core.chunk.TextChunker`는 deprecated legacy fallback이며, 신규 구현은 `studio-platform-chunking`의 `Chunk`, `ChunkingContext`, `ChunkingOrchestrator`를 사용한다.
 - `VectorRecord`는 RAG chunk 저장을 표현하는 core vector storage 모델이다. 신규 호출자는 긴 생성자 대신 `VectorRecord.builder()`를 우선 사용한다.
+- object-scoped RAG chunk 교체는 신규 호출자에서 `VectorStorePort.replaceRecordsByObject(...)`를 우선 사용한다. 기본 구현은 `VectorRecord.toVectorDocument()`로 변환해 기존 `replaceByObject(...)`에 위임한다.
 - `chunkIndex`, `previousChunkId`, `nextChunkId`, `tenantId`, `createdAt`, `indexedAt`은 표준 metadata key로만 정의한다. first-class field가 아니므로 `metadata` map을 통해 전달한다.
 - `embeddingDimension`은 `Number` metadata로 소비해야 한다. 현재 `VectorRecord.toMetadata()`는 Java `Integer` 값을 저장하지만 adapter는 DB/driver별 숫자 타입 차이를 고려해 `Number`로 읽어야 한다.
 - `VectorSearchRequest.includeText=false`이면 `VectorSearchHit.text()`는 `null`일 수 있고, `includeMetadata=false`이면 `metadata()`는 empty map일 수 있다.

@@ -1,8 +1,8 @@
 package studio.one.platform.ai.core.vector;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.List;
 
 /**
  * Contract for persisting and querying vectors.
@@ -41,6 +41,20 @@ public interface VectorStorePort {
     default void replaceByObject(String objectType, String objectId, List<VectorDocument> documents) {
         deleteByObject(objectType, objectId);
         upsert(documents);
+    }
+
+    /**
+     * Replaces all RAG chunk records for an object scope.
+     * <p>
+     * Default implementation adapts records to legacy {@link VectorDocument}
+     * values and delegates to {@link #replaceByObject(String, String, List)} so
+     * existing store adapters keep their current atomic replacement behavior.
+     */
+    default void replaceRecordsByObject(String objectType, String objectId, List<VectorRecord> records) {
+        Objects.requireNonNull(records, "records");
+        replaceByObject(objectType, objectId, records.stream()
+                .map(VectorRecord::toVectorDocument)
+                .toList());
     }
 
     List<VectorSearchResult> search(VectorSearchRequest request);
