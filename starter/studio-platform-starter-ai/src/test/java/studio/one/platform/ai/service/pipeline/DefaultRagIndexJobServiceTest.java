@@ -107,6 +107,29 @@ class DefaultRagIndexJobServiceTest {
     }
 
     @Test
+    void retryRejectsWhenStoredRequestIsNoLongerAvailable() {
+        InMemoryRagIndexJobRepository persistedOnlyRepository = new InMemoryRagIndexJobRepository();
+        RagIndexJob failed = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                java.time.Instant.parse("2026-04-26T00:00:00Z"))
+                .withStatus(RagIndexJobStatus.FAILED, RagIndexJobStep.EMBEDDING, "boom",
+                        java.time.Instant.parse("2026-04-26T00:00:01Z"));
+        persistedOnlyRepository.save(failed);
+        DefaultRagIndexJobService service =
+                new DefaultRagIndexJobService(persistedOnlyRepository, new SuccessfulPipeline());
+
+        assertThatThrownBy(() -> service.retryJob("job-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("request is no longer available");
+
+        assertThat(service.getJob("job-1").orElseThrow().status()).isEqualTo(RagIndexJobStatus.FAILED);
+    }
+
+    @Test
     void cancelsActiveJobAndRecordsLog() {
         DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
         RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(

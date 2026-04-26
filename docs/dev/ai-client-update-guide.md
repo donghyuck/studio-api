@@ -48,9 +48,11 @@
 | RAG 색인 job 상세 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}` |
 | RAG 색인 job 로그 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}/logs` |
 | RAG 색인 job chunk 조회 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}/chunks` |
+| RAG 색인 job chunk 페이지 조회 | `GET` | `/api/mgmt/ai/rag/jobs/{jobId}/chunks/page` |
 | RAG 색인 job 재시도 | `POST` | `/api/mgmt/ai/rag/jobs/{jobId}/retry` |
 | RAG 색인 job 취소 | `POST` | `/api/mgmt/ai/rag/jobs/{jobId}/cancel` |
 | RAG object chunk 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks` |
+| RAG object chunk 페이지 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks/page` |
 | RAG object metadata 조회 | `GET` | `/api/mgmt/ai/rag/objects/{objectType}/{objectId}/metadata` |
 
 기존 `/api/ai/embedding`, `/api/ai/vectors`, `/api/ai/rag/*` 경로를 계속 쓰는 환경은
@@ -95,6 +97,7 @@ job 조회 권한은 별도이므로 job 화면 연결은 `services:ai_rag read`
 4. `GET /api/mgmt/ai/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, `chunkCount`, `embeddedCount`, `indexedCount`, `warningCount`를 표시한다.
 5. `GET /api/mgmt/ai/rag/jobs/{jobId}/logs`로 단계별 `INFO`/`WARN`/`ERROR` 로그를 표시한다.
 6. 완료 후 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks?limit=200` 또는 object chunk API로 색인 결과를 보여준다.
+   페이지 이동 UI는 `/chunks/page?offset=0&limit=50` variant를 사용한다.
 7. `FAILED`, `SUCCEEDED`, `WARNING`, `CANCELLED` 상태이고 권한이 있을 때만 retry 버튼을 활성화한다. `PENDING`/`RUNNING` retry는 `409 Conflict`로 처리한다.
 8. `PENDING`, `RUNNING` 상태이고 권한이 있을 때만 cancel 버튼을 활성화한다. terminal job cancel은 `409 Conflict`로 처리한다.
 
@@ -104,7 +107,8 @@ job 조회 권한은 별도이므로 job 화면 연결은 `services:ai_rag read`
 
 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks`와 object chunk API는 `limit` query parameter를 받는다.
 서버 기본값과 최대값은 모두 200이며, 운영 화면의 색인 점검용 조회로 사용한다. 전체 chunk export가 필요하면
-별도 API를 설계한다.
+별도 API를 설계한다. `/chunks/page` variant는 `offset`, `limit`, `returned`, `hasMore`, `items`를
+반환하므로 운영 화면의 페이지 이동에는 이 응답을 사용한다.
 
 `status`와 버튼 동작 기준은 다음과 같다.
 
@@ -121,13 +125,13 @@ RAG job 운영 API 권한은 다음 기준으로 처리한다.
 
 | API | 기본 권한 | attachment job/object 추가 권한 |
 |---|---|---|
-| `POST /api/mgmt/ai/rag/jobs` | `services:ai_rag read` | `objectType=attachment` 또는 `sourceType=attachment`이면 `features:attachment write` |
+| `POST /api/mgmt/ai/rag/jobs` | `services:ai_rag write` | `objectType=attachment` 또는 `sourceType=attachment`이면 `features:attachment write` |
 | `GET /api/mgmt/ai/rag/jobs`, `GET /api/mgmt/ai/rag/jobs/{jobId}` | `services:ai_rag read` | 없음 |
 | `GET /api/mgmt/ai/rag/jobs/{jobId}/logs` | `services:ai_rag read` | attachment job이면 `features:attachment read` |
-| `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks` | `services:ai_rag read` | attachment job이면 `features:attachment read` |
-| `POST /api/mgmt/ai/rag/jobs/{jobId}/retry` | `services:ai_rag read` | attachment job이면 `features:attachment write` |
+| `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks`, `/chunks/page` | `services:ai_rag read` | attachment job이면 `features:attachment read` |
+| `POST /api/mgmt/ai/rag/jobs/{jobId}/retry` | `services:ai_rag write` | attachment job이면 `features:attachment write` |
 | `POST /api/mgmt/ai/rag/jobs/{jobId}/cancel` | `services:ai_rag write` | attachment job이면 `features:attachment write` |
-| `GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks` | `services:ai_rag read` | `objectType=attachment`이면 `features:attachment read` |
+| `GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks`, `/chunks/page` | `services:ai_rag read` | `objectType=attachment`이면 `features:attachment read` |
 | `GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/metadata` | `services:ai_rag read` | `objectType=attachment`이면 `features:attachment read` |
 
 `POST /api/mgmt/ai/rag/jobs/{jobId}/cancel`은 job 상태를 `CANCELLED`로 표시한다.
@@ -275,8 +279,8 @@ diagnostics에는 chunk 본문이 포함되지 않는다.
 | Provider 정보 | `services:ai_chat read` 또는 `services:ai_embedding read` |
 | 임베딩 생성 | `services:ai_embedding write` |
 | 벡터 업서트/검색 | `services:ai_vector read` |
-| RAG 인덱싱/검색/job 조회/retry | `services:ai_rag read` |
-| RAG job cancel | `services:ai_rag write` |
+| RAG 인덱싱/검색/job 조회 | `services:ai_rag read` |
+| RAG job 생성/retry/cancel | `services:ai_rag write` |
 | attachment RAG job 생성/retry/cancel | `features:attachment write` 추가 필요 |
 | attachment RAG job logs/chunks/object metadata | `features:attachment read` 추가 필요 |
 

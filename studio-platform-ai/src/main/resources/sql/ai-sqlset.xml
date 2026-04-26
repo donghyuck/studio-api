@@ -81,6 +81,16 @@
         ]]>
     </sql-query>
 
+    <sql-query id="listByObjectPage">
+        <![CDATA[
+        SELECT object_id, text, metadata
+          FROM tb_ai_document_chunk
+         WHERE object_type = :objectType AND object_id = :objectId
+         ORDER BY chunk_index
+         LIMIT :limit OFFSET :offset
+        ]]>
+    </sql-query>
+
     <sql-query id="metadataByObject">
         <![CDATA[
         SELECT metadata

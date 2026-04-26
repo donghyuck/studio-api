@@ -70,6 +70,9 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     @SqlStatement("ai.vector.listByObject")
     private String listByObjectSql;
 
+    @SqlStatement("ai.vector.listByObjectPage")
+    private String listByObjectPageSql;
+
     @SqlStatement("ai.vector.metadataByObject")
     private String metadataByObjectSql;
 
@@ -200,6 +203,26 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 .addValue("objectId", objectId)
                 .addValue("limit", rowLimit);
         return namedParameterJdbcTemplate.query(listByObjectSql, params, (rs, rowNum) -> {
+            String objId = rs.getString("object_id");
+            String content = rs.getString("text");
+            String metadataJson = rs.getString("metadata");
+            Map<String, Object> metadata = Json.read(metadataJson);
+            String documentId = Objects.toString(metadata.getOrDefault("documentId", objId), objId);
+            VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
+            return new VectorSearchResult(document, 1.0d);
+        });
+    }
+
+    @Override
+    public List<VectorSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
+        int rowOffset = Math.max(0, offset);
+        int rowLimit = limit <= 0 ? 50 : limit;
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId)
+                .addValue("offset", rowOffset)
+                .addValue("limit", rowLimit);
+        return namedParameterJdbcTemplate.query(listByObjectPageSql, params, (rs, rowNum) -> {
             String objId = rs.getString("object_id");
             String content = rs.getString("text");
             String metadataJson = rs.getString("metadata");

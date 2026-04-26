@@ -8,11 +8,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.chunk.OverlapTextChunker;
+import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.JdbcRagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.autoconfigure.ChunkingAutoConfiguration;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
@@ -85,6 +89,18 @@ class RagPipelineConfigurationChunkingTest {
                     assertThat(context.getBean(TextChunker.class)).isSameAs(customChunker);
                     assertThat(context).hasSingleBean(ChunkingOrchestrator.class);
                     assertThat(context).hasSingleBean(RagPipelineService.class);
+                });
+    }
+
+    @Test
+    void createsJdbcRagIndexJobRepositoryWhenOptedIn() {
+        contextRunner
+                .withBean(NamedParameterJdbcTemplate.class, () -> mock(NamedParameterJdbcTemplate.class))
+                .withPropertyValues("studio.ai.pipeline.jobs.repository=jdbc")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(RagIndexJobRepository.class);
+                    assertThat(context).hasSingleBean(JdbcRagIndexJobRepository.class);
+                    assertThat(context).doesNotHaveBean(InMemoryRagIndexJobRepository.class);
                 });
     }
 }

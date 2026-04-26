@@ -173,6 +173,25 @@ public interface VectorStorePort {
     }
 
     /**
+     * objectType/objectId에 속한 벡터를 chunk_index 순서로 페이지 조회한다.
+     * <p>
+     * Default implementation preserves compatibility by delegating to
+     * {@link #listByObject(String, String, Integer)} with {@code offset + limit}
+     * and slicing in memory. Store adapters should override this when native
+     * offset/limit can be pushed down.
+     */
+    default List<VectorSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = limit <= 0 ? 50 : limit;
+        long requested = (long) safeOffset + safeLimit;
+        int fetchLimit = requested > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requested;
+        return listByObject(objectType, objectId, fetchLimit).stream()
+                .skip(safeOffset)
+                .limit(safeLimit)
+                .toList();
+    }
+
+    /**
      * objectType/objectId에 대한 메타데이터를 조회한다.
      * 구현체는 필요한 경우 chunk_index 순으로 첫 번째 레코드를 사용하거나 통합 메타를 반환한다.
      */

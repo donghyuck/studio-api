@@ -20,6 +20,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
+import studio.one.platform.ai.autoconfigure.config.RagPipelineProperties;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
@@ -47,7 +48,7 @@ import studio.one.platform.chunking.core.ChunkContextExpander;
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(ChatPort.class)
 @Conditional(AiWebEndpointCondition.class)
-@EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class})
+@EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class, RagPipelineProperties.class})
 public class AiWebAutoConfiguration {
 
     @Bean
@@ -131,8 +132,14 @@ public class AiWebAutoConfiguration {
             RagIndexJobService ragIndexJobService,
             RagPipelineService ragPipelineService,
             @Nullable VectorStorePort vectorStorePort,
+            RagPipelineProperties ragPipelineProperties,
             @Qualifier("ragIndexJobExecutor") Executor ragIndexJobExecutor) {
-        return new RagIndexJobController(ragIndexJobService, ragPipelineService, vectorStorePort, ragIndexJobExecutor);
+        return new RagIndexJobController(
+                ragIndexJobService,
+                ragPipelineService,
+                vectorStorePort,
+                ragIndexJobExecutor,
+                ragPipelineProperties.getObjectScope().getMaxListLimit());
     }
 
     @Bean(name = "ragIndexJobExecutor")

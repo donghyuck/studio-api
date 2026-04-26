@@ -173,6 +173,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             if (current.status() == RagIndexJobStatus.PENDING || current.status() == RagIndexJobStatus.RUNNING) {
                 throw new IllegalStateException("RAG index job cannot be retried while active: " + jobId);
             }
+            if (!requests.containsKey(jobId)) {
+                throw new IllegalStateException("RAG index job request is no longer available for retry: " + jobId);
+            }
             RagIndexJob job = current.resetForRetry(Instant.now());
             repository.save(job);
             repository.appendLog(log(

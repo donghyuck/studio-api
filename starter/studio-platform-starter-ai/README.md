@@ -199,7 +199,22 @@ raw text가 없는 source 기반 job은 등록된 `RagIndexJobSourceExecutor`가
 기본 `InMemoryRagIndexJobRepository`는 운영 화면 개발 및 단일 인스턴스 smoke 용도이며, 외부 queue나
 분산 worker를 포함하지 않는다. 재시도를 위해 최근 raw text 요청을 메모리에 보관하되 저장 request 수는
 bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은
-`RagIndexJobRepository` 계약으로 DB 기반 구현을 별도 Bean으로 등록한다.
+`RagIndexJobRepository` 계약으로 DB 기반 구현을 등록한다. JDBC 기반 기본 구현을 사용하려면
+`NamedParameterJdbcTemplate` bean과 AI schema migration(`schema/ai/{db}/V601__create_rag_index_job_tables.sql`)을
+적용한 뒤 아래 설정을 사용한다.
+
+```yaml
+studio:
+  ai:
+    pipeline:
+      jobs:
+        repository: jdbc # 기본값: memory
+```
+
+`repository=jdbc`는 job 상태와 로그만 영속화한다. 재시도 실행에 필요한 원본 raw text/source request는
+기본 `DefaultRagIndexJobService`의 bounded memory cache에 남아 있을 때만 즉시 재실행할 수 있다.
+서버 재시작 또는 request cache eviction 이후에는 retry가 `409 Conflict`로 거절된다. 장기 재시도까지
+보장하려면 source별 request 복원 전략을 별도 구현한다.
 `cancelJob(jobId)`는 `PENDING`/`RUNNING` job을 `CANCELLED`로 표시하고, 이미 도착한 late progress callback이
 취소 상태를 성공/실패로 덮어쓰지 않도록 방어한다. 실행 중인 외부 provider/vector 호출 자체를 강제 중단하지는 않는다.
 
@@ -316,7 +331,7 @@ studio:
         max-input-chars: 4000
       object-scope:
         default-list-limit: 20
-        max-list-limit: 100
+        max-list-limit: 200
       diagnostics:
         enabled: false
         log-results: false
@@ -338,7 +353,7 @@ studio:
 | `studio.ai.pipeline.keywords.scope` | `document` | 색인 metadata keyword 범위. `document`, `chunk`, `both` 지원 |
 | `studio.ai.pipeline.keywords.max-input-chars` | `4000` | LLM keyword extractor에 전달할 입력 최대 길이 |
 | `studio.ai.pipeline.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
-| `studio.ai.pipeline.object-scope.max-list-limit` | `100` | object-scope list 최대 limit |
+| `studio.ai.pipeline.object-scope.max-list-limit` | `200` | object-scope list 최대 limit |
 | `studio.ai.pipeline.diagnostics.enabled` | `false` | RAG 검색 fallback 전략과 결과 카운트 수집 여부 |
 | `studio.ai.pipeline.diagnostics.log-results` | `false` | diagnostics 활성화 시 bounded result snippet debug log 출력 여부 |
 | `studio.ai.pipeline.diagnostics.max-snippet-chars` | `120` | result snippet debug log 최대 문자 수 |

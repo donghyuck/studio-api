@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,6 +44,7 @@ import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
+import studio.one.platform.ai.web.dto.RagIndexChunkPageResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
 import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
@@ -50,6 +52,17 @@ import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.web.dto.ApiResponse;
 
 class RagIndexJobControllerTest {
+
+    @Test
+    void mutatingJobEndpointsRequireAiRagWritePermission() throws NoSuchMethodException {
+        Method createJob = RagIndexJobController.class.getMethod("createJob", RagIndexJobCreateRequestDto.class);
+        Method retryJob = RagIndexJobController.class.getMethod("retryJob", String.class);
+        Method cancelJob = RagIndexJobController.class.getMethod("cancelJob", String.class);
+
+        assertThat(preAuthorizeValue(createJob)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(retryJob)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(cancelJob)).contains("services:ai_rag','write");
+    }
 
     @Test
     void createJobBuildsIndexRequestAndReturnsAcceptedJob() {
@@ -319,6 +332,16 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void jobDetailReturnsNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
     void objectChunksReuseRagPipelineListByObject() {
         RagIndexJobService jobService = new CapturingJobService();
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
@@ -347,6 +370,99 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void objectChunksPageUsesOffsetLimitAndHasMore() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                ragPipelineService,
+                null);
+        when(ragPipelineService.listByObject("attachment", "42", 10, 3))
+                .thenReturn(List.of(
+                        new RagSearchResult("doc-1", "chunk 1", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-1"), 1.0d),
+                        new RagSearchResult("doc-1", "chunk 2", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-2"), 1.0d),
+                        new RagSearchResult("doc-1", "chunk 3", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-3"), 1.0d)));
+
+        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
+                controller.objectChunksPage("attachment", "42", 10, 2);
+
+        RagIndexChunkPageResponseDto page = response.getBody().getData();
+        assertThat(page.offset()).isEqualTo(10);
+        assertThat(page.limit()).isEqualTo(2);
+        assertThat(page.returned()).isEqualTo(2);
+        assertThat(page.hasMore()).isTrue();
+        assertThat(page.items()).extracting(RagIndexChunkDto::chunkId).containsExactly("chunk-1", "chunk-2");
+        verify(ragPipelineService).listByObject("attachment", "42", 10, 3);
+    }
+
+    @Test
+    void objectChunksPageReportsConfiguredLimitWhenControllerLimitIsLowerThanDefault() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                ragPipelineService,
+                null,
+                Runnable::run,
+                25);
+        when(ragPipelineService.listByObject("attachment", "42", 0, 26))
+                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 26)
+                        .mapToObj(index -> new RagSearchResult(
+                                "doc-1",
+                                "chunk " + index,
+                                Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-" + index),
+                                1.0d))
+                        .toList());
+
+        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
+                controller.objectChunksPage("attachment", "42", 0, 200);
+
+        RagIndexChunkPageResponseDto page = response.getBody().getData();
+        assertThat(page.limit()).isEqualTo(25);
+        assertThat(page.returned()).isEqualTo(25);
+        assertThat(page.hasMore()).isTrue();
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 26);
+    }
+
+    @Test
+    void jobChunksPageReturnsNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing/chunks/page"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
+    void jobChunksReturnNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing/chunks"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
+    void jobLogsReturnNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing/logs"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
+    void activeRetryReturnsConflictThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new CapturingJobService(RagIndexJobStatus.RUNNING));
+
+        mockMvc.perform(post("/api/mgmt/ai/rag/jobs/job-1/retry"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("RAG index job is still active"));
+    }
+
+    @Test
     void objectMetadataUsesVectorStorePort() {
         VectorStorePort vectorStorePort = mock(VectorStorePort.class);
         RagIndexJobController controller = new RagIndexJobController(
@@ -372,6 +488,21 @@ class RagIndexJobControllerTest {
                                 .build()))
                 .setControllerAdvice(new AiWebExceptionHandler())
                 .build();
+    }
+
+    private static String preAuthorizeValue(Method method) {
+        return java.util.Arrays.stream(method.getAnnotations())
+                .filter(annotation -> "org.springframework.security.access.prepost.PreAuthorize"
+                        .equals(annotation.annotationType().getName()))
+                .findFirst()
+                .map(annotation -> {
+                    try {
+                        return (String) annotation.annotationType().getMethod("value").invoke(annotation);
+                    } catch (ReflectiveOperationException ex) {
+                        throw new AssertionError("PreAuthorize value could not be read", ex);
+                    }
+                })
+                .orElseThrow(() -> new AssertionError("PreAuthorize annotation not found"));
     }
 
     private static class LegacyListJobService implements RagIndexJobService {

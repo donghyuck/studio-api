@@ -24,6 +24,7 @@ public class RagPipelineProperties {
     private final CleanerProperties cleaner = new CleanerProperties();
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
     private final KeywordsProperties keywords = new KeywordsProperties();
+    private final JobProperties jobs = new JobProperties();
 
     /**
      * Deprecated legacy fallback chunk size. This property is only used when no
@@ -99,6 +100,10 @@ public class RagPipelineProperties {
         return keywords;
     }
 
+    public JobProperties getJobs() {
+        return jobs;
+    }
+
     public static class CacheProperties {
         private long maximumSize = 1_000;
         private Duration ttl = Duration.ofMinutes(10);
@@ -117,6 +122,18 @@ public class RagPipelineProperties {
 
         public void setTtl(Duration ttl) {
             this.ttl = ttl;
+        }
+    }
+
+    public static class JobProperties {
+        private String repository = "memory";
+
+        public String getRepository() {
+            return repository;
+        }
+
+        public void setRepository(String repository) {
+            this.repository = repository;
         }
     }
 

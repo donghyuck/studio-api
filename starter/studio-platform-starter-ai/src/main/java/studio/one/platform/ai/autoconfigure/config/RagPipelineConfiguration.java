@@ -6,10 +6,12 @@ import java.util.List;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -29,6 +31,7 @@ import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.pipeline.DefaultRagPipelineService;
 import studio.one.platform.ai.service.pipeline.DefaultRagIndexJobService;
 import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.JdbcRagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceExecutor;
@@ -124,6 +127,14 @@ public class RagPipelineConfiguration {
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),
                                 ragKeywordOptions(properties));
+        }
+
+        @Bean
+        @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+        @ConditionalOnMissingBean(RagIndexJobRepository.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX + ".pipeline.jobs", name = "repository", havingValue = "jdbc")
+        RagIndexJobRepository jdbcRagIndexJobRepository(NamedParameterJdbcTemplate template) {
+                return new JdbcRagIndexJobRepository(template);
         }
 
         @Bean
