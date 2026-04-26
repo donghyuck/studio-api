@@ -3,6 +3,8 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #323 대응으로 RAG index job cancel API(`POST /api/mgmt/ai/rag/jobs/{jobId}/cancel`)를 추가했다.
+- `RagIndexJobService.cancelJob(jobId)` 계약과 `JOB_CANCELLED` 로그 코드를 추가하고, 기본 in-memory job service/repository가 취소 상태를 late progress callback으로 덮어쓰지 않도록 보강했다.
 - 이슈 #321 대응으로 RAG job 목록 조회에 `sort`/`direction` 요청 계약을 추가하고 기본 정렬을 `createdAt desc`로 명시했다.
 - 이슈 #319 대응으로 `RagIndexJobSourceExecutor` 계약을 추가하고, `sourceType=attachment` RAG job이 기존 attachment RAG 색인 흐름을 비동기로 실행하도록 연결했다.
 - `POST /api/mgmt/ai/rag/jobs`는 raw `text` 없이 source 기반 요청을 받을 수 있으며, `content-embedding-pipeline`은 attachment source executor를 제공한다.
@@ -28,6 +30,7 @@
 - `./gradlew :studio-platform-ai:compileJava :starter:studio-platform-starter-ai:compileJava :starter:studio-platform-starter-ai-web:compileJava :studio-application-modules:content-embedding-pipeline:compileJava`
 - `./gradlew :studio-platform-ai:testClasses :starter:studio-platform-starter-ai:testClasses :starter:studio-platform-starter-ai-web:testClasses :studio-application-modules:content-embedding-pipeline:testClasses`
 - `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
+- `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test`
 - `git diff --check`
 - `./gradlew :starter:studio-platform-starter-ai:test :studio-platform-ai:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`

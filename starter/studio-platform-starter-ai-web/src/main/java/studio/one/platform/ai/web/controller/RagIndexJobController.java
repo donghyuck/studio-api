@@ -138,6 +138,22 @@ public class RagIndexJobController {
         return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(requireJob(jobId))));
     }
 
+    @PostMapping("/jobs/{jobId}/cancel")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
+            + " or @endpointAuthz.can('features:attachment','write'))")
+    public ResponseEntity<ApiResponse<RagIndexJobDto>> cancelJob(@PathVariable("jobId") String jobId) {
+        requireJob(jobId);
+        try {
+            RagIndexJob cancelled = jobService.cancelJob(jobId);
+            return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(cancelled)));
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "RAG index job cancel is not supported", ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
+    }
+
     @GetMapping("/jobs/{jobId}/logs")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"

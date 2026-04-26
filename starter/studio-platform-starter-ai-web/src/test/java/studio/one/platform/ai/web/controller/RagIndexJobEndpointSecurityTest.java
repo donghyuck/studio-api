@@ -38,6 +38,22 @@ class RagIndexJobEndpointSecurityTest {
     }
 
     @Test
+    void detectsAttachmentCreateRequestsByObjectTypeWhenSourceTypeIsRaw() {
+        RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(null));
+
+        assertThat(security.isAttachmentSource(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                "content",
+                Map.of(),
+                List.of(),
+                false))).isTrue();
+    }
+
+    @Test
     void detectsAttachmentJobsForRetryAuthorization() {
         RagIndexJob job = RagIndexJob.pending(
                 "job-1",
@@ -45,6 +61,20 @@ class RagIndexJobEndpointSecurityTest {
                 "42",
                 "doc-1",
                 "attachment",
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(job));
+
+        assertThat(security.isAttachmentJob("job-1")).isTrue();
+    }
+
+    @Test
+    void detectsAttachmentJobsByObjectTypeWhenSourceTypeIsRaw() {
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
                 Instant.parse("2026-04-26T00:00:00Z"));
         RagIndexJobEndpointSecurity security = new RagIndexJobEndpointSecurity(new StubJobService(job));
 

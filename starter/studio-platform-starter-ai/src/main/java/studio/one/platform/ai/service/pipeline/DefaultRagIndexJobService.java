@@ -93,6 +93,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         StoredRequest storedRequest = requests.get(jobId);
         RagIndexProgressListener listener = progressListener(jobId);
         listener.onStarted();
+        if (isCancelled(jobId)) {
+            return requireJob(jobId);
+        }
         if (storedRequest == null) {
             listener.onError(
                     RagIndexJobStep.EXTRACTING,
@@ -103,6 +106,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         }
         try {
             RagIndexJobCreateRequest request = storedRequest.request();
+            if (isCancelled(jobId)) {
+                return requireJob(jobId);
+            }
             if (request.indexRequest() != null) {
                 ragPipelineService.index(request.indexRequest(), listener);
             } else {
@@ -116,12 +122,15 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                             request.sourceType());
                     return requireJob(jobId);
                 }
+                if (isCancelled(jobId)) {
+                    return requireJob(jobId);
+                }
                 sourceExecutor.get().execute(requireJob(jobId), request, sourceRequest, listener);
             }
             listener.onCompleted();
         } catch (RuntimeException ex) {
             RagIndexJob current = requireJob(jobId);
-            if (current.status() != RagIndexJobStatus.FAILED) {
+            if (current.status() != RagIndexJobStatus.FAILED && current.status() != RagIndexJobStatus.CANCELLED) {
                 RagIndexJobStep step = current.currentStep();
                 listener.onError(step, codeFor(step), "RAG index failed", ex.getMessage());
             }
@@ -135,6 +144,23 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         return sourceExecutors.stream()
                 .filter(executor -> executor.supports(request, sourceRequest))
                 .findFirst();
+    }
+
+    private boolean isCancelled(String jobId) {
+        return requireJob(jobId).status() == RagIndexJobStatus.CANCELLED;
+    }
+
+    @Override
+    public RagIndexJob cancelJob(String jobId) {
+        RagIndexJob cancelled = repository.cancelJob(jobId, "RAG index job cancelled");
+        repository.appendLog(log(
+                jobId,
+                RagIndexJobLogLevel.INFO,
+                cancelled.currentStep(),
+                RagIndexJobLogCode.JOB_CANCELLED,
+                "RAG index job cancelled",
+                null));
+        return cancelled;
     }
 
     @Override
@@ -255,6 +281,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
         @Override
         public void onStarted() {
+            if (isCancelled()) {
+                return;
+            }
             repository.updateStatus(jobId, RagIndexJobStatus.RUNNING, RagIndexJobStep.EXTRACTING, null);
             repository.appendLog(log(
                     jobId,
@@ -267,6 +296,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
         @Override
         public void onStep(RagIndexJobStep step) {
+            if (isCancelled()) {
+                return;
+            }
             repository.updateStatus(jobId, RagIndexJobStatus.RUNNING, step, null);
             repository.appendLog(log(
                     jobId,
@@ -279,21 +311,33 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
         @Override
         public void onChunkCount(int chunkCount) {
+            if (isCancelled()) {
+                return;
+            }
             repository.updateCounts(jobId, chunkCount, null, null, null);
         }
 
         @Override
         public void onEmbeddedCount(int embeddedCount) {
+            if (isCancelled()) {
+                return;
+            }
             repository.updateCounts(jobId, null, embeddedCount, null, null);
         }
 
         @Override
         public void onIndexedCount(int indexedCount) {
+            if (isCancelled()) {
+                return;
+            }
             repository.updateCounts(jobId, null, null, indexedCount, null);
         }
 
         @Override
         public void onInfo(RagIndexJobStep step, String message, String detail) {
+            if (isCancelled()) {
+                return;
+            }
             repository.appendLog(log(
                     jobId,
                     RagIndexJobLogLevel.INFO,
@@ -305,6 +349,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
         @Override
         public void onWarning(RagIndexJobStep step, RagIndexJobLogCode code, String message, String detail) {
+            if (isCancelled()) {
+                return;
+            }
             RagIndexJob job = requireJob(jobId);
             repository.updateCounts(jobId, null, null, null, job.warningCount() + 1);
             repository.appendLog(log(jobId, RagIndexJobLogLevel.WARN, step, code, message, detail));
@@ -312,12 +359,18 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
         @Override
         public void onError(RagIndexJobStep step, RagIndexJobLogCode code, String message, String detail) {
+            if (isCancelled()) {
+                return;
+            }
             repository.appendLog(log(jobId, RagIndexJobLogLevel.ERROR, step, code, message, detail));
             repository.updateStatus(jobId, RagIndexJobStatus.FAILED, step, detail == null ? message : detail);
         }
 
         @Override
         public void onCompleted() {
+            if (isCancelled()) {
+                return;
+            }
             RagIndexJob job = requireJob(jobId);
             RagIndexJobStatus finalStatus = job.warningCount() > 0
                     ? RagIndexJobStatus.WARNING
@@ -330,6 +383,10 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                     RagIndexJobLogCode.JOB_COMPLETED,
                     "RAG index job completed",
                     finalStatus.name()));
+        }
+
+        private boolean isCancelled() {
+            return DefaultRagIndexJobService.this.isCancelled(jobId);
         }
     }
 }

@@ -69,6 +69,9 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
             String errorMessage) {
         return jobs.compute(jobId, (ignored, current) -> {
             RagIndexJob existing = requireJob(jobId, current);
+            if (existing.status() == RagIndexJobStatus.CANCELLED && status != RagIndexJobStatus.CANCELLED) {
+                return existing;
+            }
             RagIndexJobStep nextStep = currentStep == null ? existing.currentStep() : currentStep;
             if ((status == RagIndexJobStatus.SUCCEEDED || status == RagIndexJobStatus.WARNING)
                     && nextStep == null) {
@@ -79,18 +82,44 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
     }
 
     @Override
+    public RagIndexJob cancelJob(String jobId, String errorMessage) {
+        return jobs.compute(jobId, (ignored, current) -> {
+            RagIndexJob existing = requireJob(jobId, current);
+            if (existing.status() != RagIndexJobStatus.PENDING && existing.status() != RagIndexJobStatus.RUNNING) {
+                throw new IllegalStateException("RAG index job can only be cancelled while active: " + jobId);
+            }
+            return existing.withStatus(
+                    RagIndexJobStatus.CANCELLED,
+                    existing.currentStep(),
+                    errorMessage,
+                    Instant.now());
+        });
+    }
+
+    @Override
     public RagIndexJob updateCounts(
             String jobId,
             Integer chunkCount,
             Integer embeddedCount,
             Integer indexedCount,
             Integer warningCount) {
-        return jobs.compute(jobId, (ignored, current) -> requireJob(jobId, current)
-                .withCounts(chunkCount, embeddedCount, indexedCount, warningCount));
+        return jobs.compute(jobId, (ignored, current) -> {
+            RagIndexJob existing = requireJob(jobId, current);
+            if (existing.status() == RagIndexJobStatus.CANCELLED) {
+                return existing;
+            }
+            return existing.withCounts(chunkCount, embeddedCount, indexedCount, warningCount);
+        });
     }
 
     @Override
     public RagIndexJobLog appendLog(RagIndexJobLog log) {
+        RagIndexJob job = jobs.get(log.jobId());
+        if (job != null
+                && job.status() == RagIndexJobStatus.CANCELLED
+                && log.code() != studio.one.platform.ai.core.rag.RagIndexJobLogCode.JOB_CANCELLED) {
+            return log;
+        }
         logs.computeIfAbsent(log.jobId(), ignored -> new CopyOnWriteArrayList<>()).add(log);
         return log;
     }

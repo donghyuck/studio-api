@@ -18,6 +18,7 @@ import studio.one.platform.web.dto.ProblemDetails;
         EmbeddingController.class,
         VectorController.class,
         RagController.class,
+        RagIndexJobController.class,
         QueryRewriteController.class,
         AiInfoController.class
 })

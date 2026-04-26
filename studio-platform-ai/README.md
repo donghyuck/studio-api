@@ -222,6 +222,9 @@ default wrapper로 추가됐다. 구현체는 listener를 통해 `CHUNKING`, `EM
 `COMPLETED` 단계와 chunk/embedded/indexed count, warning/error log를 전달할 수 있다.
 상태(`PENDING`, `RUNNING`, `SUCCEEDED`, `WARNING`, `FAILED`, `CANCELLED`)와 단계는 별도 필드다.
 `WARNING`은 색인은 완료됐지만 경고 로그가 있는 상태로 사용한다.
+`RagIndexJobService.cancelJob(jobId)`는 취소 요청을 위한 확장 계약이다. 기본 구현이 없는 커스텀 service는
+하위 호환 default method 때문에 `UnsupportedOperationException`을 반환할 수 있으므로, 취소를 지원하려면
+명시적으로 override해야 한다.
 
 `RagIndexJobSourceExecutor`는 raw text가 아닌 source 기반 job을 연결하기 위한 포트다.
 예를 들어 attachment 모듈은 `sourceType=attachment` 요청을 받아 기존 attachment 색인 pipeline을 실행할 수 있다.
