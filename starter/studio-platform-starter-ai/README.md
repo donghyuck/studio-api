@@ -175,6 +175,7 @@ studio:
 | `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
 | `RagIndexJobRepository` | RAG 색인 작업 상태/로그 저장소. 기본 구현은 단일 인스턴스용 in-memory repository |
 | `RagIndexJobService` | RAG 색인 작업 생성/조회/재시도와 progress listener 연결 |
+| `RagIndexJobSourceExecutor` | source 기반 RAG job 실행 확장점. 등록된 Bean은 job service가 ordered stream으로 조회 |
 | `ChunkingOrchestrator` | `starter-chunking`이 있을 때 RAG indexing chunk 생성에 사용 |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
 | `TextCleaner` | `studio.ai.pipeline.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
@@ -192,6 +193,9 @@ RAG metadata key의 표준 의미와 legacy alias 기준은
 
 `RagIndexJobService`는 `RagPipelineService.index(request, listener)` overload를 사용해
 `CHUNKING`, `EMBEDDING`, `INDEXING`, `COMPLETED` 단계와 chunk/embedding/index count를 기록한다.
+raw text가 없는 source 기반 job은 등록된 `RagIndexJobSourceExecutor`가 `supports(...)`로 선택되면
+해당 executor가 실행한다. 기본 starter는 source 구현을 포함하지 않으며, attachment 같은 application module이
+자기 source executor를 별도 Bean으로 제공한다.
 기본 `InMemoryRagIndexJobRepository`는 운영 화면 개발 및 단일 인스턴스 smoke 용도이며, 외부 queue나
 분산 worker를 포함하지 않는다. 재시도를 위해 최근 raw text 요청을 메모리에 보관하되 저장 request 수는
 bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은

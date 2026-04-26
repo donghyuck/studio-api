@@ -20,6 +20,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
@@ -29,19 +30,33 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
 
     private final RagIndexJobRepository repository;
     private final RagPipelineService ragPipelineService;
-    private final ConcurrentMap<String, RagIndexJobCreateRequest> requests = new ConcurrentHashMap<>();
+    private final List<RagIndexJobSourceExecutor> sourceExecutors;
+    private final ConcurrentMap<String, StoredRequest> requests = new ConcurrentHashMap<>();
     private final Queue<String> requestOrder = new ConcurrentLinkedQueue<>();
     private final Set<String> runningJobs = ConcurrentHashMap.newKeySet();
 
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
             RagPipelineService ragPipelineService) {
+        this(repository, ragPipelineService, List.of());
+    }
+
+    public DefaultRagIndexJobService(
+            RagIndexJobRepository repository,
+            RagPipelineService ragPipelineService,
+            List<RagIndexJobSourceExecutor> sourceExecutors) {
         this.repository = repository;
         this.ragPipelineService = ragPipelineService;
+        this.sourceExecutors = sourceExecutors == null ? List.of() : List.copyOf(sourceExecutors);
     }
 
     @Override
     public RagIndexJob createJob(RagIndexJobCreateRequest request) {
+        return createJob(request, null);
+    }
+
+    @Override
+    public RagIndexJob createJob(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
         Objects.requireNonNull(request, "request");
         String jobId = UUID.randomUUID().toString();
         RagIndexJob job = RagIndexJob.pending(
@@ -51,7 +66,7 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                 request.documentId(),
                 request.sourceType(),
                 Instant.now());
-        requests.put(jobId, request);
+        requests.put(jobId, new StoredRequest(request, sourceRequest));
         requestOrder.add(jobId);
         evictStoredRequests();
         return repository.save(job);
@@ -74,10 +89,10 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     }
 
     private RagIndexJob runJob(String jobId) {
-        RagIndexJobCreateRequest request = requests.get(jobId);
+        StoredRequest storedRequest = requests.get(jobId);
         RagIndexProgressListener listener = progressListener(jobId);
         listener.onStarted();
-        if (request == null || request.indexRequest() == null) {
+        if (storedRequest == null) {
             listener.onError(
                     RagIndexJobStep.EXTRACTING,
                     RagIndexJobLogCode.SOURCE_UNSUPPORTED,
@@ -86,13 +101,39 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             return requireJob(jobId);
         }
         try {
-            ragPipelineService.index(request.indexRequest(), listener);
+            RagIndexJobCreateRequest request = storedRequest.request();
+            if (request.indexRequest() != null) {
+                ragPipelineService.index(request.indexRequest(), listener);
+            } else {
+                RagIndexJobSourceRequest sourceRequest = storedRequest.sourceRequest();
+                Optional<RagIndexJobSourceExecutor> sourceExecutor = sourceExecutor(request, sourceRequest);
+                if (sourceExecutor.isEmpty()) {
+                    listener.onError(
+                            RagIndexJobStep.EXTRACTING,
+                            RagIndexJobLogCode.SOURCE_UNSUPPORTED,
+                            "RAG index source is not executable by the default job service",
+                            request.sourceType());
+                    return requireJob(jobId);
+                }
+                sourceExecutor.get().execute(requireJob(jobId), request, sourceRequest, listener);
+            }
             listener.onCompleted();
         } catch (RuntimeException ex) {
-            RagIndexJobStep step = requireJob(jobId).currentStep();
-            listener.onError(step, codeFor(step), "RAG index failed", ex.getMessage());
+            RagIndexJob current = requireJob(jobId);
+            if (current.status() != RagIndexJobStatus.FAILED) {
+                RagIndexJobStep step = current.currentStep();
+                listener.onError(step, codeFor(step), "RAG index failed", ex.getMessage());
+            }
         }
         return requireJob(jobId);
+    }
+
+    private Optional<RagIndexJobSourceExecutor> sourceExecutor(
+            RagIndexJobCreateRequest request,
+            RagIndexJobSourceRequest sourceRequest) {
+        return sourceExecutors.stream()
+                .filter(executor -> executor.supports(request, sourceRequest))
+                .findFirst();
     }
 
     @Override
@@ -193,6 +234,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                 return;
             }
         }
+    }
+
+    private record StoredRequest(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
     }
 
     private class RepositoryBackedProgressListener implements RagIndexProgressListener {

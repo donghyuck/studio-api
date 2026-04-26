@@ -41,6 +41,7 @@ RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `stud
 | `RagIndexJob` / `RagIndexJobLog` | `core.rag` | RAG 색인 작업 상태와 단계별 로그 모델 |
 | `RagIndexJobRepository` / `RagIndexJobService` | `service.pipeline` | RAG 색인 작업 저장소와 실행 service 계약 |
 | `RagIndexProgressListener` | `service.pipeline` | 색인 실행 단계와 count를 job service에 전달하는 listener 계약 |
+| `RagIndexJobSourceExecutor` | `service.pipeline` | attachment 같은 source 기반 job 실행을 core 의존성 없이 연결하는 확장점 |
 | `TextCleaner` | `service.cleaning` | 색인 전 추출 텍스트 정제 계약 |
 | `KeywordExtractor` | `service.keyword` | 색인/검색 keyword 추출 계약 |
 | `PromptRenderer` | `service.prompt` | 프롬프트 렌더링 계약 |
@@ -221,6 +222,10 @@ default wrapper로 추가됐다. 구현체는 listener를 통해 `CHUNKING`, `EM
 `COMPLETED` 단계와 chunk/embedded/indexed count, warning/error log를 전달할 수 있다.
 상태(`PENDING`, `RUNNING`, `SUCCEEDED`, `WARNING`, `FAILED`, `CANCELLED`)와 단계는 별도 필드다.
 `WARNING`은 색인은 완료됐지만 경고 로그가 있는 상태로 사용한다.
+
+`RagIndexJobSourceExecutor`는 raw text가 아닌 source 기반 job을 연결하기 위한 포트다.
+예를 들어 attachment 모듈은 `sourceType=attachment` 요청을 받아 기존 attachment 색인 pipeline을 실행할 수 있다.
+ai core는 이 인터페이스만 제공하며 attachment, textract, chunking, provider, vector DB 구현에는 의존하지 않는다.
 
 ## 구현 분리 원칙
 이 모듈은 구현체를 포함하지 않는다. `ai.core`는 provider 구현과 DB 구현에 의존하지 않는 계약 계층으로 유지한다.

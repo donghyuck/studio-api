@@ -22,6 +22,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -68,7 +69,56 @@ class RagIndexJobControllerTest {
     }
 
     @Test
-    void createJobRejectsMissingTextForDefaultExecutor() {
+    void createJobAcceptsSourceRequestWithoutText() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of("attachmentId", "42"),
+                List.of("alpha"),
+                false));
+
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(jobService.createdRequest.indexRequest()).isNull();
+        assertThat(jobService.createdRequest.sourceType()).isEqualTo("attachment");
+        assertThat(jobService.createdRequest.documentId()).isEqualTo("doc-1");
+        assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createAttachmentSourceJobDefaultsDocumentIdBeforePersistingJob() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                null,
+                "attachment",
+                false,
+                null,
+                Map.of(),
+                List.of(),
+                false));
+
+        assertThat(jobService.createdRequest.documentId()).isEqualTo("42");
+        assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createJobRejectsMissingTextAndSourceType() {
         RagIndexJobController controller = new RagIndexJobController(
                 new CapturingJobService(),
                 mock(RagPipelineService.class),
@@ -78,7 +128,7 @@ class RagIndexJobControllerTest {
                 "attachment",
                 "42",
                 "doc-1",
-                "attachment",
+                null,
                 false,
                 null,
                 Map.of(),
@@ -169,6 +219,7 @@ class RagIndexJobControllerTest {
 
         private final RagIndexJob job;
         private RagIndexJobCreateRequest createdRequest;
+        private RagIndexJobSourceRequest createdSourceRequest;
 
         CapturingJobService() {
             this(RagIndexJobStatus.SUCCEEDED);
@@ -189,6 +240,13 @@ class RagIndexJobControllerTest {
         @Override
         public RagIndexJob createJob(RagIndexJobCreateRequest request) {
             this.createdRequest = request;
+            return job;
+        }
+
+        @Override
+        public RagIndexJob createJob(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            this.createdRequest = request;
+            this.createdSourceRequest = sourceRequest;
             return job;
         }
 

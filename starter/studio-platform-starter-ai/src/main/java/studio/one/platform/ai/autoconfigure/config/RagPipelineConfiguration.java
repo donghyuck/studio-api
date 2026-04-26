@@ -31,6 +31,7 @@ import studio.one.platform.ai.service.pipeline.DefaultRagIndexJobService;
 import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexJobSourceExecutor;
 import studio.one.platform.ai.service.pipeline.RagKeywordOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
@@ -135,8 +136,12 @@ public class RagPipelineConfiguration {
         @ConditionalOnMissingBean(RagIndexJobService.class)
         RagIndexJobService ragIndexJobService(
                         RagIndexJobRepository ragIndexJobRepository,
-                        RagPipelineService ragPipelineService) {
-                return new DefaultRagIndexJobService(ragIndexJobRepository, ragPipelineService);
+                        RagPipelineService ragPipelineService,
+                        ObjectProvider<RagIndexJobSourceExecutor> sourceExecutors) {
+                return new DefaultRagIndexJobService(
+                                ragIndexJobRepository,
+                                ragPipelineService,
+                                sourceExecutors.orderedStream().toList());
         }
 
         @Bean

@@ -3,6 +3,8 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #319 대응으로 `RagIndexJobSourceExecutor` 계약을 추가하고, `sourceType=attachment` RAG job이 기존 attachment RAG 색인 흐름을 비동기로 실행하도록 연결했다.
+- `POST /api/mgmt/ai/rag/jobs`는 raw `text` 없이 source 기반 요청을 받을 수 있으며, `content-embedding-pipeline`은 attachment source executor를 제공한다.
 - 이슈 #317 대응으로 RAG 색인 작업 management API와 in-memory job repository/service 계약을 추가했다.
 - `POST /api/mgmt/ai/rag/index`와 attachment RAG index API는 기존 empty `202 Accepted` 응답을 유지하면서 `X-RAG-Job-Id` 헤더를 additive하게 반환한다.
 - RAG 색인 진행 단계(`EXTRACTING`, `CHUNKING`, `EMBEDDING`, `INDEXING`, `COMPLETED`)와 chunk/embedding/index count, warning/error log를 조회할 수 있도록 했다.
@@ -21,6 +23,7 @@
 - context expansion candidate 조회 배수, 후보 조회 상한, previous/next window, parent content 포함 여부를 설정으로 분리했다.
 
 ### 검증
+- `./gradlew :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
 - `./gradlew :studio-platform-ai:compileJava :starter:studio-platform-starter-ai:compileJava :starter:studio-platform-starter-ai-web:compileJava :studio-application-modules:content-embedding-pipeline:compileJava`
 - `./gradlew :studio-platform-ai:testClasses :starter:studio-platform-starter-ai:testClasses :starter:studio-platform-starter-ai-web:testClasses :studio-application-modules:content-embedding-pipeline:testClasses`
 - `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-ai:test :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`

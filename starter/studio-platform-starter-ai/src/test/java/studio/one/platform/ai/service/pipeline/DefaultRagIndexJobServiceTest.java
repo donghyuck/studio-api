@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
@@ -105,6 +106,49 @@ class DefaultRagIndexJobServiceTest {
                 .hasMessageContaining("cannot be retried");
     }
 
+    @Test
+    void delegatesNonTextSourceToMatchingExecutor() {
+        CapturingSourceExecutor executor = new CapturingSourceExecutor();
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(
+                repository,
+                new SuccessfulPipeline(),
+                List.of(executor));
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null),
+                new RagIndexJobSourceRequest(Map.of("attachmentId", "42"), List.of("alpha"), true));
+
+        RagIndexJob completed = service.startJob(job.jobId());
+
+        assertThat(completed.status()).isEqualTo(RagIndexJobStatus.SUCCEEDED);
+        assertThat(completed.chunkCount()).isEqualTo(3);
+        assertThat(executor.sourceRequest.metadata()).containsEntry("attachmentId", "42");
+        assertThat(executor.sourceRequest.keywords()).containsExactly("alpha");
+    }
+
+    @Test
+    void marksUnsupportedNonTextSourceAsFailed() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null));
+
+        RagIndexJob failed = service.startJob(job.jobId());
+
+        assertThat(failed.status()).isEqualTo(RagIndexJobStatus.FAILED);
+        assertThat(service.getLogs(job.jobId()))
+                .anySatisfy(log -> assertThat(log.code()).isEqualTo(
+                        studio.one.platform.ai.core.rag.RagIndexJobLogCode.SOURCE_UNSUPPORTED));
+    }
+
     private static class SuccessfulPipeline extends BasePipeline {
 
         @Override
@@ -136,6 +180,33 @@ class DefaultRagIndexJobServiceTest {
             calls++;
             listener.onStep(RagIndexJobStep.CHUNKING);
             listener.onChunkCount(1);
+        }
+    }
+
+    private static class CapturingSourceExecutor implements RagIndexJobSourceExecutor {
+
+        private RagIndexJobCreateRequest request;
+        private RagIndexJobSourceRequest sourceRequest;
+
+        @Override
+        public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            return "attachment".equals(request.sourceType());
+        }
+
+        @Override
+        public void execute(
+                RagIndexJob job,
+                RagIndexJobCreateRequest request,
+                RagIndexJobSourceRequest sourceRequest,
+                RagIndexProgressListener listener) {
+            this.request = request;
+            this.sourceRequest = sourceRequest;
+            listener.onStep(RagIndexJobStep.CHUNKING);
+            listener.onChunkCount(3);
+            listener.onStep(RagIndexJobStep.EMBEDDING);
+            listener.onEmbeddedCount(3);
+            listener.onStep(RagIndexJobStep.INDEXING);
+            listener.onIndexedCount(3);
         }
     }
 

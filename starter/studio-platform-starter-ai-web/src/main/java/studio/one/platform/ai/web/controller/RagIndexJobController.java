@@ -32,6 +32,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
@@ -105,16 +106,23 @@ public class RagIndexJobController {
     }
 
     @PostMapping("/jobs")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentSource(#request)"
+            + " or @endpointAuthz.can('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> createJob(
             @Valid @RequestBody RagIndexJobCreateRequestDto request) {
-        RagIndexJob job = jobService.createJob(toCreateRequest(request));
+        CreateJobCommand command = toCreateRequest(request);
+        RagIndexJob job = command.sourceRequest() == null
+                ? jobService.createJob(command.request())
+                : jobService.createJob(command.request(), command.sourceRequest());
         dispatch(job.jobId(), () -> jobService.startJob(job.jobId()));
         return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(job)));
     }
 
     @PostMapping("/jobs/{jobId}/retry")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
+            + " or @endpointAuthz.can('features:attachment','write'))")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> retryJob(@PathVariable("jobId") String jobId) {
         RagIndexJob job = requireJob(jobId);
         if (job.status() == RagIndexJobStatus.PENDING || job.status() == RagIndexJobStatus.RUNNING) {
@@ -125,7 +133,9 @@ public class RagIndexJobController {
     }
 
     @GetMapping("/jobs/{jobId}/logs")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
+            + " or @endpointAuthz.can('features:attachment','read'))")
     public ResponseEntity<ApiResponse<List<RagIndexJobLogDto>>> getLogs(@PathVariable("jobId") String jobId) {
         requireJob(jobId);
         return ResponseEntity.ok(ApiResponse.ok(jobService.getLogs(jobId).stream()
@@ -134,7 +144,9 @@ public class RagIndexJobController {
     }
 
     @GetMapping("/jobs/{jobId}/chunks")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
+            + " or @endpointAuthz.can('features:attachment','read'))")
     public ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> getJobChunks(
             @PathVariable("jobId") String jobId,
             @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
@@ -146,7 +158,9 @@ public class RagIndexJobController {
     }
 
     @GetMapping("/objects/{objectType}/{objectId}/chunks")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
+            + " or @endpointAuthz.can('features:attachment','read'))")
     public ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> objectChunks(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId,
@@ -159,7 +173,9 @@ public class RagIndexJobController {
     }
 
     @GetMapping("/objects/{objectType}/{objectId}/metadata")
-    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
+            + " or @endpointAuthz.can('features:attachment','read'))")
     public ResponseEntity<ApiResponse<Map<String, Object>>> objectMetadata(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId) {
@@ -169,9 +185,9 @@ public class RagIndexJobController {
         return ResponseEntity.ok(ApiResponse.ok(vectorStorePort.getMetadata(objectType, objectId)));
     }
 
-    private RagIndexJobCreateRequest toCreateRequest(RagIndexJobCreateRequestDto request) {
-        if (!hasText(request.text())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "text is required for /rag/jobs");
+    private CreateJobCommand toCreateRequest(RagIndexJobCreateRequestDto request) {
+        if (!hasText(request.text()) && !hasText(request.sourceType())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "text or sourceType is required for /rag/jobs");
         }
         Map<String, Object> metadata = request.metadata() == null
                 ? new HashMap<>()
@@ -181,22 +197,37 @@ public class RagIndexJobController {
         if (hasText(request.sourceType())) {
             metadata.put("sourceType", request.sourceType().trim());
         }
+        String documentId = hasText(request.documentId()) ? request.documentId().trim() : null;
+        if (isAttachmentSource(request) && documentId == null) {
+            documentId = request.objectId().trim();
+            metadata.putIfAbsent("attachmentId", request.objectId().trim());
+        }
         RagIndexRequest indexRequest = null;
         if (hasText(request.text())) {
             indexRequest = new RagIndexRequest(
-                    hasText(request.documentId()) ? request.documentId().trim() : request.objectId().trim(),
+                    documentId == null ? request.objectId().trim() : documentId,
                     request.text(),
                     metadata,
                     request.keywords() == null ? List.of() : request.keywords(),
                     Boolean.TRUE.equals(request.useLlmKeywordExtraction()));
         }
-        return new RagIndexJobCreateRequest(
+        RagIndexJobSourceRequest sourceRequest = indexRequest == null
+                ? new RagIndexJobSourceRequest(
+                        metadata,
+                        request.keywords() == null ? List.of() : request.keywords(),
+                        Boolean.TRUE.equals(request.useLlmKeywordExtraction()))
+                : null;
+        return new CreateJobCommand(new RagIndexJobCreateRequest(
                 request.objectType(),
                 request.objectId(),
-                request.documentId(),
+                documentId,
                 request.sourceType(),
                 Boolean.TRUE.equals(request.forceReindex()),
-                indexRequest);
+                indexRequest), sourceRequest);
+    }
+
+    private boolean isAttachmentSource(RagIndexJobCreateRequestDto request) {
+        return "attachment".equalsIgnoreCase(request.sourceType());
     }
 
     private void dispatch(String jobId, Runnable task) {
@@ -302,5 +333,8 @@ public class RagIndexJobController {
             }
         }
         return null;
+    }
+
+    private record CreateJobCommand(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
     }
 }
