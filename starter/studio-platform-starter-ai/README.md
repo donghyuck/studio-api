@@ -86,6 +86,8 @@ Spring AI adapter는 등록 시점의 `EmbeddingModel`을 사용하므로, profi
 embedding model 설정과 일치해야 한다. 다른 model이 들어오면 metadata만 다른 vector space로 기록되는 것을 막기 위해
 요청을 거부한다. 여러 embedding model을 동시에 쓰려면 provider id/profile을 분리해 각각 다른 `EmbeddingPort`로
 등록하는 adapter 구성이 필요하다.
+운영 설정 기준과 API 요청 흐름은
+[`RAG embedding profile 운영 가이드`](../../docs/dev/rag-embedding-profile-ops.md)를 따른다.
 
 ```yaml
 studio:

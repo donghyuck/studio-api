@@ -48,11 +48,18 @@ spring:
   - `studio.ai.enabled`
   - `studio.ai.default-provider`
   - `studio.ai.endpoints.*`
+- RAG embedding profile:
+  - `studio.ai.rag.default-embedding-profile`
+  - `studio.ai.rag.embedding-profiles.*`
 - OpenAI runtime config:
   - `spring.ai.openai.api-key`
   - `spring.ai.openai.base-url`
   - `spring.ai.openai.chat.options.*`
   - `spring.ai.openai.embedding.options.*`
+
+`studio.ai.rag.embedding-profiles.*.model`은 RAG metadata/filter 계약에 쓰는 이름이며,
+실제 OpenAI embedding 호출 model은 `spring.ai.openai.embedding.options.model`과 일치해야 한다.
+전체 운영 기준은 [`RAG embedding profile 운영 가이드`](rag-embedding-profile-ops.md)를 참고한다.
 
 ## deprecated / removed
 

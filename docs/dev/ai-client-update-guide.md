@@ -22,6 +22,7 @@
 | 벡터 검색 응답 | grid key는 `id`를 우선 사용하고, 기존 `documentId`도 호환 처리 |
 | 오류 처리 | 현재 명시적으로 매핑된 provider quota/rate limit만 HTTP 429 `ProblemDetails`로 처리 |
 | RAG diagnostics | 서버와 요청이 모두 허용할 때만 `metadata.ragDiagnostics`, `metadata.ragContextDiagnostics` 표시 |
+| RAG embedding profile | 색인/검색/채팅 RAG 요청에서 `embeddingProfileId`를 같은 값으로 유지 |
 
 ## API 경로 변경
 
@@ -88,6 +89,11 @@ job 조회 권한은 별도이므로 job 화면 연결은 `services:ai_rag read`
   "useLlmKeywordExtraction": false
 }
 ```
+
+RAG embedding profile을 선택하는 운영 화면은 색인과 검색/채팅에 같은 `embeddingProfileId`를 보낸다.
+`chat.provider`와 `chat.model`은 답변 생성 모델 선택이고, `embeddingProfileId`, `embeddingProvider`,
+`embeddingModel`은 retrieval embedding 선택이다. 설정 책임과 provider별 예시는
+[`RAG embedding profile 운영 가이드`](rag-embedding-profile-ops.md)를 따른다.
 
 운영 화면은 아래 순서로 동작한다.
 
