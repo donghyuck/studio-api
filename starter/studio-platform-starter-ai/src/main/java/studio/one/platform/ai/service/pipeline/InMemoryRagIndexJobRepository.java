@@ -40,8 +40,7 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
         RagIndexJobPageRequest effectivePageable = pageable == null ? RagIndexJobPageRequest.defaults() : pageable;
         List<RagIndexJob> matched = jobs.values().stream()
                 .filter(job -> matches(effectiveFilter, job))
-                .sorted(Comparator.comparing(RagIndexJob::createdAt, Comparator.nullsLast(Comparator.naturalOrder()))
-                        .reversed())
+                .sorted(comparator(effectivePageable))
                 .toList();
         int fromIndex = Math.min(effectivePageable.offset(), matched.size());
         int toIndex = Math.min(fromIndex + effectivePageable.limit(), matched.size());
@@ -100,6 +99,49 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
 
     private boolean matches(String expected, String actual) {
         return expected == null || expected.equals(actual);
+    }
+
+    private Comparator<RagIndexJob> comparator(RagIndexJobPageRequest pageable) {
+        boolean descending = pageable.direction() == RagIndexJobPageRequest.Direction.DESC;
+        Comparator<RagIndexJob> comparator = switch (pageable.sort()) {
+            case STARTED_AT -> comparingInstant(RagIndexJob::startedAt, descending);
+            case FINISHED_AT -> comparingInstant(RagIndexJob::finishedAt, descending);
+            case STATUS -> comparingText(job -> job.status().name(), descending);
+            case CURRENT_STEP -> comparingText(
+                    job -> job.currentStep() == null ? null : job.currentStep().name(),
+                    descending);
+            case OBJECT_TYPE -> comparingText(RagIndexJob::objectType, descending);
+            case OBJECT_ID -> comparingText(RagIndexJob::objectId, descending);
+            case DOCUMENT_ID -> comparingText(RagIndexJob::documentId, descending);
+            case SOURCE_TYPE -> comparingText(RagIndexJob::sourceType, descending);
+            case DURATION_MS -> Comparator.comparing(
+                    RagIndexJob::durationMs,
+                    Comparator.nullsLast(numberComparator(descending)));
+            case CREATED_AT -> comparingInstant(RagIndexJob::createdAt, descending);
+        };
+        return comparator.thenComparing(RagIndexJob::jobId);
+    }
+
+    private Comparator<RagIndexJob> comparingInstant(
+            java.util.function.Function<RagIndexJob, Instant> extractor,
+            boolean descending) {
+        return Comparator.comparing(extractor, Comparator.nullsLast(comparator(descending)));
+    }
+
+    private Comparator<RagIndexJob> comparingText(
+            java.util.function.Function<RagIndexJob, String> extractor,
+            boolean descending) {
+        return Comparator.comparing(extractor, Comparator.nullsLast(comparator(descending)));
+    }
+
+    private <T extends Comparable<? super T>> Comparator<T> comparator(boolean descending) {
+        Comparator<T> comparator = Comparator.naturalOrder();
+        return descending ? comparator.reversed() : comparator;
+    }
+
+    private Comparator<Long> numberComparator(boolean descending) {
+        Comparator<Long> comparator = Comparator.naturalOrder();
+        return descending ? comparator.reversed() : comparator;
     }
 
     private RagIndexJob requireJob(String jobId, RagIndexJob job) {

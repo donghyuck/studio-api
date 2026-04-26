@@ -3,6 +3,7 @@
 ## 2026-04-26
 
 ### 변경됨
+- 이슈 #321 대응으로 RAG job 목록 조회에 `sort`/`direction` 요청 계약을 추가하고 기본 정렬을 `createdAt desc`로 명시했다.
 - 이슈 #319 대응으로 `RagIndexJobSourceExecutor` 계약을 추가하고, `sourceType=attachment` RAG job이 기존 attachment RAG 색인 흐름을 비동기로 실행하도록 연결했다.
 - `POST /api/mgmt/ai/rag/jobs`는 raw `text` 없이 source 기반 요청을 받을 수 있으며, `content-embedding-pipeline`은 attachment source executor를 제공한다.
 - 이슈 #317 대응으로 RAG 색인 작업 management API와 in-memory job repository/service 계약을 추가했다.

@@ -88,10 +88,16 @@ public class RagIndexJobController {
             @RequestParam(name = "objectId", required = false) String objectId,
             @RequestParam(name = "documentId", required = false) String documentId,
             @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "50") int limit) {
+            @RequestParam(name = "limit", required = false, defaultValue = "50") int limit,
+            @RequestParam(name = "sort", required = false) String sort,
+            @RequestParam(name = "direction", required = false) String direction) {
         RagIndexJobPage page = jobService.listJobs(
                 new RagIndexJobFilter(status, objectType, objectId, documentId),
-                new RagIndexJobPageRequest(offset, limit));
+                new RagIndexJobPageRequest(
+                        offset,
+                        limit,
+                        RagIndexJobPageRequest.Sort.from(sort),
+                        RagIndexJobPageRequest.Direction.from(direction)));
         return ResponseEntity.ok(ApiResponse.ok(new RagIndexJobListResponseDto(
                 page.jobs().stream().map(RagIndexJobDto::from).toList(),
                 page.total(),

@@ -71,4 +71,70 @@ class InMemoryRagIndexJobRepositoryTest {
                 .extracting(RagIndexJobLog::logId)
                 .containsExactly("log-1", "log-2");
     }
+
+    @Test
+    void sortsAndPagesJobsWithStableDefaults() {
+        repository.save(RagIndexJob.pending("job-1", "attachment", "1", "doc-1", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.save(RagIndexJob.pending("job-2", "attachment", "2", "doc-2", "attachment",
+                Instant.parse("2026-04-26T00:00:02Z")));
+        repository.save(RagIndexJob.pending("job-3", "attachment", "3", "doc-3", "attachment",
+                Instant.parse("2026-04-26T00:00:01Z")));
+
+        assertThat(repository.findAll(RagIndexJobFilter.empty(), RagIndexJobPageRequest.defaults()).jobs())
+                .extracting(RagIndexJob::jobId)
+                .containsExactly("job-2", "job-3", "job-1");
+
+        assertThat(repository.findAll(RagIndexJobFilter.empty(),
+                        new RagIndexJobPageRequest(
+                                1,
+                                1,
+                                RagIndexJobPageRequest.Sort.CREATED_AT,
+                                RagIndexJobPageRequest.Direction.DESC))
+                .jobs())
+                .extracting(RagIndexJob::jobId)
+                .containsExactly("job-3");
+    }
+
+    @Test
+    void sortsByRequestedFieldAndDirection() {
+        repository.save(RagIndexJob.pending("job-1", "attachment", "2", "doc-b", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        repository.save(RagIndexJob.pending("job-2", "attachment", "1", "doc-a", "attachment",
+                Instant.parse("2026-04-26T00:00:01Z")));
+
+        assertThat(repository.findAll(RagIndexJobFilter.empty(),
+                        new RagIndexJobPageRequest(
+                                0,
+                                10,
+                                RagIndexJobPageRequest.Sort.DOCUMENT_ID,
+                                RagIndexJobPageRequest.Direction.ASC))
+                .jobs())
+                .extracting(RagIndexJob::jobId)
+                .containsExactly("job-2", "job-1");
+    }
+
+    @Test
+    void keepsNullSortValuesLastInDescendingOrder() {
+        repository.save(RagIndexJob.pending("job-running", "attachment", "1", "doc-1", "attachment",
+                Instant.parse("2026-04-26T00:00:00Z")));
+        RagIndexJob completed = RagIndexJob.pending("job-completed", "attachment", "2", "doc-2", "attachment",
+                        Instant.parse("2026-04-26T00:00:01Z"))
+                .withStatus(
+                        RagIndexJobStatus.SUCCEEDED,
+                        RagIndexJobStep.COMPLETED,
+                        null,
+                        Instant.parse("2026-04-26T00:00:02Z"));
+        repository.save(completed);
+
+        assertThat(repository.findAll(RagIndexJobFilter.empty(),
+                        new RagIndexJobPageRequest(
+                                0,
+                                10,
+                                RagIndexJobPageRequest.Sort.FINISHED_AT,
+                                RagIndexJobPageRequest.Direction.DESC))
+                .jobs())
+                .extracting(RagIndexJob::jobId)
+                .containsExactly("job-completed", "job-running");
+    }
 }

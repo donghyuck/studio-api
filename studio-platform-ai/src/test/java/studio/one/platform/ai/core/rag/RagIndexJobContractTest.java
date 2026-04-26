@@ -64,6 +64,22 @@ class RagIndexJobContractTest {
     }
 
     @Test
+    void pageRequestKeepsLegacyConstructorAndNormalizesSorting() {
+        RagIndexJobPageRequest legacy = new RagIndexJobPageRequest(-1, 0);
+
+        assertThat(legacy.offset()).isZero();
+        assertThat(legacy.limit()).isEqualTo(50);
+        assertThat(legacy.sort()).isEqualTo(RagIndexJobPageRequest.Sort.CREATED_AT);
+        assertThat(legacy.direction()).isEqualTo(RagIndexJobPageRequest.Direction.DESC);
+        assertThat(RagIndexJobPageRequest.Sort.from("document-id"))
+                .isEqualTo(RagIndexJobPageRequest.Sort.DOCUMENT_ID);
+        assertThat(RagIndexJobPageRequest.Direction.from("asc"))
+                .isEqualTo(RagIndexJobPageRequest.Direction.ASC);
+        assertThat(RagIndexJobPageRequest.Sort.from("unknown"))
+                .isEqualTo(RagIndexJobPageRequest.Sort.CREATED_AT);
+    }
+
+    @Test
     void pipelineListenerOverloadDelegatesToLegacyIndexByDefault() {
         CapturingRagPipelineService service = new CapturingRagPipelineService();
         RagIndexRequest request = new RagIndexRequest("doc-1", "content", Map.of());

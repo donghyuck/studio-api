@@ -147,7 +147,7 @@ class RagIndexJobControllerTest {
                 null);
 
         ResponseEntity<ApiResponse<RagIndexJobListResponseDto>> listResponse =
-                controller.listJobs(RagIndexJobStatus.PENDING, "attachment", "42", null, 0, 10);
+                controller.listJobs(RagIndexJobStatus.PENDING, "attachment", "42", null, 0, 10, "createdAt", "desc");
         ResponseEntity<ApiResponse<RagIndexJobDto>> detailResponse = controller.getJob("job-1");
         ResponseEntity<ApiResponse<RagIndexJobDto>> retryResponse = controller.retryJob("job-1");
         ResponseEntity<ApiResponse<List<RagIndexJobLogDto>>> logsResponse = controller.getLogs("job-1");
@@ -158,6 +158,8 @@ class RagIndexJobControllerTest {
         assertThat(logsResponse.getBody().getData())
                 .extracting(RagIndexJobLogDto::code)
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
+        assertThat(jobService.pageRequest.sort()).isEqualTo(RagIndexJobPageRequest.Sort.CREATED_AT);
+        assertThat(jobService.pageRequest.direction()).isEqualTo(RagIndexJobPageRequest.Direction.DESC);
     }
 
     @Test
@@ -220,6 +222,7 @@ class RagIndexJobControllerTest {
         private final RagIndexJob job;
         private RagIndexJobCreateRequest createdRequest;
         private RagIndexJobSourceRequest createdSourceRequest;
+        private RagIndexJobPageRequest pageRequest;
 
         CapturingJobService() {
             this(RagIndexJobStatus.SUCCEEDED);
@@ -267,6 +270,7 @@ class RagIndexJobControllerTest {
 
         @Override
         public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
+            this.pageRequest = pageable;
             return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
         }
 
