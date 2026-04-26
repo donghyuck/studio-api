@@ -71,6 +71,7 @@ import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
@@ -103,6 +104,7 @@ public class ChatController {
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
     private final RagContextBuilder ragContextBuilder;
+    private final AiWebRagProperties.ExpansionProperties ragContextExpansion;
     private final boolean allowClientDebug;
     private final ChatMemoryStore chatMemoryStore;
     private final boolean chatMemoryEnabled;
@@ -160,15 +162,33 @@ public class ChatController {
             ChatMemoryStore chatMemoryStore,
             boolean chatMemoryEnabled,
             ConversationChatService conversationChatService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            AiWebRagProperties.ExpansionProperties ragContextExpansion) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
+        this.ragContextExpansion = ragContextExpansion == null
+                ? new AiWebRagProperties.ExpansionProperties()
+                : ragContextExpansion;
         this.allowClientDebug = allowClientDebug;
         this.chatMemoryStore = chatMemoryStore;
         this.chatMemoryEnabled = chatMemoryEnabled;
         this.conversationChatService = conversationChatService;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, chatMemoryStore,
+                chatMemoryEnabled, conversationChatService, objectMapper,
+                new AiWebRagProperties.ExpansionProperties());
     }
 
     /**
@@ -576,7 +596,7 @@ public class ChatController {
         if (resultsAlreadyObjectCandidates) {
             return ragResults;
         }
-        int limit = Math.max(ragTopK, 1) * 4;
+        int limit = Math.max(ragTopK, 1) * ragContextExpansion.getCandidateMultiplier();
         try {
             List<RagSearchResult> candidates = ragPipelineService.listByObject(objectType, objectId, limit);
             return candidates == null || candidates.isEmpty() ? ragResults : candidates;

@@ -31,6 +31,7 @@ public class RagContextBuilder {
     private final int maxChunks;
     private final int maxChars;
     private final boolean includeScores;
+    private final AiWebRagProperties.ExpansionProperties expansion;
     private final List<ChunkContextExpander> contextExpanders;
 
     public RagContextBuilder(AiWebRagProperties properties) {
@@ -41,11 +42,12 @@ public class RagContextBuilder {
         this(properties.getContext().getMaxChunks(),
                 properties.getContext().getMaxChars(),
                 properties.getContext().isIncludeScores(),
+                properties.getContext().getExpansion(),
                 contextExpanders);
     }
 
     public RagContextBuilder(int maxChunks, int maxChars, boolean includeScores) {
-        this(maxChunks, maxChars, includeScores, List.of());
+        this(maxChunks, maxChars, includeScores, new AiWebRagProperties.ExpansionProperties(), List.of());
     }
 
     public RagContextBuilder(
@@ -53,9 +55,19 @@ public class RagContextBuilder {
             int maxChars,
             boolean includeScores,
             List<ChunkContextExpander> contextExpanders) {
+        this(maxChunks, maxChars, includeScores, new AiWebRagProperties.ExpansionProperties(), contextExpanders);
+    }
+
+    public RagContextBuilder(
+            int maxChunks,
+            int maxChars,
+            boolean includeScores,
+            AiWebRagProperties.ExpansionProperties expansion,
+            List<ChunkContextExpander> contextExpanders) {
         this.maxChunks = Math.max(0, maxChunks);
         this.maxChars = Math.max(0, maxChars);
         this.includeScores = includeScores;
+        this.expansion = expansion == null ? new AiWebRagProperties.ExpansionProperties() : expansion;
         this.contextExpanders = contextExpanders == null ? List.of()
                 : contextExpanders.stream().filter(Objects::nonNull).toList();
     }
@@ -65,7 +77,7 @@ public class RagContextBuilder {
     }
 
     public boolean supportsExpansion() {
-        return !contextExpanders.isEmpty();
+        return expansion.isEnabled() && !contextExpanders.isEmpty();
     }
 
     public String build(List<RagSearchResult> results) {
@@ -111,7 +123,7 @@ public class RagContextBuilder {
     }
 
     private RagSearchResult expandResult(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
-        if (result == null || contextExpanders.isEmpty()) {
+        if (result == null || !supportsExpansion()) {
             return result;
         }
         Optional<Chunk> seed = toChunk(result);
@@ -128,9 +140,9 @@ public class RagContextBuilder {
         }
         ChunkContextExpansionRequest request = ChunkContextExpansionRequest.builder(seed.get())
                 .availableChunks(availableChunks)
-                .previousWindow(1)
-                .nextWindow(1)
-                .includeParentContent(true)
+                .previousWindow(expansion.getPreviousWindow())
+                .nextWindow(expansion.getNextWindow())
+                .includeParentContent(expansion.isIncludeParentContent())
                 .build();
         try {
             ChunkContextExpansion expansion = expander.get().expand(request);

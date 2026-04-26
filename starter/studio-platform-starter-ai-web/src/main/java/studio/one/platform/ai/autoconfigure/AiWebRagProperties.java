@@ -22,6 +22,7 @@ public class AiWebRagProperties {
         private int maxChunks = 8;
         private int maxChars = 12_000;
         private boolean includeScores = true;
+        private final ExpansionProperties expansion = new ExpansionProperties();
 
         public int getMaxChunks() {
             return maxChunks;
@@ -45,6 +46,58 @@ public class AiWebRagProperties {
 
         public void setIncludeScores(boolean includeScores) {
             this.includeScores = includeScores;
+        }
+
+        public ExpansionProperties getExpansion() {
+            return expansion;
+        }
+    }
+
+    public static class ExpansionProperties {
+        private boolean enabled = true;
+        private int candidateMultiplier = 4;
+        private int previousWindow = 1;
+        private int nextWindow = 1;
+        private boolean includeParentContent = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getCandidateMultiplier() {
+            return candidateMultiplier;
+        }
+
+        public void setCandidateMultiplier(int candidateMultiplier) {
+            this.candidateMultiplier = Math.max(1, candidateMultiplier);
+        }
+
+        public int getPreviousWindow() {
+            return previousWindow;
+        }
+
+        public void setPreviousWindow(int previousWindow) {
+            this.previousWindow = Math.max(0, previousWindow);
+        }
+
+        public int getNextWindow() {
+            return nextWindow;
+        }
+
+        public void setNextWindow(int nextWindow) {
+            this.nextWindow = Math.max(0, nextWindow);
+        }
+
+        public boolean isIncludeParentContent() {
+            return includeParentContent;
+        }
+
+        public void setIncludeParentContent(boolean includeParentContent) {
+            this.includeParentContent = includeParentContent;
         }
     }
 
