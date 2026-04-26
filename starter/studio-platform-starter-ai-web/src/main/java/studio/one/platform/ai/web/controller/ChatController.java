@@ -38,6 +38,8 @@ import jakarta.validation.Valid;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -95,6 +97,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @Validated
 public class ChatController {
 
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
 
     private final AiProviderRegistry providerRegistry;
@@ -291,7 +294,13 @@ public class ChatController {
         }
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
 
-        String context = ragContextBuilder.build(ragResults);
+        List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
+                ragResults,
+                objectType,
+                objectId,
+                ragTopK,
+                ragQuery == null || ragQuery.isBlank());
+        String context = ragContextBuilder.build(ragResults, expansionCandidates);
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
         augmentedMessages.add(new ChatMessageDto("system", context));
@@ -551,6 +560,31 @@ public class ChatController {
             }
         }
         throw new IllegalArgumentException("RAG query is empty");
+    }
+
+    private List<RagSearchResult> contextExpansionCandidates(
+            List<RagSearchResult> ragResults,
+            String objectType,
+            String objectId,
+            int ragTopK,
+            boolean resultsAlreadyObjectCandidates) {
+        if (!ragContextBuilder.supportsExpansion()
+                || objectType == null || objectId == null
+                || objectType.isBlank() || objectId.isBlank()) {
+            return ragResults;
+        }
+        if (resultsAlreadyObjectCandidates) {
+            return ragResults;
+        }
+        int limit = Math.max(ragTopK, 1) * 4;
+        try {
+            List<RagSearchResult> candidates = ragPipelineService.listByObject(objectType, objectId, limit);
+            return candidates == null || candidates.isEmpty() ? ragResults : candidates;
+        } catch (RuntimeException ex) {
+            log.warn("RAG context expansion candidate fetch failed for objectType={}, objectId={}: {}",
+                    objectType, objectId, ex.getMessage());
+            return ragResults;
+        }
     }
 
     private ChatMemoryContext resolveMemory(ChatRequestDto request, Principal principal) {

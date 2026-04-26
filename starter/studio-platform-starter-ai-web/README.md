@@ -282,7 +282,11 @@ Content-Type: application/json
 RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않도록 제한된다.
 문자 수 한도는 context header를 포함해 계산하며, 한도를 초과하는 chunk는 문장 중간에서 자르지 않고 통째로 제외한다.
 현재 context assembly 구현은 web starter 내부의 `RagContextBuilder`가 담당한다.
-별도 core `ContextAssembler` 계약은 만들지 않고, chunk 주변 문맥 확장은 `studio-platform-chunking`의 `ChunkContextExpander`를 우선 사용한다.
+별도 core `ContextAssembler` 계약은 만들지 않고, `ChunkContextExpander` bean이 있으면 object-scoped
+검색 결과의 chunk metadata를 기준으로 parent/neighbor/table 주변 문맥을 선택적으로 확장한다.
+`ChunkContextExpander`가 없거나 `objectType`/`objectId` 또는 `chunkId` metadata가 부족하면 기존처럼
+retrieval hit content만 사용한다. 확장 후에도 아래 `max-chunks`, `max-chars`, `include-scores`
+설정은 그대로 적용된다.
 
 ```yaml
 studio:
