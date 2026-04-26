@@ -1,6 +1,10 @@
 package studio.one.platform.ai.service.pipeline;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -23,13 +27,14 @@ import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
-import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaningResult;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
+import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Slf4j
@@ -191,7 +196,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         TextCleaningResult cleaning = cleanText(request.text());
         String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
         List<RagPipelineChunk> chunks = chunk(indexedText, request);
-        List<VectorDocument> documents = new ArrayList<>(chunks.size());
+        List<VectorRecord> records = new ArrayList<>(chunks.size());
         List<String> documentKeywords = keywordOptions.scope().includesDocument()
                 ? resolveDocumentKeywords(request, indexedText)
                 : List.of();
@@ -219,21 +224,50 @@ public class DefaultRagPipelineService implements RagPipelineService {
             }
             metadata.put("documentId", request.documentId());
             metadata.put("chunkId", chunk.id());
-            metadata.put("chunkOrder", order++);
+            metadata.put("chunkOrder", order);
+            metadata.put(VectorRecord.KEY_CHUNK_INDEX, order);
             metadata.put("chunkLength", chunk.content().length());
-            documents.add(new VectorDocument(chunk.id(), chunk.content(), metadata, embedding));
+            records.add(vectorRecord(request.documentId(), chunk, metadata, embedding));
+            order++;
         }
         String objectType = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectType"));
         String objectId = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectId"));
         if (objectType != null && objectId != null) {
-            if (documents.isEmpty()) {
+            if (records.isEmpty()) {
                 vectorStorePort.deleteByObject(objectType, objectId);
             } else {
-                vectorStorePort.replaceByObject(objectType, objectId, documents);
+                vectorStorePort.replaceRecordsByObject(objectType, objectId, records);
             }
-        } else if (!documents.isEmpty()) {
-            vectorStorePort.upsert(documents);
+        } else if (!records.isEmpty()) {
+            vectorStorePort.upsertAll(records);
         }
+    }
+
+    private VectorRecord vectorRecord(
+            String documentId,
+            RagPipelineChunk chunk,
+            Map<String, Object> metadata,
+            List<Double> embedding) {
+        return VectorRecord.builder()
+                .id(chunk.id())
+                .documentId(documentId)
+                .chunkId(chunk.id())
+                .parentChunkId(text(metadata.get(VectorRecord.KEY_PARENT_CHUNK_ID)))
+                .contentHash(contentHash(chunk.content()))
+                .text(chunk.content())
+                .embedding(embedding)
+                .embeddingModel(embeddingModel(metadata))
+                .embeddingDimension(embedding.size())
+                .chunkType(text(metadata.get(VectorRecord.KEY_CHUNK_TYPE)))
+                .headingPath(text(firstPresent(metadata, VectorRecord.KEY_HEADING_PATH, ChunkMetadata.KEY_SECTION)))
+                .sourceRef(text(firstPresent(metadata,
+                        VectorRecord.KEY_SOURCE_REF,
+                        ChunkMetadata.KEY_SOURCE_REF,
+                        ChunkMetadata.KEY_SOURCE_REFS)))
+                .page(integer(metadata.get(VectorRecord.KEY_PAGE)))
+                .slide(integer(metadata.get(VectorRecord.KEY_SLIDE)))
+                .metadata(metadata)
+                .build();
     }
 
     private List<RagPipelineChunk> chunk(String indexedText, RagIndexRequest request) {
@@ -249,6 +283,60 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 metadata.putIfAbsent(key, value);
             }
         });
+    }
+
+    private Object firstPresent(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String embeddingModel(Map<String, Object> metadata) {
+        String embeddingModel = text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL));
+        return embeddingModel == null ? "unknown" : embeddingModel;
+    }
+
+    private String text(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            return java.util.stream.StreamSupport.stream(iterable.spliterator(), false)
+                    .filter(Objects::nonNull)
+                    .map(Objects::toString)
+                    .filter(text -> !text.isBlank())
+                    .reduce((left, right) -> left + " > " + right)
+                    .orElse(null);
+        }
+        String text = Objects.toString(value, null);
+        return text == null || text.isBlank() ? null : text;
+    }
+
+    private Integer integer(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Integer.valueOf(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private String contentHash(String content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 digest is not available", ex);
+        }
     }
 
     @Override

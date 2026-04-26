@@ -317,9 +317,8 @@ public final class VectorRecord {
         Map<String, Object> sanitized = new LinkedHashMap<>();
         values.forEach((key, value) -> {
             String normalizedKey = normalize(key);
-            if (normalizedKey != null && value != null
-                    && (!(value instanceof String textValue) || !textValue.isBlank())) {
-                sanitized.put(normalizedKey, value instanceof String textValue ? textValue.trim() : value);
+            if (normalizedKey != null && value != null) {
+                sanitized.put(normalizedKey, value);
             }
         });
         return Map.copyOf(sanitized);

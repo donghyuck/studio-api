@@ -23,6 +23,7 @@ import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
@@ -36,6 +37,7 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -78,7 +80,7 @@ class RagPipelineServiceTest {
     private RagPipelineService ragPipelineService;
 
     @Captor
-    private ArgumentCaptor<List<VectorDocument>> documentsCaptor;
+    private ArgumentCaptor<List<VectorRecord>> recordsCaptor;
 
     @Captor
     private ArgumentCaptor<Integer> limitCaptor;
@@ -100,20 +102,53 @@ class RagPipelineServiceTest {
 
         ragPipelineService.index(request);
 
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        List<VectorDocument> documents = documentsCaptor.getValue();
-        assertThat(documents).hasSize(1);
-        VectorDocument document = documents.get(0);
-        assertThat(document.id()).isEqualTo("doc-1-0");
-        assertThat(document.metadata()).containsEntry("author", "test");
-        assertThat(document.metadata()).containsEntry("cleaned", false);
-        assertThat(document.metadata()).containsEntry("cleanerPrompt", "");
-        assertThat(document.metadata()).containsEntry("originalTextLength", 11);
-        assertThat(document.metadata()).containsEntry("indexedTextLength", 11);
-        assertThat(document.metadata()).containsEntry("chunkCount", 1);
-        assertThat(document.metadata()).containsEntry("chunkOrder", 0);
-        assertThat(document.metadata()).containsEntry("chunkLength", 11);
-        assertThat(document.embedding()).containsExactly(0.1, 0.2, 0.3);
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        List<VectorRecord> records = recordsCaptor.getValue();
+        assertThat(records).hasSize(1);
+        VectorRecord record = records.get(0);
+        assertThat(record.id()).isEqualTo("doc-1-0");
+        assertThat(record.documentId()).isEqualTo("doc-1");
+        assertThat(record.chunkId()).isEqualTo("doc-1-0");
+        assertThat(record.contentHash()).isNotBlank();
+        assertThat(record.embeddingModel()).isEqualTo("unknown");
+        assertThat(record.embeddingDimension()).isEqualTo(3);
+        assertThat(record.metadata()).containsEntry("author", "test");
+        assertThat(record.metadata()).containsEntry("cleaned", false);
+        assertThat(record.metadata()).containsEntry("cleanerPrompt", "");
+        assertThat(record.metadata()).containsEntry("originalTextLength", 11);
+        assertThat(record.metadata()).containsEntry("indexedTextLength", 11);
+        assertThat(record.metadata()).containsEntry("chunkCount", 1);
+        assertThat(record.metadata()).containsEntry("chunkOrder", 0);
+        assertThat(record.metadata()).containsEntry("chunkIndex", 0);
+        assertThat(record.metadata()).containsEntry("chunkLength", 11);
+        assertThat(record.embedding()).containsExactly(0.1, 0.2, 0.3);
+    }
+
+    @Test
+    void shouldPersistVectorRecordMetadataThroughDefaultLegacyAdapter() {
+        CapturingVectorStore store = new CapturingVectorStore();
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, store, textChunker, cache, retry,
+                keywordExtractor);
+        RagIndexRequest request = new RagIndexRequest("doc-adapter", "hello world", Map.of(
+                "embeddingModel", "test-embedding"));
+        when(textChunker.chunk("doc-adapter", "hello world"))
+                .thenReturn(List.of(new TextChunk("doc-adapter-0", "hello world")));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-adapter-0", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        assertThat(store.upsertedDocuments()).hasSize(1);
+        VectorDocument document = store.upsertedDocuments().get(0);
+        assertThat(document.id()).isEqualTo("doc-adapter-0");
+        assertThat(document.content()).isEqualTo("hello world");
+        assertThat(document.embedding()).containsExactly(0.1, 0.2);
+        assertThat(document.metadata())
+                .containsEntry("cleanerPrompt", "")
+                .containsEntry("chunkIndex", 0)
+                .containsEntry("chunkOrder", 0)
+                .containsEntry("embeddingModel", "test-embedding")
+                .containsEntry("embeddingDimension", 2);
     }
 
     @Test
@@ -132,15 +167,15 @@ class RagPipelineServiceTest {
 
         verify(textCleaner).clean("noisy text");
         verify(textChunker).chunk("doc-clean", "clean text");
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        VectorDocument document = documentsCaptor.getValue().get(0);
-        assertThat(document.content()).isEqualTo("clean text");
-        assertThat(document.metadata()).containsEntry("cleaned", true);
-        assertThat(document.metadata()).containsEntry("cleanerPrompt", "rag-cleaner");
-        assertThat(document.metadata()).containsEntry("originalTextLength", 10);
-        assertThat(document.metadata()).containsEntry("indexedTextLength", 10);
-        assertThat(document.metadata()).containsEntry("chunkCount", 1);
-        assertThat(document.metadata()).containsEntry("chunkLength", 10);
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        VectorRecord record = recordsCaptor.getValue().get(0);
+        assertThat(record.text()).isEqualTo("clean text");
+        assertThat(record.metadata()).containsEntry("cleaned", true);
+        assertThat(record.metadata()).containsEntry("cleanerPrompt", "rag-cleaner");
+        assertThat(record.metadata()).containsEntry("originalTextLength", 10);
+        assertThat(record.metadata()).containsEntry("indexedTextLength", 10);
+        assertThat(record.metadata()).containsEntry("chunkCount", 1);
+        assertThat(record.metadata()).containsEntry("chunkLength", 10);
     }
 
     @Test
@@ -158,14 +193,14 @@ class RagPipelineServiceTest {
 
         ragPipelineService.index(request);
 
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        VectorDocument document = documentsCaptor.getValue().get(0);
-        assertThat(document.metadata()).containsEntry("cleaned", "caller-cleaned");
-        assertThat(document.metadata()).containsEntry("cleanerPrompt", "caller-prompt");
-        assertThat(document.metadata()).containsEntry("originalTextLength", 999);
-        assertThat(document.metadata()).containsEntry("indexedTextLength", 888);
-        assertThat(document.metadata()).containsEntry("chunkCount", 777);
-        assertThat(document.metadata()).containsEntry("chunkLength", 11);
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        VectorRecord record = recordsCaptor.getValue().get(0);
+        assertThat(record.metadata()).containsEntry("cleaned", "caller-cleaned");
+        assertThat(record.metadata()).containsEntry("cleanerPrompt", "caller-prompt");
+        assertThat(record.metadata()).containsEntry("originalTextLength", 999);
+        assertThat(record.metadata()).containsEntry("indexedTextLength", 888);
+        assertThat(record.metadata()).containsEntry("chunkCount", 777);
+        assertThat(record.metadata()).containsEntry("chunkLength", 11);
     }
 
     @Test
@@ -180,11 +215,11 @@ class RagPipelineServiceTest {
         ragPipelineService.index(request);
 
         verify(keywordExtractor).extract("hello world");
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        VectorDocument document = documentsCaptor.getValue().get(0);
-        assertThat(document.metadata()).containsEntry("keywords", List.of("hello", "world"));
-        assertThat(document.metadata()).containsEntry("keywordsText", "hello world");
-        assertThat(document.metadata()).doesNotContainKeys("chunkKeywords", "chunkKeywordsText");
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        VectorRecord record = recordsCaptor.getValue().get(0);
+        assertThat(record.metadata()).containsEntry("keywords", List.of("hello", "world"));
+        assertThat(record.metadata()).containsEntry("keywordsText", "hello world");
+        assertThat(record.metadata()).doesNotContainKeys("chunkKeywords", "chunkKeywordsText");
     }
 
     @Test
@@ -220,15 +255,19 @@ class RagPipelineServiceTest {
         ragPipelineService.index(request);
 
         verify(textChunker, never()).chunk(anyString(), anyString());
-        verify(vectorStorePort).replaceByObject(eq("attachment"), eq("42"), documentsCaptor.capture());
-        VectorDocument document = documentsCaptor.getValue().get(0);
-        assertThat(document.id()).isEqualTo("doc-orchestrated-0");
-        assertThat(document.metadata())
+        verify(vectorStorePort).replaceRecordsByObject(eq("attachment"), eq("42"), recordsCaptor.capture());
+        VectorRecord record = recordsCaptor.getValue().get(0);
+        assertThat(record.id()).isEqualTo("doc-orchestrated-0");
+        assertThat(record.documentId()).isEqualTo("doc-orchestrated");
+        assertThat(record.chunkId()).isEqualTo("doc-orchestrated-0");
+        assertThat(record.embeddingDimension()).isEqualTo(2);
+        assertThat(record.metadata())
                 .containsEntry("sourceDocumentId", "doc-orchestrated")
                 .containsEntry("strategy", "recursive")
                 .containsEntry("objectType", "attachment")
                 .containsEntry("objectId", "42")
-                .containsEntry("chunkOrder", 0);
+                .containsEntry("chunkOrder", 0)
+                .containsEntry("chunkIndex", 0);
     }
 
     @Test
@@ -262,8 +301,8 @@ class RagPipelineServiceTest {
 
         ragPipelineService.index(request);
 
-        verify(vectorStorePort).replaceByObject(eq("attachment"), eq("42"), documentsCaptor.capture());
-        assertThat(documentsCaptor.getValue().get(0).id()).isEqualTo("doc-orchestrated-null-legacy-0");
+        verify(vectorStorePort).replaceRecordsByObject(eq("attachment"), eq("42"), recordsCaptor.capture());
+        assertThat(recordsCaptor.getValue().get(0).id()).isEqualTo("doc-orchestrated-null-legacy-0");
     }
 
     @Test
@@ -289,8 +328,8 @@ class RagPipelineServiceTest {
         ragPipelineService.index(request);
 
         verify(textChunker).chunk("doc-legacy", "alpha beta");
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        assertThat(documentsCaptor.getValue().get(0).id()).isEqualTo("doc-legacy-0");
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getValue().get(0).id()).isEqualTo("doc-legacy-0");
     }
 
     @Test
@@ -315,7 +354,9 @@ class RagPipelineServiceTest {
 
         verify(vectorStorePort).deleteByObject("attachment", "42");
         verify(vectorStorePort, never()).upsert(org.mockito.ArgumentMatchers.<List<VectorDocument>>any());
+        verify(vectorStorePort, never()).upsertAll(org.mockito.ArgumentMatchers.<List<VectorRecord>>any());
         verify(vectorStorePort, never()).replaceByObject(anyString(), anyString(), any());
+        verify(vectorStorePort, never()).replaceRecordsByObject(anyString(), anyString(), any());
     }
 
     @Test
@@ -346,13 +387,13 @@ class RagPipelineServiceTest {
         verify(keywordExtractor).extract("alpha");
         verify(keywordExtractor).extract("beta");
         verify(keywordExtractor, never()).extract("alpha beta");
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        List<VectorDocument> documents = documentsCaptor.getValue();
-        assertThat(documents.get(0).metadata())
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        List<VectorRecord> records = recordsCaptor.getValue();
+        assertThat(records.get(0).metadata())
                 .containsEntry("chunkKeywords", List.of("Alpha", "first"))
                 .containsEntry("chunkKeywordsText", "Alpha first")
                 .doesNotContainKeys("keywords", "keywordsText");
-        assertThat(documents.get(1).metadata())
+        assertThat(records.get(1).metadata())
                 .containsEntry("chunkKeywords", List.of("Beta", "second"))
                 .containsEntry("chunkKeywordsText", "Beta second")
                 .doesNotContainKeys("keywords", "keywordsText");
@@ -385,8 +426,8 @@ class RagPipelineServiceTest {
         ragPipelineService.index(request);
 
         verify(keywordExtractor, never()).extract(anyString());
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        assertThat(documentsCaptor.getValue().get(0).metadata())
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getValue().get(0).metadata())
                 .doesNotContainKeys("keywords", "keywordsText", "chunkKeywords", "chunkKeywordsText");
     }
 
@@ -415,12 +456,12 @@ class RagPipelineServiceTest {
         ragPipelineService.index(request);
 
         verify(keywordExtractor, times(2)).extract("alpha");
-        verify(vectorStorePort).upsert(documentsCaptor.capture());
-        VectorDocument document = documentsCaptor.getValue().get(0);
-        assertThat(document.metadata()).containsEntry("keywords", List.of("document"));
-        assertThat(document.metadata()).containsEntry("keywordsText", "document");
-        assertThat(document.metadata()).containsEntry("chunkKeywords", List.of("chunk"));
-        assertThat(document.metadata()).containsEntry("chunkKeywordsText", "chunk");
+        verify(vectorStorePort).upsertAll(recordsCaptor.capture());
+        VectorRecord record = recordsCaptor.getValue().get(0);
+        assertThat(record.metadata()).containsEntry("keywords", List.of("document"));
+        assertThat(record.metadata()).containsEntry("keywordsText", "document");
+        assertThat(record.metadata()).containsEntry("chunkKeywords", List.of("chunk"));
+        assertThat(record.metadata()).containsEntry("chunkKeywordsText", "chunk");
     }
 
     @Test
@@ -931,5 +972,29 @@ class RagPipelineServiceTest {
         assertThat(diagnostics.toMetadata())
                 .containsEntry("strategy", "hybrid")
                 .doesNotContainKeys("content", "snippet", "text", "chunk");
+    }
+
+    private static final class CapturingVectorStore implements VectorStorePort {
+
+        private final List<VectorDocument> upsertedDocuments = new ArrayList<>();
+
+        @Override
+        public void upsert(List<VectorDocument> documents) {
+            upsertedDocuments.addAll(documents);
+        }
+
+        @Override
+        public List<VectorSearchResult> search(VectorSearchRequest request) {
+            return List.of();
+        }
+
+        @Override
+        public boolean exists(String id, String contentHash) {
+            return false;
+        }
+
+        private List<VectorDocument> upsertedDocuments() {
+            return upsertedDocuments;
+        }
     }
 }
