@@ -64,20 +64,55 @@ public class AiInfoController {
     }
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
-        String baseUrl = provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                ? environment.getProperty("spring.ai.openai.base-url")
-                : provider.getBaseUrl();
+        String baseUrl = switch (provider.getType()) {
+            case OPENAI -> firstNonBlank(environment.getProperty("spring.ai.openai.base-url"), provider.getBaseUrl());
+            case OLLAMA -> firstNonBlank(environment.getProperty("spring.ai.ollama.base-url"), provider.getBaseUrl());
+            case GOOGLE_AI_GEMINI -> provider.getBaseUrl();
+        };
         ProviderChannel chat = new ProviderChannel(
                 provider.getChat().isEnabled(),
-                provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                        ? environment.getProperty("spring.ai.openai.chat.options.model")
-                        : provider.getChat().getModel());
+                chatModel(provider));
         ProviderChannel embedding = new ProviderChannel(
                 provider.getEmbedding().isEnabled(),
-                provider.getType() == AiAdapterProperties.ProviderType.OPENAI
-                        ? environment.getProperty("spring.ai.openai.embedding.options.model")
-                        : provider.getEmbedding().getModel());
+                embeddingModel(provider));
         return new ProviderInfo(name, provider.getType(), chat, embedding, baseUrl);
+    }
+
+    private String chatModel(AiAdapterProperties.Provider provider) {
+        return switch (provider.getType()) {
+            case OPENAI -> firstNonBlank(
+                    environment.getProperty("spring.ai.openai.chat.options.model"),
+                    provider.getChat().getModel());
+            case GOOGLE_AI_GEMINI -> firstNonBlank(
+                    environment.getProperty("spring.ai.google.genai.chat.options.model"),
+                    provider.getChat().getModel());
+            case OLLAMA -> firstNonBlank(
+                    environment.getProperty("spring.ai.ollama.chat.options.model"),
+                    provider.getChat().getModel());
+        };
+    }
+
+    private String embeddingModel(AiAdapterProperties.Provider provider) {
+        return switch (provider.getType()) {
+            case OPENAI -> firstNonBlank(
+                    environment.getProperty("spring.ai.openai.embedding.options.model"),
+                    provider.getEmbedding().getModel());
+            case GOOGLE_AI_GEMINI -> firstNonBlank(
+                    environment.getProperty("spring.ai.google.genai.embedding.text.options.model"),
+                    provider.getEmbedding().getModel());
+            case OLLAMA -> firstNonBlank(
+                    environment.getProperty("spring.ai.ollama.embedding.options.model"),
+                    provider.getEmbedding().getModel());
+        };
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public record AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector, ChatInfo chat) {}

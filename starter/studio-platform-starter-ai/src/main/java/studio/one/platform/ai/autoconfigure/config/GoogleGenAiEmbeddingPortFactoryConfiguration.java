@@ -41,6 +41,9 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
                     "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
             String model = requireText(env.getProperty("spring.ai.google.genai.embedding.text.options.model"),
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
+            Integer dimensions = env.getProperty(
+                    "spring.ai.google.genai.embedding.text.options.dimensions",
+                    Integer.class);
 
             org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails connectionDetails =
                     org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails.builder()
@@ -50,11 +53,14 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
                             .build();
 
             AiAdapterProperties.GoogleEmbeddingOptions googleOptions = provider.getGoogleEmbedding();
-            org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions options =
+            org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.Builder optionsBuilder =
                     org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.builder()
                             .model(model)
-                            .taskType(parseTaskType(googleOptions.getTaskType()))
-                            .build();
+                            .taskType(parseTaskType(googleOptions.getTaskType()));
+            if (dimensions != null) {
+                optionsBuilder.dimensions(dimensions);
+            }
+            org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions options = optionsBuilder.build();
 
             org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel embeddingModel =
                     new org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel(connectionDetails, options);

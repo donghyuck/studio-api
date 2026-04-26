@@ -132,7 +132,7 @@ class AiSecretPresenceGuardTest {
 
         MockEnvironment environment = new MockEnvironment();
         environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
-        environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "text-embedding-004");
+        environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
 
         AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
 
@@ -168,13 +168,31 @@ class AiSecretPresenceGuardTest {
         provider.setEnabled(true);
         provider.setType(ProviderType.GOOGLE_AI_GEMINI);
         provider.getChat().setEnabled(true);
-        provider.setApiKey("test-key");
-        // intentionally omit provider.getChat().setModel(...)
         properties.getProviders().put("google", provider);
 
         AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsConfiguredSpringAiPropertiesForGoogleChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("google");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.google.genai.chat.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
     }
 
     private static Environment environment() {

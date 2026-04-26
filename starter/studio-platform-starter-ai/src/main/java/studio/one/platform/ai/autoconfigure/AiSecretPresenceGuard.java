@@ -87,10 +87,12 @@ public class AiSecretPresenceGuard {
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
         }
         if (provider.getChat().isEnabled()) {
-            requireText(provider.getApiKey(),
-                    "studio.ai.providers." + providerId + ".api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            requireText(provider.getChat().getModel(),
-                    "studio.ai.providers." + providerId + ".chat.model must be configured for GOOGLE_AI_GEMINI chat provider");
+            requireText(firstNonBlank(environment.getProperty("spring.ai.google.genai.chat.api-key"), provider.getApiKey()),
+                    "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
+            requireText(firstNonBlank(
+                            environment.getProperty("spring.ai.google.genai.chat.options.model"),
+                            provider.getChat().getModel()),
+                    "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
         }
     }
 
@@ -98,5 +100,9 @@ public class AiSecretPresenceGuard {
         if (!StringUtils.hasText(value)) {
             throw new IllegalStateException(message);
         }
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        return StringUtils.hasText(primary) ? primary : fallback;
     }
 }

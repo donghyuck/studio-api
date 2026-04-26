@@ -66,10 +66,8 @@ studio:
         enabled: true
         chat:
           enabled: true
-          model: gpt-4o-mini    # OPENAI / OLLAMA 는 여기서 지정
         embedding:
           enabled: true
-          model: text-embedding-3-small
 ```
 
 `studio.ai.*`는 provider 선택, 활성화, Studio RAG orchestration 설정을 담당한다.
@@ -141,22 +139,27 @@ studio:
       gemini:
         type: GOOGLE_AI_GEMINI
         enabled: true
-        api-key: ${GOOGLE_AI_API_KEY}
         chat:
           enabled: true
-          model: gemini-2.0-flash
         embedding:
-          enabled: false
+          enabled: true
+        google-embedding:
+          task-type: RETRIEVAL_DOCUMENT
 
 spring:
   ai:
     google:
       genai:
+        chat:
+          api-key: ${GOOGLE_AI_API_KEY}
+          options:
+            model: gemini-2.5-flash
         embedding:
           api-key: ${GOOGLE_AI_API_KEY}
           text:
             options:
-              model: text-embedding-004
+              model: gemini-embedding-001
+              dimensions: 768
 ```
 
 ### Ollama 예시

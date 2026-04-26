@@ -12,7 +12,8 @@ import studio.one.platform.ai.core.chat.ChatPort;
 /**
  * Registers a {@link ProviderChatPortFactory} bean for the Google GenAI provider.
  * Active only when {@code spring-ai-google-genai} is on the classpath.
- * Builds the {@code GoogleGenAiChatModel} directly using {@code studio.ai.*} configuration.
+ * Builds the {@code GoogleGenAiChatModel} directly using {@code spring.ai.google.genai.*}
+ * provider options.
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(name = "org.springframework.ai.google.genai.GoogleGenAiChatModel")
@@ -34,10 +35,13 @@ public class GoogleGenAiChatPortFactoryConfiguration {
         public ChatPort create(AiAdapterProperties.Provider provider,
                                Environment env,
                                ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
-            String apiKey = requireText(provider.getApiKey(),
-                    "studio.ai.providers.<id>.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            String model = requireText(provider.getChat().getModel(),
-                    "studio.ai.providers.<id>.chat.model must be configured for GOOGLE_AI_GEMINI chat provider");
+            String apiKey = requireText(
+                    firstNonBlank(env.getProperty("spring.ai.google.genai.chat.api-key"), provider.getApiKey()),
+                    "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
+            String model = requireText(
+                    firstNonBlank(env.getProperty("spring.ai.google.genai.chat.options.model"),
+                            provider.getChat().getModel()),
+                    "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
 
             com.google.genai.Client.Builder clientBuilder = com.google.genai.Client.builder().apiKey(apiKey);
             if (StringUtils.isNotBlank(provider.getBaseUrl())) {
@@ -64,6 +68,10 @@ public class GoogleGenAiChatPortFactoryConfiguration {
                 throw new IllegalStateException(message);
             }
             return value;
+        }
+
+        private static String firstNonBlank(String primary, String fallback) {
+            return StringUtils.isNotBlank(primary) ? primary : fallback;
         }
     }
 }

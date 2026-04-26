@@ -29,7 +29,8 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.google.genai.embedding.api-key", "test-key")
-                .withProperty("spring.ai.google.genai.embedding.text.options.model", "text-embedding-004");
+                .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001")
+                .withProperty("spring.ai.google.genai.embedding.text.options.dimensions", "768");
 
         Map<String, EmbeddingPort> embeddingPorts = new ProviderEmbeddingConfiguration().embeddingPorts(
                 properties,
@@ -59,7 +60,8 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.ai.google.genai.embedding.api-key", "test-key")
-                .withProperty("spring.ai.google.genai.embedding.text.options.model", "text-embedding-004");
+                .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001")
+                .withProperty("spring.ai.google.genai.embedding.text.options.dimensions", "768");
 
         EmbeddingPort port = new ProviderEmbeddingConfiguration().embeddingPorts(
                 properties,
@@ -80,7 +82,10 @@ class GoogleSpringAiEmbeddingRegistrationTest {
 
         java.lang.reflect.Method taskTypeMethod = options.getClass().getMethod("getTaskType");
         Object taskType = taskTypeMethod.invoke(options);
+        java.lang.reflect.Method dimensionsMethod = options.getClass().getMethod("getDimensions");
+        Object dimensions = dimensionsMethod.invoke(options);
 
         assertThat(String.valueOf(taskType)).isEqualTo("RETRIEVAL_QUERY");
+        assertThat(dimensions).isEqualTo(768);
     }
 }

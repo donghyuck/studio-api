@@ -85,4 +85,41 @@ class GoogleSpringAiChatRegistrationTest {
 
         assertThat(baseUrl).contains("https://proxy.example.test/v1beta");
     }
+
+    @Test
+    void prefersSpringAiGoogleChatPropertiesOverLegacyStudioProviderFields() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        provider.getChat().setModel("legacy-google-chat");
+        provider.setApiKey("legacy-key");
+        properties.getProviders().put("google", provider);
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.google.genai.chat.api-key", "spring-key")
+                .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
+
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
+                properties,
+                environment,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory()));
+
+        GoogleSpringAiChatAdapter adapter = (GoogleSpringAiChatAdapter) chatPorts.get("google");
+        Field chatModelField = studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter.class
+                .getDeclaredField("chatModel");
+        chatModelField.setAccessible(true);
+        Object chatModel = chatModelField.get(adapter);
+
+        Field defaultOptionsField = chatModel.getClass().getDeclaredField("defaultOptions");
+        defaultOptionsField.setAccessible(true);
+        Object defaultOptions = defaultOptionsField.get(chatModel);
+
+        Method modelMethod = defaultOptions.getClass().getMethod("getModel");
+        assertThat(modelMethod.invoke(defaultOptions)).isEqualTo("gemini-2.5-flash");
+    }
 }
