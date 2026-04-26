@@ -43,6 +43,7 @@ import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
+import studio.one.platform.ai.web.dto.RagIndexChunkPageResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
 import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
@@ -319,6 +320,16 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void jobDetailReturnsNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
     void objectChunksReuseRagPipelineListByObject() {
         RagIndexJobService jobService = new CapturingJobService();
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
@@ -344,6 +355,71 @@ class RagIndexJobControllerTest {
         assertThat(chunk.headingPath()).isEqualTo("Intro > Details");
         assertThat(chunk.indexedAt()).isEqualTo(java.time.Instant.parse("2026-04-26T00:00:00Z"));
         verify(ragPipelineService).listByObject("attachment", "42", 25);
+    }
+
+    @Test
+    void objectChunksPageUsesOffsetLimitAndHasMore() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                ragPipelineService,
+                null);
+        when(ragPipelineService.listByObject("attachment", "42", 10, 3))
+                .thenReturn(List.of(
+                        new RagSearchResult("doc-1", "chunk 1", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-1"), 1.0d),
+                        new RagSearchResult("doc-1", "chunk 2", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-2"), 1.0d),
+                        new RagSearchResult("doc-1", "chunk 3", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-3"), 1.0d)));
+
+        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
+                controller.objectChunksPage("attachment", "42", 10, 2);
+
+        RagIndexChunkPageResponseDto page = response.getBody().getData();
+        assertThat(page.offset()).isEqualTo(10);
+        assertThat(page.limit()).isEqualTo(2);
+        assertThat(page.returned()).isEqualTo(2);
+        assertThat(page.hasMore()).isTrue();
+        assertThat(page.items()).extracting(RagIndexChunkDto::chunkId).containsExactly("chunk-1", "chunk-2");
+        verify(ragPipelineService).listByObject("attachment", "42", 10, 3);
+    }
+
+    @Test
+    void jobChunksPageReturnsNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing/chunks/page"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
+    void jobChunksReturnNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing/chunks"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
+    void jobLogsReturnNotFoundWhenJobIsMissingThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
+
+        mockMvc.perform(get("/api/mgmt/ai/rag/jobs/missing/logs"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("RAG index job not found"));
+    }
+
+    @Test
+    void activeRetryReturnsConflictThroughMvc() throws Exception {
+        MockMvc mockMvc = jobControllerMockMvc(new CapturingJobService(RagIndexJobStatus.RUNNING));
+
+        mockMvc.perform(post("/api/mgmt/ai/rag/jobs/job-1/retry"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("RAG index job is still active"));
     }
 
     @Test

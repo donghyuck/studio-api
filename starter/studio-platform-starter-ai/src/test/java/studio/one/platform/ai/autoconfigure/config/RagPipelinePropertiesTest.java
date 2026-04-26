@@ -29,7 +29,7 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getRetrieval().getQueryExpansion().isEnabled()).isTrue();
         assertThat(properties.getRetrieval().getQueryExpansion().getMaxKeywords()).isEqualTo(10);
         assertThat(properties.getObjectScope().getDefaultListLimit()).isEqualTo(20);
-        assertThat(properties.getObjectScope().getMaxListLimit()).isEqualTo(100);
+        assertThat(properties.getObjectScope().getMaxListLimit()).isEqualTo(200);
         assertThat(properties.getKeywords().getScope()).isEqualTo("document");
         assertThat(properties.getKeywords().getMaxInputChars()).isEqualTo(4_000);
         assertThat(properties.getCleaner().isEnabled()).isFalse();
@@ -39,6 +39,7 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getDiagnostics().isEnabled()).isFalse();
         assertThat(properties.getDiagnostics().isLogResults()).isFalse();
         assertThat(properties.getDiagnostics().getMaxSnippetChars()).isEqualTo(120);
+        assertThat(properties.getJobs().getRepository()).isEqualTo("memory");
     }
 
     @Test
@@ -62,7 +63,8 @@ class RagPipelinePropertiesTest {
                 Map.entry("studio.ai.pipeline.cleaner.fail-open", "false"),
                 Map.entry("studio.ai.pipeline.diagnostics.enabled", "true"),
                 Map.entry("studio.ai.pipeline.diagnostics.log-results", "true"),
-                Map.entry("studio.ai.pipeline.diagnostics.max-snippet-chars", "42"))));
+                Map.entry("studio.ai.pipeline.diagnostics.max-snippet-chars", "42"),
+                Map.entry("studio.ai.pipeline.jobs.repository", "jdbc"))));
 
         RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
                 .bind("studio.ai.pipeline", Bindable.of(RagPipelineProperties.class))
@@ -86,6 +88,7 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getDiagnostics().isEnabled()).isTrue();
         assertThat(properties.getDiagnostics().isLogResults()).isTrue();
         assertThat(properties.getDiagnostics().getMaxSnippetChars()).isEqualTo(42);
+        assertThat(properties.getJobs().getRepository()).isEqualTo("jdbc");
     }
 
     @Test

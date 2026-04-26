@@ -27,6 +27,17 @@ public interface RagPipelineService {
 
     List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit);
 
+    default List<RagSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = limit <= 0 ? 50 : limit;
+        long requested = (long) safeOffset + safeLimit;
+        int fetchLimit = requested > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requested;
+        return listByObject(objectType, objectId, fetchLimit).stream()
+                .skip(safeOffset)
+                .limit(safeLimit)
+                .toList();
+    }
+
     /**
      * Returns diagnostics for the most recent retrieval in the current thread.
      * Calling from a different thread than the one that executed search returns empty.

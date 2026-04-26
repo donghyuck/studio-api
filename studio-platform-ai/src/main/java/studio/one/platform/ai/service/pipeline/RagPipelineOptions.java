@@ -18,7 +18,7 @@ public record RagPipelineOptions(
     public static final boolean DEFAULT_KEYWORD_FALLBACK_ENABLED = true;
     public static final boolean DEFAULT_SEMANTIC_FALLBACK_ENABLED = true;
     public static final int DEFAULT_LIST_LIMIT = 20;
-    public static final int DEFAULT_MAX_LIST_LIMIT = 100;
+    public static final int DEFAULT_MAX_LIST_LIMIT = 200;
 
     public RagPipelineOptions {
         if (vectorWeight < 0.0d) {

@@ -417,6 +417,30 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     @Override
+    public List<RagSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
+        clearDiagnostics();
+        List<VectorSearchResult> results = vectorStorePort.listByObject(
+                objectType,
+                objectId,
+                Math.max(0, offset),
+                clampPagedListLimit(limit));
+        return results.stream()
+                .map(result -> new RagSearchResult(
+                        result.document().id(),
+                        result.document().content(),
+                        result.document().metadata(),
+                        result.score()))
+                .toList();
+    }
+
+    private int clampPagedListLimit(int limit) {
+        if (limit <= 0) {
+            return options.defaultListLimit();
+        }
+        return Math.min(limit, options.maxListLimit() + 1);
+    }
+
+    @Override
     public Optional<RagRetrievalDiagnostics> latestDiagnostics() {
         return diagnosticsOptions.enabled()
                 ? Optional.ofNullable(latestDiagnostics.get())

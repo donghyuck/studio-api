@@ -44,6 +44,7 @@ dependencies {
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.springframework:spring-jdbc")
+    testImplementation("com.h2database:h2")
     testImplementation(project(":studio-platform"))
     testImplementation(project(":starter:studio-platform-starter-chunking"))
 } 
