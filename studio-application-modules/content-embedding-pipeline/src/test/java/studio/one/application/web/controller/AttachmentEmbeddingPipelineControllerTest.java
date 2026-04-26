@@ -434,6 +434,41 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     @Test
+    void structuredIndexerClearsObjectScopeWhenChunkingProducesNoChunks() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        Attachment attachment = mock(Attachment.class);
+        ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "structured text", "sample.txt");
+        NormalizedDocument normalizedDocument = NormalizedDocument.builder("doc-1")
+                .plainText("structured text")
+                .build();
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
+        when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class))).thenReturn(List.of());
+
+        boolean indexed = indexer.index(
+                attachment,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("category", "manual"),
+                extractionService,
+                new ByteArrayInputStream("content".getBytes(StandardCharsets.UTF_8)));
+
+        org.assertj.core.api.Assertions.assertThat(indexed).isTrue();
+        verify(vectorStore).replaceRecordsByObject("attachment", "1", List.of());
+        verifyNoInteractions(embeddingPort);
+    }
+
+    @Test
     void structuredIndexerFallsBackWithoutReplacingWhenObjectScopeIsMissing() throws Exception {
         VectorStorePort vectorStore = mock(VectorStorePort.class);
         ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);

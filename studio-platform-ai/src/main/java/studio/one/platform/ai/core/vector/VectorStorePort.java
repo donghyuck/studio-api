@@ -1,6 +1,7 @@
 package studio.one.platform.ai.core.vector;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
@@ -22,7 +23,7 @@ public interface VectorStorePort {
             return;
         }
         upsert(records.stream()
-                .map(VectorRecord::toVectorDocument)
+                .map(VectorStorePort::toLegacyDocument)
                 .toList());
     }
 
@@ -53,8 +54,26 @@ public interface VectorStorePort {
     default void replaceRecordsByObject(String objectType, String objectId, List<VectorRecord> records) {
         Objects.requireNonNull(records, "records");
         replaceByObject(objectType, objectId, records.stream()
-                .map(VectorRecord::toVectorDocument)
+                .map(record -> toObjectScopedDocument(objectType, objectId, record))
                 .toList());
+    }
+
+    private static VectorDocument toObjectScopedDocument(String objectType, String objectId, VectorRecord record) {
+        VectorDocument document = toLegacyDocument(record);
+        Map<String, Object> metadata = new LinkedHashMap<>(document.metadata());
+        metadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
+        metadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
+        return new VectorDocument(document.id(), document.content(), metadata, document.embedding());
+    }
+
+    private static VectorDocument toLegacyDocument(VectorRecord record) {
+        Objects.requireNonNull(record, "record");
+        Map<String, Object> metadata = new LinkedHashMap<>(record.toMetadata());
+        Object chunkIndex = metadata.get(VectorRecord.KEY_CHUNK_INDEX);
+        if (chunkIndex != null) {
+            metadata.putIfAbsent("chunkOrder", chunkIndex);
+        }
+        return new VectorDocument(record.id(), record.text(), metadata, record.embedding());
     }
 
     List<VectorSearchResult> search(VectorSearchRequest request);

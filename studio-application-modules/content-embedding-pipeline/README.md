@@ -30,7 +30,7 @@ EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
     ├─ [storeVector=true] VectorStorePort.upsert()    ← 선택적 벡터 저장
     │
     └─ [RAG 인덱싱]
-        ├─ [구조화 빈 사용 가능] ChunkingOrchestrator + VectorStorePort.replaceByObject()
+        ├─ [구조화 빈 사용 가능] ChunkingOrchestrator + VectorStorePort.replaceRecordsByObject()
         └─ [fallback] RagPipelineService.index()
 ```
 

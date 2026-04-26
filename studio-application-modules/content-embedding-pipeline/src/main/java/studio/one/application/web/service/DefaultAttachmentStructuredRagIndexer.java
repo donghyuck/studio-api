@@ -89,13 +89,14 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         List<VectorRecord> records = new ArrayList<>(chunks.size());
         for (int i = 0; i < chunks.size(); i++) {
             Chunk chunk = chunks.get(i);
+            Map<String, Object> standardChunkMetadata = chunk.metadata().toMap();
             Map<String, Object> chunkMetadata = new HashMap<>(metadata);
             chunkMetadata.remove(ChunkMetadata.KEY_CHUNK_ORDER);
-            mergeChunkMetadata(chunkMetadata, chunk.metadata().toMap());
+            mergeChunkMetadata(chunkMetadata, standardChunkMetadata);
             chunkMetadata.put(VectorRecord.KEY_DOCUMENT_ID, documentId);
             chunkMetadata.put(VectorRecord.KEY_CHUNK_ID, chunk.id());
             chunkMetadata.put("chunkLength", chunk.content().length());
-            Object chunkOrder = chunkMetadata.get(ChunkMetadata.KEY_CHUNK_ORDER);
+            Object chunkOrder = standardChunkMetadata.get(ChunkMetadata.KEY_CHUNK_ORDER);
             if (chunkOrder != null) {
                 chunkMetadata.putIfAbsent(VectorRecord.KEY_CHUNK_INDEX, chunkOrder);
             }
@@ -112,14 +113,14 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                     .embedding(embedding)
                     .embeddingModel(embeddingModel(chunkMetadata))
                     .embeddingDimension(embedding.size())
-                    .chunkType(text(chunkMetadata.get(VectorRecord.KEY_CHUNK_TYPE)))
-                    .headingPath(text(chunkMetadata.get(VectorRecord.KEY_HEADING_PATH)))
-                    .sourceRef(text(firstPresent(chunkMetadata,
+                    .chunkType(text(standardChunkMetadata.get(VectorRecord.KEY_CHUNK_TYPE)))
+                    .headingPath(text(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_HEADING_PATH)))
+                    .sourceRef(text(firstPresent(standardChunkMetadata, chunkMetadata,
                             VectorRecord.KEY_SOURCE_REF,
                             ChunkMetadata.KEY_SOURCE_REF,
                             ChunkMetadata.KEY_SOURCE_REFS)))
-                    .page(integer(chunkMetadata.get(VectorRecord.KEY_PAGE)))
-                    .slide(integer(chunkMetadata.get(VectorRecord.KEY_SLIDE)))
+                    .page(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_PAGE)))
+                    .slide(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_SLIDE)))
                     .metadata(chunkMetadata)
                     .build());
         }
@@ -194,14 +195,37 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         });
     }
 
-    private Object firstPresent(Map<String, Object> metadata, String... keys) {
+    private Object firstPresent(Map<String, Object> preferred, Map<String, Object> fallback, String key) {
+        Object value = value(preferred, key);
+        return value == null ? value(fallback, key) : value;
+    }
+
+    private Object firstPresent(Map<String, Object> preferred, Map<String, Object> fallback, String... keys) {
         for (String key : keys) {
-            Object value = metadata.get(key);
-            if (value != null && (!(value instanceof String textValue) || !textValue.isBlank())) {
+            Object value = firstPresent(preferred, fallback, key);
+            if (value != null) {
                 return value;
             }
         }
         return null;
+    }
+
+    private Object firstPresent(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Object value = value(metadata, key);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Object value(Map<String, Object> metadata, String key) {
+        Object value = metadata.get(key);
+        if (value == null || (value instanceof String textValue && textValue.isBlank())) {
+            return null;
+        }
+        return value;
     }
 
     private String embeddingModel(Map<String, Object> metadata) {

@@ -13,8 +13,7 @@
 
 ### 검증
 - `./gradlew :starter:studio-platform-starter-ai-web:test :studio-application-modules:content-embedding-pipeline:test`
-- `git diff --check`
-- `./gradlew :studio-platform-ai:test :studio-application-modules:content-embedding-pipeline:test`
+- `./gradlew :studio-platform-ai:test :studio-application-modules:content-embedding-pipeline:test :starter:studio-platform-starter-ai:test`
 - `./gradlew :starter:studio-platform-starter-ai-web:test`
 - `git diff --check`
 
