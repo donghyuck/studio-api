@@ -153,6 +153,34 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void createJobRejectsChunkMaxSizeSmallerThanDefaultOverlap() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                "hello",
+                Map.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                "recursive",
+                50,
+                null,
+                "character")))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
     void createJobAcceptsSourceRequestWithoutText() {
         CapturingJobService jobService = new CapturingJobService();
         RagIndexJobController controller = new RagIndexJobController(

@@ -14,6 +14,8 @@ public record RagChunkingOptions(
 
     private static final Set<String> SUPPORTED_STRATEGIES = Set.of("fixed-size", "recursive", "structure-based");
     private static final Set<String> SUPPORTED_UNITS = Set.of("character", "token");
+    private static final int DEFAULT_MAX_SIZE = 800;
+    private static final int DEFAULT_OVERLAP = 100;
 
     public RagChunkingOptions {
         strategy = normalizeStrategy(strategy);
@@ -24,7 +26,9 @@ public record RagChunkingOptions(
         if (overlap != null && overlap < 0) {
             throw new IllegalArgumentException("chunk overlap must not be negative");
         }
-        if (maxSize != null && overlap != null && overlap >= maxSize) {
+        int effectiveMaxSize = maxSize == null ? DEFAULT_MAX_SIZE : maxSize;
+        int effectiveOverlap = overlap == null ? DEFAULT_OVERLAP : overlap;
+        if (effectiveOverlap >= effectiveMaxSize) {
             throw new IllegalArgumentException("chunk overlap must be less than maxSize");
         }
     }

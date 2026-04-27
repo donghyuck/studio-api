@@ -266,6 +266,19 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     @Test
+    void ragIndexRejectsChunkOverlapLargerThanDefaultMaxSize() throws Exception {
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "chunkingStrategy": "recursive",
+                                  "chunkOverlap": 900
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void ragIndexUsesStructuredIndexingWhenAllStructuredBeansAreAvailable() throws Exception {
         VectorStorePort vectorStore = mock(VectorStorePort.class);
         ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
