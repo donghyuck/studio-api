@@ -23,6 +23,9 @@ class AiWebRagPropertiesTest {
         assertThat(properties.getContext().getExpansion().getPreviousWindow()).isEqualTo(1);
         assertThat(properties.getContext().getExpansion().getNextWindow()).isEqualTo(1);
         assertThat(properties.getContext().getExpansion().isIncludeParentContent()).isTrue();
+        assertThat(properties.getChunkPreview().isEnabled()).isTrue();
+        assertThat(properties.getChunkPreview().getMaxInputChars()).isEqualTo(200_000);
+        assertThat(properties.getChunkPreview().getMaxPreviewChunks()).isEqualTo(500);
         assertThat(properties.getDiagnostics().isAllowClientDebug()).isFalse();
     }
 
@@ -36,6 +39,9 @@ class AiWebRagPropertiesTest {
                 Map.entry("studio.ai.endpoints.rag.context.expansion.previous-window", "2"),
                 Map.entry("studio.ai.endpoints.rag.context.expansion.next-window", "3"),
                 Map.entry("studio.ai.endpoints.rag.context.expansion.include-parent-content", "false"),
+                Map.entry("studio.ai.endpoints.rag.chunk-preview.enabled", "false"),
+                Map.entry("studio.ai.endpoints.rag.chunk-preview.max-input-chars", "1000"),
+                Map.entry("studio.ai.endpoints.rag.chunk-preview.max-preview-chunks", "25"),
                 Map.entry("studio.ai.endpoints.rag.diagnostics.allow-client-debug", "true"))));
 
         AiWebRagProperties properties = new Binder(ConfigurationPropertySources.get(environment))
@@ -48,6 +54,9 @@ class AiWebRagPropertiesTest {
         assertThat(properties.getContext().getExpansion().getPreviousWindow()).isEqualTo(2);
         assertThat(properties.getContext().getExpansion().getNextWindow()).isEqualTo(3);
         assertThat(properties.getContext().getExpansion().isIncludeParentContent()).isFalse();
+        assertThat(properties.getChunkPreview().isEnabled()).isFalse();
+        assertThat(properties.getChunkPreview().getMaxInputChars()).isEqualTo(1000);
+        assertThat(properties.getChunkPreview().getMaxPreviewChunks()).isEqualTo(25);
         assertThat(properties.getDiagnostics().isAllowClientDebug()).isTrue();
     }
 }

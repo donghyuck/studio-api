@@ -94,6 +94,8 @@ studio:
 | `GET` | `{mgmtBasePath}/rag/objects/{objectType}/{objectId}/chunks` | object scope 기준 chunk 조회 | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/objects/{objectType}/{objectId}/chunks/page` | object scope 기준 chunk 페이지 조회 | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/objects/{objectType}/{objectId}/metadata` | object scope 기준 RAG metadata 조회 | `services:ai_rag read` |
+| `POST` | `{mgmtBasePath}/rag/chunks/preview` | 색인 전 text chunk preview | `services:ai_rag read` |
+| `GET` | `{mgmtBasePath}/rag/chunks/config` | chunk/RAG 설정 조회 | `services:ai_rag read` |
 
 > `studio.ai.endpoints.enabled=false`이면 위 AI web endpoint 전체가 등록되지 않는다.
 
@@ -170,6 +172,58 @@ chat request의 `provider`/`model`은 답변 생성 모델 선택용이다.
 [`RAG embedding profile 운영 가이드`](../../docs/dev/rag-embedding-profile-ops.md)를 따른다.
 기존 chunk를 profile 기반 metadata로 재색인하는 운영 절차는
 [`Legacy RAG chunk metadata 재색인 가이드`](../../docs/dev/rag-legacy-chunk-migration.md)를 따른다.
+
+### Chunk Preview / Config
+
+운영 화면은 `POST {mgmtBasePath}/rag/chunks/preview`로 색인 전에 text chunk 결과를 확인할 수 있다.
+이 API는 embedding 생성, vector upsert, job 생성을 하지 않고 현재 등록된 `ChunkingOrchestrator`만 호출한다.
+`ChunkingOrchestrator`가 없으면 `503 Service Unavailable`을 반환한다.
+
+```http
+POST /api/mgmt/ai/rag/chunks/preview
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "text": "첫 번째 문단입니다.\n\n두 번째 문단입니다.",
+  "documentId": "preview-doc",
+  "objectType": "attachment",
+  "objectId": "101",
+  "strategy": "recursive",
+  "maxSize": 800,
+  "overlap": 100,
+  "metadata": {
+    "category": "manual"
+  }
+}
+```
+
+`strategy`, `maxSize`, `overlap`, `unit`을 생략하면 실제 신규 chunking 경로와 같은
+`studio.chunking.*` configured default를 사용한다. 지원 preview 전략은 `fixed-size`, `recursive`,
+`structure-based`이며, text-only `structure-based` 요청은 starter-chunking의 text fallback 동작을 따른다.
+`semantic`, `llm-based`는 AI-linked 전략 후보라 이 preview API에서 실행하지 않는다.
+
+preview 안전장치는 `studio.ai.endpoints.rag.chunk-preview.*`로 조정한다. 이 설정은 운영 화면 API limit만
+제어하며 실제 색인 chunk 크기와 overlap은 계속 `studio.chunking.*`로 조정한다.
+
+```yaml
+studio:
+  ai:
+    endpoints:
+      rag:
+        chunk-preview:
+          enabled: true
+          max-input-chars: 200000
+          max-preview-chunks: 500
+```
+
+`GET {mgmtBasePath}/rag/chunks/config`는 비밀 없는 운영 안전값만 반환한다. 응답에는
+chunking availability, `studio.chunking.*` 값, 등록된 chunker 이름, deprecated legacy fallback
+`studio.ai.pipeline.chunk-size/chunk-overlap`, RAG context/expansion 설정, preview limit이 포함된다.
+API key, raw environment 값, provider secret은 노출하지 않는다.
+
+Attachment 파일을 직접 읽어 `parseStructured` 결과를 preview하는 기능과 `NormalizedDocument` JSON preview는
+후속 PR 범위이다. 현재 attachment RAG 색인은 기존 attachment RAG index/job API를 사용한다.
 
 ### 채팅 요청 예시
 

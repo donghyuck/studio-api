@@ -9,6 +9,7 @@ public class AiWebRagProperties {
 
     private final ContextProperties context = new ContextProperties();
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
+    private final ChunkPreviewProperties chunkPreview = new ChunkPreviewProperties();
 
     public ContextProperties getContext() {
         return context;
@@ -16,6 +17,10 @@ public class AiWebRagProperties {
 
     public DiagnosticsProperties getDiagnostics() {
         return diagnostics;
+    }
+
+    public ChunkPreviewProperties getChunkPreview() {
+        return chunkPreview;
     }
 
     public static class ContextProperties {
@@ -119,6 +124,36 @@ public class AiWebRagProperties {
 
         public void setAllowClientDebug(boolean allowClientDebug) {
             this.allowClientDebug = allowClientDebug;
+        }
+    }
+
+    public static class ChunkPreviewProperties {
+        private boolean enabled = true;
+        private int maxInputChars = 200_000;
+        private int maxPreviewChunks = 500;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getMaxInputChars() {
+            return maxInputChars;
+        }
+
+        public void setMaxInputChars(int maxInputChars) {
+            this.maxInputChars = Math.max(1, maxInputChars);
+        }
+
+        public int getMaxPreviewChunks() {
+            return maxPreviewChunks;
+        }
+
+        public void setMaxPreviewChunks(int maxPreviewChunks) {
+            this.maxPreviewChunks = Math.max(1, maxPreviewChunks);
         }
     }
 }

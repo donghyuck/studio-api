@@ -35,6 +35,7 @@ import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
+import studio.one.platform.ai.web.controller.RagChunkPreviewController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
@@ -45,6 +46,8 @@ import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.dto.EmbeddingRequestDto;
 import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
+import studio.one.platform.chunking.core.Chunker;
+import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.service.I18n;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -86,6 +89,7 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(context).hasSingleBean(EmbeddingPort.class);
             assertThat(context).hasSingleBean(ChatController.class);
             assertThat(context).hasSingleBean(EmbeddingController.class);
+            assertThat(context).hasSingleBean(RagChunkPreviewController.class);
             assertThat(context).hasSingleBean(AiInfoController.class);
             assertThat(context).hasSingleBean(ConversationRepositoryPort.class);
             assertThat(context).hasSingleBean(ConversationChatService.class);
@@ -212,6 +216,27 @@ class OpenAiProviderAutoConfigurationTest {
     }
 
     @Test
+    void registersChunkPreviewControllerWhenChunkingOrchestratorExists() {
+        contextRunner
+                .withBean(ChunkingOrchestrator.class, () -> org.mockito.Mockito.mock(ChunkingOrchestrator.class))
+                .withBean(Chunker.class, () -> org.mockito.Mockito.mock(Chunker.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(RagChunkPreviewController.class);
+                });
+    }
+
+    @Test
+    void doesNotRegisterChunkPreviewControllerWhenDisabled() {
+        contextRunner
+                .withPropertyValues("studio.ai.endpoints.rag.chunk-preview.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
+                });
+    }
+
+    @Test
     void exposesOpenAiFromInfoControllerInRuntimeContext() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
@@ -268,8 +293,9 @@ class OpenAiProviderAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(EmbeddingController.class);
                     assertThat(context).doesNotHaveBean(AiInfoController.class);
                     assertThat(context).doesNotHaveBean(VectorController.class);
-                    assertThat(context).doesNotHaveBean(RagController.class);
-                    assertThat(context).doesNotHaveBean(QueryRewriteController.class);
+            assertThat(context).doesNotHaveBean(RagController.class);
+            assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
+            assertThat(context).doesNotHaveBean(QueryRewriteController.class);
                 });
     }
 
