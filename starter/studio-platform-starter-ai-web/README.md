@@ -164,6 +164,8 @@ Chunk 조회 API는 기존 list 응답 호환을 유지한다. `/chunks`는 `lim
 RAG 색인/검색 계열 요청은 기존 body를 유지하면서 `embeddingProfileId`, `embeddingProvider`,
 `embeddingModel` optional field를 받을 수 있다. 이 필드는 retrieval embedding 선택용이며,
 chat request의 `provider`/`model`은 답변 생성 모델 선택용이다.
+서버 설정과 운영 화면 적용 기준은
+[`RAG embedding profile 운영 가이드`](../../docs/dev/rag-embedding-profile-ops.md)를 따른다.
 
 ### 채팅 요청 예시
 
