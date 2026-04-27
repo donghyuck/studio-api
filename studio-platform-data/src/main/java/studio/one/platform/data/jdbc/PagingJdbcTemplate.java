@@ -42,6 +42,7 @@ public class PagingJdbcTemplate extends JdbcTemplate {
 
     public List<Map<String, Object>> queryPage(String sql, int startIndex, int numResults)
             throws DataAccessException {
+        assertPageableSql(sql);
         String paginatedSql = paginationDialect.applyPagination(sql, startIndex, numResults);
         if (log.isDebugEnabled()) {
             log.debug("Executing paginated query: {}", paginatedSql.replaceAll("[\r\n]", " "));
@@ -51,6 +52,7 @@ public class PagingJdbcTemplate extends JdbcTemplate {
 
     public List<Map<String, Object>> queryPage(String sql, int startIndex, int numResults, Object... args)
             throws DataAccessException {
+        assertPageableSql(sql);
         String paginatedSql = paginationDialect.applyPagination(sql, startIndex, numResults);
         if (log.isDebugEnabled()) {
             log.debug("Executing paginated query: {}", paginatedSql.replaceAll("[\r\n]", " "));
@@ -60,6 +62,7 @@ public class PagingJdbcTemplate extends JdbcTemplate {
 
     public <T> List<T> queryPage(String sql, int startIndex, int numResults, Class<T> elementType, Object... args)
             throws DataAccessException {
+        assertPageableSql(sql);
         String paginatedSql = paginationDialect.applyPagination(sql, startIndex, numResults);
         if (log.isDebugEnabled()) {
             log.debug("Executing paginated query: {}", paginatedSql.replaceAll("[\r\n]", " "));
@@ -67,12 +70,23 @@ public class PagingJdbcTemplate extends JdbcTemplate {
         return super.query(paginatedSql, getSingleColumnRowMapper(elementType), args);
     }
 
+    @SuppressWarnings("java/sql-injection")
     public <T> List<T> queryPage(String sql, int startIndex, int numResults, RowMapper<T> rowMapper, Object... args)
             throws DataAccessException {
+        assertPageableSql(sql);
         String paginatedSql = paginationDialect.applyPagination(sql, startIndex, numResults);
         if (log.isDebugEnabled()) {
             log.debug("Executing paginated query: {}", paginatedSql.replaceAll("[\r\n]", " "));
         }
         return super.query(paginatedSql, rowMapper, args);
+    }
+
+    private void assertPageableSql(String sql) {
+        if (sql == null || sql.isBlank()) {
+            throw new IllegalArgumentException("sql must not be blank");
+        }
+        if (sql.indexOf(';') >= 0 || sql.contains("--") || sql.contains("/*") || sql.contains("*/")) {
+            throw new IllegalArgumentException("sql contains unsupported statement delimiters or comments");
+        }
     }
 }
