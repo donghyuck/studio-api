@@ -1,20 +1,23 @@
 # RAG embedding profile 운영 가이드
 
 이 문서는 RAG 색인/검색에서 embedding provider, model, profile을 선택할 때의 운영 기준을 정리한다.
-서버 런타임 설정은 Spring AI가 소유하고, Studio 설정은 RAG orchestration과 선택 정책을 소유한다.
+서버 런타임 설정은 Spring AI와 provider별 Studio adapter 설정이 함께 담당하고, Studio RAG 설정은
+orchestration과 선택 정책을 소유한다.
 
 ## 설정 책임
 
 | 영역 | Canonical source | 설명 |
 |---|---|---|
-| API key / base-url | `spring.ai.*` | provider SDK 접속 설정이다. |
-| chat model | `spring.ai.<provider>.chat.options.model` | 실제 chat provider 호출 model이다. |
-| embedding model / dimension | `spring.ai.<provider>.embedding.*` | 실제 embedding provider 호출 model과 dimension이다. |
+| API key / base-url | `spring.ai.*`, provider별 `studio.ai.providers.<id>.*` fallback | provider SDK 접속 설정이다. Google Gemini chat은 `studio.ai.providers.<id>.api-key`와 `base-url` fallback도 사용한다. |
+| chat model | `spring.ai.<provider>.chat.options.model`, provider별 chat model fallback | 실제 chat provider 호출 model이다. Google Gemini chat은 `studio.ai.providers.<id>.chat.model` fallback을 지원한다. |
+| embedding runtime model | `spring.ai.<provider>.embedding.*` | 현재 embedding provider 호출 model source다. OpenAI, Google Gemini, Ollama embedding은 Spring AI embedding model 설정이 필요하다. |
+| RAG embedding dimension/filter | `studio.ai.rag.embedding-profiles.*.dimension` | explicit profile 검색과 Vector metadata filter에 쓰는 RAG 기준값이다. 실제 provider dimension 설정과 일치해야 한다. |
 | provider enable / default provider | `studio.ai.providers.*`, `studio.ai.default-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. |
 | RAG embedding profile | `studio.ai.rag.embedding-profiles.*` | RAG 요청에서 선택할 profile id와 metadata/filter 기준이다. |
 
-`studio.ai.providers.<id>.chat.model`과 `studio.ai.providers.<id>.embedding.model`은 legacy/fallback 성격이다.
-Spring AI provider를 쓰는 운영 환경에서는 가능하면 `spring.ai.*`만 runtime model source로 사용한다.
+`studio.ai.providers.<id>.embedding.model`은 현재 runtime embedding model fallback으로 쓰지 않는다.
+Spring AI provider를 쓰는 embedding 운영 환경에서는 `spring.ai.*.embedding.*`과
+`studio.ai.rag.embedding-profiles.*`의 model/dimension 값을 같이 맞춘다.
 
 ## 기본 예시
 
@@ -156,7 +159,7 @@ provider-specific multimodal embedding은 별도 adapter/starter에서 다룬다
 
 ## 운영 화면 권장 흐름
 
-1. 설정 화면에서 `/api/ai/info/providers`로 활성 provider를 표시한다.
+1. 설정 화면에서 `/api/ai/info/providers`로 configured provider와 channel enabled 상태를 표시한다.
 2. RAG 색인 화면은 대상별 기본 `embeddingProfileId`를 선택하거나 서버 default profile을 사용한다.
 3. `POST /api/mgmt/ai/rag/jobs` 또는 attachment RAG index API에 profile field를 포함해 색인을 요청한다.
 4. `X-RAG-Job-Id` 또는 job create response로 job 상태를 polling한다.
@@ -166,6 +169,7 @@ provider-specific multimodal embedding은 별도 adapter/starter에서 다룬다
 ## 운영 주의사항
 
 - 같은 provider에서 여러 embedding model을 동시에 쓰려면 서로 다른 `EmbeddingPort`가 실제로 등록되어야 한다.
+  provider type별 제약이 있으며, 현재 `OPENAI` provider type은 enabled provider를 하나만 허용한다.
 - profile metadata가 없는 legacy chunk는 explicit profile 검색에서 제외될 수 있다.
 - legacy chunk까지 검색해야 하는 화면은 embedding 선택 필드를 비워 minimal legacy 검색으로 호출한다.
 - profile 기반 운영으로 전환할 때는 object scope 단위 재색인을 먼저 수행한다.
