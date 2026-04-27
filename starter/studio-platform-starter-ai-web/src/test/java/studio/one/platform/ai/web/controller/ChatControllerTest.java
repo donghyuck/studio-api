@@ -169,6 +169,48 @@ class ChatControllerTest {
     }
 
     @Test
+    void chatMapsProviderPromptValidationFailureToBadRequest() {
+        when(googleChatPort.chat(any(ChatRequest.class)))
+                .thenThrow(new IllegalArgumentException("Google GenAI supports only leading system messages"));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.chat(new ChatRequestDto(
+                        "google",
+                        null,
+                        List.of(new ChatMessageDto("user", "hello")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null)));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getReason()).contains("leading system messages");
+    }
+
+    @Test
+    void streamMapsProviderPromptValidationFailureToBadRequest() {
+        when(googleChatPort.stream(any(ChatRequest.class)))
+                .thenThrow(new IllegalArgumentException("Google GenAI supports only leading system messages"));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.stream(new ChatRequestDto(
+                        "google",
+                        null,
+                        List.of(new ChatMessageDto("user", "hello")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null), null));
+
+        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getReason()).contains("leading system messages");
+    }
+
+    @Test
     void chatPrependsSystemPrompt() {
         ArgumentCaptor<ChatRequest> captor = ArgumentCaptor.forClass(ChatRequest.class);
 
@@ -538,12 +580,11 @@ class ChatControllerTest {
         assertThat(ragCaptor.getValue().metadataFilter().objectType()).isEqualTo("attachment");
         assertThat(ragCaptor.getValue().metadataFilter().objectId()).isEqualTo("123");
         verify(googleChatPort).chat(chatCaptor.capture());
-        assertThat(chatCaptor.getValue().messages()).hasSize(3);
+        assertThat(chatCaptor.getValue().messages()).hasSize(2);
         assertThat(chatCaptor.getValue().messages().get(0).role().name()).isEqualTo("SYSTEM");
         assertThat(chatCaptor.getValue().messages().get(0).content()).contains("file text");
-        assertThat(chatCaptor.getValue().messages().get(1).role().name()).isEqualTo("SYSTEM");
-        assertThat(chatCaptor.getValue().messages().get(1).content()).isEqualTo("answer from file");
-        assertThat(chatCaptor.getValue().messages().get(2).role().name()).isEqualTo("USER");
+        assertThat(chatCaptor.getValue().messages().get(0).content()).contains("answer from file");
+        assertThat(chatCaptor.getValue().messages().get(1).role().name()).isEqualTo("USER");
     }
 
     @Test
@@ -987,6 +1028,37 @@ class ChatControllerTest {
                 "123"));
 
         verify(ragPipelineService).listByObject("attachment", "123", 3);
+    }
+
+    @Test
+    void ragChatLimitsObjectListResultsBeforeBuildingContext() {
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.listByObject("attachment", "123", 2))
+                .thenReturn(List.of(
+                        new RagSearchResult("doc-1", "file text 1", Map.of(), 1.0d),
+                        new RagSearchResult("doc-2", "file text 2", Map.of(), 1.0d),
+                        new RagSearchResult("doc-3", "file text 3", Map.of(), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                null,
+                2,
+                "attachment",
+                "123"));
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("file text 1", "file text 2")
+                .doesNotContain("file text 3");
     }
 
     @Test

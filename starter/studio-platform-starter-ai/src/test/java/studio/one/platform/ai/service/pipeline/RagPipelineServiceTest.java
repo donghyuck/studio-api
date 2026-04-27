@@ -606,6 +606,24 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldLimitSearchResultsToRequestedTopK() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument("doc-1", "chunk 1", Map.of(), List.of()), 0.9),
+                        new VectorSearchResult(new VectorDocument("doc-2", "chunk 2", Map.of(), List.of()), 0.8),
+                        new VectorSearchResult(new VectorDocument("doc-3", "chunk 3", Map.of(), List.of()), 0.7)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-1", "doc-2");
+    }
+
+    @Test
     void shouldConstrainSearchToRequestedEmbeddingProfileMetadata() {
         RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
                 embeddingPort,
@@ -801,6 +819,28 @@ class RagPipelineServiceTest {
         assertThat(results.get(0).metadata()).containsEntry("source", "object-keyword-fallback");
         verify(vectorStorePort).hybridSearchByObject(eq("hello"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
         verify(vectorStorePort).hybridSearchByObject(eq("hello greeting salutation"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void shouldLimitObjectScopedKeywordFallbackResultsToRequestedTopK() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(keywordExtractor.extract("hello")).thenReturn(List.of("greeting"));
+        when(vectorStorePort.hybridSearchByObject(eq("hello"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-low", "weak", Map.of(), List.of(0.5, 0.6)), 0.05)));
+        when(vectorStorePort.hybridSearchByObject(eq("hello greeting"), eq("attachment"), eq("42"), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument("doc-1", "chunk 1", Map.of(), List.of()), 0.9),
+                        new VectorSearchResult(new VectorDocument("doc-2", "chunk 2", Map.of(), List.of()), 0.8),
+                        new VectorSearchResult(new VectorDocument("doc-3", "chunk 3", Map.of(), List.of()), 0.7)));
+
+        List<RagSearchResult> results = ragPipelineService.searchByObject(request, "attachment", "42");
+
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-1", "doc-2");
     }
 
     @Test
@@ -1036,6 +1076,21 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldLimitObjectListResultsToEffectiveLimit() {
+        when(vectorStorePort.listByObject(eq("attachment"), eq("42"), eq(2)))
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument("doc-1", "chunk 1", Map.of(), List.of()), 1.0d),
+                        new VectorSearchResult(new VectorDocument("doc-2", "chunk 2", Map.of(), List.of()), 1.0d),
+                        new VectorSearchResult(new VectorDocument("doc-3", "chunk 3", Map.of(), List.of()), 1.0d)));
+
+        List<RagSearchResult> results = ragPipelineService.listByObject("attachment", "42", 2);
+
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-1", "doc-2");
+    }
+
+    @Test
     void shouldNotExposeDiagnosticsWhenDisabled() {
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
@@ -1056,25 +1111,27 @@ class RagPipelineServiceTest {
                 null,
                 new RagPipelineOptions(0.2d, 0.8d, 0.4d, true, true, 20, 100),
                 new RagPipelineDiagnosticsOptions(true, false, 120));
-        RagSearchRequest request = new RagSearchRequest("hello", 7);
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
         when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), eq(0.2d), eq(0.8d)))
-                .thenReturn(List.of(new VectorSearchResult(
-                        new VectorDocument("doc-1", "chunk", Map.of(), List.of(0.5, 0.6)), 0.9)));
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument("doc-1", "chunk 1", Map.of(), List.of()), 0.9),
+                        new VectorSearchResult(new VectorDocument("doc-2", "chunk 2", Map.of(), List.of()), 0.8),
+                        new VectorSearchResult(new VectorDocument("doc-3", "chunk 3", Map.of(), List.of()), 0.7)));
 
         ragPipelineService.search(request);
 
         assertThat(ragPipelineService.latestDiagnostics()).hasValueSatisfying(diagnostics -> {
             assertThat(diagnostics.strategy()).isEqualTo(RagRetrievalDiagnostics.Strategy.HYBRID);
-            assertThat(diagnostics.initialResultCount()).isEqualTo(1);
-            assertThat(diagnostics.finalResultCount()).isEqualTo(1);
+            assertThat(diagnostics.initialResultCount()).isEqualTo(2);
+            assertThat(diagnostics.finalResultCount()).isEqualTo(2);
             assertThat(diagnostics.minScore()).isEqualTo(0.4d);
             assertThat(diagnostics.vectorWeight()).isEqualTo(0.2d);
             assertThat(diagnostics.lexicalWeight()).isEqualTo(0.8d);
             assertThat(diagnostics.objectType()).isNull();
             assertThat(diagnostics.objectId()).isNull();
-            assertThat(diagnostics.topK()).isEqualTo(7);
+            assertThat(diagnostics.topK()).isEqualTo(2);
         });
     }
 

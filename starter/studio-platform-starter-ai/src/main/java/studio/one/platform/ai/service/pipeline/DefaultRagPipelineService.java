@@ -439,7 +439,10 @@ public class DefaultRagPipelineService implements RagPipelineService {
     @Override
     public List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit) {
         clearDiagnostics();
-        List<VectorSearchResult> results = vectorStorePort.listByObject(objectType, objectId, options.clampListLimit(limit));
+        int effectiveLimit = options.clampListLimit(limit);
+        List<VectorSearchResult> results = limitResults(
+                vectorStorePort.listByObject(objectType, objectId, effectiveLimit),
+                effectiveLimit);
         return results.stream()
                 .map(result -> new RagSearchResult(
                         result.document().id(),
@@ -623,7 +626,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
             Supplier<List<VectorSearchResult>> semanticSearch,
             String objectType,
             String objectId) {
-        List<VectorSearchResult> results = hybridSearch.apply(query);
+        List<VectorSearchResult> results = limitResults(hybridSearch.apply(query), searchRequest.topK());
         if (hasRelevantResults(results)) {
             recordDiagnostics(RagRetrievalDiagnostics.Strategy.HYBRID,
                     results.size(), results.size(), searchRequest, objectType, objectId, results);
@@ -633,7 +636,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
         String enrichedQuery = options.keywordFallbackEnabled() ? enrichQuery(query) : query;
         if (options.keywordFallbackEnabled() && !enrichedQuery.equals(query)) {
-            List<VectorSearchResult> enrichedResults = hybridSearch.apply(enrichedQuery);
+            List<VectorSearchResult> enrichedResults = limitResults(hybridSearch.apply(enrichedQuery), searchRequest.topK());
             if (hasRelevantResults(enrichedResults)) {
                 recordDiagnostics(RagRetrievalDiagnostics.Strategy.KEYWORD_ENRICHED_HYBRID,
                         initialResultCount, enrichedResults.size(), searchRequest, objectType, objectId, enrichedResults);
@@ -642,7 +645,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
 
         if (options.semanticFallbackEnabled()) {
-            List<VectorSearchResult> semanticResults = semanticSearch.get();
+            List<VectorSearchResult> semanticResults = limitResults(semanticSearch.get(), searchRequest.topK());
             if (hasRelevantResults(semanticResults)) {
                 recordDiagnostics(RagRetrievalDiagnostics.Strategy.SEMANTIC,
                         initialResultCount, semanticResults.size(), searchRequest, objectType, objectId, semanticResults);
@@ -652,6 +655,15 @@ public class DefaultRagPipelineService implements RagPipelineService {
         recordDiagnostics(RagRetrievalDiagnostics.Strategy.NONE,
                 initialResultCount, 0, searchRequest, objectType, objectId, List.of());
         return List.of();
+    }
+
+    private List<VectorSearchResult> limitResults(List<VectorSearchResult> results, int topK) {
+        if (results == null || results.isEmpty()) {
+            return List.of();
+        }
+        return results.stream()
+                .limit(Math.max(topK, 0))
+                .toList();
     }
 
     private String enrichQuery(String query) {

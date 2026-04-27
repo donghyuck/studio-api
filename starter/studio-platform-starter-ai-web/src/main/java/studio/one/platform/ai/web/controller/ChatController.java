@@ -288,7 +288,7 @@ public class ChatController {
     private ResponseEntity<ApiResponse<ChatResponseDto>> chatInternal(ChatRequestDto request, Principal principal) {
         ChatMemoryContext memory = resolveMemory(request, principal);
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
-        ChatResponse response = chatPort(request.provider()).chat(toDomainChatRequest(request, domainMessages));
+        ChatResponse response = executeChat(chatPort(request.provider()), toDomainChatRequest(request, domainMessages));
         int memoryMessageCount = appendMemory(memory, request.messages(), response);
         appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).toList(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
@@ -303,12 +303,12 @@ public class ChatController {
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
         ChatPort port = chatPort(request.provider());
         ChatRequest domainRequest = toDomainChatRequest(request, domainMessages);
+        java.util.stream.Stream<ChatStreamEvent> events = openStream(port, domainRequest);
         String requestId = UUID.randomUUID().toString();
         StreamingResponseBody body = outputStream -> writeStreamEvents(
                 outputStream,
                 requestId,
-                port,
-                domainRequest,
+                events,
                 memory,
                 request.messages().stream().map(this::toDomainMessage).toList(),
                 principal);
@@ -372,6 +372,7 @@ public class ChatController {
                         request.embeddingModel()));
             }
         }
+        ragResults = limitRagResults(ragResults, ragTopK);
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
 
         List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
@@ -384,10 +385,7 @@ public class ChatController {
         String context = contextResult.context();
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
-        augmentedMessages.add(new ChatMessageDto("system", context));
-        if (chat.systemPrompt() != null && !chat.systemPrompt().isBlank()) {
-            augmentedMessages.add(new ChatMessageDto("system", chat.systemPrompt()));
-        }
+        augmentedMessages.add(new ChatMessageDto("system", combineSystemPrompts(context, chat.systemPrompt())));
         ChatMemoryContext memory = resolveMemory(chat, principal);
         augmentedMessages.addAll(toDtoMessages(memory.history()));
         augmentedMessages.addAll(chat.messages());
@@ -404,7 +402,7 @@ public class ChatController {
                 chat.stopSequences(),
                 chat.memory());
 
-        ChatResponse response = chatPort(chat.provider()).chat(toDomainChatRequest(augmented));
+        ChatResponse response = executeChat(chatPort(chat.provider()), toDomainChatRequest(augmented));
         int memoryMessageCount = appendMemory(memory, chat.messages(), response);
         appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
         boolean exposeDiagnostics = shouldExposeDiagnostics(request);
@@ -562,6 +560,22 @@ public class ChatController {
         }
     }
 
+    private ChatResponse executeChat(ChatPort port, ChatRequest request) {
+        try {
+            return port.chat(request);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
+    private java.util.stream.Stream<ChatStreamEvent> openStream(ChatPort port, ChatRequest request) {
+        try {
+            return port.stream(request);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
     private ObjectScope resolveObjectScope(String objectType, String objectId) {
         String normalizedObjectType = normalizeText(objectType);
         String normalizedObjectId = normalizeText(objectId);
@@ -581,6 +595,18 @@ public class ChatController {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private String combineSystemPrompts(String primary, String secondary) {
+        String first = normalizeText(primary);
+        String second = normalizeText(secondary);
+        if (first == null) {
+            return second == null ? "" : second;
+        }
+        if (second == null) {
+            return first;
+        }
+        return first + "\n\n" + second;
     }
 
     private List<ChatMessage> toDomainMessages(ChatRequestDto request) {
@@ -632,6 +658,15 @@ public class ChatController {
 
     private boolean shouldExposeDiagnostics(ChatRagRequestDto request) {
         return allowClientDebug && Boolean.TRUE.equals(request.debug());
+    }
+
+    private List<RagSearchResult> limitRagResults(List<RagSearchResult> results, int topK) {
+        if (results == null || results.isEmpty()) {
+            return List.of();
+        }
+        return results.stream()
+                .limit(Math.max(topK, 0))
+                .toList();
     }
 
     private String resolveRagQuery(ChatRagRequestDto request) {
@@ -756,15 +791,14 @@ public class ChatController {
     private void writeStreamEvents(
             OutputStream outputStream,
             String requestId,
-            ChatPort port,
-            ChatRequest request,
+            java.util.stream.Stream<ChatStreamEvent> events,
             ChatMemoryContext memory,
             List<ChatMessage> requestMessages,
             Principal principal) throws IOException {
         StringBuilder assistant = new StringBuilder();
         ChatStreamEvent last = null;
         boolean streamFailed = false;
-        try (java.util.stream.Stream<ChatStreamEvent> events = port.stream(request)) {
+        try (events) {
             Iterator<ChatStreamEvent> iterator = events.iterator();
             while (iterator.hasNext()) {
                 ChatStreamEvent event = iterator.next();
