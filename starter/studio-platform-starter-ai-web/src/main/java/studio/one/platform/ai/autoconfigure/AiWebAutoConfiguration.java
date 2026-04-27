@@ -24,6 +24,7 @@ import studio.one.platform.ai.autoconfigure.config.RagPipelineProperties;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
+import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
@@ -34,6 +35,7 @@ import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
+import studio.one.platform.ai.web.controller.RagChunkPreviewController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
@@ -45,10 +47,17 @@ import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkContextExpander;
+import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnClass(ChatPort.class)
+@ConditionalOnClass(name = {
+        "studio.one.platform.ai.core.chat.ChatPort",
+        "jakarta.validation.Valid",
+        "org.springframework.security.access.prepost.PreAuthorize",
+        "org.springframework.web.bind.annotation.RestController"
+})
 @Conditional(AiWebEndpointCondition.class)
 @EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class, RagPipelineProperties.class})
 public class AiWebAutoConfiguration {
@@ -143,6 +152,24 @@ public class AiWebAutoConfiguration {
                 vectorStorePort,
                 ragIndexJobExecutor,
                 ragPipelineProperties.getObjectScope().getMaxListLimit());
+    }
+
+    @Bean
+    @SuppressWarnings("deprecation")
+    RagChunkPreviewController ragChunkPreviewController(
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<Chunker> chunkers,
+            ObjectProvider<TextChunker> textChunkerProvider,
+            RagPipelineProperties ragPipelineProperties,
+            AiWebRagProperties ragProperties,
+            Environment environment) {
+        return new RagChunkPreviewController(
+                chunkingOrchestratorProvider.getIfAvailable(),
+                chunkers.stream().toList(),
+                textChunkerProvider.getIfAvailable(),
+                ragPipelineProperties,
+                ragProperties,
+                environment);
     }
 
     @Bean(name = "ragIndexJobEndpointSecurity")

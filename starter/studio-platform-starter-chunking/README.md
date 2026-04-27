@@ -101,6 +101,11 @@ heading 없이 시작하는 문서는 빈 `section` 값과 body-only `parentChun
 구조화 chunk metadata가 vector storage에서 어떻게 해석되는지는
 [`studio-platform-ai` RAG metadata key reference](../../studio-platform-ai/README.md#rag-metadata-key-reference)를 기준으로 합니다.
 
+`starter:studio-platform-starter-ai-web`의 RAG chunk preview API는 운영 화면에서 같은 `ChunkingOrchestrator`를 호출해
+색인 전 text chunk 결과를 확인합니다. preview API도 `studio.chunking.strategy`, `studio.chunking.max-size`,
+`studio.chunking.overlap` configured default를 사용하므로 실제 신규 RAG 색인 경로와 같은 chunking 설정을 기준으로 합니다.
+다만 preview API는 embedding 생성, vector upsert, attachment parsing을 실행하지 않습니다.
+
 ```java
 ParsedFile parsedFile = fileContentExtractionService.parseStructured(...);
 NormalizedDocument document = new TextractNormalizedDocumentAdapter()
