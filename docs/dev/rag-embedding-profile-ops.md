@@ -15,6 +15,10 @@ orchestration과 선택 정책을 소유한다.
 | provider enable / default provider | `studio.ai.providers.*`, `studio.ai.default-provider`, `studio.ai.default-chat-provider`, `studio.ai.default-embedding-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. `default-provider`는 기존 호환 fallback이고, chat/embedding 기본 provider는 분리할 수 있다. |
 | RAG embedding profile | `studio.ai.rag.embedding-profiles.*` | RAG 요청에서 선택할 profile id와 metadata/filter 기준이다. |
 
+`studio.ai.default-provider`를 설정하면 기존 호출자 호환을 위해 해당 provider가 chat과 embedding port를 모두 제공해야 한다.
+chat 전용 기본값과 embedding 전용 기본값만 분리하려면 `default-provider`를 생략하고
+`default-chat-provider` / `default-embedding-provider`를 함께 설정한다.
+
 `studio.ai.providers.<id>.embedding.model`은 현재 runtime embedding model fallback으로 쓰지 않는다.
 Spring AI provider를 쓰는 embedding 운영 환경에서는 `spring.ai.*.embedding.*`과
 `studio.ai.rag.embedding-profiles.*`의 model/dimension 값을 같이 맞춘다.

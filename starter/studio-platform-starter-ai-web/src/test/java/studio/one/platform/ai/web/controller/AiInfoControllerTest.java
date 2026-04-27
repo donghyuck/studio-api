@@ -104,7 +104,6 @@ class AiInfoControllerTest {
     @Test
     void exposesSplitDefaultProvidersWhenConfigured() {
         AiAdapterProperties properties = new AiAdapterProperties();
-        properties.setDefaultProvider("legacy-default");
         properties.setDefaultChatProvider("google-chat");
         properties.setDefaultEmbeddingProvider("google-embedding");
 
@@ -116,7 +115,7 @@ class AiInfoControllerTest {
 
         ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
 
-        assertThat(body.getData().defaultProvider()).isEqualTo("legacy-default");
+        assertThat(body.getData().defaultProvider()).isEqualTo("google-chat");
         assertThat(body.getData().defaultChatProvider()).isEqualTo("google-chat");
         assertThat(body.getData().defaultEmbeddingProvider()).isEqualTo("google-embedding");
     }

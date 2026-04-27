@@ -66,7 +66,7 @@ public class AiInfoController {
         return ResponseEntity.ok(ApiResponse.ok(
                 new AiInfoResponse(
                         providerInfos,
-                        properties.getDefaultProvider(),
+                        defaultProvider(),
                         defaultChatProvider(),
                         defaultEmbeddingProvider(),
                         vectorInfo,
@@ -131,6 +131,10 @@ public class AiInfoController {
 
     private String defaultEmbeddingProvider() {
         return firstNonBlank(properties.getDefaultEmbeddingProvider(), properties.getDefaultProvider());
+    }
+
+    private String defaultProvider() {
+        return firstNonBlank(properties.getDefaultProvider(), defaultChatProvider());
     }
 
     public record AiInfoResponse(List<ProviderInfo> providers,

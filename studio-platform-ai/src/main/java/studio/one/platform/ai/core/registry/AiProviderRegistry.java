@@ -57,10 +57,16 @@ public final class AiProviderRegistry {
         return defaultProvider;
     }
 
+    /**
+     * Returns the provider used by {@link #chatPort(String)} when the requested provider is {@code null}.
+     */
     public String defaultChatProvider() {
         return defaultChatProvider;
     }
 
+    /**
+     * Returns the provider used by {@link #embeddingPort(String)} when the requested provider is {@code null}.
+     */
     public String defaultEmbeddingProvider() {
         return defaultEmbeddingProvider;
     }

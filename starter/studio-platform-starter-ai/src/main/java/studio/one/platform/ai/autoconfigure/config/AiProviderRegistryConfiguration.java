@@ -44,6 +44,10 @@ public class AiProviderRegistryConfiguration {
             throw new IllegalStateException("studio.ai.default-provider must be configured unless both " +
                     "studio.ai.default-chat-provider and studio.ai.default-embedding-provider are configured");
         }
+        if (legacyDefaultProvider != null) {
+            requirePort(chatPorts, legacyDefaultProvider, "studio.ai.default-provider", ChatPort.class);
+            requirePort(embeddingPorts, legacyDefaultProvider, "studio.ai.default-provider", EmbeddingPort.class);
+        }
         requirePort(chatPorts, defaultChatProvider, "studio.ai.default-chat-provider", ChatPort.class);
         requirePort(embeddingPorts, defaultEmbeddingProvider, "studio.ai.default-embedding-provider", EmbeddingPort.class);
         String defaultProvider = legacyDefaultProvider == null ? defaultChatProvider : legacyDefaultProvider;

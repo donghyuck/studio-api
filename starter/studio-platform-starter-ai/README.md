@@ -75,6 +75,7 @@ studio:
 
 `studio.ai.*`는 provider 선택, 활성화, Studio RAG orchestration 설정을 담당한다.
 `studio.ai.default-provider`만 설정하면 기존처럼 chat/embedding 기본 provider fallback으로 모두 사용한다.
+이 값이 설정된 경우 기존 계약 보존을 위해 해당 provider에는 chat과 embedding port가 모두 등록되어야 한다.
 chat과 embedding을 분리해야 하면 `studio.ai.default-chat-provider`와
 `studio.ai.default-embedding-provider`를 지정한다. 이 두 값이 있으면 legacy `default-provider` 없이도
 기동할 수 있다.
@@ -461,6 +462,7 @@ studio:
   애플리케이션 시작 시 `IllegalStateException`으로 즉시 실패한다.
 - **default-provider fallback**: `default-provider`는 기존 호환용 fallback이다. 생략하려면
   `default-chat-provider`와 `default-embedding-provider`를 모두 설정해야 한다.
+  `default-provider`를 함께 설정하는 경우 해당 provider는 기존 호출자 호환을 위해 chat/embedding port를 모두 제공해야 한다.
 - OPENAI 타입 프로바이더는 동시에 하나만 활성화할 수 있다. 두 개 이상 활성화하면 시작 시 실패한다.
 - Spring AI 표준 속성(`spring.ai.*`)과 Studio 전용 속성(`studio.ai.*`)을 혼합 사용한다.
   OpenAI의 API 키 및 모델은 `spring.ai.openai.*`로 설정하고, Google/Ollama 고유 옵션은
