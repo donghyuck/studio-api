@@ -143,9 +143,9 @@ retry는 `409 Conflict`로 거절된다.
 
 1. `POST {mgmtBasePath}/rag/jobs`로 색인 job을 생성한다.
 2. `GET {mgmtBasePath}/rag/jobs?offset=0&limit=50&sort=createdAt&direction=desc`로 최신 job 목록을 표시한다.
-3. `GET {mgmtBasePath}/rag/jobs/{jobId}`를 polling해 `status`, `currentStep`, count를 표시한다.
-4. `GET {mgmtBasePath}/rag/jobs/{jobId}/logs`로 경고와 오류 detail을 표시한다.
-5. 완료 후 `GET {mgmtBasePath}/rag/jobs/{jobId}/chunks` 또는 object scope chunk API로 색인 결과를 확인한다.
+3. `GET {mgmtBasePath}/rag/jobs/{jobId}`를 polling해 `ApiResponse.data.status`, `currentStep`, count를 표시한다.
+4. `GET {mgmtBasePath}/rag/jobs/{jobId}/logs`의 `ApiResponse.data`로 경고와 오류 detail을 표시한다.
+5. 완료 후 `GET {mgmtBasePath}/rag/jobs/{jobId}/chunks` 또는 object scope chunk API의 `ApiResponse.data`로 색인 결과를 확인한다.
    운영 화면에서 페이지 이동이 필요하면 `/chunks/page?offset=0&limit=50` variant를 사용한다.
 6. 사용자가 중단을 요청하면 active job에 `POST {mgmtBasePath}/rag/jobs/{jobId}/cancel`을 호출한다.
 7. 실패 또는 완료 상태가 된 뒤 `POST {mgmtBasePath}/rag/jobs/{jobId}/retry`를 호출한다.
@@ -166,6 +166,8 @@ RAG 색인/검색 계열 요청은 기존 body를 유지하면서 `embeddingProf
 chat request의 `provider`/`model`은 답변 생성 모델 선택용이다.
 서버 설정과 운영 화면 적용 기준은
 [`RAG embedding profile 운영 가이드`](../../docs/dev/rag-embedding-profile-ops.md)를 따른다.
+기존 chunk를 profile 기반 metadata로 재색인하는 운영 절차는
+[`Legacy RAG chunk metadata 재색인 가이드`](../../docs/dev/rag-legacy-chunk-migration.md)를 따른다.
 
 ### 채팅 요청 예시
 
