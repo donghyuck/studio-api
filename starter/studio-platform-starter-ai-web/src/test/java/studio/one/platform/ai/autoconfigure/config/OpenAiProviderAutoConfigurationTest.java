@@ -15,6 +15,7 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.embedding.Embedding;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -227,12 +228,48 @@ class OpenAiProviderAutoConfigurationTest {
     }
 
     @Test
-    void doesNotRegisterChunkPreviewControllerWhenDisabled() {
+    void keepsChunkPreviewControllerForConfigWhenPreviewIsDisabled() {
         contextRunner
                 .withPropertyValues("studio.ai.endpoints.rag.chunk-preview.enabled=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(RagChunkPreviewController.class);
+                });
+    }
+
+    @Test
+    void backsOffWhenWebEndpointClassesAreMissing() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader("org.springframework.web.bind.annotation"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ChatController.class);
                     assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
+                    assertThat(context).doesNotHaveBean(AiInfoController.class);
+                });
+    }
+
+    @Test
+    void backsOffWhenMethodSecurityClassesAreMissing() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader("org.springframework.security.access.prepost"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ChatController.class);
+                    assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
+                    assertThat(context).doesNotHaveBean(AiInfoController.class);
+                });
+    }
+
+    @Test
+    void backsOffWhenValidationClassesAreMissing() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader("jakarta.validation"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ChatController.class);
+                    assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
+                    assertThat(context).doesNotHaveBean(AiInfoController.class);
                 });
     }
 

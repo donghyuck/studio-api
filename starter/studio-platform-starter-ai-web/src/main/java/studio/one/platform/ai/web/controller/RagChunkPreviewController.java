@@ -76,6 +76,9 @@ public class RagChunkPreviewController {
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<ApiResponse<RagChunkPreviewResponseDto>> preview(
             @Valid @RequestBody RagChunkPreviewRequestDto request) {
+        if (!ragProperties.getChunkPreview().isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Chunk preview is disabled");
+        }
         if (chunkingOrchestrator == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "ChunkingOrchestrator is not configured");
         }
@@ -87,6 +90,7 @@ public class RagChunkPreviewController {
                     "text exceeds max chunk preview input length");
         }
         try {
+            Map<String, Object> requestMetadata = sanitizedMetadata(request.metadata());
             ChunkingContext context = toContext(request);
             List<Chunk> chunks = chunkingOrchestrator.chunk(context);
             int totalChars = chunks.stream().mapToInt(chunk -> chunk.content().length()).sum();
@@ -98,7 +102,7 @@ public class RagChunkPreviewController {
                 warnings.add("Chunk preview truncated to " + maxPreviewChunks + " chunks.");
             }
             return ResponseEntity.ok(ApiResponse.ok(new RagChunkPreviewResponseDto(
-                    returned.stream().map(this::toItem).toList(),
+                    returned.stream().map(chunk -> toItem(chunk, requestMetadata)).toList(),
                     chunks.size(),
                     totalChars,
                     effectiveStrategy(context).value(),
@@ -116,11 +120,15 @@ public class RagChunkPreviewController {
     public ResponseEntity<ApiResponse<RagChunkConfigResponseDto>> config() {
         AiWebRagProperties.ContextProperties context = ragProperties.getContext();
         AiWebRagProperties.ExpansionProperties expansion = context.getExpansion();
+        String configuredStrategy = environment.getProperty(CHUNKING_PREFIX + ".strategy", "recursive");
+        ChunkingStrategyType previewStrategy = previewStrategyOrNull(configuredStrategy);
         RagChunkConfigResponseDto response = new RagChunkConfigResponseDto(
                 new RagChunkConfigResponseDto.ChunkingConfigDto(
                         chunkingOrchestrator != null,
                         environment.getProperty(CHUNKING_PREFIX + ".enabled", Boolean.class, true),
-                        environment.getProperty(CHUNKING_PREFIX + ".strategy", "recursive"),
+                        configuredStrategy,
+                        previewStrategy == null ? null : previewStrategy.value(),
+                        previewStrategy != null,
                         environment.getProperty(CHUNKING_PREFIX + ".max-size", Integer.class,
                                 ChunkingContext.DEFAULT_MAX_SIZE),
                         environment.getProperty(CHUNKING_PREFIX + ".overlap", Integer.class,
@@ -151,15 +159,16 @@ public class RagChunkPreviewController {
     }
 
     private ChunkingContext toContext(RagChunkPreviewRequestDto request) {
+        Map<String, Object> metadata = sanitizedMetadata(request.metadata());
         ChunkingContext.Builder builder = ChunkingContext.builder(request.text())
                 .sourceDocumentId(text(request.documentId()))
                 .objectType(text(request.objectType()))
                 .objectId(text(request.objectId()))
                 .contentType(text(request.contentType()))
                 .filename(text(request.filename()))
-                .metadata(sanitizedMetadata(request.metadata()));
+                .metadata(metadata);
         if (!hasText(request.strategy())) {
-            builder.useConfiguredStrategy();
+            builder.strategy(configuredPreviewStrategy());
         } else {
             builder.strategy(supportedStrategy(request.strategy()));
         }
@@ -188,8 +197,33 @@ public class RagChunkPreviewController {
         return strategy;
     }
 
-    private RagChunkPreviewItemDto toItem(Chunk chunk) {
-        Map<String, Object> metadata = chunk.metadata().toMap();
+    private ChunkingStrategyType configuredPreviewStrategy() {
+        String configuredStrategy = environment.getProperty(CHUNKING_PREFIX + ".strategy", "recursive");
+        ChunkingStrategyType previewStrategy = previewStrategyOrNull(configuredStrategy);
+        if (previewStrategy == null) {
+            throw new IllegalArgumentException("Configured chunking strategy is not supported by chunk preview: "
+                    + configuredStrategy + ". Supported values are: fixed-size, recursive, structure-based.");
+        }
+        return previewStrategy;
+    }
+
+    private ChunkingStrategyType previewStrategyOrNull(String value) {
+        try {
+            ChunkingStrategyType strategy = ChunkingStrategyType.from(value);
+            if (strategy == ChunkingStrategyType.FIXED_SIZE
+                    || strategy == ChunkingStrategyType.RECURSIVE
+                    || strategy == ChunkingStrategyType.STRUCTURE_BASED) {
+                return strategy;
+            }
+            return null;
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
+    }
+
+    private RagChunkPreviewItemDto toItem(Chunk chunk, Map<String, Object> requestMetadata) {
+        Map<String, Object> metadata = new LinkedHashMap<>(requestMetadata);
+        metadata.putAll(chunk.metadata().toMap());
         return new RagChunkPreviewItemDto(
                 chunk.id(),
                 chunk.content(),

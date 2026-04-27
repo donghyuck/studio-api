@@ -70,6 +70,7 @@ class RagChunkPreviewControllerTest {
         assertThat(body.chunks().get(0).chunkId()).isEqualTo("doc-1-0");
         assertThat(body.chunks().get(0).chunkOrder()).isZero();
         assertThat(body.chunks().get(0).chunkType()).isEqualTo("child");
+        assertThat(body.chunks().get(0).metadata()).containsEntry("category", "manual");
     }
 
     @Test
@@ -91,7 +92,7 @@ class RagChunkPreviewControllerTest {
                         null,
                         null));
 
-        assertThat(orchestrator.context.strategy()).isNull();
+        assertThat(orchestrator.context.strategy()).isEqualTo(ChunkingStrategyType.FIXED_SIZE);
         assertThat(orchestrator.context.maxSize()).isEqualTo(ChunkingContext.USE_CONFIGURED_MAX_SIZE);
         assertThat(orchestrator.context.overlap()).isEqualTo(ChunkingContext.USE_CONFIGURED_OVERLAP);
         assertThat(response.getBody().getData().strategy()).isEqualTo("fixed-size");
@@ -112,6 +113,22 @@ class RagChunkPreviewControllerTest {
     }
 
     @Test
+    void rejectsUnsupportedConfiguredDefaultStrategyWhenStrategyIsOmitted() {
+        RagChunkPreviewController controller = controller(
+                new CapturingChunkingOrchestrator(),
+                new AiWebRagProperties(),
+                "semantic");
+
+        assertStatus(() -> controller.preview(new RagChunkPreviewRequestDto(
+                "alpha", null, null, null, null, null, null, null, null, null, null)), 400);
+
+        ResponseEntity<ApiResponse<RagChunkConfigResponseDto>> config = controller.config();
+        assertThat(config.getBody().getData().chunking().strategy()).isEqualTo("semantic");
+        assertThat(config.getBody().getData().chunking().previewStrategy()).isNull();
+        assertThat(config.getBody().getData().chunking().defaultStrategyPreviewSupported()).isFalse();
+    }
+
+    @Test
     void returnsServiceUnavailableWhenChunkingOrchestratorIsMissing() {
         RagChunkPreviewController controller = controller(null);
 
@@ -127,6 +144,19 @@ class RagChunkPreviewControllerTest {
 
         assertStatus(() -> controller.preview(new RagChunkPreviewRequestDto(
                 "alpha", null, null, null, null, null, null, null, null, null, null)), 400);
+    }
+
+    @Test
+    void rejectsPreviewWhenPreviewIsDisabledButKeepsConfigAvailable() {
+        AiWebRagProperties properties = new AiWebRagProperties();
+        properties.getChunkPreview().setEnabled(false);
+        RagChunkPreviewController controller = controller(new CapturingChunkingOrchestrator(), properties);
+
+        assertStatus(() -> controller.preview(new RagChunkPreviewRequestDto(
+                "alpha", null, null, null, null, null, null, null, null, null, null)), 404);
+
+        ResponseEntity<ApiResponse<RagChunkConfigResponseDto>> response = controller.config();
+        assertThat(response.getBody().getData().limits().enabled()).isFalse();
     }
 
     @Test
@@ -155,6 +185,8 @@ class RagChunkPreviewControllerTest {
         RagChunkConfigResponseDto data = response.getBody().getData();
         assertThat(data.chunking().available()).isTrue();
         assertThat(data.chunking().strategy()).isEqualTo("fixed-size");
+        assertThat(data.chunking().previewStrategy()).isEqualTo("fixed-size");
+        assertThat(data.chunking().defaultStrategyPreviewSupported()).isTrue();
         assertThat(data.chunking().maxSize()).isEqualTo(120);
         assertThat(data.chunking().overlap()).isEqualTo(12);
         assertThat(data.chunking().registeredChunkers()).containsExactly("TestChunker");
@@ -180,9 +212,16 @@ class RagChunkPreviewControllerTest {
     }
 
     private RagChunkPreviewController controller(ChunkingOrchestrator orchestrator, AiWebRagProperties properties) {
+        return controller(orchestrator, properties, "fixed-size");
+    }
+
+    private RagChunkPreviewController controller(
+            ChunkingOrchestrator orchestrator,
+            AiWebRagProperties properties,
+            String configuredStrategy) {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
-                "studio.chunking.strategy", "fixed-size",
+                "studio.chunking.strategy", configuredStrategy,
                 "studio.chunking.max-size", "120",
                 "studio.chunking.overlap", "12")));
         return new RagChunkPreviewController(

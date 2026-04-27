@@ -218,9 +218,13 @@ studio:
 ```
 
 `GET {mgmtBasePath}/rag/chunks/config`는 비밀 없는 운영 안전값만 반환한다. 응답에는
-chunking availability, `studio.chunking.*` 값, 등록된 chunker 이름, deprecated legacy fallback
+chunking availability, `studio.chunking.*` 값, preview에서 사용할 수 있는 기본 전략 여부(`previewStrategy`,
+`defaultStrategyPreviewSupported`), 등록된 chunker 이름, deprecated legacy fallback
 `studio.ai.pipeline.chunk-size/chunk-overlap`, RAG context/expansion 설정, preview limit이 포함된다.
 API key, raw environment 값, provider secret은 노출하지 않는다.
+`studio.chunking.strategy`가 `semantic` 또는 `llm-based`처럼 preview에서 실행하지 않는 전략이면
+config API는 원래 설정값을 `strategy`로 보여주되 `defaultStrategyPreviewSupported=false`를 반환하고,
+preview 요청에서 `strategy`를 생략하면 `400 Bad Request`가 반환된다.
 
 Attachment 파일을 직접 읽어 `parseStructured` 결과를 preview하는 기능과 `NormalizedDocument` JSON preview는
 후속 PR 범위이다. 현재 attachment RAG 색인은 기존 attachment RAG index/job API를 사용한다.

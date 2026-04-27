@@ -32,5 +32,6 @@ dependencies {
     testImplementation("org.springframework.ai:spring-ai-starter-model-openai")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.boot:spring-boot-starter-security")
+    testImplementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation(project(":studio-platform"))
 }

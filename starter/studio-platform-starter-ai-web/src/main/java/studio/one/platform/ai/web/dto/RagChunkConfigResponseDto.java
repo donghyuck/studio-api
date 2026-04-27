@@ -12,6 +12,8 @@ public record RagChunkConfigResponseDto(
             boolean available,
             boolean enabled,
             String strategy,
+            String previewStrategy,
+            boolean defaultStrategyPreviewSupported,
             int maxSize,
             int overlap,
             List<String> availableStrategies,

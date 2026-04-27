@@ -52,7 +52,12 @@ import studio.one.platform.chunking.core.ChunkContextExpander;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnClass(ChatPort.class)
+@ConditionalOnClass(name = {
+        "studio.one.platform.ai.core.chat.ChatPort",
+        "jakarta.validation.Valid",
+        "org.springframework.security.access.prepost.PreAuthorize",
+        "org.springframework.web.bind.annotation.RestController"
+})
 @Conditional(AiWebEndpointCondition.class)
 @EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class, RagPipelineProperties.class})
 public class AiWebAutoConfiguration {
@@ -150,11 +155,6 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(
-            prefix = PropertyKeys.AI.Endpoints.PREFIX + ".rag.chunk-preview",
-            name = "enabled",
-            havingValue = "true",
-            matchIfMissing = true)
     @SuppressWarnings("deprecation")
     RagChunkPreviewController ragChunkPreviewController(
             ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
