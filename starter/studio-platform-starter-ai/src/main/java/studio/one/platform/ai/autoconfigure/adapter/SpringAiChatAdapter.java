@@ -19,7 +19,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
-import studio.one.platform.ai.core.chat.ChatMessageRole;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
@@ -50,7 +49,7 @@ public class SpringAiChatAdapter implements ChatPort {
 
     @Override
     public ChatResponse chat(ChatRequest request) {
-        List<Message> messages = request.messages().stream()
+        List<Message> messages = prepareMessages(request).stream()
                 .map(this::toSpringAiMessage)
                 .toList();
 
@@ -81,7 +80,7 @@ public class SpringAiChatAdapter implements ChatPort {
 
     @Override
     public Stream<ChatStreamEvent> stream(ChatRequest request) {
-        List<Message> messages = request.messages().stream()
+        List<Message> messages = prepareMessages(request).stream()
                 .map(this::toSpringAiMessage)
                 .toList();
         org.springframework.ai.chat.prompt.ChatOptions options = createChatOptions(request);
@@ -104,6 +103,10 @@ public class SpringAiChatAdapter implements ChatPort {
             case USER -> new UserMessage(message.content());
             case ASSISTANT -> new AssistantMessage(message.content());
         };
+    }
+
+    protected List<ChatMessage> prepareMessages(ChatRequest request) {
+        return request.messages() == null ? List.of() : request.messages();
     }
 
     protected org.springframework.ai.chat.prompt.ChatOptions createChatOptions(ChatRequest request) {
