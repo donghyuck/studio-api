@@ -12,8 +12,12 @@ orchestration과 선택 정책을 소유한다.
 | chat model | `spring.ai.<provider>.chat.options.model`, provider별 chat model fallback | 실제 chat provider 호출 model이다. Google Gemini chat은 `studio.ai.providers.<id>.chat.model` fallback을 지원한다. |
 | embedding runtime model | `spring.ai.<provider>.embedding.*` | 현재 embedding provider 호출 model source다. OpenAI, Google Gemini, Ollama embedding은 Spring AI embedding model 설정이 필요하다. |
 | RAG embedding dimension/filter | `studio.ai.rag.embedding-profiles.*.dimension` | explicit profile 검색과 Vector metadata filter에 쓰는 RAG 기준값이다. 실제 provider dimension 설정과 일치해야 한다. |
-| provider enable / default provider | `studio.ai.providers.*`, `studio.ai.default-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. |
+| provider enable / default provider | `studio.ai.providers.*`, `studio.ai.default-provider`, `studio.ai.default-chat-provider`, `studio.ai.default-embedding-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. `default-provider`는 기존 호환 fallback이고, chat/embedding 기본 provider는 분리할 수 있다. |
 | RAG embedding profile | `studio.ai.rag.embedding-profiles.*` | RAG 요청에서 선택할 profile id와 metadata/filter 기준이다. |
+
+`studio.ai.default-provider`를 설정하면 기존 호출자 호환을 위해 해당 provider가 chat과 embedding port를 모두 제공해야 한다.
+chat 전용 기본값과 embedding 전용 기본값만 분리하려면 `default-provider`를 생략하고
+`default-chat-provider` / `default-embedding-provider`를 함께 설정한다.
 
 `studio.ai.providers.<id>.embedding.model`은 현재 runtime embedding model fallback으로 쓰지 않는다.
 Spring AI provider를 쓰는 embedding 운영 환경에서는 `spring.ai.*.embedding.*`과
@@ -28,6 +32,9 @@ studio:
   ai:
     enabled: true
     default-provider: gemini
+    # chat/embedding 기본 provider를 분리할 때만 지정한다.
+    # default-chat-provider: gemini-chat
+    # default-embedding-provider: gemini
     providers:
       gemini:
         type: GOOGLE_AI_GEMINI

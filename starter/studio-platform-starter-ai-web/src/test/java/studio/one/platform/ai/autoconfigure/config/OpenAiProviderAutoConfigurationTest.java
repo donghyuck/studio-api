@@ -223,6 +223,8 @@ class OpenAiProviderAutoConfigurationTest {
 
             assertThat(response.getStatusCode().is2xxSuccessful()).isTrue();
             assertThat(response.getBody().getData().defaultProvider()).isEqualTo("openai");
+            assertThat(response.getBody().getData().defaultChatProvider()).isEqualTo("openai");
+            assertThat(response.getBody().getData().defaultEmbeddingProvider()).isEqualTo("openai");
             assertThat(response.getBody().getData().providers())
                     .extracting(AiInfoController.ProviderInfo::name)
                     .containsExactly("openai");

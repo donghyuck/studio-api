@@ -37,17 +37,21 @@ public class AiProviderRegistryConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(AiProviderRegistry.class, true), LogUtils.red(State.CREATED.toString())));
 
-        String defaultProvider = properties.getDefaultProvider();
-        if (defaultProvider == null || defaultProvider.isBlank()) {
-            throw new IllegalStateException("studio.ai.default-provider must be configured");
+        String legacyDefaultProvider = normalize(properties.getDefaultProvider());
+        String defaultChatProvider = firstNonBlank(properties.getDefaultChatProvider(), legacyDefaultProvider);
+        String defaultEmbeddingProvider = firstNonBlank(properties.getDefaultEmbeddingProvider(), legacyDefaultProvider);
+        if (legacyDefaultProvider == null && (defaultChatProvider == null || defaultEmbeddingProvider == null)) {
+            throw new IllegalStateException("studio.ai.default-provider must be configured unless both " +
+                    "studio.ai.default-chat-provider and studio.ai.default-embedding-provider are configured");
         }
-        String normalizedDefault = defaultProvider.toLowerCase(java.util.Locale.ROOT);
-        if (!chatPorts.containsKey(normalizedDefault) && !embeddingPorts.containsKey(normalizedDefault)) {
-            throw new IllegalStateException(
-                    "studio.ai.default-provider '" + defaultProvider + "' has no registered chat or embedding port. " +
-                    "Ensure the provider library is on the classpath and the provider is enabled in studio.ai.providers.");
+        if (legacyDefaultProvider != null) {
+            requirePort(chatPorts, legacyDefaultProvider, "studio.ai.default-provider", ChatPort.class);
+            requirePort(embeddingPorts, legacyDefaultProvider, "studio.ai.default-provider", EmbeddingPort.class);
         }
-        return new AiProviderRegistry(defaultProvider, chatPorts, embeddingPorts);
+        requirePort(chatPorts, defaultChatProvider, "studio.ai.default-chat-provider", ChatPort.class);
+        requirePort(embeddingPorts, defaultEmbeddingProvider, "studio.ai.default-embedding-provider", EmbeddingPort.class);
+        String defaultProvider = legacyDefaultProvider == null ? defaultChatProvider : legacyDefaultProvider;
+        return new AiProviderRegistry(defaultProvider, defaultChatProvider, defaultEmbeddingProvider, chatPorts, embeddingPorts);
     }
 
     @Bean
@@ -72,5 +76,28 @@ public class AiProviderRegistryConfiguration {
                 LogUtils.red(State.CREATED.toString())));
 
         return registry.embeddingPort(null);
+    }
+
+    private static <T> void requirePort(Map<String, T> ports, String provider, String propertyName, Class<?> portType) {
+        if (provider == null) {
+            throw new IllegalStateException(propertyName + " must be configured");
+        }
+        if (ports.keySet().stream().map(AiProviderRegistryConfiguration::normalize).noneMatch(provider::equals)) {
+            throw new IllegalStateException(propertyName + " '" + provider + "' has no registered " +
+                    portType.getSimpleName() + ". Ensure the provider library is on the classpath and the provider " +
+                    "channel is enabled in studio.ai.providers.");
+        }
+    }
+
+    private static String firstNonBlank(String primary, String fallback) {
+        String normalized = normalize(primary);
+        return normalized == null ? fallback : normalized;
+    }
+
+    private static String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.toLowerCase(java.util.Locale.ROOT);
     }
 }

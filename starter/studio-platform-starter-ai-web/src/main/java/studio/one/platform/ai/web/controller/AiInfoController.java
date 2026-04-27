@@ -64,7 +64,13 @@ public class AiInfoController {
                 chatProperties.getMemory().getMaxConversations(),
                 chatProperties.getMemory().getTtl().toString()));
         return ResponseEntity.ok(ApiResponse.ok(
-                new AiInfoResponse(providerInfos, properties.getDefaultProvider(), vectorInfo, chatInfo)));
+                new AiInfoResponse(
+                        providerInfos,
+                        defaultProvider(),
+                        defaultChatProvider(),
+                        defaultEmbeddingProvider(),
+                        vectorInfo,
+                        chatInfo)));
     }
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
@@ -119,7 +125,28 @@ public class AiInfoController {
         return null;
     }
 
-    public record AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector, ChatInfo chat) {}
+    private String defaultChatProvider() {
+        return firstNonBlank(properties.getDefaultChatProvider(), properties.getDefaultProvider());
+    }
+
+    private String defaultEmbeddingProvider() {
+        return firstNonBlank(properties.getDefaultEmbeddingProvider(), properties.getDefaultProvider());
+    }
+
+    private String defaultProvider() {
+        return firstNonBlank(properties.getDefaultProvider(), defaultChatProvider());
+    }
+
+    public record AiInfoResponse(List<ProviderInfo> providers,
+                                 String defaultProvider,
+                                 String defaultChatProvider,
+                                 String defaultEmbeddingProvider,
+                                 VectorInfo vector,
+                                 ChatInfo chat) {
+        public AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector, ChatInfo chat) {
+            this(providers, defaultProvider, defaultProvider, defaultProvider, vector, chat);
+        }
+    }
 
     public record ProviderInfo(String name,
                                AiAdapterProperties.ProviderType type,

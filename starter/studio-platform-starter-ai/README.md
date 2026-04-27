@@ -3,7 +3,8 @@
 AI 서비스(채팅, 임베딩, 벡터 스토어, RAG 파이프라인)를 자동 구성하는 스타터이다.
 애플리케이션 모듈은 이 스타터가 제공하는 포트와 `RagPipelineService`를 통해 공통 AI 기능을 재사용할 수 있다.
 멀티 프로바이더 팩토리 패턴을 통해 OpenAI, Google AI Gemini, Ollama 등 여러 LLM 프로바이더를
-동시에 등록하고, `default-provider`로 지정한 프로바이더를 기본 `ChatPort` / `EmbeddingPort` 빈으로 노출한다.
+동시에 등록하고, 기본 `ChatPort` / `EmbeddingPort` 빈을 노출한다. 기본 chat provider와 embedding provider는
+같은 provider를 쓰거나 별도 provider로 분리할 수 있다.
 JdbcTemplate이 컨텍스트에 있으면 pgvector 기반 `VectorStorePort`도 자동으로 생성된다.
 `studio-platform-ai`는 공통 계약만 제공하고, Spring AI adapter와 기본 RAG 구현은 이 스타터가 제공한다.
 `starter:studio-platform-starter-chunking`이 있으면 `RagPipelineService`는 `ChunkingOrchestrator`를 우선 사용하고,
@@ -59,7 +60,9 @@ studio:
 studio:
   ai:
     enabled: true
-    default-provider: openai   # 기본 ChatPort / EmbeddingPort 로 사용할 프로바이더 ID
+    default-provider: openai   # 기본 ChatPort / EmbeddingPort fallback provider ID
+    # default-chat-provider: openai      # 선택: 기본 ChatPort provider ID
+    # default-embedding-provider: openai # 선택: 기본 EmbeddingPort provider ID
     providers:
       <provider-id>:
         type: OPENAI            # OPENAI | GOOGLE_AI_GEMINI | OLLAMA
@@ -71,6 +74,11 @@ studio:
 ```
 
 `studio.ai.*`는 provider 선택, 활성화, Studio RAG orchestration 설정을 담당한다.
+`studio.ai.default-provider`만 설정하면 기존처럼 chat/embedding 기본 provider fallback으로 모두 사용한다.
+이 값이 설정된 경우 기존 계약 보존을 위해 해당 provider에는 chat과 embedding port가 모두 등록되어야 한다.
+chat과 embedding을 분리해야 하면 `studio.ai.default-chat-provider`와
+`studio.ai.default-embedding-provider`를 지정한다. 이 두 값이 있으면 legacy `default-provider` 없이도
+기동할 수 있다.
 provider SDK의 실제 API key, model, dimensions, temperature, base-url 같은 실행 옵션은
 `spring.ai.*`를 canonical source로 둔다. `studio.ai.providers.<id>.chat.model`과
 `studio.ai.providers.<id>.embedding.model`은 legacy/fallback 성격이며 Spring AI provider에서는
@@ -204,8 +212,8 @@ studio:
 | 빈 타입 | 설명 |
 |---|---|
 | `AiProviderRegistry` | 등록된 모든 프로바이더의 ChatPort / EmbeddingPort 를 보관하는 레지스트리 |
-| `ChatPort` (기본) | `default-provider`에 해당하는 채팅 포트 |
-| `EmbeddingPort` (기본) | `default-provider`에 해당하는 임베딩 포트 |
+| `ChatPort` (기본) | `default-chat-provider` 또는 `default-provider`에 해당하는 채팅 포트 |
+| `EmbeddingPort` (기본) | `default-embedding-provider` 또는 `default-provider`에 해당하는 임베딩 포트 |
 | `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
 | `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
 | `RagIndexJobRepository` | RAG 색인 작업 상태/로그 저장소. 기본 구현은 단일 인스턴스용 in-memory repository |
@@ -450,9 +458,11 @@ studio:
 
 ## 5) 참고 사항
 
-- **fail-fast**: `studio.ai.default-provider`가 설정되지 않았거나, 해당 프로바이더에 chat/embedding 포트가
-  모두 없으면 애플리케이션 시작 시 `IllegalStateException`으로 즉시 실패한다.
-- **default-provider 생략 불가**: `default-provider`는 필수 항목이다. 값이 없으면 시작이 거부된다.
+- **fail-fast**: 기본 chat provider에 `ChatPort`가 없거나 기본 embedding provider에 `EmbeddingPort`가 없으면
+  애플리케이션 시작 시 `IllegalStateException`으로 즉시 실패한다.
+- **default-provider fallback**: `default-provider`는 기존 호환용 fallback이다. 생략하려면
+  `default-chat-provider`와 `default-embedding-provider`를 모두 설정해야 한다.
+  `default-provider`를 함께 설정하는 경우 해당 provider는 기존 호출자 호환을 위해 chat/embedding port를 모두 제공해야 한다.
 - OPENAI 타입 프로바이더는 동시에 하나만 활성화할 수 있다. 두 개 이상 활성화하면 시작 시 실패한다.
 - Spring AI 표준 속성(`spring.ai.*`)과 Studio 전용 속성(`studio.ai.*`)을 혼합 사용한다.
   OpenAI의 API 키 및 모델은 `spring.ai.openai.*`로 설정하고, Google/Ollama 고유 옵션은

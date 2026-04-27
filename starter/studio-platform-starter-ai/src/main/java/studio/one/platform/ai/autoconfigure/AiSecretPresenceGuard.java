@@ -43,8 +43,11 @@ public class AiSecretPresenceGuard {
     }
 
     private void validateDefaultProviderSelection() {
-        if (!StringUtils.hasText(properties.getDefaultProvider())) {
-            throw new IllegalStateException("studio.ai.default-provider must be configured");
+        if (!StringUtils.hasText(properties.getDefaultProvider())
+                && (!StringUtils.hasText(properties.getDefaultChatProvider())
+                || !StringUtils.hasText(properties.getDefaultEmbeddingProvider()))) {
+            throw new IllegalStateException("studio.ai.default-provider must be configured unless both " +
+                    "studio.ai.default-chat-provider and studio.ai.default-embedding-provider are configured");
         }
     }
 

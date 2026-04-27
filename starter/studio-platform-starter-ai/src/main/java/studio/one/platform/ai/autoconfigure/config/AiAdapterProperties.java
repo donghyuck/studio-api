@@ -21,6 +21,8 @@ public class AiAdapterProperties {
 
     private boolean enabled = false;
     private String defaultProvider;
+    private String defaultChatProvider;
+    private String defaultEmbeddingProvider;
     private final Map<String, Provider> providers = new LinkedHashMap<>();
     private Endpoints endpoints = new Endpoints();
 

@@ -42,6 +42,9 @@ class AiInfoControllerTest {
 
         ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
 
+        assertThat(body.getData().defaultProvider()).isEqualTo("google-ai-gemini");
+        assertThat(body.getData().defaultChatProvider()).isEqualTo("google-ai-gemini");
+        assertThat(body.getData().defaultEmbeddingProvider()).isEqualTo("google-ai-gemini");
         assertThat(body.getData().providers()).hasSize(2);
         AiInfoController.ProviderInfo googleInfo = body.getData().providers().get(0);
         assertThat(googleInfo.name()).isEqualTo("google-ai-gemini");
@@ -96,5 +99,24 @@ class AiInfoControllerTest {
         assertThat(body.getData().providers())
                 .extracting(AiInfoController.ProviderInfo::name)
                 .containsExactly("google-ai-gemini");
+    }
+
+    @Test
+    void exposesSplitDefaultProvidersWhenConfigured() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultChatProvider("google-chat");
+        properties.setDefaultEmbeddingProvider("google-embedding");
+
+        AiInfoController controller = new AiInfoController(
+                properties,
+                new AiWebChatProperties(),
+                new MockEnvironment(),
+                null);
+
+        ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
+
+        assertThat(body.getData().defaultProvider()).isEqualTo("google-chat");
+        assertThat(body.getData().defaultChatProvider()).isEqualTo("google-chat");
+        assertThat(body.getData().defaultEmbeddingProvider()).isEqualTo("google-embedding");
     }
 }
