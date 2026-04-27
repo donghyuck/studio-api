@@ -240,26 +240,6 @@ class AttachmentEmbeddingPipelineControllerTest {
                 .plainText("structured text")
                 .metadata(Map.of("parser", "textract"))
                 .build();
-        Chunk chunk = Chunk.of(
-                "doc-1#0",
-                "structured text",
-                ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, 7)
-                        .sourceDocumentId("doc-1")
-                        .chunkType(ChunkType.TABLE)
-                        .parentChunkId("parent-1")
-                        .previousChunkId("prev-1")
-                        .nextChunkId("next-1")
-                        .objectType("attachment")
-                        .objectId("1")
-                        .section("Intro")
-                        .attributes(Map.of(
-                                "headingPath", List.of("Intro", "Table"),
-                                "sourceRef", "sample.txt#page=3",
-                                "page", 3,
-                                "slide", 2,
-                                "embeddingModel", "test-embedding"))
-                        .build());
-
         when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
         when(attachmentService.getInputStream(attachment))
                 .thenReturn(new ByteArrayInputStream("ignored".getBytes(StandardCharsets.UTF_8)));
@@ -269,7 +249,23 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(attachment.getSize()).thenReturn(15L);
         when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
         when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
-        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class))).thenReturn(List.of(chunk));
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class))).thenAnswer(invocation -> {
+            NormalizedDocument document = invocation.getArgument(0);
+            return List.of(Chunk.of(
+                    "doc-1#0",
+                    "structured text",
+                    ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, 7)
+                            .sourceDocumentId("doc-1")
+                            .chunkType(ChunkType.TABLE)
+                            .parentChunkId("parent-1")
+                            .previousChunkId("prev-1")
+                            .nextChunkId("next-1")
+                            .objectType("attachment")
+                            .objectId("1")
+                            .section("Intro")
+                            .attributes(mergedChunkAttributes(document.metadata()))
+                            .build()));
+        });
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))));
 
@@ -352,6 +348,73 @@ class AttachmentEmbeddingPipelineControllerTest {
                             && Integer.valueOf(2).equals(metadata.get("embeddingDimension"))
                             && metadata.containsKey("strategy");
                 }));
+    }
+
+    @Test
+    void ragIndexPersistsDistinctChunkIndexesForStructuredChunks() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        AttachmentStructuredRagIndexer structuredRagIndexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        configureMockMvc(structuredRagIndexer, true);
+
+        Attachment attachment = mock(Attachment.class);
+        ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "first\n\nsecond", "sample.txt");
+        NormalizedDocument normalizedDocument = NormalizedDocument.builder("doc-1")
+                .plainText("first\n\nsecond")
+                .metadata(Map.of("parser", "textract"))
+                .build();
+
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("ignored".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(15L);
+        when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
+        when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class))).thenAnswer(invocation -> {
+            NormalizedDocument document = invocation.getArgument(0);
+            return List.of(
+                    structuredChunk("doc-1#0", "first", 0, document.metadata()),
+                    structuredChunk("doc-1#1", "second", 1, document.metadata()));
+        });
+        when(embeddingPort.embed(any(EmbeddingRequest.class))).thenReturn(
+                new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))),
+                new EmbeddingResponse(List.of(new EmbeddingVector("1", List.of(0.3d, 0.4d)))));
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "documentId": "doc-1",
+                                  "debug": true,
+                                  "metadata": {
+                                    "category": "manual"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("X-RAG-Index-Path", "structured"))
+                .andExpect(header().string("X-RAG-Index-Chunk-Count", "2"))
+                .andExpect(header().string("X-RAG-Index-Vector-Count", "2"));
+
+        verify(vectorStore).replaceRecordsByObject(
+                argThat("attachment"::equals),
+                argThat("1"::equals),
+                argThat((List<VectorRecord> records) ->
+                        records.size() == 2
+                                && "doc-1#0".equals(records.get(0).chunkId())
+                                && "doc-1#1".equals(records.get(1).chunkId())
+                                && Integer.valueOf(0).equals(records.get(0).toMetadata().get("chunkIndex"))
+                                && Integer.valueOf(1).equals(records.get(1).toMetadata().get("chunkIndex"))
+                                && Integer.valueOf(0).equals(records.get(0).toMetadata().get("chunkOrder"))
+                                && Integer.valueOf(1).equals(records.get(1).toMetadata().get("chunkOrder"))));
     }
 
     @Test
@@ -561,5 +624,28 @@ class AttachmentEmbeddingPipelineControllerTest {
         ObjectProvider<T> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(value);
         return provider;
+    }
+
+    private Map<String, Object> mergedChunkAttributes(Map<String, Object> metadata) {
+        Map<String, Object> attributes = new java.util.HashMap<>(metadata);
+        attributes.put("headingPath", List.of("Intro", "Table"));
+        attributes.put("sourceRef", "sample.txt#page=3");
+        attributes.put("page", 3);
+        attributes.put("slide", 2);
+        attributes.put("embeddingModel", "test-embedding");
+        return attributes;
+    }
+
+    private Chunk structuredChunk(String id, String content, int order, Map<String, Object> metadata) {
+        return Chunk.of(
+                id,
+                content,
+                ChunkMetadata.builder(ChunkingStrategyType.STRUCTURE_BASED, order)
+                        .sourceDocumentId("doc-1")
+                        .chunkType(ChunkType.CHILD)
+                        .objectType("attachment")
+                        .objectId("1")
+                        .attributes(new java.util.HashMap<>(metadata))
+                        .build());
     }
 }

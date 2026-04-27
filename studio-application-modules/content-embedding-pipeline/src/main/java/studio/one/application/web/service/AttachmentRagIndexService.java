@@ -148,7 +148,6 @@ public class AttachmentRagIndexService {
         metadata.putIfAbsent("indexedAt", Instant.now().toString());
         metadata.putIfAbsent("contentType", attachment.getContentType());
         metadata.putIfAbsent("size", attachment.getSize());
-        metadata.putIfAbsent("chunkOrder", 0);
         return metadata;
     }
 
