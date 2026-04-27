@@ -24,6 +24,36 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
+    void validateAllowsSplitDefaultProvidersWithoutLegacyDefaultProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultChatProvider("google-chat");
+        properties.setDefaultEmbeddingProvider("google-embedding");
+
+        Provider chatProvider = new Provider();
+        chatProvider.setEnabled(true);
+        chatProvider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        chatProvider.getChat().setEnabled(true);
+        properties.getProviders().put("google-chat", chatProvider);
+
+        Provider embeddingProvider = new Provider();
+        embeddingProvider.setEnabled(true);
+        embeddingProvider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        embeddingProvider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google-embedding", embeddingProvider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.google.genai.chat.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
+        environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
     void validateRequiresSpringAiApiKeyForOpenAiProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);

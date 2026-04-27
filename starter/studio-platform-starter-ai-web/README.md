@@ -40,6 +40,8 @@ studio:
   ai:
     enabled: true
     default-provider: openai
+    # default-chat-provider: openai
+    # default-embedding-provider: openai
     endpoints:
       enabled: true              # AI web endpoint 전체 활성화 여부 (기본: true)
       base-path: /api/ai         # 사용자용 AI endpoint 기본 경로
@@ -188,7 +190,7 @@ Content-Type: application/json
 }
 ```
 
-`provider`를 생략하면 `studio.ai.default-provider`가 사용된다. `systemPrompt`가 있으면
+`provider`를 생략하면 `studio.ai.default-chat-provider` 또는 `studio.ai.default-provider`가 사용된다. `systemPrompt`가 있으면
 서버가 첫 system message로 변환해 provider에 전달한다.
 
 기본 chat endpoint는 이전 대화를 서버에 저장하지 않는다. 요청에서 memory를 명시적으로 켜고,
