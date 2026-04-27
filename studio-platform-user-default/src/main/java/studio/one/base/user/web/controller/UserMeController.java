@@ -12,7 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,7 +41,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.Self.PATH + ":/api/self}")
 @RequiredArgsConstructor
 @Slf4j
-public class UserMeController extends AbstractPasswordPolicyControllerSupport implements UserMeControllerApi {
+public class UserMeController extends AbstractPasswordPolicyControllerSupport implements UserMeApi {
     private final ApplicationUserService<User, Role> userService;
     private final ApplicationUserMapper mapper;
     private final PasswordPolicyService passwordPolicyService;

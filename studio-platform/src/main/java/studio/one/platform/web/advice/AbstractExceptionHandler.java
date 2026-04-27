@@ -5,7 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;

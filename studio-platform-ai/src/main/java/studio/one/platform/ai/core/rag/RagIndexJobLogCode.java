@@ -1,0 +1,16 @@
+package studio.one.platform.ai.core.rag;
+
+public enum RagIndexJobLogCode {
+    JOB_STARTED,
+    STEP_CHANGED,
+    JOB_COMPLETED,
+    JOB_CANCELLED,
+    RETRY_REQUESTED,
+    SOURCE_UNSUPPORTED,
+    PARTIAL_PARSE,
+    OCR_LOW_CONFIDENCE,
+    TABLE_RECONSTRUCTION_PARTIAL,
+    EMBEDDING_FAILED,
+    VECTOR_UPSERT_FAILED,
+    UNKNOWN_ERROR
+}

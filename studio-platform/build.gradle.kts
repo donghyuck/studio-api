@@ -21,6 +21,7 @@ dependencies {
     compileOnly("org.springframework.security:spring-security-acl")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     api("commons-io:commons-io:${project.findProperty("apacheCommonsIoVersion")}") 
     api("org.apache.commons:commons-lang3:${project.findProperty("apacheCommonsLang3Version")}")
 }

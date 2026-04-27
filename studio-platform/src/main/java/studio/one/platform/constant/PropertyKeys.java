@@ -276,7 +276,7 @@ public class PropertyKeys {
         public static final class Endpoints {
             public static final String PREFIX = AI.PREFIX + ".endpoints";
             public static final String BASE_PATH = PREFIX + ".base-path";
-
+            public static final String MGMT_BASE_PATH = PREFIX + ".mgmt-base-path";
         }
 
     }

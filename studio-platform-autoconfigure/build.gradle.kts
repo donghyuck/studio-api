@@ -17,4 +17,5 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation") 
+    testImplementation("org.springframework.data:spring-data-commons")
 }

@@ -2,7 +2,7 @@ package studio.one.platform.security.autoconfigure;
 
 import java.util.concurrent.Executor;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;

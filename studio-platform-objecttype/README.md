@@ -138,6 +138,11 @@ objecttypes:
 
 ## 캐시/리바인드
 - registry/policy 캐시는 `studio.objecttype.*.cache` 설정으로 활성화하며 TTL 기반이다.
+
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/objecttype/{postgres,mysql,mariadb}/V200__create_objecttype_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V299)를 따른다.
 - TTL이 `0` 또는 음수면 캐시를 우회하고 원본 구현을 그대로 호출한다.
 - `ObjectRebindService.rebind()` 호출 시 캐시가 무효화되도록 연결되어 있다.
 
@@ -154,8 +159,20 @@ objecttypes:
 - `PUT    /api/mgmt/object-types/{objectType}` (upsert)
 - `PATCH  /api/mgmt/object-types/{objectType}` (status/description/etc)
 - `GET    /api/mgmt/object-types/{objectType}/policy`
+- `GET    /api/mgmt/object-types/{objectType}/policy/effective`
 - `PUT    /api/mgmt/object-types/{objectType}/policy` (upsert)
 - `POST   /api/mgmt/object-types/reload` (cache evict/rebind)
+
+### 적용 정책 조회
+`GET /api/mgmt/object-types/{objectType}/policy/effective`는 클라이언트가 실제 적용 정책을 안내할 때 사용한다.
+
+- 저장된 정책이 있으면 저장 정책값과 `source=stored`를 반환한다.
+- 저장된 정책이 없으면 내부 기본 정책값과 `source=default`를 반환한다.
+- `source=default`의 현재 의미는 ObjectType별 추가 정책 없음이다. API 응답은 `maxFileMb=null`, `allowedExt=null`, `allowedMime=null`, `policyJson=null`로 내려가며, 클라이언트는 이를 용량/확장자/MIME/추가 정책 제한 없음으로 안내한다. 단, Spring multipart 제한이나 attachment 서비스 공통 제한은 별도로 적용될 수 있다.
+
+클라이언트 안내 기준:
+- `source=stored`: “저장된 정책이 적용됩니다.”
+- `source=default`: “저장된 ObjectType 정책이 없어 ObjectType별 추가 제한은 적용되지 않습니다. 서버 공통 업로드 제한은 별도로 적용될 수 있습니다.”
 
 ## 런타임(클라이언트용 API) 가이드
 런타임 API는 업로드 검증/정의 조회를 위한 엔드포인트다.
@@ -306,3 +323,14 @@ ObjectTypePolicyDto:
 - DB/Repository 인프라는 `studio-platform-data`
 
 의존 방향은 `platform → objecttype → data`로 유지합니다.
+
+## 대응 스타터
+이 모듈의 자동 구성(레지스트리 초기화, REST 엔드포인트 노출, YAML/DB 모드 선택)은
+`starter/studio-platform-starter-objecttype`이 담당한다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter-objecttype"))
+```
+
+스타터 상세 설정(YAML vs DB 모드, 캐시 TTL, 엔드포인트 경로)은
+`starter/studio-platform-starter-objecttype/README.md`를 참고한다.

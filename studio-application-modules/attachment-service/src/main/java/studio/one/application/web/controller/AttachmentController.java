@@ -3,14 +3,13 @@ package studio.one.application.web.controller;
 import java.io.IOException;
 import java.util.List;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
-import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +25,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
-import org.springframework.beans.factory.ObjectProvider;
 import studio.one.application.attachment.thumbnail.ThumbnailData;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.dto.AttachmentDto;
@@ -41,8 +39,6 @@ import studio.one.platform.web.dto.ApiResponse;
 @Validated
 public class AttachmentController {
 
-    private static final long MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024; // 50MB 상한으로 자원 고갈 방지
-
     private final AttachmentService attachmentService;
     private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
 
@@ -52,29 +48,20 @@ public class AttachmentController {
             @RequestParam("objectType") int objectType,
             @RequestParam("objectId") long objectId,
             @RequestParam("file") MultipartFile file) throws IOException {
-
-        if (file == null || file.isEmpty()) {
-            return badRequest("File is empty");
+        AttachmentWebSupport.PreparedUpload upload;
+        try {
+            upload = AttachmentWebSupport.prepareUpload(file);
+        } catch (IllegalArgumentException e) {
+            return AttachmentWebSupport.badRequest(e.getMessage());
         }
-        if (file.getSize() > MAX_UPLOAD_SIZE_BYTES) {
-            return badRequest("File too large");
-        }
-        if (file.getSize() > Integer.MAX_VALUE) {
-            return badRequest("File size exceeds supported limit");
-        }
-        String sanitizedName = sanitizeFilename(file.getOriginalFilename());
-        if (!StringUtils.hasText(sanitizedName)) {
-            return badRequest("Invalid file name");
-        }
-        String contentType = resolveMediaTypeString(file.getContentType());
 
         Attachment saved = attachmentService.createAttachment(
                 objectType,
                 objectId,
-                sanitizedName,
-                contentType,
+                upload.name(),
+                upload.contentType(),
                 file.getInputStream(),
-                (int) file.getSize());
+                upload.sizeBytes());
         AttachmentDto dto = AttachmentDto.of(saved, null);
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
@@ -92,24 +79,10 @@ public class AttachmentController {
     public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
             throws IOException, NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        StreamingResponseBody body = out -> {
-            try (var in = attachmentService.getInputStream(attachment)) {
-                in.transferTo(out);
-            }
-        };
-        HttpHeaders headers = new HttpHeaders();
-        headers.setCacheControl(CacheControl.noCache().getHeaderValue());
-        headers.setContentType(resolveMediaType(attachment.getContentType()));
-        headers.setContentLength(attachment.getSize());
-        if (StringUtils.hasText(attachment.getName())) {
-            ContentDisposition cd = ContentDisposition.attachment()
-                    .filename(attachment.getName())
-                    .build();
-            headers.setContentDisposition(cd);
-        }
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(body);
+        return AttachmentWebSupport.downloadResponse(
+                attachment,
+                attachmentService.getInputStream(attachment),
+                CacheControl.noCache());
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/thumbnail")
@@ -129,12 +102,10 @@ public class AttachmentController {
             return ResponseEntity.noContent().build();
         }
         ThumbnailData data = result.get();
-        StreamingResponseBody body = out -> {
-            out.write(data.getBytes());
-        };
+        StreamingResponseBody body = out -> out.write(data.getBytes());
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl(CacheControl.maxAge(3600, java.util.concurrent.TimeUnit.SECONDS).getHeaderValue());
-        headers.setContentType(resolveMediaType(data.getContentType()));
+        headers.setContentType(AttachmentWebSupport.resolveMediaType(data.getContentType()));
         headers.setContentLength(data.getBytes().length);
         return ResponseEntity.ok()
                 .headers(headers)
@@ -167,41 +138,5 @@ public class AttachmentController {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
-    }
-
-    private MediaType resolveMediaType(String contentType) {
-        if (!StringUtils.hasText(contentType)) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-        try {
-            return MediaType.parseMediaType(contentType);
-        } catch (Exception ignored) {
-            return MediaType.APPLICATION_OCTET_STREAM;
-        }
-    }
-
-    private String resolveMediaTypeString(String contentType) {
-        if (!StringUtils.hasText(contentType)) {
-            return MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        }
-        try {
-            return MediaType.parseMediaType(contentType).toString();
-        } catch (Exception ignored) {
-            return MediaType.APPLICATION_OCTET_STREAM_VALUE;
-        }
-    }
-
-    private String sanitizeFilename(String original) {
-        if (!StringUtils.hasText(original)) {
-            return null;
-        }
-        return original.replace("\\", "/").replaceAll(".*/", "");
-    }
-
-    private <T> ResponseEntity<ApiResponse<T>> badRequest(String message) {
-        ApiResponse<T> body = ApiResponse.<T>builder()
-                .message(message)
-                .build();
-        return ResponseEntity.badRequest().body(body);
     }
 }

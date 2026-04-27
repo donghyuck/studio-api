@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.ConstraintViolationException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -252,7 +252,14 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
             HttpMediaTypeNotSupportedException.class
     })
     public ResponseEntity<ProblemDetails> handleHttp4xx(Exception ex, HttpServletRequest req) {
-        HttpStatus status = HttpStatus.BAD_REQUEST;
+        HttpStatus status;
+        if (ex instanceof HttpRequestMethodNotSupportedException) {
+            status = HttpStatus.METHOD_NOT_ALLOWED;
+        } else if (ex instanceof HttpMediaTypeNotSupportedException) {
+            status = HttpStatus.UNSUPPORTED_MEDIA_TYPE;
+        } else {
+            status = HttpStatus.BAD_REQUEST;
+        }
         ProblemDetails body = baseProblem(status, req)
                 .type("urn:error:http")
                 .detail(ex.getMessage())

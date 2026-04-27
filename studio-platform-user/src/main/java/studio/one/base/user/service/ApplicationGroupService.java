@@ -24,14 +24,17 @@ package studio.one.base.user.service;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.lang.Nullable;
 
+import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.web.dto.GroupMemberSummaryDto;
 import studio.one.platform.constant.ServiceNames;
 
 /**
@@ -79,8 +82,19 @@ public interface ApplicationGroupService<G extends Group, R extends Role> {
     /**
      * Delete group
      * @param groupId
-     */    
+     */
     void deleteGroup(Long groupId);
+
+    // ── Properties ───────────────────────────────────────────────────────────
+    Map<String, String> getProperties(Long groupId);
+
+    Map<String, String> replaceProperties(Long groupId, Map<String, String> properties);
+
+    String getProperty(Long groupId, String key);
+
+    String setProperty(Long groupId, String key, String value);
+
+    void deleteProperty(Long groupId, String key);
 
     // ── Group: Queries ───────────────────────────────────────────────────────
     /**
@@ -129,6 +143,16 @@ public interface ApplicationGroupService<G extends Group, R extends Role> {
      */
     Page<Long> getMembers(Long groupId, Pageable pageable);
 
+    Page<ApplicationGroupMemberSummary> getMemberSummaries(Long groupId, @Nullable String q, Pageable pageable);
+
+    default Page<GroupMemberSummaryDto> getMemberSummaryDtos(Long groupId, @Nullable String q, Pageable pageable) {
+        return getMemberSummaries(groupId, q, pageable).map(s -> GroupMemberSummaryDto.builder()
+                .userId(s.getUserId())
+                .username(s.getUsername())
+                .name(s.getName())
+                .enabled(s.isEnabled())
+                .build());
+    }
 
     // ── Roles: Assign / Revoke / Read ────────────────────────────────────────
 

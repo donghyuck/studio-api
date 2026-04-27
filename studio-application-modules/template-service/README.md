@@ -4,7 +4,7 @@
 
 ## 구성 요소
 - **TemplatesService**: 템플릿 생성·조회·수정·삭제와 제목/본문 렌더링을 담당(퍼시스턴스 구현은 `TemplatePersistenceRepository`가 책임).
-- **TemplateController**: CRUD 및 렌더링 REST API 제공. 경로는 `studio.features.template.web.base-path` (기본 `/api/mgmt/templates`).
+- **TemplateMgmtController**: CRUD 및 렌더링 REST API 제공. 경로는 `studio.features.template.web.base-path` (기본 `/api/mgmt/templates`).
 - **TemplateEntity/DefaultTemplate**: 템플릿 도메인 모델. `properties` 맵으로 임의 속성 저장.
 - **FreemarkerTemplateBuilder**: 서블릿 컨텍스트/정적 모델을 포함해 FreeMarker 템플릿 처리 유틸리티.
 
@@ -25,7 +25,7 @@ studio:
 ```
 
 - `persistence.type` 에 따라 JPA(`TemplateJpaRepository`) 또는 JDBC 구현을 선택한다.
-- 웹을 켜면 `TemplateController` 가 등록되며, `@endpointAuthz.can('features:template','<action>')` 스코프로 보호된다.
+- 웹을 켜면 `TemplateMgmtController` 가 등록되며, `@endpointAuthz.can('features:template','<action>')` 스코프로 보호된다.
 
 ## REST API (기본 base-path: `/api/mgmt/templates`)
 - `POST /` 생성: `objectType`(int), `objectId`(long), `name`(unique), `displayName`, `description`, `subject`, `body`, `properties` 맵을 입력. 권한 `features:template/write`.
@@ -48,4 +48,4 @@ studio:
 1. 의존성 추가: `studio-application-starter-template` (또는 모듈 직접 추가).
 2. 설정: `studio.features.template.enabled=true`, REST 사용 시 `studio.features.template.web.enabled=true` 와 `studio.persistence.type=jpa|jdbc`.
 3. 권한 스코프(`features:template/read|write|delete`)를 인가 서버/ACL에 등록.
-4. (선택) 기본 base-path가 필요에 맞게 `/api/mgmt/templates` 이외로 조정하고, DDL(`schema/template/postgres/V0__create_template_tables.sql`)을 적용한다.
+4. (선택) 기본 base-path가 필요에 맞게 `/api/mgmt/templates` 이외로 조정하고, DDL(`schema/template/{db}/V900__create_template_tables.sql`)을 적용한다. Flyway 버전 범위는 `docs/flyway-versioning.md`의 template 범위(V900-V999)를 따른다.

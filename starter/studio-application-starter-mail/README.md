@@ -44,3 +44,8 @@ studio:
 - `studio-application-modules:mail-service`
 - `studio-platform` / `studio-platform-autoconfigure` / `starter:studio-platform-starter`
 - JavaMail (jakarta.mail) 런타임
+
+## 스키마
+마이그레이션 파일 위치: `mail-service/src/main/resources/schema/mail/{db}/V1000__create_mail_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 mail 범위(V1000-V1099)를 따른다.

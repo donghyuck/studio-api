@@ -193,3 +193,16 @@ Authorization: Bearer <token>
 If you need a different data model or policy, implement it in
 `studio-platform-user-default` (or a project-specific module), while keeping
 this module's contracts stable.
+
+## 대응 스타터
+이 모듈(계약)과 `studio-platform-user-default`(기본 구현)의 자동 구성은
+`starter/studio-platform-starter-user`가 담당한다.
+
+```kotlin
+implementation(project(":starter:studio-platform-starter-user"))
+// 기본 구현 사용 시
+implementation(project(":studio-platform-user-default"))
+```
+
+스타터 상세 설정(패키지 스캔, 엔드포인트 토글, 영속성 타입)은
+`starter/studio-platform-starter-user/README.md`를 참고한다.

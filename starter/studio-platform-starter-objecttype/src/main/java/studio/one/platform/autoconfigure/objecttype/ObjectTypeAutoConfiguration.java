@@ -32,7 +32,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -102,9 +102,15 @@ public class ObjectTypeAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
-    public ObjectTypeRegistry objectTypeRegistry(ObjectTypeProperties properties, YamlObjectTypeLoader loader) {
-        YamlObjectTypeLoader.Result result = loader.load(properties.getYaml().getResource());
+    public YamlObjectTypeLoader.Result yamlObjectTypeLoaderResult(ObjectTypeProperties properties,
+            YamlObjectTypeLoader loader) {
+        return loader.load(properties.getYaml().getResource());
+    }
 
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
+    public ObjectTypeRegistry objectTypeRegistry(YamlObjectTypeLoader.Result result) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(YamlObjectTypeRegistry.class, true), LogUtils.red(State.CREATED.toString())));
@@ -115,9 +121,7 @@ public class ObjectTypeAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
-    public ObjectPolicyResolver objectPolicyResolver(ObjectTypeProperties properties, YamlObjectTypeLoader loader) {
-        YamlObjectTypeLoader.Result result = loader.load(properties.getYaml().getResource());
-
+    public ObjectPolicyResolver objectPolicyResolver(YamlObjectTypeLoader.Result result) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(YamlObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
@@ -129,10 +133,9 @@ public class ObjectTypeAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "yaml", matchIfMissing = true)
     public ObjectRebindService objectRebindService() {
-
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(YamlObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
+                LogUtils.blue(YamlObjectRebindService.class, true), LogUtils.red(State.CREATED.toString())));
 
         return new YamlObjectRebindService();
     }
@@ -250,7 +253,7 @@ public class ObjectTypeAutoConfiguration {
         @ConditionalOnMissingBean
         public ObjectTypeStore objectTypeStore(ObjectTypeJpaRepository typeRepository,
                 ObjectTypePolicyJpaRepository policyRepository,
-                javax.persistence.EntityManager entityManager) {
+                jakarta.persistence.EntityManager entityManager) {
             I18n i18n = I18nUtils.resolve(i18nProvider);
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                     ObjectTypeAutoConfiguration.FEATURE_NAME,

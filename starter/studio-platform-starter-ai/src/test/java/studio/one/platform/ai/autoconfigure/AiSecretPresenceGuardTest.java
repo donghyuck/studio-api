@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.Environment;
+import org.springframework.mock.env.MockEnvironment;
 
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties.Provider;
@@ -12,30 +14,218 @@ import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties.ProviderT
 class AiSecretPresenceGuardTest {
 
     @Test
-    void validateRejectsMissingApiKeyForOpenAiProvider() {
+    void validateRequiresDefaultProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
-        Provider provider = new Provider();
-        provider.setEnabled(true);
-        provider.setType(ProviderType.OPENAI);
-        provider.setApiKey(" ");
-        properties.getProviders().put("openai", provider);
+        properties.setEnabled(true);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties);
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
 
     @Test
-    void validateAllowsConfiguredOllamaBaseUrl() {
+    void validateAllowsSplitDefaultProvidersWithoutLegacyDefaultProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultChatProvider("google-chat");
+        properties.setDefaultEmbeddingProvider("google-embedding");
+
+        Provider chatProvider = new Provider();
+        chatProvider.setEnabled(true);
+        chatProvider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        chatProvider.getChat().setEnabled(true);
+        properties.getProviders().put("google-chat", chatProvider);
+
+        Provider embeddingProvider = new Provider();
+        embeddingProvider.setEnabled(true);
+        embeddingProvider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        embeddingProvider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google-embedding", embeddingProvider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.google.genai.chat.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
+        environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateRequiresSpringAiApiKeyForOpenAiProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRequiresSpringAiChatModelPropertyForEnabledOpenAiChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.openai.api-key", "test-key");
+        // intentionally omit spring.ai.openai.chat.options.model
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsOpenAiProviderWithFullSpringAiProperties() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("openai");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OPENAI);
+        provider.getChat().setEnabled(true);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("openai", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.openai.api-key", "test-key");
+        environment.setProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
+        environment.setProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateAllowsConfiguredSpringAiPropertiesForOllamaEmbedding() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("ollama");
         Provider provider = new Provider();
         provider.setEnabled(true);
         provider.setType(ProviderType.OLLAMA);
-        provider.setBaseUrl("http://localhost:11434");
+        provider.getEmbedding().setEnabled(true);
         properties.getProviders().put("ollama", provider);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties);
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.ollama.embedding.options.model", "nomic-embed-text");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingModelPropertyForOllamaEmbedding() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("ollama");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OLLAMA);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("ollama", provider);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsConfiguredSpringAiPropertiesForGoogleEmbedding() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("google");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingModelPropertyForGoogleEmbedding() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("google");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
+        // intentionally omit text.options.model
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingChatModelForGoogleChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("google");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateAllowsConfiguredSpringAiPropertiesForGoogleChat() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultProvider("google");
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        MockEnvironment environment = new MockEnvironment();
+        environment.setProperty("spring.ai.google.genai.chat.api-key", "test-key");
+        environment.setProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
+
+        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    private static Environment environment() {
+        return new MockEnvironment();
     }
 }

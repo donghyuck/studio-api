@@ -46,6 +46,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
+import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -260,7 +261,12 @@ public class SecurityAutoConfiguration {
                 Integer iterations = props.getIterations() != null ? props.getIterations() : 185000;
                 Integer hashWidth = props.getHashWidth() != null ? props.getHashWidth() : 256;
                 String secret = props.getSecret() != null ? props.getSecret() : "";
-                Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth);
+                SecretKeyFactoryAlgorithm pbkdf2Algo = switch (props.getPbkdf2Algo()) {
+                        case PBKDF2WithHmacSHA1 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1;
+                        case PBKDF2WithHmacSHA512 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512;
+                        case PBKDF2WithHmacSHA256 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
+                };
+                Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth, pbkdf2Algo);
                 encoders.put(PasswordEncoderProperties.Algorithm.PBKDF2.name().toLowerCase(), pbkdf2);
 
                 String idForEncode = PasswordEncoderProperties.Algorithm.BCRYPT.name().toLowerCase();

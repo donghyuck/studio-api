@@ -40,8 +40,8 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.stream.StreamSupport;
 
-import javax.annotation.PostConstruct;
-import javax.servlet.ServletContext;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.ServletContext;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -239,11 +239,22 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 	 * @throws IOException if the file cannot be accessed.
 	 */
 	public File getFile(String name) throws IOException {
+		File root;
+		File target;
 		try {
-			return new File(getRootResource().getFile(), name);
+			root = getRootResource().getFile().getCanonicalFile();
+			target = new File(root, name).getCanonicalFile();
+		} catch (IllegalStateException e) {
+			throw e;
 		} catch (IOException e) {
 			throw new IOException(LogUtils.format(i18n, MessageCodes.Error.FILE_ACCESS, name), e);
 		}
+		String rootPath = root.getPath();
+		String targetPath = target.getPath();
+		if (!targetPath.equals(rootPath) && !targetPath.startsWith(rootPath + File.separator)) {
+			throw new IOException(LogUtils.format(i18n, MessageCodes.Error.FILE_ACCESS, name));
+		}
+		return target;
 	}
 
 	private Resource getRootResource() {
@@ -259,7 +270,11 @@ public class RepositoryImpl implements Repository, DomainEvents, ServletContextA
 	 * @throws UnsupportedOperationException currently not implemented.
 	 */
 	public void refresh() {
-		throw new UnsupportedOperationException();
+		if (!initialized.get()) {
+			throw new IllegalStateException(i18n.get(MessageCodes.Error.CONFIG_ROOT_NOT_INITIALIZED));
+		}
+		// TODO: implement dynamic configuration reload when a runtime refresh flow exists.
+		// The startup event only verifies that the repository is already initialized.
 	}
 
 	/**

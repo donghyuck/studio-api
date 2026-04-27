@@ -21,6 +21,8 @@ public class AiAdapterProperties {
 
     private boolean enabled = false;
     private String defaultProvider;
+    private String defaultChatProvider;
+    private String defaultEmbeddingProvider;
     private final Map<String, Provider> providers = new LinkedHashMap<>();
     private Endpoints endpoints = new Endpoints();
 
@@ -59,7 +61,6 @@ public class AiAdapterProperties {
     @ToString
     public static final class GoogleEmbeddingOptions {
         private String taskType = "RETRIEVAL_DOCUMENT";
-        private String titleMetadataKey = "title";
     }
 
     public enum ProviderType {

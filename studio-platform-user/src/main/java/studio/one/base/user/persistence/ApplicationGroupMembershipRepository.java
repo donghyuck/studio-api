@@ -6,7 +6,9 @@ import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.lang.Nullable;
 
+import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
 import studio.one.platform.constant.ServiceNames;
@@ -28,6 +30,8 @@ public static final String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:
   Page<ApplicationGroupMembership> findAllByUserId(Long userId, Pageable pageable);
 
   Page<Long> findUserIdsByGroupId(Long groupId, Pageable pageable);
+
+  Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(Long groupId, @Nullable String keyword, Pageable pageable);
 
   List<GroupCount> countMembersByGroupIds(Collection<Long> groupIds);
 

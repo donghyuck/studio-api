@@ -211,12 +211,12 @@ const display = createdAt.toLocaleString();
 
 ```java
 @RestController
-@RequestMapping("/api/templates")
-public class TemplateController {
+@RequestMapping("/api/examples")
+public class ExampleController {
 
     private final TemplatesService templatesService;
 
-    public TemplateController(TemplatesService templatesService) {
+    public ExampleController(TemplatesService templatesService) {
         this.templatesService = templatesService;
     }
 

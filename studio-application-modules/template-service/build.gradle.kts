@@ -13,12 +13,13 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
  
-dependencies { 
+dependencies {
+    val freemarkerVersion: String = project.findProperty("freemarkerVersion") as String? ?: "2.3.34"
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
-    compileOnly ("org.freemarker:freemarker:2.3.32")  
+    compileOnly("org.freemarker:freemarker:$freemarkerVersion")
     compileOnly(project(":studio-platform"))  
     compileOnly(project(":studio-platform-data")) 
     compileOnly(project(":studio-platform-identity")) 
@@ -27,7 +28,7 @@ dependencies {
 
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
-    testImplementation("org.freemarker:freemarker:2.3.32")
+    testImplementation("org.freemarker:freemarker:$freemarkerVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.data:spring-data-commons")
     testImplementation("org.springframework.security:spring-security-core")

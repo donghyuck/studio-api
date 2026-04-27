@@ -203,21 +203,38 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
         String whereClause = buildWhereClause(resolvedFields, hasQuery, createdBy);
         String orderedQuery = findPageSql + whereClause + buildOrderByClause(sortToUse, "templateId", SORT_COLUMNS);
         Object[] args = buildKeywordArgs(query, resolvedFields);
-        List<Template> content;
+        List<Template> content = queryTemplatePage(orderedQuery, hasQuery, offset, pageSize, args);
+        long total = countTemplates(whereClause, hasQuery, args);
+        return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
+    }
+
+    @SuppressWarnings("java/sql-injection")
+    private List<Template> queryTemplatePage(
+            String orderedQuery,
+            boolean hasQuery,
+            int offset,
+            int pageSize,
+            Object[] args) {
+        assertRepositorySql(orderedQuery);
         if (pagingJdbcTemplate != null) {
-            content = hasQuery
+            return hasQuery
                     ? pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER, args)
                     : pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER);
-        } else {
-            String paged = orderedQuery + " limit " + pageSize + " offset " + offset;
-            content = hasQuery
-                    ? jdbcTemplate.getJdbcTemplate().query(paged, ROW_MAPPER, args)
-                    : jdbcTemplate.getJdbcTemplate().query(paged, ROW_MAPPER);
         }
-        long total = hasQuery
-                ? jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, args, Long.class)
-                : jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, Long.class);
-        return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
+        String paged = orderedQuery + " limit " + pageSize + " offset " + offset;
+        return hasQuery
+                ? jdbcTemplate.getJdbcTemplate().query(paged, ROW_MAPPER, args)
+                : jdbcTemplate.getJdbcTemplate().query(paged, ROW_MAPPER);
+    }
+
+    @SuppressWarnings("java/sql-injection")
+    private long countTemplates(String whereClause, boolean hasQuery, Object[] args) {
+        assertRepositorySql(whereClause);
+        String countSql = countAllSql + whereClause;
+        Long total = hasQuery
+                ? jdbcTemplate.getJdbcTemplate().queryForObject(countSql, args, Long.class)
+                : jdbcTemplate.getJdbcTemplate().queryForObject(countSql, Long.class);
+        return total == null ? 0L : total;
     }
 
     private Template insert(Template template) {
@@ -369,6 +386,12 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
             }
         }
         return selected.isEmpty() ? allowed.keySet() : selected;
+    }
+
+    private void assertRepositorySql(String sql) {
+        if (sql == null || sql.indexOf(';') >= 0 || sql.contains("--") || sql.contains("/*") || sql.contains("*/")) {
+            throw new IllegalArgumentException("Template repository SQL contains unsupported tokens");
+        }
     }
 
     private static final Map<String, String> FIELD_COLUMNS = Map.ofEntries(

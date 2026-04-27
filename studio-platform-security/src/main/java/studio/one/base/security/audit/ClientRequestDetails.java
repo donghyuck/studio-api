@@ -24,7 +24,7 @@ package studio.one.base.security.audit;
 
 import java.util.Optional;
 
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import lombok.Value;
 

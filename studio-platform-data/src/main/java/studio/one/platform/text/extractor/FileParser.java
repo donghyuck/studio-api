@@ -21,8 +21,14 @@
 
 package studio.one.platform.text.extractor;
 
+import studio.one.platform.textract.model.DocumentExtractionResult;
+import studio.one.platform.textract.model.ParsedFile;
+
 /**
- * 문서에서 테스트를 추출하는 파서 인터페이스
+ * 문서에서 테스트를 추출하는 파서 인터페이스.
+ *
+ * @deprecated since 2026-04-20. Use
+ *             {@link studio.one.platform.textract.extractor.FileParser}.
  * 
  * @author donghyuck, son
  * @since 2025-11-27
@@ -37,11 +43,13 @@ package studio.one.platform.text.extractor;
  *          </pre>
  */
 
-public interface FileParser {
+@Deprecated(forRemoval = false)
+public interface FileParser extends studio.one.platform.textract.extractor.FileParser {
 
     /**
      * 이 파서가 해당 파일을 지원하는지 여부.
      */
+    @Override
     boolean supports(String contentType, String filename);
 
     /**
@@ -51,5 +59,26 @@ public interface FileParser {
      * @param contentType HTTP Content-Type (nullable)
      * @param filename    원본 파일명 (nullable 아님이 좋음)
      */
+    @Override
     String parse(byte[] bytes, String contentType, String filename) throws FileParseException;
+
+    @Override
+    default ParsedFile parseStructured(byte[] bytes, String contentType, String filename)
+            throws FileParseException {
+        String text = parse(bytes, contentType, filename);
+        return ParsedFile.textOnly(
+                studio.one.platform.textract.extractor.DocumentFormatDetector.detect(contentType, filename),
+                text,
+                filename);
+    }
+
+    /**
+     * @deprecated since 2026-04-20. Use {@link #parseStructured(byte[], String, String)}.
+     */
+    @Override
+    @Deprecated(forRemoval = false)
+    default DocumentExtractionResult extract(byte[] bytes, String contentType, String filename)
+            throws FileParseException {
+        return DocumentExtractionResult.from(parseStructured(bytes, contentType, filename));
+    }
 }

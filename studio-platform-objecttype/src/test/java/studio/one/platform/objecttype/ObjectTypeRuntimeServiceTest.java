@@ -1,5 +1,6 @@
 package studio.one.platform.objecttype;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,7 +16,7 @@ import studio.one.platform.objecttype.model.ObjectTypeMetadata;
 import studio.one.platform.objecttype.policy.ObjectPolicyResolver;
 import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
 import studio.one.platform.objecttype.service.DefaultObjectTypeRuntimeService;
-import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
+import studio.one.platform.objecttype.service.ValidateUploadCommand;
 import studio.one.platform.objecttype.yaml.YamlObjectPolicy;
 import studio.one.platform.objecttype.yaml.YamlObjectTypeMetadata;
 
@@ -86,6 +87,41 @@ public class ObjectTypeRuntimeServiceTest {
         DefaultObjectTypeRuntimeService svc = new DefaultObjectTypeRuntimeService(registry, resolver);
 
         assertThrows(PlatformRuntimeException.class,
-                () -> svc.validateUpload(1, new ValidateUploadRequest("a.pdf", "application/pdf", 10_000L)));
+                () -> svc.validateUpload(1, new ValidateUploadCommand("a.pdf", "application/pdf", 10_000L)));
+    }
+
+    @Test
+    void validateUploadReturnsAllowedWhenPolicyMatches() {
+        ObjectTypeMetadata meta = new YamlObjectTypeMetadata(1, "attachment", "Attachment",
+                Map.of("status", "active"));
+        ObjectPolicy policy = new YamlObjectPolicy("p1", Map.of(
+                "maxFileMb", 1,
+                "allowedExt", "png,jpg",
+                "allowedMime", "image/*"));
+        ObjectTypeRegistry registry = new ObjectTypeRegistry() {
+            @Override
+            public Optional<ObjectTypeMetadata> findByType(int objectType) {
+                return Optional.of(meta);
+            }
+
+            @Override
+            public Optional<ObjectTypeMetadata> findByKey(String key) {
+                return Optional.of(meta);
+            }
+        };
+        ObjectPolicyResolver resolver = new ObjectPolicyResolver() {
+            @Override
+            public Optional<ObjectPolicy> resolve(ObjectTypeMetadata metadata) {
+                return Optional.of(policy);
+            }
+
+            @Override
+            public Optional<ObjectPolicy> resolve(studio.one.platform.domain.model.TypeObject object) {
+                return Optional.of(policy);
+            }
+        };
+        DefaultObjectTypeRuntimeService svc = new DefaultObjectTypeRuntimeService(registry, resolver);
+
+        assertEquals(true, svc.validateUpload(1, new ValidateUploadCommand("a.png", "image/png", 10_000L)).allowed());
     }
 }

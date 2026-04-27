@@ -1,66 +1,81 @@
 # Contributing
 
 ## 기본 원칙
-- 작은 단위로 변경하고, 변경 이유와 검증 결과를 남긴다.
-- 관련 없는 수정은 분리 커밋으로 처리한다.
-- 정책성 내용은 `README.md`에 중복 작성하지 않는다.
-- 기능 개발 및 버그 수정은 Issue 기반 진행을 원칙으로 하며, Merge Request는 표준 템플릿을 사용한다.
-- 긴급 수정이나 저장소 관리자 직접 반영처럼 Issue 생성이 어려운 경우에는 커밋 또는 MR 본문에 변경 배경을 남긴다.
-- 이슈/머지리퀘스트 작성 시 저장소 템플릿을 기본으로 사용한다.
-  - Issue: `.gitlab/issue_templates/default.md`
-  - Merge Request: `.gitlab/merge_request_templates/default.md`
-- Issue 템플릿의 `Size`는 `Small/Medium/Large` 중 정확히 하나를 체크한다.
-  - `Small (1)`: 단순 수정 / 단일 파일
-  - `Medium (2)`: 기능 단위 변경 / 다중 파일
-  - `Large (3)`: 구조 변경 / 복수 모듈
-- Issue 템플릿의 `AI-Assisted`는 `Yes/No` 중 정확히 하나를 체크한다.
-  - AI 사용 작업은 반드시 `Yes`를 체크한다.
 
-## 브랜치/커밋
-- 기본 브랜치: `main`
-- 작업 브랜치 사용을 권장하며, 직접 `main`에 반영할 때는 변경 배경과 검증 기록을 더 엄격히 남긴다.
-- 브랜치 네이밍 규칙:
-  - `feature/*`: 기능 추가/개선
-  - `bugfix/*`: 일반 버그 수정
-  - `hotfix/*`: 운영 긴급 장애/결함 수정
-  - `refactor/*`: 동작 변경 없는 구조 개선
-  - 예시:
-    - `feature/issue-3-vclass-gooroomee`
-    - `bugfix/login-null-check`
-    - `hotfix/payment-timeout`
-    - `refactor/srv-query-structure`
-- 커밋은 논리 단위로 분리한다.
-- 커밋 타입은 `feat`, `fix`, `refactor`, `test`, `docs`, `chore`를 사용한다.
-- AI 보조 커밋은 `AI_DEVELOPMENT_POLICY.md`의 `[ai-assisted]` 규칙을 따른다.
-- AI 보조 커밋 작성 시 `.gitmessage-ai-assisted.txt` 템플릿 사용을 권장한다.
-- AI 보조 변경은 merge 전에 human review를 반드시 거친다.
+- 작은 단위로 변경한다.
+- 변경 이유와 검증 결과를 남긴다.
+- 관련 없는 변경은 분리한다.
+- 정책성 규칙은 `AI_DEVELOPMENT_POLICY.md`에 둔다.
+- README는 적용 안내와 파일 역할만 설명한다.
 
-## 코드 변경 규칙
-- 기존 패턴/설계 의도를 우선 존중한다.
-- 리팩터링은 동작 변경과 분리한다.
-- 설정/스크립트 변경 시 로컬 재현 절차를 함께 갱신한다.
+## 표준 흐름
 
-## 테스트/검증 규칙
-- 최소 1개 이상 검증을 수행한다.
-- 변경 범위에 맞는 테스트를 우선 실행한다.
-- 실행한 명령과 결과를 커밋 본문 또는 PR에 남긴다.
+Issue → Branch → Develop → Commit → Merge Request → Review → CI / validation → Merge
 
-## CHANGELOG 업데이트 규칙
-1. 아래 변경은 템플릿 저장소에서 `CHANGELOG.md`를 필수로 갱신한다.
-- 기능 추가/수정, 버그 수정, 운영 스크립트 변경, 정책 변경
-- DB 관련 변경(쿼리, 스키마, 마이그레이션, 데이터 동기화 절차)
-- 검증 절차/테스트 전략 변경
+Issue 생성이 어려운 경우 commit body 또는 MR body에 사유를 기록한다.
 
-2. 경미한 오탈자/주석 수정만 있을 때는 생략 가능하다.
+## AI Workflow
 
-3. 템플릿 저장소에서는 같은 작업 단위에서 코드 + `CHANGELOG.md`를 함께 커밋한다.
+- Start with a spec or issue draft before implementation.
+- Build in small increments and keep changes scoped.
+- Review before merge using `code-reviewer` or equivalent human review.
+- Run security review for auth, permission, token, secret, privacy, or data-handling changes.
+- Update documentation when behavior, policy, templates, scripts, or validation procedures change.
 
-4. 대상 프로젝트에는 `CHANGELOG.md`를 배포하지 않으므로, 정책 변경 이력은 대상 저장소의 커밋/MR/릴리즈 노트로 관리한다.
+## Issue
 
-## 문서 규칙
-- `README.md`: 정책 저장소의 목적, 적용 방법, 빠른 시작, 핵심 링크를 설명한다.
-- 상세 규칙/절차/강제 기준: 본 문서, `AI_DEVELOPMENT_POLICY.md`, 템플릿 문서에 작성한다.
-- 동일 규칙은 여러 문서에 중복 서술하지 않고, 필요 시 참조 링크로 연결한다.
-- 정책 파일(규칙/템플릿/절차) 변경 시 `POLICY_VERSION.md`를 같은 작업 단위에서 함께 갱신한다.
-- VSCode 워크스페이스 Java snippet은 `.vscode/java.code-snippets`를 기준으로 관리한다 (`addCopyright`, `addDeveloper`).
-- 개인 VSCode 적용 템플릿/절차는 `docs/dev/vscode-snippets-guide.md`를 따른다.
+- `.gitlab/issue_templates/default.md`를 사용한다.
+- `Type`, `Size`, `AI-Assisted`를 각각 하나씩 선택한다.
+- AI가 사용되면 `AI-Assisted: Yes`로 기록한다.
+- Subagent를 사용하면 위임 범위와 main author 검증을 기록한다.
+
+## Branch
+
+작업 브랜치를 기본으로 사용한다.
+
+- `feature/*`: 기능 추가/개선
+- `bugfix/*`: 일반 버그 수정
+- `hotfix/*`: 긴급 수정
+- `refactor/*`: 동작 변경 없는 구조 개선
+
+## Commit
+
+- 커밋은 논리 단위로 나눈다.
+- 허용 타입은 `feat`, `fix`, `refactor`, `test`, `docs`, `chore`다.
+- AI-assisted commit은 `[ai-assisted] <type>(<scope>): <summary>` 형식을 따른다.
+- AI-assisted commit은 `.gitmessage-ai-assisted.txt` 사용을 권장한다.
+
+## Merge Request
+
+- `.gitlab/merge_request_templates/default.md`를 사용한다.
+- `Why`, `What`, `Validation`을 작성한다.
+- Checklist를 완료한다.
+- AI-assisted 변경은 human review 후 merge한다.
+
+## Optional GitLab Automation
+
+- 로컬 GitLab 자동화는 `.env.local`을 사용할 수 있다.
+- 표준 변수명은 `GITLAB_TOKEN`, `GITLAB_BASE_URL`, `GITLAB_PROJECT_ID`이다.
+- `.env.local`은 커밋하지 않는다.
+- 토큰 값은 프롬프트, 로그, commit, MR에 남기지 않는다.
+- API 응답 전체 JSON을 출력하지 않고 필요한 필드만 출력한다.
+- Issue/MR 생성 결과는 `iid`, `web_url`, `state`만 남긴다.
+
+## Validation
+
+- 변경 범위에 맞는 검증을 최소 하나 수행한다.
+- 실행한 명령과 결과를 commit body 또는 MR body에 남긴다.
+- 검증을 실행할 수 없으면 이유를 남긴다.
+
+## Changelog / Version
+
+- 정책, 템플릿, 스크립트, 검증 절차가 바뀌면 `CHANGELOG.md`를 갱신한다.
+- 배포 정책 파일 세트의 의미가 바뀌면 `POLICY_VERSION.md`를 갱신한다.
+- `CHANGELOG.md`는 템플릿 저장소 전용이며 대상 프로젝트에 배포하지 않는다.
+
+## Template Repository Rules
+
+- 새 문서보다 기존 문서 정리를 우선한다.
+- 대상 프로젝트에 복사할 수 없는 프로젝트별 설명은 넣지 않는다.
+- 애플리케이션 코드나 비즈니스 기능은 추가하지 않는다.
+- 스크립트 변경 시 사용법과 검증 방법을 함께 확인한다.

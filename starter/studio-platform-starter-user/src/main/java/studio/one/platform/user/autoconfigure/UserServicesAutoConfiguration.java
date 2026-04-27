@@ -47,6 +47,7 @@ import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.IdentityConstants;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
@@ -70,7 +71,7 @@ public class UserServicesAutoConfiguration {
         }
 
         @Bean
-        @ConditionalOnMissingBean(name = IdentityService.SERVICE_NAME)
+        @ConditionalOnMissingBean(name = IdentityConstants.SERVICE_NAME)
         @ConditionalOnExpression("${" + PropertyKeys.Features.User.ENABLED + ":true} && ${" + PropertyKeys.Features.User.USE_DEFAULT + ":true}")
         public ApplicationRunner identityServiceWarning(ObjectProvider<IdentityService> identityServiceProvider) {
                 return args -> {

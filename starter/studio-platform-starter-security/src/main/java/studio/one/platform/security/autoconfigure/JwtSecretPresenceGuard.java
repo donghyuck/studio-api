@@ -7,7 +7,7 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 @AutoConfiguration
 @EnableConfigurationProperties(SecurityProperties.class)

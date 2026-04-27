@@ -6,6 +6,7 @@ import java.util.Map;
 import lombok.Builder;
 import lombok.Value;
 import studio.one.application.template.domain.model.Template;
+import studio.one.platform.identity.UserDto;
 
 @Value
 @Builder
@@ -18,13 +19,13 @@ public class TemplateDto {
     String description;
     String subject;
     String body;
-    long createdBy;
-    long updatedBy;
+    UserDto createdBy;
+    UserDto updatedBy;
     Instant createdAt;
     Instant updatedAt;
     Map<String, String> properties;
 
-    public static TemplateDto summary(Template template) {
+    public static TemplateDto summary(Template template, UserDto createdBy, UserDto updatedBy) {
         return TemplateDto.builder()
                 .templateId(template.getTemplateId())
                 .objectType(template.getObjectType())
@@ -33,14 +34,14 @@ public class TemplateDto {
                 .displayName(template.getDisplayName())
                 .description(template.getDescription())
                 .subject(template.getSubject())
-                .createdBy(template.getCreatedBy())
-                .updatedBy(template.getUpdatedBy())
+                .createdBy(createdBy)
+                .updatedBy(updatedBy)
                 .createdAt(template.getCreatedAt())
                 .updatedAt(template.getUpdatedAt())
                 .build();
     }
 
-    public static TemplateDto from(Template template) {
+    public static TemplateDto from(Template template, UserDto createdBy, UserDto updatedBy) {
         return TemplateDto.builder()
                 .templateId(template.getTemplateId())
                 .objectType(template.getObjectType())
@@ -50,8 +51,8 @@ public class TemplateDto {
                 .description(template.getDescription())
                 .subject(template.getSubject())
                 .body(template.getBody())
-                .createdBy(template.getCreatedBy())
-                .updatedBy(template.getUpdatedBy())
+                .createdBy(createdBy)
+                .updatedBy(updatedBy)
                 .createdAt(template.getCreatedAt())
                 .updatedAt(template.getUpdatedAt())
                 .properties(template.getProperties())

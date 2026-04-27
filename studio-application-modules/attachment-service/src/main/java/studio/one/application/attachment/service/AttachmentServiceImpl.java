@@ -4,6 +4,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 
@@ -29,14 +31,15 @@ import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
+import studio.one.platform.objecttype.service.ValidateUploadCommand;
 
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
 public class AttachmentServiceImpl implements AttachmentService {
 
-    private static final String CACHE_BY_ID = "attachments.byId"; 
+    private static final String CACHE_BY_ID = "attachments.byId";
+    private static final long MAX_BUFFER_BYTES = 50L * 1024 * 1024;
 
     private final AttachmentRepository attachmentRepository;
     private final FileStorage fileStorage;
@@ -132,10 +135,10 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file) {
-        try {
-            int size = (int) file.length();
-            InputStream inputStream = new FileInputStream(file);
-            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+        try (InputStream inputStream = new FileInputStream(file)) {
+            long size = file.length();
+            validateInputSize(size);
+            return createAttachment(objectType, objectId, name, contentType, inputStream, (int) size);
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
@@ -144,11 +147,15 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Override
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream) {
+        Path bufferedInput = null;
         try {
-            int size = inputStream.available();
-            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+            bufferedInput = Files.createTempFile("attachment-upload-", ".bin");
+            int size = bufferToTempFile(inputStream, bufferedInput);
+            return createAttachment(objectType, objectId, name, contentType, bufferedInput.toFile(), size);
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
+        } finally {
+            deleteQuietly(bufferedInput);
         }
     }
 
@@ -156,6 +163,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
             InputStream inputStream,
             int size) {
+        validateInputSize(size);
 
         validateObjectTypePolicy(objectType, name, contentType, size);
         
@@ -175,8 +183,15 @@ public class AttachmentServiceImpl implements AttachmentService {
             }
         }
         Attachment savedAttachment = attachmentRepository.save(attachment);
-        fileStorage.save(savedAttachment, inputStream);
-        return savedAttachment;
+        try {
+            fileStorage.save(savedAttachment, inputStream);
+            return savedAttachment;
+        } catch (RuntimeException e) {
+            cleanupAfterStorageFailure(savedAttachment, e);
+            throw e;
+        } finally {
+            closeQuietly(inputStream);
+        }
     }
 
     @Override
@@ -222,7 +237,67 @@ public class AttachmentServiceImpl implements AttachmentService {
         if (runtimeService == null) {
             return;
         }
-        ValidateUploadRequest request = new ValidateUploadRequest(fileName, contentType, (long) sizeBytes);
+        ValidateUploadCommand request = new ValidateUploadCommand(fileName, contentType, (long) sizeBytes);
         runtimeService.validateUpload(objectType, request);
+    }
+
+    private Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file, int size) {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
+
+    private int bufferToTempFile(InputStream inputStream, Path bufferedInput) throws IOException {
+        try (InputStream in = inputStream; var out = Files.newOutputStream(bufferedInput)) {
+            byte[] buffer = new byte[8192];
+            long copied = 0L;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                copied += read;
+                validateInputSize(copied);
+                out.write(buffer, 0, read);
+            }
+            return (int) copied;
+        }
+    }
+
+    private void cleanupAfterStorageFailure(Attachment savedAttachment, RuntimeException original) {
+        try {
+            fileStorage.delete(savedAttachment);
+        } catch (RuntimeException cleanupException) {
+            log.warn("Attachment storage cleanup failed for id={}: {}",
+                    savedAttachment.getAttachmentId(), cleanupException.getMessage());
+            original.addSuppressed(cleanupException);
+        }
+    }
+
+    private void deleteQuietly(Path bufferedInput) {
+        if (bufferedInput == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(bufferedInput);
+        } catch (IOException ex) {
+            log.debug("Failed to delete buffered upload temp file {}: {}", bufferedInput, ex.getMessage());
+        }
+    }
+
+    private void closeQuietly(InputStream inputStream) {
+        if (inputStream == null) {
+            return;
+        }
+        try {
+            inputStream.close();
+        } catch (IOException ex) {
+            log.warn("Failed to close attachment input stream cleanly: {}", ex.getMessage());
+        }
+    }
+
+    private void validateInputSize(long sizeBytes) {
+        if (sizeBytes < 0 || sizeBytes > MAX_BUFFER_BYTES || sizeBytes > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("File size exceeds supported limit");
+        }
     }
 }

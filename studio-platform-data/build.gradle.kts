@@ -12,14 +12,12 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
     enabled = false
 }
 dependencies {
+    api(project(":studio-platform-textract"))
     implementation(project(":studio-platform"))
     compileOnly("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")  
+    implementation("commons-codec:commons-codec")
     implementation ("org.freemarker:freemarker:${property("freemarkerVersion")}")  
-    compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
-    compileOnly("net.sourceforge.tess4j:tess4j:${property("tesseractVersion")}")
-    compileOnly("org.jsoup:jsoup:${property("jsoupVersion")}")
-    compileOnly("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
-    compileOnly("org.apache.poi:poi:${property("apachePoiVersion")}")
 
 }

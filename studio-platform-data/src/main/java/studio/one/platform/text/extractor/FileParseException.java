@@ -1,29 +1,30 @@
 package studio.one.platform.text.extractor;
 
-import org.springframework.http.HttpStatus;
-
-import studio.one.platform.error.ErrorType;
-import studio.one.platform.exception.PlatformRuntimeException;
-
 /**
- * Raised when file content cannot be parsed.
+ * @deprecated since 2026-04-20. Use
+ *             {@link studio.one.platform.textract.extractor.FileParseException}.
  */
-public class FileParseException extends PlatformRuntimeException {
+@Deprecated(forRemoval = false)
+public class FileParseException extends studio.one.platform.textract.extractor.FileParseException {
 
     private static final long serialVersionUID = 1L;
 
-    private static final ErrorType TYPE = ErrorType.of("error.text.file.parse", HttpStatus.INTERNAL_SERVER_ERROR );
-
     public FileParseException(String message, Object... args) {
-        super(TYPE, message, args);
+        super(message, args);
     }
 
     public FileParseException(String message, Throwable cause, Object... args) {
-        super(TYPE, null, message, args);
-        initCause(cause);
+        super(message, cause, args);
     }
 
     public static FileParseException of(Object... args) {
-        return new FileParseException(TYPE.getId(), args);
+        return new FileParseException("error.text.file.parse", args);
+    }
+
+    public static FileParseException from(studio.one.platform.textract.extractor.FileParseException exception) {
+        if (exception instanceof FileParseException legacy) {
+            return legacy;
+        }
+        return new FileParseException(exception.getMessage(), exception);
     }
 }

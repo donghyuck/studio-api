@@ -23,10 +23,11 @@
 package studio.one.platform.autoconfigure.jasypt;
  
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Positive;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -74,6 +75,7 @@ public class JasyptProperties extends FeatureToggle {
         private String bean;
 
         @NotBlank
+        @Size(min = 16, message = "password must be at least 16 characters long")
         private String password ; // 디폴트 암호화 비밀번호
 
         @NotBlank

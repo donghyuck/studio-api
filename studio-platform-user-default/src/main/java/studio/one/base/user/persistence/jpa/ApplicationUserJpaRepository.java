@@ -3,7 +3,7 @@ package studio.one.base.user.persistence.jpa;
 import java.util.List;
 import java.util.Optional;
 
-import javax.persistence.LockModeType;
+import jakarta.persistence.LockModeType;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -76,6 +76,10 @@ public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationU
     @Override
     @Query("select gm.group.groupId from ApplicationGroupMembership gm where gm.id.userId = :userId")
     List<Long> findGroupIdsByUserId(@Param("userId") Long userId);
+
+    @Override
+    @Query("select u from ApplicationUser u where u.enabled = true and u.userId = :userId")
+    Optional<ApplicationUser> findEnabledById(@Param("userId") Long userId);
 
     @Override
     @Query(value = "select u from ApplicationUser u where u.username=:username")

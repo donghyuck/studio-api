@@ -13,9 +13,11 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.namedparam.SqlParameterSource;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.user.domain.entity.ApplicationGroup;
+import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.entity.ApplicationGroupMembership;
 import studio.one.base.user.domain.entity.ApplicationGroupMembershipId;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
@@ -38,6 +40,13 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         membership.setJoinedBy(rs.getString("JOINED_BY"));
         return membership;
     };
+
+    private static final RowMapper<ApplicationGroupMemberSummary> GROUP_MEMBER_SUMMARY_ROW_MAPPER = (rs, rowNum) ->
+            new JdbcApplicationGroupMemberSummary(
+                    rs.getLong("USER_ID"),
+                    rs.getString("USERNAME"),
+                    rs.getString("NAME"),
+                    rs.getBoolean("ENABLED"));
 
     public ApplicationGroupMembershipJdbcRepository(NamedParameterJdbcTemplate namedTemplate) {
         super(namedTemplate);
@@ -73,6 +82,31 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
         return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "USER_ID",
                 Map.of());
+    }
+
+    @Override
+    public Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(Long groupId, @Nullable String keyword,
+            Pageable pageable) {
+        Map<String, Object> params = Map.of("groupId", groupId, "q", normalize(keyword));
+        String select = """
+                select u.USER_ID, u.USERNAME, u.NAME, u.ENABLED
+                  from TB_APPLICATION_GROUP_MEMBERS gm
+                  join TB_APPLICATION_USER u on u.USER_ID = gm.USER_ID
+                 where gm.GROUP_ID = :groupId
+                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
+                """;
+        String count = """
+                select count(*)
+                  from TB_APPLICATION_GROUP_MEMBERS gm
+                  join TB_APPLICATION_USER u on u.USER_ID = gm.USER_ID
+                 where gm.GROUP_ID = :groupId
+                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
+                """;
+        return queryPage(select, count, params, pageable, GROUP_MEMBER_SUMMARY_ROW_MAPPER, "u.USER_ID", Map.of(
+                "userId", "u.USER_ID",
+                "username", "u.USERNAME",
+                "name", "u.NAME",
+                "enabled", "u.ENABLED"));
     }
 
     @Override
@@ -242,6 +276,13 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         namedTemplate.update(sql, Map.of("groupId", id.getGroupId(), "userId", id.getUserId()));
     }
 
+    private static String normalize(@Nullable String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return "";
+        }
+        return "%" + keyword.trim().toLowerCase() + "%";
+    }
+
     private record JdbcGroupCount(Long groupId, long count) implements GroupCount {
         @Override
         public Long getGroupId() {
@@ -251,6 +292,29 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         @Override
         public long getCount() {
             return count;
+        }
+    }
+
+    private record JdbcApplicationGroupMemberSummary(Long userId, String username, String name, boolean enabled)
+            implements ApplicationGroupMemberSummary {
+        @Override
+        public Long getUserId() {
+            return userId;
+        }
+
+        @Override
+        public String getUsername() {
+            return username;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return enabled;
         }
     }
 }

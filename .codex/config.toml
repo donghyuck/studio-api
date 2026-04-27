@@ -1,0 +1,12 @@
+# Optional project-level Codex metadata.
+# Repository policy is defined in AGENTS.md, AI_DEVELOPMENT_POLICY.md,
+# CONTRIBUTING.md, SKILL.md, and docs/agents/*.md.
+# Codex subagent execution definitions live in .codex/agents/*.toml.
+#
+# Do not enable agents.dir here.
+# The Codex desktop app may fail to start or load the repository when
+# dir = ".codex/agents" is set in this file.
+
+[agents]
+# Keep this commented for Codex app compatibility.
+# dir = ".codex/agents"

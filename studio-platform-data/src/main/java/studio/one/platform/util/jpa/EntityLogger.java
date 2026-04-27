@@ -34,9 +34,9 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.Table;
-import javax.persistence.metamodel.EntityType;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.Table;
+import jakarta.persistence.metamodel.EntityType;
 
 import org.slf4j.Logger;
 

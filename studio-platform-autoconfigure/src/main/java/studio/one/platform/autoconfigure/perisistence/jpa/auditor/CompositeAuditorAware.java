@@ -1,35 +1,21 @@
 package studio.one.platform.autoconfigure.perisistence.jpa.auditor;
 
+import java.util.List;
+
 import studio.one.platform.autoconfigure.JpaAuditingProperties;
 
-public class CompositeAuditorAware implements org.springframework.data.domain.AuditorAware<String> {
-    private final java.util.List<org.springframework.data.domain.AuditorAware<String>> delegates;
+/**
+ * @deprecated Use {@link studio.one.platform.autoconfigure.persistence.jpa.auditor.CompositeAuditorAware} instead.
+ */
+@Deprecated(forRemoval = false)
+public class CompositeAuditorAware extends studio.one.platform.autoconfigure.persistence.jpa.auditor.CompositeAuditorAware {
 
     public CompositeAuditorAware(JpaAuditingProperties props) {
-        var list = new java.util.ArrayList<org.springframework.data.domain.AuditorAware<String>>();
-        for (String s : props.getAuditor().getComposite()) {
-            switch (s.toLowerCase()) {
-                case "security":
-                    list.add(new SecurityAuditorAware());
-                    break;
-                case "header":
-                    list.add(new HeaderAuditorAware(props.getAuditor().getHeader()));
-                    break;
-                case "fixed":
-                    list.add(new FixedAuditorAware(props.getAuditor().getFixed()));
-                    break;
-            }
-        }
-        this.delegates = java.util.Collections.unmodifiableList(list);
+        super(props);
     }
 
-    @Override
-    public java.util.Optional<String> getCurrentAuditor() {
-        for (var d : delegates) {
-            var v = d.getCurrentAuditor();
-            if (v.isPresent())
-                return v;
-        }
-        return java.util.Optional.of("system");
+    public CompositeAuditorAware(List<org.springframework.data.domain.AuditorAware<String>> delegates,
+            JpaAuditingProperties props) {
+        super(delegates, props);
     }
 }

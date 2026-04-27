@@ -21,7 +21,7 @@
 
 package studio.one.application.template.autoconfigure;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -46,7 +46,7 @@ import studio.one.application.template.persistence.jpa.repo.TemplateJpaRepositor
 import studio.one.application.template.service.impl.FreemarkerTemplateBuilder;
 import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.service.impl.TemplatesServiceImpl;
-import studio.one.application.template.web.controller.TemplateController;
+import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.template.autoconfigure.condition.ConditionalOnTemplatePersistence;
@@ -130,7 +130,7 @@ public class TemplateAutoConfiguration {
             ObjectProvider<freemarker.template.Configuration> configurationProvider,
             ObjectProvider<WebApplicationContext> webContextProvider) {
         WebApplicationContext context = webContextProvider.getIfAvailable();
-        javax.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
+        jakarta.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
         FreeMarkerConfig freeMarkerConfig = freeMarkerConfigProvider.getIfAvailable();
         if (freeMarkerConfig != null) {
             return new FreemarkerTemplateBuilder(servletContext, freeMarkerConfig);
@@ -144,7 +144,7 @@ public class TemplateAutoConfiguration {
                 }
 
                 @Override
-                public freemarker.ext.jsp.TaglibFactory getTaglibFactory() {
+                public freemarker.ext.jakarta.jsp.TaglibFactory getTaglibFactory() {
                     return null;
                 }
             });
@@ -154,7 +154,7 @@ public class TemplateAutoConfiguration {
 
     @Configuration
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".template.web", name = "enabled", havingValue = "true", matchIfMissing = true )
-    @Import(TemplateController.class)
+    @Import(TemplateMgmtController.class)
     static class TemplateWebConfig {
         
     }

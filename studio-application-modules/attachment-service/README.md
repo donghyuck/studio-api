@@ -55,6 +55,7 @@ studio:
 - `DELETE /{attachmentId}`: 메타데이터 및 바이너리 삭제. 권한 `features:attachment/delete`.
 
 보안은 `@endpointAuthz.can('features:attachment','<action>')` 스코프를 사용하며, 업로드/다운로드/삭제 등 주요 API에 적용되어 있다.
+관리자 범위 판별은 소유자 우회가 필요한 mgmt 엔드포인트에서 `ADMIN`과 `ROLE_ADMIN`을 모두 허용한다.
 
 ### 업로드 예시 (multipart)
 ```bash
@@ -153,8 +154,15 @@ objecttypes:
 - 삭제는 메타데이터와 바이너리 모두 제거하며, 캐시 스토리지도 비운다.
 - 텍스트 추출은 선택 기능이므로, 빈이 없을 때 501(NOT_IMPLEMENTED)을 반환한다.
 - 업로드 시 파일명은 sanitize 처리되며, 최대 업로드 크기는 50MB로 제한한다(컨트롤러 수준).
+- 크기를 알 수 없는 `InputStream` 업로드는 내부 임시 파일로 stage한 뒤 실제 바이트 길이로 저장한다. 서비스 레이어는 최대 50MB 상한을 다시 적용하며, storage save 실패 시 partial binary는 best-effort로 정리하고 메타데이터는 트랜잭션 rollback에 맡긴다.
+- `AttachmentMgmtController`, `AttachmentController`, `MeAttachmentController`는 공통 웹 helper를 통해 파일명 정제, MIME 정규화, 다운로드 헤더 구성을 공유한다.
 - objecttype 정책 검증이 활성화되면 용량/확장자/MIME 정책 위반 시 `POLICY_VIOLATION` 에러가 발생한다.
 - 기본 캐시 이름은 `attachments.byId`이며, 캐시 설정이 필요하면 전역 CacheManager에 매핑을 추가한다.
+
+## 스키마
+마이그레이션 파일 위치: `src/main/resources/schema/attachment/{postgres,mysql,mariadb}/V800__create_attachment_tables.sql`
+
+Flyway 버전 범위는 `docs/flyway-versioning.md`의 attachment 범위(V800-V899)를 따른다.
 
 ## 빠른 시작
 1. `studio.features.attachment.enabled=true` 와 `studio.features.attachment.web.enabled=true` 설정.

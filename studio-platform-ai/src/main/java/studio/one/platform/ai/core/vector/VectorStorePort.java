@@ -1,8 +1,9 @@
 package studio.one.platform.ai.core.vector;
 
+import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.List;
 
 /**
  * Contract for persisting and querying vectors.
@@ -11,7 +12,119 @@ public interface VectorStorePort {
 
     void upsert(List<VectorDocument> documents);
 
+    default void upsert(VectorRecord record) {
+        Objects.requireNonNull(record, "record");
+        upsertAll(List.of(record));
+    }
+
+    default void upsertAll(List<VectorRecord> records) {
+        Objects.requireNonNull(records, "records");
+        if (records.isEmpty()) {
+            return;
+        }
+        upsert(records.stream()
+                .map(VectorStorePort::toLegacyDocument)
+                .toList());
+    }
+
+    default void deleteByObject(String objectType, String objectId) {
+        throw new UnsupportedOperationException("deleteByObject is not implemented");
+    }
+
+    /**
+     * Replaces all vectors for an object scope.
+     * <p>
+     * Default implementation is non-atomic because it delegates to
+     * {@link #deleteByObject(String, String)} and then {@link #upsert(List)}.
+     * Implementations that support transactions should override this method with an
+     * atomic replacement.
+     */
+    default void replaceByObject(String objectType, String objectId, List<VectorDocument> documents) {
+        deleteByObject(objectType, objectId);
+        upsert(documents);
+    }
+
+    /**
+     * Replaces all RAG chunk records for an object scope.
+     * <p>
+     * Default implementation adapts records to legacy {@link VectorDocument}
+     * values and delegates to {@link #replaceByObject(String, String, List)} so
+     * existing store adapters keep their current atomic replacement behavior.
+     */
+    default void replaceRecordsByObject(String objectType, String objectId, List<VectorRecord> records) {
+        Objects.requireNonNull(records, "records");
+        replaceByObject(objectType, objectId, records.stream()
+                .map(record -> toObjectScopedDocument(objectType, objectId, record))
+                .toList());
+    }
+
+    private static VectorDocument toObjectScopedDocument(String objectType, String objectId, VectorRecord record) {
+        VectorDocument document = toLegacyDocument(record);
+        Map<String, Object> metadata = new LinkedHashMap<>(document.metadata());
+        metadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
+        metadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
+        return new VectorDocument(document.id(), document.content(), metadata, document.embedding());
+    }
+
+    private static VectorDocument toLegacyDocument(VectorRecord record) {
+        Objects.requireNonNull(record, "record");
+        Map<String, Object> metadata = new LinkedHashMap<>(record.toMetadata());
+        Object chunkIndex = metadata.get(VectorRecord.KEY_CHUNK_INDEX);
+        if (chunkIndex != null) {
+            metadata.putIfAbsent("chunkOrder", chunkIndex);
+        }
+        return new VectorDocument(record.id(), record.text(), metadata, record.embedding());
+    }
+
     List<VectorSearchResult> search(VectorSearchRequest request);
+
+    /**
+     * Searches chunk records and adapts legacy {@link VectorSearchResult} hits to
+     * the aggregate RAG result contract.
+     * <p>
+     * The default implementation delegates to {@link #search(VectorSearchRequest)}
+     * for compatibility. Implementations that can execute metadata predicates
+     * natively should override this method or {@link #searchWithFilter(VectorSearchRequest)}.
+     */
+    default VectorSearchResults searchRecords(VectorSearchRequest request) {
+        long startedAt = System.nanoTime();
+        List<VectorSearchHit> hits = search(request).stream()
+                .map(result -> VectorSearchHit.from(result, request.includeText(), request.includeMetadata()))
+                .toList();
+        long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
+        return new VectorSearchResults(hits, elapsedMs);
+    }
+
+    /**
+     * Extension point for vector stores that have a distinct filtered search path.
+     * <p>
+     * By default this is an alias of {@link #searchRecords(VectorSearchRequest)} so
+     * existing stores keep working. Store adapters should override it when
+     * {@link VectorSearchRequest#metadataFilter()} can be pushed down to the
+     * backend.
+     */
+    default VectorSearchResults searchWithFilter(VectorSearchRequest request) {
+        return searchRecords(request);
+    }
+
+    default void deleteByDocumentId(String documentId) {
+        throw new UnsupportedOperationException("deleteByDocumentId is not implemented");
+    }
+
+    default void deleteByChunkId(String chunkId) {
+        throw new UnsupportedOperationException("deleteByChunkId is not implemented");
+    }
+
+    /**
+     * Returns whether a record with the given content hash exists.
+     * <p>
+     * The default {@code false} means the adapter has not implemented the lookup;
+     * callers that rely on hash-based deduplication should require an adapter
+     * override rather than treating the default as authoritative absence.
+     */
+    default boolean existsByContentHash(String contentHash) {
+        return false;
+    }
 
     /**
      * 지정된 objectType/objectId 조합의 벡터가 존재하는지 여부를 반환한다.
@@ -57,6 +170,25 @@ public interface VectorStorePort {
      */
     default List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
         throw new UnsupportedOperationException("listByObject is not implemented");
+    }
+
+    /**
+     * objectType/objectId에 속한 벡터를 chunk_index 순서로 페이지 조회한다.
+     * <p>
+     * Default implementation preserves compatibility by delegating to
+     * {@link #listByObject(String, String, Integer)} with {@code offset + limit}
+     * and slicing in memory. Store adapters should override this when native
+     * offset/limit can be pushed down.
+     */
+    default List<VectorSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = limit <= 0 ? 50 : limit;
+        long requested = (long) safeOffset + safeLimit;
+        int fetchLimit = requested > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) requested;
+        return listByObject(objectType, objectId, fetchLimit).stream()
+                .skip(safeOffset)
+                .limit(safeLimit)
+                .toList();
     }
 
     /**

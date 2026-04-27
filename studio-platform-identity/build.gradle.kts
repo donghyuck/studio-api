@@ -2,9 +2,14 @@ description = "Studio One Platform Identity"
 
 plugins {
     id("java-library")
-    id("org.springframework.boot")
     id("io.spring.dependency-management")
     id("maven-publish")
+}
+
+the<io.spring.gradle.dependencymanagement.dsl.DependencyManagementExtension>().apply {
+    imports {
+        mavenBom("org.springframework.boot:spring-boot-dependencies:${property("springBootVersion")}")
+    }
 }
 
 tasks.named<Jar>("jar") {
@@ -12,6 +17,6 @@ tasks.named<Jar>("jar") {
     archiveClassifier.set("")
 }
 
-tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
-    enabled = false
+dependencies {
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }

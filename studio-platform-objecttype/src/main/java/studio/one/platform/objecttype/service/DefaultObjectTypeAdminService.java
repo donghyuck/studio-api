@@ -6,18 +6,14 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 import studio.one.platform.exception.PlatformRuntimeException;
 import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 import studio.one.platform.objecttype.error.ObjectTypeErrorCodes;
-import studio.one.platform.objecttype.web.dto.ObjectTypeDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypePatchRequest;
-import studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypePolicyUpsertRequest;
-import studio.one.platform.objecttype.web.dto.ObjectTypeUpsertRequest;
 
 public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
 
@@ -28,22 +24,23 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
     }
 
     @Override
-    public List<ObjectTypeDto> search(String domain, String status, String q) {
+    public List<ObjectTypeView> search(String domain, String status, String q) {
         String normalizedStatus = ObjectTypeValidation.normalizeStatus(status);
         return store.search(domain, normalizedStatus, q, Pageable.unpaged())
-                .map(DefaultObjectTypeAdminService::toDto)
+                .map(DefaultObjectTypeAdminService::toView)
                 .getContent();
     }
 
     @Override
-    public ObjectTypeDto get(int objectType) {
+    public ObjectTypeView get(int objectType) {
         ObjectTypeRow row = store.findByType(objectType)
                 .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
-        return toDto(row);
+        return toView(row);
     }
 
+    @Transactional
     @Override
-    public ObjectTypeDto upsert(ObjectTypeUpsertRequest request) {
+    public ObjectTypeView upsert(ObjectTypeUpsertCommand request) {
         if (request.objectType() == null) {
             throw PlatformRuntimeException.of(ObjectTypeErrorCodes.VALIDATION_ERROR, "objectType");
         }
@@ -64,11 +61,12 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         row.setUpdatedById(request.updatedById());
         row.setUpdatedAt(Instant.now());
         ObjectTypeRow saved = store.upsert(row);
-        return toDto(saved);
+        return toView(saved);
     }
 
+    @Transactional
     @Override
-    public ObjectTypeDto patch(int objectType, ObjectTypePatchRequest request) {
+    public ObjectTypeView patch(int objectType, ObjectTypePatchCommand request) {
         ObjectTypeRow existing = store.findByType(objectType)
                 .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
         if (request.status() != null) {
@@ -87,19 +85,28 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         patch.setUpdatedById(request.updatedById());
         patch.setUpdatedAt(Instant.now());
         ObjectTypeRow saved = store.patch(objectType, patch);
-        return toDto(saved != null ? saved : existing);
+        return toView(saved != null ? saved : existing);
     }
 
     @Override
-    public ObjectTypePolicyDto getPolicy(int objectType) {
+    public ObjectTypePolicyView getPolicy(int objectType) {
         ensureTypeExists(objectType);
         return store.findPolicy(objectType)
-                .map(DefaultObjectTypeAdminService::toPolicyDto)
+                .map(DefaultObjectTypeAdminService::toPolicyView)
                 .orElse(null);
     }
 
     @Override
-    public ObjectTypePolicyDto upsertPolicy(int objectType, ObjectTypePolicyUpsertRequest request) {
+    public ObjectTypeEffectivePolicyView getEffectivePolicy(int objectType) {
+        ensureTypeExists(objectType);
+        return store.findPolicy(objectType)
+                .map(DefaultObjectTypeAdminService::toStoredEffectivePolicyView)
+                .orElseGet(() -> defaultEffectivePolicyView(objectType));
+    }
+
+    @Transactional
+    @Override
+    public ObjectTypePolicyView upsertPolicy(int objectType, ObjectTypePolicyUpsertCommand request) {
         ensureTypeExists(objectType);
         if (request.maxFileMb() != null && request.maxFileMb() < 0) {
             throw PlatformRuntimeException.of(ObjectTypeErrorCodes.VALIDATION_ERROR, "maxFileMb");
@@ -117,7 +124,14 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         row.setUpdatedById(request.updatedById());
         row.setUpdatedAt(Instant.now());
         ObjectTypePolicyRow saved = store.upsertPolicy(row);
-        return toPolicyDto(saved);
+        return toPolicyView(saved);
+    }
+
+    @Transactional
+    @Override
+    public void delete(int objectType) {
+        ensureTypeExists(objectType);
+        store.delete(objectType);
     }
 
     private void ensureTypeExists(int objectType) {
@@ -132,37 +146,55 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         }
     }
 
-    static ObjectTypeDto toDto(ObjectTypeRow row) {
-        return ObjectTypeDto.builder()
-                .objectType(row.getObjectType())
-                .code(row.getCode())
-                .name(row.getName())
-                .domain(row.getDomain())
-                .status(row.getStatus())
-                .description(row.getDescription())
-                .createdBy(row.getCreatedBy())
-                .createdById(row.getCreatedById())
-                .createdAt(toOffset(row.getCreatedAt()))
-                .updatedBy(row.getUpdatedBy())
-                .updatedById(row.getUpdatedById())
-                .updatedAt(toOffset(row.getUpdatedAt()))
-                .build();
+    static ObjectTypeView toView(ObjectTypeRow row) {
+        return new ObjectTypeView(
+                row.getObjectType(),
+                row.getCode(),
+                row.getName(),
+                row.getDomain(),
+                row.getStatus(),
+                row.getDescription(),
+                row.getCreatedBy(),
+                row.getCreatedById(),
+                toOffset(row.getCreatedAt()),
+                row.getUpdatedBy(),
+                row.getUpdatedById(),
+                toOffset(row.getUpdatedAt()));
     }
 
-    static ObjectTypePolicyDto toPolicyDto(ObjectTypePolicyRow row) {
-        return ObjectTypePolicyDto.builder()
-                .objectType(row.getObjectType())
-                .maxFileMb(row.getMaxFileMb())
-                .allowedExt(row.getAllowedExt())
-                .allowedMime(row.getAllowedMime())
-                .policyJson(row.getPolicyJson())
-                .createdBy(row.getCreatedBy())
-                .createdById(row.getCreatedById())
-                .createdAt(toOffset(row.getCreatedAt()))
-                .updatedBy(row.getUpdatedBy())
-                .updatedById(row.getUpdatedById())
-                .updatedAt(toOffset(row.getUpdatedAt()))
-                .build();
+    static ObjectTypePolicyView toPolicyView(ObjectTypePolicyRow row) {
+        return new ObjectTypePolicyView(
+                row.getObjectType(),
+                row.getMaxFileMb(),
+                row.getAllowedExt(),
+                row.getAllowedMime(),
+                row.getPolicyJson(),
+                row.getCreatedBy(),
+                row.getCreatedById(),
+                toOffset(row.getCreatedAt()),
+                row.getUpdatedBy(),
+                row.getUpdatedById(),
+                toOffset(row.getUpdatedAt()));
+    }
+
+    static ObjectTypeEffectivePolicyView toStoredEffectivePolicyView(ObjectTypePolicyRow row) {
+        return new ObjectTypeEffectivePolicyView(
+                row.getObjectType(),
+                row.getMaxFileMb(),
+                row.getAllowedExt(),
+                row.getAllowedMime(),
+                row.getPolicyJson(),
+                ObjectTypeEffectivePolicyView.Source.STORED);
+    }
+
+    static ObjectTypeEffectivePolicyView defaultEffectivePolicyView(int objectType) {
+        return new ObjectTypeEffectivePolicyView(
+                objectType,
+                null,
+                null,
+                null,
+                null,
+                ObjectTypeEffectivePolicyView.Source.DEFAULT);
     }
 
     private static OffsetDateTime toOffset(Instant instant) {

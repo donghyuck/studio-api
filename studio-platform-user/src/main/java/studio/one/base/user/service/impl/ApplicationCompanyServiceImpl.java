@@ -3,7 +3,7 @@ package studio.one.base.user.service.impl;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;

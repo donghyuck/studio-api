@@ -30,9 +30,9 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import javax.crypto.SecretKey;
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
@@ -92,6 +92,10 @@ public class JwtTokenProvider {
     private final Clock clock;
     private final String header;
     private final String claimAuthorities; 
+    private final String refreshCookieName;
+    private final String cookiePath;
+    private final boolean cookieSecure;
+    private final String cookieSameSite;
     private final JwtParser parser;
     private final I18n i18n;
 
@@ -128,6 +132,10 @@ public class JwtTokenProvider {
             jwtConfig.getRefreshTtl(),
             jwtConfig.getHeader(),
             jwtConfig.getClaimAuthorities(),
+            jwtConfig.getRefreshCookieName(),
+            jwtConfig.getCookiePath(),
+            jwtConfig.isCookieSecure(),
+            jwtConfig.getCookieSameSite(),
             clock, 
             i18n);
     }
@@ -149,6 +157,10 @@ public class JwtTokenProvider {
             Duration refreshTtl,
             String header,
             String claimAuthorities,
+            String refreshCookieName,
+            String cookiePath,
+            boolean cookieSecure,
+            String cookieSameSite,
             Clock clock,
             I18n i18n) {
         this.i18n = i18n;
@@ -158,7 +170,11 @@ public class JwtTokenProvider {
         this.refreshTtl = Objects.requireNonNull(refreshTtl);
         this.clock = Objects.requireNonNullElseGet(clock, Clock::systemUTC);
         this.header = StringUtils.defaultString(header, HEADER_STRING); 
-        this.claimAuthorities = StringUtils.defaultString(claimAuthorities, AUTHORITIES_KEY); 
+        this.claimAuthorities = StringUtils.defaultString(claimAuthorities, AUTHORITIES_KEY);
+        this.refreshCookieName = StringUtils.defaultIfBlank(refreshCookieName, "refresh_token");
+        this.cookiePath = StringUtils.defaultIfBlank(cookiePath, "/api/auth");
+        this.cookieSecure = cookieSecure;
+        this.cookieSameSite = StringUtils.defaultIfBlank(cookieSameSite, "Strict");
         this.parser =  Jwts.parser()
                 .verifyWith(secretKey)
                 .build(); 
@@ -182,6 +198,22 @@ public class JwtTokenProvider {
 
     public long getRefreshTtlMs(){
         return refreshTtl.toMillis();
+    }
+
+    public String getRefreshCookieName() {
+        return refreshCookieName;
+    }
+
+    public String getCookiePath() {
+        return cookiePath;
+    }
+
+    public boolean isCookieSecure() {
+        return cookieSecure;
+    }
+
+    public String getCookieSameSite() {
+        return cookieSameSite;
     }
 
     public String generateToken(Authentication authentication) {

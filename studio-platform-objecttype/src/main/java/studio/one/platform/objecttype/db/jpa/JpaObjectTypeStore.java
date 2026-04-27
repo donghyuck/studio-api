@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import javax.persistence.EntityManager;
-import javax.persistence.TypedQuery;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.TypedQuery;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -15,8 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.util.StringUtils;
 
 import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 import studio.one.platform.objecttype.db.jpa.entity.ObjectTypeEntity;
 import studio.one.platform.objecttype.db.jpa.entity.ObjectTypePolicyEntity;
 import studio.one.platform.objecttype.db.jpa.repo.ObjectTypeJpaRepository;
@@ -162,6 +162,11 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
     }
 
     @Override
+    public void delete(int objectType) {
+        typeRepository.deleteById(objectType);
+    }
+
+    @Override
     public ObjectTypePolicyRow upsertPolicy(ObjectTypePolicyRow row) {
         String sql = """
             INSERT INTO tb_application_object_type_policy (
@@ -221,7 +226,7 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         return row;
     }
 
-    private void applyTypeParams(javax.persistence.Query q, ObjectTypeRow row) {
+    private void applyTypeParams(jakarta.persistence.Query q, ObjectTypeRow row) {
         q.setParameter("objectType", row.getObjectType());
         q.setParameter("code", row.getCode());
         q.setParameter("name", row.getName());
@@ -236,7 +241,7 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         q.setParameter("updatedAt", row.getUpdatedAt());
     }
 
-    private void applyPolicyParams(javax.persistence.Query q, ObjectTypePolicyRow row) {
+    private void applyPolicyParams(jakarta.persistence.Query q, ObjectTypePolicyRow row) {
         q.setParameter("objectType", row.getObjectType());
         q.setParameter("maxFileMb", row.getMaxFileMb());
         q.setParameter("allowedExt", row.getAllowedExt());

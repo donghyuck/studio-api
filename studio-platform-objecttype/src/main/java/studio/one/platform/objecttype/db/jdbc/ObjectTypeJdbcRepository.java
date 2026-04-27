@@ -16,8 +16,8 @@ import org.springframework.util.StringUtils;
 
 import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.jdbc.model.ObjectTypeRow;
+import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 
 public class ObjectTypeJdbcRepository implements ObjectTypeStore {
 
@@ -187,6 +187,13 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
         Map<String, Object> params = policyParams(row, true);
         template.update(upsertPolicySql, params);
         return findPolicy(row.getObjectType()).orElse(row);
+    }
+
+    @Override
+    public void delete(int objectType) {
+        template.update(
+                "delete from tb_application_object_type where object_type = :objectType",
+                Map.of("objectType", objectType));
     }
 
     private String buildWhere(String domain, String status, String q, Map<String, Object> params) {

@@ -7,12 +7,13 @@ import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,7 +48,9 @@ import studio.one.base.user.web.dto.ChangePasswordRequest;
 import studio.one.base.user.web.dto.CreateUserRequest;
 import studio.one.base.user.web.dto.DisableUserRequest;
 import studio.one.base.user.web.dto.PasswordPolicyDto;
+import studio.one.base.user.web.dto.PropertyDto;
 import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.dto.UserBasicDto;
 import studio.one.base.user.web.dto.UpdateUserRequest;
 import studio.one.base.user.web.dto.UserDto;
@@ -76,7 +80,7 @@ import studio.one.platform.web.dto.ApiResponse;
 @RequestMapping("${" + PropertyKeys.Features.User.Web.BASE_PATH + ":/api/mgmt}/users")
 @RequiredArgsConstructor
 @Slf4j
-public class UserMgmtController extends AbstractPasswordPolicyControllerSupport implements UserMgmtControllerApi {
+public class UserMgmtController extends AbstractPasswordPolicyControllerSupport implements UserMgmtApi {
 
         private final ApplicationUserService<User, Role> userService;
         private final ApplicationUserMapper userMapper;
@@ -268,20 +272,66 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         @Override
         public ResponseEntity<ApiResponse<Void>> updateUserRoles(@PathVariable Long id,
-                        @RequestBody List<RoleDto> roles,
+                        @Valid @RequestBody UpdateRolesRequest req,
                         @AuthenticationPrincipal UserDetails actor) {
                 if (actor == null) {
                         throw new AuthenticationCredentialsNotFoundException("No authenticated user");
                 }
-                List<Long> desired = Optional.ofNullable(roles).orElseGet(Collections::emptyList)
+                List<Long> desired = Optional.ofNullable(req.getRoleIds()).orElseGet(Collections::emptyList)
                                 .stream()
-                                .map(RoleDto::getRoleId)
                                 .filter(Objects::nonNull)
                                 .distinct().toList();
 
                 BatchResult result = userService.updateUserRolesBulk(id, desired, actor.getUsername());
                 log.debug("batch : {}", result);
                 return ok(ApiResponse.ok());
+        }
+
+        // Properties --------------------------------------
+
+        @GetMapping("/{id}/properties")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<ApiResponse<Map<String, String>>> getProperties(@PathVariable Long id) {
+                return ok(ApiResponse.ok(userService.getProperties(id)));
+        }
+
+        @PutMapping("/{id}/properties")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<ApiResponse<Map<String, String>>> replaceProperties(
+                        @PathVariable Long id,
+                        @RequestBody Map<String, String> properties) {
+                return ok(ApiResponse.ok(userService.replaceProperties(id, properties)));
+        }
+
+        @GetMapping("/{id}/properties/{key}")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<ApiResponse<PropertyDto>> getProperty(
+                        @PathVariable Long id,
+                        @PathVariable String key) {
+                String value = userService.getProperty(id, key);
+                return ok(ApiResponse.ok(PropertyDto.builder().key(key).value(value).build()));
+        }
+
+        @PutMapping("/{id}/properties/{key}")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<ApiResponse<PropertyDto>> setProperty(
+                        @PathVariable Long id,
+                        @PathVariable String key,
+                        @Valid @RequestBody PropertyDto dto) {
+                String stored = userService.setProperty(id, key, dto.getValue());
+                return ok(ApiResponse.ok(PropertyDto.builder().key(key).value(stored).build()));
+        }
+
+        @DeleteMapping("/{id}/properties/{key}")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<Void> deleteProperty(@PathVariable Long id, @PathVariable String key) {
+                userService.deleteProperty(id, key);
+                return ResponseEntity.noContent().build();
         }
 
 }

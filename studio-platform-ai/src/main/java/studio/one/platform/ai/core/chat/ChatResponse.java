@@ -36,6 +36,10 @@ public final class ChatResponse {
         return Collections.unmodifiableMap(metadata);
     }
 
+    public ChatResponseMetadata typedMetadata() {
+        return ChatResponseMetadata.from(metadata);
+    }
+
     @Override
     public String toString() {
         return "ChatResponse{" +

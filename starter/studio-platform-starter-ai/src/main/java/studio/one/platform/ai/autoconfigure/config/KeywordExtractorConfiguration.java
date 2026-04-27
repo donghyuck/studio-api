@@ -3,6 +3,7 @@ package studio.one.platform.ai.autoconfigure.config;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -11,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.keyword.LlmKeywordExtractor;
-import studio.one.platform.ai.service.prompt.PromptManager;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -20,6 +21,7 @@ import studio.one.platform.util.LogUtils;
 
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(LlmKeywordExtractor.class)
+@EnableConfigurationProperties(RagPipelineProperties.class)
 @RequiredArgsConstructor
 @Slf4j
 public class KeywordExtractorConfiguration {
@@ -28,13 +30,15 @@ public class KeywordExtractorConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(KeywordExtractor.class)
-    public KeywordExtractor keywordExtractor(PromptManager promptManager, ChatPort chatPort) {
+    public KeywordExtractor keywordExtractor(PromptRenderer promptRenderer,
+            ChatPort chatPort,
+            RagPipelineProperties properties) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DEPENDS_ON,
                 AiProviderRegistryConfiguration.FEATURE_NAME,
                 LogUtils.blue(LlmKeywordExtractor.class, true),
                 LogUtils.green(ChatPort.class, true),
                 LogUtils.red(State.CREATED.toString())));
-        return new LlmKeywordExtractor(promptManager, chatPort);
+        return new LlmKeywordExtractor(promptRenderer, chatPort, properties.getKeywords().getMaxInputChars());
     }
 }

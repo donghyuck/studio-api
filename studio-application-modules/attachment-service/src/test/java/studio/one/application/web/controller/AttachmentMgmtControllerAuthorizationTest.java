@@ -5,6 +5,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.util.Collections;
 import java.util.Set;
 
@@ -22,7 +23,8 @@ import studio.one.application.attachment.service.AttachmentService;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.text.service.FileContentExtractionService;
+import studio.one.platform.textract.extractor.FileParseException;
+import studio.one.platform.textract.service.FileContentExtractionService;
 
 @ExtendWith(MockitoExtension.class)
 class AttachmentMgmtControllerAuthorizationTest {
@@ -81,6 +83,36 @@ class AttachmentMgmtControllerAuthorizationTest {
         controller.listByObject(12, 34L);
 
         verify(attachmentService).getAttachments(12, 34L);
+    }
+
+    @Test
+    void listByObjectUsesGlobalQueryForRoleAdmin() {
+        AttachmentMgmtController controller = controller();
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));
+        when(attachmentService.getAttachments(12, 34L)).thenReturn(Collections.emptyList());
+
+        controller.listByObject(12, 34L);
+
+        verify(attachmentService).getAttachments(12, 34L);
+    }
+
+    @Test
+    void extractTextPropagatesLimitFailure() throws Exception {
+        AttachmentMgmtController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        FileContentExtractionService extractor = new FileContentExtractionService(
+                mock(studio.one.platform.textract.extractor.FileParserFactory.class), 4);
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));
+        when(textExtractionProvider.getIfAvailable()).thenReturn(extractor);
+        when(attachmentService.getAttachmentById(10L)).thenReturn(attachment);
+        when(attachment.getName()).thenReturn("large.txt");
+        when(attachmentService.getInputStream(attachment)).thenReturn(new ByteArrayInputStream(new byte[] { 1, 2, 3, 4, 5 }));
+
+        assertThrows(FileParseException.class, () -> controller.extractText(10L));
     }
 
     private AttachmentMgmtController controller() {

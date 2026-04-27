@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -126,7 +126,7 @@ public class AvatarAutoConfiguration {
     @SuppressWarnings("java:S1118")
     static class EntityScanConfig {
         @Bean
-        static BeanDefinitionRegistryPostProcessor  entityScanRegistrar(Environment env , ObjectProvider<I18n> i18nProvider) { 
+        static BeanDefinitionRegistryPostProcessor avatarEntityScanRegistrar(Environment env, ObjectProvider<I18n> i18nProvider) {
             I18n i18n = I18nUtils.resolve(i18nProvider);
             String entityKey = PropertyKeys.Features.PREFIX + ".avatar-image.entity-packages";
             String packageName = AvatarImage.class.getPackageName();

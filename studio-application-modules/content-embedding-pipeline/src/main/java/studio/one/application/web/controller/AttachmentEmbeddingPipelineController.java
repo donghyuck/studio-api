@@ -23,11 +23,11 @@ package studio.one.application.web.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,25 +44,36 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.web.dto.EmbeddingResponseDto;
+import studio.one.application.web.dto.EmbeddingVectorDto;
+import studio.one.application.web.dto.SearchRequest;
+import studio.one.application.web.dto.SearchResponse;
+import studio.one.application.web.dto.SearchResult;
+import studio.one.application.web.service.AttachmentRagIndexCommand;
+import studio.one.application.web.service.AttachmentRagIndexDiagnostics;
+import studio.one.application.web.service.AttachmentRagIndexResult;
+import studio.one.application.web.service.AttachmentRagIndexService;
+import studio.one.application.web.service.AttachmentRagIndexUnavailableException;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
-import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
+import studio.one.platform.ai.core.rag.RagIndexJob;
+import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
-import studio.one.platform.ai.web.dto.EmbeddingResponseDto;
-import studio.one.platform.ai.web.dto.EmbeddingVectorDto;
-import studio.one.platform.ai.web.dto.SearchRequest;
-import studio.one.platform.ai.web.dto.SearchResponse;
-import studio.one.platform.ai.web.dto.SearchResult;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.service.I18n;
-import studio.one.platform.text.service.FileContentExtractionService;
+import studio.one.platform.textract.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
@@ -87,13 +98,25 @@ import studio.one.platform.web.dto.ApiResponse;
 @Slf4j
 @Validated
 public class AttachmentEmbeddingPipelineController {
+    private static final String HEADER_RAG_INDEX_PATH = "X-RAG-Index-Path";
+    private static final String HEADER_RAG_INDEX_STRUCTURED = "X-RAG-Index-Structured";
+    private static final String HEADER_RAG_INDEX_FALLBACK_REASON = "X-RAG-Index-Fallback-Reason";
+    private static final String HEADER_RAG_INDEX_PARSED_BLOCK_COUNT = "X-RAG-Index-Parsed-Block-Count";
+    private static final String HEADER_RAG_INDEX_CHUNK_COUNT = "X-RAG-Index-Chunk-Count";
+    private static final String HEADER_RAG_INDEX_VECTOR_COUNT = "X-RAG-Index-Vector-Count";
+    private static final String HEADER_RAG_JOB_ID = "X-RAG-Job-Id";
 
     private final AttachmentService attachmentService;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
+    private final ObjectProvider<RagIndexJobService> ragIndexJobServiceProvider;
+    private final AttachmentRagIndexService attachmentRagIndexService;
     private final ObjectProvider<I18n> i18nProvider;
+
+    @Value("${studio.ai.endpoints.rag.diagnostics.allow-client-debug:false}")
+    private boolean allowClientDebug;
 
     /**
      * 첨부파일 텍스트를 추출해 임베딩을 생성하고, 구성된 경우 벡터 스토어에 업서트한다.
@@ -239,23 +262,106 @@ public class AttachmentEmbeddingPipelineController {
         if (attachmentId <= 0) {
             return ResponseEntity.badRequest().build();
         }
-        RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
-        FileContentExtractionService extractor = textExtractionProvider.getIfAvailable();
-        if (ragPipeline == null || extractor == null) {
+        if (!attachmentRagIndexService.hasTextExtractor()) {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
         }
-        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        try (InputStream in = attachmentService.getInputStream(attachment)) {
-            String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
-            String documentId = resolveDocumentId(request, attachmentId);
-            String objectType = resolveObjectType(request);
-            String objectId = resolveObjectId(request, attachmentId);
-            Map<String, Object> metadata = buildMetadata(request, attachment, objectType, objectId);
-            List<String> keywords = request != null && request.keywords() != null ? request.keywords() : List.of();
-            boolean useLlmKeywords = request != null && Boolean.TRUE.equals(request.useLlmKeywordExtraction()); 
-            ragPipeline.index(new RagIndexRequest(documentId, text, metadata, keywords, useLlmKeywords));
+        AttachmentRagIndexCommand command = attachmentRagIndexService.command(
+                attachmentId,
+                request == null ? null : request.documentId(),
+                request == null ? null : request.objectType(),
+                request == null ? null : request.objectId(),
+                request == null ? null : request.metadata(),
+                request == null ? null : request.keywords(),
+                request == null ? null : request.useLlmKeywordExtraction(),
+                request == null ? null : request.embeddingProfileId(),
+                request == null ? null : request.embeddingProvider(),
+                request == null ? null : request.embeddingModel(),
+                chunkingOptions(request));
+        RagIndexJobService jobService = ragIndexJobServiceProvider.getIfAvailable();
+        RagIndexJob job = createJob(jobService, command);
+        RagIndexProgressListener progress = job == null
+                ? RagIndexProgressListener.noop()
+                : jobService.progressListener(job.jobId());
+        progress.onStarted();
+        try {
+            AttachmentRagIndexResult result = attachmentRagIndexService.index(attachmentId, command, progress);
+            progress.onCompleted();
+            return accepted(request, result.diagnostics(), job);
+        } catch (AttachmentRagIndexUnavailableException ex) {
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        } catch (IOException | RuntimeException ex) {
+            throw ex;
         }
-        return ResponseEntity.accepted().build();
+    }
+
+    private ResponseEntity<Void> accepted(
+            AttachmentRagIndexRequestDto request,
+            AttachmentRagIndexDiagnostics diagnostics,
+            RagIndexJob job) {
+        ResponseEntity.BodyBuilder builder = ResponseEntity.accepted();
+        if (job != null) {
+            builder.header(HEADER_RAG_JOB_ID, job.jobId());
+        }
+        if (allowClientDebug && request != null && Boolean.TRUE.equals(request.debug()) && diagnostics != null) {
+            builder.header(HEADER_RAG_INDEX_PATH, diagnostics.path());
+            builder.header(HEADER_RAG_INDEX_STRUCTURED, Boolean.toString(diagnostics.structured()));
+            putHeader(builder, HEADER_RAG_INDEX_FALLBACK_REASON, diagnostics.fallbackReason());
+            putCountHeader(builder, HEADER_RAG_INDEX_PARSED_BLOCK_COUNT, diagnostics.parsedBlockCount());
+            putCountHeader(builder, HEADER_RAG_INDEX_CHUNK_COUNT, diagnostics.chunkCount());
+            putCountHeader(builder, HEADER_RAG_INDEX_VECTOR_COUNT, diagnostics.vectorCount());
+        }
+        return builder.build();
+    }
+
+    private RagIndexJob createJob(
+            RagIndexJobService jobService,
+            AttachmentRagIndexCommand command) {
+        if (jobService == null) {
+            return null;
+        }
+        return jobService.createJob(new RagIndexJobCreateRequest(
+                command.objectType(),
+                command.objectId(),
+                command.documentId(),
+                "attachment",
+                false,
+                null),
+                new RagIndexJobSourceRequest(
+                        command.metadata(),
+                        command.keywords(),
+                        command.useLlmKeywordExtraction(),
+                        command.embeddingProfileId(),
+                        command.embeddingProvider(),
+                        command.embeddingModel(),
+                        command.chunkingOptions()));
+    }
+
+    private RagChunkingOptions chunkingOptions(AttachmentRagIndexRequestDto request) {
+        if (request == null) {
+            return RagChunkingOptions.empty();
+        }
+        try {
+            return new RagChunkingOptions(
+                    request.chunkingStrategy(),
+                    request.chunkMaxSize(),
+                    request.chunkOverlap(),
+                    request.chunkUnit());
+        } catch (IllegalArgumentException ex) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
+    private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {
+        if (value != null && !value.isBlank()) {
+            builder.header(name, value);
+        }
+    }
+
+    private void putCountHeader(ResponseEntity.BodyBuilder builder, String name, int value) {
+        if (value >= 0) {
+            builder.header(name, Integer.toString(value));
+        }
     }
 
     /**
@@ -271,7 +377,14 @@ public class AttachmentEmbeddingPipelineController {
         if (request == null || request.query() == null || request.query().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(request.query(), request.topK()));
+        MetadataFilter filter = MetadataFilter.objectScope(request.objectType(), request.objectId());
+        List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(
+                request.query(),
+                request.topK(),
+                filter,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel()));
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),
@@ -286,44 +399,6 @@ public class AttachmentEmbeddingPipelineController {
         return response.vectors().stream()
                 .map(vector -> new EmbeddingVectorDto(vector.referenceId(), List.copyOf(vector.values())))
                 .toList();
-    }
-
-    private String resolveDocumentId(AttachmentRagIndexRequestDto request, long attachmentId) {
-        if (request != null && request.documentId() != null && !request.documentId().isBlank()) {
-            return request.documentId().trim();
-        }
-        return String.valueOf(attachmentId);
-    }
-
-    private String resolveObjectType(AttachmentRagIndexRequestDto request) {
-        if (request != null && request.objectType() != null && !request.objectType().isBlank()) {
-            return request.objectType().trim();
-        }
-        return "attachment";
-    }
-
-    private String resolveObjectId(AttachmentRagIndexRequestDto request, long attachmentId) {
-        if (request != null && request.objectId() != null && !request.objectId().isBlank()) {
-            return request.objectId().trim();
-        }
-        return String.valueOf(attachmentId);
-    }
-
-    private Map<String, Object> buildMetadata(AttachmentRagIndexRequestDto request,
-            Attachment attachment,
-            String objectType,
-            String objectId) {
-        Map<String, Object> metadata = request != null && request.metadata() != null
-                ? new HashMap<>(request.metadata())
-                : new HashMap<>();
-        metadata.putIfAbsent("objectType", objectType);
-        metadata.putIfAbsent("objectId", objectId);
-        metadata.putIfAbsent("attachmentId", attachment.getAttachmentId());
-        metadata.putIfAbsent("name", attachment.getName());
-        metadata.putIfAbsent("contentType", attachment.getContentType());
-        metadata.putIfAbsent("size", attachment.getSize());
-        metadata.putIfAbsent("chunkOrder", 0);
-        return metadata;
     }
 
     private void upsertVectorDocument(VectorStorePort vectorStore, Attachment attachment, String text, EmbeddingVector vector) {
