@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 
 class AttachmentRagIndexJobSourceExecutorTest {
@@ -65,7 +66,11 @@ class AttachmentRagIndexJobSourceExecutorTest {
                 eq("42"),
                 eq(Map.of("attachmentId", "42")),
                 eq(List.of("alpha")),
-                eq(true))).thenReturn(command);
+                eq(true),
+                eq(null),
+                eq(null),
+                eq(null),
+                eq(RagChunkingOptions.empty()))).thenReturn(command);
         when(service.index(eq(42L), eq(command), any(RagIndexProgressListener.class)))
                 .thenReturn(new AttachmentRagIndexResult(AttachmentRagIndexDiagnostics.fallback("structured_not_attempted")));
         AttachmentRagIndexJobSourceExecutor executor = new AttachmentRagIndexJobSourceExecutor(service);

@@ -9,11 +9,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.ai.core.chunk.TextChunk;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
+import studio.one.platform.chunking.core.ChunkUnit;
 
 @SuppressWarnings("deprecation")
 class RagChunkerAdapterTest {
@@ -65,5 +67,31 @@ class RagChunkerAdapterTest {
                 .containsEntry("objectId", "42")
                 .containsEntry("strategy", "recursive")
                 .containsEntry("chunkOrder", 3);
+    }
+
+    @Test
+    void orchestratedAdapterAppliesRequestChunkingOptions() {
+        AtomicReference<ChunkingContext> capturedContext = new AtomicReference<>();
+        OrchestratedRagChunker adapter = new OrchestratedRagChunker(context -> {
+            capturedContext.set(context);
+            return List.of();
+        });
+        RagIndexRequest request = new RagIndexRequest(
+                "doc-1",
+                "ignored",
+                Map.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                new RagChunkingOptions("fixed-size", 120, 20, "token"));
+
+        adapter.chunk("indexed text", request);
+
+        assertThat(capturedContext.get().strategy()).isEqualTo(ChunkingStrategyType.FIXED_SIZE);
+        assertThat(capturedContext.get().maxSize()).isEqualTo(120);
+        assertThat(capturedContext.get().overlap()).isEqualTo(20);
+        assertThat(capturedContext.get().unit()).isEqualTo(ChunkUnit.TOKEN);
     }
 }

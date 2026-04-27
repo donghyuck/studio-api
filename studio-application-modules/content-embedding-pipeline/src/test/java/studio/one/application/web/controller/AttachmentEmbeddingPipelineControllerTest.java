@@ -223,6 +223,49 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     @Test
+    void ragIndexPassesChunkingOptionsToFallbackPipeline() throws Exception {
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "chunkingStrategy": "recursive",
+                                  "chunkMaxSize": 400,
+                                  "chunkOverlap": 40,
+                                  "chunkUnit": "character"
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
+                "recursive".equals(request.chunkingOptions().strategy())
+                        && Integer.valueOf(400).equals(request.chunkingOptions().maxSize())
+                        && Integer.valueOf(40).equals(request.chunkingOptions().overlap())
+                        && "character".equals(request.chunkingOptions().unit())), any(RagIndexProgressListener.class));
+    }
+
+    @Test
+    void ragIndexRejectsInvalidChunkingOptions() throws Exception {
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "chunkingStrategy": "semantic"
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void ragIndexUsesStructuredIndexingWhenAllStructuredBeansAreAvailable() throws Exception {
         VectorStorePort vectorStore = mock(VectorStorePort.class);
         ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
@@ -352,6 +395,52 @@ class AttachmentEmbeddingPipelineControllerTest {
                             && Integer.valueOf(2).equals(metadata.get("embeddingDimension"))
                             && metadata.containsKey("strategy");
                 }));
+    }
+
+    @Test
+    void ragIndexFallsBackToPlainTextWhenStructuredAttachmentRequestsPlainTextStrategy() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        AttachmentStructuredRagIndexer structuredRagIndexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        configureMockMvc(structuredRagIndexer, true);
+
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("structured".getBytes(StandardCharsets.UTF_8)))
+                .thenReturn(new ByteArrayInputStream("fallback".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(8L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("fallback text");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "chunkingStrategy": "recursive",
+                                  "chunkMaxSize": 200,
+                                  "chunkOverlap": 20,
+                                  "debug": true
+                                }
+                                """))
+                .andExpect(status().isAccepted())
+                .andExpect(header().string("X-RAG-Index-Path", "fallback"))
+                .andExpect(header().string("X-RAG-Index-Fallback-Reason", "plain_text_chunking_strategy"));
+
+        verify(extractionService, never()).parseStructured(any(), any(), any(InputStream.class));
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
+                "fallback text".equals(request.text())
+                        && "recursive".equals(request.chunkingOptions().strategy())
+                        && Integer.valueOf(200).equals(request.chunkingOptions().maxSize())
+                        && Integer.valueOf(20).equals(request.chunkingOptions().overlap())),
+                any(RagIndexProgressListener.class));
     }
 
     @Test

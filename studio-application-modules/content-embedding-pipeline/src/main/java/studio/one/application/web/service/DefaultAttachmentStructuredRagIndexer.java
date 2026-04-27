@@ -27,13 +27,17 @@ import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
+import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.core.ChunkingStrategyType;
+import studio.one.platform.chunking.core.ChunkUnit;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
 import studio.one.platform.textract.model.ParsedFile;
@@ -97,6 +101,20 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             FileContentExtractionService extractor,
             InputStream inputStream,
             RagIndexProgressListener listener) throws IOException {
+        return index(attachment, documentId, objectType, objectId, metadata, extractor, inputStream,
+                listener, RagChunkingOptions.empty());
+    }
+
+    @Override
+    public boolean index(Attachment attachment,
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            FileContentExtractionService extractor,
+            InputStream inputStream,
+            RagIndexProgressListener listener,
+            RagChunkingOptions chunkingOptions) throws IOException {
         latestDiagnostics.remove();
         RagIndexProgressListener progress = listener == null ? RagIndexProgressListener.noop() : listener;
         TextractNormalizedDocumentAdapter adapter = normalizedDocumentAdapterProvider.getIfAvailable();
@@ -108,13 +126,17 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             latestDiagnostics.set(AttachmentRagIndexDiagnostics.fallback(fallbackReason));
             return false;
         }
+        if (requiresPlainTextChunking(chunkingOptions)) {
+            latestDiagnostics.set(AttachmentRagIndexDiagnostics.fallback("plain_text_chunking_strategy"));
+            return false;
+        }
 
         progress.onStep(RagIndexJobStep.EXTRACTING);
         ParsedFile parsedFile = extractor.parseStructured(attachment.getContentType(), attachment.getName(), inputStream);
         NormalizedDocument normalizedDocument = adapter.adapt(documentId, parsedFile);
         NormalizedDocument document = enrichMetadata(documentId, normalizedDocument, metadata);
         progress.onStep(RagIndexJobStep.CHUNKING);
-        List<Chunk> chunks = chunkingOrchestrator.chunk(document);
+        List<Chunk> chunks = chunk(document, chunkingOrchestrator, chunkingOptions);
         progress.onChunkCount(chunks.size());
         if (chunks.isEmpty()) {
             latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(parsedFile.blocks().size(), 0, 0));
@@ -178,6 +200,38 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 chunks.size(),
                 records.size()));
         return true;
+    }
+
+    private List<Chunk> chunk(
+            NormalizedDocument document,
+            ChunkingOrchestrator chunkingOrchestrator,
+            RagChunkingOptions options) {
+        if (options == null || options.isEmpty()) {
+            return chunkingOrchestrator.chunk(document);
+        }
+        ChunkingContext.Builder builder = document.toContextBuilder()
+                .strategy(ChunkingStrategyType.STRUCTURE_BASED)
+                .useConfiguredMaxSize()
+                .useConfiguredOverlap();
+        if (options.strategy() != null) {
+            builder.strategy(ChunkingStrategyType.from(options.strategy()));
+        }
+        if (options.maxSize() != null) {
+            builder.maxSize(options.maxSize());
+        }
+        if (options.overlap() != null) {
+            builder.overlap(options.overlap());
+        }
+        if (options.unit() != null) {
+            builder.unit(ChunkUnit.from(options.unit()));
+        }
+        return chunkingOrchestrator.chunk(document, builder.build());
+    }
+
+    private boolean requiresPlainTextChunking(RagChunkingOptions options) {
+        return options != null
+                && options.strategy() != null
+                && !"structure-based".equals(options.strategy());
     }
 
     @Override

@@ -15,4 +15,11 @@ public interface ChunkingOrchestrator {
         }
         return chunk(document.toContextBuilder().build());
     }
+
+    default List<Chunk> chunk(NormalizedDocument document, ChunkingContext context) {
+        if (document == null || document.chunkableText().isBlank()) {
+            return List.of();
+        }
+        return chunk(context == null ? document.toContextBuilder().build() : context);
+    }
 }

@@ -17,7 +17,11 @@ public record RagIndexJobCreateRequestDto(
         Boolean useLlmKeywordExtraction,
         String embeddingProfileId,
         String embeddingProvider,
-        String embeddingModel) {
+        String embeddingModel,
+        String chunkingStrategy,
+        Integer chunkMaxSize,
+        Integer chunkOverlap,
+        String chunkUnit) {
     public RagIndexJobCreateRequestDto(
             String objectType,
             String objectId,
@@ -29,6 +33,23 @@ public record RagIndexJobCreateRequestDto(
             List<String> keywords,
             Boolean useLlmKeywordExtraction) {
         this(objectType, objectId, documentId, sourceType, forceReindex, text, metadata, keywords,
-                useLlmKeywordExtraction, null, null, null);
+                useLlmKeywordExtraction, null, null, null, null, null, null, null);
+    }
+
+    public RagIndexJobCreateRequestDto(
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            Boolean forceReindex,
+            String text,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        this(objectType, objectId, documentId, sourceType, forceReindex, text, metadata, keywords,
+                useLlmKeywordExtraction, embeddingProfileId, embeddingProvider, embeddingModel, null, null, null, null);
     }
 }

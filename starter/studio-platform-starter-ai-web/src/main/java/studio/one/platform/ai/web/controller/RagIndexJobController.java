@@ -36,6 +36,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
@@ -278,6 +279,7 @@ public class RagIndexJobController {
             documentId = request.objectId().trim();
             metadata.putIfAbsent("attachmentId", request.objectId().trim());
         }
+        RagChunkingOptions chunkingOptions = chunkingOptions(request);
         RagIndexRequest indexRequest = null;
         if (hasText(request.text())) {
             indexRequest = new RagIndexRequest(
@@ -288,7 +290,8 @@ public class RagIndexJobController {
                     Boolean.TRUE.equals(request.useLlmKeywordExtraction()),
                     request.embeddingProfileId(),
                     request.embeddingProvider(),
-                    request.embeddingModel());
+                    request.embeddingModel(),
+                    chunkingOptions);
         }
         RagIndexJobSourceRequest sourceRequest = indexRequest == null
                 ? new RagIndexJobSourceRequest(
@@ -297,7 +300,8 @@ public class RagIndexJobController {
                         Boolean.TRUE.equals(request.useLlmKeywordExtraction()),
                         request.embeddingProfileId(),
                         request.embeddingProvider(),
-                        request.embeddingModel())
+                        request.embeddingModel(),
+                        chunkingOptions)
                 : null;
         return new CreateJobCommand(new RagIndexJobCreateRequest(
                 request.objectType(),
@@ -306,6 +310,18 @@ public class RagIndexJobController {
                 request.sourceType(),
                 Boolean.TRUE.equals(request.forceReindex()),
                 indexRequest), sourceRequest);
+    }
+
+    private RagChunkingOptions chunkingOptions(RagIndexJobCreateRequestDto request) {
+        try {
+            return new RagChunkingOptions(
+                    request.chunkingStrategy(),
+                    request.chunkMaxSize(),
+                    request.chunkOverlap(),
+                    request.chunkUnit());
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     private boolean isAttachmentSource(RagIndexJobCreateRequestDto request) {

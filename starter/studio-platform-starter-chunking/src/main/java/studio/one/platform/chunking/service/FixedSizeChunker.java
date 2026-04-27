@@ -6,6 +6,7 @@ import java.util.List;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
+import studio.one.platform.chunking.core.ChunkUnit;
 import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
@@ -41,12 +42,15 @@ public class FixedSizeChunker implements Chunker {
 
         int maxSize = effectiveMaxSize(context.maxSize());
         int overlap = effectiveOverlap(context.overlap(), maxSize);
+        ChunkUnit unit = context.unit();
+        int windowSize = charWindow(maxSize, unit);
+        int overlapSize = charWindow(overlap, unit);
         List<Chunk> chunks = new ArrayList<>();
         int start = 0;
         int order = 0;
 
         while (start < text.length()) {
-            int end = Math.min(start + maxSize, text.length());
+            int end = Math.min(start + windowSize, text.length());
             String content = text.substring(start, end).trim();
             if (!content.isBlank()) {
                 int currentOrder = order++;
@@ -57,7 +61,7 @@ public class FixedSizeChunker implements Chunker {
             if (end == text.length()) {
                 break;
             }
-            start = Math.max(end - overlap, start + 1);
+            start = Math.max(end - overlapSize, start + 1);
         }
 
         return chunks;
@@ -81,6 +85,7 @@ public class FixedSizeChunker implements Chunker {
                 .objectId(context.objectId())
                 .startOffset(startOffset)
                 .endOffset(endOffset)
+                .tokenCount(ChunkSizing.estimateTokens(content))
                 .charCount(content.length())
                 .build();
         return Chunk.of(id, content, metadata);
@@ -98,6 +103,16 @@ public class FixedSizeChunker implements Chunker {
     private int effectiveOverlap(int requestedOverlap, int maxSize) {
         int overlap = requestedOverlap < 0 ? defaultOverlap : requestedOverlap;
         return Math.min(overlap, maxSize - 1);
+    }
+
+    private int charWindow(int size, ChunkUnit unit) {
+        if (size <= 0) {
+            return 0;
+        }
+        if (unit == ChunkUnit.TOKEN) {
+            return Math.max(1, size * 4);
+        }
+        return size;
     }
 
     private String normalize(String text) {

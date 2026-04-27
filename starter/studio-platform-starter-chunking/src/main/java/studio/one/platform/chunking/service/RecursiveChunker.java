@@ -9,6 +9,7 @@ import java.util.regex.Pattern;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
+import studio.one.platform.chunking.core.ChunkUnit;
 import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
@@ -46,11 +47,17 @@ public class RecursiveChunker implements Chunker {
 
         int maxSize = effectiveMaxSize(context.maxSize());
         int overlap = effectiveOverlap(context.overlap(), maxSize);
-        List<String> segments = splitRecursively(text, maxSize);
-        return pack(context, segments, maxSize, overlap);
+        ChunkUnit unit = context.unit();
+        List<String> segments = splitRecursively(text, maxSize, unit);
+        return pack(context, segments, maxSize, overlap, unit);
     }
 
-    private List<Chunk> pack(ChunkingContext context, List<String> segments, int maxSize, int overlap) {
+    private List<Chunk> pack(
+            ChunkingContext context,
+            List<String> segments,
+            int maxSize,
+            int overlap,
+            ChunkUnit unit) {
         List<Chunk> chunks = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         int order = 0;
@@ -61,13 +68,13 @@ public class RecursiveChunker implements Chunker {
                 continue;
             }
             String separator = current.length() == 0 ? "" : separatorBetween(current, segment);
-            if (current.length() > 0 && current.length() + separator.length() + segment.length() > maxSize) {
+            if (current.length() > 0 && sizeOf(current, separator, segment, unit) > maxSize) {
                 String content = current.toString().trim();
                 chunks.add(chunk(context, content, order++, cursor, cursor + content.length()));
-                current = new StringBuilder(tailForOverlap(content, overlap));
+                current = new StringBuilder(tailForOverlap(content, overlap, unit));
                 cursor += Math.max(content.length() - current.length(), 0);
                 separator = current.length() == 0 ? "" : separatorBetween(current, segment);
-                if (current.length() + separator.length() + segment.length() > maxSize) {
+                if (sizeOf(current, separator, segment, unit) > maxSize) {
                     current = new StringBuilder();
                     separator = "";
                 }
@@ -95,6 +102,7 @@ public class RecursiveChunker implements Chunker {
                 .objectId(context.objectId())
                 .startOffset(startOffset)
                 .endOffset(endOffset)
+                .tokenCount(ChunkSizing.estimateTokens(content))
                 .charCount(content.length())
                 .build();
         return Chunk.of(id, content, metadata);
@@ -127,38 +135,38 @@ public class RecursiveChunker implements Chunker {
         }
     }
 
-    private List<String> splitRecursively(String text, int maxSize) {
-        if (text.length() <= maxSize) {
+    private List<String> splitRecursively(String text, int maxSize, ChunkUnit unit) {
+        if (ChunkSizing.sizeOf(text, unit) <= maxSize) {
             return List.of(text);
         }
 
         List<String> byParagraph = splitByBlankParagraph(text);
         if (isUsefulSplit(byParagraph)) {
-            return splitAll(byParagraph, maxSize);
+            return splitAll(byParagraph, maxSize, unit);
         }
 
         List<String> byNewline = splitByDelimiter(text, "\n");
         if (isUsefulSplit(byNewline)) {
-            return splitAll(byNewline, maxSize);
+            return splitAll(byNewline, maxSize, unit);
         }
 
         List<String> bySentence = splitBySentence(text);
         if (isUsefulSplit(bySentence)) {
-            return splitAll(bySentence, maxSize);
+            return splitAll(bySentence, maxSize, unit);
         }
 
         List<String> byWhitespace = splitByWhitespace(text);
         if (isUsefulSplit(byWhitespace)) {
-            return splitAll(byWhitespace, maxSize);
+            return splitAll(byWhitespace, maxSize, unit);
         }
 
-        return splitFixed(text, maxSize);
+        return splitFixed(text, maxSize, unit);
     }
 
-    private List<String> splitAll(List<String> segments, int maxSize) {
+    private List<String> splitAll(List<String> segments, int maxSize, ChunkUnit unit) {
         List<String> results = new ArrayList<>();
         for (String segment : segments) {
-            results.addAll(splitRecursively(segment.trim(), maxSize));
+            results.addAll(splitRecursively(segment.trim(), maxSize, unit));
         }
         return results;
     }
@@ -205,25 +213,41 @@ public class RecursiveChunker implements Chunker {
         return segments;
     }
 
-    private List<String> splitFixed(String text, int maxSize) {
+    private List<String> splitFixed(String text, int maxSize, ChunkUnit unit) {
         List<String> segments = new ArrayList<>();
+        int windowSize = charWindow(maxSize, unit);
         int start = 0;
         while (start < text.length()) {
-            int end = Math.min(start + maxSize, text.length());
+            int end = Math.min(start + windowSize, text.length());
             segments.add(text.substring(start, end).trim());
             start = end;
         }
         return segments;
     }
 
-    private String tailForOverlap(String content, int overlap) {
+    private String tailForOverlap(String content, int overlap, ChunkUnit unit) {
         if (overlap <= 0) {
             return "";
         }
-        if (content.length() <= overlap) {
+        int overlapSize = charWindow(overlap, unit);
+        if (content.length() <= overlapSize) {
             return content;
         }
-        return content.substring(content.length() - overlap);
+        return content.substring(content.length() - overlapSize);
+    }
+
+    private int sizeOf(CharSequence current, String separator, String next, ChunkUnit unit) {
+        return ChunkSizing.sizeOf(current.toString() + separator + next, unit);
+    }
+
+    private int charWindow(int size, ChunkUnit unit) {
+        if (size <= 0) {
+            return 0;
+        }
+        if (unit == ChunkUnit.TOKEN) {
+            return Math.max(1, size * 4);
+        }
+        return size;
     }
 
     private String separatorBetween(CharSequence current, String next) {

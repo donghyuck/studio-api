@@ -93,6 +93,66 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void createJobPassesChunkingOptionsToIndexRequest() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                "hello",
+                Map.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                "recursive",
+                300,
+                30,
+                "character"));
+
+        assertThat(jobService.createdRequest.indexRequest().chunkingOptions().strategy()).isEqualTo("recursive");
+        assertThat(jobService.createdRequest.indexRequest().chunkingOptions().maxSize()).isEqualTo(300);
+        assertThat(jobService.createdRequest.indexRequest().chunkingOptions().overlap()).isEqualTo(30);
+        assertThat(jobService.createdRequest.indexRequest().chunkingOptions().unit()).isEqualTo("character");
+    }
+
+    @Test
+    void createJobRejectsUnsupportedChunkingOptions() {
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                mock(RagPipelineService.class),
+                null);
+
+        assertThatThrownBy(() -> controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                "hello",
+                Map.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                "semantic",
+                300,
+                30,
+                "character")))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(400));
+    }
+
+    @Test
     void createJobAcceptsSourceRequestWithoutText() {
         CapturingJobService jobService = new CapturingJobService();
         RagIndexJobController controller = new RagIndexJobController(
@@ -116,6 +176,38 @@ class RagIndexJobControllerTest {
         assertThat(jobService.createdRequest.sourceType()).isEqualTo("attachment");
         assertThat(jobService.createdRequest.documentId()).isEqualTo("doc-1");
         assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createJobPassesChunkingOptionsToSourceRequest() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of("attachmentId", "42"),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                "fixed-size",
+                200,
+                0,
+                "token"));
+
+        assertThat(jobService.createdSourceRequest.chunkingOptions().strategy()).isEqualTo("fixed-size");
+        assertThat(jobService.createdSourceRequest.chunkingOptions().maxSize()).isEqualTo(200);
+        assertThat(jobService.createdSourceRequest.chunkingOptions().overlap()).isZero();
+        assertThat(jobService.createdSourceRequest.chunkingOptions().unit()).isEqualTo("token");
     }
 
     @Test

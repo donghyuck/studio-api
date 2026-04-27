@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.vector.VectorRecord;
@@ -40,6 +41,21 @@ public class AttachmentRagIndexService {
             String embeddingProfileId,
             String embeddingProvider,
             String embeddingModel) {
+        return command(attachmentId, documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction,
+                embeddingProfileId, embeddingProvider, embeddingModel, RagChunkingOptions.empty());
+    }
+
+    public AttachmentRagIndexCommand command(long attachmentId,
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            RagChunkingOptions chunkingOptions) {
         return new AttachmentRagIndexCommand(
                 hasText(documentId) ? documentId.trim() : String.valueOf(attachmentId),
                 hasText(objectType) ? objectType.trim() : "attachment",
@@ -49,7 +65,8 @@ public class AttachmentRagIndexService {
                 Boolean.TRUE.equals(useLlmKeywordExtraction),
                 embeddingProfileId,
                 embeddingProvider,
-                embeddingModel);
+                embeddingModel,
+                chunkingOptions);
     }
 
     public AttachmentRagIndexCommand command(long attachmentId,
@@ -93,7 +110,8 @@ public class AttachmentRagIndexService {
                             metadata,
                             extractor,
                             in,
-                            progress)) {
+                            progress,
+                            command.chunkingOptions())) {
                         return new AttachmentRagIndexResult(structuredIndexer.latestDiagnostics()
                                 .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()));
                     }
@@ -119,7 +137,8 @@ public class AttachmentRagIndexService {
                         command.useLlmKeywordExtraction(),
                         command.embeddingProfileId(),
                         command.embeddingProvider(),
-                        command.embeddingModel()), progress);
+                        command.embeddingModel(),
+                        command.chunkingOptions()), progress);
             }
             return new AttachmentRagIndexResult(AttachmentRagIndexDiagnostics.fallback(
                     structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()));

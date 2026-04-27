@@ -59,6 +59,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagChunkingOptions;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
@@ -274,7 +275,8 @@ public class AttachmentEmbeddingPipelineController {
                 request == null ? null : request.useLlmKeywordExtraction(),
                 request == null ? null : request.embeddingProfileId(),
                 request == null ? null : request.embeddingProvider(),
-                request == null ? null : request.embeddingModel());
+                request == null ? null : request.embeddingModel(),
+                chunkingOptions(request));
         RagIndexJobService jobService = ragIndexJobServiceProvider.getIfAvailable();
         RagIndexJob job = createJob(jobService, command);
         RagIndexProgressListener progress = job == null
@@ -330,7 +332,24 @@ public class AttachmentEmbeddingPipelineController {
                         command.useLlmKeywordExtraction(),
                         command.embeddingProfileId(),
                         command.embeddingProvider(),
-                        command.embeddingModel()));
+                        command.embeddingModel(),
+                        command.chunkingOptions()));
+    }
+
+    private RagChunkingOptions chunkingOptions(AttachmentRagIndexRequestDto request) {
+        if (request == null) {
+            return RagChunkingOptions.empty();
+        }
+        try {
+            return new RagChunkingOptions(
+                    request.chunkingStrategy(),
+                    request.chunkMaxSize(),
+                    request.chunkOverlap(),
+                    request.chunkUnit());
+        } catch (IllegalArgumentException ex) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {

@@ -9,13 +9,25 @@ public record RagIndexJobSourceRequest(
         boolean useLlmKeywordExtraction,
         String embeddingProfileId,
         String embeddingProvider,
-        String embeddingModel) {
+        String embeddingModel,
+        RagChunkingOptions chunkingOptions) {
 
     public RagIndexJobSourceRequest(
             Map<String, Object> metadata,
             List<String> keywords,
             boolean useLlmKeywordExtraction) {
-        this(metadata, keywords, useLlmKeywordExtraction, null, null, null);
+        this(metadata, keywords, useLlmKeywordExtraction, null, null, null, RagChunkingOptions.empty());
+    }
+
+    public RagIndexJobSourceRequest(
+            Map<String, Object> metadata,
+            List<String> keywords,
+            boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        this(metadata, keywords, useLlmKeywordExtraction,
+                embeddingProfileId, embeddingProvider, embeddingModel, RagChunkingOptions.empty());
     }
 
     public RagIndexJobSourceRequest {
@@ -24,6 +36,7 @@ public record RagIndexJobSourceRequest(
         embeddingProfileId = normalize(embeddingProfileId);
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
+        chunkingOptions = chunkingOptions == null ? RagChunkingOptions.empty() : chunkingOptions;
     }
 
     public static RagIndexJobSourceRequest empty() {

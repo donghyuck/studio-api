@@ -42,11 +42,22 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
                 .maxSize(properties.getMaxSize())
                 .overlap(properties.getOverlap())
                 .build();
-        Chunker chunker = selectChunker(context);
-        if (chunker instanceof NormalizedDocumentChunker normalizedDocumentChunker) {
-            return normalizedDocumentChunker.chunk(document, context);
+        return chunk(document, context);
+    }
+
+    @Override
+    public List<Chunk> chunk(NormalizedDocument document, ChunkingContext context) {
+        if (document == null || document.chunkableText().isBlank()) {
+            return List.of();
         }
-        return chunker.chunk(context);
+        ChunkingContext effectiveContext = applyDefaults(context == null
+                ? document.toContextBuilder().strategy(ChunkingStrategyType.STRUCTURE_BASED).build()
+                : context);
+        Chunker chunker = selectChunker(effectiveContext);
+        if (chunker instanceof NormalizedDocumentChunker normalizedDocumentChunker) {
+            return normalizedDocumentChunker.chunk(document, effectiveContext);
+        }
+        return chunker.chunk(effectiveContext);
     }
 
     private Chunker selectChunker(ChunkingContext context) {
