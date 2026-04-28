@@ -523,6 +523,11 @@ Content-Type: application/json
 
 `objectType`/`objectId`는 core `MetadataFilter.objectScope(...)`로 변환되어 RAG pipeline에 전달된다.
 둘 다 생략하면 전체 RAG 인덱스 검색을 수행한다.
+`POST /api/mgmt/ai/rag/search`는 query 기반 semantic search API이므로 검색 전에 embedding provider를 호출해
+query embedding을 생성한다. OpenAI quota 부족처럼 provider quota/rate limit이 발생하면 chat 오류와 구분되는
+HTTP 429 `ProblemDetails.detail`로 `Embedding provider quota exceeded...` 메시지를 반환한다.
+저장된 chunk 원문을 provider 호출 없이 확인하려면 `GET /api/mgmt/ai/rag/jobs/{jobId}/chunks`,
+`GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks` 또는 각 `/chunks/page` variant를 사용한다.
 
 ### 파일 기반 RAG 흐름
 
@@ -541,6 +546,14 @@ Content-Type: application/json
 `POST /api/mgmt/ai/vectors/search` 응답 항목은 기존 `documentId`와 클라이언트 grid 호환용 `id`를 함께 반환한다.
 내부 검색 결과는 core `VectorSearchResults`/`VectorSearchHit` aggregate 계약으로 정규화하지만,
 HTTP 응답 shape는 기존 `List<VectorSearchResultDto>`를 유지한다.
+요청에 `embedding`을 직접 전달하면 provider 호출 없이 해당 벡터로 검색한다. `embedding` 없이 `query`만 전달하면
+검색 전에 configured `EmbeddingPort`가 호출되어 query embedding을 생성하므로 Spring AI/OpenAI 등 embedding
+provider quota를 사용한다. `hybrid=true`도 lexical score와 vector score를 함께 쓰기 때문에 query embedding이
+필요하며, 이 스타터는 별도 lexical-only debug search를 제공하지 않는다.
+query embedding 생성 중 provider quota/rate limit이 발생하면 HTTP 429 `ProblemDetails.detail`에
+`Embedding provider quota exceeded...` 메시지를 반환한다. 원시 chunk 확인이 목적이면 RAG chunk inspection API
+(`GET /api/mgmt/ai/rag/jobs/{jobId}/chunks`, `GET /api/mgmt/ai/rag/objects/{objectType}/{objectId}/chunks`,
+또는 각 `/chunks/page` variant)를 사용하면 provider 호출이 발생하지 않는다.
 요청에 `includeText=false` 또는 `includeMetadata=false`를 전달하면 core `VectorSearchRequest`에 그대로 전달되어
 응답 항목의 `content`가 `null`이거나 `metadata`가 빈 객체일 수 있다.
 `documentId`, `chunkId`, `sourceRef`, `page`, `slide` 같은 provenance key는
@@ -574,9 +587,12 @@ HTTP 응답 shape는 기존 `List<VectorSearchResultDto>`를 유지한다.
 ## 5) 참고 사항
 
 - `VectorController`는 `VectorStorePort` 빈이 없어도 등록되지만, 벡터 관련 요청 시 HTTP 503을 반환한다.
-- 벡터 검색 시 `hybrid=true`를 설정하면 BM25 + 벡터 하이브리드 검색이 활성화된다(query 텍스트 필수).
+- 벡터/RAG 검색에서 `query`만 전달하는 semantic search는 embedding provider 호출을 수반한다.
+- 벡터 검색 시 `hybrid=true`를 설정하면 BM25 + 벡터 하이브리드 검색이 활성화된다. lexical score 계산에는
+  `query` 텍스트가 필요하고, vector score 계산에는 직접 전달한 `embedding` 또는 query로 생성한 embedding이 필요하다.
 - 채팅 API의 `provider`는 Studio provider id 선택만 담당한다. OpenAI 런타임 설정은 계속 `spring.ai.openai.*`가 소유한다.
 - Google GenAI 등 provider quota/rate limit 오류는 AI web exception handler가 HTTP 429 `ProblemDetails`로 변환한다.
+- Vector/RAG query embedding quota/rate limit 오류는 chat quota와 구분되는 embedding provider 메시지로 반환한다.
 - `query-rewrite` 엔드포인트는 Mustache 템플릿(`query-rewrite`)이 없으면 내장 폴백 프롬프트를 사용한다.
 - 모든 엔드포인트는 Spring Security의 메서드 레벨 권한 검사(`@PreAuthorize`)를 사용한다.
   `endpointAuthz` 빈이 컨텍스트에 등록되어 있어야 한다.

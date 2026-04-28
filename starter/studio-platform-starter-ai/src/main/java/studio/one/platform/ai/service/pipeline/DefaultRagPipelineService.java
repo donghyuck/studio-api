@@ -502,7 +502,16 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     private EmbeddingResponse executeEmbedding(List<String> texts, ResolvedRagEmbedding resolvedEmbedding) {
         Supplier<EmbeddingResponse> supplier = () -> resolvedEmbedding.embeddingPort().embed(resolvedEmbedding.request(texts));
-        return Retry.decorateSupplier(retry, supplier).get();
+        try {
+            return Retry.decorateSupplier(retry, supplier).get();
+        } catch (RuntimeException ex) {
+            if (AiProviderExceptionSupport.isQuotaOrRateLimit(ex)) {
+                throw new EmbeddingProviderQuotaExceededException(
+                        "Embedding provider quota exceeded while generating RAG embedding.",
+                        ex);
+            }
+            throw ex;
+        }
     }
 
     private ResolvedRagEmbedding resolveLegacyEmbedding() {

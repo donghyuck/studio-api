@@ -34,6 +34,7 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
+import studio.one.platform.ai.service.pipeline.AiProviderExceptionSupport;
 import studio.one.platform.ai.web.dto.VectorDocumentDto;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
@@ -205,10 +206,10 @@ public class VectorController {
         EmbeddingResponse response;
         ResolvedRagEmbedding resolved = null;
         if (embeddingProfileResolver == null || !hasEmbeddingSelection(request)) {
-            response = embeddingPort.embed(new EmbeddingRequest(List.of(request.query())));
+            response = embedForSearch(embeddingPort, new EmbeddingRequest(List.of(request.query())));
         } else {
             resolved = resolveSelection(request);
-            response = resolved.embeddingPort().embed(resolved.request(List.of(request.query())));
+            response = embedForSearch(resolved.embeddingPort(), resolved.request(List.of(request.query())));
         }
         log.debug("embedding {} -> {}", request.query(), response.vectors().size());
         List<Double> values = List.copyOf(response.vectors().get(0).values());
@@ -220,6 +221,23 @@ public class VectorController {
                 resolved == null
                         ? null
                         : resolved.dimension() == null ? values.size() : resolved.dimension());
+    }
+
+    private EmbeddingResponse embedForSearch(EmbeddingPort port, EmbeddingRequest request) {
+        try {
+            return port.embed(request);
+        } catch (RuntimeException ex) {
+            if (AiProviderExceptionSupport.isQuotaOrRateLimit(ex)) {
+                throw new ResponseStatusException(
+                        HttpStatus.TOO_MANY_REQUESTS,
+                        "Embedding provider quota exceeded while converting vector search query to an embedding. "
+                                + "Query-based vector search calls the configured EmbeddingPort; provide a "
+                                + "precomputed embedding or use RAG chunk inspection endpoints for provider-free "
+                                + "inspection.",
+                        ex);
+            }
+            throw ex;
+        }
     }
 
     private ResolvedRagEmbedding resolveSelection(VectorSearchRequestDto request) {

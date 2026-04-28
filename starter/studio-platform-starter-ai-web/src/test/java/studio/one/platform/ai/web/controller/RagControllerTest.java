@@ -1,6 +1,7 @@
 package studio.one.platform.ai.web.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -12,12 +13,14 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.service.pipeline.EmbeddingProviderQuotaExceededException;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.IndexRequest;
@@ -77,5 +80,22 @@ class RagControllerTest {
         assertThat(captor.getValue().topK()).isEqualTo(3);
         assertThat(captor.getValue().metadataFilter().objectType()).isEqualTo("attachment");
         assertThat(captor.getValue().metadataFilter().objectId()).isEqualTo("42");
+    }
+
+    @Test
+    void searchEmbeddingQuotaErrorIsReturnedAsEmbeddingProviderError() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagController controller = new RagController(ragPipelineService);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenThrow(new EmbeddingProviderQuotaExceededException(
+                        "Embedding provider quota exceeded while generating RAG embedding.",
+                        new RuntimeException("HTTP 429 insufficient_quota")));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.search(new SearchRequest("hello", 3, "attachment", "42")));
+
+        assertThat(exception.getStatusCode().value()).isEqualTo(429);
+        assertThat(exception.getReason()).contains("Embedding provider quota exceeded");
+        assertThat(exception.getReason()).contains("Query-based RAG search");
     }
 }

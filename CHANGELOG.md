@@ -3,6 +3,8 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #357 대응으로 Vector/RAG query 검색 중 embedding provider quota/rate limit이 발생하면 chat 오류와 구분되는 HTTP 429 메시지를 반환하도록 했다.
+- `starter-ai-web` README에 query 기반 Vector/RAG 검색이 embedding provider를 호출한다는 점과 provider-free chunk inspection 대체 경로를 명시했다.
 - 이슈 #355 대응으로 `studio-platform-textract-starter`의 기능/런타임 설정을 `studio.features.textract.*`와 `studio.textract.*`로 정리하고, 텍스트 추출 크기 제한을 `studio.textract.max-extract-size`에서 `10M`, `50MB` 같은 단위로 설정할 수 있도록 했다.
 - 기존 `studio.features.text.*`와 `studio.text.*`는 fallback과 deprecation warning, configuration metadata를 유지한다.
 - 텍스트 추출 크기 초과 예외 메시지에 감지된 크기, 제한값, 조치 설정 키를 포함하도록 보강했다.
