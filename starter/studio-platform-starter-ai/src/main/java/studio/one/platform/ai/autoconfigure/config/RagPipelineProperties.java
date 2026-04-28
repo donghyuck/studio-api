@@ -177,12 +177,22 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
     }
 
     public static class RetrievalProperties {
+        private int topK = RagPipelineOptions.DEFAULT_TOP_K;
         private double vectorWeight = RagPipelineOptions.DEFAULT_VECTOR_WEIGHT;
         private double lexicalWeight = RagPipelineOptions.DEFAULT_LEXICAL_WEIGHT;
+        private double minScore = RagPipelineOptions.DEFAULT_MIN_SCORE;
         private double minRelevanceScore = RagPipelineOptions.DEFAULT_MIN_RELEVANCE_SCORE;
         private boolean keywordFallbackEnabled = RagPipelineOptions.DEFAULT_KEYWORD_FALLBACK_ENABLED;
         private boolean semanticFallbackEnabled = RagPipelineOptions.DEFAULT_SEMANTIC_FALLBACK_ENABLED;
         private final QueryExpansionProperties queryExpansion = new QueryExpansionProperties();
+
+        public int getTopK() {
+            return topK;
+        }
+
+        public void setTopK(int topK) {
+            this.topK = topK;
+        }
 
         public double getVectorWeight() {
             return vectorWeight;
@@ -198,6 +208,14 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
 
         public void setLexicalWeight(double lexicalWeight) {
             this.lexicalWeight = lexicalWeight;
+        }
+
+        public double getMinScore() {
+            return minScore;
+        }
+
+        public void setMinScore(double minScore) {
+            this.minScore = minScore;
         }
 
         public double getMinRelevanceScore() {

@@ -252,9 +252,11 @@ public class RagPipelineConfiguration {
                 return new RagPipelineOptions(
                                 retrieval.getVectorWeight(),
                                 retrieval.getLexicalWeight(),
+                                retrieval.getMinScore(),
                                 retrieval.getMinRelevanceScore(),
                                 retrieval.isKeywordFallbackEnabled(),
                                 retrieval.isSemanticFallbackEnabled(),
+                                retrieval.getTopK(),
                                 objectScope.getDefaultListLimit(),
                                 objectScope.getMaxListLimit());
         }

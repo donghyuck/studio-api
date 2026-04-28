@@ -30,6 +30,7 @@ import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorSearchResults;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.web.dto.VectorSearchRequestDto;
 import studio.one.platform.ai.web.dto.VectorSearchResultDto;
 import studio.one.platform.web.dto.ApiResponse;
@@ -117,6 +118,26 @@ class VectorControllerTest {
         assertThat(captor.getValue().queryText()).isEqualTo("hello");
         assertThat(captor.getValue().includeText()).isTrue();
         assertThat(captor.getValue().includeMetadata()).isTrue();
+    }
+
+    @Test
+    void appliesConfiguredTopKAndMinScoreWhenSearchRequestOmitsThem() {
+        ArgumentCaptor<VectorSearchRequest> captor = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        controller = new VectorController(
+                embeddingPort,
+                null,
+                vectorStorePort,
+                new RagPipelineOptions(0.7d, 0.3d, 0.42d, 0.15d, true, true, 7, 20, 100));
+        when(embeddingPort.embed(any()))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
+        when(vectorStorePort.searchWithFilter(any(VectorSearchRequest.class)))
+                .thenReturn(VectorSearchResults.of(List.of(), 0L));
+
+        controller.search(new VectorSearchRequestDto("hello", null, null, false, null, null, null));
+
+        verify(vectorStorePort).searchWithFilter(captor.capture());
+        assertThat(captor.getValue().topK()).isEqualTo(7);
+        assertThat(captor.getValue().minScore()).isEqualTo(0.42d);
     }
 
     @Test
@@ -297,39 +318,41 @@ class VectorControllerTest {
     }
 
     @Test
-    void searchesWithinObjectScopeWhenOnlyObjectTypeIsProvided() {
+    void rejectsObjectScopeWhenOnlyObjectTypeIsProvided() {
         when(embeddingPort.embed(any()))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
-        when(vectorStorePort.searchByObject(eq("attachment"), eq(null), any(VectorSearchRequest.class)))
-                .thenReturn(List.of(new VectorSearchResult(
-                        new VectorDocument("doc-type-only", "chunk", Map.of("objectType", "attachment"), List.of()),
-                        0.75d)));
 
-        ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
-                new VectorSearchRequestDto("hello", null, 3, false, "attachment", null, null));
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.search(new VectorSearchRequestDto(
+                        "hello",
+                        null,
+                        3,
+                        false,
+                        "attachment",
+                        null,
+                        null)));
 
-        assertThat(response.getBody().getData())
-                .extracting(VectorSearchResultDto::documentId)
-                .containsExactly("doc-type-only");
-        verify(vectorStorePort).searchByObject(eq("attachment"), eq(null), any(VectorSearchRequest.class));
+        assertThat(ex.getStatusCode().value()).isEqualTo(400);
+        verifyNoInteractions(embeddingPort, vectorStorePort);
     }
 
     @Test
-    void searchesWithinObjectScopeWhenOnlyObjectIdIsProvided() {
+    void rejectsObjectScopeWhenOnlyObjectIdIsProvided() {
         when(embeddingPort.embed(any()))
                 .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(1.0, 0.0)))));
-        when(vectorStorePort.searchByObject(eq(null), eq("42"), any(VectorSearchRequest.class)))
-                .thenReturn(List.of(new VectorSearchResult(
-                        new VectorDocument("doc-id-only", "chunk", Map.of("objectId", "42"), List.of()),
-                        0.76d)));
 
-        ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> response = controller.search(
-                new VectorSearchRequestDto("hello", null, 3, false, null, "42", null));
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.search(new VectorSearchRequestDto(
+                        "hello",
+                        null,
+                        3,
+                        false,
+                        null,
+                        "42",
+                        null)));
 
-        assertThat(response.getBody().getData())
-                .extracting(VectorSearchResultDto::documentId)
-                .containsExactly("doc-id-only");
-        verify(vectorStorePort).searchByObject(eq(null), eq("42"), any(VectorSearchRequest.class));
+        assertThat(ex.getStatusCode().value()).isEqualTo(400);
+        verifyNoInteractions(embeddingPort, vectorStorePort);
     }
 
     @Test

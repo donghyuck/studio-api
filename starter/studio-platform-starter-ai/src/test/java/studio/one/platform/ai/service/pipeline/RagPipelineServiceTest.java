@@ -952,6 +952,75 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldApplyConfiguredMinScoreAsResultCutoff() {
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.8d, 0.15d, false, false, 3, 20, 100));
+        RagSearchRequest request = new RagSearchRequest("hello", 3);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument("doc-high", "strong", Map.of(), List.of()), 0.9),
+                        new VectorSearchResult(new VectorDocument("doc-low", "weak", Map.of(), List.of()), 0.7)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-high");
+    }
+
+    @Test
+    void shouldApplyRequestMinScoreBeforeReturningResults() {
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.2d, 0.15d, false, false, 3, 20, 100));
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                3,
+                MetadataFilter.empty(),
+                null,
+                null,
+                null,
+                0.85d);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(
+                        new VectorSearchResult(new VectorDocument("doc-high", "strong", Map.of(), List.of()), 0.9),
+                        new VectorSearchResult(new VectorDocument("doc-low", "weak", Map.of(), List.of()), 0.8)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results)
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("doc-high");
+    }
+
+    @Test
+    void shouldNotUseSemanticFallbackWhenRawHybridResultsAreRelevantBeforeMinScoreCutoff() {
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.2d, 0.15d, false, true, 3, 20, 100));
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                3,
+                MetadataFilter.empty(),
+                null,
+                null,
+                null,
+                0.85d);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-hybrid-low", "weak hybrid", Map.of(), List.of()), 0.5)));
+
+        List<RagSearchResult> results = ragPipelineService.search(request);
+
+        assertThat(results).isEmpty();
+        verify(vectorStorePort, never()).search(any(VectorSearchRequest.class));
+    }
+
+    @Test
     void shouldSkipKeywordFallbackWhenDisabled() {
         ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
                 keywordExtractor, new RagPipelineOptions(0.7d, 0.3d, 0.15d, false, true, 20, 100));
@@ -1159,6 +1228,43 @@ class RagPipelineServiceTest {
             assertThat(diagnostics.objectType()).isNull();
             assertThat(diagnostics.objectId()).isNull();
             assertThat(diagnostics.topK()).isEqualTo(2);
+            assertThat(diagnostics.requestedTopK()).isEqualTo(2);
+            assertThat(diagnostics.requestedMinScore()).isNull();
+            assertThat(diagnostics.beforeMinScoreCount()).isEqualTo(2);
+            assertThat(diagnostics.afterMinScoreCount()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    void shouldPreserveAbsentRequestedValuesInDiagnosticsWhenDefaultsAreApplied() {
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                new RagPipelineDiagnosticsOptions(true, false, 120));
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                RagPipelineOptions.DEFAULT_TOP_K,
+                MetadataFilter.empty(),
+                null,
+                null,
+                null,
+                RagPipelineOptions.DEFAULT_MIN_SCORE,
+                null,
+                null);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-1", "chunk 1", Map.of(), List.of()), 0.9)));
+
+        ragPipelineService.search(request);
+
+        assertThat(ragPipelineService.latestDiagnostics()).hasValueSatisfying(diagnostics -> {
+            assertThat(diagnostics.topK()).isEqualTo(RagPipelineOptions.DEFAULT_TOP_K);
+            assertThat(diagnostics.minScore()).isEqualTo(RagPipelineOptions.DEFAULT_MIN_SCORE);
+            assertThat(diagnostics.requestedTopK()).isNull();
+            assertThat(diagnostics.requestedMinScore()).isNull();
         });
     }
 
@@ -1240,6 +1346,8 @@ class RagPipelineServiceTest {
             assertThat(diagnostics.strategy()).isEqualTo(RagRetrievalDiagnostics.Strategy.NONE);
             assertThat(diagnostics.initialResultCount()).isEqualTo(1);
             assertThat(diagnostics.finalResultCount()).isZero();
+            assertThat(diagnostics.beforeMinScoreCount()).isEqualTo(1);
+            assertThat(diagnostics.afterMinScoreCount()).isZero();
         });
     }
 

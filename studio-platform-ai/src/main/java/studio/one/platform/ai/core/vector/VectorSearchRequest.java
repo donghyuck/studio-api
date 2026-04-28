@@ -10,6 +10,9 @@ import studio.one.platform.ai.core.MetadataFilter;
  */
 public final class VectorSearchRequest {
 
+    public static final int MAX_TOP_K = 100;
+    public static final double MAX_MIN_SCORE = 1.0d;
+
     private final List<Double> embedding;
     private final String queryText;
     private final int topK;
@@ -42,11 +45,11 @@ public final class VectorSearchRequest {
         if (embedding.isEmpty()) {
             throw new IllegalArgumentException("Search embedding must not be empty");
         }
-        if (topK <= 0) {
-            throw new IllegalArgumentException("topK must be greater than zero");
+        if (topK <= 0 || topK > MAX_TOP_K) {
+            throw new IllegalArgumentException("topK must be between 1 and " + MAX_TOP_K);
         }
-        if (minScore != null && minScore < 0.0d) {
-            throw new IllegalArgumentException("minScore must be greater than or equal to zero");
+        if (minScore != null && (minScore < 0.0d || minScore > MAX_MIN_SCORE)) {
+            throw new IllegalArgumentException("minScore must be between 0.0 and " + MAX_MIN_SCORE);
         }
         this.topK = topK;
         this.queryText = queryText == null || queryText.isBlank() ? null : queryText.trim();

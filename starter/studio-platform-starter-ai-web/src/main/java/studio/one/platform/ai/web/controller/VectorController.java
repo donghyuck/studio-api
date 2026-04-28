@@ -33,6 +33,7 @@ import studio.one.platform.ai.core.vector.VectorSearchResults;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
 import studio.one.platform.ai.service.pipeline.AiProviderExceptionSupport;
 import studio.one.platform.ai.web.dto.VectorDocumentDto;
@@ -65,6 +66,7 @@ public class VectorController {
     private final RagEmbeddingProfileResolver embeddingProfileResolver;
     @Nullable
     private final VectorStorePort vectorStorePort; 
+    private final RagPipelineOptions searchOptions;
 
     public VectorController(EmbeddingPort embeddingPort,
             @Nullable VectorStorePort vectorStorePort) {
@@ -74,9 +76,17 @@ public class VectorController {
     public VectorController(EmbeddingPort embeddingPort,
             @Nullable RagEmbeddingProfileResolver embeddingProfileResolver,
             @Nullable VectorStorePort vectorStorePort) {
+        this(embeddingPort, embeddingProfileResolver, vectorStorePort, RagPipelineOptions.defaults());
+    }
+
+    public VectorController(EmbeddingPort embeddingPort,
+            @Nullable RagEmbeddingProfileResolver embeddingProfileResolver,
+            @Nullable VectorStorePort vectorStorePort,
+            RagPipelineOptions searchOptions) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.embeddingProfileResolver = embeddingProfileResolver;
         this.vectorStorePort = vectorStorePort; 
+        this.searchOptions = searchOptions == null ? RagPipelineOptions.defaults() : searchOptions;
     }
 
     /**
@@ -145,13 +155,14 @@ public class VectorController {
             @Valid @RequestBody VectorSearchRequestDto request) {
 
         VectorStorePort store = requireVectorStore();
+        validateObjectScope(request.objectType(), request.objectId(), "Vector object scope");
         ResolvedVectorEmbedding resolvedEmbedding = resolveEmbedding(request);
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 resolvedEmbedding.values(),
                 request.query(),
-                request.topK(),
+                effectiveTopK(request.topK()),
                 metadataFilter(request, resolvedEmbedding),
-                request.minScore(),
+                effectiveMinScore(request.minScore()),
                 request.includeText(),
                 request.includeMetadata());
         VectorSearchResults results = executeSearch(store, request, searchRequest);
@@ -180,6 +191,31 @@ public class VectorController {
             putIfPresent(equals, "embeddingDimension", resolvedEmbedding.dimension());
         }
         return MetadataFilter.of(equals, objectScope.inCriteria(), objectScope.rangeCriteria());
+    }
+
+    private void validateObjectScope(String objectType, String objectId, String label) {
+        String normalizedObjectType = normalizeText(objectType);
+        String normalizedObjectId = normalizeText(objectId);
+        if ((normalizedObjectType == null) != (normalizedObjectId == null)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    label + " requires both objectType and objectId");
+        }
+    }
+
+    private int effectiveTopK(Integer requestedTopK) {
+        return requestedTopK == null ? searchOptions.topK() : requestedTopK;
+    }
+
+    private Double effectiveMinScore(Double requestedMinScore) {
+        return requestedMinScore == null ? searchOptions.minScore() : requestedMinScore;
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private void putIfPresent(Map<String, Object> values, String key, Object value) {

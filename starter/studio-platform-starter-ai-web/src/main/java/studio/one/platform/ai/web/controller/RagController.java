@@ -24,6 +24,7 @@ import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.pipeline.EmbeddingProviderQuotaExceededException;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.IndexRequest;
@@ -50,16 +51,25 @@ public class RagController {
     public static final String RAG_JOB_ID_HEADER = "X-RAG-Job-Id";
 
     private final RagPipelineService ragPipelineService;
+    private final RagPipelineOptions options;
     @Nullable
     private final RagIndexJobService ragIndexJobService;
 
     public RagController(RagPipelineService ragPipelineService) {
-        this(ragPipelineService, null);
+        this(ragPipelineService, null, RagPipelineOptions.defaults());
     }
 
     public RagController(RagPipelineService ragPipelineService,
             @Nullable RagIndexJobService ragIndexJobService) {
+        this(ragPipelineService, ragIndexJobService, RagPipelineOptions.defaults());
+    }
+
+    public RagController(
+            RagPipelineService ragPipelineService,
+            @Nullable RagIndexJobService ragIndexJobService,
+            RagPipelineOptions options) {
         this.ragPipelineService = ragPipelineService;
+        this.options = options == null ? RagPipelineOptions.defaults() : options;
         this.ragIndexJobService = ragIndexJobService;
     }
 
@@ -133,11 +143,14 @@ public class RagController {
         try {
             results = ragPipelineService.search(new RagSearchRequest(
                     request.query(),
-                    request.topK(),
-                    MetadataFilter.objectScope(request.objectType(), request.objectId()),
+                    effectiveTopK(request.topK()),
+                    objectScope(request.objectType(), request.objectId()),
                     request.embeddingProfileId(),
                     request.embeddingProvider(),
-                    request.embeddingModel()));
+                    request.embeddingModel(),
+                    effectiveMinScore(request.minScore()),
+                    request.topK(),
+                    request.minScore()));
         } catch (EmbeddingProviderQuotaExceededException ex) {
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
@@ -154,5 +167,34 @@ public class RagController {
                         result.score()))
                 .toList();
         return ResponseEntity.ok(new SearchResponse(payload));
+    }
+
+    private int effectiveTopK(Integer requestedTopK) {
+        return requestedTopK == null ? options.topK() : requestedTopK;
+    }
+
+    private double effectiveMinScore(Double requestedMinScore) {
+        return requestedMinScore == null ? options.minScore() : requestedMinScore;
+    }
+
+    private MetadataFilter objectScope(String objectType, String objectId) {
+        String normalizedObjectType = normalize(objectType);
+        String normalizedObjectId = normalize(objectId);
+        if (normalizedObjectType == null && normalizedObjectId == null) {
+            return MetadataFilter.empty();
+        }
+        if (normalizedObjectType == null || normalizedObjectId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "RAG object scope requires both objectType and objectId");
+        }
+        return MetadataFilter.objectScope(normalizedObjectType, normalizedObjectId);
+    }
+
+    private String normalize(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

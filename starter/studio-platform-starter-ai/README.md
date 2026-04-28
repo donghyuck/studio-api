@@ -377,6 +377,8 @@ studio:
   ai:
     rag:
       retrieval:
+        top-k: 3
+        min-score: 0.15
         vector-weight: 0.7
         lexical-weight: 0.3
         min-relevance-score: 0.15
@@ -402,9 +404,11 @@ studio:
 
 | 설정 | 기본값 | 설명 |
 |---|---:|---|
+| `studio.ai.rag.retrieval.top-k` | `3` | RAG search/chat 요청에 `topK`가 없을 때 사용할 기본 후보 수 |
+| `studio.ai.rag.retrieval.min-score` | `0.15` | RAG search/chat 결과에 적용할 기본 score cutoff |
 | `studio.ai.rag.retrieval.vector-weight` | `0.7` | hybrid 검색의 벡터 점수 비중 |
 | `studio.ai.rag.retrieval.lexical-weight` | `0.3` | hybrid 검색의 lexical 점수 비중 |
-| `studio.ai.rag.retrieval.min-relevance-score` | `0.15` | fallback 성공으로 판단할 최소 relevance score |
+| `studio.ai.rag.retrieval.min-relevance-score` | `0.15` | fallback 성공으로 판단할 최소 relevance score. 결과 cutoff는 `min-score`를 사용 |
 | `studio.ai.rag.retrieval.keyword-fallback-enabled` | `true` | keyword-enriched hybrid fallback 사용 여부 |
 | `studio.ai.rag.retrieval.semantic-fallback-enabled` | `true` | semantic fallback 사용 여부 |
 | `studio.ai.rag.retrieval.query-expansion.enabled` | `true` | keyword fallback에서 LLM keyword extractor로 query를 보강할지 여부 |
@@ -418,7 +422,12 @@ studio:
 | `studio.ai.rag.diagnostics.max-snippet-chars` | `120` | result snippet debug log 최대 문자 수 |
 
 `vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
-diagnostics metadata에는 chunk 본문을 포함하지 않고 strategy, 결과 수, threshold, weight, object scope, topK만 기록한다.
+검색 API에서 요청 `topK`/`minScore`가 있으면 요청값이 우선하고, 없으면 위 설정값을 사용한다.
+`minScore` 적용 후 결과 수는 `topK`보다 적을 수 있다.
+fallback 전략 선택은 서버 설정 `min-relevance-score` 기준의 raw retrieval 결과로 결정하며,
+client `minScore`는 최종 반환/context 후보 cutoff로만 적용한다.
+diagnostics metadata에는 chunk 본문을 포함하지 않고 strategy, 결과 수, requested/effective threshold,
+weight, object scope, topK, minScore 적용 전후 count만 기록한다.
 `keywords.scope=document`는 기존 동작과 동일하게 문서 단위 `keywords`/`keywordsText`만 기록한다.
 `chunk` 또는 `both`를 사용하면 chunk metadata에 `chunkKeywords`/`chunkKeywordsText`를 추가한다.
 호출자가 제공한 `RagIndexRequest.keywords`는 document-level keyword로만 사용되며, `keywords.scope=chunk`에서는 저장되지 않는다.
