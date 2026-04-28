@@ -211,6 +211,21 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatRequiresChatRagAndObjectScopeReadAuthorities() throws Exception {
+        String expression = preAuthorizeValue(ChatController.class.getMethod(
+                "chatWithRag",
+                ChatRagRequestDto.class,
+                java.security.Principal.class));
+
+        assertThat(expression).contains("services:ai_chat','write");
+        assertThat(expression).contains("services:ai_rag','read");
+        assertThat(expression).contains("features:attachment','read");
+        assertThat(expression).contains("equalsIgnoreCase('attachment')");
+        assertThat(expression).contains("objects:' + #request.objectType().trim() + ':'");
+        assertThat(expression).contains("objects:' + #request.objectType().trim()");
+    }
+
+    @Test
     void chatPrependsSystemPrompt() {
         ArgumentCaptor<ChatRequest> captor = ArgumentCaptor.forClass(ChatRequest.class);
 
@@ -588,6 +603,33 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatAllowsNonAttachmentObjectScope() {
+        ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 0.9d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "2001",
+                "6"));
+
+        verify(ragPipelineService).search(ragCaptor.capture());
+        assertThat(ragCaptor.getValue().metadataFilter().objectType()).isEqualTo("2001");
+        assertThat(ragCaptor.getValue().metadataFilter().objectId()).isEqualTo("6");
+    }
+
+    @Test
     void ragChatUsesObjectScopedCandidatesForContextExpansion() {
         controller = new ChatController(providerRegistry, ragPipelineService,
                 new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()));
@@ -625,6 +667,34 @@ class ChatControllerTest {
                 .contains("previous\nseed\nnext")
                 .contains("docId=chunk-2")
                 .contains("score=0.900");
+    }
+
+    @Test
+    void ragChatUsesNonAttachmentObjectScopedCandidatesForContextExpansion() {
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("2001", "6", 12))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed", chunkMetadata("chunk-2"), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "2001",
+                "6"));
+
+        verify(ragPipelineService).listByObject("2001", "6", 12);
     }
 
     @Test
@@ -1031,6 +1101,30 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatListsByNonAttachmentObjectWhenQueryMissingAndObjectFilterPresent() {
+        when(ragPipelineService.listByObject("2001", "6", 3))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                null,
+                3,
+                "2001",
+                "6"));
+
+        verify(ragPipelineService).listByObject("2001", "6", 3);
+    }
+
+    @Test
     void ragChatLimitsObjectListResultsBeforeBuildingContext() {
         ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
         when(ragPipelineService.listByObject("attachment", "123", 2))
@@ -1108,28 +1202,6 @@ class ChatControllerTest {
     }
 
     @Test
-    void ragChatRejectsUnsupportedObjectType() {
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.chatWithRag(new ChatRagRequestDto(
-                        new ChatRequestDto(
-                                null,
-                                null,
-                                List.of(new ChatMessageDto("user", "summarize")),
-                                null,
-                                null,
-                                null,
-                                null,
-                                null,
-                                null),
-                        null,
-                        3,
-                        "document",
-                        "123")));
-
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        verifyNoInteractions(ragPipelineService);
-    }
-
     private ChatResponse response(String content) {
         return new ChatResponse(List.of(studio.one.platform.ai.core.chat.ChatMessage.assistant(content)), "model",
                 Map.of());
@@ -1176,6 +1248,21 @@ class ChatControllerTest {
                 null,
                 null,
                 3);
+    }
+
+    private static String preAuthorizeValue(java.lang.reflect.Method method) {
+        return java.util.Arrays.stream(method.getAnnotations())
+                .filter(annotation -> "org.springframework.security.access.prepost.PreAuthorize"
+                        .equals(annotation.annotationType().getName()))
+                .findFirst()
+                .map(annotation -> {
+                    try {
+                        return (String) annotation.annotationType().getMethod("value").invoke(annotation);
+                    } catch (ReflectiveOperationException ex) {
+                        throw new AssertionError("PreAuthorize value could not be read", ex);
+                    }
+                })
+                .orElseThrow(() -> new AssertionError("PreAuthorize annotation not found"));
     }
 
     private Map<String, Object> chunkMetadata(String chunkId) {

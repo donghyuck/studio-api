@@ -198,10 +198,16 @@ RAG job 운영 API 권한은 다음 기준으로 처리한다.
 
 클라이언트 기준:
 
-- 파일 기반 답변은 `objectType=attachment`, `objectId=<attachmentId>`를 보낸다.
-- 현재 2.x의 `/api/ai/chat/rag` object scope는 attachment 전용이다. object scope를 쓰는 요청에서
-  `objectType`이 `attachment`가 아니거나 `objectId`가 없으면 서버는 `400 Bad Request`로 처리한다.
-  `objectType`과 `objectId`를 모두 생략하고 `ragQuery`만 보내는 전역 RAG 검색은 별도 흐름으로 허용된다.
+- 파일 기반 답변은 색인된 job/chunk의 object scope를 그대로 보낸다. attachment 전용 색인이라면
+  `objectType=attachment`, `objectId=<attachmentId>`이고, 도메인 객체 scope로 색인했다면 예를 들어
+  `objectType=2001`, `objectId=6`을 그대로 사용한다.
+- `/api/ai/chat/rag`의 `objectType`/`objectId`는 management RAG search와 job chunk 조회 API의 object scope와
+  같은 의미다. 둘 중 하나만 보내면 서버는 `400 Bad Request`로 처리한다. 둘 다 생략하고 `ragQuery`만 보내는
+  전역 RAG 검색은 별도 흐름으로 허용된다.
+- RAG 채팅은 기본 `services:ai_chat write` 외에 `services:ai_rag read` 권한이 필요하다.
+- `objectType=attachment`인 경우에는 `features:attachment read` 권한도 추가로 필요하다.
+- 그 외 object scope는 `objects:<objectType>:<objectId> read` 또는 `objects:<objectType> read` 정책 중
+  하나가 필요하다.
 - `ragQuery`가 있으면 객체 범위 안에서 검색한다.
 - `ragQuery`가 없고 객체 범위만 있으면 저장된 chunk를 순서대로 컨텍스트에 사용한다.
 - `ragTopK`는 화면의 최대 참고 문서 수와 맞춘다.
@@ -281,8 +287,8 @@ diagnostics에는 chunk 본문이 포함되지 않는다.
 | 기능 | 필요 권한 |
 |---|---|
 | 채팅 | `services:ai_chat write` |
-| RAG 채팅 | `services:ai_chat write` |
-| 첨부 파일 RAG 채팅 | `services:ai_chat write`, `features:attachment read` |
+| RAG 채팅 | `services:ai_chat write`, `services:ai_rag read`, object scope read |
+| 첨부 파일 RAG 채팅 | `services:ai_chat write`, `services:ai_rag read`, `features:attachment read` |
 | Query rewrite | `services:ai_chat read` |
 | Provider 정보 | `services:ai_chat read` 또는 `services:ai_embedding read` |
 | 임베딩 생성 | `services:ai_embedding write` |

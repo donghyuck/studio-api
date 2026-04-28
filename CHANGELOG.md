@@ -3,6 +3,7 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #364 대응으로 `/api/ai/chat/rag`의 `objectType`/`objectId`를 attachment 전용이 아닌 일반 RAG object scope로 허용해 management RAG search/chunk 조회와 같은 scope 계약을 사용하도록 했다.
 - 이슈 #362 대응으로 RAG job source 표시명 resolver SPI를 추가하고, generic attachment source job 생성 시 `sourceName`이 attachment id 대신 파일명으로 보강되도록 했다.
 - 이슈 #360 대응으로 RAG job 응답 DTO에 `sourceName`을 추가하고, in-memory/JDBC job 저장소와 attachment RAG job 생성 경로에서 표시명을 유지하도록 했다.
 - 이슈 #357 대응으로 Vector/RAG query 검색 중 embedding provider quota/rate limit이 발생하면 chat 오류와 구분되는 HTTP 429 메시지를 반환하도록 했다.

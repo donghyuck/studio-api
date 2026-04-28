@@ -99,7 +99,6 @@ import studio.one.platform.web.dto.ApiResponse;
 public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
-    private static final String OBJECT_TYPE_ATTACHMENT = "attachment";
     private static final int DEFAULT_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER = 4;
     private static final int DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES = 100;
     private static final int MAX_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER = 20;
@@ -321,9 +320,16 @@ public class ChatController {
      * RAG 검색 결과를 시스템 프롬프트로 주입한 뒤 챗을 수행한다.
      */
     @PostMapping("/rag")
-    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') and "
-            + "(#request.objectType() == null or !#request.objectType().trim().equalsIgnoreCase('attachment') "
-            + "or @endpointAuthz.can('features:attachment','read'))")
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') "
+            + "and @endpointAuthz.can('services:ai_rag','read') and "
+            + "(#request.objectType() == null or #request.objectType().trim().isEmpty() "
+            + "or (#request.objectId() != null and !#request.objectId().trim().isEmpty() and "
+            + "((#request.objectType().trim().equalsIgnoreCase('attachment') "
+            + "and @endpointAuthz.can('features:attachment','read')) "
+            + "or (!#request.objectType().trim().equalsIgnoreCase('attachment') "
+            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' "
+            + "+ #request.objectId().trim(),'read') "
+            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))))))")
     public ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(
             @Valid @RequestBody ChatRagRequestDto request,
             Principal principal) {
@@ -582,11 +588,11 @@ public class ChatController {
         if (normalizedObjectType == null && normalizedObjectId == null) {
             return ObjectScope.none();
         }
-        if (!OBJECT_TYPE_ATTACHMENT.equalsIgnoreCase(normalizedObjectType) || normalizedObjectId == null) {
+        if (normalizedObjectType == null || normalizedObjectId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Unsupported RAG object scope");
+                    "RAG object scope requires both objectType and objectId");
         }
-        return new ObjectScope(OBJECT_TYPE_ATTACHMENT, normalizedObjectId);
+        return new ObjectScope(normalizedObjectType, normalizedObjectId);
     }
 
     private String normalizeText(String value) {
