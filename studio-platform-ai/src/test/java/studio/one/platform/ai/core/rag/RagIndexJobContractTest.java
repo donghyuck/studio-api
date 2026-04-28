@@ -23,11 +23,13 @@ class RagIndexJobContractTest {
                 " 42 ",
                 " doc-1 ",
                 " attachment ",
+                " sample.pdf ",
                 Instant.parse("2026-04-26T00:00:00Z"));
 
         assertThat(job.jobId()).isEqualTo("job-1");
         assertThat(job.objectType()).isEqualTo("attachment");
         assertThat(job.objectId()).isEqualTo("42");
+        assertThat(job.sourceName()).isEqualTo("sample.pdf");
         assertThat(job.status()).isEqualTo(RagIndexJobStatus.PENDING);
         assertThat(job.chunkCount()).isZero();
         assertThat(job.durationMs()).isNull();
@@ -56,14 +58,70 @@ class RagIndexJobContractTest {
         RagIndexRequest indexRequest = new RagIndexRequest(
                 "doc-1",
                 "content",
-                Map.of("objectType", "attachment", "objectId", "42", "sourceType", "attachment"));
+                Map.of("objectType", "attachment", "objectId", "42", "sourceType", "attachment",
+                        "filename", "sample.pdf"));
 
         RagIndexJobCreateRequest request = RagIndexJobCreateRequest.forIndexRequest(indexRequest);
 
         assertThat(request.objectType()).isEqualTo("attachment");
         assertThat(request.objectId()).isEqualTo("42");
         assertThat(request.documentId()).isEqualTo("doc-1");
+        assertThat(request.sourceName()).isEqualTo("sample.pdf");
         assertThat(request.indexRequest()).isSameAs(indexRequest);
+    }
+
+    @Test
+    void createRequestFallsBackSourceNameToDocumentId() {
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null);
+
+        assertThat(request.sourceName()).isEqualTo("doc-1");
+    }
+
+    @Test
+    void createRequestSourceNamePriorityIsStable() {
+        RagIndexRequest indexRequest = new RagIndexRequest(
+                "doc-1",
+                "content",
+                Map.of(
+                        "sourceName", "source-name.pdf",
+                        "title", "title.pdf",
+                        "filename", "filename.pdf",
+                        "fileName", "file-name.pdf",
+                        "name", "name.pdf"));
+
+        RagIndexJobCreateRequest request = RagIndexJobCreateRequest.forIndexRequest(indexRequest);
+
+        assertThat(request.sourceName()).isEqualTo("source-name.pdf");
+    }
+
+    @Test
+    void sourceNameIsClampedToDatabaseBoundary() {
+        String longName = "x".repeat(RagIndexJob.MAX_SOURCE_NAME_LENGTH + 20);
+        RagIndexJob job = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                longName,
+                Instant.parse("2026-04-26T00:00:00Z"));
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                longName);
+
+        assertThat(job.sourceName()).hasSize(RagIndexJob.MAX_SOURCE_NAME_LENGTH);
+        assertThat(request.sourceName()).hasSize(RagIndexJob.MAX_SOURCE_NAME_LENGTH);
     }
 
     @Test

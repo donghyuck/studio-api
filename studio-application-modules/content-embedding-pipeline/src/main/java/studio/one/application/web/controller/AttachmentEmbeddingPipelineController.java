@@ -276,7 +276,7 @@ public class AttachmentEmbeddingPipelineController {
                 request == null ? null : request.embeddingProvider(),
                 request == null ? null : request.embeddingModel());
         RagIndexJobService jobService = ragIndexJobServiceProvider.getIfAvailable();
-        RagIndexJob job = createJob(jobService, command);
+        RagIndexJob job = createJob(jobService, attachmentId, command);
         RagIndexProgressListener progress = job == null
                 ? RagIndexProgressListener.noop()
                 : jobService.progressListener(job.jobId());
@@ -313,6 +313,7 @@ public class AttachmentEmbeddingPipelineController {
 
     private RagIndexJob createJob(
             RagIndexJobService jobService,
+            long attachmentId,
             AttachmentRagIndexCommand command) {
         if (jobService == null) {
             return null;
@@ -323,7 +324,8 @@ public class AttachmentEmbeddingPipelineController {
                 command.documentId(),
                 "attachment",
                 false,
-                null),
+                null,
+                attachmentSourceName(attachmentId, command)),
                 new RagIndexJobSourceRequest(
                         command.metadata(),
                         command.keywords(),
@@ -331,6 +333,33 @@ public class AttachmentEmbeddingPipelineController {
                         command.embeddingProfileId(),
                         command.embeddingProvider(),
                         command.embeddingModel()));
+    }
+
+    private String attachmentSourceName(long attachmentId, AttachmentRagIndexCommand command) {
+        String sourceName = text(firstPresent(command.metadata(), "sourceName", "title", "filename", "fileName", "name"));
+        if (sourceName != null) {
+            return sourceName;
+        }
+        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        return text(attachment.getName()) == null ? command.documentId() : attachment.getName().trim();
+    }
+
+    private Object firstPresent(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private String text(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString().trim();
+        return text.isBlank() ? null : text;
     }
 
     private void putHeader(ResponseEntity.BodyBuilder builder, String name, String value) {

@@ -112,6 +112,10 @@ raw `text`가 있으면 같은 `RagPipelineService`를 in-memory job service로 
 `sourceType=attachment` job executor를 제공하며 기존 attachment RAG index 경로를 재사용한다.
 job 생성과 retry는 `services:ai_rag write`가 필요하다. attachment source job 생성과 retry는 기존
 attachment 색인 API와 동일하게 `features:attachment write` 권한도 필요하다.
+job 응답 DTO에는 grid 표시용 `sourceName`이 포함된다. attachment source job은 파일명을 저장하고,
+raw text job은 요청 `sourceName`, metadata의 `sourceName`/`title`/`filename`/`fileName`/`name`, `documentId`
+순서로 표시명을 결정한다. `sourceName`은 `GET /jobs`, `GET /jobs/{jobId}`, create/retry/cancel 응답에
+동일하게 포함되며 저장 경계에 맞춰 최대 300자까지 보존한다.
 
 attachment source job 예시:
 
@@ -125,6 +129,7 @@ Content-Type: application/json
   "objectId": "101",
   "documentId": "doc-101",
   "sourceType": "attachment",
+  "sourceName": "sample.pdf",
   "metadata": {
     "category": "manual"
   },

@@ -12,6 +12,7 @@ public record RagIndexJobDto(
         String objectId,
         String documentId,
         String sourceType,
+        String sourceName,
         RagIndexJobStatus status,
         RagIndexJobStep currentStep,
         int chunkCount,
@@ -31,6 +32,7 @@ public record RagIndexJobDto(
                 job.objectId(),
                 job.documentId(),
                 job.sourceType(),
+                sourceName(job),
                 job.status(),
                 job.currentStep(),
                 job.chunkCount(),
@@ -42,5 +44,9 @@ public record RagIndexJobDto(
                 job.startedAt(),
                 job.finishedAt(),
                 job.durationMs());
+    }
+
+    private static String sourceName(RagIndexJob job) {
+        return job.sourceName() == null ? job.documentId() : job.sourceName();
     }
 }
