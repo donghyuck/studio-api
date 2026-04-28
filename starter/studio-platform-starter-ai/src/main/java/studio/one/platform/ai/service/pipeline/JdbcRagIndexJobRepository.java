@@ -32,6 +32,7 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
             rs.getString("object_id"),
             rs.getString("document_id"),
             rs.getString("source_type"),
+            rs.getString("source_name"),
             enumValue(RagIndexJobStatus.class, rs.getString("status"), RagIndexJobStatus.PENDING),
             enumValue(RagIndexJobStep.class, rs.getString("current_step"), null),
             rs.getInt("chunk_count"),
@@ -69,6 +70,7 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                            object_id = :objectId,
                            document_id = :documentId,
                            source_type = :sourceType,
+                           source_name = :sourceName,
                            status = :status,
                            current_step = :currentStep,
                            chunk_count = :chunkCount,
@@ -86,11 +88,11 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
         }
         template.update("""
                 INSERT INTO tb_ai_rag_index_job(
-                    job_id, object_type, object_id, document_id, source_type,
+                    job_id, object_type, object_id, document_id, source_type, source_name,
                     status, current_step, chunk_count, embedded_count, indexed_count,
                     warning_count, error_message, created_at, started_at, finished_at, duration_ms)
                 VALUES (
-                    :jobId, :objectType, :objectId, :documentId, :sourceType,
+                    :jobId, :objectType, :objectId, :documentId, :sourceType, :sourceName,
                     :status, :currentStep, :chunkCount, :embeddedCount, :indexedCount,
                     :warningCount, :errorMessage, :createdAt, :startedAt, :finishedAt, :durationMs)
                 """, jobParameters(job));
@@ -228,6 +230,7 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                 .addValue("objectId", job.objectId())
                 .addValue("documentId", job.documentId())
                 .addValue("sourceType", job.sourceType())
+                .addValue("sourceName", job.sourceName())
                 .addValue("status", job.status().name())
                 .addValue("currentStep", enumName(job.currentStep()))
                 .addValue("chunkCount", job.chunkCount())

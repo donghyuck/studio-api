@@ -305,11 +305,21 @@ public class RagIndexJobController {
                 documentId,
                 request.sourceType(),
                 Boolean.TRUE.equals(request.forceReindex()),
-                indexRequest), sourceRequest);
+                indexRequest,
+                sourceName(request, metadata, documentId)), sourceRequest);
     }
 
     private boolean isAttachmentSource(RagIndexJobCreateRequestDto request) {
         return "attachment".equalsIgnoreCase(request.sourceType());
+    }
+
+    private String sourceName(RagIndexJobCreateRequestDto request, Map<String, Object> metadata, String documentId) {
+        String sourceName = text(request.sourceName());
+        if (sourceName != null) {
+            return sourceName;
+        }
+        sourceName = text(firstPresent(metadata, "sourceName", "title", "filename", "fileName", "name"));
+        return sourceName == null ? documentId : sourceName;
     }
 
     private void dispatch(String jobId, Runnable task) {

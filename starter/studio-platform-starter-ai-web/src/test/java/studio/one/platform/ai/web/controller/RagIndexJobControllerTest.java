@@ -86,6 +86,7 @@ class RagIndexJobControllerTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(202);
         assertThat(response.getBody().getData().jobId()).isEqualTo("job-1");
+        assertThat(response.getBody().getData().sourceName()).isEqualTo("sample.pdf");
         assertThat(jobService.createdRequest.indexRequest().metadata())
                 .containsEntry("objectType", "attachment")
                 .containsEntry("objectId", "42")
@@ -107,7 +108,7 @@ class RagIndexJobControllerTest {
                 "attachment",
                 false,
                 null,
-                Map.of("attachmentId", "42"),
+                Map.of("attachmentId", "42", "filename", "sample.pdf"),
                 List.of("alpha"),
                 false));
 
@@ -115,7 +116,81 @@ class RagIndexJobControllerTest {
         assertThat(jobService.createdRequest.indexRequest()).isNull();
         assertThat(jobService.createdRequest.sourceType()).isEqualTo("attachment");
         assertThat(jobService.createdRequest.documentId()).isEqualTo("doc-1");
+        assertThat(jobService.createdRequest.sourceName()).isEqualTo("sample.pdf");
         assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createJobSourceNamePriorityUsesRequestThenMetadataThenDocumentId() {
+        CapturingJobService explicitJobService = new CapturingJobService();
+        RagIndexJobController explicitController = new RagIndexJobController(
+                explicitJobService,
+                mock(RagPipelineService.class),
+                null);
+
+        explicitController.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of("sourceName", "metadata-source.pdf", "title", "title.pdf", "filename", "filename.pdf",
+                        "fileName", "file-name.pdf", "name", "name.pdf"),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                "request-source.pdf"));
+
+        assertThat(explicitJobService.createdRequest.sourceName()).isEqualTo("request-source.pdf");
+
+        CapturingJobService metadataJobService = new CapturingJobService();
+        RagIndexJobController metadataController = new RagIndexJobController(
+                metadataJobService,
+                mock(RagPipelineService.class),
+                null);
+
+        metadataController.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of("title", "title.pdf", "filename", "filename.pdf",
+                        "fileName", "file-name.pdf", "name", "name.pdf"),
+                List.of(),
+                false));
+
+        assertThat(metadataJobService.createdRequest.sourceName()).isEqualTo("title.pdf");
+    }
+
+    @Test
+    void createJobClampsLongSourceNameBeforePersistence() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                null,
+                Map.of(),
+                List.of(),
+                false,
+                null,
+                null,
+                null,
+                "x".repeat(RagIndexJob.MAX_SOURCE_NAME_LENGTH + 20)));
+
+        assertThat(jobService.createdRequest.sourceName()).hasSize(RagIndexJob.MAX_SOURCE_NAME_LENGTH);
     }
 
     @Test
@@ -138,6 +213,7 @@ class RagIndexJobControllerTest {
                 false));
 
         assertThat(jobService.createdRequest.documentId()).isEqualTo("42");
+        assertThat(jobService.createdRequest.sourceName()).isEqualTo("42");
         assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
     }
 
@@ -177,13 +253,40 @@ class RagIndexJobControllerTest {
         ResponseEntity<ApiResponse<List<RagIndexJobLogDto>>> logsResponse = controller.getLogs("job-1");
 
         assertThat(listResponse.getBody().getData().items()).hasSize(1);
+        assertThat(listResponse.getBody().getData().items().get(0).sourceName()).isEqualTo("sample.pdf");
         assertThat(detailResponse.getBody().getData().jobId()).isEqualTo("job-1");
+        assertThat(detailResponse.getBody().getData().sourceName()).isEqualTo("sample.pdf");
         assertThat(retryResponse.getStatusCode().value()).isEqualTo(202);
+        assertThat(retryResponse.getBody().getData().sourceName()).isEqualTo("sample.pdf");
         assertThat(logsResponse.getBody().getData())
                 .extracting(RagIndexJobLogDto::code)
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void dtoFallsBackSourceNameToDocumentIdForLegacyRows() {
+        RagIndexJob legacyJob = new RagIndexJob(
+                "job-legacy",
+                "attachment",
+                "42",
+                "doc-legacy",
+                "attachment",
+                null,
+                RagIndexJobStatus.PENDING,
+                null,
+                0,
+                0,
+                0,
+                0,
+                null,
+                java.time.Instant.parse("2026-04-26T00:00:00Z"),
+                null,
+                null,
+                null);
+
+        assertThat(RagIndexJobDto.from(legacyJob).sourceName()).isEqualTo("doc-legacy");
     }
 
     @Test
@@ -209,7 +312,8 @@ class RagIndexJobControllerTest {
                         .param("sort", " document-id ")
                         .param("direction", "sideways"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].jobId").value("job-1"));
+                .andExpect(jsonPath("$.data.items[0].jobId").value("job-1"))
+                .andExpect(jsonPath("$.data.items[0].sourceName").value("sample.pdf"));
 
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
@@ -263,6 +367,7 @@ class RagIndexJobControllerTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(202);
         assertThat(response.getBody().getData().status()).isEqualTo(RagIndexJobStatus.CANCELLED);
+        assertThat(response.getBody().getData().sourceName()).isEqualTo("sample.pdf");
     }
 
     @Test
@@ -588,6 +693,7 @@ class RagIndexJobControllerTest {
                     "42",
                     "doc-1",
                     "attachment",
+                    "sample.pdf",
                     java.time.Instant.parse("2026-04-26T00:00:00Z"))
                     .withStatus(status, RagIndexJobStep.COMPLETED, null,
                             java.time.Instant.parse("2026-04-26T00:00:01Z"));

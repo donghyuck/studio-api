@@ -66,6 +66,7 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                 request.objectId(),
                 request.documentId(),
                 request.sourceType(),
+                request.sourceName(),
                 Instant.now());
         requests.put(jobId, new StoredRequest(request, sourceRequest));
         requestOrder.add(jobId);

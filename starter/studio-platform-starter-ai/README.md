@@ -258,7 +258,8 @@ raw text가 없는 source 기반 job은 등록된 `RagIndexJobSourceExecutor`가
 bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은
 `RagIndexJobRepository` 계약으로 DB 기반 구현을 등록한다. JDBC 기반 기본 구현을 사용하려면
 `NamedParameterJdbcTemplate` bean과 AI schema migration(`schema/ai/{db}/V601__create_rag_index_job_tables.sql`)을
-적용한 뒤 아래 설정을 사용한다.
+적용한 뒤 아래 설정을 사용한다. 기존 V601 적용 환경은 `V602__add_rag_index_job_source_name.sql`로
+RAG job grid 표시명인 `source_name` 컬럼을 추가한다.
 
 ```yaml
 studio:

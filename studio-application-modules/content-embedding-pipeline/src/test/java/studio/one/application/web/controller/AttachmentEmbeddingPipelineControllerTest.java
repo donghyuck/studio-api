@@ -22,6 +22,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -483,6 +484,10 @@ class AttachmentEmbeddingPipelineControllerTest {
                         .content("{}"))
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("X-RAG-Job-Id", "job-1"));
+
+        ArgumentCaptor<RagIndexJobCreateRequest> captor = ArgumentCaptor.forClass(RagIndexJobCreateRequest.class);
+        verify(jobService).createJob(captor.capture(), any(RagIndexJobSourceRequest.class));
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().sourceName()).isEqualTo("sample.txt");
     }
 
     @Test

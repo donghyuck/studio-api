@@ -9,6 +9,7 @@ public record RagIndexJob(
         String objectId,
         String documentId,
         String sourceType,
+        String sourceName,
         RagIndexJobStatus status,
         RagIndexJobStep currentStep,
         int chunkCount,
@@ -21,12 +22,15 @@ public record RagIndexJob(
         Instant finishedAt,
         Long durationMs) {
 
+    public static final int MAX_SOURCE_NAME_LENGTH = 300;
+
     public RagIndexJob {
         jobId = requireText(jobId, "jobId");
         documentId = normalize(documentId);
         objectType = normalize(objectType);
         objectId = normalize(objectId);
         sourceType = normalize(sourceType);
+        sourceName = normalizeSourceName(sourceName);
         status = status == null ? RagIndexJobStatus.PENDING : status;
         chunkCount = Math.max(0, chunkCount);
         embeddedCount = Math.max(0, embeddedCount);
@@ -39,6 +43,28 @@ public record RagIndexJob(
         }
     }
 
+    public RagIndexJob(
+            String jobId,
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            RagIndexJobStatus status,
+            RagIndexJobStep currentStep,
+            int chunkCount,
+            int embeddedCount,
+            int indexedCount,
+            int warningCount,
+            String errorMessage,
+            Instant createdAt,
+            Instant startedAt,
+            Instant finishedAt,
+            Long durationMs) {
+        this(jobId, objectType, objectId, documentId, sourceType, null, status, currentStep,
+                chunkCount, embeddedCount, indexedCount, warningCount, errorMessage,
+                createdAt, startedAt, finishedAt, durationMs);
+    }
+
     public static RagIndexJob pending(
             String jobId,
             String objectType,
@@ -46,12 +72,24 @@ public record RagIndexJob(
             String documentId,
             String sourceType,
             Instant createdAt) {
+        return pending(jobId, objectType, objectId, documentId, sourceType, null, createdAt);
+    }
+
+    public static RagIndexJob pending(
+            String jobId,
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            String sourceName,
+            Instant createdAt) {
         return new RagIndexJob(
                 jobId,
                 objectType,
                 objectId,
                 documentId,
                 sourceType,
+                sourceName,
                 RagIndexJobStatus.PENDING,
                 null,
                 0,
@@ -87,6 +125,7 @@ public record RagIndexJob(
                 objectId,
                 documentId,
                 sourceType,
+                sourceName,
                 status,
                 step,
                 chunkCount,
@@ -107,6 +146,7 @@ public record RagIndexJob(
                 objectId,
                 documentId,
                 sourceType,
+                sourceName,
                 status,
                 currentStep,
                 chunkCount == null ? this.chunkCount : chunkCount,
@@ -127,6 +167,7 @@ public record RagIndexJob(
                 objectId,
                 documentId,
                 sourceType,
+                sourceName,
                 RagIndexJobStatus.PENDING,
                 null,
                 0,
@@ -154,5 +195,13 @@ public record RagIndexJob(
 
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String normalizeSourceName(String value) {
+        String normalized = normalize(value);
+        if (normalized == null || normalized.length() <= MAX_SOURCE_NAME_LENGTH) {
+            return normalized;
+        }
+        return normalized.substring(0, MAX_SOURCE_NAME_LENGTH);
     }
 }

@@ -66,6 +66,7 @@ class JdbcRagIndexJobRepositoryTest {
                 new RagIndexJobSort(RagIndexJobSort.Field.DOCUMENT_ID, RagIndexJobSort.Direction.DESC));
 
         assertThat(repository.findById("job-1")).contains(older);
+        assertThat(repository.findById("job-1").orElseThrow().sourceName()).isEqualTo("doc-1");
         assertThat(page.total()).isEqualTo(2);
         assertThat(page.jobs()).extracting(RagIndexJob::jobId).containsExactly("job-2", "job-1");
     }
@@ -120,6 +121,7 @@ class JdbcRagIndexJobRepositoryTest {
                 objectId,
                 documentId,
                 "attachment",
+                documentId,
                 Instant.parse("2026-04-26T00:00:00Z"));
     }
 
@@ -132,6 +134,7 @@ class JdbcRagIndexJobRepositoryTest {
                   object_id VARCHAR(150),
                   document_id VARCHAR(200),
                   source_type VARCHAR(100),
+                  source_name VARCHAR(300),
                   status VARCHAR(30) NOT NULL,
                   current_step VARCHAR(30),
                   chunk_count INT NOT NULL DEFAULT 0,

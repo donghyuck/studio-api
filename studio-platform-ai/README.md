@@ -297,5 +297,6 @@ List<RagSearchResult> filtered = ragPipelineService.search(
 
 - `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V600__create_vector_tables.sql`
 - `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V601__create_rag_index_job_tables.sql`
+- `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V602__add_rag_index_job_source_name.sql`
 
 Flyway 버전 범위는 `docs/flyway-versioning.md`의 ai 범위(V600-V699)를 따른다.
