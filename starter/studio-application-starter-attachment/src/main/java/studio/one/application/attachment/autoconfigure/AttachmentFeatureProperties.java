@@ -21,14 +21,11 @@
 
 package studio.one.application.attachment.autoconfigure;
 
-import jakarta.validation.Valid;
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
 import studio.one.platform.autoconfigure.WebEndpointProperties;
@@ -56,70 +53,16 @@ import studio.one.platform.constant.PropertyKeys;
 @Validated
 public class AttachmentFeatureProperties extends FeatureToggle {
 
-    @Valid
-    private Storage storage = new Storage();
-
-    @Valid
-    private Thumbnail thumbnail = new Thumbnail();
-
     private Web web = new Web();
+
     @Getter
     @Setter
     public static class Web extends WebEndpointProperties {
         private String selfBase = "/api/me/attachments";
+
         public Web() {
             setBasePath("/api/attachments");
             setMgmtBasePath("/api/mgmt/attachments");
         }
-    }
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    public static class Storage {
-        public enum Type {
-            filesystem,
-            database
-        }
-
-        /**
-         * Base directory to store attachment files. If empty, a default under the app
-         * home will be used.
-         */
-        private String baseDir;
-        /**
-         * Create directories on startup when true.
-         */
-        private boolean ensureDirs = true;
-
-        /**
-         * Where to store attachment binaries. filesystem keeps files on disk,
-         * database stores them in the configured attachment persistence (JPA/JDBC).
-         */
-        private Type type = Type.filesystem;
-
-        /**
-         * When storing in the database, optionally keep a local filesystem cache for
-         * faster reads.
-         */
-        private boolean cacheEnabled = false;
-    }
-
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    public static class Thumbnail {
-        private boolean enabled = true;
-        private int defaultSize = 128;
-        private String defaultFormat = "png";
-
-        /**
-         * Base directory to store thumbnail files. If empty, attachments/thumbnails
-         * under the repository or tmp will be used.
-         */
-        private String baseDir;
-        /**
-         * Create directories on startup when true.
-         */
-        private boolean ensureDirs = true;
     }
 }

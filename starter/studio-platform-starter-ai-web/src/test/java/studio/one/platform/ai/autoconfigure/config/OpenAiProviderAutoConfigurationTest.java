@@ -71,9 +71,10 @@ class OpenAiProviderAutoConfigurationTest {
             .withBean(org.springframework.ai.embedding.EmbeddingModel.class,
                     () -> org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class))
             .withPropertyValues(
-                    "studio.ai.enabled=true",
+                    "studio.features.ai.enabled=true",
                     "studio.ai.endpoints.enabled=true",
-                    "studio.ai.default-provider=openai",
+                    "studio.ai.routing.default-chat-provider=openai",
+                    "studio.ai.routing.default-embedding-provider=openai",
                     "spring.ai.openai.api-key=test-key",
                     "spring.ai.openai.chat.options.model=gpt-4o-mini",
                     "spring.ai.openai.embedding.options.model=text-embedding-3-small",
@@ -339,7 +340,7 @@ class OpenAiProviderAutoConfigurationTest {
     @Test
     void doesNotRegisterWebControllersWhenAiIsDisabled() {
         contextRunner
-                .withPropertyValues("studio.ai.enabled=false")
+                .withPropertyValues("studio.features.ai.enabled=false")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).doesNotHaveBean(ChatController.class);

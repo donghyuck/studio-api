@@ -1,8 +1,5 @@
 package studio.one.application.mail.autoconfigure;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotNull;
-
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -10,7 +7,6 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.application.mail.config.ImapProperties;
 import studio.one.platform.autoconfigure.FeaturesProperties.FeatureToggle;
 import studio.one.platform.autoconfigure.WebEndpointProperties;
 import studio.one.platform.constant.PropertyKeys;
@@ -21,10 +17,6 @@ import studio.one.platform.constant.PropertyKeys;
 @Validated
 @EqualsAndHashCode(callSuper = true)
 public class MailFeatureProperties extends FeatureToggle {
-
-    @Valid
-    @NotNull
-    private ImapProperties imap = new ImapProperties();
 
     private Web web = new Web();
 

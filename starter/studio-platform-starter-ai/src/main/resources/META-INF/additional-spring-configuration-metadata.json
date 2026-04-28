@@ -1,0 +1,291 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.ai",
+      "description": "AI feature wiring properties."
+    },
+    {
+      "name": "studio.ai.routing",
+      "description": "AI default provider routing properties."
+    },
+    {
+      "name": "studio.ai.providers",
+      "description": "AI provider registry properties."
+    },
+    {
+      "name": "studio.ai.rag",
+      "description": "AI RAG runtime properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.features.ai.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable the AI feature."
+    },
+    {
+      "name": "studio.ai.routing.default-chat-provider",
+      "type": "java.lang.String",
+      "description": "Default chat provider id."
+    },
+    {
+      "name": "studio.ai.routing.default-embedding-provider",
+      "type": "java.lang.String",
+      "description": "Default embedding provider id."
+    },
+    {
+      "name": "studio.ai.providers.*.type",
+      "type": "studio.one.platform.ai.autoconfigure.config.AiAdapterProperties$ProviderType",
+      "description": "Provider type for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.chat.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable chat support for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable embedding support for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.google-embedding.task-type",
+      "type": "java.lang.String",
+      "defaultValue": "RETRIEVAL_DOCUMENT",
+      "description": "Google embedding task type fallback."
+    },
+    {
+      "name": "studio.ai.rag.default-embedding-profile",
+      "type": "java.lang.String",
+      "description": "Default RAG embedding profile id."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.provider",
+      "type": "java.lang.String",
+      "description": "Provider id for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.model",
+      "type": "java.lang.String",
+      "description": "Embedding model for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.dimension",
+      "type": "java.lang.Integer",
+      "description": "Embedding vector dimension for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.chunk-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 500,
+      "description": "Legacy fallback chunk size used when starter-chunking is absent."
+    },
+    {
+      "name": "studio.ai.rag.chunk-overlap",
+      "type": "java.lang.Integer",
+      "defaultValue": 50,
+      "description": "Legacy fallback chunk overlap used when starter-chunking is absent."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.vector-weight",
+      "type": "java.lang.Double",
+      "defaultValue": 0.7,
+      "description": "Vector score weight for hybrid retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.lexical-weight",
+      "type": "java.lang.Double",
+      "defaultValue": 0.3,
+      "description": "Lexical score weight for hybrid retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.keyword-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable keyword-enriched fallback retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.min-relevance-score",
+      "type": "java.lang.Double",
+      "defaultValue": 0.15,
+      "description": "Minimum relevance score for fallback success."
+    },
+    {
+      "name": "studio.ai.rag.keywords.scope",
+      "type": "java.lang.String",
+      "defaultValue": "document",
+      "description": "Keyword metadata scope."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable text cleaning before indexing."
+    },
+    {
+      "name": "studio.ai.rag.diagnostics.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable RAG diagnostics collection."
+    },
+    {
+      "name": "studio.ai.rag.jobs.repository",
+      "type": "java.lang.String",
+      "defaultValue": "memory",
+      "description": "RAG job repository type."
+    },
+    {
+      "name": "studio.ai.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "AI feature gate moved to studio.features.ai.enabled.",
+        "replacement": "studio.features.ai.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.default-provider",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Default provider routing moved to studio.ai.routing.*.",
+        "replacement": "studio.ai.routing.default-chat-provider"
+      }
+    },
+    {
+      "name": "studio.ai.default-chat-provider",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Default provider routing moved to studio.ai.routing.*.",
+        "replacement": "studio.ai.routing.default-chat-provider"
+      }
+    },
+    {
+      "name": "studio.ai.default-embedding-provider",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Default provider routing moved to studio.ai.routing.*.",
+        "replacement": "studio.ai.routing.default-embedding-provider"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.api-key",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider SDK credentials moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.base-url",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider SDK base URL moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.chat.model",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider chat model moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.model",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider embedding model moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.chunk-size",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.chunk-size"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.chunk-overlap",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.chunk-overlap"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.vector-weight",
+      "type": "java.lang.Double",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.vector-weight"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.keyword-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.keyword-fallback-enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.keywords.scope",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.keywords.scope"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.diagnostics.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.diagnostics.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.jobs.repository",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.jobs.repository"
+      }
+    }
+  ]
+}

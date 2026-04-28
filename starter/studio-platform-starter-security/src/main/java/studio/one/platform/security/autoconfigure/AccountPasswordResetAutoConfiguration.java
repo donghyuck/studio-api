@@ -88,7 +88,20 @@ public class AccountPasswordResetAutoConfiguration {
         };
     }
 
+    @Bean(MailService.SERVICE_NAME)
+    @ConditionalOnBean(JavaMailSender.class)
+    @ConditionalOnMissingBean
+    MailService mailService(AccountPasswordResetProperties properties, JavaMailSender mailSender) {
+
+        I18n i18n = I18nUtils.resolve(i18nProvider);
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(MailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
+
+        return new MailServiceImpl(properties.getResetPasswordUrl(), mailSender);
+    }
+
     @Bean(PasswordResetService.SERVICE_NAME)
+    @ConditionalOnBean(MailService.class)
     @ConditionalOnMissingBean
     PasswordResetService passwordResetService(
             ApplicationUserService<? extends User, ? extends Role> userService,
@@ -105,18 +118,8 @@ public class AccountPasswordResetAutoConfiguration {
         return new PasswordResetService(casted, repository, passwordEncoder, mailService);
     }
 
-    @Bean(MailService.SERVICE_NAME)
-    @ConditionalOnMissingBean
-    MailService mailService(AccountPasswordResetProperties properties, JavaMailSender mailSender) {
-
-        I18n i18n = I18nUtils.resolve(i18nProvider);
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(MailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-
-        return new MailServiceImpl(properties.getResetPasswordUrl(), mailSender);
-    }
-
     @Bean
+    @ConditionalOnBean(PasswordResetService.class)
     @ConditionalOnMissingBean
     PasswordResetController passwordResetController(AccountPasswordResetProperties props,
             PasswordResetService passwordResetService) {

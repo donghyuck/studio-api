@@ -27,6 +27,8 @@ replay_pid*
 .DS_Store
 **/bin
 **/build
+!skills/build/
+!skills/build/**
 .gradle/
 .env
 .env.*

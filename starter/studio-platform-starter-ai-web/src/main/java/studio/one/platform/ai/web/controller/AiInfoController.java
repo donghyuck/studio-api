@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
+import studio.one.platform.ai.autoconfigure.config.AiConfigurationMigration;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -126,15 +127,15 @@ public class AiInfoController {
     }
 
     private String defaultChatProvider() {
-        return firstNonBlank(properties.getDefaultChatProvider(), properties.getDefaultProvider());
+        return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultChatProvider();
     }
 
     private String defaultEmbeddingProvider() {
-        return firstNonBlank(properties.getDefaultEmbeddingProvider(), properties.getDefaultProvider());
+        return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultEmbeddingProvider();
     }
 
     private String defaultProvider() {
-        return firstNonBlank(properties.getDefaultProvider(), defaultChatProvider());
+        return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultProvider();
     }
 
     public record AiInfoResponse(List<ProviderInfo> providers,

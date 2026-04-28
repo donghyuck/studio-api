@@ -12,6 +12,7 @@
 ## 사용 원칙
 - 일반적으로는 각 모듈보다 대응되는 starter를 통해 붙이는 편이 단순하다.
 - 기능 활성화는 `studio.features.<feature>.enabled=true`로 제어한다.
+- feature wiring은 `studio.features.<feature>.*`, runtime detail은 `studio.<module>.*`, 외부 provider SDK 값은 `spring.*`에 둔다.
 - 세부 설정, 엔드포인트, 저장소 전략은 각 모듈 README를 기준으로 본다.
 
 ## Avatar 서비스
@@ -24,9 +25,10 @@
 - 의존성: `studio-application-modules/attachment-service` 또는 `studio-application-starter-attachment`.
 - 활성화: `studio.features.attachment.enabled=true` (+ REST 사용 시 `studio.features.attachment.web.enabled=true`).
 - 저장소 옵션:
-  - 파일 시스템: `studio.features.attachment.storage.type=filesystem` (기본), 경로는 `studio.features.attachment.storage.base-dir`, 없으면 tmp/attachments.
-  - 데이터베이스: `studio.features.attachment.storage.type=database` + `studio.features.attachment.persistence=jpa|jdbc`, BLOB 테이블 `TB_APPLICATION_ATTACHMENT_DATA` 사용.
-  - DB + 캐시: `studio.features.attachment.storage.cache-enabled=true` 로 로컬 파일 캐시 활성화.
+  - 파일 시스템: `studio.attachment.storage.type=filesystem` (기본), 경로는 `studio.attachment.storage.base-dir`, 없으면 tmp/attachments.
+  - 데이터베이스: `studio.attachment.storage.type=database` + `studio.features.attachment.persistence=jpa|jdbc`, BLOB 테이블 `TB_APPLICATION_ATTACHMENT_DATA` 사용.
+  - DB + 캐시: `studio.attachment.storage.cache-enabled=true` 로 로컬 파일 캐시 활성화.
+- 썸네일: `studio.attachment.thumbnail.enabled`, `default-size`, `default-format`, `base-dir`, `ensure-dirs`로 제어한다.
 - API/서비스: `AttachmentService` 로 생성/조회/삭제/스트림 조회, REST 컨트롤러는 `/api/mgmt/attachments`(또는 `studio.features.attachment.web.mgmt-base-path`) 이하 업로드·다운로드·검색 제공.
 
 ## Content Embedding Pipeline
@@ -58,7 +60,7 @@
 - 의존성: `studio-application-modules/mail-service` 또는 `studio-application-starter-mail`.
 - 활성화: `studio.features.mail.enabled=true`.
 - 저장소: `studio.features.mail.persistence=jpa|jdbc` (전역 `studio.persistence.type` 미설정 시 기본 jpa).
-- IMAP 설정: `studio.features.mail.imap.*` 로 호스트/포트/계정/동시성/본문·첨부 크기 제한을 지정.
+- IMAP 설정: `studio.mail.imap.*` 로 호스트/포트/계정/동시성/본문·첨부 크기 제한을 지정.
 - REST: `studio.features.mail.web.enabled=true` 시 `/api/mgmt/mail` 기본 경로에 컨트롤러 노출(`GET /{mailId}`, `POST /sync`, `GET /sync/logs`, `GET /sync/logs/page`).
 - SSE: 동기화 상태 스트림을 분리된 컨트롤러(`/sync/stream`)로 제공하며, `studio.features.mail.web.sse=true|false`(기본 true)로 노출 여부를 제어.
 

@@ -1,6 +1,6 @@
 # Studio Starters
 
-애플리케이션에서 공통 기능을 빠르게 활성화하기 위한 Spring Boot starter 모음이다. 각 starter는 `studio.features.*` 또는 `studio.*` 설정으로 켜고 끌 수 있으며, 필요한 기능만 선택해서 붙이는 것을 전제로 한다.
+애플리케이션에서 공통 기능을 빠르게 활성화하기 위한 Spring Boot starter 모음이다. 각 starter는 `studio.features.*`로 feature gate를, `studio.*`로 runtime detail을, `spring.*`으로 외부 provider SDK 값을 다룬다.
 
 ## 빠른 선택 가이드
 - 공통 웹/데이터/JPA 기반이 필요하면 `:starter:studio-platform-starter`
@@ -25,6 +25,8 @@ dependencies {
 - feature 플래그가 `true`일 때만 빈이 등록된다.
 - REST 엔드포인트를 노출하는 모듈은 `...web.enabled`로 비활성화할 수 있다.
 - 파일/오브젝트 스토리지를 쓰는 모듈은 경로와 자격 증명을 먼저 확인한다.
+- provider API key, model, base-url 같은 외부 SDK 값은 가능하면 `spring.*`를 단일 소스로 사용한다.
+- `studio.features.<module>.*`에는 enable/persistence/web만 두고, 세부 정책과 storage/routing/rag는 `studio.<module>.*`에 둔다.
 
 ## 포함 starter
 - `studio-platform-starter`: 코어 플랫폼 자동 구성, 공통 유틸, 기본 프로퍼티 바인딩
@@ -93,12 +95,17 @@ dependencies {
 ```yaml
 # application.yml
 studio:
+  features:
+    ai:
+      enabled: true
   ai:
-    enabled: true
-    default-provider: openai
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
     providers:
       openai:
         type: OPENAI
+        enabled: true
         chat:
           enabled: true
         embedding:
@@ -122,16 +129,27 @@ dependencies {
 
 ```yaml
 studio:
+  features:
+    ai:
+      enabled: true
   ai:
-    enabled: true
-    default-provider: google
+    routing:
+      default-chat-provider: google
+      default-embedding-provider: google
     providers:
       google:
         type: GOOGLE_AI_GEMINI
-        api-key: ${GOOGLE_API_KEY}
+        enabled: true
         chat:
           enabled: true
-          model: gemini-2.5-flash
+spring:
+  ai:
+    google:
+      genai:
+        chat:
+          api-key: ${GOOGLE_API_KEY}
+          options:
+            model: gemini-2.5-flash
 ```
 
 ### Google GenAI (Embedding)
@@ -145,12 +163,17 @@ dependencies {
 
 ```yaml
 studio:
+  features:
+    ai:
+      enabled: true
   ai:
-    enabled: true
-    default-provider: google
+    routing:
+      default-chat-provider: google
+      default-embedding-provider: google
     providers:
       google:
         type: GOOGLE_AI_GEMINI
+        enabled: true
         embedding:
           enabled: true
 spring:
@@ -171,12 +194,17 @@ dependencies {
 
 ```yaml
 studio:
+  features:
+    ai:
+      enabled: true
   ai:
-    enabled: true
-    default-provider: ollama
+    routing:
+      default-chat-provider: ollama
+      default-embedding-provider: ollama
     providers:
       ollama:
         type: OLLAMA
+        enabled: true
         embedding:
           enabled: true
 spring:
@@ -188,7 +216,7 @@ spring:
 
 ### 동작 원리
 - provider 라이브러리가 classpath에 있을 때만 해당 provider auto-configuration이 활성화된다.
-- `studio.ai.default-provider`에 지정된 provider가 활성화되지 않으면 애플리케이션 시작 시 오류로 실패한다.
+- `studio.features.ai.enabled`가 AI feature gate이며, provider routing은 `studio.ai.routing.*`, provider SDK 값은 `spring.ai.*`에 둔다.
 - Spring AI BOM이 `api`로 노출되므로 provider 라이브러리의 버전은 별도로 지정하지 않아도 된다.
 
 ## 문서 바로가기

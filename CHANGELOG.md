@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-28
+
+### 변경됨
+- 이슈 #354 대응으로 namespace migration 문서를 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델 기준으로 정리했다.
+- `README.md`, `starter/README.md`, `starter/STARTER_GUIDE.md`, 모듈/스타터 README의 configuration 예시를 새 키 기준으로 정리하고, legacy fallback은 migration note로만 남겼다.
+- `studio-platform-starter-user`, `studio-application-starter-attachment`, `studio-application-starter-mail`, `studio-platform-starter-ai`에 additional Spring configuration metadata를 추가해 legacy key deprecation과 대표 target property를 노출했다.
+- `.env.example`와 AI 테스트용 sample application.yml을 현재 Google GenAI 환경 변수와 AI namespace 기준에 맞게 정리했다.
+
 ## 2026-04-26
 
 ### 변경됨

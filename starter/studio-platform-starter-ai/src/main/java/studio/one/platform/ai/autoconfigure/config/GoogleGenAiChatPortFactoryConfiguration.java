@@ -1,6 +1,8 @@
 package studio.one.platform.ai.autoconfigure.config;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +21,8 @@ import studio.one.platform.ai.core.chat.ChatPort;
 @ConditionalOnClass(name = "org.springframework.ai.google.genai.GoogleGenAiChatModel")
 public class GoogleGenAiChatPortFactoryConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(GoogleGenAiChatPortFactoryConfiguration.class);
+
     @Bean
     public ProviderChatPortFactory googleGenAiChatPortFactory() {
         return new GoogleGenAiChatPortFactory();
@@ -35,18 +39,46 @@ public class GoogleGenAiChatPortFactoryConfiguration {
         public ChatPort create(AiAdapterProperties.Provider provider,
                                Environment env,
                                ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+            return create("<id>", provider, env, chatModelProvider);
+        }
+
+        @Override
+        public ChatPort create(String providerId,
+                               AiAdapterProperties.Provider provider,
+                               Environment env,
+                               ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+            String model = AiConfigurationMigration.springOrLegacyProviderValue(
+                    env,
+                    "spring.ai.google.genai.chat.options.model",
+                    "studio.ai.providers." + providerId + ".chat.model",
+                    provider.getChat().getModel(),
+                    log);
+            org.springframework.ai.chat.model.ChatModel injectedChatModel = chatModelProvider.getIfUnique();
+            if (injectedChatModel != null) {
+                return new GoogleSpringAiChatAdapter(injectedChatModel, provider.getType().name(), model);
+            }
+
             String apiKey = requireText(
-                    firstNonBlank(env.getProperty("spring.ai.google.genai.chat.api-key"), provider.getApiKey()),
+                    AiConfigurationMigration.springOrLegacyProviderValue(
+                            env,
+                            "spring.ai.google.genai.chat.api-key",
+                            "studio.ai.providers." + providerId + ".api-key",
+                            provider.getApiKey(),
+                            log),
                     "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            String model = requireText(
-                    firstNonBlank(env.getProperty("spring.ai.google.genai.chat.options.model"),
-                            provider.getChat().getModel()),
+            model = requireText(model,
                     "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
+            String baseUrl = AiConfigurationMigration.springOrLegacyProviderValue(
+                    env,
+                    "spring.ai.google.genai.chat.base-url",
+                    "studio.ai.providers." + providerId + ".base-url",
+                    provider.getBaseUrl(),
+                    log);
 
             com.google.genai.Client.Builder clientBuilder = com.google.genai.Client.builder().apiKey(apiKey);
-            if (StringUtils.isNotBlank(provider.getBaseUrl())) {
+            if (StringUtils.isNotBlank(baseUrl)) {
                 clientBuilder.httpOptions(com.google.genai.types.HttpOptions.builder()
-                        .baseUrl(provider.getBaseUrl())
+                        .baseUrl(baseUrl)
                         .build());
             }
             com.google.genai.Client client = clientBuilder.build();
@@ -70,8 +102,5 @@ public class GoogleGenAiChatPortFactoryConfiguration {
             return value;
         }
 
-        private static String firstNonBlank(String primary, String fallback) {
-            return StringUtils.isNotBlank(primary) ? primary : fallback;
-        }
     }
 }

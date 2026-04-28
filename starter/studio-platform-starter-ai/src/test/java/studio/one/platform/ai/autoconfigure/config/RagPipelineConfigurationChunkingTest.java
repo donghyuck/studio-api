@@ -96,6 +96,18 @@ class RagPipelineConfigurationChunkingTest {
     void createsJdbcRagIndexJobRepositoryWhenOptedIn() {
         contextRunner
                 .withBean(NamedParameterJdbcTemplate.class, () -> mock(NamedParameterJdbcTemplate.class))
+                .withPropertyValues("studio.ai.rag.jobs.repository=jdbc")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(RagIndexJobRepository.class);
+                    assertThat(context).hasSingleBean(JdbcRagIndexJobRepository.class);
+                    assertThat(context).doesNotHaveBean(InMemoryRagIndexJobRepository.class);
+                });
+    }
+
+    @Test
+    void createsJdbcRagIndexJobRepositoryFromLegacyPipelineOptIn() {
+        contextRunner
+                .withBean(NamedParameterJdbcTemplate.class, () -> mock(NamedParameterJdbcTemplate.class))
                 .withPropertyValues("studio.ai.pipeline.jobs.repository=jdbc")
                 .run(context -> {
                     assertThat(context).hasSingleBean(RagIndexJobRepository.class);

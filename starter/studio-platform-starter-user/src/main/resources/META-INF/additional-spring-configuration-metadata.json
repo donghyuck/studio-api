@@ -1,0 +1,134 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.user",
+      "description": "User feature wiring properties."
+    },
+    {
+      "name": "studio.user.password-policy",
+      "description": "User password policy runtime properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.user.password-policy.min-length",
+      "type": "java.lang.Integer",
+      "defaultValue": 8,
+      "description": "Minimum password length."
+    },
+    {
+      "name": "studio.user.password-policy.max-length",
+      "type": "java.lang.Integer",
+      "defaultValue": 20,
+      "description": "Maximum password length."
+    },
+    {
+      "name": "studio.user.password-policy.require-upper",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Require at least one uppercase character."
+    },
+    {
+      "name": "studio.user.password-policy.require-lower",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Require at least one lowercase character."
+    },
+    {
+      "name": "studio.user.password-policy.require-digit",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Require at least one digit."
+    },
+    {
+      "name": "studio.user.password-policy.require-special",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Require at least one special character."
+    },
+    {
+      "name": "studio.user.password-policy.allowed-specials",
+      "type": "java.lang.String",
+      "defaultValue": "!@#$%^&*",
+      "description": "Allowed special characters."
+    },
+    {
+      "name": "studio.user.password-policy.allow-whitespace",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Allow whitespace in passwords."
+    },
+    {
+      "name": "studio.features.user.password-policy.min-length",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.min-length"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.max-length",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.max-length"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.require-upper",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.require-upper"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.require-lower",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.require-lower"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.require-digit",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.require-digit"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.require-special",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.require-special"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.allowed-specials",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.allowed-specials"
+      }
+    },
+    {
+      "name": "studio.features.user.password-policy.allow-whitespace",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "User password policy moved to studio.user.password-policy.*",
+        "replacement": "studio.user.password-policy.allow-whitespace"
+      }
+    }
+  ]
+}

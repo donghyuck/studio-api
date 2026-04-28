@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class AiProviderRegistryConfiguration {
 
     @Bean
     public AiProviderRegistry aiProviderRegistry(AiAdapterProperties properties,
+            Environment environment,
             @Qualifier("providerChatPorts") Map<String, ChatPort> chatPorts,
             @Qualifier("providerEmbeddingPorts") Map<String, EmbeddingPort> embeddingPorts) {
 
@@ -37,21 +39,29 @@ public class AiProviderRegistryConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(AiProviderRegistry.class, true), LogUtils.red(State.CREATED.toString())));
 
-        String legacyDefaultProvider = normalize(properties.getDefaultProvider());
-        String defaultChatProvider = firstNonBlank(properties.getDefaultChatProvider(), legacyDefaultProvider);
-        String defaultEmbeddingProvider = firstNonBlank(properties.getDefaultEmbeddingProvider(), legacyDefaultProvider);
-        if (legacyDefaultProvider == null && (defaultChatProvider == null || defaultEmbeddingProvider == null)) {
-            throw new IllegalStateException("studio.ai.default-provider must be configured unless both " +
-                    "studio.ai.default-chat-provider and studio.ai.default-embedding-provider are configured");
+        AiConfigurationMigration.RoutingDefaults routing =
+                AiConfigurationMigration.resolveRouting(properties, environment, log);
+        if (routing.defaultChatProvider() == null || routing.defaultEmbeddingProvider() == null) {
+            throw new IllegalStateException("studio.ai.routing.default-chat-provider and " +
+                    "studio.ai.routing.default-embedding-provider must be configured unless legacy " +
+                    "studio.ai.default-provider is configured");
         }
-        if (legacyDefaultProvider != null) {
-            requirePort(chatPorts, legacyDefaultProvider, "studio.ai.default-provider", ChatPort.class);
-            requirePort(embeddingPorts, legacyDefaultProvider, "studio.ai.default-provider", EmbeddingPort.class);
-        }
-        requirePort(chatPorts, defaultChatProvider, "studio.ai.default-chat-provider", ChatPort.class);
-        requirePort(embeddingPorts, defaultEmbeddingProvider, "studio.ai.default-embedding-provider", EmbeddingPort.class);
-        String defaultProvider = legacyDefaultProvider == null ? defaultChatProvider : legacyDefaultProvider;
-        return new AiProviderRegistry(defaultProvider, defaultChatProvider, defaultEmbeddingProvider, chatPorts, embeddingPorts);
+        requirePort(chatPorts, routing.defaultChatProvider(),
+                "studio.ai.routing.default-chat-provider", ChatPort.class);
+        requirePort(embeddingPorts, routing.defaultEmbeddingProvider(),
+                "studio.ai.routing.default-embedding-provider", EmbeddingPort.class);
+        return new AiProviderRegistry(
+                routing.defaultProvider(),
+                routing.defaultChatProvider(),
+                routing.defaultEmbeddingProvider(),
+                chatPorts,
+                embeddingPorts);
+    }
+
+    AiProviderRegistry aiProviderRegistry(AiAdapterProperties properties,
+            Map<String, ChatPort> chatPorts,
+            Map<String, EmbeddingPort> embeddingPorts) {
+        return aiProviderRegistry(properties, null, chatPorts, embeddingPorts);
     }
 
     @Bean
@@ -87,11 +97,6 @@ public class AiProviderRegistryConfiguration {
                     portType.getSimpleName() + ". Ensure the provider library is on the classpath and the provider " +
                     "channel is enabled in studio.ai.providers.");
         }
-    }
-
-    private static String firstNonBlank(String primary, String fallback) {
-        String normalized = normalize(primary);
-        return normalized == null ? fallback : normalized;
     }
 
     private static String normalize(String value) {

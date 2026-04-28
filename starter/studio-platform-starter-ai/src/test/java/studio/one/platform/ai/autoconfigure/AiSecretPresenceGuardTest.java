@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
 
@@ -18,7 +19,7 @@ class AiSecretPresenceGuardTest {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+        AiSecretPresenceGuard guard = guard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -48,7 +49,7 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
         environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
@@ -65,7 +66,7 @@ class AiSecretPresenceGuardTest {
         provider.getChat().setEnabled(true);
         properties.getProviders().put("openai", provider);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+        AiSecretPresenceGuard guard = guard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -86,7 +87,7 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.openai.api-key", "test-key");
         // intentionally omit spring.ai.openai.chat.options.model
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -109,7 +110,7 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
         environment.setProperty("spring.ai.openai.embedding.options.model", "text-embedding-3-small");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
@@ -128,7 +129,7 @@ class AiSecretPresenceGuardTest {
         MockEnvironment environment = new MockEnvironment();
         environment.setProperty("spring.ai.ollama.embedding.options.model", "nomic-embed-text");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
@@ -144,7 +145,7 @@ class AiSecretPresenceGuardTest {
         provider.getEmbedding().setEnabled(true);
         properties.getProviders().put("ollama", provider);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+        AiSecretPresenceGuard guard = guard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -164,7 +165,7 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
         environment.setProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
@@ -184,7 +185,7 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.google.genai.embedding.api-key", "test-key");
         // intentionally omit text.options.model
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -200,7 +201,7 @@ class AiSecretPresenceGuardTest {
         provider.getChat().setEnabled(true);
         properties.getProviders().put("google", provider);
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment());
+        AiSecretPresenceGuard guard = guard(properties, environment());
 
         assertThrows(IllegalStateException.class, guard::validate);
     }
@@ -220,12 +221,21 @@ class AiSecretPresenceGuardTest {
         environment.setProperty("spring.ai.google.genai.chat.api-key", "test-key");
         environment.setProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
 
-        AiSecretPresenceGuard guard = new AiSecretPresenceGuard(properties, environment);
+        AiSecretPresenceGuard guard = guard(properties, environment);
 
         assertDoesNotThrow(guard::validate);
     }
 
     private static Environment environment() {
         return new MockEnvironment();
+    }
+
+    private static AiSecretPresenceGuard guard(AiAdapterProperties properties, Environment environment) {
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        return new AiSecretPresenceGuard(
+                properties,
+                environment,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
     }
 }

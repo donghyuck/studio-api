@@ -29,5 +29,12 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-autoconfigure"))
     testImplementation(project(":studio-platform-security"))
+    testImplementation(project(":studio-platform-user"))
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.springframework.boot:spring-boot-starter-mail")
+    testImplementation("org.springframework.boot:spring-boot-starter-security")
+    testImplementation("org.springframework.boot:spring-boot-starter-web")
 } 

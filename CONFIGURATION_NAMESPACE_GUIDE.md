@@ -1,62 +1,89 @@
 # Configuration Namespace Guide
 
-This guide defines YAML namespace conventions for the `studio-*` modules.
+이 문서는 `studio-*` 모듈의 설정 네임스페이스 기준을 정리한다. 현재 기준은 3층 모델이다.
 
-## Current State
-This document contains both:
-- current keys that are already implemented in code
-- recommended target namespaces for future cleanup
+## 3층 모델
 
-When they differ, the implemented key in code is authoritative until migration is completed.
+1. `spring.*`
+- 외부 라이브러리와 공급자 SDK 설정을 둔다.
+- 예: `spring.ai.openai.api-key`, `spring.ai.google.genai.chat.options.model`, `spring.ai.ollama.embedding.options.model`
+- API key, model, base-url, dimensions 같은 runtime provider 옵션은 가능하면 이 층을 단일 소스로 사용한다.
 
-## Goal
-- Keep module settings predictable across projects.
-- Avoid long and duplicated keys.
-- Separate feature wiring from runtime tuning.
+2. `studio.features.<module>.*`
+- feature wiring, exposure, enable/disable, persistence 선택, web endpoint 노출을 둔다.
+- 예: `studio.features.user.enabled`, `studio.features.mail.enabled`, `studio.features.ai.enabled`
+- 깊은 정책 값은 두지 않는다.
 
-## Namespace Model
-Use two layers:
+3. `studio.<module>.*`
+- 모듈 runtime detail, policy, cache, routing, rag, storage 같은 내부 동작을 둔다.
+- 예: `studio.user.password-policy.*`, `studio.attachment.storage.*`, `studio.ai.routing.*`, `studio.ai.rag.*`
 
-1. `studio.features.<module>.*`
-- Purpose: feature wiring and exposure.
-- Common keys:
-  - `enabled`
-  - `persistence.*`
-  - `web.*`
+## 기본 원칙
 
-2. `studio.<module>.*`
-- Purpose: module runtime details and policy tuning.
-- Examples:
-  - `studio.user.password-policy.*`
-  - `studio.objecttype.registry.cache.*`
-  - `studio.realtime.stomp.*`
+- 같은 의미의 키는 한 층에만 둔다.
+- 새 키가 생기면 문서와 metadata는 새 키를 기준으로 작성한다.
+- 레거시 키는 migration window 동안만 fallback으로 유지한다.
+- 가능한 기본 migration window는 1-2 release다.
 
-## What Belongs in `studio.features.<module>.*`
-- `enabled`: enable/disable feature.
-- `persistence.*`: repository/entity/tx binding, JPA/JDBC mode.
-- `web.*`: base path, endpoint exposure, self/mgmt/public toggles.
+## 각 층에 넣는 내용
 
-Do not place deep policy values here (password policy, cache TTL, rate rules).
+### `spring.*`
+- provider SDK 인증 정보
+- provider SDK model, dimensions, base-url, task type
+- 외부 라이브러리의 표준 속성
 
-## What Belongs in `studio.<module>.*`
-- Policy values.
-- Cache and performance tuning.
-- Runtime behavior that can vary by environment.
+### `studio.features.<module>.*`
+- `enabled`
+- `persistence.*`
+- `web.*`
+- feature gate와 endpoint exposure
 
-## Example
+### `studio.<module>.*`
+- policy
+- cache
+- storage
+- routing
+- rag
+- provider registry metadata
+- runtime behavior
+
+## 예시
+
 ```yaml
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
+
 studio:
   features:
+    ai:
+      enabled: true
     user:
       enabled: true
-      persistence:
-        type: jpa
       web:
         enabled: true
-        base-path: /api/mgmt
-        self:
+
+  ai:
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
+    providers:
+      openai:
+        type: OPENAI
+        enabled: true
+        chat:
           enabled: true
-          path: /api/self
+        embedding:
+          enabled: true
+    rag:
+      default-embedding-profile: retrieval-ko
 
   user:
     password-policy:
@@ -70,87 +97,70 @@ studio:
       allow-whitespace: false
 ```
 
-## Conflict and Override Rule
-- Same semantic key must exist in only one namespace.
-- If temporary compatibility requires both:
-  - New key is source of truth.
-  - Old key is fallback only.
-  - Startup log must print deprecation warning for old key usage.
+## 충돌과 우선순위
+
+- 같은 의미의 값이 target key와 legacy key에 동시에 있으면 target key를 우선한다.
+- legacy key는 동일 의미의 fallback 으로만 사용한다.
+- legacy key를 읽으면 startup log에 deprecation warning을 남긴다.
 
 ## Migration Rule
-1. Introduce new key.
-2. Keep old key as fallback for 1-2 releases.
-3. Emit deprecation warning.
-4. Remove old key after migration window.
 
-## Module Checklist
-For each new module:
-- Define `studio.features.<module>.enabled`.
-- Define `studio.features.<module>.persistence.*` if persistence exists.
-- Define `studio.features.<module>.web.*` if endpoint exists.
-- Define runtime detail keys under `studio.<module>.*`.
-- Document default values and environment examples in module README.
+1. target key를 먼저 추가한다.
+2. legacy key는 fallback으로 1-2 release 유지한다.
+3. deprecation warning을 추가한다.
+4. migration window가 끝나면 legacy key를 제거한다.
 
-## Current Recommendation for User Module
-- Keep wiring keys:
-  - `studio.features.user.enabled`
-  - `studio.features.user.persistence.*`
-  - `studio.features.user.web.*`
-- Current code still uses:
-  - `studio.features.user.password-policy.*`
-- Long-term target:
-  - `studio.user.password-policy.*`
+## Legacy -> Target Mapping
 
-## Key Mapping Table (Initial)
-This table is the recommended migration baseline for mixed namespaces.
-
-| Current key (legacy/mixed) | Recommended key (target) | Decision | Adoption status |
+| Legacy key | Target key | 상태 | 비고 |
 | --- | --- | --- | --- |
-| `studio.features.user.enabled` | `studio.features.user.enabled` | keep | adopted |
-| `studio.features.user.persistence.*` | `studio.features.user.persistence.*` | keep | adopted |
-| `studio.features.user.web.*` | `studio.features.user.web.*` | keep | adopted |
-| `studio.features.user.password-policy.*` | `studio.user.password-policy.*` | migrate | not started (current code uses legacy path) |
-| `studio.security.enabled` | `studio.security.enabled` | keep (global infra) | adopted |
-| `studio.security.jwt.*` | `studio.security.jwt.*` | keep (global infra) | adopted |
-| `studio.security.acl.*` | `studio.security.acl.*` | keep (global infra) | adopted |
-| `studio.persistence.*` | `studio.persistence.*` | keep (global infra) | adopted |
-| `studio.features.objecttype.enabled` | `studio.features.objecttype.enabled` | keep | adopted |
-| `studio.features.objecttype.web.*` | `studio.features.objecttype.web.*` | keep | adopted |
-| `studio.objecttype.mode` | `studio.objecttype.mode` | keep (runtime detail) | adopted |
-| `studio.objecttype.registry.cache.*` | `studio.objecttype.registry.cache.*` | keep (runtime detail) | adopted |
-| `studio.objecttype.policy.cache.*` | `studio.objecttype.policy.cache.*` | keep (runtime detail) | adopted |
-| `studio.features.realtime.enabled` | `studio.features.realtime.enabled` | keep (feature gate) | adopted |
-| `studio.realtime.stomp.*` | `studio.realtime.stomp.*` | keep (runtime detail) | adopted |
-| `studio.ai.*` | `studio.ai.*` | keep (runtime detail/global infra) | adopted |
-| `studio.features.jasypt.*` | `studio.features.jasypt.*` | keep | adopted |
-| `studio.features.attachment.enabled` | `studio.features.attachment.enabled` | keep | adopted |
-| `studio.features.attachment.web.*` | `studio.features.attachment.web.*` | keep | adopted |
-| `studio.features.attachment.storage.*` | `studio.attachment.storage.*` | migrate (optional, if detail split is adopted) | not started |
+| `studio.features.user.password-policy.*` | `studio.user.password-policy.*` | partial | user password policy는 target key를 기준으로 읽고 legacy fallback을 유지한다. |
+| `studio.features.attachment.storage.*` | `studio.attachment.storage.*` | partial | attachment 저장소 runtime 설정 이동. |
+| `studio.features.attachment.thumbnail.*` | `studio.attachment.thumbnail.*` | partial | attachment thumbnail runtime 설정 이동. |
+| `studio.features.mail.imap.*` | `studio.mail.imap.*` | partial | IMAP runtime 설정 이동. |
+| `studio.ai.enabled` | `studio.features.ai.enabled` | partial | AI feature gate. |
+| `studio.ai.default-provider` | `studio.ai.routing.default-chat-provider` / `studio.ai.routing.default-embedding-provider` | partial | legacy fallback provider. |
+| `studio.ai.default-chat-provider` | `studio.ai.routing.default-chat-provider` | partial | chat routing default. |
+| `studio.ai.default-embedding-provider` | `studio.ai.routing.default-embedding-provider` | partial | embedding routing default. |
+| `studio.ai.providers.<id>.api-key` | `spring.ai.*` | partial | provider SDK API key는 spring.ai.*로 옮긴다. |
+| `studio.ai.providers.<id>.chat.model` | `spring.ai.*` | partial | chat model은 spring.ai.*를 canonical source로 둔다. |
+| `studio.ai.providers.<id>.embedding.model` | `spring.ai.*` | partial | embedding model은 spring.ai.*를 canonical source로 둔다. |
+| `studio.ai.pipeline.*` | `studio.ai.rag.*` | partial | RAG pipeline namespace를 rag namespace로 이동. |
 
-## Verified Against Current Code
-- `studio.features.user.*`: implemented
-- `studio.features.user.password-policy.*`: implemented
-- `studio.security.*` and `studio.security.acl.*`: implemented
-- `studio.persistence.*`: implemented
-- `studio.features.objecttype.*` and `studio.objecttype.*`: implemented
-- `studio.features.realtime.enabled` and `studio.realtime.stomp.*`: both implemented
-- `studio.ai.*`: implemented
-- `studio.features.jasypt.*`: implemented
-- `studio.features.attachment.*`: implemented
+## 현재 권장 네임스페이스
 
-## Notes
-- Realtime is split across two layers in code today:
-  - feature gate: `studio.features.realtime.enabled`
-  - runtime detail: `studio.realtime.stomp.*`
-- User password policy has not migrated yet. Current code binds `studio.features.user.password-policy.*`.
-- Attachment storage has not migrated yet. Current code still uses `studio.features.attachment.storage.*`.
+- `studio.features.user.enabled`
+- `studio.features.user.persistence.*`
+- `studio.features.user.web.*`
+- `studio.user.password-policy.*`
+- `studio.features.attachment.enabled`
+- `studio.features.attachment.web.*`
+- `studio.attachment.storage.*`
+- `studio.attachment.thumbnail.*`
+- `studio.features.mail.enabled`
+- `studio.features.mail.persistence.*`
+- `studio.features.mail.web.*`
+- `studio.mail.imap.*`
+- `studio.features.ai.enabled`
+- `studio.ai.routing.*`
+- `studio.ai.providers.*`
+- `studio.ai.rag.*`
+- `spring.ai.*`
 
-### Migration Note
-- For `migrate` rows: support both keys during transition.
-- Read order: **target key first**, then legacy key fallback.
-- Emit deprecation warning when legacy key is used.
+## 현재 코드와의 정합성
 
-### Adoption Status Legend
-- `adopted`: key structure already aligned with target.
-- `not started`: migration not yet implemented in code.
-- `partial`: both key paths are supported, migration in progress.
+- `studio.features.user.enabled`, `studio.features.user.persistence.*`, `studio.features.user.web.*`는 유지한다.
+- `studio.user.password-policy.*`가 user password policy의 target key다.
+- `studio.attachment.storage.*`와 `studio.attachment.thumbnail.*`가 attachment runtime target key다.
+- `studio.mail.imap.*`가 mail IMAP target key다.
+- `studio.features.ai.enabled`가 AI feature gate다.
+- `studio.ai.routing.*`가 AI default provider routing key다.
+- provider SDK 값은 `spring.ai.*`를 우선한다.
+- `studio.ai.rag.*`가 RAG runtime key다.
+
+## 운영 메모
+
+- `studio.ai.providers.<id>.*`는 provider registry와 fallback metadata를 함께 담는다.
+- provider SDK 값은 가능하면 `spring.ai.*`에만 둔다.
+- `studio.ai.pipeline.*`는 legacy RAG fallback으로만 해석한다.
+- attachment/mail/user의 legacy namespace는 migration window 동안만 유지한다.

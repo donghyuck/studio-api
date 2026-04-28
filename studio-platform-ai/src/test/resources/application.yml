@@ -1,22 +1,56 @@
-ai:
-  provider: openai
-  openai:
-    model: text-embedding-3-small
-    chat-model: gpt-3.5-turbo
-    api-key: 
-    base-url: https://api.openai.com/v1
-  google-ai-gemini:
-    api-key: 
-    base-url: https://generativelanguage.googleapis.com/v1
-    chat-model: models/chat-bison-001
-    embedding-model: textembedding-gecko-001
-    task-type: RETRIEVAL_DOCUMENT
-  pipeline:
-    chunk-size: 500
-    chunk-overlap: 50
-    cache:
-      maximum-size: 1000
-      ttl: 10m
-    retry:
-      max-attempts: 3
-      wait-duration: 2s
+studio:
+  features:
+    ai:
+      enabled: true
+  ai:
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
+    providers:
+      openai:
+        type: OPENAI
+        enabled: true
+        chat:
+          enabled: true
+        embedding:
+          enabled: true
+      google:
+        type: GOOGLE_AI_GEMINI
+        enabled: true
+        chat:
+          enabled: true
+        embedding:
+          enabled: true
+        google-embedding:
+          task-type: RETRIEVAL_DOCUMENT
+    rag:
+      chunk-size: 500
+      chunk-overlap: 50
+      cache:
+        maximum-size: 1000
+        ttl: 10m
+      retry:
+        max-attempts: 3
+        wait-duration: 2s
+
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: gpt-3.5-turbo
+      embedding:
+        options:
+          model: text-embedding-3-small
+    google:
+      genai:
+        chat:
+          api-key: ${GOOGLE_API_KEY:}
+          options:
+            model: models/chat-bison-001
+        embedding:
+          api-key: ${GOOGLE_API_KEY:}
+          text:
+            options:
+              model: textembedding-gecko-001

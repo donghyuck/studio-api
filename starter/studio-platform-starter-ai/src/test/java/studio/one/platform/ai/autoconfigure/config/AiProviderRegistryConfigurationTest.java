@@ -47,7 +47,7 @@ class AiProviderRegistryConfigurationTest {
                 Map.of()))       // no embedding ports
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("openai")
-                .hasMessageContaining("studio.ai.default-provider")
+                .hasMessageContaining("studio.ai.routing.default-chat-provider")
                 .hasMessageContaining("ChatPort");
     }
 
@@ -69,7 +69,7 @@ class AiProviderRegistryConfigurationTest {
                 Map.of()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("openai")
-                .hasMessageContaining("studio.ai.default-provider")
+                .hasMessageContaining("studio.ai.routing.default-embedding-provider")
                 .hasMessageContaining("EmbeddingPort");
     }
 
@@ -146,13 +146,13 @@ class AiProviderRegistryConfigurationTest {
                 Map.of("openai", openAiChatPort, "google", googleChatPort),
                 Map.of("openai", openAiEmbeddingPort, "ollama", ollamaEmbeddingPort));
 
-        assertThat(registry.defaultProvider()).isEqualTo("openai");
+        assertThat(registry.defaultProvider()).isEqualTo("google");
         assertThat(registry.defaultChatProvider()).isEqualTo("google");
         assertThat(registry.defaultEmbeddingProvider()).isEqualTo("ollama");
         assertThat(registry.chatPort(null)).isSameAs(googleChatPort);
         assertThat(registry.embeddingPort(null)).isSameAs(ollamaEmbeddingPort);
-        assertThat(registry.chatPort(registry.defaultProvider())).isSameAs(openAiChatPort);
-        assertThat(registry.embeddingPort(registry.defaultProvider())).isSameAs(openAiEmbeddingPort);
+        assertThat(registry.chatPort("openai")).isSameAs(openAiChatPort);
+        assertThat(registry.embeddingPort("openai")).isSameAs(openAiEmbeddingPort);
     }
 
     @Test
@@ -174,15 +174,15 @@ class AiProviderRegistryConfigurationTest {
                 Map.of()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ollama")
-                .hasMessageContaining("studio.ai.default-embedding-provider");
+                .hasMessageContaining("studio.ai.routing.default-embedding-provider");
     }
 
     @Test
     void bindsSplitDefaultProvidersInApplicationContext() {
         contextRunner
                 .withPropertyValues(
-                        "studio.ai.default-chat-provider=chat-provider",
-                        "studio.ai.default-embedding-provider=embedding-provider",
+                        "studio.ai.routing.default-chat-provider=chat-provider",
+                        "studio.ai.routing.default-embedding-provider=embedding-provider",
                         "studio.ai.providers.chat-provider.type=OLLAMA",
                         "studio.ai.providers.chat-provider.enabled=true",
                         "studio.ai.providers.chat-provider.chat.enabled=true",

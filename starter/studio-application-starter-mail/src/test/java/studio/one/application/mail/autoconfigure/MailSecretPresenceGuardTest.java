@@ -5,14 +5,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
+import studio.one.application.mail.config.ImapProperties;
+
 class MailSecretPresenceGuardTest {
 
     @Test
     void validateRejectsMissingImapPassword() {
-        MailFeatureProperties properties = new MailFeatureProperties();
-        properties.getImap().setHost("imap.example.com");
-        properties.getImap().setUsername("user");
-        properties.getImap().setPassword(" ");
+        ImapProperties properties = new ImapProperties();
+        properties.setHost("imap.example.com");
+        properties.setUsername("user");
+        properties.setPassword(" ");
 
         MailSecretPresenceGuard guard = new MailSecretPresenceGuard(properties);
 
@@ -21,10 +23,10 @@ class MailSecretPresenceGuardTest {
 
     @Test
     void validateAllowsCompleteImapCredentials() {
-        MailFeatureProperties properties = new MailFeatureProperties();
-        properties.getImap().setHost("imap.example.com");
-        properties.getImap().setUsername("user");
-        properties.getImap().setPassword("secret");
+        ImapProperties properties = new ImapProperties();
+        properties.setHost("imap.example.com");
+        properties.setUsername("user");
+        properties.setPassword("secret");
 
         MailSecretPresenceGuard guard = new MailSecretPresenceGuard(properties);
 
