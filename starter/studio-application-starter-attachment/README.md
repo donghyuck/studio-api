@@ -3,6 +3,7 @@
 첨부파일 서비스(파일 메타데이터 + 바이너리 스토리지)를 자동으로 구성하는 스타터이다.
 `studio-application-modules:attachment-service` 모듈의 서비스/리포지토리/스토리지 빈을 등록하고,
 선택적으로 REST 엔드포인트를 노출한다.
+feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, storage/thumbnail runtime 설정은 `studio.attachment.*`를 사용한다. `studio.features.attachment.storage.*`와 `studio.features.attachment.thumbnail.*`는 migration window 동안만 fallback으로 남는다.
 
 ## 1) 의존성 추가
 
@@ -27,7 +28,7 @@ studio:
 
 ## 3) 설정
 
-`studio.features.attachment.*` 속성으로 동작을 제어한다.
+`studio.features.attachment.*`는 feature gate와 web 노출만 담당하고, storage/thumbnail은 `studio.attachment.*`에서 제어한다.
 
 ```yaml
 studio:
@@ -35,22 +36,23 @@ studio:
     attachment:
       enabled: true                 # 필수: 모듈 활성화
       persistence: jpa              # jpa | jdbc (기본: 전역 studio.persistence.type 또는 jpa)
-      storage:
-        type: filesystem            # filesystem | database
-        base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
-        ensure-dirs: true           # 시작 시 디렉터리 자동 생성
-        cache-enabled: false        # database 타입 사용 시 로컬 파일 캐시 on/off
-      thumbnail:
-        enabled: true               # 썸네일 기능 활성화 여부
-        default-size: 128           # 기본 썸네일 크기(px)
-        default-format: png         # 저장 포맷 (png만 지원)
-        base-dir: ""                # 비우면 attachments/thumbnails 사용
-        ensure-dirs: true
       web:
         enabled: false              # REST 엔드포인트 노출 여부 (기본 false)
         base-path: /api/attachments
         mgmt-base-path: /api/mgmt/attachments
         self-base: /api/me/attachments
+  attachment:
+    storage:
+      type: filesystem            # filesystem | database
+      base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
+      ensure-dirs: true           # 시작 시 디렉터리 자동 생성
+      cache-enabled: false        # database 타입 사용 시 로컬 파일 캐시 on/off
+    thumbnail:
+      enabled: true               # 썸네일 기능 활성화 여부
+      default-size: 128           # 기본 썸네일 크기(px)
+      default-format: png         # 저장 포맷 (png만 지원)
+      base-dir: ""                # 비우면 attachments/thumbnails 사용
+      ensure-dirs: true
 ```
 
 ### 스토리지 타입

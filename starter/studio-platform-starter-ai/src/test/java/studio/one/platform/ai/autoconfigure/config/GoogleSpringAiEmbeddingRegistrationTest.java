@@ -47,6 +47,36 @@ class GoogleSpringAiEmbeddingRegistrationTest {
     }
 
     @Test
+    void ignoresGenericInjectedEmbeddingModelAndUsesGoogleSpringAiProperties() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        org.springframework.ai.embedding.EmbeddingModel injected =
+                org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class);
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("googleEmbeddingModel", injected);
+
+        EmbeddingPort port = new ProviderEmbeddingConfiguration().embeddingPorts(
+                properties,
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.embedding.api-key", "spring-key")
+                        .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001"),
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class),
+                List.of(new GoogleGenAiEmbeddingPortFactoryConfiguration().googleGenAiEmbeddingPortFactory()))
+                .get("google");
+
+        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
+        modelField.setAccessible(true);
+
+        assertThat(modelField.get(port)).isNotSameAs(injected);
+    }
+
+    @Test
     void preservesGoogleEmbeddingTaskTypeInSpringAiOptions() throws Exception {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("google");

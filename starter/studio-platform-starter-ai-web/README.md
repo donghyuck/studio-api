@@ -32,16 +32,18 @@ dependencies {
 
 ## 2) 기능 활성화
 
-AI 코어(`studio.ai.enabled`)가 `true`여야 웹 엔드포인트도 활성화된다.
+AI 코어(`studio.features.ai.enabled`)가 `true`여야 웹 엔드포인트도 활성화된다.
 웹 엔드포인트 전체는 `studio.ai.endpoints.enabled`로 제어한다.
 
 ```yaml
 studio:
+  features:
+    ai:
+      enabled: true
   ai:
-    enabled: true
-    default-provider: openai
-    # default-chat-provider: openai
-    # default-embedding-provider: openai
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
     endpoints:
       enabled: true              # AI web endpoint 전체 활성화 여부 (기본: true)
       base-path: /api/ai         # 사용자용 AI endpoint 기본 경로
@@ -220,7 +222,7 @@ studio:
 `GET {mgmtBasePath}/rag/chunks/config`는 비밀 없는 운영 안전값만 반환한다. 응답에는
 chunking availability, `studio.chunking.*` 값, preview에서 사용할 수 있는 기본 전략 여부(`previewStrategy`,
 `defaultStrategyPreviewSupported`), 등록된 chunker 이름, deprecated legacy fallback
-`studio.ai.pipeline.chunk-size/chunk-overlap`, RAG context/expansion 설정, preview limit이 포함된다.
+`studio.ai.rag.chunk-size/chunk-overlap`, RAG context/expansion 설정, preview limit이 포함된다.
 API key, raw environment 값, provider secret은 노출하지 않는다.
 `studio.chunking.strategy`가 `semantic` 또는 `llm-based`처럼 preview에서 실행하지 않는 전략이면
 config API는 원래 설정값을 `strategy`로 보여주되 `defaultStrategyPreviewSupported=false`를 반환하고,
@@ -248,7 +250,7 @@ Content-Type: application/json
 }
 ```
 
-`provider`를 생략하면 `studio.ai.default-chat-provider` 또는 `studio.ai.default-provider`가 사용된다. `systemPrompt`가 있으면
+`provider`를 생략하면 `studio.ai.routing.default-chat-provider`가 사용된다. `systemPrompt`가 있으면
 서버가 첫 system message로 변환해 provider에 전달한다.
 
 기본 chat endpoint는 이전 대화를 서버에 저장하지 않는다. 요청에서 memory를 명시적으로 켜고,
@@ -468,10 +470,10 @@ studio:
 | `studio.ai.endpoints.rag.diagnostics.allow-client-debug` | `false` | client `debug=true` 요청에 `metadata.ragDiagnostics` 노출 허용 여부 |
 
 이슈 #205부터 RAG retrieval diagnostics를 선택적으로 사용할 수 있다. 서버의
-`studio.ai.pipeline.diagnostics.enabled=true`가 켜진 경우 검색 fallback strategy를 기록하고,
+`studio.ai.rag.diagnostics.enabled=true`가 켜진 경우 검색 fallback strategy를 기록하고,
 클라이언트 요청의 `debug=true`와 서버 `allow-client-debug=true`가 모두 만족될 때만 응답 metadata에
 `ragDiagnostics`를 추가한다. diagnostics metadata에는 chunk 본문이나 snippet을 포함하지 않는다.
-result snippet 로그는 `studio.ai.pipeline.diagnostics.log-results=true`일 때만 debug level로 제한 길이만 출력한다.
+result snippet 로그는 `studio.ai.rag.diagnostics.log-results=true`일 때만 debug level로 제한 길이만 출력한다.
 
 이슈 #305부터 같은 opt-in 조건에서 RAG context expansion diagnostics도
 `ChatResponseDto.metadata.ragContextDiagnostics`로 노출한다. 이 값은 확장 지원 여부, 적용 여부, 전략,

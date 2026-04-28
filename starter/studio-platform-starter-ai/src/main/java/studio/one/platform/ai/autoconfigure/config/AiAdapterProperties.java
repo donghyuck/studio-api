@@ -23,6 +23,7 @@ public class AiAdapterProperties {
     private String defaultProvider;
     private String defaultChatProvider;
     private String defaultEmbeddingProvider;
+    private final Routing routing = new Routing();
     private final Map<String, Provider> providers = new LinkedHashMap<>();
     private Endpoints endpoints = new Endpoints();
 
@@ -46,6 +47,14 @@ public class AiAdapterProperties {
     public static class Endpoints {
         private boolean enabled = false;
         private String basePath = "/api/ai";
+    }
+
+    @Getter
+    @Setter
+    @ToString
+    public static final class Routing {
+        private String defaultChatProvider;
+        private String defaultEmbeddingProvider;
     }
 
     @Getter

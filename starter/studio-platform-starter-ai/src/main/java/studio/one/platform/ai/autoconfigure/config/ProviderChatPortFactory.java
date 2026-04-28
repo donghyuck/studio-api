@@ -13,6 +13,13 @@ public interface ProviderChatPortFactory {
 
     AiAdapterProperties.ProviderType supportedType();
 
+    default ChatPort create(String providerId,
+                    AiAdapterProperties.Provider provider,
+                    Environment env,
+                    ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+        return create(provider, env, chatModelProvider);
+    }
+
     ChatPort create(AiAdapterProperties.Provider provider,
                     Environment env,
                     ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider);

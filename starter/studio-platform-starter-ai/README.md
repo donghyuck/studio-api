@@ -48,8 +48,9 @@ dependencies {
 
 ```yaml
 studio:
-  ai:
-    enabled: true
+  features:
+    ai:
+      enabled: true
 ```
 
 ## 3) 설정
@@ -59,10 +60,9 @@ studio:
 ```yaml
 studio:
   ai:
-    enabled: true
-    default-provider: openai   # 기본 ChatPort / EmbeddingPort fallback provider ID
-    # default-chat-provider: openai      # 선택: 기본 ChatPort provider ID
-    # default-embedding-provider: openai # 선택: 기본 EmbeddingPort provider ID
+    routing:
+      default-chat-provider: openai   # 기본 ChatPort provider ID
+      default-embedding-provider: openai # 기본 EmbeddingPort provider ID
     providers:
       <provider-id>:
         type: OPENAI            # OPENAI | GOOGLE_AI_GEMINI | OLLAMA
@@ -73,12 +73,9 @@ studio:
           enabled: true
 ```
 
-`studio.ai.*`는 provider 선택, 활성화, Studio RAG orchestration 설정을 담당한다.
-`studio.ai.default-provider`만 설정하면 기존처럼 chat/embedding 기본 provider fallback으로 모두 사용한다.
-이 값이 설정된 경우 기존 계약 보존을 위해 해당 provider에는 chat과 embedding port가 모두 등록되어야 한다.
-chat과 embedding을 분리해야 하면 `studio.ai.default-chat-provider`와
-`studio.ai.default-embedding-provider`를 지정한다. 이 두 값이 있으면 legacy `default-provider` 없이도
-기동할 수 있다.
+`studio.features.ai.enabled`가 AI feature gate다.
+`studio.ai.routing.*`는 기본 chat provider와 embedding provider를 선택한다.
+`studio.ai.providers.*`는 provider registry와 provider-level fallback metadata를 담당한다.
 provider SDK의 실제 API key, model, dimensions, temperature, base-url 같은 실행 옵션은
 `spring.ai.*`를 canonical source로 둔다. `studio.ai.providers.<id>.chat.model`과
 `studio.ai.providers.<id>.embedding.model`은 legacy/fallback 성격이며 Spring AI provider에서는
@@ -115,8 +112,9 @@ studio:
 ```yaml
 studio:
   ai:
-    enabled: true
-    default-provider: openai
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
     providers:
       openai:
         type: OPENAI
@@ -143,8 +141,9 @@ spring:
 ```yaml
 studio:
   ai:
-    enabled: true
-    default-provider: gemini
+    routing:
+      default-chat-provider: gemini
+      default-embedding-provider: gemini
     providers:
       gemini:
         type: GOOGLE_AI_GEMINI
@@ -161,11 +160,11 @@ spring:
     google:
       genai:
         chat:
-          api-key: ${GOOGLE_AI_API_KEY}
+          api-key: ${GOOGLE_API_KEY}
           options:
             model: gemini-2.5-flash
         embedding:
-          api-key: ${GOOGLE_AI_API_KEY}
+          api-key: ${GOOGLE_API_KEY}
           text:
             options:
               model: gemini-embedding-001
@@ -177,21 +176,30 @@ spring:
 ```yaml
 studio:
   ai:
-    enabled: true
-    default-provider: ollama
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: ollama
     providers:
-      ollama:
-        type: OLLAMA
+      openai:
+        type: OPENAI
         enabled: true
         chat:
           enabled: true
-          model: llama3.2
+      ollama:
+        type: OLLAMA
+        enabled: true
         embedding:
           enabled: true
 
 spring:
   ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
     ollama:
+      base-url: http://localhost:11434
       embedding:
         options:
           model: nomic-embed-text
@@ -212,8 +220,8 @@ studio:
 | 빈 타입 | 설명 |
 |---|---|
 | `AiProviderRegistry` | 등록된 모든 프로바이더의 ChatPort / EmbeddingPort 를 보관하는 레지스트리 |
-| `ChatPort` (기본) | `default-chat-provider` 또는 `default-provider`에 해당하는 채팅 포트 |
-| `EmbeddingPort` (기본) | `default-embedding-provider` 또는 `default-provider`에 해당하는 임베딩 포트 |
+| `ChatPort` (기본) | `studio.ai.routing.default-chat-provider`에 해당하는 채팅 포트 |
+| `EmbeddingPort` (기본) | `studio.ai.routing.default-embedding-provider`에 해당하는 임베딩 포트 |
 | `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
 | `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
 | `RagIndexJobRepository` | RAG 색인 작업 상태/로그 저장소. 기본 구현은 단일 인스턴스용 in-memory repository |
@@ -221,7 +229,7 @@ studio:
 | `RagIndexJobSourceExecutor` | source 기반 RAG job 실행 확장점. 등록된 Bean은 job service가 ordered stream으로 조회 |
 | `ChunkingOrchestrator` | `starter-chunking`이 있을 때 RAG indexing chunk 생성에 사용 |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
-| `TextCleaner` | `studio.ai.pipeline.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
+| `TextCleaner` | `studio.ai.rag.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
 
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
 기본 구현은 RAG chunk 저장 모델로 `VectorRecord.builder()`를 사용하고, 기존 `VectorDocument` 기반
@@ -255,7 +263,7 @@ bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 
 ```yaml
 studio:
   ai:
-    pipeline:
+    rag:
       jobs:
         repository: jdbc # 기본값: memory
 ```
@@ -365,7 +373,7 @@ query 없는 객체 범위 조회가 과도한 chunk를 반환하지 않도록 s
 ```yaml
 studio:
   ai:
-    pipeline:
+    rag:
       retrieval:
         vector-weight: 0.7
         lexical-weight: 0.3
@@ -392,20 +400,20 @@ studio:
 
 | 설정 | 기본값 | 설명 |
 |---|---:|---|
-| `studio.ai.pipeline.retrieval.vector-weight` | `0.7` | hybrid 검색의 벡터 점수 비중 |
-| `studio.ai.pipeline.retrieval.lexical-weight` | `0.3` | hybrid 검색의 lexical 점수 비중 |
-| `studio.ai.pipeline.retrieval.min-relevance-score` | `0.15` | fallback 성공으로 판단할 최소 relevance score |
-| `studio.ai.pipeline.retrieval.keyword-fallback-enabled` | `true` | keyword-enriched hybrid fallback 사용 여부 |
-| `studio.ai.pipeline.retrieval.semantic-fallback-enabled` | `true` | semantic fallback 사용 여부 |
-| `studio.ai.pipeline.retrieval.query-expansion.enabled` | `true` | keyword fallback에서 LLM keyword extractor로 query를 보강할지 여부 |
-| `studio.ai.pipeline.retrieval.query-expansion.max-keywords` | `10` | 원본 query 외에 추가할 최대 keyword 수 |
-| `studio.ai.pipeline.keywords.scope` | `document` | 색인 metadata keyword 범위. `document`, `chunk`, `both` 지원 |
-| `studio.ai.pipeline.keywords.max-input-chars` | `4000` | LLM keyword extractor에 전달할 입력 최대 길이 |
-| `studio.ai.pipeline.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
-| `studio.ai.pipeline.object-scope.max-list-limit` | `200` | object-scope list 최대 limit |
-| `studio.ai.pipeline.diagnostics.enabled` | `false` | RAG 검색 fallback 전략과 결과 카운트 수집 여부 |
-| `studio.ai.pipeline.diagnostics.log-results` | `false` | diagnostics 활성화 시 bounded result snippet debug log 출력 여부 |
-| `studio.ai.pipeline.diagnostics.max-snippet-chars` | `120` | result snippet debug log 최대 문자 수 |
+| `studio.ai.rag.retrieval.vector-weight` | `0.7` | hybrid 검색의 벡터 점수 비중 |
+| `studio.ai.rag.retrieval.lexical-weight` | `0.3` | hybrid 검색의 lexical 점수 비중 |
+| `studio.ai.rag.retrieval.min-relevance-score` | `0.15` | fallback 성공으로 판단할 최소 relevance score |
+| `studio.ai.rag.retrieval.keyword-fallback-enabled` | `true` | keyword-enriched hybrid fallback 사용 여부 |
+| `studio.ai.rag.retrieval.semantic-fallback-enabled` | `true` | semantic fallback 사용 여부 |
+| `studio.ai.rag.retrieval.query-expansion.enabled` | `true` | keyword fallback에서 LLM keyword extractor로 query를 보강할지 여부 |
+| `studio.ai.rag.retrieval.query-expansion.max-keywords` | `10` | 원본 query 외에 추가할 최대 keyword 수 |
+| `studio.ai.rag.keywords.scope` | `document` | 색인 metadata keyword 범위. `document`, `chunk`, `both` 지원 |
+| `studio.ai.rag.keywords.max-input-chars` | `4000` | LLM keyword extractor에 전달할 입력 최대 길이 |
+| `studio.ai.rag.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
+| `studio.ai.rag.object-scope.max-list-limit` | `200` | object-scope list 최대 limit |
+| `studio.ai.rag.diagnostics.enabled` | `false` | RAG 검색 fallback 전략과 결과 카운트 수집 여부 |
+| `studio.ai.rag.diagnostics.log-results` | `false` | diagnostics 활성화 시 bounded result snippet debug log 출력 여부 |
+| `studio.ai.rag.diagnostics.max-snippet-chars` | `120` | result snippet debug log 최대 문자 수 |
 
 `vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
 diagnostics metadata에는 chunk 본문을 포함하지 않고 strategy, 결과 수, threshold, weight, object scope, topK만 기록한다.
@@ -425,7 +433,7 @@ PostgreSQL lexical 검색은 현재 SQL ranking 동작을 유지한다. `studio.
 ```yaml
 studio:
   ai:
-    pipeline:
+    rag:
       cleaner:
         enabled: false
         prompt: rag-cleaner
@@ -435,10 +443,10 @@ studio:
 
 | 설정 | 기본값 | 설명 |
 |---|---:|---|
-| `studio.ai.pipeline.cleaner.enabled` | `false` | 색인 전 LLM text cleaner 사용 여부 |
-| `studio.ai.pipeline.cleaner.prompt` | `rag-cleaner` | 사용할 Mustache prompt 이름 |
-| `studio.ai.pipeline.cleaner.max-input-chars` | `20000` | cleaner에 전달할 입력 최대 길이 |
-| `studio.ai.pipeline.cleaner.fail-open` | `true` | cleaner 호출/파싱 실패 시 원문으로 색인을 계속할지 여부 |
+| `studio.ai.rag.cleaner.enabled` | `false` | 색인 전 LLM text cleaner 사용 여부 |
+| `studio.ai.rag.cleaner.prompt` | `rag-cleaner` | 사용할 Mustache prompt 이름 |
+| `studio.ai.rag.cleaner.max-input-chars` | `20000` | cleaner에 전달할 입력 최대 길이 |
+| `studio.ai.rag.cleaner.fail-open` | `true` | cleaner 호출/파싱 실패 시 원문으로 색인을 계속할지 여부 |
 
 정제 결과는 vector metadata에 additive key로 기록된다.
 `cleaned`, `cleanerPrompt`, `originalTextLength`, `indexedTextLength`, `chunkCount`, `chunkLength`가 추가되며,
@@ -460,12 +468,13 @@ studio:
 
 - **fail-fast**: 기본 chat provider에 `ChatPort`가 없거나 기본 embedding provider에 `EmbeddingPort`가 없으면
   애플리케이션 시작 시 `IllegalStateException`으로 즉시 실패한다.
-- **default-provider fallback**: `default-provider`는 기존 호환용 fallback이다. 생략하려면
-  `default-chat-provider`와 `default-embedding-provider`를 모두 설정해야 한다.
-  `default-provider`를 함께 설정하는 경우 해당 provider는 기존 호출자 호환을 위해 chat/embedding port를 모두 제공해야 한다.
+- **routing fallback**: `studio.ai.routing.default-chat-provider`와 `studio.ai.routing.default-embedding-provider`를 기본값으로 둔다.
+  legacy `studio.ai.default-provider`는 migration window 동안만 호환용 fallback으로 허용한다.
+  legacy fallback을 함께 설정하는 경우 해당 provider는 기존 호출자 호환을 위해 chat/embedding port를 모두 제공해야 한다.
 - OPENAI 타입 프로바이더는 동시에 하나만 활성화할 수 있다. 두 개 이상 활성화하면 시작 시 실패한다.
 - Spring AI 표준 속성(`spring.ai.*`)과 Studio 전용 속성(`studio.ai.*`)을 혼합 사용한다.
   OpenAI의 API 키 및 모델은 `spring.ai.openai.*`로 설정하고, Google/Ollama 고유 옵션은
-  각 프로바이더 `studio.ai.providers.<id>.*` 하위에 설정한다.
+  각 프로바이더 `studio.ai.providers.<id>.*` 하위에 둔다. provider registry용 metadata만 `studio.ai.providers.<id>.*`에 남기고,
+  provider SDK 값은 가능하면 `spring.ai.*`를 우선한다.
 - 벡터 스토어는 PostgreSQL + pgvector 확장을 사용하며, `JdbcTemplate` 빈이 없으면 생성되지 않는다.
 - Caffeine 캐시와 Resilience4j Retry가 내장되어 있어 LLM 호출에 재시도 및 캐싱이 적용된다.

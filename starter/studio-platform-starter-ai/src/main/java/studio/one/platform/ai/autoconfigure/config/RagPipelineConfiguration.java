@@ -11,9 +11,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -50,7 +50,6 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.pipeline.SinglePortRagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
-import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -160,7 +159,7 @@ public class RagPipelineConfiguration {
         @Bean
         @ConditionalOnBean(NamedParameterJdbcTemplate.class)
         @ConditionalOnMissingBean(RagIndexJobRepository.class)
-        @ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX + ".pipeline.jobs", name = "repository", havingValue = "jdbc")
+        @Conditional(RagPipelineConditions.JdbcRepository.class)
         RagIndexJobRepository jdbcRagIndexJobRepository(NamedParameterJdbcTemplate template) {
                 return new JdbcRagIndexJobRepository(template);
         }
@@ -185,7 +184,7 @@ public class RagPipelineConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(TextCleaner.class)
-        @ConditionalOnProperty(prefix = PropertyKeys.AI.PREFIX + ".pipeline.cleaner", name = "enabled", havingValue = "true")
+        @Conditional(RagPipelineConditions.CleanerEnabled.class)
         TextCleaner textCleaner(PromptRenderer promptRenderer,
                         ChatPort chatPort,
                         ObjectProvider<ObjectMapper> objectMapperProvider,

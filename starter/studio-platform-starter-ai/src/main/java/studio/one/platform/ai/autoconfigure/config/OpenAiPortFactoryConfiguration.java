@@ -47,7 +47,10 @@ public class OpenAiPortFactoryConfiguration {
                         "Spring AI ChatModel bean is required for OPENAI provider. " +
                         "Ensure spring-ai-starter-model-openai is on the classpath and spring.ai.openai.api-key is configured.");
             }
-            return new SpringAiChatAdapter(chatModel, provider.getType().name(), provider.getChat().getModel());
+            return new SpringAiChatAdapter(
+                    chatModel,
+                    provider.getType().name(),
+                    env.getProperty("spring.ai.openai.chat.options.model"));
         }
     }
 

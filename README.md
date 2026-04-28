@@ -3,7 +3,7 @@
 [![release](https://img.shields.io/badge/release-2.0.0-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
-모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다.
+모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다. 설정은 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델을 따른다.
 
 ## 빠른 시작
 1. JDK 17과 Gradle 실행 환경을 준비한다.
@@ -226,23 +226,33 @@ scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 | `JASYPT_ENCRYPTOR_PASSWORD` | `studio-platform-starter-jasypt` | 암호화 프로퍼티 복호화 실패 |
 | `JASYPT_HTTP_TOKEN` | `studio-platform-starter-jasypt` | 내부 Jasypt HTTP 엔드포인트 보호 토큰으로 사용 |
 | `OPENAI_API_KEY` | `studio-platform-starter-ai` + OpenAI provider | OpenAI provider 활성화 시 기동 실패 |
-| `GOOGLE_API_KEY` 또는 `GOOGLE_AI_API_KEY` | `studio-platform-starter-ai` + Google GenAI provider | Google provider 활성화 시 기동 실패 |
+| `GOOGLE_API_KEY` | `studio-platform-starter-ai` + Google GenAI provider | Google provider 활성화 시 기동 실패 |
 | `NEXUS_USERNAME`, `NEXUS_PASSWORD`, `NEXUS_URL` | `scripts/publish-local-nexus.sh` | 로컬 Nexus 배포 스크립트 실패 |
 
 ## 기본 설정 예시
 ```yaml
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
+
 studio:
   persistence:
     type: jpa            # jpa|jdbc
   features:
+    ai:
+      enabled: true
     attachment:
       enabled: true
       web:
         enabled: true
         base-path: /api/mgmt/attachments
-      storage:
-        type: filesystem # filesystem|database
-        cache-enabled: false
     avatar-image:
       enabled: true
     user:
@@ -257,27 +267,33 @@ studio:
       metrics-enabled: true
       audit-enabled: true
   ai:
-    enabled: true
-    default-provider: openai   # 필수 — 미설정 시 기동 실패
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
     providers:
       openai:
         type: OPENAI
+        enabled: true
         chat:
           enabled: true
         embedding:
           enabled: true
-spring:
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      chat:
-        options:
-          model: gpt-4o-mini
-      embedding:
-        options:
-          model: text-embedding-3-small
+  attachment:
+    storage:
+      type: filesystem # filesystem|database
+      cache-enabled: false
+  user:
+    password-policy:
+      min-length: 12
+      max-length: 64
+      require-upper: true
+      require-lower: true
+      require-digit: true
+      require-special: true
+      allowed-specials: "!@#$%^&*"
+      allow-whitespace: false
 ```
-필요 없는 기능은 `enabled=false` 로 비활성화하고, 경로나 저장소 타입은 `studio.features.<feature>.*` 속성으로 조정한다.
+필요 없는 기능은 `studio.features.<feature>.enabled=false`로 비활성화하고, feature wiring은 `studio.features.<feature>.*`, runtime detail은 `studio.<module>.*`, 외부 provider SDK 값은 `spring.*`로 조정한다.
 
 ## 문서 바로가기
 - 스타터 요약: `starter/README.md`

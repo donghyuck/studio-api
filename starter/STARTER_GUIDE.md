@@ -50,6 +50,7 @@ public class FeatureAutoConfiguration {
 ## 3) feature 전용 프로퍼티
 - 위치: `studio.one.platform.autoconfigure.<feature>`
 - 형태: `FeatureToggle` 상속 + web 설정 필요 시 `WebEndpointProperties` 포함
+- 이 층은 feature gate, persistence 선택, endpoint exposure만 담당한다.
 
 ```java
 @ConfigurationProperties(prefix = PropertyKeys.Features.PREFIX + ".<feature>")
@@ -61,7 +62,8 @@ public class FeatureProperties extends FeatureToggle {
 
 ## 4) 상세 설정 프로퍼티
 - 기능 세부 설정은 `studio.<feature>.*` 별도 프로퍼티 클래스로 정의
-- 예: `ObjectTypeProperties` (`studio.objecttype.*`)
+- `spring.*`가 이미 제공하는 provider SDK 값은 재정의하지 말고 그 값을 읽는다.
+- 예: `ObjectTypeProperties` (`studio.objecttype.*`), `PasswordPolicyProperties` (`studio.user.password-policy.*`), `RagPipelineProperties` (`studio.ai.rag.*`)
 
 ## 5) AutoConfiguration 등록
 - 파일 생성:
@@ -88,6 +90,12 @@ public @interface ConditionalOn<Feature>Persistence {
 - YAML/DB 구현을 함께 지원하려면:
   - `studio.<feature>.mode` (yaml|db)
   - `studio.features.<feature>.persistence` (jpa|jdbc)
+- provider SDK 값이 필요하면 `spring.*`를 우선 사용하고, `studio.<feature>.*`에는 routing, policy, cache, storage, rag 같은 runtime detail만 둔다.
+
+## 8) 문서/예시 원칙
+- README와 샘플 YAML은 가능한 새 키만 사용한다.
+- legacy 키를 남겨야 하면 migration note로 분리하고, 기본 예시는 새 키만 보여준다.
+- migration window는 기본 1-2 release로 잡는다.
 
 ## 체크리스트
 - [ ] `settings.gradle.kts` include 추가
@@ -96,4 +104,3 @@ public @interface ConditionalOn<Feature>Persistence {
 - [ ] `@ConfigurationProperties` 추가
 - [ ] `AutoConfiguration.imports` 등록
 - [ ] 프로퍼티 문서/README 업데이트
-

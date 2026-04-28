@@ -44,4 +44,33 @@ class OllamaSpringAiEmbeddingRegistrationTest {
         assertThat(registry.defaultProvider()).isEqualTo("ollama");
         assertThat(registry.embeddingPort(null)).isSameAs(embeddingPorts.get("ollama"));
     }
+
+    @Test
+    void ignoresGenericInjectedEmbeddingModelAndUsesOllamaSpringAiProperties() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("ollama");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.OLLAMA);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("ollama", provider);
+
+        org.springframework.ai.embedding.EmbeddingModel injected =
+                org.mockito.Mockito.mock(org.springframework.ai.embedding.EmbeddingModel.class);
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("ollamaEmbeddingModel", injected);
+
+        EmbeddingPort port = new ProviderEmbeddingConfiguration().embeddingPorts(
+                properties,
+                new MockEnvironment()
+                        .withProperty("spring.ai.ollama.embedding.options.model", "nomic-embed-text"),
+                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class),
+                List.of(new OllamaPortFactoryConfiguration().ollamaEmbeddingPortFactory()))
+                .get("ollama");
+
+        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
+        modelField.setAccessible(true);
+
+        assertThat(modelField.get(port)).isNotSameAs(injected);
+    }
 }

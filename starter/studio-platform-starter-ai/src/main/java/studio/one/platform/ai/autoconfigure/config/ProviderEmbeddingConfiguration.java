@@ -44,7 +44,11 @@ public class ProviderEmbeddingConfiguration {
                         provider.getType(), entry.getKey());
                 continue;
             }
-            ports.put(entry.getKey(), factory.create(provider, environment, springAiEmbeddingModelProvider));
+            ports.put(entry.getKey(), factory.create(
+                    entry.getKey(),
+                    provider,
+                    environment,
+                    springAiEmbeddingModelProvider));
         }
         return ports;
     }

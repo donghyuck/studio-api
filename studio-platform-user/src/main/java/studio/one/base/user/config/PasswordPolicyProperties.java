@@ -4,12 +4,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import lombok.Getter;
 import lombok.Setter;
-import studio.one.platform.constant.PropertyKeys;
 
-@ConfigurationProperties(prefix = PropertyKeys.Features.User.PREFIX + ".password-policy")
+@ConfigurationProperties(prefix = PasswordPolicyProperties.PREFIX)
 @Getter
 @Setter
 public class PasswordPolicyProperties {
+
+    public static final String PREFIX = "studio.user.password-policy";
+    public static final String LEGACY_PREFIX = "studio.features.user.password-policy";
 
     private int minLength = 8;
     private int maxLength = 20;

@@ -22,4 +22,9 @@ dependencies {
     api(project(":studio-application-modules:attachment-service"))
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation(project(":studio-platform-autoconfigure"))
+    testImplementation(project(":studio-platform-identity"))
+    testImplementation(project(":studio-platform-objecttype"))
+    testImplementation("org.springframework.boot:spring-boot-starter-validation")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
 }

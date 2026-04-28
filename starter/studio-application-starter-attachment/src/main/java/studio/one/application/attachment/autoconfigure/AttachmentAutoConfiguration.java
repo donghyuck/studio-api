@@ -49,6 +49,7 @@ import org.springframework.util.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentPersistence;
+import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentThumbnailEnabled;
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.persistence.jdbc.JdbcAttachmentRepository;
@@ -94,7 +95,10 @@ import studio.one.platform.identity.*;
  */
 
 @AutoConfiguration
-@EnableConfigurationProperties({ AttachmentFeatureProperties.class, PersistenceProperties.class })
+@EnableConfigurationProperties({
+        AttachmentFeatureProperties.class,
+        AttachmentProperties.class,
+        PersistenceProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".attachment", name = "enabled", havingValue = "true")
 @Slf4j
 public class AttachmentAutoConfiguration {
@@ -105,16 +109,17 @@ public class AttachmentAutoConfiguration {
     @Primary
     @ConditionalOnMissingBean(FileStorage.class)
     FileStorage attachmentFileStorage(
-            AttachmentFeatureProperties properties,
+            AttachmentProperties properties,
+            Environment environment,
             ObjectProvider<Repository> repositoryProvider,
             ObjectProvider<I18n> i18nProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
             PersistenceProperties persistenceProperties) {
-        AttachmentFeatureProperties.Storage storage = properties.getStorage();
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
         I18n i18n = I18nUtils.resolve(i18nProvider);
 
-        if (storage.getType() == AttachmentFeatureProperties.Storage.Type.database) {
+        if (storage.getType() == AttachmentProperties.Storage.Type.database) {
             PersistenceProperties.Type persistence = persistenceProperties.getType();
             if (persistence == PersistenceProperties.Type.jpa) {
                 AttachmentDataJpaRepository repo = dataRepositoryProvider.getIfAvailable();
@@ -185,16 +190,18 @@ public class AttachmentAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".attachment.thumbnail", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnAttachmentThumbnailEnabled
     @ConditionalOnMissingBean(ThumbnailStorage.class)
     ThumbnailStorage thumbnailStorage(
-            AttachmentFeatureProperties properties,
+            AttachmentProperties properties,
+            Environment environment,
             ObjectProvider<Repository> repositoryProvider,
             ObjectProvider<I18n> i18nProvider) {
-        AttachmentFeatureProperties.Thumbnail thumbnail = properties.getThumbnail();
+        AttachmentProperties.Thumbnail thumbnail = properties.thumbnail(environment, log);
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
         I18n i18n = I18nUtils.resolve(i18nProvider);
 
-        String baseDir = resolveThumbnailBaseDir(thumbnail, properties, repositoryProvider.getIfAvailable());
+        String baseDir = resolveThumbnailBaseDir(thumbnail, storage, repositoryProvider.getIfAvailable());
         ensureDirectory(baseDir, thumbnail.isEnsureDirs());
         log.info("{} thumbnail base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
@@ -203,22 +210,23 @@ public class AttachmentAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".attachment.thumbnail", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnAttachmentThumbnailEnabled
     @ConditionalOnMissingBean(ThumbnailService.class)
     ThumbnailService thumbnailService(
             AttachmentService attachmentService,
             ThumbnailStorage thumbnailStorage,
-            AttachmentFeatureProperties properties,
+            AttachmentProperties properties,
+            Environment environment,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(ThumbnailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        AttachmentFeatureProperties.Thumbnail config = properties.getThumbnail();
+        AttachmentProperties.Thumbnail config = properties.thumbnail(environment, log);
         return new ThumbnailServiceImpl(attachmentService, thumbnailStorage, config.getDefaultSize(),
                 config.getDefaultFormat());
     }
 
-    private String resolveBaseDir(AttachmentFeatureProperties.Storage storage, Repository repository) {
+    private String resolveBaseDir(AttachmentProperties.Storage storage, Repository repository) {
         if (StringUtils.hasText(storage.getBaseDir())) {
             return storage.getBaseDir();
         }
@@ -233,13 +241,13 @@ public class AttachmentAutoConfiguration {
     }
 
     private String resolveThumbnailBaseDir(
-            AttachmentFeatureProperties.Thumbnail thumbnail,
-            AttachmentFeatureProperties properties,
+            AttachmentProperties.Thumbnail thumbnail,
+            AttachmentProperties.Storage storage,
             Repository repository) {
         if (StringUtils.hasText(thumbnail.getBaseDir())) {
             return thumbnail.getBaseDir();
         }
-        String base = resolveBaseDir(properties.getStorage(), repository);
+        String base = resolveBaseDir(storage, repository);
         return Paths.get(base, "thumbnails").toString();
     }
 

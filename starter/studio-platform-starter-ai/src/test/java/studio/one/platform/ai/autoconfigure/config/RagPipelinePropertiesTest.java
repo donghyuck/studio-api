@@ -2,18 +2,36 @@ package studio.one.platform.ai.autoconfigure.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.ConfigurationPropertySources;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 
+import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
+
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
+import java.util.Set;
 
 @SuppressWarnings("deprecation")
+@ExtendWith(OutputCaptureExtension.class)
 class RagPipelinePropertiesTest {
+
+    @BeforeEach
+    void resetWarnings() throws Exception {
+        Field warned = ConfigurationPropertyMigration.class.getDeclaredField("WARNED");
+        warned.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Set<String> values = (Set<String>) warned.get(null);
+        values.clear();
+    }
 
     @Test
     void shouldExposeRetrievalAndObjectScopeDefaults() {
@@ -46,28 +64,28 @@ class RagPipelinePropertiesTest {
     void shouldBindRetrievalAndObjectScopeOverrides() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
-                Map.entry("studio.ai.pipeline.retrieval.vector-weight", "0.2"),
-                Map.entry("studio.ai.pipeline.retrieval.lexical-weight", "0.8"),
-                Map.entry("studio.ai.pipeline.retrieval.min-relevance-score", "0.4"),
-                Map.entry("studio.ai.pipeline.retrieval.keyword-fallback-enabled", "false"),
-                Map.entry("studio.ai.pipeline.retrieval.semantic-fallback-enabled", "false"),
-                Map.entry("studio.ai.pipeline.retrieval.query-expansion.enabled", "false"),
-                Map.entry("studio.ai.pipeline.retrieval.query-expansion.max-keywords", "4"),
-                Map.entry("studio.ai.pipeline.object-scope.default-list-limit", "5"),
-                Map.entry("studio.ai.pipeline.object-scope.max-list-limit", "10"),
-                Map.entry("studio.ai.pipeline.keywords.scope", "both"),
-                Map.entry("studio.ai.pipeline.keywords.max-input-chars", "2048"),
-                Map.entry("studio.ai.pipeline.cleaner.enabled", "true"),
-                Map.entry("studio.ai.pipeline.cleaner.prompt", "custom-cleaner"),
-                Map.entry("studio.ai.pipeline.cleaner.max-input-chars", "1234"),
-                Map.entry("studio.ai.pipeline.cleaner.fail-open", "false"),
-                Map.entry("studio.ai.pipeline.diagnostics.enabled", "true"),
-                Map.entry("studio.ai.pipeline.diagnostics.log-results", "true"),
-                Map.entry("studio.ai.pipeline.diagnostics.max-snippet-chars", "42"),
-                Map.entry("studio.ai.pipeline.jobs.repository", "jdbc"))));
+                Map.entry("studio.ai.rag.retrieval.vector-weight", "0.2"),
+                Map.entry("studio.ai.rag.retrieval.lexical-weight", "0.8"),
+                Map.entry("studio.ai.rag.retrieval.min-relevance-score", "0.4"),
+                Map.entry("studio.ai.rag.retrieval.keyword-fallback-enabled", "false"),
+                Map.entry("studio.ai.rag.retrieval.semantic-fallback-enabled", "false"),
+                Map.entry("studio.ai.rag.retrieval.query-expansion.enabled", "false"),
+                Map.entry("studio.ai.rag.retrieval.query-expansion.max-keywords", "4"),
+                Map.entry("studio.ai.rag.object-scope.default-list-limit", "5"),
+                Map.entry("studio.ai.rag.object-scope.max-list-limit", "10"),
+                Map.entry("studio.ai.rag.keywords.scope", "both"),
+                Map.entry("studio.ai.rag.keywords.max-input-chars", "2048"),
+                Map.entry("studio.ai.rag.cleaner.enabled", "true"),
+                Map.entry("studio.ai.rag.cleaner.prompt", "custom-cleaner"),
+                Map.entry("studio.ai.rag.cleaner.max-input-chars", "1234"),
+                Map.entry("studio.ai.rag.cleaner.fail-open", "false"),
+                Map.entry("studio.ai.rag.diagnostics.enabled", "true"),
+                Map.entry("studio.ai.rag.diagnostics.log-results", "true"),
+                Map.entry("studio.ai.rag.diagnostics.max-snippet-chars", "42"),
+                Map.entry("studio.ai.rag.jobs.repository", "jdbc"))));
 
         RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
-                .bind("studio.ai.pipeline", Bindable.of(RagPipelineProperties.class))
+                .bind("studio.ai.rag", Bindable.of(RagPipelineProperties.class))
                 .orElseThrow(() -> new AssertionError("RagPipelineProperties binding failed"));
 
         assertThat(properties.getRetrieval().getVectorWeight()).isEqualTo(0.2d);
@@ -98,12 +116,56 @@ class RagPipelinePropertiesTest {
                 RagPipelineProperties.LEGACY_CHUNK_SIZE_PROPERTY, "900",
                 RagPipelineProperties.LEGACY_CHUNK_OVERLAP_PROPERTY, "90")));
 
-        RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
-                .bind("studio.ai.pipeline", Bindable.of(RagPipelineProperties.class))
-                .orElseThrow(() -> new AssertionError("RagPipelineProperties binding failed"));
+        RagPipelineProperties properties = new RagPipelineProperties();
+        properties.setEnvironment(environment);
+        properties.afterPropertiesSet();
 
         assertThat(properties.getChunkSize()).isEqualTo(900);
         assertThat(properties.getChunkOverlap()).isEqualTo(90);
+    }
+
+    @Test
+    void shouldBindLegacyPipelineFallbackAndWarn(CapturedOutput output) {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
+                Map.entry("studio.ai.pipeline.retrieval.vector-weight", "0.2"),
+                Map.entry("studio.ai.pipeline.cleaner.enabled", "true"),
+                Map.entry("studio.ai.pipeline.jobs.repository", "jdbc"))));
+
+        RagPipelineProperties properties = new RagPipelineProperties();
+        properties.setEnvironment(environment);
+        properties.afterPropertiesSet();
+
+        assertThat(properties.getRetrieval().getVectorWeight()).isEqualTo(0.2d);
+        assertThat(properties.getCleaner().isEnabled()).isTrue();
+        assertThat(properties.getJobs().getRepository()).isEqualTo("jdbc");
+        assertThat(output)
+                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.retrieval.vector-weight is deprecated")
+                .contains("Use studio.ai.rag.retrieval.vector-weight instead");
+    }
+
+    @Test
+    void shouldBindLegacyPipelineFallbackPerMissingLeafWhenTargetIsPartiallyConfigured(CapturedOutput output) {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
+                Map.entry("studio.ai.rag.jobs.repository", "jdbc"),
+                Map.entry("studio.ai.pipeline.jobs.repository", "memory"),
+                Map.entry("studio.ai.pipeline.diagnostics.enabled", "true"),
+                Map.entry("studio.ai.pipeline.retrieval.query-expansion.max-keywords", "3"))));
+
+        RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
+                .bind("studio.ai.rag", Bindable.of(RagPipelineProperties.class))
+                .orElseGet(RagPipelineProperties::new);
+        properties.setEnvironment(environment);
+        properties.afterPropertiesSet();
+
+        assertThat(properties.getJobs().getRepository()).isEqualTo("jdbc");
+        assertThat(properties.getDiagnostics().isEnabled()).isTrue();
+        assertThat(properties.getRetrieval().getQueryExpansion().getMaxKeywords()).isEqualTo(3);
+        assertThat(output)
+                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.diagnostics.enabled is deprecated")
+                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.retrieval.query-expansion.max-keywords is deprecated")
+                .doesNotContain("studio.ai.pipeline.jobs.repository is deprecated");
     }
 
     @Test

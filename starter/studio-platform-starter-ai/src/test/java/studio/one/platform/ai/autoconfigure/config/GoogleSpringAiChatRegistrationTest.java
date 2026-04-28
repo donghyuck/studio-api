@@ -47,6 +47,37 @@ class GoogleSpringAiChatRegistrationTest {
     }
 
     @Test
+    void ignoresGenericInjectedChatModelAndUsesGoogleSpringAiProperties() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        org.springframework.ai.chat.model.ChatModel injected =
+                org.mockito.Mockito.mock(org.springframework.ai.chat.model.ChatModel.class);
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("googleChatModel", injected);
+
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
+                properties,
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.chat.api-key", "spring-key")
+                        .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash"),
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory()));
+
+        GoogleSpringAiChatAdapter adapter = (GoogleSpringAiChatAdapter) chatPorts.get("google");
+        Field chatModelField = studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter.class
+                .getDeclaredField("chatModel");
+        chatModelField.setAccessible(true);
+
+        assertThat(chatModelField.get(adapter)).isNotSameAs(injected);
+    }
+
+    @Test
     void preservesConfiguredBaseUrlForGoogleChat() throws Exception {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("google");

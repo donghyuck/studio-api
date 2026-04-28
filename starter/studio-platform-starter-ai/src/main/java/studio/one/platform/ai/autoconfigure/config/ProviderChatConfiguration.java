@@ -44,7 +44,7 @@ public class ProviderChatConfiguration {
                         provider.getType(), entry.getKey());
                 continue;
             }
-            ports.put(entry.getKey(), factory.create(provider, environment, springAiChatModelProvider));
+            ports.put(entry.getKey(), factory.create(entry.getKey(), provider, environment, springAiChatModelProvider));
         }
         return ports;
     }

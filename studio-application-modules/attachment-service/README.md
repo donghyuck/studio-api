@@ -1,5 +1,5 @@
 # Attachment Service
-첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, 개발자는 저장소 타입과 노출 경로를 설정 값으로 제어할 수 있다.
+첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage/thumbnail runtime 설정은 `studio.attachment.*`로 제어한다. `studio.features.attachment.storage.*`와 `studio.features.attachment.thumbnail.*`는 migration window 동안만 fallback으로 유지된다.
 
 ## 구성 요소
 - **AttachmentService / AttachmentServiceImpl**: 생성, 조회, 목록/검색, 삭제, 스트림 로딩을 담당. ID 단위 캐시(`attachments.byId`) 사용.
@@ -10,7 +10,7 @@
 - **ObjectType 정책 검증(옵션)**: `ObjectTypeRuntimeService` 빈이 존재하면 업로드 시 정책(용량/확장자/MIME)을 검증한다. 빈이 없으면 검증을 생략한다.
 
 ## 자동구성 및 프로퍼티
-`studio.features.attachment.*` 속성으로 활성화와 동작을 제어한다(기본값은 주석 참고).
+`studio.features.attachment.*`는 feature gate와 web 노출만 담당하고, storage/thumbnail은 `studio.attachment.*`에서 제어한다(기본값은 주석 참고).
 
 ```yaml
 studio:
@@ -18,29 +18,30 @@ studio:
     attachment:
       enabled: true                 # 필수: 모듈 활성화
       persistence: jpa              # jpa | jdbc (기본: 전역 persistence.type 또는 jpa)
-      storage:
-        type: filesystem            # filesystem | database
-        base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
-        ensure-dirs: true           # 시작 시 디렉터리 생성
-        cache-enabled: false        # database 사용 시 로컬 캐시 on/off
-      thumbnail:
-        enabled: true               # 썸네일 생성 기능
-        default-size: 128           # 기본 썸네일 크기(px)
-        default-format: png         # png만 지원
-        base-dir: ""                # 비우면 attachments/thumbnails 사용
-        ensure-dirs: true
       web:
         enabled: true               # REST 엔드포인트 노출 여부 (기본 false)
         base-path: /api/attachments
         mgmt-base-path: /api/mgmt/attachments
         self-base: /api/me/attachments
+  attachment:
+    storage:
+      type: filesystem            # filesystem | database
+      base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
+      ensure-dirs: true           # 시작 시 디렉터리 생성
+      cache-enabled: false        # database 사용 시 로컬 캐시 on/off
+    thumbnail:
+      enabled: true               # 썸네일 생성 기능
+      default-size: 128           # 기본 썸네일 크기(px)
+      default-format: png         # png만 지원
+      base-dir: ""                # 비우면 attachments/thumbnails 사용
+      ensure-dirs: true
 ```
 
 ### 동작 방식
 - `enabled=true` 일 때 `AttachmentServiceImpl`과 저장소 빈을 등록.
 - `persistence`가 `jpa` 면 `AttachmentJpaRepository` + `JpaFileStore`(database 선택 시) 사용, `jdbc` 면 `JdbcAttachmentRepository` + `JdbcFileStore`.
-- `storage.type=filesystem` → `LocalFileStore`에 바이너리 저장.
-- `storage.type=database` → 선택한 persistence 저장소에 바이너리를 넣고, `cache-enabled=true` 시 `LocalFileStore`로 읽기 캐시.
+- `attachment.storage.type=filesystem` → `LocalFileStore`에 바이너리 저장.
+- `attachment.storage.type=database` → 선택한 persistence 저장소에 바이너리를 넣고, `cache-enabled=true` 시 `LocalFileStore`로 읽기 캐시.
 - `web.enabled=true` 시 `AttachmentMgmtController`/`AttachmentController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
 - `ObjectTypeRuntimeService` 빈이 있을 경우 업로드 시 `validateUpload`로 정책 검증을 수행한다(없으면 생략).
 
@@ -166,6 +167,6 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 attachment 범위(V800-V8
 
 ## 빠른 시작
 1. `studio.features.attachment.enabled=true` 와 `studio.features.attachment.web.enabled=true` 설정.
-2. 필요 시 `studio.features.attachment.persistence`(jpa/jdbc)와 `studio.features.attachment.storage.*` 조정.
+2. 필요 시 `studio.features.attachment.persistence`(jpa/jdbc)와 `studio.attachment.storage.*` 조정.
 3. 권한 스코프(`features:attachment/*`)를 인가 서버 또는 ACL에 등록.
 4. (선택) 파일 시스템을 쓸 경우 `base-dir` 접근 권한을 확인하고, DB 저장을 쓸 경우 BLOB 컬럼을 포함한 테이블을 준비한다.

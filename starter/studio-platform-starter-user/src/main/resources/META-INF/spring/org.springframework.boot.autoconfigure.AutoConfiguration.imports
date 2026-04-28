@@ -1,2 +1,3 @@
+studio.one.platform.user.autoconfigure.UserPasswordPolicyAutoConfiguration
 studio.one.platform.user.autoconfigure.UserEntityAutoConfiguration
 studio.one.platform.user.autoconfigure.UserEndpointsAutoConfiguration

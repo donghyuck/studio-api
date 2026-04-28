@@ -1,0 +1,550 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.ai",
+      "description": "AI feature wiring properties."
+    },
+    {
+      "name": "studio.ai.routing",
+      "description": "AI default provider routing properties."
+    },
+    {
+      "name": "studio.ai.providers",
+      "description": "AI provider registry properties."
+    },
+    {
+      "name": "studio.ai.rag",
+      "description": "AI RAG runtime properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.features.ai.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable the AI feature."
+    },
+    {
+      "name": "studio.ai.routing.default-chat-provider",
+      "type": "java.lang.String",
+      "description": "Default chat provider id."
+    },
+    {
+      "name": "studio.ai.routing.default-embedding-provider",
+      "type": "java.lang.String",
+      "description": "Default embedding provider id."
+    },
+    {
+      "name": "studio.ai.providers.*.type",
+      "type": "studio.one.platform.ai.autoconfigure.config.AiAdapterProperties$ProviderType",
+      "description": "Provider type for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.chat.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable chat support for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable embedding support for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.google-embedding.task-type",
+      "type": "java.lang.String",
+      "defaultValue": "RETRIEVAL_DOCUMENT",
+      "description": "Google embedding task type fallback."
+    },
+    {
+      "name": "studio.ai.rag.default-embedding-profile",
+      "type": "java.lang.String",
+      "description": "Default RAG embedding profile id."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.provider",
+      "type": "java.lang.String",
+      "description": "Provider id for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.model",
+      "type": "java.lang.String",
+      "description": "Embedding model for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.dimension",
+      "type": "java.lang.Integer",
+      "description": "Embedding vector dimension for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.supported-input-types",
+      "type": "java.util.List<java.lang.String>",
+      "defaultValue": [
+        "TEXT",
+        "TABLE_TEXT",
+        "IMAGE_CAPTION",
+        "OCR_TEXT"
+      ],
+      "description": "Supported input types for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.metadata",
+      "type": "java.util.Map<java.lang.String,java.lang.Object>",
+      "description": "Additional metadata for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.chunk-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 500,
+      "description": "Legacy fallback chunk size used when starter-chunking is absent."
+    },
+    {
+      "name": "studio.ai.rag.chunk-overlap",
+      "type": "java.lang.Integer",
+      "defaultValue": 50,
+      "description": "Legacy fallback chunk overlap used when starter-chunking is absent."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.vector-weight",
+      "type": "java.lang.Double",
+      "defaultValue": 0.7,
+      "description": "Vector score weight for hybrid retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.lexical-weight",
+      "type": "java.lang.Double",
+      "defaultValue": 0.3,
+      "description": "Lexical score weight for hybrid retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.keyword-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable keyword-enriched fallback retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.semantic-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable semantic fallback retrieval."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.min-relevance-score",
+      "type": "java.lang.Double",
+      "defaultValue": 0.15,
+      "description": "Minimum relevance score for fallback success."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.query-expansion.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable query expansion for keyword fallback."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.query-expansion.max-keywords",
+      "type": "java.lang.Integer",
+      "defaultValue": 10,
+      "description": "Maximum keywords used for query expansion."
+    },
+    {
+      "name": "studio.ai.rag.cache.maximum-size",
+      "type": "java.lang.Long",
+      "defaultValue": 1000,
+      "description": "Maximum RAG cache entries."
+    },
+    {
+      "name": "studio.ai.rag.cache.ttl",
+      "type": "java.time.Duration",
+      "defaultValue": "10m",
+      "description": "RAG cache time to live."
+    },
+    {
+      "name": "studio.ai.rag.retry.max-attempts",
+      "type": "java.lang.Integer",
+      "defaultValue": 3,
+      "description": "Maximum RAG retry attempts."
+    },
+    {
+      "name": "studio.ai.rag.retry.wait-duration",
+      "type": "java.time.Duration",
+      "defaultValue": "2s",
+      "description": "Wait duration between RAG retry attempts."
+    },
+    {
+      "name": "studio.ai.rag.object-scope.default-list-limit",
+      "type": "java.lang.Integer",
+      "defaultValue": 20,
+      "description": "Default object-scope list limit."
+    },
+    {
+      "name": "studio.ai.rag.object-scope.max-list-limit",
+      "type": "java.lang.Integer",
+      "defaultValue": 200,
+      "description": "Maximum object-scope list limit."
+    },
+    {
+      "name": "studio.ai.rag.keywords.scope",
+      "type": "java.lang.String",
+      "defaultValue": "document",
+      "description": "Keyword metadata scope."
+    },
+    {
+      "name": "studio.ai.rag.keywords.max-input-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 4000,
+      "description": "Maximum input characters for keyword extraction."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable text cleaning before indexing."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.prompt",
+      "type": "java.lang.String",
+      "defaultValue": "rag-cleaner",
+      "description": "Prompt key used for RAG cleaner."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.max-input-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 20000,
+      "description": "Maximum cleaner input characters."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.fail-open",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Continue indexing when cleaner fails."
+    },
+    {
+      "name": "studio.ai.rag.diagnostics.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable RAG diagnostics collection."
+    },
+    {
+      "name": "studio.ai.rag.diagnostics.log-results",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Log RAG diagnostics results."
+    },
+    {
+      "name": "studio.ai.rag.diagnostics.max-snippet-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 120,
+      "description": "Maximum snippet length in diagnostics output."
+    },
+    {
+      "name": "studio.ai.rag.jobs.repository",
+      "type": "java.lang.String",
+      "defaultValue": "memory",
+      "description": "RAG job repository type."
+    },
+    {
+      "name": "studio.ai.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "AI feature gate moved to studio.features.ai.enabled.",
+        "replacement": "studio.features.ai.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.default-provider",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Default provider routing moved to studio.ai.routing.*. Set both studio.ai.routing.default-chat-provider and studio.ai.routing.default-embedding-provider.",
+        "replacement": "studio.ai.routing.default-chat-provider, studio.ai.routing.default-embedding-provider"
+      }
+    },
+    {
+      "name": "studio.ai.default-chat-provider",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Default provider routing moved to studio.ai.routing.*.",
+        "replacement": "studio.ai.routing.default-chat-provider"
+      }
+    },
+    {
+      "name": "studio.ai.default-embedding-provider",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Default provider routing moved to studio.ai.routing.*.",
+        "replacement": "studio.ai.routing.default-embedding-provider"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.api-key",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider SDK credentials moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.base-url",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider SDK base URL moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.chat.model",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider chat model moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.model",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Provider embedding model moved to spring.ai.*.",
+        "replacement": "spring.ai.*"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.chunk-size",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.chunk-size"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.chunk-overlap",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.chunk-overlap"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.vector-weight",
+      "type": "java.lang.Double",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.vector-weight"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.keyword-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.keyword-fallback-enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.semantic-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.semantic-fallback-enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.min-relevance-score",
+      "type": "java.lang.Double",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.min-relevance-score"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.lexical-weight",
+      "type": "java.lang.Double",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.lexical-weight"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.query-expansion.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.query-expansion.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.query-expansion.max-keywords",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.query-expansion.max-keywords"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cache.maximum-size",
+      "type": "java.lang.Long",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cache.maximum-size"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cache.ttl",
+      "type": "java.time.Duration",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cache.ttl"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retry.max-attempts",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retry.max-attempts"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retry.wait-duration",
+      "type": "java.time.Duration",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retry.wait-duration"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.object-scope.default-list-limit",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.object-scope.default-list-limit"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.object-scope.max-list-limit",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.object-scope.max-list-limit"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.keywords.scope",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.keywords.scope"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.keywords.max-input-chars",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.keywords.max-input-chars"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.prompt",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.prompt"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.max-input-chars",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.max-input-chars"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.fail-open",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.fail-open"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.diagnostics.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.diagnostics.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.diagnostics.log-results",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.diagnostics.log-results"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.diagnostics.max-snippet-chars",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.diagnostics.max-snippet-chars"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.jobs.repository",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.jobs.repository"
+      }
+    }
+  ]
+}

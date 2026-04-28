@@ -1,6 +1,11 @@
 package studio.one.platform.ai.autoconfigure.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.EnvironmentAware;
+import org.springframework.core.env.Environment;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.ai.service.pipeline.RagPipelineDiagnosticsOptions;
@@ -9,11 +14,13 @@ import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 
 import java.time.Duration;
 
-@ConfigurationProperties(prefix = PropertyKeys.AI.PREFIX + ".pipeline")
-public class RagPipelineProperties {
+@ConfigurationProperties(prefix = PropertyKeys.AI.PREFIX + ".rag")
+public class RagPipelineProperties implements EnvironmentAware, InitializingBean {
 
-    static final String LEGACY_CHUNK_SIZE_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-size";
-    static final String LEGACY_CHUNK_OVERLAP_PROPERTY = PropertyKeys.AI.PREFIX + ".pipeline.chunk-overlap";
+    static final String LEGACY_CHUNK_SIZE_PROPERTY = AiConfigurationMigration.LEGACY_RAG_PREFIX + ".chunk-size";
+    static final String LEGACY_CHUNK_OVERLAP_PROPERTY = AiConfigurationMigration.LEGACY_RAG_PREFIX + ".chunk-overlap";
+
+    private static final Logger log = LoggerFactory.getLogger(RagPipelineProperties.class);
 
     private int chunkSize = 500;
     private int chunkOverlap = 50;
@@ -25,6 +32,17 @@ public class RagPipelineProperties {
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
     private final KeywordsProperties keywords = new KeywordsProperties();
     private final JobProperties jobs = new JobProperties();
+    private Environment environment;
+
+    @Override
+    public void setEnvironment(Environment environment) {
+        this.environment = environment;
+    }
+
+    @Override
+    public void afterPropertiesSet() {
+        AiConfigurationMigration.applyRagPipelineFallback(environment, this, log);
+    }
 
     /**
      * Deprecated legacy fallback chunk size. This property is only used when no

@@ -1,0 +1,214 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.mail",
+      "description": "Mail feature wiring properties."
+    },
+    {
+      "name": "studio.mail.imap",
+      "description": "Mail IMAP runtime properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.features.mail.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable the mail feature."
+    },
+    {
+      "name": "studio.features.mail.persistence",
+      "type": "studio.one.platform.autoconfigure.PersistenceProperties$Type",
+      "description": "Mail persistence type."
+    },
+    {
+      "name": "studio.features.mail.web.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable mail web endpoints."
+    },
+    {
+      "name": "studio.features.mail.web.base-path",
+      "type": "java.lang.String",
+      "defaultValue": "/api/mgmt/mail",
+      "description": "Base path for the mail management API."
+    },
+    {
+      "name": "studio.mail.imap.host",
+      "type": "java.lang.String",
+      "description": "IMAP server host."
+    },
+    {
+      "name": "studio.mail.imap.port",
+      "type": "java.lang.Integer",
+      "defaultValue": 993,
+      "description": "IMAP server port."
+    },
+    {
+      "name": "studio.mail.imap.username",
+      "type": "java.lang.String",
+      "description": "IMAP account username."
+    },
+    {
+      "name": "studio.mail.imap.password",
+      "type": "java.lang.String",
+      "description": "IMAP account password."
+    },
+    {
+      "name": "studio.mail.imap.protocol",
+      "type": "java.lang.String",
+      "defaultValue": "imaps",
+      "description": "IMAP protocol."
+    },
+    {
+      "name": "studio.mail.imap.ssl",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Use SSL for IMAP."
+    },
+    {
+      "name": "studio.mail.imap.folder",
+      "type": "java.lang.String",
+      "defaultValue": "INBOX",
+      "description": "IMAP folder name."
+    },
+    {
+      "name": "studio.mail.imap.max-messages",
+      "type": "java.lang.Integer",
+      "defaultValue": 500,
+      "description": "Maximum number of messages to fetch."
+    },
+    {
+      "name": "studio.mail.imap.concurrency",
+      "type": "java.lang.Integer",
+      "defaultValue": 1,
+      "description": "IMAP sync concurrency."
+    },
+    {
+      "name": "studio.mail.imap.max-attachment-bytes",
+      "type": "java.lang.Long",
+      "defaultValue": 10485760,
+      "description": "Maximum attachment size in bytes."
+    },
+    {
+      "name": "studio.mail.imap.max-body-bytes",
+      "type": "java.lang.Long",
+      "defaultValue": 1048576,
+      "description": "Maximum body size in bytes."
+    },
+    {
+      "name": "studio.mail.imap.delete-after-fetch",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Delete messages after fetch."
+    },
+    {
+      "name": "studio.features.mail.imap.host",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.host"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.port",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.port"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.username",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.username"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.password",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.password"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.protocol",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.protocol"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.ssl",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.ssl"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.folder",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.folder"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.max-messages",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.max-messages"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.concurrency",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.concurrency"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.max-attachment-bytes",
+      "type": "java.lang.Long",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.max-attachment-bytes"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.max-body-bytes",
+      "type": "java.lang.Long",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.max-body-bytes"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.delete-after-fetch",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.delete-after-fetch"
+      }
+    }
+  ]
+}

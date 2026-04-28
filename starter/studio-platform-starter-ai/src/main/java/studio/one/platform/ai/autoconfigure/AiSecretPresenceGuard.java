@@ -4,28 +4,35 @@ import java.util.Map;
 
 import jakarta.annotation.PostConstruct;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.core.env.Environment;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.ai.autoconfigure.config.AiConfigurationMigration;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 
 @AutoConfiguration
 @EnableConfigurationProperties(AiAdapterProperties.class)
-@ConditionalOnProperty(prefix = "studio.ai", name = "enabled", havingValue = "true")
+@Conditional(AiFeatureCondition.class)
 @RequiredArgsConstructor
+@Slf4j
 public class AiSecretPresenceGuard {
 
     private final AiAdapterProperties properties;
     private final Environment environment;
+    private final ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider;
+    private final ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider;
 
     @PostConstruct
     void validate() {
         validateDefaultProviderSelection();
         validateOpenAiProviderMultiplicity();
+        validateSpringAiProviderMultiplicity();
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
             String providerId = entry.getKey();
             AiAdapterProperties.Provider provider = entry.getValue();
@@ -35,7 +42,7 @@ public class AiSecretPresenceGuard {
             switch (provider.getType()) {
                 case OPENAI -> validateOpenAiProvider(provider);
                 case GOOGLE_AI_GEMINI -> validateGoogleProvider(providerId, provider);
-                case OLLAMA -> validateOllamaProvider(provider);
+                case OLLAMA -> validateOllamaProvider(providerId, provider);
                 default -> {
                 }
             }
@@ -43,11 +50,14 @@ public class AiSecretPresenceGuard {
     }
 
     private void validateDefaultProviderSelection() {
-        if (!StringUtils.hasText(properties.getDefaultProvider())
-                && (!StringUtils.hasText(properties.getDefaultChatProvider())
-                || !StringUtils.hasText(properties.getDefaultEmbeddingProvider()))) {
-            throw new IllegalStateException("studio.ai.default-provider must be configured unless both " +
-                    "studio.ai.default-chat-provider and studio.ai.default-embedding-provider are configured");
+        AiConfigurationMigration.RoutingDefaults routing =
+                AiConfigurationMigration.resolveRouting(properties, environment, log);
+        if (!routing.legacyDefaultProviderConfigured()
+                && (!StringUtils.hasText(routing.defaultChatProvider())
+                        || !StringUtils.hasText(routing.defaultEmbeddingProvider()))) {
+            throw new IllegalStateException("studio.ai.routing.default-chat-provider and " +
+                    "studio.ai.routing.default-embedding-provider must be configured unless legacy " +
+                    "studio.ai.default-provider is configured");
         }
     }
 
@@ -62,39 +72,98 @@ public class AiSecretPresenceGuard {
         }
     }
 
+    private void validateSpringAiProviderMultiplicity() {
+        if (hasUnique(chatModelProvider)) {
+            rejectMultipleEnabledProviders(
+                    AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI,
+                    true,
+                    "Exactly one enabled GOOGLE_AI_GEMINI chat provider is supported when a Spring AI ChatModel bean is used");
+        }
+        if (hasUnique(embeddingModelProvider)) {
+            rejectMultipleEnabledProviders(
+                    AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI,
+                    false,
+                    "Exactly one enabled GOOGLE_AI_GEMINI embedding provider is supported when a Spring AI EmbeddingModel bean is used");
+            rejectMultipleEnabledProviders(
+                    AiAdapterProperties.ProviderType.OLLAMA,
+                    false,
+                    "Exactly one enabled OLLAMA embedding provider is supported when a Spring AI EmbeddingModel bean is used");
+        }
+    }
+
+    private void rejectMultipleEnabledProviders(
+            AiAdapterProperties.ProviderType type,
+            boolean chat,
+            String message) {
+        long count = properties.getProviders().values().stream()
+                .filter(provider -> provider != null
+                        && provider.isEnabled()
+                        && provider.getType() == type
+                        && (chat ? provider.getChat().isEnabled() : provider.getEmbedding().isEnabled()))
+                .count();
+        if (count > 1) {
+            throw new IllegalStateException(message);
+        }
+    }
+
     private void validateOpenAiProvider(AiAdapterProperties.Provider provider) {
-        requireText(environment.getProperty("spring.ai.openai.api-key"),
-                "spring.ai.openai.api-key must be configured for OPENAI provider");
         if (provider.getChat().isEnabled()) {
+            requireText(environment.getProperty("spring.ai.openai.api-key"),
+                    "spring.ai.openai.api-key must be configured for OPENAI provider");
             requireText(environment.getProperty("spring.ai.openai.chat.options.model"),
                     "spring.ai.openai.chat.options.model must be configured for OPENAI provider");
         }
         if (provider.getEmbedding().isEnabled()) {
+            requireText(environment.getProperty("spring.ai.openai.api-key"),
+                    "spring.ai.openai.api-key must be configured for OPENAI provider");
             requireText(environment.getProperty("spring.ai.openai.embedding.options.model"),
                     "spring.ai.openai.embedding.options.model must be configured for OPENAI provider");
         }
     }
 
-    private void validateOllamaProvider(AiAdapterProperties.Provider provider) {
+    private void validateOllamaProvider(String providerId, AiAdapterProperties.Provider provider) {
         if (provider.getEmbedding().isEnabled()) {
-            requireText(environment.getProperty("spring.ai.ollama.embedding.options.model"),
+            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
+                            environment,
+                            "spring.ai.ollama.embedding.options.model",
+                            "studio.ai.providers." + providerId + ".embedding.model",
+                            provider.getEmbedding().getModel(),
+                            log),
                     "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
         }
     }
 
     private void validateGoogleProvider(String providerId, AiAdapterProperties.Provider provider) {
         if (provider.getEmbedding().isEnabled()) {
-            requireText(environment.getProperty("spring.ai.google.genai.embedding.api-key"),
+            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
+                            environment,
+                            "spring.ai.google.genai.embedding.api-key",
+                            "studio.ai.providers." + providerId + ".api-key",
+                            provider.getApiKey(),
+                            log),
                     "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
-            requireText(environment.getProperty("spring.ai.google.genai.embedding.text.options.model"),
+            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
+                            environment,
+                            "spring.ai.google.genai.embedding.text.options.model",
+                            "studio.ai.providers." + providerId + ".embedding.model",
+                            provider.getEmbedding().getModel(),
+                            log),
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
         }
         if (provider.getChat().isEnabled()) {
-            requireText(firstNonBlank(environment.getProperty("spring.ai.google.genai.chat.api-key"), provider.getApiKey()),
+            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
+                            environment,
+                            "spring.ai.google.genai.chat.api-key",
+                            "studio.ai.providers." + providerId + ".api-key",
+                            provider.getApiKey(),
+                            log),
                     "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            requireText(firstNonBlank(
-                            environment.getProperty("spring.ai.google.genai.chat.options.model"),
-                            provider.getChat().getModel()),
+            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
+                            environment,
+                            "spring.ai.google.genai.chat.options.model",
+                            "studio.ai.providers." + providerId + ".chat.model",
+                            provider.getChat().getModel(),
+                            log),
                     "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
         }
     }
@@ -105,7 +174,7 @@ public class AiSecretPresenceGuard {
         }
     }
 
-    private static String firstNonBlank(String primary, String fallback) {
-        return StringUtils.hasText(primary) ? primary : fallback;
+    private static boolean hasUnique(ObjectProvider<?> provider) {
+        return provider.getIfUnique() != null;
     }
 }

@@ -13,6 +13,13 @@ public interface ProviderEmbeddingPortFactory {
 
     AiAdapterProperties.ProviderType supportedType();
 
+    default EmbeddingPort create(String providerId,
+                         AiAdapterProperties.Provider provider,
+                         Environment env,
+                         ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+        return create(provider, env, embeddingModelProvider);
+    }
+
     EmbeddingPort create(AiAdapterProperties.Provider provider,
                          Environment env,
                          ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider);

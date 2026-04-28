@@ -1,0 +1,181 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.attachment",
+      "description": "Attachment feature wiring properties."
+    },
+    {
+      "name": "studio.attachment.storage",
+      "description": "Attachment storage runtime properties."
+    },
+    {
+      "name": "studio.attachment.thumbnail",
+      "description": "Attachment thumbnail runtime properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.features.attachment.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable the attachment feature."
+    },
+    {
+      "name": "studio.features.attachment.web.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable attachment web endpoints."
+    },
+    {
+      "name": "studio.features.attachment.web.base-path",
+      "type": "java.lang.String",
+      "defaultValue": "/api/attachments",
+      "description": "Base path for the attachment service API."
+    },
+    {
+      "name": "studio.features.attachment.web.mgmt-base-path",
+      "type": "java.lang.String",
+      "defaultValue": "/api/mgmt/attachments",
+      "description": "Base path for the attachment management API."
+    },
+    {
+      "name": "studio.features.attachment.web.self-base",
+      "type": "java.lang.String",
+      "defaultValue": "/api/me/attachments",
+      "description": "Base path for the authenticated user attachment API."
+    },
+    {
+      "name": "studio.attachment.storage.type",
+      "type": "java.lang.String",
+      "defaultValue": "filesystem",
+      "description": "Attachment binary storage type."
+    },
+    {
+      "name": "studio.attachment.storage.base-dir",
+      "type": "java.lang.String",
+      "description": "Base directory for attachment files."
+    },
+    {
+      "name": "studio.attachment.storage.ensure-dirs",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Create attachment storage directories on startup."
+    },
+    {
+      "name": "studio.attachment.storage.cache-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable local cache for database-backed attachment storage."
+    },
+    {
+      "name": "studio.attachment.thumbnail.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable attachment thumbnail generation."
+    },
+    {
+      "name": "studio.attachment.thumbnail.default-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 128,
+      "description": "Default thumbnail size in pixels."
+    },
+    {
+      "name": "studio.attachment.thumbnail.default-format",
+      "type": "java.lang.String",
+      "defaultValue": "png",
+      "description": "Default thumbnail format."
+    },
+    {
+      "name": "studio.attachment.thumbnail.base-dir",
+      "type": "java.lang.String",
+      "description": "Base directory for thumbnail files."
+    },
+    {
+      "name": "studio.attachment.thumbnail.ensure-dirs",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Create attachment thumbnail directories on startup."
+    },
+    {
+      "name": "studio.features.attachment.storage.type",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment storage moved to studio.attachment.storage.*",
+        "replacement": "studio.attachment.storage.type"
+      }
+    },
+    {
+      "name": "studio.features.attachment.storage.base-dir",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment storage moved to studio.attachment.storage.*",
+        "replacement": "studio.attachment.storage.base-dir"
+      }
+    },
+    {
+      "name": "studio.features.attachment.storage.ensure-dirs",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment storage moved to studio.attachment.storage.*",
+        "replacement": "studio.attachment.storage.ensure-dirs"
+      }
+    },
+    {
+      "name": "studio.features.attachment.storage.cache-enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment storage moved to studio.attachment.storage.*",
+        "replacement": "studio.attachment.storage.cache-enabled"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
+        "replacement": "studio.attachment.thumbnail.enabled"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.default-size",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
+        "replacement": "studio.attachment.thumbnail.default-size"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.default-format",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
+        "replacement": "studio.attachment.thumbnail.default-format"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.base-dir",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
+        "replacement": "studio.attachment.thumbnail.base-dir"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.ensure-dirs",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
+        "replacement": "studio.attachment.thumbnail.ensure-dirs"
+      }
+    }
+  ]
+}

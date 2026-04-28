@@ -50,6 +50,7 @@ import studio.one.application.mail.autoconfigure.condition.ConditionalOnMailPers
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
         + ".mail", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties({ MailFeatureProperties.class, PersistenceProperties.class })
+@Import(MailImapPropertiesConfiguration.class)
 public class MailAutoConfiguration {
 
     @Configuration
@@ -145,11 +146,10 @@ public class MailAutoConfiguration {
 
     @Bean(MailSyncService.SERVICE_NAME)
     @ConditionalOnMissingBean(MailSyncService.class)
-    public MailSyncService mailSyncService(MailFeatureProperties properties,
+    public MailSyncService mailSyncService(ImapProperties imap,
             MailMessageService mailMessageService,
             MailAttachmentService mailAttachmentService,
             MailSyncLogService mailSyncLogService) {
-        ImapProperties imap = properties.getImap();
         return new ImapMailSyncService(imap, mailMessageService, mailAttachmentService, mailSyncLogService);
     }
 

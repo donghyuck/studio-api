@@ -1,6 +1,6 @@
 # Mail Service (IMAP Sync)
 
-IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다. `studio-application-starter-mail` 을 사용하면 persistence 유형에 따라 적절한 구현이 자동 등록되고, IMAP 설정만으로 동기화/첨부 수집을 수행할 수 있다.
+IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다. `studio-application-starter-mail` 을 사용하면 persistence 유형에 따라 적절한 구현이 자동 등록되고, IMAP 설정은 `studio.mail.imap.*`에서 읽는다. 기존 `studio.features.mail.imap.*`는 migration window 동안만 fallback으로 유지된다.
 
 ## 구성 요소
 - **MailMessageService**: 메일 저장/조회 추상화(JPA: `JpaMailMessageService`, JDBC: `JdbcMailMessageService`).
@@ -17,29 +17,29 @@ studio:
   features:
     mail:
       enabled: true
-      persistence: jdbc        # mail 전용 설정 (없으면 studio.persistence.type 사용)
-      imap:
-        host: imap.example.com
-        port: 993
-        username: user@example.com
-        password: secret
-        protocol: imaps        # 기본 imaps
-        folder: INBOX
-        max-messages: 500
-        concurrency: 4         # 동시 처리 스레드 수
-        max-attachment-bytes: 10485760  # 10MB 초과 첨부는 저장하지 않음
-        max-body-bytes: 1048576         # 본문은 길이 제한으로 자름
-        delete-after-fetch: false       # true 시 동기화 후 서버에서 메일 삭제(READ_WRITE 모드)
       web:
         enabled: true
         base-path: /api/mgmt/mail
   persistence:
     type: jpa                  # jpa | jdbc (mail.persistence 미설정 시 사용)
+  mail:
+    imap:
+      host: imap.example.com
+      port: 993
+      username: ${STUDIO_MAIL_IMAP_USERNAME}
+      password: ${STUDIO_MAIL_IMAP_PASSWORD}
+      protocol: imaps        # 기본 imaps
+      folder: INBOX
+      max-messages: 500
+      concurrency: 4         # 동시 처리 스레드 수
+      max-attachment-bytes: 10485760  # 10MB 초과 첨부는 저장하지 않음
+      max-body-bytes: 1048576         # 본문은 길이 제한으로 자름
+      delete-after-fetch: false       # true 시 동기화 후 서버에서 메일 삭제(READ_WRITE 모드)
 ```
 
 ## 사용 방법
 1. 의존성 추가: `starter/studio-application-starter-mail`.
-2. IMAP 설정(host/port/user/password)과 `studio.persistence.type` 을 지정.
+2. IMAP 설정(host/port/user/password)과 `studio.persistence.type` 을 지정한다. IMAP runtime 값은 `studio.mail.imap.*`를 사용한다.
 3. 애플리케이션에서 `MailSyncService` 빈을 주입해 `sync()` 를 호출하거나 스케줄링한다.
 4. REST 사용 시 `studio.features.mail.web.enabled=true` 로 컨트롤러를 노출한다. 동기화는 `POST /sync` 로 트리거하고 `logId` 를 받아 `/sync/logs`/`/sync/logs/page` 또는 `SSE(/sync/stream)` 로 상태/완료 이벤트를 확인한다.
 5. 동시 실행 방지: 이미 동기화 중이면 `error.mail.sync.in-progress`(409) 응답이 반환된다.

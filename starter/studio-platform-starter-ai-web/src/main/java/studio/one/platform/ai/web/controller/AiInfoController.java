@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
+import studio.one.platform.ai.autoconfigure.config.AiConfigurationMigration;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -77,7 +78,9 @@ public class AiInfoController {
         String baseUrl = switch (provider.getType()) {
             case OPENAI -> environment.getProperty("spring.ai.openai.base-url");
             case OLLAMA -> firstNonBlank(environment.getProperty("spring.ai.ollama.base-url"), provider.getBaseUrl());
-            case GOOGLE_AI_GEMINI -> provider.getBaseUrl();
+            case GOOGLE_AI_GEMINI -> firstNonBlank(
+                    environment.getProperty("spring.ai.google.genai.chat.base-url"),
+                    provider.getBaseUrl());
         };
         ProviderChannel chat = new ProviderChannel(
                 provider.getChat().isEnabled(),
@@ -126,15 +129,15 @@ public class AiInfoController {
     }
 
     private String defaultChatProvider() {
-        return firstNonBlank(properties.getDefaultChatProvider(), properties.getDefaultProvider());
+        return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultChatProvider();
     }
 
     private String defaultEmbeddingProvider() {
-        return firstNonBlank(properties.getDefaultEmbeddingProvider(), properties.getDefaultProvider());
+        return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultEmbeddingProvider();
     }
 
     private String defaultProvider() {
-        return firstNonBlank(properties.getDefaultProvider(), defaultChatProvider());
+        return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultProvider();
     }
 
     public record AiInfoResponse(List<ProviderInfo> providers,

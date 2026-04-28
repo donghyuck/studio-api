@@ -3,6 +3,8 @@ package studio.one.platform.ai.autoconfigure.config;
 import java.util.Locale;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +23,8 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 @ConditionalOnClass(name = "org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel")
 public class GoogleGenAiEmbeddingPortFactoryConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(GoogleGenAiEmbeddingPortFactoryConfiguration.class);
+
     @Bean
     public ProviderEmbeddingPortFactory googleGenAiEmbeddingPortFactory() {
         return new GoogleGenAiEmbeddingPortFactory();
@@ -37,9 +41,29 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
         public EmbeddingPort create(AiAdapterProperties.Provider provider,
                                     Environment env,
                                     ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
-            String apiKey = requireText(env.getProperty("spring.ai.google.genai.embedding.api-key"),
+            return create("<id>", provider, env, embeddingModelProvider);
+        }
+
+        @Override
+        public EmbeddingPort create(String providerId,
+                                    AiAdapterProperties.Provider provider,
+                                    Environment env,
+                                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+            String model = AiConfigurationMigration.springOrLegacyProviderValue(
+                    env,
+                    "spring.ai.google.genai.embedding.text.options.model",
+                    "studio.ai.providers." + providerId + ".embedding.model",
+                    provider.getEmbedding().getModel(),
+                    log);
+            String apiKey = requireText(
+                    AiConfigurationMigration.springOrLegacyProviderValue(
+                            env,
+                            "spring.ai.google.genai.embedding.api-key",
+                            "studio.ai.providers." + providerId + ".api-key",
+                            provider.getApiKey(),
+                            log),
                     "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
-            String model = requireText(env.getProperty("spring.ai.google.genai.embedding.text.options.model"),
+            model = requireText(model,
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
             Integer dimensions = env.getProperty(
                     "spring.ai.google.genai.embedding.text.options.dimensions",

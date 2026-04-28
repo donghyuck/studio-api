@@ -1,6 +1,8 @@
 package studio.one.platform.ai.autoconfigure.config;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +21,8 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 @ConditionalOnClass(name = "org.springframework.ai.ollama.OllamaEmbeddingModel")
 public class OllamaPortFactoryConfiguration {
 
+    private static final Logger log = LoggerFactory.getLogger(OllamaPortFactoryConfiguration.class);
+
     @Bean
     public ProviderEmbeddingPortFactory ollamaEmbeddingPortFactory() {
         return new OllamaEmbeddingPortFactory();
@@ -35,9 +39,31 @@ public class OllamaPortFactoryConfiguration {
         public EmbeddingPort create(AiAdapterProperties.Provider provider,
                                     Environment env,
                                     ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
-            String model = requireText(env.getProperty("spring.ai.ollama.embedding.options.model"),
+            return create("<id>", provider, env, embeddingModelProvider);
+        }
+
+        @Override
+        public EmbeddingPort create(String providerId,
+                                    AiAdapterProperties.Provider provider,
+                                    Environment env,
+                                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+            String model = AiConfigurationMigration.springOrLegacyProviderValue(
+                    env,
+                    "spring.ai.ollama.embedding.options.model",
+                    "studio.ai.providers." + providerId + ".embedding.model",
+                    provider.getEmbedding().getModel(),
+                    log);
+            model = requireText(model,
                     "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
-            String baseUrl = env.getProperty("spring.ai.ollama.base-url", "http://localhost:11434");
+            String baseUrl = AiConfigurationMigration.springOrLegacyProviderValue(
+                    env,
+                    "spring.ai.ollama.base-url",
+                    "studio.ai.providers." + providerId + ".base-url",
+                    provider.getBaseUrl(),
+                    log);
+            if (!StringUtils.isNotBlank(baseUrl)) {
+                baseUrl = "http://localhost:11434";
+            }
 
             org.springframework.ai.ollama.api.OllamaApi ollamaApi =
                     org.springframework.ai.ollama.api.OllamaApi.builder()

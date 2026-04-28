@@ -16,7 +16,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     // BOM as api: consumers inherit Spring AI version management without declaring it separately
     api(platform("org.springframework.ai:spring-ai-bom:1.1.2"))
-    compileOnly(project(":studio-platform-autoconfigure"))
+    implementation(project(":studio-platform-autoconfigure"))
     compileOnly(project(":starter:studio-platform-starter"))
     api(project(":studio-platform-ai"))
     api(project(":studio-platform-chunking"))
