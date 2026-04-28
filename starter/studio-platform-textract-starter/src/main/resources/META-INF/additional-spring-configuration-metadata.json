@@ -1,0 +1,115 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.textract",
+      "type": "studio.one.platform.autoconfigure.FeaturesProperties$FeatureToggle",
+      "description": "Studio textract feature wiring."
+    },
+    {
+      "name": "studio.textract",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties",
+      "description": "Studio textract runtime policy."
+    },
+    {
+      "name": "studio.textract.tesseract",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Tesseract",
+      "description": "Studio OCR runtime policy."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.features.textract.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether Studio textract auto-configuration is enabled.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.max-extract-size",
+      "type": "java.lang.String",
+      "description": "Maximum file size accepted for text extraction. Plain numbers are bytes; K, KB, M, MB, G, GB, T, and TB suffixes are supported.",
+      "defaultValue": "10MB"
+    },
+    {
+      "name": "studio.textract.tesseract.datapath",
+      "type": "java.lang.String",
+      "description": "Tesseract tessdata directory used by image OCR.",
+      "defaultValue": "/usr/share/tesseract-ocr/4.00/tessdata"
+    },
+    {
+      "name": "studio.textract.tesseract.language",
+      "type": "java.lang.String",
+      "description": "Tesseract OCR language expression.",
+      "defaultValue": "kor+eng"
+    },
+    {
+      "name": "studio.features.text.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Legacy text extraction feature wiring toggle.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Textract feature wiring now uses the module name in the feature namespace.",
+        "replacement": "studio.features.textract.enabled"
+      }
+    },
+    {
+      "name": "studio.text.max-extract-size",
+      "type": "java.lang.String",
+      "description": "Legacy text extraction size limit.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Textract runtime policy now uses the module name in the Studio runtime namespace.",
+        "replacement": "studio.textract.max-extract-size"
+      }
+    },
+    {
+      "name": "studio.text.tesseract.datapath",
+      "type": "java.lang.String",
+      "description": "Legacy Tesseract tessdata directory.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Textract runtime policy now uses the module name in the Studio runtime namespace.",
+        "replacement": "studio.textract.tesseract.datapath"
+      }
+    },
+    {
+      "name": "studio.text.tesseract.language",
+      "type": "java.lang.String",
+      "description": "Legacy Tesseract OCR language expression.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Textract runtime policy now uses the module name in the Studio runtime namespace.",
+        "replacement": "studio.textract.tesseract.language"
+      }
+    },
+    {
+      "name": "studio.features.text.max-extract-bytes",
+      "type": "java.lang.Integer",
+      "description": "Legacy text extraction size limit in bytes.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Text extraction size is a Studio runtime policy, not a feature wiring setting.",
+        "replacement": "studio.textract.max-extract-size"
+      }
+    },
+    {
+      "name": "studio.features.text.tesseract.datapath",
+      "type": "java.lang.String",
+      "description": "Legacy Tesseract tessdata directory.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Tesseract settings are Studio textract runtime policy, not feature wiring settings.",
+        "replacement": "studio.textract.tesseract.datapath"
+      }
+    },
+    {
+      "name": "studio.features.text.tesseract.language",
+      "type": "java.lang.String",
+      "description": "Legacy Tesseract OCR language expression.",
+      "deprecated": true,
+      "deprecation": {
+        "reason": "Tesseract settings are Studio textract runtime policy, not feature wiring settings.",
+        "replacement": "studio.textract.tesseract.language"
+      }
+    }
+  ]
+}

@@ -3,6 +3,9 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #355 대응으로 `studio-platform-textract-starter`의 기능/런타임 설정을 `studio.features.textract.*`와 `studio.textract.*`로 정리하고, 텍스트 추출 크기 제한을 `studio.textract.max-extract-size`에서 `10M`, `50MB` 같은 단위로 설정할 수 있도록 했다.
+- 기존 `studio.features.text.*`와 `studio.text.*`는 fallback과 deprecation warning, configuration metadata를 유지한다.
+- 텍스트 추출 크기 초과 예외 메시지에 감지된 크기, 제한값, 조치 설정 키를 포함하도록 보강했다.
 - 이슈 #354 대응으로 namespace migration 문서를 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델 기준으로 정리했다.
 - `README.md`, `starter/README.md`, `starter/STARTER_GUIDE.md`, 모듈/스타터 README의 configuration 예시를 새 키 기준으로 정리하고, legacy fallback은 migration note로만 남겼다.
 - `studio-platform-starter-user`, `studio-application-starter-attachment`, `studio-application-starter-mail`, `studio-platform-starter-ai`에 additional Spring configuration metadata를 추가해 legacy key deprecation과 대표 target property를 노출했다.
