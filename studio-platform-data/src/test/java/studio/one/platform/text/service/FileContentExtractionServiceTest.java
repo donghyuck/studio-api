@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 
 import studio.one.platform.text.extractor.FileParseException;
 import studio.one.platform.text.extractor.FileParser;
@@ -47,8 +48,10 @@ class FileContentExtractionServiceTest {
             }
         };
 
-        assertThrows(FileParseException.class,
+        FileParseException exception = assertThrows(FileParseException.class,
                 () -> service.extractText("text/plain", "large.txt", oversized));
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, exception.getType().getStatus());
+        assertEquals("error.text.file.too-large", exception.getType().getId());
     }
 
     @Test
@@ -62,8 +65,10 @@ class FileContentExtractionServiceTest {
             raf.setLength(5);
         }
 
-        assertThrows(FileParseException.class,
+        FileParseException exception = assertThrows(FileParseException.class,
                 () -> service.extractText("text/plain", "large.txt", temp.toFile()));
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, exception.getType().getStatus());
+        assertEquals("error.text.file.too-large", exception.getType().getId());
     }
 
     @Test
@@ -73,8 +78,24 @@ class FileContentExtractionServiceTest {
                         new studio.one.platform.textract.extractor.FileParserFactory(List.of(new FailingTextractParser())),
                         10));
 
-        assertThrows(FileParseException.class,
+        FileParseException exception = assertThrows(FileParseException.class,
                 () -> service.extractText("text/plain", "sample.txt", new ByteArrayInputStream("x".getBytes(UTF_8))));
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.getType().getStatus());
+    }
+
+    @Test
+    void delegateOversizedInputPreservesPayloadTooLargeStatus() {
+        FileContentExtractionService service = new FileContentExtractionService(
+                new studio.one.platform.textract.service.FileContentExtractionService(
+                        new studio.one.platform.textract.extractor.FileParserFactory(List.of(new FailingTextractParser())),
+                        4));
+
+        FileParseException exception = assertThrows(FileParseException.class,
+                () -> service.extractText("text/plain", "large.txt",
+                        new ByteArrayInputStream("abcde".getBytes(UTF_8))));
+
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, exception.getType().getStatus());
+        assertEquals("error.text.file.too-large", exception.getType().getId());
     }
 
     private static final class RecordingParser implements FileParser {

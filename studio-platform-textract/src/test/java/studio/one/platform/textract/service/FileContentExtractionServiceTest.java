@@ -13,10 +13,12 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.FileParser;
 import studio.one.platform.textract.extractor.FileParserFactory;
+import studio.one.platform.textract.extractor.FileSizeLimitExceededException;
 
 class FileContentExtractionServiceTest {
 
@@ -47,8 +49,12 @@ class FileContentExtractionServiceTest {
             }
         };
 
-        assertThrows(FileParseException.class,
+        FileSizeLimitExceededException exception = assertThrows(FileSizeLimitExceededException.class,
                 () -> service.extractText("text/plain", "large.txt", oversized));
+        assertEquals("File too large to extract text: large.txt "
+                + "(observed-size=5 bytes, limit=4 bytes; configure studio.textract.max-extract-size)",
+                exception.getMessage());
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, exception.getType().getStatus());
     }
 
     @Test
@@ -76,8 +82,12 @@ class FileContentExtractionServiceTest {
             raf.setLength(5);
         }
 
-        assertThrows(FileParseException.class,
+        FileSizeLimitExceededException exception = assertThrows(FileSizeLimitExceededException.class,
                 () -> service.extractText("text/plain", "large.txt", temp.toFile()));
+        assertEquals("File too large to extract text: large.txt "
+                + "(observed-size=5 bytes, limit=4 bytes; configure studio.textract.max-extract-size)",
+                exception.getMessage());
+        assertEquals(HttpStatus.PAYLOAD_TOO_LARGE, exception.getType().getStatus());
         assertEquals(0, parser.invocations);
     }
 

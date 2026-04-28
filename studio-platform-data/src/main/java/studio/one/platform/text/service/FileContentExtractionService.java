@@ -116,7 +116,9 @@ public class FileContentExtractionService {
 
     private void ensureWithinLimit(long size, String filename) {
         if (size > maxExtractBytes) {
-            throw new FileParseException("File too large to extract text: " + filename);
+            throw FileParseException.from(
+                    new studio.one.platform.textract.extractor.FileSizeLimitExceededException(
+                            filename, size, maxExtractBytes));
         }
     }
 }

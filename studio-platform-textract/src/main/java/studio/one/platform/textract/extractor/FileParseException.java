@@ -23,6 +23,10 @@ public class FileParseException extends PlatformRuntimeException {
         initCause(cause);
     }
 
+    protected FileParseException(ErrorType type, String message, Object... args) {
+        super(type, message, args);
+    }
+
     public static FileParseException of(Object... args) {
         return new FileParseException(TYPE.getId(), args);
     }

@@ -9,6 +9,7 @@ import java.util.Objects;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.FileParser;
 import studio.one.platform.textract.extractor.FileParserFactory;
+import studio.one.platform.textract.extractor.FileSizeLimitExceededException;
 import studio.one.platform.textract.model.DocumentExtractionResult;
 import studio.one.platform.textract.model.ParsedFile;
 
@@ -83,7 +84,7 @@ public class FileContentExtractionService {
 
     private void ensureWithinLimit(long size, String filename) {
         if (size > maxExtractBytes) {
-            throw new FileParseException("File too large to extract text: " + filename);
+            throw new FileSizeLimitExceededException(filename, size, maxExtractBytes);
         }
     }
 }

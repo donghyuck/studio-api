@@ -1,5 +1,7 @@
 package studio.one.platform.text.extractor;
 
+import studio.one.platform.error.ErrorType;
+
 /**
  * @deprecated since 2026-04-20. Use
  *             {@link studio.one.platform.textract.extractor.FileParseException}.
@@ -17,6 +19,11 @@ public class FileParseException extends studio.one.platform.textract.extractor.F
         super(message, cause, args);
     }
 
+    public FileParseException(ErrorType type, String message, Throwable cause, Object... args) {
+        super(type, message, args);
+        initCause(cause);
+    }
+
     public static FileParseException of(Object... args) {
         return new FileParseException("error.text.file.parse", args);
     }
@@ -25,6 +32,6 @@ public class FileParseException extends studio.one.platform.textract.extractor.F
         if (exception instanceof FileParseException legacy) {
             return legacy;
         }
-        return new FileParseException(exception.getMessage(), exception);
+        return new FileParseException(exception.getType(), exception.getMessage(), exception, exception.getArgs());
     }
 }
