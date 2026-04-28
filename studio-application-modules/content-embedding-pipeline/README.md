@@ -157,10 +157,15 @@ Content-Type: application/json
 {
   "query": "Spring Boot 자동 구성 방법",
   "topK": 5,
+  "minScore": 0.15,
   "objectType": "attachment",
   "objectId": "101"
 }
 ```
+
+`topK`는 1 이상 100 이하만 허용한다. `topK`/`minScore`를 생략하면
+`studio.ai.rag.retrieval.top-k`, `studio.ai.rag.retrieval.min-score` 설정값을 사용한다.
+`objectType`/`objectId`는 둘 다 지정하거나 둘 다 생략해야 하며, 하나만 지정하면 `400 Bad Request`를 반환한다.
 
 ## attachment-service와의 통합 방법
 

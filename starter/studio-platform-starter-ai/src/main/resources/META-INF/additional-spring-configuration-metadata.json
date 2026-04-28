@@ -112,6 +112,18 @@
       "description": "Legacy fallback chunk overlap used when starter-chunking is absent."
     },
     {
+      "name": "studio.ai.rag.retrieval.top-k",
+      "type": "java.lang.Integer",
+      "defaultValue": 3,
+      "description": "Default topK used by RAG search and Chat RAG when the request does not provide topK."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.min-score",
+      "type": "java.lang.Double",
+      "defaultValue": 0.15,
+      "description": "Default score cutoff applied to RAG search and Chat RAG results when the request does not provide minScore."
+    },
+    {
       "name": "studio.ai.rag.retrieval.vector-weight",
       "type": "java.lang.Double",
       "defaultValue": 0.7,

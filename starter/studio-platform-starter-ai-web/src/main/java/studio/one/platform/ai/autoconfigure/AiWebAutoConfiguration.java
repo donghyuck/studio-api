@@ -29,6 +29,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
@@ -103,7 +104,8 @@ public class AiWebAutoConfiguration {
             AiWebChatProperties chatProperties,
             @Nullable ChatMemoryStore chatMemoryStore,
             ConversationChatService conversationChatService,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            RagPipelineProperties ragPipelineProperties) {
         return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
                 chatMemoryStore,
@@ -111,7 +113,8 @@ public class AiWebAutoConfiguration {
                 conversationChatService,
                 objectMapper,
                 ragProperties.getContext().getExpansion().getCandidateMultiplier(),
-                ragProperties.getContext().getExpansion().getMaxCandidates());
+                ragProperties.getContext().getExpansion().getMaxCandidates(),
+                ragPipelineOptions(ragPipelineProperties));
     }
 
     @Bean
@@ -128,15 +131,33 @@ public class AiWebAutoConfiguration {
     VectorController vectorController(
             EmbeddingPort embeddingPort,
             @Nullable RagEmbeddingProfileResolver embeddingProfileResolver,
-            @Nullable VectorStorePort vectorStorePort) {
-        return new VectorController(embeddingPort, embeddingProfileResolver, vectorStorePort);
+            @Nullable VectorStorePort vectorStorePort,
+            RagPipelineProperties ragPipelineProperties) {
+        return new VectorController(embeddingPort, embeddingProfileResolver, vectorStorePort,
+                ragPipelineOptions(ragPipelineProperties));
     }
 
     @Bean
     RagController ragController(
             RagPipelineService ragPipelineService,
-            @Nullable RagIndexJobService ragIndexJobService) {
-        return new RagController(ragPipelineService, ragIndexJobService);
+            @Nullable RagIndexJobService ragIndexJobService,
+            RagPipelineProperties ragPipelineProperties) {
+        return new RagController(ragPipelineService, ragIndexJobService, ragPipelineOptions(ragPipelineProperties));
+    }
+
+    private RagPipelineOptions ragPipelineOptions(RagPipelineProperties properties) {
+        RagPipelineProperties.RetrievalProperties retrieval = properties.getRetrieval();
+        RagPipelineProperties.ObjectScopeProperties objectScope = properties.getObjectScope();
+        return new RagPipelineOptions(
+                retrieval.getVectorWeight(),
+                retrieval.getLexicalWeight(),
+                retrieval.getMinScore(),
+                retrieval.getMinRelevanceScore(),
+                retrieval.isKeywordFallbackEnabled(),
+                retrieval.isSemanticFallbackEnabled(),
+                retrieval.getTopK(),
+                objectScope.getDefaultListLimit(),
+                objectScope.getMaxListLimit());
     }
 
     @Bean

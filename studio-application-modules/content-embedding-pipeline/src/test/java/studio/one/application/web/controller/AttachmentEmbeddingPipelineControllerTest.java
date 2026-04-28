@@ -1,5 +1,6 @@
 package studio.one.application.web.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -19,6 +20,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -52,6 +54,7 @@ import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
@@ -110,6 +113,7 @@ class AttachmentEmbeddingPipelineControllerTest {
                 provider((VectorStorePort) null),
                 provider(ragPipelineService),
                 provider(ragIndexJobService),
+                provider(RagPipelineOptions.defaults()),
                 attachmentRagIndexService,
                 provider((I18n) null));
         ReflectionTestUtils.setField(controller, "allowClientDebug", allowClientDebug);
@@ -169,6 +173,49 @@ class AttachmentEmbeddingPipelineControllerTest {
                 request.metadataFilter().hasObjectScope()
                         && "attachment".equals(request.metadataFilter().objectType())
                         && "1".equals(request.metadataFilter().objectId())));
+    }
+
+    @Test
+    void ragSearchUsesConfiguredTopKAndMinScoreWhenRequestOmitsThem() throws Exception {
+        ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        AttachmentRagIndexService attachmentRagIndexService = new AttachmentRagIndexService(
+                attachmentService,
+                provider(extractionService),
+                provider(ragPipelineService),
+                provider((AttachmentStructuredRagIndexer) null));
+        AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
+                attachmentService,
+                provider(extractionService),
+                provider(embeddingPort),
+                provider((VectorStorePort) null),
+                provider(ragPipelineService),
+                provider((RagIndexJobService) null),
+                provider(new RagPipelineOptions(0.7d, 0.3d, 0.42d, 0.15d, true, true, 9, 20, 100)),
+                attachmentRagIndexService,
+                provider((I18n) null));
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        MockMvc customMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setMessageConverters(new MappingJackson2HttpMessageConverter(new ObjectMapper()))
+                .setValidator(validator)
+                .addPlaceholderValue(PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path", BASE_PATH)
+                .build();
+        when(ragPipelineService.search(any())).thenReturn(List.of());
+
+        customMvc.perform(post(BASE_PATH + "/rag/search")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "query": "hello"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(ragPipelineService).search(captor.capture());
+        assertThat(captor.getValue().topK()).isEqualTo(9);
+        assertThat(captor.getValue().minScore()).isEqualTo(0.42d);
+        assertThat(captor.getValue().requestedTopK()).isNull();
+        assertThat(captor.getValue().requestedMinScore()).isNull();
     }
 
     @Test
@@ -628,6 +675,11 @@ class AttachmentEmbeddingPipelineControllerTest {
         @SuppressWarnings("unchecked")
         ObjectProvider<T> provider = mock(ObjectProvider.class);
         when(provider.getIfAvailable()).thenReturn(value);
+        when(provider.getIfAvailable(any())).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            Supplier<T> defaultSupplier = invocation.getArgument(0);
+            return value == null ? defaultSupplier.get() : value;
+        });
         return provider;
     }
 

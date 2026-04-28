@@ -39,6 +39,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -68,6 +69,7 @@ import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
@@ -111,6 +113,7 @@ public class AttachmentEmbeddingPipelineController {
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
     private final ObjectProvider<RagIndexJobService> ragIndexJobServiceProvider;
+    private final ObjectProvider<RagPipelineOptions> ragPipelineOptionsProvider;
     private final AttachmentRagIndexService attachmentRagIndexService;
     private final ObjectProvider<I18n> i18nProvider;
 
@@ -387,14 +390,17 @@ public class AttachmentEmbeddingPipelineController {
         if (request == null || request.query() == null || request.query().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        MetadataFilter filter = MetadataFilter.objectScope(request.objectType(), request.objectId());
+        MetadataFilter filter = objectScope(request.objectType(), request.objectId());
         List<RagSearchResult> results = ragPipeline.search(new RagSearchRequest(
                 request.query(),
-                request.topK(),
+                effectiveTopK(request.topK()),
                 filter,
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
-                request.embeddingModel()));
+                request.embeddingModel(),
+                effectiveMinScore(request.minScore()),
+                request.topK(),
+                request.minScore()));
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),
@@ -403,6 +409,39 @@ public class AttachmentEmbeddingPipelineController {
                         result.score()))
                 .toList();
         return ResponseEntity.ok(new SearchResponse(payload));
+    }
+
+    private int effectiveTopK(Integer requestedTopK) {
+        return requestedTopK == null ? ragPipelineOptions().topK() : requestedTopK;
+    }
+
+    private Double effectiveMinScore(Double requestedMinScore) {
+        return requestedMinScore == null ? ragPipelineOptions().minScore() : requestedMinScore;
+    }
+
+    private RagPipelineOptions ragPipelineOptions() {
+        return ragPipelineOptionsProvider.getIfAvailable(RagPipelineOptions::defaults);
+    }
+
+    private MetadataFilter objectScope(String objectType, String objectId) {
+        String normalizedObjectType = normalizeText(objectType);
+        String normalizedObjectId = normalizeText(objectId);
+        if (normalizedObjectType == null && normalizedObjectId == null) {
+            return MetadataFilter.empty();
+        }
+        if (normalizedObjectType == null || normalizedObjectId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "RAG object scope requires both objectType and objectId");
+        }
+        return MetadataFilter.objectScope(normalizedObjectType, normalizedObjectId);
+    }
+
+    private String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private List<EmbeddingVectorDto> toEmbeddingVectors(EmbeddingResponse response) {

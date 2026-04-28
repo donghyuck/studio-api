@@ -630,6 +630,41 @@ class ChatControllerTest {
     }
 
     @Test
+    void ragChatPrefersTopKOverLegacyRagTopKAndPassesMinScore() {
+        ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 0.9d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                2,
+                "2001",
+                "6",
+                null,
+                null,
+                null,
+                5,
+                0.7d,
+                null));
+
+        verify(ragPipelineService).search(ragCaptor.capture());
+        assertThat(ragCaptor.getValue().topK()).isEqualTo(5);
+        assertThat(ragCaptor.getValue().requestedTopK()).isEqualTo(5);
+        assertThat(ragCaptor.getValue().minScore()).isEqualTo(0.7d);
+        assertThat(ragCaptor.getValue().requestedMinScore()).isEqualTo(0.7d);
+    }
+
+    @Test
     void ragChatUsesObjectScopedCandidatesForContextExpansion() {
         controller = new ChatController(providerRegistry, ragPipelineService,
                 new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList()));
@@ -798,7 +833,7 @@ class ChatControllerTest {
                         null,
                         null),
                 "summary",
-                Integer.MAX_VALUE,
+                100,
                 "attachment",
                 "123"));
 
@@ -1025,6 +1060,10 @@ class ChatControllerTest {
                 .containsEntry("initialResultCount", 1)
                 .containsEntry("finalResultCount", 1)
                 .containsEntry("topK", 3)
+                .containsEntry("effectiveTopK", 3)
+                .containsEntry("effectiveMinScore", 0.15d)
+                .containsEntry("beforeMinScoreCount", 1)
+                .containsEntry("afterMinScoreCount", 1)
                 .doesNotContainKeys("content", "snippet", "text", "chunk");
         assertThat(ragDiagnostics.values()).doesNotContain("sensitive file body");
     }

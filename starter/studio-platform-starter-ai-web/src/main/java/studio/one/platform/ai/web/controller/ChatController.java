@@ -72,6 +72,7 @@ import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
@@ -109,6 +110,7 @@ public class ChatController {
     private final RagContextBuilder ragContextBuilder;
     private final int ragContextCandidateMultiplier;
     private final int ragContextMaxCandidates;
+    private final RagPipelineOptions ragPipelineOptions;
     private final boolean allowClientDebug;
     private final ChatMemoryStore chatMemoryStore;
     private final boolean chatMemoryEnabled;
@@ -169,6 +171,23 @@ public class ChatController {
             ObjectMapper objectMapper,
             int ragContextCandidateMultiplier,
             int ragContextMaxCandidates) {
+        this(providerRegistry, ragPipelineService, ragContextBuilder, allowClientDebug, chatMemoryStore,
+                chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, ragContextMaxCandidates, RagPipelineOptions.defaults());
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates,
+            RagPipelineOptions ragPipelineOptions) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
@@ -185,6 +204,7 @@ public class ChatController {
         this.chatMemoryEnabled = chatMemoryEnabled;
         this.conversationChatService = conversationChatService;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        this.ragPipelineOptions = ragPipelineOptions == null ? RagPipelineOptions.defaults() : ragPipelineOptions;
     }
 
     public ChatController(
@@ -323,6 +343,7 @@ public class ChatController {
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') "
             + "and @endpointAuthz.can('services:ai_rag','read') and "
             + "(#request.objectType() == null or #request.objectType().trim().isEmpty() "
+            + "or #request.objectId() == null or #request.objectId().trim().isEmpty() "
             + "or (#request.objectId() != null and !#request.objectId().trim().isEmpty() and "
             + "((#request.objectType().trim().equalsIgnoreCase('attachment') "
             + "and @endpointAuthz.can('features:attachment','read')) "
@@ -344,7 +365,8 @@ public class ChatController {
             ChatRagRequestDto request,
             Principal principal) {
         ChatRequestDto chat = request.chat();
-        int ragTopK = request.ragTopK() != null ? request.ragTopK() : 3;
+        int ragTopK = effectiveTopK(request);
+        double minScore = effectiveMinScore(request);
         ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
         String objectType = objectScope.objectType();
         String objectId = objectScope.objectId();
@@ -367,7 +389,10 @@ public class ChatController {
                         MetadataFilter.objectScope(objectType, objectId),
                         request.embeddingProfileId(),
                         request.embeddingProvider(),
-                        request.embeddingModel()));
+                        request.embeddingModel(),
+                        minScore,
+                        requestedTopK(request),
+                        request.minScore()));
             } else {
                 ragResults = ragPipelineService.search(new RagSearchRequest(
                         resolvedQuery,
@@ -375,7 +400,10 @@ public class ChatController {
                         MetadataFilter.empty(),
                         request.embeddingProfileId(),
                         request.embeddingProvider(),
-                        request.embeddingModel()));
+                        request.embeddingModel(),
+                        minScore,
+                        requestedTopK(request),
+                        request.minScore()));
             }
         }
         ragResults = limitRagResults(ragResults, ragTopK);
@@ -664,6 +692,19 @@ public class ChatController {
 
     private boolean shouldExposeDiagnostics(ChatRagRequestDto request) {
         return allowClientDebug && Boolean.TRUE.equals(request.debug());
+    }
+
+    private int effectiveTopK(ChatRagRequestDto request) {
+        Integer requestedTopK = requestedTopK(request);
+        return requestedTopK == null ? ragPipelineOptions.topK() : requestedTopK;
+    }
+
+    private Integer requestedTopK(ChatRagRequestDto request) {
+        return request.topK() != null ? request.topK() : request.ragTopK();
+    }
+
+    private double effectiveMinScore(ChatRagRequestDto request) {
+        return request.minScore() == null ? ragPipelineOptions.minScore() : request.minScore();
     }
 
     private List<RagSearchResult> limitRagResults(List<RagSearchResult> results, int topK) {

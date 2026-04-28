@@ -83,6 +83,34 @@ class RagControllerTest {
     }
 
     @Test
+    void searchPassesMinScoreToCoreRequest() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagController controller = new RagController(ragPipelineService);
+        ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("doc-1", "chunk", Map.of(), 0.9d)));
+
+        controller.search(new SearchRequest("hello", 3, "attachment", "42", null, null, null, 0.6d));
+
+        verify(ragPipelineService).search(captor.capture());
+        assertThat(captor.getValue().topK()).isEqualTo(3);
+        assertThat(captor.getValue().minScore()).isEqualTo(0.6d);
+        assertThat(captor.getValue().requestedTopK()).isEqualTo(3);
+        assertThat(captor.getValue().requestedMinScore()).isEqualTo(0.6d);
+    }
+
+    @Test
+    void searchRejectsPartialObjectScope() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagController controller = new RagController(ragPipelineService);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.search(new SearchRequest("hello", 3, "attachment", null)));
+
+        assertThat(exception.getStatusCode().value()).isEqualTo(400);
+    }
+
+    @Test
     void searchEmbeddingQuotaErrorIsReturnedAsEmbeddingProviderError() {
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagController controller = new RagController(ragPipelineService);

@@ -2,6 +2,7 @@ package studio.one.platform.ai.web.dto;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.List;
 
@@ -11,7 +12,8 @@ import java.util.List;
 public record VectorSearchRequestDto( 
         String query,
         List<Double> embedding,
-        @Min(value = 1, message = "topK must be at least 1") Integer topK,
+        @Min(value = 1, message = "topK must be at least 1")
+        @Max(value = 100, message = "topK must be at most 100") Integer topK,
         Boolean hybrid,
         String objectType,
         String objectId,
@@ -50,9 +52,6 @@ public record VectorSearchRequestDto(
     }
 
     public VectorSearchRequestDto {
-        if (topK == null) {
-            topK = 5;
-        }
         if (hybrid == null) {
             hybrid = Boolean.FALSE;
         }
