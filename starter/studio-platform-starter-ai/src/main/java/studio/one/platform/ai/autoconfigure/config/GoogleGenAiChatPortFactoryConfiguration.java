@@ -53,11 +53,6 @@ public class GoogleGenAiChatPortFactoryConfiguration {
                     "studio.ai.providers." + providerId + ".chat.model",
                     provider.getChat().getModel(),
                     log);
-            org.springframework.ai.chat.model.ChatModel injectedChatModel = chatModelProvider.getIfUnique();
-            if (injectedChatModel != null) {
-                return new GoogleSpringAiChatAdapter(injectedChatModel, provider.getType().name(), model);
-            }
-
             String apiKey = requireText(
                     AiConfigurationMigration.springOrLegacyProviderValue(
                             env,

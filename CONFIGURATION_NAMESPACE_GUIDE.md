@@ -123,6 +123,7 @@ studio:
 | `studio.ai.default-chat-provider` | `studio.ai.routing.default-chat-provider` | partial | chat routing default. |
 | `studio.ai.default-embedding-provider` | `studio.ai.routing.default-embedding-provider` | partial | embedding routing default. |
 | `studio.ai.providers.<id>.api-key` | `spring.ai.*` | partial | provider SDK API key는 spring.ai.*로 옮긴다. |
+| `studio.ai.providers.<id>.base-url` | `spring.ai.*` | partial | provider SDK base URL은 spring.ai.*로 옮긴다. |
 | `studio.ai.providers.<id>.chat.model` | `spring.ai.*` | partial | chat model은 spring.ai.*를 canonical source로 둔다. |
 | `studio.ai.providers.<id>.embedding.model` | `spring.ai.*` | partial | embedding model은 spring.ai.*를 canonical source로 둔다. |
 | `studio.ai.pipeline.*` | `studio.ai.rag.*` | partial | RAG pipeline namespace를 rag namespace로 이동. |

@@ -37,15 +37,36 @@ class MailImapPropertiesConfiguration {
         ImapProperties properties = Binder.get(environment)
                 .bind(TARGET_PREFIX, Bindable.of(ImapProperties.class))
                 .orElseGet(ImapProperties::new);
-        ImapProperties migrated = ConfigurationPropertyMigration.bindLegacyFallbackIfTargetMissing(
-                environment,
-                TARGET_PREFIX,
-                LEGACY_PREFIX,
-                properties,
-                log,
-                MIGRATION_REASON);
-        validate(migrated, validatorProvider);
-        return migrated;
+        bindLegacyFallback(environment, properties);
+        validate(properties, validatorProvider);
+        return properties;
+    }
+
+    private static void bindLegacyFallback(Environment environment, ImapProperties properties) {
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX, "host",
+                String.class, properties::setHost, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX, "port",
+                Integer.class, properties::setPort, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "username", String.class, properties::setUsername, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "password", String.class, properties::setPassword, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "protocol", String.class, properties::setProtocol, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX, "ssl",
+                Boolean.class, properties::setSsl, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX, "folder",
+                String.class, properties::setFolder, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "max-messages", Integer.class, properties::setMaxMessages, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "concurrency", Integer.class, properties::setConcurrency, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "max-attachment-bytes", Long.class, properties::setMaxAttachmentBytes, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "max-body-bytes", Long.class, properties::setMaxBodyBytes, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, TARGET_PREFIX, LEGACY_PREFIX,
+                "delete-after-fetch", Boolean.class, properties::setDeleteAfterFetch, log, MIGRATION_REASON);
     }
 
     private static void validate(ImapProperties properties, ObjectProvider<Validator> validatorProvider) {

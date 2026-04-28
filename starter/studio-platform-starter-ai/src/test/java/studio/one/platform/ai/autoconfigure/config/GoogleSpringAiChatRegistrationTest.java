@@ -47,7 +47,7 @@ class GoogleSpringAiChatRegistrationTest {
     }
 
     @Test
-    void prefersInjectedSpringAiChatModelWithoutLegacyClientProperties() throws Exception {
+    void ignoresGenericInjectedChatModelAndUsesGoogleSpringAiProperties() throws Exception {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("google");
 
@@ -63,7 +63,9 @@ class GoogleSpringAiChatRegistrationTest {
 
         Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
                 properties,
-                new MockEnvironment(),
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.chat.api-key", "spring-key")
+                        .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash"),
                 beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
                 List.of(new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory()));
 
@@ -72,7 +74,7 @@ class GoogleSpringAiChatRegistrationTest {
                 .getDeclaredField("chatModel");
         chatModelField.setAccessible(true);
 
-        assertThat(chatModelField.get(adapter)).isSameAs(injected);
+        assertThat(chatModelField.get(adapter)).isNotSameAs(injected);
     }
 
     @Test

@@ -55,12 +55,6 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
                     "studio.ai.providers." + providerId + ".embedding.model",
                     provider.getEmbedding().getModel(),
                     log);
-            org.springframework.ai.embedding.EmbeddingModel injectedEmbeddingModel =
-                    embeddingModelProvider.getIfUnique();
-            if (injectedEmbeddingModel != null) {
-                return new SpringAiEmbeddingAdapter(injectedEmbeddingModel, model);
-            }
-
             String apiKey = requireText(
                     AiConfigurationMigration.springOrLegacyProviderValue(
                             env,

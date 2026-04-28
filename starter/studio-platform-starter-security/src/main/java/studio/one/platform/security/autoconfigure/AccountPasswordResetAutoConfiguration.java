@@ -48,7 +48,6 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @EnableConfigurationProperties({ AccountPasswordResetProperties.class, PersistenceProperties.class })
-@ConditionalOnClass({ JavaMailSender.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Security.Auth.PASSWORD_RESET, name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
 @Slf4j
@@ -86,18 +85,6 @@ public class AccountPasswordResetAutoConfiguration {
                             isJdbc ? PasswordResetTokenJdbcRepositoryV2.class : PasswordResetTokenJpaRepository.class,
                             true)));
         };
-    }
-
-    @Bean(MailService.SERVICE_NAME)
-    @ConditionalOnBean(JavaMailSender.class)
-    @ConditionalOnMissingBean
-    MailService mailService(AccountPasswordResetProperties properties, JavaMailSender mailSender) {
-
-        I18n i18n = I18nUtils.resolve(i18nProvider);
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(MailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-
-        return new MailServiceImpl(properties.getResetPasswordUrl(), mailSender);
     }
 
     @Bean(PasswordResetService.SERVICE_NAME)
@@ -164,6 +151,25 @@ public class AccountPasswordResetAutoConfiguration {
         @ConditionalOnMissingBean(PasswordResetTokenRepository.class)
         PasswordResetTokenRepository passwordResetTokenJdbcRepository(NamedParameterJdbcTemplate template) {
             return new PasswordResetTokenJdbcRepositoryV2(template);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(JavaMailSender.class)
+    static class DefaultMailServiceWiring {
+
+        @Bean(MailService.SERVICE_NAME)
+        @ConditionalOnBean(JavaMailSender.class)
+        @ConditionalOnMissingBean
+        MailService mailService(
+                AccountPasswordResetProperties properties,
+                JavaMailSender mailSender,
+                ObjectProvider<I18n> i18nProvider) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                    LogUtils.blue(MailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
+
+            return new MailServiceImpl(properties.getResetPasswordUrl(), mailSender);
         }
     }
 

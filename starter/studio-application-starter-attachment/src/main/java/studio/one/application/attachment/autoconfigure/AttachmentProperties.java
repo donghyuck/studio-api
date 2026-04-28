@@ -68,25 +68,54 @@ public class AttachmentProperties {
     private Thumbnail thumbnail = new Thumbnail();
 
     public Storage storage(Environment environment, Logger log) {
-        ConfigurationPropertyMigration.bindLegacyFallbackIfTargetMissing(
-                environment,
-                PREFIX + ".storage",
-                LEGACY_PREFIX + ".storage",
-                storage,
-                log,
-                MIGRATION_REASON);
+        bindStorageLeaf(environment, "base-dir", String.class, storage::setBaseDir, log);
+        bindStorageLeaf(environment, "ensure-dirs", Boolean.class, storage::setEnsureDirs, log);
+        bindStorageLeaf(environment, "type", Storage.Type.class, storage::setType, log);
+        bindStorageLeaf(environment, "cache-enabled", Boolean.class, storage::setCacheEnabled, log);
         return storage;
     }
 
     public Thumbnail thumbnail(Environment environment, Logger log) {
-        ConfigurationPropertyMigration.bindLegacyFallbackIfTargetMissing(
+        bindThumbnailLeaf(environment, "enabled", Boolean.class, thumbnail::setEnabled, log);
+        bindThumbnailLeaf(environment, "default-size", Integer.class, thumbnail::setDefaultSize, log);
+        bindThumbnailLeaf(environment, "default-format", String.class, thumbnail::setDefaultFormat, log);
+        bindThumbnailLeaf(environment, "base-dir", String.class, thumbnail::setBaseDir, log);
+        bindThumbnailLeaf(environment, "ensure-dirs", Boolean.class, thumbnail::setEnsureDirs, log);
+        return thumbnail;
+    }
+
+    private <T> void bindStorageLeaf(
+            Environment environment,
+            String propertyName,
+            Class<T> type,
+            java.util.function.Consumer<T> setter,
+            Logger log) {
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(
+                environment,
+                PREFIX + ".storage",
+                LEGACY_PREFIX + ".storage",
+                propertyName,
+                type,
+                setter,
+                log,
+                MIGRATION_REASON);
+    }
+
+    private <T> void bindThumbnailLeaf(
+            Environment environment,
+            String propertyName,
+            Class<T> type,
+            java.util.function.Consumer<T> setter,
+            Logger log) {
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(
                 environment,
                 PREFIX + ".thumbnail",
                 LEGACY_PREFIX + ".thumbnail",
-                thumbnail,
+                propertyName,
+                type,
+                setter,
                 log,
                 MIGRATION_REASON);
-        return thumbnail;
     }
 
     @Getter

@@ -46,7 +46,7 @@ class OllamaSpringAiEmbeddingRegistrationTest {
     }
 
     @Test
-    void prefersInjectedSpringAiEmbeddingModelWithoutLegacyClientProperties() throws Exception {
+    void ignoresGenericInjectedEmbeddingModelAndUsesOllamaSpringAiProperties() throws Exception {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("ollama");
 
@@ -62,7 +62,8 @@ class OllamaSpringAiEmbeddingRegistrationTest {
 
         EmbeddingPort port = new ProviderEmbeddingConfiguration().embeddingPorts(
                 properties,
-                new MockEnvironment(),
+                new MockEnvironment()
+                        .withProperty("spring.ai.ollama.embedding.options.model", "nomic-embed-text"),
                 beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class),
                 List.of(new OllamaPortFactoryConfiguration().ollamaEmbeddingPortFactory()))
                 .get("ollama");
@@ -70,6 +71,6 @@ class OllamaSpringAiEmbeddingRegistrationTest {
         java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
         modelField.setAccessible(true);
 
-        assertThat(modelField.get(port)).isSameAs(injected);
+        assertThat(modelField.get(port)).isNotSameAs(injected);
     }
 }

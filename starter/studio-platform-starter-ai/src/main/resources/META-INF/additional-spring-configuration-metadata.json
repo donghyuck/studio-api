@@ -84,6 +84,22 @@
       "description": "Embedding vector dimension for a RAG embedding profile."
     },
     {
+      "name": "studio.ai.rag.embedding-profiles.*.supported-input-types",
+      "type": "java.util.List<java.lang.String>",
+      "defaultValue": [
+        "TEXT",
+        "TABLE_TEXT",
+        "IMAGE_CAPTION",
+        "OCR_TEXT"
+      ],
+      "description": "Supported input types for a RAG embedding profile."
+    },
+    {
+      "name": "studio.ai.rag.embedding-profiles.*.metadata",
+      "type": "java.util.Map<java.lang.String,java.lang.Object>",
+      "description": "Additional metadata for a RAG embedding profile."
+    },
+    {
       "name": "studio.ai.rag.chunk-size",
       "type": "java.lang.Integer",
       "defaultValue": 500,
@@ -247,8 +263,8 @@
       "type": "java.lang.String",
       "deprecation": {
         "level": "warning",
-        "reason": "Default provider routing moved to studio.ai.routing.*.",
-        "replacement": "studio.ai.routing.default-chat-provider"
+        "reason": "Default provider routing moved to studio.ai.routing.*. Set both studio.ai.routing.default-chat-provider and studio.ai.routing.default-embedding-provider.",
+        "replacement": "studio.ai.routing.default-chat-provider, studio.ai.routing.default-embedding-provider"
       }
     },
     {

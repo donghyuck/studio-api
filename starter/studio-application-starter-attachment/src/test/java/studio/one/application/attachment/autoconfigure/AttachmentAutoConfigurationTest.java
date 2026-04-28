@@ -87,10 +87,10 @@ class AttachmentAutoConfigurationTest {
                     assertThat(baseDir(context.getBean(ThumbnailStorage.class))).isEqualTo("/legacy-thumbnail");
                     assertThat(defaultSize(context.getBean(ThumbnailService.class))).isEqualTo(96);
                     assertThat(output)
-                            .contains("[DEPRECATED CONFIG] studio.features.attachment.storage.* is deprecated")
-                            .contains("Use studio.attachment.storage.* instead")
-                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.* is deprecated")
-                            .contains("Use studio.attachment.thumbnail.* instead");
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.storage.base-dir is deprecated")
+                            .contains("Use studio.attachment.storage.base-dir instead")
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.base-dir is deprecated")
+                            .contains("Use studio.attachment.thumbnail.base-dir instead");
                 });
     }
 
@@ -103,6 +103,7 @@ class AttachmentAutoConfigurationTest {
                         "studio.features.attachment.storage.base-dir=/legacy-storage",
                         "studio.features.attachment.storage.ensure-dirs=true",
                         "studio.attachment.thumbnail.base-dir=/target-thumbnail",
+                        "studio.attachment.thumbnail.enabled=true",
                         "studio.attachment.thumbnail.ensure-dirs=false",
                         "studio.attachment.thumbnail.default-size=256",
                         "studio.features.attachment.thumbnail.enabled=false",
@@ -136,7 +137,23 @@ class AttachmentAutoConfigurationTest {
                     assertThat(defaultSize(context.getBean(ThumbnailService.class))).isEqualTo(80);
                     assertThat(output)
                             .doesNotContain("[DEPRECATED CONFIG] studio.features.attachment.storage.* is deprecated")
-                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.* is deprecated");
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.base-dir is deprecated");
+                });
+    }
+
+    @Test
+    void missingTargetThumbnailEnabledFallsBackToLegacyDisabled(CapturedOutput output) {
+        contextRunner
+                .withPropertyValues(
+                        "studio.attachment.thumbnail.base-dir=/target-thumbnail",
+                        "studio.features.attachment.thumbnail.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(ThumbnailStorage.class);
+                    assertThat(context).doesNotHaveBean(ThumbnailService.class);
+                    assertThat(output)
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.enabled is deprecated")
+                            .contains("Use studio.attachment.thumbnail.enabled instead");
                 });
     }
 

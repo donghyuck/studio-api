@@ -2,6 +2,10 @@ package studio.one.platform.user.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.lang.reflect.Field;
+import java.util.Set;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -10,12 +14,22 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import studio.one.base.user.config.PasswordPolicyProperties;
+import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 
 @ExtendWith(OutputCaptureExtension.class)
 class UserPasswordPolicyAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(UserPasswordPolicyAutoConfiguration.class));
+
+    @BeforeEach
+    void resetWarnings() throws Exception {
+        Field warned = ConfigurationPropertyMigration.class.getDeclaredField("WARNED");
+        warned.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Set<String> values = (Set<String>) warned.get(null);
+        values.clear();
+    }
 
     @Test
     void targetOnlyBindsCanonicalPasswordPolicyPrefix(CapturedOutput output) {
@@ -57,14 +71,12 @@ class UserPasswordPolicyAutoConfigurationTest {
                 });
 
         assertThat(output)
-                .contains("[DEPRECATED CONFIG] studio.features.user.password-policy.* is deprecated")
-                .contains("Use studio.user.password-policy.* instead");
-        assertThat(countOccurrences(output.toString(), "[DEPRECATED CONFIG] studio.features.user.password-policy.*"))
-                .isEqualTo(1);
+                .contains("[DEPRECATED CONFIG] studio.features.user.password-policy.min-length is deprecated")
+                .contains("Use studio.user.password-policy.min-length instead");
     }
 
     @Test
-    void targetPrefixWinsWhenTargetAndLegacyArePresent(CapturedOutput output) {
+    void targetLeavesWinAndMissingLeavesFallbackToLegacy(CapturedOutput output) {
         contextRunner.withPropertyValues(
                 "studio.user.password-policy.min-length=16",
                 "studio.user.password-policy.require-lower=true",
@@ -75,20 +87,14 @@ class UserPasswordPolicyAutoConfigurationTest {
                     PasswordPolicyProperties properties = context.getBean(PasswordPolicyProperties.class);
 
                     assertThat(properties.getMinLength()).isEqualTo(16);
-                    assertThat(properties.getMaxLength()).isEqualTo(20);
+                    assertThat(properties.getMaxLength()).isEqualTo(80);
                     assertThat(properties.isRequireLower()).isTrue();
                 });
 
-        assertThat(output).doesNotContain("[DEPRECATED CONFIG]");
+        assertThat(output)
+                .contains("[DEPRECATED CONFIG] studio.features.user.password-policy.max-length is deprecated")
+                .doesNotContain("[DEPRECATED CONFIG] studio.features.user.password-policy.min-length is deprecated")
+                .doesNotContain("[DEPRECATED CONFIG] studio.features.user.password-policy.require-lower is deprecated");
     }
 
-    private static int countOccurrences(String text, String value) {
-        int count = 0;
-        int index = 0;
-        while ((index = text.indexOf(value, index)) >= 0) {
-            count++;
-            index += value.length();
-        }
-        return count;
-    }
 }

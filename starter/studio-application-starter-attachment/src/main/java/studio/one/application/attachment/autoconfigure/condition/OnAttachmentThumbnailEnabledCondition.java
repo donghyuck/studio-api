@@ -7,7 +7,6 @@ import org.springframework.boot.autoconfigure.condition.SpringBootCondition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
-import org.springframework.util.StringUtils;
 
 import studio.one.application.attachment.autoconfigure.AttachmentProperties;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
@@ -32,18 +31,15 @@ class OnAttachmentThumbnailEnabledCondition extends SpringBootCondition {
 
     private boolean resolveEnabled(Environment environment) {
         String targetValue = environment.getProperty(TARGET_ENABLED);
-        if (StringUtils.hasText(targetValue)) {
+        if (environment.containsProperty(TARGET_ENABLED)) {
             return Boolean.parseBoolean(targetValue);
         }
-        if (ConfigurationPropertyMigration.hasProperties(environment, TARGET_PREFIX)) {
-            return true;
-        }
         String legacyValue = environment.getProperty(LEGACY_ENABLED);
-        if (StringUtils.hasText(legacyValue)) {
+        if (environment.containsProperty(LEGACY_ENABLED)) {
             ConfigurationPropertyMigration.warnDeprecated(
                     log,
-                    LEGACY_PREFIX + ".*",
-                    TARGET_PREFIX + ".*",
+                    LEGACY_ENABLED,
+                    TARGET_ENABLED,
                     AttachmentProperties.MIGRATION_REASON);
             return Boolean.parseBoolean(legacyValue);
         }

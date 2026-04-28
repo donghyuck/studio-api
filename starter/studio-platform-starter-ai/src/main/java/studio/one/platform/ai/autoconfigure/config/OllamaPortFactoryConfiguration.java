@@ -53,12 +53,6 @@ public class OllamaPortFactoryConfiguration {
                     "studio.ai.providers." + providerId + ".embedding.model",
                     provider.getEmbedding().getModel(),
                     log);
-            org.springframework.ai.embedding.EmbeddingModel injectedEmbeddingModel =
-                    embeddingModelProvider.getIfUnique();
-            if (injectedEmbeddingModel != null) {
-                return new SpringAiEmbeddingAdapter(injectedEmbeddingModel, model);
-            }
-
             model = requireText(model,
                     "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
             String baseUrl = AiConfigurationMigration.springOrLegacyProviderValue(

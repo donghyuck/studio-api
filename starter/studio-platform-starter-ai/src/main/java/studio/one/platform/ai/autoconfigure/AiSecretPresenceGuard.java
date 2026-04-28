@@ -52,9 +52,9 @@ public class AiSecretPresenceGuard {
     private void validateDefaultProviderSelection() {
         AiConfigurationMigration.RoutingDefaults routing =
                 AiConfigurationMigration.resolveRouting(properties, environment, log);
-        if (!StringUtils.hasText(routing.defaultProvider())
+        if (!routing.legacyDefaultProviderConfigured()
                 && (!StringUtils.hasText(routing.defaultChatProvider())
-                || !StringUtils.hasText(routing.defaultEmbeddingProvider()))) {
+                        || !StringUtils.hasText(routing.defaultEmbeddingProvider()))) {
             throw new IllegalStateException("studio.ai.routing.default-chat-provider and " +
                     "studio.ai.routing.default-embedding-provider must be configured unless legacy " +
                     "studio.ai.default-provider is configured");
@@ -122,7 +122,7 @@ public class AiSecretPresenceGuard {
     }
 
     private void validateOllamaProvider(String providerId, AiAdapterProperties.Provider provider) {
-        if (provider.getEmbedding().isEnabled() && !hasUnique(embeddingModelProvider)) {
+        if (provider.getEmbedding().isEnabled()) {
             requireText(AiConfigurationMigration.springOrLegacyProviderValue(
                             environment,
                             "spring.ai.ollama.embedding.options.model",
@@ -134,7 +134,7 @@ public class AiSecretPresenceGuard {
     }
 
     private void validateGoogleProvider(String providerId, AiAdapterProperties.Provider provider) {
-        if (provider.getEmbedding().isEnabled() && !hasUnique(embeddingModelProvider)) {
+        if (provider.getEmbedding().isEnabled()) {
             requireText(AiConfigurationMigration.springOrLegacyProviderValue(
                             environment,
                             "spring.ai.google.genai.embedding.api-key",
@@ -150,7 +150,7 @@ public class AiSecretPresenceGuard {
                             log),
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
         }
-        if (provider.getChat().isEnabled() && !hasUnique(chatModelProvider)) {
+        if (provider.getChat().isEnabled()) {
             requireText(AiConfigurationMigration.springOrLegacyProviderValue(
                             environment,
                             "spring.ai.google.genai.chat.api-key",

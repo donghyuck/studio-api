@@ -57,6 +57,26 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
+    void validateRejectsChatDefaultWithoutEmbeddingDefault() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultChatProvider("google-chat");
+
+        AiSecretPresenceGuard guard = guard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRejectsEmbeddingDefaultWithoutChatDefault() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultEmbeddingProvider("google-embedding");
+
+        AiSecretPresenceGuard guard = guard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
     void validateRequiresSpringAiApiKeyForOpenAiProvider() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);

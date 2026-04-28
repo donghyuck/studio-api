@@ -24,16 +24,31 @@ public class UserPasswordPolicyAutoConfiguration {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
                 if (bean instanceof PasswordPolicyProperties properties) {
-                    return ConfigurationPropertyMigration.bindLegacyFallbackIfTargetMissing(
-                            environment,
-                            PasswordPolicyProperties.PREFIX,
-                            PasswordPolicyProperties.LEGACY_PREFIX,
-                            properties,
-                            log,
-                            MIGRATION_REASON);
+                    bindLegacyFallback(environment, properties);
                 }
                 return bean;
             }
         };
+    }
+
+    private static void bindLegacyFallback(Environment environment, PasswordPolicyProperties properties) {
+        String target = PasswordPolicyProperties.PREFIX;
+        String legacy = PasswordPolicyProperties.LEGACY_PREFIX;
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "min-length",
+                Integer.class, properties::setMinLength, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "max-length",
+                Integer.class, properties::setMaxLength, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "require-upper",
+                Boolean.class, properties::setRequireUpper, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "require-lower",
+                Boolean.class, properties::setRequireLower, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "require-digit",
+                Boolean.class, properties::setRequireDigit, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "require-special",
+                Boolean.class, properties::setRequireSpecial, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "allowed-specials",
+                String.class, properties::setAllowedSpecials, log, MIGRATION_REASON);
+        ConfigurationPropertyMigration.bindLegacyLeafIfTargetMissing(environment, target, legacy, "allow-whitespace",
+                Boolean.class, properties::setAllowWhitespace, log, MIGRATION_REASON);
     }
 }

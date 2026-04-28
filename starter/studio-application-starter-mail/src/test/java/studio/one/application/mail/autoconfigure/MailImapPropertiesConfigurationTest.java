@@ -69,8 +69,8 @@ class MailImapPropertiesConfigurationTest {
                     assertThat(properties.getUsername()).isEqualTo("legacy-user");
                     assertThat(properties.getPassword()).isEqualTo("legacy-secret");
                     assertThat(output)
-                            .contains("[DEPRECATED CONFIG] studio.features.mail.imap.* is deprecated")
-                            .contains("Use studio.mail.imap.* instead");
+                            .contains("[DEPRECATED CONFIG] studio.features.mail.imap.host is deprecated")
+                            .contains("Use studio.mail.imap.host instead");
                 });
     }
 
@@ -91,6 +91,28 @@ class MailImapPropertiesConfigurationTest {
                     assertThat(properties.getUsername()).isEqualTo("target-user");
                     assertThat(properties.getPassword()).isEqualTo("target-secret");
                     assertThat(output).doesNotContain("[DEPRECATED CONFIG]");
+                });
+    }
+
+    @Test
+    void targetLeavesWinAndMissingRequiredLeavesFallbackToLegacy(CapturedOutput output) {
+        propertiesRunner
+                .withPropertyValues(
+                        "studio.mail.imap.host=target.example.com",
+                        "studio.features.mail.imap.host=legacy.example.com",
+                        "studio.features.mail.imap.username=legacy-user",
+                        "studio.features.mail.imap.password=legacy-secret")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    ImapProperties properties = context.getBean(ImapProperties.class);
+
+                    assertThat(properties.getHost()).isEqualTo("target.example.com");
+                    assertThat(properties.getUsername()).isEqualTo("legacy-user");
+                    assertThat(properties.getPassword()).isEqualTo("legacy-secret");
+                    assertThat(output)
+                            .contains("[DEPRECATED CONFIG] studio.features.mail.imap.username is deprecated")
+                            .contains("[DEPRECATED CONFIG] studio.features.mail.imap.password is deprecated")
+                            .doesNotContain("[DEPRECATED CONFIG] studio.features.mail.imap.host is deprecated");
                 });
     }
 

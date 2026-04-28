@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
+import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -60,6 +61,23 @@ class AccountPasswordResetAutoConfigurationTest {
         };
 
         contextRunner
+                .withBean(MailService.class, () -> customMailService)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(MailService.class);
+                    assertThat(context.getBean(MailService.class)).isSameAs(customMailService);
+                    assertThat(context).hasSingleBean(PasswordResetService.class);
+                    assertThat(context).hasSingleBean(PasswordResetController.class);
+                });
+    }
+
+    @Test
+    void usesCustomMailServiceWhenJavaMailSenderClassIsMissing() {
+        MailService customMailService = (to, token) -> {
+        };
+
+        contextRunner
+                .withClassLoader(new FilteredClassLoader(JavaMailSender.class))
                 .withBean(MailService.class, () -> customMailService)
                 .run(context -> {
                     assertThat(context).hasNotFailed();
