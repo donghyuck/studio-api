@@ -76,7 +76,8 @@ table, image caption, OCR chunk는 각각 `TABLE_TEXT`, `IMAGE_CAPTION`, `OCR_TE
 컨트롤러는 `studio.features.attachment.web.mgmt-base-path`(기본 `/api/mgmt/attachments`) 경로에 등록된다.
 따라서 attachment-service의 `web.enabled=true`와 `mgmt-base-path` 설정을 공유한다.
 `content-embedding-pipeline`은 auto-configuration으로 `AttachmentRagIndexService`,
-`AttachmentRagIndexJobSourceExecutor`, 기본 구조화 색인 adapter를 등록한다.
+`AttachmentRagIndexJobSourceExecutor`, `AttachmentRagIndexJobSourceNameResolver`,
+기본 구조화 색인 adapter를 등록한다.
 컨트롤러는 attachment web endpoint 설정과 같은 base path를 사용하며, 기존 attachment endpoint component scan
 또는 애플리케이션 component scan으로 등록된다.
 

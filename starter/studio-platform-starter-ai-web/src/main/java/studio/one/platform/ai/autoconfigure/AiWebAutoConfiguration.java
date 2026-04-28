@@ -45,6 +45,7 @@ import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.chunking.core.Chunker;
@@ -145,13 +146,15 @@ public class AiWebAutoConfiguration {
             RagPipelineService ragPipelineService,
             @Nullable VectorStorePort vectorStorePort,
             RagPipelineProperties ragPipelineProperties,
-            @Qualifier("ragIndexJobExecutor") Executor ragIndexJobExecutor) {
+            @Qualifier("ragIndexJobExecutor") Executor ragIndexJobExecutor,
+            ObjectProvider<RagIndexJobSourceNameResolver> sourceNameResolvers) {
         return new RagIndexJobController(
                 ragIndexJobService,
                 ragPipelineService,
                 vectorStorePort,
                 ragIndexJobExecutor,
-                ragPipelineProperties.getObjectScope().getMaxListLimit());
+                ragPipelineProperties.getObjectScope().getMaxListLimit(),
+                sourceNameResolvers.orderedStream().toList());
     }
 
     @Bean

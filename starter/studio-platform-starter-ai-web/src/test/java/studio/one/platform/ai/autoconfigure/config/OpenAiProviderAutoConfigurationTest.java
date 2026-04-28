@@ -33,6 +33,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
@@ -216,6 +217,26 @@ class OpenAiProviderAutoConfigurationTest {
                     RagIndexJobController controller = context.getBean(RagIndexJobController.class);
                     assertThat(ReflectionTestUtils.getField(controller, "jobExecutor"))
                             .isSameAs(context.getBean("ragIndexJobExecutor"));
+                });
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void registersRagIndexJobControllerWithSourceNameResolvers() {
+        RagIndexJobSourceNameResolver resolver = org.mockito.Mockito.mock(RagIndexJobSourceNameResolver.class);
+
+        contextRunner
+                .withBean(RagIndexJobService.class, () -> org.mockito.Mockito.mock(RagIndexJobService.class))
+                .withBean(RagIndexJobSourceNameResolver.class, () -> resolver)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(RagIndexJobController.class);
+
+                    RagIndexJobController controller = context.getBean(RagIndexJobController.class);
+                    assertThat((List<RagIndexJobSourceNameResolver>) ReflectionTestUtils.getField(
+                            controller,
+                            "sourceNameResolvers"))
+                            .containsExactly(resolver);
                 });
     }
 
