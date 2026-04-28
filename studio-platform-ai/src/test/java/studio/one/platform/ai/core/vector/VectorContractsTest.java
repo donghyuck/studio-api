@@ -69,6 +69,24 @@ class VectorContractsTest {
         assertThat(request.includeMetadata()).isFalse();
     }
 
+    @Test
+    void vectorSearchRequestRejectsExcessiveTopK() {
+        assertThatThrownBy(() -> new VectorSearchRequest(List.of(0.1d, 0.2d), 101))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("topK");
+    }
+
+    @Test
+    void vectorSearchRequestRejectsMinScoreGreaterThanOne() {
+        assertThatThrownBy(() -> new VectorSearchRequest(
+                List.of(0.1d, 0.2d),
+                5,
+                MetadataFilter.empty(),
+                1.1d))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("minScore");
+    }
+
     @SuppressWarnings("deprecation")
     private static List<Double> legacyEmbedding(VectorSearchRequest request) {
         return request.embedding();

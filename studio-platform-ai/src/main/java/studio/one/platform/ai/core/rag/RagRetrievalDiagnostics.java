@@ -15,10 +15,28 @@ public record RagRetrievalDiagnostics(
         double lexicalWeight,
         String objectType,
         String objectId,
-        int topK) {
+        int topK,
+        Integer requestedTopK,
+        Double requestedMinScore,
+        int beforeMinScoreCount,
+        int afterMinScoreCount) {
 
     public RagRetrievalDiagnostics {
         strategy = strategy == null ? Strategy.NONE : strategy;
+    }
+
+    public RagRetrievalDiagnostics(
+            Strategy strategy,
+            int initialResultCount,
+            int finalResultCount,
+            double minScore,
+            double vectorWeight,
+            double lexicalWeight,
+            String objectType,
+            String objectId,
+            int topK) {
+        this(strategy, initialResultCount, finalResultCount, minScore, vectorWeight, lexicalWeight,
+                objectType, objectId, topK, topK, minScore, finalResultCount, finalResultCount);
     }
 
     public Map<String, Object> toMetadata() {
@@ -32,6 +50,12 @@ public record RagRetrievalDiagnostics(
         metadata.put("objectType", objectType);
         metadata.put("objectId", objectId);
         metadata.put("topK", topK);
+        metadata.put("requestedTopK", requestedTopK);
+        metadata.put("effectiveTopK", topK);
+        metadata.put("requestedMinScore", requestedMinScore);
+        metadata.put("effectiveMinScore", minScore);
+        metadata.put("beforeMinScoreCount", beforeMinScoreCount);
+        metadata.put("afterMinScoreCount", afterMinScoreCount);
         return metadata;
     }
 

@@ -422,14 +422,19 @@ Content-Type: application/json
     ]
   },
   "ragQuery": "핵심 내용 요약",
-  "ragTopK": 3,
+  "topK": 3,
+  "minScore": 0.15,
   "objectType": "attachment",
   "objectId": "123",
   "embeddingProfileId": "retrieval-ko"
 }
 ```
 
-`ragTopK`는 `1` 이상 `100` 이하만 허용한다. `objectType`/`objectId`를 지정하면 해당 객체 범위의 RAG 인덱스에서 검색한다.
+`topK`는 `1` 이상 `100` 이하만 허용한다. 기존 `ragTopK`도 호환용으로 계속 받지만, 둘 다 있으면 `topK`가 우선한다.
+`minScore`를 지정하면 최종 검색 결과에서 해당 점수 이상인 항목만 context 후보로 사용한다. 요청값이 없으면
+`studio.ai.rag.retrieval.top-k`, `studio.ai.rag.retrieval.min-score` 설정값을 사용한다.
+`minScore` 적용 후 결과 수는 `topK`보다 적을 수 있다. `objectType`/`objectId`를 지정하면 해당 객체 범위의 RAG 인덱스에서 검색한다.
+fallback 전략 선택은 서버 설정 `min-relevance-score` 기준으로 결정되며, client `minScore`는 최종 반환/context 후보 cutoff로만 적용한다.
 이 값은 attachment 전용 ID가 아니라 색인 시 저장된 chunk metadata의 object scope와 같은 의미다. 예를 들어 RAG job이
 `objectType=2001`, `objectId=6`으로 생성됐다면 RAG Chat에도 같은 값을 전달해야 한다. `ragQuery`가 없고
 객체 범위만 있으면 저장된 chunk를 순서대로 가져와 컨텍스트로 사용한다.
@@ -469,7 +474,7 @@ studio:
 | `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.include-scores` | `true` | context에 retrieval score를 포함할지 여부 |
 | `studio.ai.endpoints.rag.context.expansion.enabled` | `true` | `ChunkContextExpander` 기반 주변 문맥 확장 사용 여부 |
-| `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 `ragTopK` 대비 후보 chunk 조회 배수. 런타임 최대 20으로 제한 |
+| `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 effective `topK` 대비 후보 chunk 조회 배수. 런타임 최대 20으로 제한 |
 | `studio.ai.endpoints.rag.context.expansion.max-candidates` | `100` | context expansion 후보 chunk 조회 limit 상한. 런타임 최대 500으로 제한 |
 | `studio.ai.endpoints.rag.context.expansion.previous-window` | `1` | neighbor expansion에 전달할 이전 chunk window |
 | `studio.ai.endpoints.rag.context.expansion.next-window` | `1` | neighbor expansion에 전달할 다음 chunk window |
@@ -523,13 +528,17 @@ Content-Type: application/json
 {
   "query": "검색어",
   "topK": 5,
+  "minScore": 0.15,
   "objectType": "attachment",
   "objectId": "123"
 }
 ```
 
 `objectType`/`objectId`는 core `MetadataFilter.objectScope(...)`로 변환되어 RAG pipeline에 전달된다.
-둘 다 생략하면 전체 RAG 인덱스 검색을 수행한다.
+둘 다 생략하면 전체 RAG 인덱스 검색을 수행하고, 둘 중 하나만 보내면 `400 Bad Request`로 처리한다.
+`topK`/`minScore` 요청값이 없으면 `studio.ai.rag.retrieval.top-k`, `studio.ai.rag.retrieval.min-score`
+설정값을 사용한다.
+fallback 전략 선택은 서버 설정 `min-relevance-score` 기준으로 결정되며, client `minScore`는 최종 반환 후보 cutoff로만 적용한다.
 `POST /api/mgmt/ai/rag/search`는 query 기반 semantic search API이므로 검색 전에 embedding provider를 호출해
 query embedding을 생성한다. OpenAI quota 부족처럼 provider quota/rate limit이 발생하면 chat 오류와 구분되는
 HTTP 429 `ProblemDetails.detail`로 `Embedding provider quota exceeded...` 메시지를 반환한다.
@@ -555,6 +564,8 @@ job chunk 조회 API의 object scope와 동일하게 해석된다. RAG 인덱스
 `POST /api/mgmt/ai/vectors/search` 응답 항목은 기존 `documentId`와 클라이언트 grid 호환용 `id`를 함께 반환한다.
 내부 검색 결과는 core `VectorSearchResults`/`VectorSearchHit` aggregate 계약으로 정규화하지만,
 HTTP 응답 shape는 기존 `List<VectorSearchResultDto>`를 유지한다.
+`topK`/`minScore`를 생략하면 기존 `topK=5`, `minScore` 미적용 대신
+`studio.ai.rag.retrieval.top-k`, `studio.ai.rag.retrieval.min-score` 설정값을 사용한다.
 요청에 `embedding`을 직접 전달하면 provider 호출 없이 해당 벡터로 검색한다. `embedding` 없이 `query`만 전달하면
 검색 전에 configured `EmbeddingPort`가 호출되어 query embedding을 생성하므로 Spring AI/OpenAI 등 embedding
 provider quota를 사용한다. `hybrid=true`도 lexical score와 vector score를 함께 쓰기 때문에 query embedding이

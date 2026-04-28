@@ -382,6 +382,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
     @Override
     public List<RagSearchResult> search(RagSearchRequest request) {
         clearDiagnostics();
+        request = withDefaults(request);
         MetadataFilter filter = request.metadataFilter();
         if (filter.hasObjectScope()) {
             return searchObjectScope(request, filter);
@@ -391,20 +392,24 @@ public class DefaultRagPipelineService implements RagPipelineService {
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 queryEmbedding,
                 request.topK(),
-                embeddingFilter(filter, resolvedEmbedding, hasEmbeddingSelection(request)));
+                embeddingFilter(filter, resolvedEmbedding, hasEmbeddingSelection(request)),
+                request.minScore());
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
                 query -> vectorStorePort.hybridSearch(query, searchRequest, options.vectorWeight(), options.lexicalWeight()),
                 () -> vectorStorePort.search(searchRequest),
                 null,
-                null);
+                null,
+                request.requestedTopK(),
+                request.requestedMinScore());
         return toRagSearchResults(results);
     }
 
     @Override
     public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
         clearDiagnostics();
+        request = withDefaults(request);
         MetadataFilter filter = MetadataFilter.objectScope(objectType, objectId);
         if (filter.isEmpty()) {
             filter = request.metadataFilter();
@@ -419,7 +424,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
         VectorSearchRequest searchRequest = new VectorSearchRequest(
                 queryEmbedding,
                 request.topK(),
-                searchFilter);
+                searchFilter,
+                request.minScore());
         List<VectorSearchResult> results = searchWithFallback(
                 request.query(),
                 searchRequest,
@@ -432,7 +438,9 @@ public class DefaultRagPipelineService implements RagPipelineService {
                         options.lexicalWeight()),
                 () -> vectorStorePort.searchByObject(searchFilter.objectType(), searchFilter.objectId(), searchRequest),
                 searchFilter.objectType(),
-                searchFilter.objectId());
+                searchFilter.objectId(),
+                request.requestedTopK(),
+                request.requestedMinScore());
         return toRagSearchResults(results);
     }
 
@@ -634,35 +642,52 @@ public class DefaultRagPipelineService implements RagPipelineService {
             Function<String, List<VectorSearchResult>> hybridSearch,
             Supplier<List<VectorSearchResult>> semanticSearch,
             String objectType,
-            String objectId) {
-        List<VectorSearchResult> results = limitResults(hybridSearch.apply(query), searchRequest.topK());
-        if (hasRelevantResults(results)) {
+            String objectId,
+            Integer requestedTopK,
+            Double requestedMinScore) {
+        List<VectorSearchResult> rawResults = limitResults(hybridSearch.apply(query), searchRequest.topK());
+        List<VectorSearchResult> results = applyMinScore(rawResults, searchRequest.minScore());
+        List<VectorSearchResult> lastRawResults = rawResults;
+        List<VectorSearchResult> lastResults = results;
+        if (hasRelevantResults(rawResults)) {
             recordDiagnostics(RagRetrievalDiagnostics.Strategy.HYBRID,
-                    results.size(), results.size(), searchRequest, objectType, objectId, results);
+                    rawResults.size(), results.size(), searchRequest, objectType, objectId,
+                    requestedTopK, requestedMinScore, rawResults, results);
             return results;
         }
-        int initialResultCount = safeSize(results);
+        int initialResultCount = safeSize(rawResults);
 
         String enrichedQuery = options.keywordFallbackEnabled() ? enrichQuery(query) : query;
         if (options.keywordFallbackEnabled() && !enrichedQuery.equals(query)) {
-            List<VectorSearchResult> enrichedResults = limitResults(hybridSearch.apply(enrichedQuery), searchRequest.topK());
-            if (hasRelevantResults(enrichedResults)) {
+            List<VectorSearchResult> enrichedRawResults = limitResults(
+                    hybridSearch.apply(enrichedQuery),
+                    searchRequest.topK());
+            List<VectorSearchResult> enrichedResults = applyMinScore(enrichedRawResults, searchRequest.minScore());
+            lastRawResults = enrichedRawResults;
+            lastResults = enrichedResults;
+            if (hasRelevantResults(enrichedRawResults)) {
                 recordDiagnostics(RagRetrievalDiagnostics.Strategy.KEYWORD_ENRICHED_HYBRID,
-                        initialResultCount, enrichedResults.size(), searchRequest, objectType, objectId, enrichedResults);
+                        initialResultCount, enrichedResults.size(), searchRequest, objectType, objectId,
+                        requestedTopK, requestedMinScore, enrichedRawResults, enrichedResults);
                 return enrichedResults;
             }
         }
 
         if (options.semanticFallbackEnabled()) {
-            List<VectorSearchResult> semanticResults = limitResults(semanticSearch.get(), searchRequest.topK());
-            if (hasRelevantResults(semanticResults)) {
+            List<VectorSearchResult> semanticRawResults = limitResults(semanticSearch.get(), searchRequest.topK());
+            List<VectorSearchResult> semanticResults = applyMinScore(semanticRawResults, searchRequest.minScore());
+            lastRawResults = semanticRawResults;
+            lastResults = semanticResults;
+            if (hasRelevantResults(semanticRawResults)) {
                 recordDiagnostics(RagRetrievalDiagnostics.Strategy.SEMANTIC,
-                        initialResultCount, semanticResults.size(), searchRequest, objectType, objectId, semanticResults);
+                        initialResultCount, semanticResults.size(), searchRequest, objectType, objectId,
+                        requestedTopK, requestedMinScore, semanticRawResults, semanticResults);
                 return semanticResults;
             }
         }
         recordDiagnostics(RagRetrievalDiagnostics.Strategy.NONE,
-                initialResultCount, 0, searchRequest, objectType, objectId, List.of());
+                initialResultCount, 0, searchRequest, objectType, objectId,
+                requestedTopK, requestedMinScore, lastRawResults, lastResults);
         return List.of();
     }
 
@@ -673,6 +698,22 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return results.stream()
                 .limit(Math.max(topK, 0))
                 .toList();
+    }
+
+    private RagSearchRequest withDefaults(RagSearchRequest request) {
+        if (request.minScore() != null) {
+            return request;
+        }
+        return new RagSearchRequest(
+                request.query(),
+                request.topK(),
+                request.metadataFilter(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                options.minScore(),
+                request.requestedTopK(),
+                request.requestedMinScore());
     }
 
     private String enrichQuery(String query) {
@@ -725,6 +766,16 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return results.stream().anyMatch(result -> result.score() >= options.minRelevanceScore());
     }
 
+    private List<VectorSearchResult> applyMinScore(List<VectorSearchResult> results, Double minScore) {
+        if (results == null || results.isEmpty()) {
+            return List.of();
+        }
+        double effectiveMinScore = minScore == null ? options.minScore() : minScore;
+        return results.stream()
+                .filter(result -> result.score() >= effectiveMinScore)
+                .toList();
+    }
+
     private List<RagSearchResult> toRagSearchResults(List<VectorSearchResult> results) {
         return results.stream()
                 .map(result -> new RagSearchResult(
@@ -746,22 +797,30 @@ public class DefaultRagPipelineService implements RagPipelineService {
             VectorSearchRequest searchRequest,
             String objectType,
             String objectId,
-            List<VectorSearchResult> results) {
+            Integer requestedTopK,
+            Double requestedMinScore,
+            List<VectorSearchResult> beforeMinScore,
+            List<VectorSearchResult> afterMinScore) {
         if (!diagnosticsOptions.enabled()) {
             return;
         }
+        double effectiveMinScore = searchRequest.minScore() == null ? options.minScore() : searchRequest.minScore();
         RagRetrievalDiagnostics diagnostics = new RagRetrievalDiagnostics(
                 strategy,
                 initialResultCount,
                 finalResultCount,
-                options.minRelevanceScore(),
+                effectiveMinScore,
                 options.vectorWeight(),
                 options.lexicalWeight(),
                 objectType,
                 objectId,
-                searchRequest.topK());
+                searchRequest.topK(),
+                requestedTopK,
+                requestedMinScore,
+                safeSize(beforeMinScore),
+                safeSize(afterMinScore));
         latestDiagnostics.set(diagnostics);
-        logDiagnostics(diagnostics, results);
+        logDiagnostics(diagnostics, afterMinScore);
     }
 
     private void logDiagnostics(RagRetrievalDiagnostics diagnostics, List<VectorSearchResult> results) {
