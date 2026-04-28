@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
+import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
@@ -43,6 +44,13 @@ public class ContentEmbeddingPipelineAutoConfiguration {
     AttachmentRagIndexJobSourceExecutor attachmentRagIndexJobSourceExecutor(
             AttachmentRagIndexService ragIndexService) {
         return new AttachmentRagIndexJobSourceExecutor(ragIndexService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    AttachmentRagIndexJobSourceNameResolver attachmentRagIndexJobSourceNameResolver(
+            AttachmentService attachmentService) {
+        return new AttachmentRagIndexJobSourceNameResolver(attachmentService);
     }
 
 }

@@ -3,6 +3,7 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #362 대응으로 RAG job source 표시명 resolver SPI를 추가하고, generic attachment source job 생성 시 `sourceName`이 attachment id 대신 파일명으로 보강되도록 했다.
 - 이슈 #360 대응으로 RAG job 응답 DTO에 `sourceName`을 추가하고, in-memory/JDBC job 저장소와 attachment RAG job 생성 경로에서 표시명을 유지하도록 했다.
 - 이슈 #357 대응으로 Vector/RAG query 검색 중 embedding provider quota/rate limit이 발생하면 chat 오류와 구분되는 HTTP 429 메시지를 반환하도록 했다.
 - `starter-ai-web` README에 query 기반 Vector/RAG 검색이 embedding provider를 호출한다는 점과 provider-free chunk inspection 대체 경로를 명시했다.

@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
+import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
@@ -27,6 +28,7 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(AttachmentRagIndexService.class);
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceExecutor.class);
+                    assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceNameResolver.class);
                 });
     }
 
@@ -55,6 +57,20 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceExecutor.class);
                     assertThat(context.getBean(AttachmentRagIndexJobSourceExecutor.class)).isSameAs(userExecutor);
+                });
+    }
+
+    @Test
+    void backsOffWhenUserDefinedAttachmentRagIndexJobSourceNameResolverExists() {
+        AttachmentRagIndexJobSourceNameResolver userResolver = mock(AttachmentRagIndexJobSourceNameResolver.class);
+
+        contextRunner
+                .withBean(AttachmentService.class, () -> mock(AttachmentService.class))
+                .withBean(AttachmentRagIndexJobSourceNameResolver.class, () -> userResolver)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceNameResolver.class);
+                    assertThat(context.getBean(AttachmentRagIndexJobSourceNameResolver.class)).isSameAs(userResolver);
                 });
     }
 
@@ -92,6 +108,7 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
             assertThat(context).hasNotFailed();
             assertThat(context).doesNotHaveBean(AttachmentRagIndexService.class);
             assertThat(context).doesNotHaveBean(AttachmentRagIndexJobSourceExecutor.class);
+            assertThat(context).doesNotHaveBean(AttachmentRagIndexJobSourceNameResolver.class);
         });
     }
 }

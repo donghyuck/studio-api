@@ -109,13 +109,14 @@ job 추적이 활성화된 경우 `X-RAG-Job-Id` 헤더만 추가한다. 신규 
 raw `text`가 있으면 같은 `RagPipelineService`를 in-memory job service로 감싸 비동기 실행하고,
 응답 body에 생성된 job을 반환한다. `text`가 없고 `sourceType`이 있으면 등록된
 `RagIndexJobSourceExecutor`가 해당 source를 실행한다. `content-embedding-pipeline`은
-`sourceType=attachment` job executor를 제공하며 기존 attachment RAG index 경로를 재사용한다.
+`sourceType=attachment` job executor와 source 표시명 resolver를 제공하며 기존 attachment RAG index 경로를 재사용한다.
 job 생성과 retry는 `services:ai_rag write`가 필요하다. attachment source job 생성과 retry는 기존
 attachment 색인 API와 동일하게 `features:attachment write` 권한도 필요하다.
-job 응답 DTO에는 grid 표시용 `sourceName`이 포함된다. attachment source job은 파일명을 저장하고,
-raw text job은 요청 `sourceName`, metadata의 `sourceName`/`title`/`filename`/`fileName`/`name`, `documentId`
-순서로 표시명을 결정한다. `sourceName`은 `GET /jobs`, `GET /jobs/{jobId}`, create/retry/cancel 응답에
-동일하게 포함되며 저장 경계에 맞춰 최대 300자까지 보존한다.
+job 응답 DTO에는 grid 표시용 `sourceName`이 포함된다. 표시명은 요청 `sourceName`, metadata의
+`sourceName`/`title`/`filename`/`fileName`/`name`, 등록된 `RagIndexJobSourceNameResolver`, `documentId`
+순서로 결정한다. attachment source job은 resolver가 `AttachmentService`로 파일명을 조회해 저장하므로,
+generic job API가 attachment 모듈에 직접 의존하지 않는다. `sourceName`은 `GET /jobs`,
+`GET /jobs/{jobId}`, create/retry/cancel 응답에 동일하게 포함되며 저장 경계에 맞춰 최대 300자까지 보존한다.
 
 attachment source job 예시:
 
@@ -129,7 +130,6 @@ Content-Type: application/json
   "objectId": "101",
   "documentId": "doc-101",
   "sourceType": "attachment",
-  "sourceName": "sample.pdf",
   "metadata": {
     "category": "manual"
   },

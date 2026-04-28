@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -40,6 +41,7 @@ import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
 import studio.one.platform.ai.web.dto.RagIndexChunkPageResponseDto;
@@ -62,6 +64,7 @@ public class RagIndexJobController {
     private final RagPipelineService ragPipelineService;
     private final Executor jobExecutor;
     private final int maxChunkPageLimit;
+    private final List<RagIndexJobSourceNameResolver> sourceNameResolvers;
     @Nullable
     private final VectorStorePort vectorStorePort;
 
@@ -86,11 +89,22 @@ public class RagIndexJobController {
             @Nullable VectorStorePort vectorStorePort,
             Executor jobExecutor,
             int maxChunkPageLimit) {
+        this(jobService, ragPipelineService, vectorStorePort, jobExecutor, maxChunkPageLimit, List.of());
+    }
+
+    public RagIndexJobController(
+            RagIndexJobService jobService,
+            RagPipelineService ragPipelineService,
+            @Nullable VectorStorePort vectorStorePort,
+            Executor jobExecutor,
+            int maxChunkPageLimit,
+            List<RagIndexJobSourceNameResolver> sourceNameResolvers) {
         this.jobService = Objects.requireNonNull(jobService, "jobService");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.vectorStorePort = vectorStorePort;
         this.jobExecutor = Objects.requireNonNull(jobExecutor, "jobExecutor");
         this.maxChunkPageLimit = maxChunkPageLimit <= 0 ? DEFAULT_CHUNK_LIMIT : maxChunkPageLimit;
+        this.sourceNameResolvers = sourceNameResolvers == null ? List.of() : List.copyOf(sourceNameResolvers);
     }
 
     @GetMapping("/jobs")
@@ -299,6 +313,14 @@ public class RagIndexJobController {
                         request.embeddingProvider(),
                         request.embeddingModel())
                 : null;
+        RagIndexJobCreateRequest createRequest = new RagIndexJobCreateRequest(
+                request.objectType(),
+                request.objectId(),
+                documentId,
+                request.sourceType(),
+                Boolean.TRUE.equals(request.forceReindex()),
+                indexRequest);
+        String sourceName = sourceName(request, metadata, createRequest, sourceRequest);
         return new CreateJobCommand(new RagIndexJobCreateRequest(
                 request.objectType(),
                 request.objectId(),
@@ -306,20 +328,51 @@ public class RagIndexJobController {
                 request.sourceType(),
                 Boolean.TRUE.equals(request.forceReindex()),
                 indexRequest,
-                sourceName(request, metadata, documentId)), sourceRequest);
+                sourceName), sourceRequest);
     }
 
     private boolean isAttachmentSource(RagIndexJobCreateRequestDto request) {
         return "attachment".equalsIgnoreCase(request.sourceType());
     }
 
-    private String sourceName(RagIndexJobCreateRequestDto request, Map<String, Object> metadata, String documentId) {
+    private String sourceName(
+            RagIndexJobCreateRequestDto request,
+            Map<String, Object> metadata,
+            RagIndexJobCreateRequest createRequest,
+            @Nullable RagIndexJobSourceRequest sourceRequest) {
         String sourceName = text(request.sourceName());
         if (sourceName != null) {
             return sourceName;
         }
         sourceName = text(firstPresent(metadata, "sourceName", "title", "filename", "fileName", "name"));
-        return sourceName == null ? documentId : sourceName;
+        if (sourceName != null) {
+            return sourceName;
+        }
+        return resolveSourceName(createRequest, sourceRequest).orElse(createRequest.documentId());
+    }
+
+    private Optional<String> resolveSourceName(
+            RagIndexJobCreateRequest createRequest,
+            @Nullable RagIndexJobSourceRequest sourceRequest) {
+        if (sourceRequest == null) {
+            return Optional.empty();
+        }
+        for (RagIndexJobSourceNameResolver resolver : sourceNameResolvers) {
+            try {
+                if (!resolver.supports(createRequest, sourceRequest)) {
+                    continue;
+                }
+                Optional<String> resolved = resolver.resolveSourceName(createRequest, sourceRequest)
+                        .map(this::text)
+                        .filter(Objects::nonNull);
+                if (resolved.isPresent()) {
+                    return resolved;
+                }
+            } catch (RuntimeException ex) {
+                log.debug("RAG index job sourceName resolver failed: {}", ex.getMessage(), ex);
+            }
+        }
+        return Optional.empty();
     }
 
     private void dispatch(String jobId, Runnable task) {

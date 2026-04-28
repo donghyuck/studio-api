@@ -41,6 +41,7 @@ import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
@@ -126,7 +127,10 @@ class RagIndexJobControllerTest {
         RagIndexJobController explicitController = new RagIndexJobController(
                 explicitJobService,
                 mock(RagPipelineService.class),
-                null);
+                null,
+                Runnable::run,
+                200,
+                List.of(new FixedSourceNameResolver("resolver-source.pdf")));
 
         explicitController.createJob(new RagIndexJobCreateRequestDto(
                 "attachment",
@@ -150,7 +154,10 @@ class RagIndexJobControllerTest {
         RagIndexJobController metadataController = new RagIndexJobController(
                 metadataJobService,
                 mock(RagPipelineService.class),
-                null);
+                null,
+                Runnable::run,
+                200,
+                List.of(new FixedSourceNameResolver("resolver-source.pdf")));
 
         metadataController.createJob(new RagIndexJobCreateRequestDto(
                 "attachment",
@@ -165,6 +172,109 @@ class RagIndexJobControllerTest {
                 false));
 
         assertThat(metadataJobService.createdRequest.sourceName()).isEqualTo("title.pdf");
+    }
+
+    @Test
+    void createJobUsesSourceNameResolverBeforeDocumentIdFallback() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null,
+                Runnable::run,
+                200,
+                List.of(new FixedSourceNameResolver("attachment-name.pdf")));
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                null,
+                "attachment",
+                false,
+                null,
+                Map.of(),
+                List.of(),
+                false));
+
+        assertThat(jobService.createdRequest.documentId()).isEqualTo("42");
+        assertThat(jobService.createdRequest.sourceName()).isEqualTo("attachment-name.pdf");
+        assertThat(jobService.createdSourceRequest.metadata()).containsEntry("attachmentId", "42");
+    }
+
+    @Test
+    void createTextJobDoesNotUseSourceNameResolver() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null,
+                Runnable::run,
+                200,
+                List.of(new FixedSourceNameResolver("attachment-name.pdf")));
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                "doc-1",
+                "attachment",
+                false,
+                "raw text",
+                Map.of(),
+                List.of(),
+                false));
+
+        assertThat(jobService.createdRequest.indexRequest()).isNotNull();
+        assertThat(jobService.createdRequest.sourceName()).isEqualTo("doc-1");
+    }
+
+    @Test
+    void createJobFallsBackToDocumentIdWhenSourceNameResolverReturnsEmpty() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null,
+                Runnable::run,
+                200,
+                List.of(new EmptySourceNameResolver()));
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                null,
+                "attachment",
+                false,
+                null,
+                Map.of(),
+                List.of(),
+                false));
+
+        assertThat(jobService.createdRequest.sourceName()).isEqualTo("42");
+    }
+
+    @Test
+    void createJobFallsBackToDocumentIdWhenSourceNameResolverThrows() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null,
+                Runnable::run,
+                200,
+                List.of(new ThrowingSourceNameResolver()));
+
+        controller.createJob(new RagIndexJobCreateRequestDto(
+                "attachment",
+                "42",
+                null,
+                "attachment",
+                false,
+                null,
+                Map.of(),
+                List.of(),
+                false));
+
+        assertThat(jobService.createdRequest.sourceName()).isEqualTo("42");
     }
 
     @Test
@@ -593,6 +703,51 @@ class RagIndexJobControllerTest {
                                 .build()))
                 .setControllerAdvice(new AiWebExceptionHandler())
                 .build();
+    }
+
+    private record FixedSourceNameResolver(String sourceName) implements RagIndexJobSourceNameResolver {
+
+        @Override
+        public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            return true;
+        }
+
+        @Override
+        public Optional<String> resolveSourceName(
+                RagIndexJobCreateRequest request,
+                RagIndexJobSourceRequest sourceRequest) {
+            return Optional.of(sourceName);
+        }
+    }
+
+    private static class EmptySourceNameResolver implements RagIndexJobSourceNameResolver {
+
+        @Override
+        public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            return true;
+        }
+
+        @Override
+        public Optional<String> resolveSourceName(
+                RagIndexJobCreateRequest request,
+                RagIndexJobSourceRequest sourceRequest) {
+            return Optional.empty();
+        }
+    }
+
+    private static class ThrowingSourceNameResolver implements RagIndexJobSourceNameResolver {
+
+        @Override
+        public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            throw new IllegalStateException("resolver unavailable");
+        }
+
+        @Override
+        public Optional<String> resolveSourceName(
+                RagIndexJobCreateRequest request,
+                RagIndexJobSourceRequest sourceRequest) {
+            throw new IllegalStateException("resolver unavailable");
+        }
     }
 
     private static String preAuthorizeValue(Method method) {

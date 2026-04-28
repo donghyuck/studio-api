@@ -227,6 +227,7 @@ studio:
 | `RagIndexJobRepository` | RAG 색인 작업 상태/로그 저장소. 기본 구현은 단일 인스턴스용 in-memory repository |
 | `RagIndexJobService` | RAG 색인 작업 생성/조회/취소/재시도와 progress listener 연결 |
 | `RagIndexJobSourceExecutor` | source 기반 RAG job 실행 확장점. 등록된 Bean은 job service가 ordered stream으로 조회 |
+| `RagIndexJobSourceNameResolver` | source 기반 RAG job 표시명 확장점. ai-web은 등록된 Bean으로 `sourceName`을 보강 |
 | `ChunkingOrchestrator` | `starter-chunking`이 있을 때 RAG indexing chunk 생성에 사용 |
 | `PromptManager` | Mustache 템플릿 기반 프롬프트 렌더러 |
 | `TextCleaner` | `studio.ai.rag.cleaner.enabled=true`일 때 색인 전 텍스트 정제 |
