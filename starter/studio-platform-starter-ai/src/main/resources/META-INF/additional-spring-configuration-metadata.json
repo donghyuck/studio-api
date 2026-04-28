@@ -114,10 +114,64 @@
       "description": "Enable keyword-enriched fallback retrieval."
     },
     {
+      "name": "studio.ai.rag.retrieval.semantic-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable semantic fallback retrieval."
+    },
+    {
       "name": "studio.ai.rag.retrieval.min-relevance-score",
       "type": "java.lang.Double",
       "defaultValue": 0.15,
       "description": "Minimum relevance score for fallback success."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.query-expansion.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable query expansion for keyword fallback."
+    },
+    {
+      "name": "studio.ai.rag.retrieval.query-expansion.max-keywords",
+      "type": "java.lang.Integer",
+      "defaultValue": 10,
+      "description": "Maximum keywords used for query expansion."
+    },
+    {
+      "name": "studio.ai.rag.cache.maximum-size",
+      "type": "java.lang.Long",
+      "defaultValue": 1000,
+      "description": "Maximum RAG cache entries."
+    },
+    {
+      "name": "studio.ai.rag.cache.ttl",
+      "type": "java.time.Duration",
+      "defaultValue": "10m",
+      "description": "RAG cache time to live."
+    },
+    {
+      "name": "studio.ai.rag.retry.max-attempts",
+      "type": "java.lang.Integer",
+      "defaultValue": 3,
+      "description": "Maximum RAG retry attempts."
+    },
+    {
+      "name": "studio.ai.rag.retry.wait-duration",
+      "type": "java.time.Duration",
+      "defaultValue": "2s",
+      "description": "Wait duration between RAG retry attempts."
+    },
+    {
+      "name": "studio.ai.rag.object-scope.default-list-limit",
+      "type": "java.lang.Integer",
+      "defaultValue": 20,
+      "description": "Default object-scope list limit."
+    },
+    {
+      "name": "studio.ai.rag.object-scope.max-list-limit",
+      "type": "java.lang.Integer",
+      "defaultValue": 200,
+      "description": "Maximum object-scope list limit."
     },
     {
       "name": "studio.ai.rag.keywords.scope",
@@ -126,16 +180,52 @@
       "description": "Keyword metadata scope."
     },
     {
+      "name": "studio.ai.rag.keywords.max-input-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 4000,
+      "description": "Maximum input characters for keyword extraction."
+    },
+    {
       "name": "studio.ai.rag.cleaner.enabled",
       "type": "java.lang.Boolean",
       "defaultValue": false,
       "description": "Enable text cleaning before indexing."
     },
     {
+      "name": "studio.ai.rag.cleaner.prompt",
+      "type": "java.lang.String",
+      "defaultValue": "rag-cleaner",
+      "description": "Prompt key used for RAG cleaner."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.max-input-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 20000,
+      "description": "Maximum cleaner input characters."
+    },
+    {
+      "name": "studio.ai.rag.cleaner.fail-open",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Continue indexing when cleaner fails."
+    },
+    {
       "name": "studio.ai.rag.diagnostics.enabled",
       "type": "java.lang.Boolean",
       "defaultValue": false,
       "description": "Enable RAG diagnostics collection."
+    },
+    {
+      "name": "studio.ai.rag.diagnostics.log-results",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Log RAG diagnostics results."
+    },
+    {
+      "name": "studio.ai.rag.diagnostics.max-snippet-chars",
+      "type": "java.lang.Integer",
+      "defaultValue": 120,
+      "description": "Maximum snippet length in diagnostics output."
     },
     {
       "name": "studio.ai.rag.jobs.repository",
@@ -252,12 +342,120 @@
       }
     },
     {
+      "name": "studio.ai.pipeline.retrieval.semantic-fallback-enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.semantic-fallback-enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.min-relevance-score",
+      "type": "java.lang.Double",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.min-relevance-score"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.lexical-weight",
+      "type": "java.lang.Double",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.lexical-weight"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.query-expansion.enabled",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.query-expansion.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retrieval.query-expansion.max-keywords",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retrieval.query-expansion.max-keywords"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cache.maximum-size",
+      "type": "java.lang.Long",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cache.maximum-size"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cache.ttl",
+      "type": "java.time.Duration",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cache.ttl"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retry.max-attempts",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retry.max-attempts"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.retry.wait-duration",
+      "type": "java.time.Duration",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.retry.wait-duration"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.object-scope.default-list-limit",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.object-scope.default-list-limit"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.object-scope.max-list-limit",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.object-scope.max-list-limit"
+      }
+    },
+    {
       "name": "studio.ai.pipeline.keywords.scope",
       "type": "java.lang.String",
       "deprecation": {
         "level": "warning",
         "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
         "replacement": "studio.ai.rag.keywords.scope"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.keywords.max-input-chars",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.keywords.max-input-chars"
       }
     },
     {
@@ -270,12 +468,57 @@
       }
     },
     {
+      "name": "studio.ai.pipeline.cleaner.prompt",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.prompt"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.max-input-chars",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.max-input-chars"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.cleaner.fail-open",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.cleaner.fail-open"
+      }
+    },
+    {
       "name": "studio.ai.pipeline.diagnostics.enabled",
       "type": "java.lang.Boolean",
       "deprecation": {
         "level": "warning",
         "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
         "replacement": "studio.ai.rag.diagnostics.enabled"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.diagnostics.log-results",
+      "type": "java.lang.Boolean",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.diagnostics.log-results"
+      }
+    },
+    {
+      "name": "studio.ai.pipeline.diagnostics.max-snippet-chars",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "RAG pipeline settings moved to studio.ai.rag.*.",
+        "replacement": "studio.ai.rag.diagnostics.max-snippet-chars"
       }
     },
     {

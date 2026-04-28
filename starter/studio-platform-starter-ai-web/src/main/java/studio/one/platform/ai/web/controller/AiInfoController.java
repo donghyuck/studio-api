@@ -78,7 +78,9 @@ public class AiInfoController {
         String baseUrl = switch (provider.getType()) {
             case OPENAI -> environment.getProperty("spring.ai.openai.base-url");
             case OLLAMA -> firstNonBlank(environment.getProperty("spring.ai.ollama.base-url"), provider.getBaseUrl());
-            case GOOGLE_AI_GEMINI -> provider.getBaseUrl();
+            case GOOGLE_AI_GEMINI -> firstNonBlank(
+                    environment.getProperty("spring.ai.google.genai.chat.base-url"),
+                    provider.getBaseUrl());
         };
         ProviderChannel chat = new ProviderChannel(
                 provider.getChat().isEnabled(),

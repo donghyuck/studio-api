@@ -177,9 +177,14 @@ spring:
 studio:
   ai:
     routing:
-      default-chat-provider: ollama
+      default-chat-provider: openai
       default-embedding-provider: ollama
     providers:
+      openai:
+        type: OPENAI
+        enabled: true
+        chat:
+          enabled: true
       ollama:
         type: OLLAMA
         enabled: true
@@ -188,6 +193,11 @@ studio:
 
 spring:
   ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
     ollama:
       base-url: http://localhost:11434
       embedding:
@@ -253,7 +263,7 @@ bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 
 ```yaml
 studio:
   ai:
-    pipeline:
+    rag:
       jobs:
         repository: jdbc # 기본값: memory
 ```

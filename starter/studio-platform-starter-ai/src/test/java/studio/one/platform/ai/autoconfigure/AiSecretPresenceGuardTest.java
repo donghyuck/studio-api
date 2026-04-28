@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.mock.env.MockEnvironment;
@@ -226,16 +228,85 @@ class AiSecretPresenceGuardTest {
         assertDoesNotThrow(guard::validate);
     }
 
+    @Test
+    void validateRejectsMultipleGoogleChatProvidersWhenUsingSingleSpringAiChatModel() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultChatProvider("google-primary");
+        properties.getRouting().setDefaultEmbeddingProvider("google-primary");
+        properties.getProviders().put("google-primary", googleProvider(true, false));
+        properties.getProviders().put("google-backup", googleProvider(true, false));
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("googleChatModel", org.mockito.Mockito.mock(ChatModel.class));
+        AiSecretPresenceGuard guard = guard(properties, environment(), beanFactory);
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRejectsMultipleGoogleEmbeddingProvidersWhenUsingSingleSpringAiEmbeddingModel() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultChatProvider("google-primary");
+        properties.getRouting().setDefaultEmbeddingProvider("google-primary");
+        properties.getProviders().put("google-primary", googleProvider(false, true));
+        properties.getProviders().put("google-backup", googleProvider(false, true));
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("googleEmbeddingModel", org.mockito.Mockito.mock(EmbeddingModel.class));
+        AiSecretPresenceGuard guard = guard(properties, environment(), beanFactory);
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRejectsMultipleOllamaEmbeddingProvidersWhenUsingSingleSpringAiEmbeddingModel() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultChatProvider("ollama-primary");
+        properties.getRouting().setDefaultEmbeddingProvider("ollama-primary");
+        properties.getProviders().put("ollama-primary", ollamaProvider());
+        properties.getProviders().put("ollama-backup", ollamaProvider());
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("ollamaEmbeddingModel", org.mockito.Mockito.mock(EmbeddingModel.class));
+        AiSecretPresenceGuard guard = guard(properties, environment(), beanFactory);
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
     private static Environment environment() {
         return new MockEnvironment();
     }
 
     private static AiSecretPresenceGuard guard(AiAdapterProperties properties, Environment environment) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        return guard(properties, environment, beanFactory);
+    }
+
+    private static AiSecretPresenceGuard guard(
+            AiAdapterProperties properties,
+            Environment environment,
+            StaticListableBeanFactory beanFactory) {
         return new AiSecretPresenceGuard(
                 properties,
                 environment,
-                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
-                beanFactory.getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class));
+                beanFactory.getBeanProvider(ChatModel.class),
+                beanFactory.getBeanProvider(EmbeddingModel.class));
+    }
+
+    private static Provider googleProvider(boolean chat, boolean embedding) {
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(chat);
+        provider.getEmbedding().setEnabled(embedding);
+        return provider;
+    }
+
+    private static Provider ollamaProvider() {
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.OLLAMA);
+        provider.getEmbedding().setEnabled(true);
+        return provider;
     }
 }

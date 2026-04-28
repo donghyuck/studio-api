@@ -1,7 +1,15 @@
 package studio.one.application.mail.autoconfigure;
 
+import java.util.Set;
+
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
@@ -25,16 +33,27 @@ class MailImapPropertiesConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(ImapProperties.class)
-    ImapProperties mailImapProperties(Environment environment) {
+    ImapProperties mailImapProperties(Environment environment, ObjectProvider<Validator> validatorProvider) {
         ImapProperties properties = Binder.get(environment)
                 .bind(TARGET_PREFIX, Bindable.of(ImapProperties.class))
                 .orElseGet(ImapProperties::new);
-        return ConfigurationPropertyMigration.bindLegacyFallbackIfTargetMissing(
+        ImapProperties migrated = ConfigurationPropertyMigration.bindLegacyFallbackIfTargetMissing(
                 environment,
                 TARGET_PREFIX,
                 LEGACY_PREFIX,
                 properties,
                 log,
                 MIGRATION_REASON);
+        validate(migrated, validatorProvider);
+        return migrated;
+    }
+
+    private static void validate(ImapProperties properties, ObjectProvider<Validator> validatorProvider) {
+        Validator validator = validatorProvider.getIfAvailable(
+                () -> Validation.buildDefaultValidatorFactory().getValidator());
+        Set<ConstraintViolation<ImapProperties>> violations = validator.validate(properties);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
     }
 }

@@ -4,10 +4,12 @@ import org.slf4j.Logger;
 import org.springframework.boot.context.properties.bind.Bindable;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
-import org.springframework.util.StringUtils;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.constant.PropertyKeys;
+
+import java.time.Duration;
+import java.util.function.Consumer;
 
 public final class AiConfigurationMigration {
 
@@ -104,12 +106,48 @@ public final class AiConfigurationMigration {
     }
 
     public static void applyRagPipelineFallback(Environment environment, RagPipelineProperties properties, Logger log) {
-        if (environment == null || properties == null || hasRagPipelineTargetProperties(environment)
-                || !hasLegacyRagPipelineProperties(environment)) {
+        if (environment == null || properties == null) {
             return;
         }
-        Binder.get(environment).bind(LEGACY_RAG_PREFIX, Bindable.ofInstance(properties));
-        warn(log, LEGACY_RAG_PREFIX + ".*", RAG_PREFIX + ".*");
+        bindLegacyRagLeaf(environment, "chunk-size", Integer.class, properties::setChunkSize, log);
+        bindLegacyRagLeaf(environment, "chunk-overlap", Integer.class, properties::setChunkOverlap, log);
+        bindLegacyRagLeaf(environment, "cache.maximum-size", Long.class, properties.getCache()::setMaximumSize, log);
+        bindLegacyRagLeaf(environment, "cache.ttl", Duration.class, properties.getCache()::setTtl, log);
+        bindLegacyRagLeaf(environment, "retry.max-attempts", Integer.class, properties.getRetry()::setMaxAttempts, log);
+        bindLegacyRagLeaf(environment, "retry.wait-duration", Duration.class, properties.getRetry()::setWaitDuration, log);
+        bindLegacyRagLeaf(environment, "retrieval.vector-weight", Double.class,
+                properties.getRetrieval()::setVectorWeight, log);
+        bindLegacyRagLeaf(environment, "retrieval.lexical-weight", Double.class,
+                properties.getRetrieval()::setLexicalWeight, log);
+        bindLegacyRagLeaf(environment, "retrieval.min-relevance-score", Double.class,
+                properties.getRetrieval()::setMinRelevanceScore, log);
+        bindLegacyRagLeaf(environment, "retrieval.keyword-fallback-enabled", Boolean.class,
+                properties.getRetrieval()::setKeywordFallbackEnabled, log);
+        bindLegacyRagLeaf(environment, "retrieval.semantic-fallback-enabled", Boolean.class,
+                properties.getRetrieval()::setSemanticFallbackEnabled, log);
+        bindLegacyRagLeaf(environment, "retrieval.query-expansion.enabled", Boolean.class,
+                properties.getRetrieval().getQueryExpansion()::setEnabled, log);
+        bindLegacyRagLeaf(environment, "retrieval.query-expansion.max-keywords", Integer.class,
+                properties.getRetrieval().getQueryExpansion()::setMaxKeywords, log);
+        bindLegacyRagLeaf(environment, "object-scope.default-list-limit", Integer.class,
+                properties.getObjectScope()::setDefaultListLimit, log);
+        bindLegacyRagLeaf(environment, "object-scope.max-list-limit", Integer.class,
+                properties.getObjectScope()::setMaxListLimit, log);
+        bindLegacyRagLeaf(environment, "cleaner.enabled", Boolean.class, properties.getCleaner()::setEnabled, log);
+        bindLegacyRagLeaf(environment, "cleaner.prompt", String.class, properties.getCleaner()::setPrompt, log);
+        bindLegacyRagLeaf(environment, "cleaner.max-input-chars", Integer.class,
+                properties.getCleaner()::setMaxInputChars, log);
+        bindLegacyRagLeaf(environment, "cleaner.fail-open", Boolean.class, properties.getCleaner()::setFailOpen, log);
+        bindLegacyRagLeaf(environment, "diagnostics.enabled", Boolean.class,
+                properties.getDiagnostics()::setEnabled, log);
+        bindLegacyRagLeaf(environment, "diagnostics.log-results", Boolean.class,
+                properties.getDiagnostics()::setLogResults, log);
+        bindLegacyRagLeaf(environment, "diagnostics.max-snippet-chars", Integer.class,
+                properties.getDiagnostics()::setMaxSnippetChars, log);
+        bindLegacyRagLeaf(environment, "keywords.scope", String.class, properties.getKeywords()::setScope, log);
+        bindLegacyRagLeaf(environment, "keywords.max-input-chars", Integer.class,
+                properties.getKeywords()::setMaxInputChars, log);
+        bindLegacyRagLeaf(environment, "jobs.repository", String.class, properties.getJobs()::setRepository, log);
     }
 
     public static String propertyWithLegacyFallback(
@@ -170,38 +208,21 @@ public final class AiConfigurationMigration {
         return null;
     }
 
-    private static boolean hasRagPipelineTargetProperties(Environment environment) {
-        return hasProperty(environment, RAG_PREFIX + ".chunk-size")
-                || hasProperty(environment, RAG_PREFIX + ".chunk-overlap")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".cache")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".retry")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".retrieval")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".object-scope")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".cleaner")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".diagnostics")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".keywords")
-                || hasPropertyGroup(environment, RAG_PREFIX + ".jobs");
-    }
-
-    private static boolean hasLegacyRagPipelineProperties(Environment environment) {
-        return hasProperty(environment, LEGACY_RAG_PREFIX + ".chunk-size")
-                || hasProperty(environment, LEGACY_RAG_PREFIX + ".chunk-overlap")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".cache")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".retry")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".retrieval")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".object-scope")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".cleaner")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".diagnostics")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".keywords")
-                || hasPropertyGroup(environment, LEGACY_RAG_PREFIX + ".jobs");
-    }
-
-    private static boolean hasProperty(Environment environment, String key) {
-        return StringUtils.hasText(environment.getProperty(key));
-    }
-
-    private static boolean hasPropertyGroup(Environment environment, String prefix) {
-        return ConfigurationPropertyMigration.hasProperties(environment, prefix);
+    private static <T> void bindLegacyRagLeaf(
+            Environment environment,
+            String propertyName,
+            Class<T> type,
+            Consumer<T> setter,
+            Logger log) {
+        String targetKey = RAG_PREFIX + "." + propertyName;
+        if (trimToNull(environment.getProperty(targetKey)) != null) {
+            return;
+        }
+        String legacyKey = LEGACY_RAG_PREFIX + "." + propertyName;
+        Binder.get(environment).bind(legacyKey, Bindable.of(type)).ifBound(value -> {
+            setter.accept(value);
+            warn(log, legacyKey, targetKey);
+        });
     }
 
     private static void warn(Logger log, String legacyKey, String replacementKey) {

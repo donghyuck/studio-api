@@ -18,11 +18,13 @@ import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAut
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.ai.autoconfigure.AiWebAutoConfiguration;
+import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard;
 import studio.one.platform.ai.core.chat.ChatMemoryStore;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -293,6 +295,32 @@ class OpenAiProviderAutoConfigurationTest {
                     .containsExactly("openai");
             assertThat(response.getBody().getData().chat().memory().enabled()).isFalse();
         });
+    }
+
+    @Test
+    void infoControllerPrefersSpringAiGoogleChatBaseUrl() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultChatProvider("google");
+        properties.getRouting().setDefaultEmbeddingProvider("google");
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.setBaseUrl("https://legacy.example.test");
+        provider.getChat().setEnabled(true);
+        properties.getProviders().put("google", provider);
+
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.google.genai.chat.base-url", "https://spring.example.test");
+        AiInfoController controller = new AiInfoController(
+                properties,
+                new AiWebChatProperties(),
+                environment,
+                null);
+
+        ResponseEntity<ApiResponse<AiInfoController.AiInfoResponse>> response = controller.providers();
+
+        assertThat(response.getBody().getData().providers())
+                .extracting(AiInfoController.ProviderInfo::baseUrl)
+                .containsExactly("https://spring.example.test");
     }
 
     @Test

@@ -157,6 +157,24 @@
       }
     },
     {
+      "name": "studio.features.mail.imap.folder",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.folder"
+      }
+    },
+    {
+      "name": "studio.features.mail.imap.max-messages",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Mail IMAP moved to studio.mail.imap.*",
+        "replacement": "studio.mail.imap.max-messages"
+      }
+    },
+    {
       "name": "studio.features.mail.imap.concurrency",
       "type": "java.lang.Integer",
       "deprecation": {

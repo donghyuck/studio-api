@@ -32,6 +32,7 @@ public class AiSecretPresenceGuard {
     void validate() {
         validateDefaultProviderSelection();
         validateOpenAiProviderMultiplicity();
+        validateSpringAiProviderMultiplicity();
         for (Map.Entry<String, AiAdapterProperties.Provider> entry : properties.getProviders().entrySet()) {
             String providerId = entry.getKey();
             AiAdapterProperties.Provider provider = entry.getValue();
@@ -68,6 +69,40 @@ public class AiSecretPresenceGuard {
                 .count();
         if (enabledOpenAiProviders > 1) {
             throw new IllegalStateException("Exactly one enabled OPENAI provider is supported");
+        }
+    }
+
+    private void validateSpringAiProviderMultiplicity() {
+        if (hasUnique(chatModelProvider)) {
+            rejectMultipleEnabledProviders(
+                    AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI,
+                    true,
+                    "Exactly one enabled GOOGLE_AI_GEMINI chat provider is supported when a Spring AI ChatModel bean is used");
+        }
+        if (hasUnique(embeddingModelProvider)) {
+            rejectMultipleEnabledProviders(
+                    AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI,
+                    false,
+                    "Exactly one enabled GOOGLE_AI_GEMINI embedding provider is supported when a Spring AI EmbeddingModel bean is used");
+            rejectMultipleEnabledProviders(
+                    AiAdapterProperties.ProviderType.OLLAMA,
+                    false,
+                    "Exactly one enabled OLLAMA embedding provider is supported when a Spring AI EmbeddingModel bean is used");
+        }
+    }
+
+    private void rejectMultipleEnabledProviders(
+            AiAdapterProperties.ProviderType type,
+            boolean chat,
+            String message) {
+        long count = properties.getProviders().values().stream()
+                .filter(provider -> provider != null
+                        && provider.isEnabled()
+                        && provider.getType() == type
+                        && (chat ? provider.getChat().isEnabled() : provider.getEmbedding().isEnabled()))
+                .count();
+        if (count > 1) {
+            throw new IllegalStateException(message);
         }
     }
 

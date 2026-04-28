@@ -124,39 +124,6 @@ spring:
 dependencies {
     implementation(project(":starter:studio-platform-starter-ai"))
     implementation("org.springframework.ai:spring-ai-google-genai")
-}
-```
-
-```yaml
-studio:
-  features:
-    ai:
-      enabled: true
-  ai:
-    routing:
-      default-chat-provider: google
-      default-embedding-provider: google
-    providers:
-      google:
-        type: GOOGLE_AI_GEMINI
-        enabled: true
-        chat:
-          enabled: true
-spring:
-  ai:
-    google:
-      genai:
-        chat:
-          api-key: ${GOOGLE_API_KEY}
-          options:
-            model: gemini-2.5-flash
-```
-
-### Google GenAI (Embedding)
-
-```kotlin
-dependencies {
-    implementation(project(":starter:studio-platform-starter-ai"))
     implementation("org.springframework.ai:spring-ai-google-genai-embedding")
 }
 ```
@@ -174,13 +141,65 @@ studio:
       google:
         type: GOOGLE_AI_GEMINI
         enabled: true
+        chat:
+          enabled: true
         embedding:
           enabled: true
 spring:
   ai:
-    google.genai.embedding:
-      api-key: ${GOOGLE_API_KEY}
-      text.options.model: text-embedding-004
+    google:
+      genai:
+        chat:
+          api-key: ${GOOGLE_API_KEY}
+          options:
+            model: gemini-2.5-flash
+        embedding:
+          api-key: ${GOOGLE_API_KEY}
+          text:
+            options:
+              model: gemini-embedding-001
+```
+
+### Google GenAI (Embedding)
+
+```kotlin
+dependencies {
+    implementation(project(":starter:studio-platform-starter-ai"))
+    implementation("org.springframework.ai:spring-ai-google-genai")
+    implementation("org.springframework.ai:spring-ai-google-genai-embedding")
+}
+```
+
+```yaml
+studio:
+  features:
+    ai:
+      enabled: true
+  ai:
+    routing:
+      default-chat-provider: google
+      default-embedding-provider: google
+    providers:
+      google:
+        type: GOOGLE_AI_GEMINI
+        enabled: true
+        chat:
+          enabled: true
+        embedding:
+          enabled: true
+spring:
+  ai:
+    google:
+      genai:
+        chat:
+          api-key: ${GOOGLE_API_KEY}
+          options:
+            model: gemini-2.5-flash
+        embedding:
+          api-key: ${GOOGLE_API_KEY}
+          text:
+            options:
+              model: text-embedding-004
 ```
 
 ### Ollama (Embedding)
@@ -199,9 +218,14 @@ studio:
       enabled: true
   ai:
     routing:
-      default-chat-provider: ollama
+      default-chat-provider: openai
       default-embedding-provider: ollama
     providers:
+      openai:
+        type: OPENAI
+        enabled: true
+        chat:
+          enabled: true
       ollama:
         type: OLLAMA
         enabled: true
@@ -209,6 +233,11 @@ studio:
           enabled: true
 spring:
   ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
     ollama:
       base-url: http://localhost:11434
       embedding.options.model: nomic-embed-text

@@ -140,8 +140,32 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getCleaner().isEnabled()).isTrue();
         assertThat(properties.getJobs().getRepository()).isEqualTo("jdbc");
         assertThat(output)
-                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.* is deprecated")
-                .contains("Use studio.ai.rag.* instead");
+                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.retrieval.vector-weight is deprecated")
+                .contains("Use studio.ai.rag.retrieval.vector-weight instead");
+    }
+
+    @Test
+    void shouldBindLegacyPipelineFallbackPerMissingLeafWhenTargetIsPartiallyConfigured(CapturedOutput output) {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
+                Map.entry("studio.ai.rag.jobs.repository", "jdbc"),
+                Map.entry("studio.ai.pipeline.jobs.repository", "memory"),
+                Map.entry("studio.ai.pipeline.diagnostics.enabled", "true"),
+                Map.entry("studio.ai.pipeline.retrieval.query-expansion.max-keywords", "3"))));
+
+        RagPipelineProperties properties = new Binder(ConfigurationPropertySources.get(environment))
+                .bind("studio.ai.rag", Bindable.of(RagPipelineProperties.class))
+                .orElseGet(RagPipelineProperties::new);
+        properties.setEnvironment(environment);
+        properties.afterPropertiesSet();
+
+        assertThat(properties.getJobs().getRepository()).isEqualTo("jdbc");
+        assertThat(properties.getDiagnostics().isEnabled()).isTrue();
+        assertThat(properties.getRetrieval().getQueryExpansion().getMaxKeywords()).isEqualTo(3);
+        assertThat(output)
+                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.diagnostics.enabled is deprecated")
+                .contains("[DEPRECATED CONFIG] studio.ai.pipeline.retrieval.query-expansion.max-keywords is deprecated")
+                .doesNotContain("studio.ai.pipeline.jobs.repository is deprecated");
     }
 
     @Test
