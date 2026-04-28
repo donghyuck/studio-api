@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -116,6 +117,20 @@ class VectorControllerTest {
         assertThat(captor.getValue().queryText()).isEqualTo("hello");
         assertThat(captor.getValue().includeText()).isTrue();
         assertThat(captor.getValue().includeMetadata()).isTrue();
+    }
+
+    @Test
+    void queryEmbeddingQuotaErrorIsReturnedAsEmbeddingProviderError() {
+        when(embeddingPort.embed(any()))
+                .thenThrow(new RuntimeException("HTTP 429 insufficient_quota"));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> controller.search(
+                new VectorSearchRequestDto("hello", null, 3, false, null, null, null)));
+
+        assertThat(exception.getStatusCode().value()).isEqualTo(429);
+        assertThat(exception.getReason()).contains("Embedding provider quota exceeded");
+        assertThat(exception.getReason()).contains("precomputed embedding");
+        verifyNoInteractions(vectorStorePort);
     }
 
     @Test

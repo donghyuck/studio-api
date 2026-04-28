@@ -606,6 +606,33 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void searchEmbeddingQuotaErrorIsMarkedAsEmbeddingProviderFailure() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenThrow(new RuntimeException("HTTP 429 insufficient_quota"));
+
+        assertThatThrownBy(() -> ragPipelineService.search(request))
+                .isInstanceOf(EmbeddingProviderQuotaExceededException.class)
+                .hasMessageContaining("Embedding provider quota exceeded")
+                .hasRootCauseMessage("HTTP 429 insufficient_quota");
+
+        verify(vectorStorePort, never()).hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void searchVectorStoreQuotaErrorIsNotMarkedAsEmbeddingProviderFailure() {
+        RagSearchRequest request = new RagSearchRequest("hello", 2);
+        RuntimeException vectorStoreFailure = new RuntimeException("HTTP 429 too many requests");
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenThrow(vectorStoreFailure);
+
+        assertThatThrownBy(() -> ragPipelineService.search(request))
+                .isSameAs(vectorStoreFailure);
+    }
+
+    @Test
     void shouldLimitSearchResultsToRequestedTopK() {
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))

@@ -23,6 +23,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.service.pipeline.EmbeddingProviderQuotaExceededException;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.IndexRequest;
@@ -128,13 +129,23 @@ public class RagController {
     @PostMapping("/search")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<SearchResponse> search(@Valid @RequestBody SearchRequest request) {
-        List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest(
-                request.query(),
-                request.topK(),
-                MetadataFilter.objectScope(request.objectType(), request.objectId()),
-                request.embeddingProfileId(),
-                request.embeddingProvider(),
-                request.embeddingModel()));
+        List<RagSearchResult> results;
+        try {
+            results = ragPipelineService.search(new RagSearchRequest(
+                    request.query(),
+                    request.topK(),
+                    MetadataFilter.objectScope(request.objectType(), request.objectId()),
+                    request.embeddingProfileId(),
+                    request.embeddingProvider(),
+                    request.embeddingModel()));
+        } catch (EmbeddingProviderQuotaExceededException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Embedding provider quota exceeded while executing RAG search. Query-based RAG search "
+                            + "generates an embedding before vector lookup; use RAG chunk inspection endpoints "
+                            + "for provider-free inspection.",
+                    ex);
+        }
         List<SearchResult> payload = results.stream()
                 .map(result -> new SearchResult(
                         result.documentId(),
