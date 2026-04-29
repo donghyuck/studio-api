@@ -24,6 +24,7 @@ package studio.one.platform.ai.web.controller;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,6 +72,7 @@ import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
@@ -441,6 +443,7 @@ public class ChatController {
         appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
         boolean exposeDiagnostics = shouldExposeDiagnostics(request);
         Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
+        extraMetadata.put("ragReferences", ragReferences(contextResult.usedResults()));
         if (exposeDiagnostics && contextResult.diagnostics() != null) {
             extraMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
         }
@@ -688,6 +691,101 @@ public class ChatController {
             metadata.put("ragDiagnostics", diagnostics.toMetadata());
         }
         return new ChatResponseDto(messages, response.model(), metadata);
+    }
+
+    private List<Map<String, Object>> ragReferences(List<RagSearchResult> results) {
+        if (results == null || results.isEmpty()) {
+            return List.of();
+        }
+        List<Map<String, Object>> references = new ArrayList<>(results.size());
+        for (int i = 0; i < results.size(); i++) {
+            references.add(ragReference(i + 1, results.get(i)));
+        }
+        return List.copyOf(references);
+    }
+
+    private Map<String, Object> ragReference(int index, RagSearchResult result) {
+        Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+        Map<String, Object> reference = new LinkedHashMap<>();
+        reference.put("index", index);
+        String documentId = firstText(metadata,
+                VectorRecord.KEY_DOCUMENT_ID,
+                "documentId",
+                "sourceDocumentId");
+        if (documentId == null) {
+            documentId = result.documentId();
+        }
+        put(reference, "documentId", documentId);
+        String sourceName = firstText(metadata, "sourceName", "title", "filename", "fileName", "name");
+        put(reference, "sourceName", sourceName == null ? documentId : sourceName);
+        String chunkId = firstText(metadata, VectorRecord.KEY_CHUNK_ID, "chunkId");
+        put(reference, "chunkId", chunkId == null ? documentId : chunkId);
+        put(reference, "chunkOrder", firstInteger(metadata, "chunkOrder", VectorRecord.KEY_CHUNK_INDEX));
+        put(reference, "score", result.score());
+        put(reference, "content", result.content());
+        Integer page = firstInteger(metadata, VectorRecord.KEY_PAGE, "page", "pageNumber");
+        if (page != null) {
+            reference.put("page", page);
+            reference.put("pageNumber", page);
+        }
+        Integer slide = firstInteger(metadata, VectorRecord.KEY_SLIDE, "slide", "slideNumber");
+        if (slide != null) {
+            reference.put("slide", slide);
+            reference.put("slideNumber", slide);
+        }
+        put(reference, "sourceRef", firstText(metadata, VectorRecord.KEY_SOURCE_REF, "sourceRef", "sourceRefs"));
+        put(reference, "section", firstText(metadata, "section", VectorRecord.KEY_HEADING_PATH, "headingPath"));
+        put(reference, "heading", firstText(metadata, "heading", VectorRecord.KEY_HEADING_PATH, "headingPath"));
+        if (!metadata.isEmpty()) {
+            reference.put("metadata", metadata);
+        }
+        return Map.copyOf(reference);
+    }
+
+    private void put(Map<String, Object> target, String key, Object value) {
+        if (value != null) {
+            target.put(key, value);
+        }
+    }
+
+    private String firstText(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value instanceof String text && !text.isBlank()) {
+                return text.trim();
+            }
+            if (value != null && !(value instanceof String)) {
+                String text = value.toString();
+                if (!text.isBlank()) {
+                    return text.trim();
+                }
+            }
+        }
+        return null;
+    }
+
+    private Integer firstInteger(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Integer value = integer(metadata.get(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private Integer integer(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            try {
+                return Integer.parseInt(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private boolean shouldExposeDiagnostics(ChatRagRequestDto request) {
