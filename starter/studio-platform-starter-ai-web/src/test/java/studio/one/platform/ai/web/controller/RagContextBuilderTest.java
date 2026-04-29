@@ -134,6 +134,31 @@ class RagContextBuilderTest {
                 .containsEntry("expandedHitCount", 0)
                 .containsEntry("fallbackHitCount", 1)
                 .containsEntry("fallbackReason", "context_limit");
+        assertThat(result.usedResults())
+                .extracting(RagSearchResult::content)
+                .containsExactly("seed");
+    }
+
+    @Test
+    void reportsExpandedResultsInPromptOrder() {
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(
+                        result("chunk-2", "seed", metadata("chunk-2")),
+                        result("chunk-4", "tail", metadata("chunk-4", "chunk-3", null, 3))),
+                List.of(
+                        result("chunk-1", "previous", metadata("chunk-1", null, "chunk-2", 0)),
+                        result("chunk-2", "seed", metadata("chunk-2", "chunk-1", "chunk-3", 1)),
+                        result("chunk-3", "next", metadata("chunk-3", "chunk-2", "chunk-4", 2)),
+                        result("chunk-4", "tail", metadata("chunk-4", "chunk-3", null, 3))));
+
+        assertThat(result.context())
+                .contains("[1] docId=chunk-2")
+                .contains("[2] docId=chunk-4");
+        assertThat(result.usedResults())
+                .extracting(RagSearchResult::content)
+                .containsExactly("previous\nseed\nnext\ntail", "previous\nseed\nnext\ntail");
     }
 
     @Test

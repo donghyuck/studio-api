@@ -603,6 +603,54 @@ class ChatControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void ragChatReturnsReferencesForPromptContext() {
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "doc-1",
+                        "file text",
+                        Map.of(
+                                "sourceName", "sample.pdf",
+                                RagContextBuilder.KEY_CHUNK_ID, "chunk-1",
+                                ChunkMetadata.KEY_CHUNK_ORDER, 7,
+                                "page", 3,
+                                "sourceRef", "page[3]"),
+                        0.9d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123")).getBody().getData();
+
+        List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
+        assertThat(references).hasSize(1);
+        assertThat(references.get(0))
+                .containsEntry("index", 1)
+                .containsEntry("documentId", "doc-1")
+                .containsEntry("sourceName", "sample.pdf")
+                .containsEntry("chunkId", "chunk-1")
+                .containsEntry("chunkOrder", 7)
+                .containsEntry("score", 0.9d)
+                .containsEntry("content", "file text")
+                .containsEntry("page", 3)
+                .containsEntry("pageNumber", 3)
+                .containsEntry("sourceRef", "page[3]");
+        assertThat((Map<String, Object>) references.get(0).get("metadata"))
+                .containsEntry("sourceName", "sample.pdf");
+    }
+
+    @Test
     void ragChatAllowsNonAttachmentObjectScope() {
         ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
@@ -1162,6 +1210,11 @@ class ChatControllerTest {
                 .containsEntry("applied", false)
                 .containsEntry("fallbackReason", "context_limit")
                 .containsEntry("fallbackHitCount", 1);
+        List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
+        assertThat(references).hasSize(1);
+        assertThat(references.get(0))
+                .containsEntry("content", "seed body")
+                .containsEntry("chunkId", "chunk-2");
     }
 
     @Test

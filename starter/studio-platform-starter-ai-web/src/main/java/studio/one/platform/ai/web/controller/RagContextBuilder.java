@@ -1,5 +1,6 @@
 package studio.one.platform.ai.web.controller;
 
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -107,6 +108,7 @@ public class RagContextBuilder {
         String strategy = null;
         String fallbackReason = expansionSupported ? null : "disabled";
         boolean contextLimitHit = false;
+        List<RagSearchResult> usedResults = new ArrayList<>();
         for (int i = 0; i < count; i++) {
             RagSearchResult original = results.get(i);
             ExpansionAttempt attempt = expandResultWithDiagnostics(original, expansionCandidates);
@@ -122,6 +124,7 @@ public class RagContextBuilder {
                     fallbackReason = "context_limit";
                     break;
                 }
+                usedResults.add(original);
                 fallbackHitCount++;
                 fallbackReason = "context_limit";
                 if (strategy == null) {
@@ -129,6 +132,7 @@ public class RagContextBuilder {
                 }
                 continue;
             }
+            usedResults.add(attempt.result());
             if (attempt.expanded()) {
                 expandedHitCount++;
                 if (strategy == null) {
@@ -155,7 +159,8 @@ public class RagContextBuilder {
                 fallbackHitCount,
                 candidateCount,
                 resultCount,
-                fallbackReason));
+                fallbackReason),
+                usedResults);
     }
 
     private boolean appendWithinLimit(StringBuilder sb, String chunk) {
@@ -339,7 +344,15 @@ public class RagContextBuilder {
         return value != null && !value.isBlank();
     }
 
-    public record BuildResult(String context, Diagnostics diagnostics) {
+    public record BuildResult(String context, Diagnostics diagnostics, List<RagSearchResult> usedResults) {
+
+        public BuildResult(String context, Diagnostics diagnostics) {
+            this(context, diagnostics, List.of());
+        }
+
+        public BuildResult {
+            usedResults = usedResults == null ? List.of() : List.copyOf(usedResults);
+        }
     }
 
     public record Diagnostics(
