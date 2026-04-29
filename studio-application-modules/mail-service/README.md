@@ -20,6 +20,8 @@ studio:
       web:
         enabled: true
         base-path: /api/mgmt/mail
+        sse: true               # /sync/stream 노출 여부. 미지정 시 true
+        notify: sse             # 작업 완료 알림 전송 채널: sse|stomp
   persistence:
     type: jpa                  # jpa | jdbc (mail.persistence 미설정 시 사용)
   mail:
@@ -44,6 +46,8 @@ studio:
 4. REST 사용 시 `studio.features.mail.web.enabled=true` 로 컨트롤러를 노출한다. 동기화는 `POST /sync` 로 트리거하고 `logId` 를 받아 `/sync/logs`/`/sync/logs/page` 또는 `SSE(/sync/stream)` 로 상태/완료 이벤트를 확인한다.
 5. 동시 실행 방지: 이미 동기화 중이면 `error.mail.sync.in-progress`(409) 응답이 반환된다.
 6. 중복 UID(고유 제약)나 파싱 오류가 있는 메일/파트는 건너뛰고 실패 건수에만 반영된다(작업은 계속 진행).
+
+`studio.features.mail.web.notify=stomp`는 작업 완료 이벤트의 전송 채널을 추가/선택하는 설정이며, SSE endpoint 노출과는 별개다. `/sync/stream`을 닫으려면 `studio.features.mail.web.sse=false`를 명시한다.
 
 ### Vue 예시: 동기화 요청 + SSE 수신
 ```ts

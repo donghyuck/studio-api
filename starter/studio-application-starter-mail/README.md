@@ -17,6 +17,8 @@ studio:
       web:
         enabled: true
         base-path: /api/mgmt/mail
+        sse: true                # SSE stream 노출 여부. 미지정 시 true
+        notify: sse              # 작업 완료 알림 전송 채널: sse|stomp
   persistence:
     type: jpa                   # 글로벌 기본값 (mail.persistence 미설정 시)
   mail:
@@ -33,6 +35,8 @@ studio:
 ```
 
 IMAP 계정/서버 설정은 `studio.mail.imap.*`를 기본으로 두고, 기존 `studio.features.mail.imap.*`는 transition fallback으로만 사용한다.
+
+`studio.features.mail.web.sse`는 `/sync/stream` 엔드포인트 노출 여부만 제어한다. `studio.features.mail.web.notify=stomp`로 STOMP 알림을 쓰더라도 `sse=false`를 명시하지 않으면 SSE stream endpoint는 계속 노출되어 기존 클라이언트가 안정적으로 연결할 수 있다.
 
 ## REST 엔드포인트 (기본 base-path: `/api/mgmt/mail`)
 - `GET /{mailId}`: 메일 + 첨부 메타 조회 (권한 `features:mail/read`)
