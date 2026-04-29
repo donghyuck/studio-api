@@ -112,10 +112,10 @@ class RagContextBuilderTest {
     }
 
     @Test
-    void keepsCharacterBudgetAfterExpansion() {
+    void fallsBackToOriginalChunkWhenExpandedContextExceedsCharacterBudget() {
         RagContextBuilder builder = new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList());
 
-        String context = builder.build(
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
                 List.of(result("chunk-2", "seed", metadata("chunk-2"))),
                 List.of(
                         result("chunk-1", "previous text that makes the expanded content too long",
@@ -124,7 +124,35 @@ class RagContextBuilderTest {
                         result("chunk-3", "next text that makes the expanded content too long",
                                 metadata("chunk-3", "chunk-2", null, 2))));
 
-        assertThat(context).isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+        assertThat(result.context())
+                .contains("docId=chunk-2")
+                .contains("seed")
+                .doesNotContain("previous text that makes the expanded content too long")
+                .doesNotContain("next text that makes the expanded content too long");
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("applied", false)
+                .containsEntry("expandedHitCount", 0)
+                .containsEntry("fallbackHitCount", 1)
+                .containsEntry("fallbackReason", "context_limit");
+    }
+
+    @Test
+    void reportsContextLimitWhenOriginalChunkAlsoExceedsCharacterBudget() {
+        RagContextBuilder builder = new RagContextBuilder(8, 50, true, TestWindowChunkContextExpander.asList());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(result("chunk-2", "seed text that is too long for the remaining context budget",
+                        metadata("chunk-2"))),
+                List.of(
+                        result("chunk-1", "previous", metadata("chunk-1", null, "chunk-2", 0)),
+                        result("chunk-2", "seed text that is too long for the remaining context budget",
+                                metadata("chunk-2", "chunk-1", "chunk-3", 1)),
+                        result("chunk-3", "next", metadata("chunk-3", "chunk-2", null, 2))));
+
+        assertThat(result.context()).isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("resultCount", 1)
+                .containsEntry("fallbackReason", "context_limit");
     }
 
     private RagSearchResult result(String chunkId, String content, Map<String, Object> metadata) {

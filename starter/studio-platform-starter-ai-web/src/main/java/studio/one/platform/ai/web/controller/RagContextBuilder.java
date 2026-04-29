@@ -106,11 +106,28 @@ public class RagContextBuilder {
         int fallbackHitCount = 0;
         String strategy = null;
         String fallbackReason = expansionSupported ? null : "disabled";
+        boolean contextLimitHit = false;
         for (int i = 0; i < count; i++) {
-            ExpansionAttempt attempt = expandResultWithDiagnostics(results.get(i), expansionCandidates);
+            RagSearchResult original = results.get(i);
+            ExpansionAttempt attempt = expandResultWithDiagnostics(original, expansionCandidates);
             String chunk = formatChunk(i + 1, attempt.result());
             if (!appendWithinLimit(sb, chunk)) {
-                break;
+                contextLimitHit = true;
+                if (!attempt.expanded()) {
+                    fallbackReason = "context_limit";
+                    break;
+                }
+                String fallbackChunk = formatChunk(i + 1, original);
+                if (!appendWithinLimit(sb, fallbackChunk)) {
+                    fallbackReason = "context_limit";
+                    break;
+                }
+                fallbackHitCount++;
+                fallbackReason = "context_limit";
+                if (strategy == null) {
+                    strategy = attempt.strategy();
+                }
+                continue;
             }
             if (attempt.expanded()) {
                 expandedHitCount++;
@@ -127,7 +144,8 @@ public class RagContextBuilder {
         String context = sb.toString().trim();
         if (HEADER.trim().equals(context)) {
             return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
-                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, "no_context"));
+                    expansionSupported, false, strategy, 0, fallbackHitCount, candidateCount, resultCount,
+                    contextLimitHit ? "context_limit" : "no_context"));
         }
         return new BuildResult(context, new Diagnostics(
                 expansionSupported,
@@ -156,10 +174,6 @@ public class RagContextBuilder {
         }
         sb.append("\n").append(result.content()).append("\n\n");
         return sb.toString();
-    }
-
-    private RagSearchResult expandResult(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
-        return expandResultWithDiagnostics(result, expansionCandidates).result();
     }
 
     private ExpansionAttempt expandResultWithDiagnostics(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
