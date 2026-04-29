@@ -28,7 +28,7 @@
   - 파일 시스템: `studio.attachment.storage.type=filesystem` (기본), 경로는 `studio.attachment.storage.base-dir`, 없으면 tmp/attachments.
   - 데이터베이스: `studio.attachment.storage.type=database` + `studio.features.attachment.persistence=jpa|jdbc`, BLOB 테이블 `TB_APPLICATION_ATTACHMENT_DATA` 사용.
   - DB + 캐시: `studio.attachment.storage.cache-enabled=true` 로 로컬 파일 캐시 활성화.
-- 썸네일: `studio.attachment.thumbnail.enabled`, `default-size`, `default-format`, `base-dir`, `ensure-dirs`로 제어한다.
+- 썸네일: attachment 통합/저장은 `studio.attachment.thumbnail.enabled`, `base-dir`, `ensure-dirs`로 제어하고, 생성 기본값은 `studio.thumbnail.default-size`, `default-format`, `max-source-size`, `max-source-pixels`, `renderers.*`로 제어한다.
 - API/서비스: `AttachmentService` 로 생성/조회/삭제/스트림 조회, REST 컨트롤러는 `/api/mgmt/attachments`(또는 `studio.features.attachment.web.mgmt-base-path`) 이하 업로드·다운로드·검색 제공.
 
 ## Content Embedding Pipeline

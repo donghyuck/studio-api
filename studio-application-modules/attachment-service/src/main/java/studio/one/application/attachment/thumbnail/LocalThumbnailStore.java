@@ -4,6 +4,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.Set;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,8 +20,10 @@ public class LocalThumbnailStore implements ThumbnailStorage {
         try {
             Path dir = resolveDir(key);
             Files.createDirectories(dir);
+            applyOwnerOnlyDirectoryPermissions(dir);
             Path file = dir.resolve(fileName(key));
             Files.copy(input, file);
+            applyOwnerOnlyFilePermissions(file);
             return file.toAbsolutePath().toString();
         } catch (IOException e) {
             throw new RuntimeException("Local thumbnail save failed", e);
@@ -69,5 +74,24 @@ public class LocalThumbnailStore implements ThumbnailStorage {
 
     private String fileName(ThumbnailKey key) {
         return key.getSize() + "." + key.getFormat();
+    }
+
+    private void applyOwnerOnlyDirectoryPermissions(Path dir) throws IOException {
+        if (Files.getFileAttributeView(dir, PosixFileAttributeView.class) == null) {
+            return;
+        }
+        Files.setPosixFilePermissions(dir, Set.of(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE,
+                PosixFilePermission.OWNER_EXECUTE));
+    }
+
+    private void applyOwnerOnlyFilePermissions(Path file) throws IOException {
+        if (Files.getFileAttributeView(file, PosixFileAttributeView.class) == null) {
+            return;
+        }
+        Files.setPosixFilePermissions(file, Set.of(
+                PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE));
     }
 }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.validation.ValidationAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -27,15 +28,19 @@ import studio.one.application.attachment.storage.LocalFileStore;
 import studio.one.application.attachment.thumbnail.LocalThumbnailStore;
 import studio.one.application.attachment.thumbnail.ThumbnailKey;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
-import studio.one.application.attachment.thumbnail.ThumbnailServiceImpl;
 import studio.one.application.attachment.thumbnail.ThumbnailStorage;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
+import studio.one.platform.thumbnail.ThumbnailGenerationService;
+import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
 
 @ExtendWith(OutputCaptureExtension.class)
 class AttachmentAutoConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-            .withConfiguration(AutoConfigurations.of(AttachmentAutoConfiguration.class))
+            .withConfiguration(AutoConfigurations.of(
+                    ValidationAutoConfiguration.class,
+                    ThumbnailAutoConfiguration.class,
+                    AttachmentAutoConfiguration.class))
             .withBean(AttachmentRepository.class, AttachmentAutoConfigurationTest::attachmentRepository)
             .withPropertyValues(
                     "studio.features.attachment.enabled=true",
@@ -57,7 +62,7 @@ class AttachmentAutoConfigurationTest {
                         "studio.attachment.storage.ensure-dirs=false",
                         "studio.attachment.thumbnail.base-dir=/target-thumbnail",
                         "studio.attachment.thumbnail.ensure-dirs=false",
-                        "studio.attachment.thumbnail.default-size=256")
+                        "studio.thumbnail.default-size=256")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
 
@@ -66,7 +71,7 @@ class AttachmentAutoConfigurationTest {
 
                     assertThat(context.getBean(ThumbnailStorage.class)).isInstanceOf(LocalThumbnailStore.class);
                     assertThat(baseDir(context.getBean(ThumbnailStorage.class))).isEqualTo("/target-thumbnail");
-                    assertThat(defaultSize(context.getBean(ThumbnailService.class))).isEqualTo(256);
+                    assertThat(defaultSize(context.getBean(ThumbnailGenerationService.class))).isEqualTo(256);
                     assertThat(output).doesNotContain("[DEPRECATED CONFIG]");
                 });
     }
@@ -85,12 +90,14 @@ class AttachmentAutoConfigurationTest {
 
                     assertThat(baseDir(context.getBean(FileStorage.class))).isEqualTo("/legacy-storage");
                     assertThat(baseDir(context.getBean(ThumbnailStorage.class))).isEqualTo("/legacy-thumbnail");
-                    assertThat(defaultSize(context.getBean(ThumbnailService.class))).isEqualTo(96);
+                    assertThat(defaultSize(context.getBean(ThumbnailGenerationService.class))).isEqualTo(96);
                     assertThat(output)
                             .contains("[DEPRECATED CONFIG] studio.features.attachment.storage.base-dir is deprecated")
                             .contains("Use studio.attachment.storage.base-dir instead")
                             .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.base-dir is deprecated")
-                            .contains("Use studio.attachment.thumbnail.base-dir instead");
+                            .contains("Use studio.attachment.thumbnail.base-dir instead")
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.default-size is deprecated")
+                            .contains("Use studio.thumbnail.default-size instead");
                 });
     }
 
@@ -105,7 +112,7 @@ class AttachmentAutoConfigurationTest {
                         "studio.attachment.thumbnail.base-dir=/target-thumbnail",
                         "studio.attachment.thumbnail.enabled=true",
                         "studio.attachment.thumbnail.ensure-dirs=false",
-                        "studio.attachment.thumbnail.default-size=256",
+                        "studio.thumbnail.default-size=256",
                         "studio.features.attachment.thumbnail.enabled=false",
                         "studio.features.attachment.thumbnail.base-dir=/legacy-thumbnail",
                         "studio.features.attachment.thumbnail.default-size=96")
@@ -114,7 +121,7 @@ class AttachmentAutoConfigurationTest {
 
                     assertThat(baseDir(context.getBean(FileStorage.class))).isEqualTo("/target-storage");
                     assertThat(baseDir(context.getBean(ThumbnailStorage.class))).isEqualTo("/target-thumbnail");
-                    assertThat(defaultSize(context.getBean(ThumbnailService.class))).isEqualTo(256);
+                    assertThat(defaultSize(context.getBean(ThumbnailGenerationService.class))).isEqualTo(256);
                     assertThat(output).doesNotContain("[DEPRECATED CONFIG]");
                 });
     }
@@ -134,10 +141,12 @@ class AttachmentAutoConfigurationTest {
 
                     assertThat(baseDir(context.getBean(FileStorage.class))).isEqualTo("/target-storage");
                     assertThat(baseDir(context.getBean(ThumbnailStorage.class))).isEqualTo("/legacy-thumbnail");
-                    assertThat(defaultSize(context.getBean(ThumbnailService.class))).isEqualTo(80);
+                    assertThat(defaultSize(context.getBean(ThumbnailGenerationService.class))).isEqualTo(80);
                     assertThat(output)
                             .doesNotContain("[DEPRECATED CONFIG] studio.features.attachment.storage.* is deprecated")
-                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.base-dir is deprecated");
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.base-dir is deprecated")
+                            .contains("[DEPRECATED CONFIG] studio.features.attachment.thumbnail.default-size is deprecated")
+                            .contains("Use studio.thumbnail.default-size instead");
                 });
     }
 
@@ -197,9 +206,8 @@ class AttachmentAutoConfigurationTest {
         return (String) ReflectionTestUtils.getField(bean, "baseDir");
     }
 
-    private static int defaultSize(Object bean) {
-        assertThat(bean).isInstanceOf(ThumbnailServiceImpl.class);
-        return (Integer) ReflectionTestUtils.getField(bean, "defaultSize");
+    private static int defaultSize(ThumbnailGenerationService service) {
+        return service.generationOptions().defaultSize();
     }
 
     private static AttachmentRepository attachmentRepository() {

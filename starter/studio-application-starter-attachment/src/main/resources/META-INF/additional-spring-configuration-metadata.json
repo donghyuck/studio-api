@@ -10,7 +10,11 @@
     },
     {
       "name": "studio.attachment.thumbnail",
-      "description": "Attachment thumbnail runtime properties."
+      "description": "Attachment thumbnail storage and attachment integration properties."
+    },
+    {
+      "name": "studio.thumbnail",
+      "description": "Platform thumbnail generation runtime properties."
     }
   ],
   "properties": [
@@ -74,18 +78,6 @@
       "description": "Enable attachment thumbnail generation."
     },
     {
-      "name": "studio.attachment.thumbnail.default-size",
-      "type": "java.lang.Integer",
-      "defaultValue": 128,
-      "description": "Default thumbnail size in pixels."
-    },
-    {
-      "name": "studio.attachment.thumbnail.default-format",
-      "type": "java.lang.String",
-      "defaultValue": "png",
-      "description": "Default thumbnail format."
-    },
-    {
       "name": "studio.attachment.thumbnail.base-dir",
       "type": "java.lang.String",
       "description": "Base directory for thumbnail files."
@@ -146,8 +138,8 @@
       "type": "java.lang.Integer",
       "deprecation": {
         "level": "warning",
-        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
-        "replacement": "studio.attachment.thumbnail.default-size"
+        "reason": "Thumbnail generation defaults moved to the platform thumbnail service.",
+        "replacement": "studio.thumbnail.default-size"
       }
     },
     {
@@ -155,8 +147,8 @@
       "type": "java.lang.String",
       "deprecation": {
         "level": "warning",
-        "reason": "Attachment thumbnail moved to studio.attachment.thumbnail.*",
-        "replacement": "studio.attachment.thumbnail.default-format"
+        "reason": "Thumbnail generation defaults moved to the platform thumbnail service.",
+        "replacement": "studio.thumbnail.default-format"
       }
     },
     {

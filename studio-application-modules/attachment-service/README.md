@@ -1,16 +1,17 @@
 # Attachment Service
-첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage/thumbnail runtime 설정은 `studio.attachment.*`로 제어한다. `studio.features.attachment.storage.*`와 `studio.features.attachment.thumbnail.*`는 migration window 동안만 fallback으로 유지된다.
+첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 `studio.thumbnail.*`로 제어한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 유지된다.
 
 ## 구성 요소
 - **AttachmentService / AttachmentServiceImpl**: 생성, 조회, 목록/검색, 삭제, 스트림 로딩을 담당. ID 단위 캐시(`attachments.byId`) 사용.
 - **AttachmentRepository**: 메타데이터 저장소. `JdbcAttachmentRepository`(TB_APPLICATION_ATTACHMENT, TB_APPLICATION_ATTACHMENT_PROPERTY) 또는 `AttachmentJpaRepository`로 동작.
 - **FileStorage**: 바이너리 저장소. 기본은 `LocalFileStore`; `JpaFileStore`/`JdbcFileStore`로 DB 저장 가능하며, DB 저장 시 `CachedFileStore`로 로컬 캐시 옵션 지원.
 - **엔티티**: `ApplicationAttachment`(메타데이터), `ApplicationAttachmentData`(바이너리), 속성 맵은 TB_APPLICATION_ATTACHMENT_PROPERTY에 저장.
-- **REST 컨트롤러**: `AttachmentMgmtController`(관리자/운영), `AttachmentController`(서비스 간 호출), `MeAttachmentController`(로그인 사용자 전용)가 업로드/다운로드/조회/검색/삭제와 텍스트 추출 API를 제공.
+- **REST 컨트롤러**: `AttachmentMgmtController`(관리자/운영), `AttachmentController`(서비스 간 호출), `MeAttachmentController`(로그인 사용자 전용)가 업로드/다운로드/조회/검색/삭제와 텍스트 추출/썸네일 API를 제공.
+- **썸네일 생성**: attachment 모듈은 저장소와 endpoint 계약을 유지하고, 실제 image/PDF 생성은 `studio-platform-thumbnail`의 `ThumbnailGenerationService`에 위임한다.
 - **ObjectType 정책 검증(옵션)**: `ObjectTypeRuntimeService` 빈이 존재하면 업로드 시 정책(용량/확장자/MIME)을 검증한다. 빈이 없으면 검증을 생략한다.
 
 ## 자동구성 및 프로퍼티
-`studio.features.attachment.*`는 feature gate와 web 노출만 담당하고, storage/thumbnail은 `studio.attachment.*`에서 제어한다(기본값은 주석 참고).
+`studio.features.attachment.*`는 feature gate와 web 노출만 담당한다. attachment storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 독립 `studio.thumbnail.*`에서 제어한다(기본값은 주석 참고).
 
 ```yaml
 studio:
@@ -31,10 +32,21 @@ studio:
       cache-enabled: false        # database 사용 시 로컬 캐시 on/off
     thumbnail:
       enabled: true               # 썸네일 생성 기능
-      default-size: 128           # 기본 썸네일 크기(px)
-      default-format: png         # png만 지원
       base-dir: ""                # 비우면 attachments/thumbnails 사용
       ensure-dirs: true
+  thumbnail:
+    default-size: 128             # 기본 썸네일 크기(px)
+    default-format: png           # 현재 png 지원
+    min-size: 16
+    max-size: 512
+    max-source-size: 50MB
+    max-source-pixels: 25000000
+    renderers:
+      image:
+        enabled: true
+      pdf:
+        enabled: false            # PDFBox classpath가 있고 명시적으로 true일 때만 등록
+        page: 0
 ```
 
 ### 동작 방식
@@ -42,13 +54,14 @@ studio:
 - `persistence`가 `jpa` 면 `AttachmentJpaRepository` + `JpaFileStore`(database 선택 시) 사용, `jdbc` 면 `JdbcAttachmentRepository` + `JdbcFileStore`.
 - `attachment.storage.type=filesystem` → `LocalFileStore`에 바이너리 저장.
 - `attachment.storage.type=database` → 선택한 persistence 저장소에 바이너리를 넣고, `cache-enabled=true` 시 `LocalFileStore`로 읽기 캐시.
+- `ThumbnailGenerationService`가 있으면 image 썸네일을 생성한다. PDF 썸네일은 `studio.thumbnail.renderers.pdf.enabled=true`로 명시 opt-in 했을 때만 생성한다. 지원 renderer가 없거나 변환할 수 없는 문서는 `/thumbnail`에서 204를 반환한다.
+- 운영 환경에서는 `studio.attachment.storage.base-dir`와 `studio.attachment.thumbnail.base-dir`를 애플리케이션 전용 private 경로로 명시한다. 기본 tmp 경로는 로컬 개발 편의용이다.
 - `web.enabled=true` 시 `AttachmentMgmtController`/`AttachmentController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
 - `ObjectTypeRuntimeService` 빈이 있을 경우 업로드 시 `validateUpload`로 정책 검증을 수행한다(없으면 생략).
 
 ## REST API (기본 base-path: `/api/mgmt/attachments`)
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수. 권한 `features:attachment/upload`.
 - `GET /{attachmentId}`: 메타데이터 조회. 권한 `features:attachment/read`.
-- `GET /{attachmentId}/thumbnail`: 썸네일 이미지. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/text`: 텍스트 추출. `FileContentExtractionService` 빈이 있을 때만 200, 없으면 501. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/download`: 스트리밍 다운로드. 권한 `features:attachment/download`.
 - `GET /` : 페이지 목록. `objectType`, `objectId`, `keyword` 선택. (컨트롤러 상 별도 PreAuthorize 없음)
@@ -89,6 +102,7 @@ curl -X POST "/api/mgmt/attachments" \
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수. 권한 `features:attachment/service-upload`.
 - `GET /{attachmentId}`: 메타데이터 조회. 권한 `features:attachment/service-read`.
 - `GET /{attachmentId}/download`: 스트리밍 다운로드. 권한 `features:attachment/service-download`.
+- `GET /{attachmentId}/thumbnail`: 썸네일 이미지. 원본 파생 콘텐츠이므로 권한 `features:attachment/service-download`.
 - `GET /objects/{objectType}/{objectId}`: 객체별 목록(페이지/keyword 지원). 권한 `features:attachment/service-read`.
 - `DELETE /{attachmentId}`: 삭제. 권한 `features:attachment/service-delete`.
 
@@ -129,11 +143,11 @@ objecttypes:
 ## 권한 스코프 요약
 - `features:attachment/upload` 업로드
 - `features:attachment/read` 조회/목록/텍스트 추출
-- `features:attachment/download` 다운로드
+- `features:attachment/download` 다운로드/썸네일 조회
 - `features:attachment/delete` 삭제
 - `features:attachment/service-upload` 서비스 업로드
 - `features:attachment/service-read` 서비스 조회/목록
-- `features:attachment/service-download` 서비스 다운로드
+- `features:attachment/service-download` 서비스 다운로드/썸네일 조회
 - `features:attachment/service-delete` 서비스 삭제
 
 ## Forums 연동 (studio-one-forums)
@@ -169,4 +183,5 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 attachment 범위(V800-V8
 1. `studio.features.attachment.enabled=true` 와 `studio.features.attachment.web.enabled=true` 설정.
 2. 필요 시 `studio.features.attachment.persistence`(jpa/jdbc)와 `studio.attachment.storage.*` 조정.
 3. 권한 스코프(`features:attachment/*`)를 인가 서버 또는 ACL에 등록.
-4. (선택) 파일 시스템을 쓸 경우 `base-dir` 접근 권한을 확인하고, DB 저장을 쓸 경우 BLOB 컬럼을 포함한 테이블을 준비한다.
+4. 스타터 없이 직접 `ThumbnailServiceImpl`를 구성하는 경우 신규 생성자는 `ThumbnailGenerationService`를 함께 주입한다. 기존 `(AttachmentService, ThumbnailStorage, int, String)` 생성자는 migration window 동안 deprecated 호환 경로로 유지된다.
+5. (선택) 파일 시스템을 쓸 경우 `base-dir` 접근 권한을 확인하고, DB 저장을 쓸 경우 BLOB 컬럼을 포함한 테이블을 준비한다.
