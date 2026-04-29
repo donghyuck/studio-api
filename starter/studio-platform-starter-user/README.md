@@ -140,6 +140,9 @@ studio:
 - `/api/mgmt/roles`
 - `/api/self`
 
+기본 사용자 관리 API에는 `DELETE /api/mgmt/users/{id}`가 포함된다. 이 엔드포인트는
+`features:user` admin 권한을 요구하며, 성공 시 `204 No Content`를 반환한다.
+
 기본 컨트롤러는 `ApplicationUserMapper`/`ApplicationUserService` 빈이 있을 때만 등록된다.
 커스텀 컨트롤러를 제공할 때는 `UserMgmtApi`/`UserPublicApi`/`UserAuthPublicApi`/`UserMeApi`
 인터페이스를 구현하면 기본 컨트롤러가 자동으로 비활성화된다.

@@ -176,6 +176,14 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
                 return ResponseEntity.ok(ApiResponse.ok(userMapper.toDto(updated)));
         }
 
+        @DeleteMapping("/{id}")
+        @PreAuthorize("@endpointAuthz.can('features:user','admin')")
+        @Override
+        public ResponseEntity<Void> delete(@PathVariable Long id) {
+                userService.delete(id);
+                return ResponseEntity.noContent().build();
+        }
+
         @GetMapping("/password-policy")
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
         @Override

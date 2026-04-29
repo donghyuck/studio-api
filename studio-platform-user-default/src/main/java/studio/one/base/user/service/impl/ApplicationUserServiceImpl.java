@@ -175,6 +175,10 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId"),
+            @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, allEntries = true)
+    })
     public void delete(Long userId) {
         ApplicationUser u = get(userId);
         userRepo.delete(u);

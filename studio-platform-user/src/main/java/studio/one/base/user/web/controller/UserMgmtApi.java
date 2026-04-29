@@ -50,6 +50,10 @@ public interface UserMgmtApi {
 
     ResponseEntity<ApiResponse<UserDto>> update(Long id, @RequestBody UpdateUserRequest req);
 
+    default ResponseEntity<Void> delete(Long id) {
+        throw new UnsupportedOperationException("User delete endpoint is not implemented");
+    }
+
     ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy();
 
     ResponseEntity<Void> passwordReset(Long id, @Valid @RequestBody ChangePasswordRequest req,
