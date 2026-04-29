@@ -1116,6 +1116,55 @@ class ChatControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void ragChatFallsBackToSearchChunkWhenExpandedContextExceedsLimit() {
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList()), true);
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("chunk-2", "seed body",
+                        chunkMetadata("chunk-2"), 0.9d)));
+        when(ragPipelineService.listByObject("attachment", "123", 12))
+                .thenReturn(List.of(
+                        new RagSearchResult("chunk-1", "previous text that makes the expanded content too long",
+                                chunkMetadata("chunk-1", null, "chunk-2", 0), 1.0d),
+                        new RagSearchResult("chunk-2", "seed body",
+                                chunkMetadata("chunk-2", "chunk-1", "chunk-3", 1), 1.0d),
+                        new RagSearchResult("chunk-3", "next text that makes the expanded content too long",
+                                chunkMetadata("chunk-3", "chunk-2", null, 2), 1.0d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123",
+                true)).getBody().getData();
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("seed body")
+                .doesNotContain("참고할 문서가 없습니다")
+                .doesNotContain("previous text that makes the expanded content too long")
+                .doesNotContain("next text that makes the expanded content too long");
+        Map<String, Object> contextDiagnostics = (Map<String, Object>) response.metadata()
+                .get("ragContextDiagnostics");
+        assertThat(contextDiagnostics)
+                .containsEntry("applied", false)
+                .containsEntry("fallbackReason", "context_limit")
+                .containsEntry("fallbackHitCount", 1);
+    }
+
+    @Test
     void ragChatListsByObjectWhenQueryMissingAndObjectFilterPresent() {
         when(ragPipelineService.listByObject("attachment", "123", 3))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "file text", Map.of(), 1.0d)));
