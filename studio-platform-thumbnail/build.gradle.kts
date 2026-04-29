@@ -19,6 +19,8 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     api(project(":studio-platform"))
     compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
+    compileOnly("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
 
     testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
+    testImplementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
 }

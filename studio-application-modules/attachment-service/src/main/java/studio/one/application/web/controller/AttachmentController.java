@@ -100,12 +100,23 @@ public class AttachmentController {
         int requestedSize = size == null ? 0 : size;
         var result = thumbnailService.getOrCreate(attachment, requestedSize, format);
         if (result.isEmpty()) {
-            return ResponseEntity.noContent().build();
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("X-Thumbnail-Status", "unavailable");
+            headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+            return ResponseEntity.noContent()
+                    .headers(headers)
+                    .build();
         }
         ThumbnailData data = result.get();
         StreamingResponseBody body = out -> out.write(data.getBytes());
         HttpHeaders headers = new HttpHeaders();
-        headers.setCacheControl(CacheControl.maxAge(3600, java.util.concurrent.TimeUnit.SECONDS).getHeaderValue());
+        headers.add("X-Thumbnail-Status", data.getStatus());
+        if (data.isPending()) {
+            headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+            headers.add(HttpHeaders.RETRY_AFTER, "3");
+        } else {
+            headers.setCacheControl(CacheControl.maxAge(3600, java.util.concurrent.TimeUnit.SECONDS).getHeaderValue());
+        }
         headers.setContentType(AttachmentWebSupport.resolveMediaType(data.getContentType()));
         headers.setContentLength(data.getBytes().length);
         return ResponseEntity.ok()

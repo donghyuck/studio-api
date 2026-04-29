@@ -27,7 +27,11 @@ public class ThumbnailGenerationService {
         int resolvedSize = size > 0 ? size : generationOptions.defaultSize();
         resolvedSize = Math.max(generationOptions.minSize(), Math.min(generationOptions.maxSize(), resolvedSize));
         String resolvedFormat = ThumbnailFormats.normalizeOrDefault(format, generationOptions.defaultFormat());
-        return new ThumbnailOptions(resolvedSize, resolvedFormat, generationOptions.maxSourcePixels());
+        return new ThumbnailOptions(
+                resolvedSize,
+                resolvedFormat,
+                generationOptions.maxSourcePixels(),
+                generationOptions.maxSourceBytes());
     }
 
     public Optional<ThumbnailResult> generate(

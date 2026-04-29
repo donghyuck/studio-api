@@ -294,6 +294,17 @@ studio:
     renderers:
       pdf:
         enabled: false
+      pptx:
+        enabled: false
+        slide: 0
+      docx:
+        enabled: false
+      hwp:
+        enabled: false
+      hwpx:
+        enabled: false
+    # PPTX는 Apache POI slide renderer를 사용하고,
+    # DOCX/HWP/HWPX는 textract 결과로 preview 썸네일을 만든다.
   user:
     password-policy:
       min-length: 12

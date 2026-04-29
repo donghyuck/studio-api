@@ -25,6 +25,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import jakarta.persistence.EntityManagerFactory;
 
@@ -43,6 +45,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.util.StringUtils;
@@ -214,17 +217,38 @@ public class AttachmentAutoConfiguration {
 
     @Bean
     @ConditionalOnAttachmentThumbnailEnabled
+    @ConditionalOnMissingBean(name = "attachmentThumbnailExecutor")
+    Executor attachmentThumbnailExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("studio-thumbnail-");
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(100);
+        executor.setRejectedExecutionHandler((runnable, pool) -> {
+            throw new RejectedExecutionException("attachment thumbnail queue is full");
+        });
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean
+    @ConditionalOnAttachmentThumbnailEnabled
     @ConditionalOnBean(ThumbnailGenerationService.class)
     @ConditionalOnMissingBean(ThumbnailService.class)
     ThumbnailService thumbnailService(
             AttachmentService attachmentService,
             ThumbnailStorage thumbnailStorage,
             ThumbnailGenerationService thumbnailGenerationService,
+            @Qualifier("attachmentThumbnailExecutor") Executor attachmentThumbnailExecutor,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(ThumbnailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        return new ThumbnailServiceImpl(attachmentService, thumbnailStorage, thumbnailGenerationService);
+        return new ThumbnailServiceImpl(
+                attachmentService,
+                thumbnailStorage,
+                thumbnailGenerationService,
+                attachmentThumbnailExecutor);
     }
 
     private String resolveBaseDir(AttachmentProperties.Storage storage, Repository repository) {

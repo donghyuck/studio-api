@@ -75,6 +75,36 @@
       "description": "Zero-based PDF page index to render as the thumbnail source."
     },
     {
+      "name": "studio.thumbnail.renderers.pptx.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable Apache POI-based PPTX thumbnail rendering when POI OOXML is on the classpath."
+    },
+    {
+      "name": "studio.thumbnail.renderers.pptx.slide",
+      "type": "java.lang.Integer",
+      "defaultValue": 0,
+      "description": "Zero-based PPTX slide index rendered as the thumbnail source."
+    },
+    {
+      "name": "studio.thumbnail.renderers.docx.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable DOCX preview thumbnail rendering from FileContentExtractionService parsed text. Requires the textract service bean."
+    },
+    {
+      "name": "studio.thumbnail.renderers.hwp.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable HWP preview thumbnail rendering from FileContentExtractionService parsed text. Requires the textract service bean."
+    },
+    {
+      "name": "studio.thumbnail.renderers.hwpx.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable HWPX preview thumbnail rendering from FileContentExtractionService parsed text. Requires the textract service bean."
+    },
+    {
       "name": "studio.attachment.thumbnail.default-size",
       "type": "java.lang.Integer",
       "deprecation": {
@@ -85,6 +115,24 @@
     },
     {
       "name": "studio.attachment.thumbnail.default-format",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Thumbnail generation defaults moved to the platform thumbnail service.",
+        "replacement": "studio.thumbnail.default-format"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.default-size",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Thumbnail generation defaults moved to the platform thumbnail service.",
+        "replacement": "studio.thumbnail.default-size"
+      }
+    },
+    {
+      "name": "studio.features.attachment.thumbnail.default-format",
       "type": "java.lang.String",
       "deprecation": {
         "level": "warning",

@@ -24,6 +24,7 @@ import studio.one.platform.thumbnail.ThumbnailRenderer;
 import studio.one.platform.thumbnail.ThumbnailRendererFactory;
 import studio.one.platform.thumbnail.renderer.ImageThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PdfThumbnailRenderer;
+import studio.one.platform.thumbnail.renderer.PptxThumbnailRenderer;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
@@ -57,6 +58,16 @@ public class ThumbnailAutoConfiguration {
     PdfThumbnailRenderer pdfThumbnailRenderer() {
         logCreated(PdfThumbnailRenderer.class);
         return new PdfThumbnailRenderer(props.getRenderers().getPdf().getPage());
+    }
+
+    @Bean
+    @Order(300)
+    @ConditionalOnClass(name = "org.apache.poi.xslf.usermodel.XMLSlideShow")
+    @ConditionalOnProperty(prefix = "studio.thumbnail.renderers.pptx", name = "enabled", havingValue = "true")
+    @ConditionalOnMissingBean(PptxThumbnailRenderer.class)
+    PptxThumbnailRenderer pptxThumbnailRenderer() {
+        logCreated(PptxThumbnailRenderer.class);
+        return new PptxThumbnailRenderer(props.getRenderers().getPptx().getSlide());
     }
 
     @Bean

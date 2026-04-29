@@ -128,8 +128,11 @@ public class ThumbnailProperties {
     private static String normalizeDataSize(String value) {
         String trimmed = value.trim();
         String upper = trimmed.toUpperCase(Locale.ROOT);
+        if (upper.endsWith("KB") || upper.endsWith("MB") || upper.endsWith("GB") || upper.endsWith("TB")) {
+            return upper;
+        }
         if (upper.endsWith("K") || upper.endsWith("M") || upper.endsWith("G") || upper.endsWith("T")) {
-            return trimmed + "B";
+            return upper + "B";
         }
         return trimmed;
     }
@@ -143,6 +146,18 @@ public class ThumbnailProperties {
 
         @Valid
         private PdfRenderer pdf = new PdfRenderer();
+
+        @Valid
+        private PptxRenderer pptx = new PptxRenderer();
+
+        @Valid
+        private Renderer docx = disabledRenderer();
+
+        @Valid
+        private Renderer hwp = disabledRenderer();
+
+        @Valid
+        private Renderer hwpx = disabledRenderer();
     }
 
     @Getter
@@ -160,5 +175,21 @@ public class ThumbnailProperties {
         public PdfRenderer() {
             setEnabled(false);
         }
+    }
+
+    @Getter
+    @Setter
+    public static class PptxRenderer extends Renderer {
+        private int slide = 0;
+
+        public PptxRenderer() {
+            setEnabled(false);
+        }
+    }
+
+    private static Renderer disabledRenderer() {
+        Renderer renderer = new Renderer();
+        renderer.setEnabled(false);
+        return renderer;
     }
 }

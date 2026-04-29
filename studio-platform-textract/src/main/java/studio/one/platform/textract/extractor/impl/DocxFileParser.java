@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipInputStream;
 import java.util.stream.Collectors;
 
 import org.apache.poi.UnsupportedFileFormatException;
@@ -35,6 +36,10 @@ import studio.one.platform.textract.model.ParsedFile;
 
 public class DocxFileParser extends AbstractFileParser implements StructuredFileParser {
 
+    private static final int ZIP_BUFFER_SIZE = 8192;
+    private static final long MAX_ZIP_ENTRY_BYTES = 16L * 1024L * 1024L;
+    private static final long MAX_ZIP_TOTAL_BYTES = 64L * 1024L * 1024L;
+
     @Override
     public boolean supports(String contentType, String filename) {
 
@@ -46,6 +51,12 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
     @Override
     public ParsedFile parseStructured(byte[] bytes, String contentType, String filename)
             throws FileParseException {
+        try {
+            validateZipBounds(bytes, filename);
+        } catch (IOException e) {
+            throw new FileParseException("Failed to parse DOCX file: " + safeFilename(filename), e);
+        }
+
         try (ByteArrayInputStream in = new ByteArrayInputStream(bytes);
                 XWPFDocument doc = new XWPFDocument(in)) {
 
@@ -258,6 +269,28 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             return null;
         }
         return Math.max(1, (int) Math.round(emu / Units.EMU_PER_PIXEL));
+    }
+
+    private void validateZipBounds(byte[] bytes, String filename) throws IOException {
+        byte[] buffer = new byte[ZIP_BUFFER_SIZE];
+        long totalBytes = 0L;
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            while (zip.getNextEntry() != null) {
+                long entryBytes = 0L;
+                int read;
+                while ((read = zip.read(buffer)) != -1) {
+                    entryBytes += read;
+                    totalBytes += read;
+                    if (entryBytes > MAX_ZIP_ENTRY_BYTES) {
+                        throw new IOException("DOCX zip entry exceeds limit: " + safeFilename(filename));
+                    }
+                    if (totalBytes > MAX_ZIP_TOTAL_BYTES) {
+                        throw new IOException("DOCX zip content exceeds limit: " + safeFilename(filename));
+                    }
+                }
+                zip.closeEntry();
+            }
+        }
     }
 
     private BlockType resolveParagraphType(XWPFParagraph paragraph, BlockType containerType) {
