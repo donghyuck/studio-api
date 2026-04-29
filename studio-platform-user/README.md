@@ -24,6 +24,7 @@ Response: `ApiResponse<MeProfileDto>`
 Password policy is defined by configuration and enforced on:
 - **Self password change**: `PUT /api/self/password`
 - **Admin reset**: `POST /api/mgmt/users/{id}/password`
+- **Admin delete**: `DELETE /api/mgmt/users/{id}` removes the user through the configured `ApplicationUserService` implementation.
 
 ### Policy Config (YAML)
 ```yaml
@@ -116,6 +117,13 @@ Response: `ApiResponse<Void>` (OK only)
 Returns current password policy configuration for admin UI.
 
 Response: `ApiResponse<PasswordPolicyDto>`
+
+### DELETE /api/mgmt/users/{id}
+Deletes a user from the admin API.
+
+Auth: `features:user` admin permission
+
+Response: `204 No Content`
 
 ## Example Requests
 

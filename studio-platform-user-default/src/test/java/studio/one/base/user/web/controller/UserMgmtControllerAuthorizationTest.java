@@ -87,6 +87,16 @@ class UserMgmtControllerAuthorizationTest {
     }
 
     @Test
+    void deleteDelegatesToUserService() {
+        UserMgmtController controller = controller();
+
+        var response = controller.delete(10L);
+
+        assertEquals(204, response.getStatusCode().value());
+        verify(userService).delete(10L);
+    }
+
+    @Test
     void updateUserRolesDelegatesDistinctRoleIds() {
         UserMgmtController controller = controller();
         UserDetails actor = User.withUsername("admin").password("n/a").authorities("ROLE_ADMIN").build();
