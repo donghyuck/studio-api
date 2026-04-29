@@ -3,6 +3,9 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #368 대응으로 독립 `studio-platform-thumbnail` SPI와 `studio-platform-thumbnail-starter`를 추가해 image/PDF 썸네일 생성을 attachment 도메인 밖으로 분리했다.
+- attachment 썸네일 endpoint와 저장소 구조는 유지하되, 기존 `ThumbnailServiceImpl`은 `ThumbnailGenerationService`에 위임하도록 변경했다.
+- 썸네일 생성 기본값은 `studio.thumbnail.*`로 이동하고, `studio.attachment.thumbnail.default-size/default-format` 및 기존 `studio.features.attachment.thumbnail.default-size/default-format`는 fallback과 deprecation warning을 유지한다.
 - 이슈 #366 대응으로 vector/RAG/RAG Chat 검색 파라미터 계약을 정리해 `topK`와 `minScore`를 동일 의미로 적용하고, 요청값이 없으면 `studio.ai.rag.retrieval.*` 설정값을 사용하도록 했다.
 - 이슈 #364 대응으로 `/api/ai/chat/rag`의 `objectType`/`objectId`를 attachment 전용이 아닌 일반 RAG object scope로 허용해 management RAG search/chunk 조회와 같은 scope 계약을 사용하도록 했다.
 - 이슈 #362 대응으로 RAG job source 표시명 resolver SPI를 추가하고, generic attachment source job 생성 시 `sourceName`이 attachment id 대신 파일명으로 보강되도록 했다.

@@ -76,6 +76,8 @@ import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
+import studio.one.platform.thumbnail.ThumbnailGenerationService;
+import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 import studio.one.platform.identity.*;
@@ -95,6 +97,7 @@ import studio.one.platform.identity.*;
  */
 
 @AutoConfiguration
+@AutoConfigureAfter(ThumbnailAutoConfiguration.class)
 @EnableConfigurationProperties({
         AttachmentFeatureProperties.class,
         AttachmentProperties.class,
@@ -211,19 +214,17 @@ public class AttachmentAutoConfiguration {
 
     @Bean
     @ConditionalOnAttachmentThumbnailEnabled
+    @ConditionalOnBean(ThumbnailGenerationService.class)
     @ConditionalOnMissingBean(ThumbnailService.class)
     ThumbnailService thumbnailService(
             AttachmentService attachmentService,
             ThumbnailStorage thumbnailStorage,
-            AttachmentProperties properties,
-            Environment environment,
+            ThumbnailGenerationService thumbnailGenerationService,
             ObjectProvider<I18n> i18nProvider) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(ThumbnailServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
-        AttachmentProperties.Thumbnail config = properties.thumbnail(environment, log);
-        return new ThumbnailServiceImpl(attachmentService, thumbnailStorage, config.getDefaultSize(),
-                config.getDefaultFormat());
+        return new ThumbnailServiceImpl(attachmentService, thumbnailStorage, thumbnailGenerationService);
     }
 
     private String resolveBaseDir(AttachmentProperties.Storage storage, Repository repository) {

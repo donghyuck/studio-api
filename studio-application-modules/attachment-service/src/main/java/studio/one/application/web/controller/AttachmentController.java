@@ -86,18 +86,19 @@ public class AttachmentController {
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/thumbnail")
-    @PreAuthorize("@endpointAuthz.can('features:attachment','service-read')")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-download')")
     public ResponseEntity<StreamingResponseBody> thumbnail(
             @PathVariable("attachmentId") long attachmentId,
-            @RequestParam(value = "size", required = false, defaultValue = "128") int size,
-            @RequestParam(value = "format", required = false, defaultValue = "png") String format)
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "format", required = false) String format)
             throws NotFoundException {
         ThumbnailService thumbnailService = thumbnailServiceProvider.getIfAvailable();
         if (thumbnailService == null) {
             return ResponseEntity.status(501).build();
         }
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        var result = thumbnailService.getOrCreate(attachment, size, format);
+        int requestedSize = size == null ? 0 : size;
+        var result = thumbnailService.getOrCreate(attachment, requestedSize, format);
         if (result.isEmpty()) {
             return ResponseEntity.noContent().build();
         }

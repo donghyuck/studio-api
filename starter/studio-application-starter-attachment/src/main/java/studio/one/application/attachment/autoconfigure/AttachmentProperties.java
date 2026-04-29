@@ -77,8 +77,6 @@ public class AttachmentProperties {
 
     public Thumbnail thumbnail(Environment environment, Logger log) {
         bindThumbnailLeaf(environment, "enabled", Boolean.class, thumbnail::setEnabled, log);
-        bindThumbnailLeaf(environment, "default-size", Integer.class, thumbnail::setDefaultSize, log);
-        bindThumbnailLeaf(environment, "default-format", String.class, thumbnail::setDefaultFormat, log);
         bindThumbnailLeaf(environment, "base-dir", String.class, thumbnail::setBaseDir, log);
         bindThumbnailLeaf(environment, "ensure-dirs", Boolean.class, thumbnail::setEnsureDirs, log);
         return thumbnail;
@@ -155,7 +153,17 @@ public class AttachmentProperties {
     @NoArgsConstructor
     public static class Thumbnail {
         private boolean enabled = true;
+        /**
+         * @deprecated since the platform thumbnail service owns generation defaults.
+         *             Use {@code studio.thumbnail.default-size}.
+         */
+        @Deprecated(since = "2.x", forRemoval = false)
         private int defaultSize = 128;
+        /**
+         * @deprecated since the platform thumbnail service owns generation defaults.
+         *             Use {@code studio.thumbnail.default-format}.
+         */
+        @Deprecated(since = "2.x", forRemoval = false)
         private String defaultFormat = "png";
 
         /**

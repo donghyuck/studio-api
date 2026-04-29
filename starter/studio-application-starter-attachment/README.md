@@ -3,7 +3,7 @@
 첨부파일 서비스(파일 메타데이터 + 바이너리 스토리지)를 자동으로 구성하는 스타터이다.
 `studio-application-modules:attachment-service` 모듈의 서비스/리포지토리/스토리지 빈을 등록하고,
 선택적으로 REST 엔드포인트를 노출한다.
-feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, storage/thumbnail runtime 설정은 `studio.attachment.*`를 사용한다. `studio.features.attachment.storage.*`와 `studio.features.attachment.thumbnail.*`는 migration window 동안만 fallback으로 남는다.
+feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, attachment storage/runtime 통합 설정은 `studio.attachment.*`를 사용한다. 썸네일 생성 기본값은 독립 platform thumbnail 서비스의 `studio.thumbnail.*`를 사용한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 남는다.
 
 ## 1) 의존성 추가
 
@@ -14,6 +14,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     // JPA 영속성 사용 시
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    // PDF 썸네일을 사용할 때만
+    implementation("org.apache.pdfbox:pdfbox")
 }
 ```
 
@@ -28,7 +30,7 @@ studio:
 
 ## 3) 설정
 
-`studio.features.attachment.*`는 feature gate와 web 노출만 담당하고, storage/thumbnail은 `studio.attachment.*`에서 제어한다.
+`studio.features.attachment.*`는 feature gate와 web 노출만 담당한다. attachment binary storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 `studio.thumbnail.*`에서 제어한다.
 
 ```yaml
 studio:
@@ -49,10 +51,21 @@ studio:
       cache-enabled: false        # database 타입 사용 시 로컬 파일 캐시 on/off
     thumbnail:
       enabled: true               # 썸네일 기능 활성화 여부
-      default-size: 128           # 기본 썸네일 크기(px)
-      default-format: png         # 저장 포맷 (png만 지원)
       base-dir: ""                # 비우면 attachments/thumbnails 사용
       ensure-dirs: true
+  thumbnail:
+    default-size: 128             # 기본 썸네일 크기(px)
+    default-format: png           # 저장 포맷 (현재 png 지원)
+    min-size: 16
+    max-size: 512
+    max-source-size: 50MB         # 10M 같은 축약형도 허용
+    max-source-pixels: 25000000   # decoded image/PDF page pixel 상한
+    renderers:
+      image:
+        enabled: true
+      pdf:
+        enabled: false            # PDFBox classpath가 있고 명시적으로 true일 때만 등록
+        page: 0
 ```
 
 ### 스토리지 타입
@@ -70,7 +83,8 @@ studio:
 | `FileStorage` | `LocalFileStore` / `JpaFileStore` / `JdbcFileStore` / `CachedFileStore` | 스토리지 타입 및 persistence 설정에 따라 결정 |
 | `AttachmentRepository` | `AttachmentJpaRepository` (JPA) 또는 `JdbcAttachmentRepository` (JDBC) | persistence 설정에 따라 결정 |
 | `ThumbnailStorage` | `LocalThumbnailStore` | `thumbnail.enabled=true` (기본) |
-| `ThumbnailService` | `ThumbnailServiceImpl` | `thumbnail.enabled=true` (기본) |
+| `ThumbnailGenerationService` | platform thumbnail service | `studio.features.thumbnail.enabled=true` (기본) |
+| `ThumbnailService` | `ThumbnailServiceImpl` | `thumbnail.enabled=true` + `ThumbnailGenerationService` 존재 |
 | `AttachmentController`<br>`AttachmentMgmtController`<br>`MeAttachmentController` | 각 컨트롤러 | `web.enabled=true` |
 
 - JPA 사용 시 `EntityManagerFactory`가 필요하다.
@@ -96,6 +110,7 @@ studio:
 ### 서비스 API (`/api/attachments`)
 
 서비스 간 호출을 위한 경량 API. 권한 스코프는 `features:attachment/service-*` 를 사용한다.
+`GET /{attachmentId}/thumbnail`은 원본 파생 콘텐츠를 반환하므로 `features:attachment/service-download` 권한을 사용한다.
 
 ### ME API (`/api/me/attachments`)
 
@@ -110,12 +125,13 @@ attachment-service 모듈은 도메인 모델(`ApplicationAttachment`, `Applicat
 서비스/리포지토리 인터페이스를 제공하며, 스타터가 실제 구현 빈을 자동 구성한다.
 
 attachment-service를 직접 사용하는 경우에는 스타터 없이 모듈만 의존성으로 추가하고
-서비스/리포지토리를 직접 구성할 수 있다.
+서비스/리포지토리를 직접 구성할 수 있다. 직접 `ThumbnailServiceImpl`를 구성하는 기존 코드는 deprecated 생성자 호환성을 유지하지만, 신규 구성은 `ThumbnailGenerationService`를 함께 주입하는 생성자를 사용한다.
 
 ## 7) 참고 사항
 
 - `studio.features.attachment.enabled=false`로 전체 비활성화할 수 있다.
-- 파일 시스템 스토리지 사용 시 `base-dir`에 대한 쓰기 권한을 확인한다.
+- 운영 환경에서는 `studio.attachment.storage.base-dir`와 `studio.attachment.thumbnail.base-dir`를 애플리케이션 전용 private 경로로 명시하고 쓰기 권한을 확인한다. 경로를 비우면 tmp 하위 기본 경로를 사용한다.
+- PDF 썸네일은 PDFBox가 classpath에 있고 `studio.thumbnail.renderers.pdf.enabled=true`를 명시했을 때만 생성된다. 없으면 image renderer만 등록된다.
 - DB 스토리지 사용 시 `TB_APPLICATION_ATTACHMENT_DATA` 테이블(BLOB 컬럼 포함)이 준비되어 있어야 한다.
 - 업로드 최대 크기는 컨트롤러 수준에서 50 MB로 제한된다.
 - 권한 스코프(`features:attachment/*`)를 인가 서버 또는 ACL에 등록해야 한다.

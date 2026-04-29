@@ -1,0 +1,96 @@
+{
+  "groups": [
+    {
+      "name": "studio.features.thumbnail",
+      "description": "Thumbnail platform feature wiring properties."
+    },
+    {
+      "name": "studio.thumbnail",
+      "description": "Thumbnail platform runtime properties."
+    },
+    {
+      "name": "studio.thumbnail.renderers",
+      "description": "Thumbnail renderer registration properties."
+    }
+  ],
+  "properties": [
+    {
+      "name": "studio.features.thumbnail.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable the thumbnail generation platform service."
+    },
+    {
+      "name": "studio.thumbnail.default-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 128,
+      "description": "Default thumbnail maximum side length in pixels."
+    },
+    {
+      "name": "studio.thumbnail.default-format",
+      "type": "java.lang.String",
+      "defaultValue": "png",
+      "description": "Default thumbnail output format. Currently png is supported."
+    },
+    {
+      "name": "studio.thumbnail.min-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 16,
+      "description": "Minimum thumbnail maximum side length in pixels."
+    },
+    {
+      "name": "studio.thumbnail.max-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 512,
+      "description": "Maximum thumbnail maximum side length in pixels."
+    },
+    {
+      "name": "studio.thumbnail.max-source-size",
+      "type": "java.lang.String",
+      "defaultValue": "50MB",
+      "description": "Maximum source document size accepted by thumbnail generation. Human-readable values such as 10M are accepted."
+    },
+    {
+      "name": "studio.thumbnail.max-source-pixels",
+      "type": "java.lang.Long",
+      "defaultValue": 25000000,
+      "description": "Maximum decoded source image or PDF page pixels accepted by thumbnail generation."
+    },
+    {
+      "name": "studio.thumbnail.renderers.image.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable ImageIO-based image thumbnail rendering."
+    },
+    {
+      "name": "studio.thumbnail.renderers.pdf.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable PDF thumbnail rendering when PDFBox is on the classpath. Disabled by default because PDF parsing/rendering processes complex external input."
+    },
+    {
+      "name": "studio.thumbnail.renderers.pdf.page",
+      "type": "java.lang.Integer",
+      "defaultValue": 0,
+      "description": "Zero-based PDF page index to render as the thumbnail source."
+    },
+    {
+      "name": "studio.attachment.thumbnail.default-size",
+      "type": "java.lang.Integer",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Thumbnail generation defaults moved to the platform thumbnail service.",
+        "replacement": "studio.thumbnail.default-size"
+      }
+    },
+    {
+      "name": "studio.attachment.thumbnail.default-format",
+      "type": "java.lang.String",
+      "deprecation": {
+        "level": "warning",
+        "reason": "Thumbnail generation defaults moved to the platform thumbnail service.",
+        "replacement": "studio.thumbnail.default-format"
+      }
+    }
+  ]
+}

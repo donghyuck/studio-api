@@ -10,6 +10,7 @@
 - objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
 - WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
+- image/PDF 썸네일 생성 SPI가 필요하면 `:starter:studio-platform-thumbnail-starter`
 - 첨부/아바타/템플릿/메일은 각 application starter를 추가
 
 최소 예시:
@@ -36,6 +37,7 @@ dependencies {
 - `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성
 - `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
 - `studio-platform-starter-chunking`: RAG indexing용 fixed-size/recursive chunking 자동 구성
+- `studio-platform-thumbnail-starter`: image/PDF 썸네일 generation service 자동 구성
 - `studio-platform-starter-ai`: OpenAI/Spring AI, 벡터스토어, RAG 등 AI core 구성
 - `studio-platform-starter-ai-web`: AI HTTP endpoint와 JSON component 노출
 - `studio-platform-starter-jasypt`: Jasypt 암호화/복호화 지원
@@ -263,6 +265,7 @@ spring:
 - AI Web starter 상세: `studio-platform-starter-ai-web/README.md`
 - Object Storage starter 상세: `studio-platform-starter-objectstorage/README.md`
 - Attachment starter 상세: `studio-application-starter-attachment/README.md`
+- Thumbnail starter 상세: `studio-platform-thumbnail-starter/README.md`
 - Avatar starter 상세: `studio-application-starter-avatar/README.md`
 - Template starter 상세: `studio-application-starter-template/README.md`
 - Mail starter 상세: `studio-application-starter-mail/README.md`

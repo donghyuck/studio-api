@@ -7,8 +7,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +22,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.thumbnail.ThumbnailData;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.web.dto.ApiResponse;
@@ -80,5 +83,44 @@ class AttachmentControllerTest {
         assertEquals(2L, response.getHeaders().getContentLength());
         assertEquals("attachment; filename=\"report.pdf\"",
                 response.getHeaders().getFirst("Content-Disposition"));
+    }
+
+    @Test
+    void thumbnailReturnsSameResponseShape() throws Exception {
+        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        Attachment attachment = mock(Attachment.class);
+        ThumbnailService thumbnailService = mock(ThumbnailService.class);
+
+        when(thumbnailServiceProvider.getIfAvailable()).thenReturn(thumbnailService);
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(thumbnailService.getOrCreate(attachment, 128, "png"))
+                .thenReturn(Optional.of(new ThumbnailData(new byte[] { 1, 2 }, "image/png")));
+
+        ResponseEntity<?> response = controller.thumbnail(88L, 128, "png");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("image/png", response.getHeaders().getContentType().toString());
+        assertEquals(2L, response.getHeaders().getContentLength());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ((org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody) response.getBody())
+                .writeTo(out);
+        assertEquals(2, out.toByteArray().length);
+    }
+
+    @Test
+    void thumbnailOmittedSizeAndFormatUseServiceDefaults() throws Exception {
+        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        Attachment attachment = mock(Attachment.class);
+        ThumbnailService thumbnailService = mock(ThumbnailService.class);
+
+        when(thumbnailServiceProvider.getIfAvailable()).thenReturn(thumbnailService);
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(thumbnailService.getOrCreate(attachment, 0, null))
+                .thenReturn(Optional.empty());
+
+        ResponseEntity<?> response = controller.thumbnail(88L, null, null);
+
+        assertEquals(204, response.getStatusCode().value());
+        verify(thumbnailService).getOrCreate(attachment, 0, null);
     }
 }
