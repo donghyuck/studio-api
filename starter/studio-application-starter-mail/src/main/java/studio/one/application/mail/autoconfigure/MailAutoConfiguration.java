@@ -2,6 +2,8 @@ package studio.one.application.mail.autoconfigure;
 
 import jakarta.persistence.EntityManagerFactory;
 
+import java.util.List;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -25,6 +27,7 @@ import studio.one.application.mail.domain.entity.MailMessageEntity;
 import studio.one.application.mail.persistence.repository.MailAttachmentRepository;
 import studio.one.application.mail.persistence.repository.MailMessageRepository;
 import studio.one.application.mail.persistence.repository.MailSyncLogRepository;
+import studio.one.application.mail.service.CompositeMailSyncNotifier;
 import studio.one.application.mail.service.MailAttachmentService;
 import studio.one.application.mail.service.MailMessageService;
 import studio.one.application.mail.service.MailSyncJobLauncher;
@@ -157,14 +160,15 @@ public class MailAutoConfiguration {
     @ConditionalOnMissingBean
     public MailSyncJobLauncher mailSyncJobLauncher(MailSyncService mailSyncService,
             MailSyncLogService mailSyncLogService,
-            MailSyncNotifier mailSyncNotifier) {
-        return new MailSyncJobLauncher(mailSyncService, mailSyncLogService, mailSyncNotifier);
+            ObjectProvider<MailSyncNotifier> mailSyncNotifiers) {
+        List<MailSyncNotifier> notifiers = mailSyncNotifiers.orderedStream().toList();
+        return new MailSyncJobLauncher(mailSyncService, mailSyncLogService, new CompositeMailSyncNotifier(notifiers));
     }
 
     @Bean
-    @ConditionalOnMissingBean
+    @ConditionalOnMissingBean(SseMailSyncNotifier.class)
     @org.springframework.context.annotation.Conditional(MailSseCondition.class)
-    public SseMailSyncNotifier mailSyncNotifier() {
+    public SseMailSyncNotifier sseMailSyncNotifier() {
         return new SseMailSyncNotifier();
     }
 
@@ -194,10 +198,6 @@ public class MailAutoConfiguration {
             String sse = env.getProperty(prefix + "sse");
             if (sse != null) {
                 return Boolean.parseBoolean(sse);
-            }
-            String notify = env.getProperty(prefix + "notify");
-            if (notify != null) {
-                return "sse".equalsIgnoreCase(notify);
             }
             return true;
         }

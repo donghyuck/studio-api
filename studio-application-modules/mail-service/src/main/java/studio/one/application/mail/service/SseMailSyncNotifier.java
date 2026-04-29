@@ -24,6 +24,7 @@ public class SseMailSyncNotifier implements MailSyncNotifier {
         emitter.onError(e -> emitters.remove(emitter));
 
         log.info("[SSE] Mail sync listener registered. total={}", emitters.size());
+        sendConnectedEvent(emitter);
 
         return emitter;
     }
@@ -46,5 +47,17 @@ public class SseMailSyncNotifier implements MailSyncNotifier {
 
         log.info("[SSE] Mail sync event sent. alive={}, dead={}",
                 emitters.size(), dead.size());
+    }
+
+    private void sendConnectedEvent(SseEmitter emitter) {
+        try {
+            emitter.send(SseEmitter.event()
+                    .name("connected")
+                    .data("mail-sync"));
+        } catch (Exception e) {
+            emitters.remove(emitter);
+            emitter.complete();
+            log.debug("Failed to send initial mail sync SSE event: {}", e.getMessage());
+        }
     }
 }

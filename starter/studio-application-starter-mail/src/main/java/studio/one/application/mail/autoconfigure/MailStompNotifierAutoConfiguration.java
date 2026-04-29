@@ -12,7 +12,6 @@ import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
-import studio.one.application.mail.service.MailSyncNotifier;
 import studio.one.application.mail.service.StompMailSyncNotifier;
 import studio.one.platform.constant.PropertyKeys; 
 
@@ -23,9 +22,9 @@ import studio.one.platform.constant.PropertyKeys;
 public class MailStompNotifierAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(MailSyncNotifier.class)
+    @ConditionalOnMissingBean(StompMailSyncNotifier.class)
     @org.springframework.context.annotation.Conditional(MailStompCondition.class)
-    public MailSyncNotifier mailSyncNotifier(
+    public StompMailSyncNotifier stompMailSyncNotifier(
             ObjectProvider<studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService> messagingServiceProvider,
             MailFeatureProperties properties) {
         studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService messagingService = messagingServiceProvider.getIfAvailable();
@@ -42,13 +41,13 @@ public class MailStompNotifierAutoConfiguration {
         public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
             Environment env = context.getEnvironment();
             String prefix = PropertyKeys.Features.PREFIX + ".mail.web.";
-            String sse = env.getProperty(prefix + "sse");
-            if (sse != null) {
-                return !Boolean.parseBoolean(sse);
-            }
             String notify = env.getProperty(prefix + "notify");
             if (notify != null) {
                 return "stomp".equalsIgnoreCase(notify);
+            }
+            String sse = env.getProperty(prefix + "sse");
+            if (sse != null) {
+                return !Boolean.parseBoolean(sse);
             }
             return false;
         }
