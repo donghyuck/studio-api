@@ -1,12 +1,15 @@
 package studio.one.platform.textract.extractor.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
 import java.util.Base64;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.poi.util.Units;
 import org.apache.poi.xwpf.usermodel.Document;
@@ -19,6 +22,7 @@ import org.apache.poi.xwpf.usermodel.XWPFTable;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
+import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.model.BlockType;
 import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
@@ -150,6 +154,26 @@ class DocxFileParserTest {
         assertEquals("image1.png", image.binDataRef());
     }
 
+    @Test
+    void parseStructuredRejectsOversizedZipEntryBeforePoiParsing() throws Exception {
+        byte[] bytes = oversizedZipEntry();
+
+        FileParseException exception = assertThrows(FileParseException.class, () -> new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "large.docx"));
+
+        assertTrue(exception.getCause().getMessage().contains("DOCX zip entry exceeds limit"));
+    }
+
+    @Test
+    void parseStructuredRejectsOversizedZipTotalBeforePoiParsing() throws Exception {
+        byte[] bytes = oversizedZipTotal();
+
+        FileParseException exception = assertThrows(FileParseException.class, () -> new DocxFileParser()
+                .parseStructured(bytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "large.docx"));
+
+        assertTrue(exception.getCause().getMessage().contains("DOCX zip content exceeds limit"));
+    }
+
     private byte[] docxWithParagraphAndTable() throws Exception {
         try (XWPFDocument document = new XWPFDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -239,6 +263,36 @@ class DocxFileParserTest {
                     Units.pixelToEMU(10),
                     Units.pixelToEMU(10));
             document.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] oversizedZipEntry() throws Exception {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ZipOutputStream zip = new ZipOutputStream(out)) {
+            zip.putNextEntry(new ZipEntry("word/document.xml"));
+            byte[] chunk = new byte[1024];
+            for (int i = 0; i < 17 * 1024; i++) {
+                zip.write(chunk);
+            }
+            zip.closeEntry();
+            zip.finish();
+            return out.toByteArray();
+        }
+    }
+
+    private byte[] oversizedZipTotal() throws Exception {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ZipOutputStream zip = new ZipOutputStream(out)) {
+            byte[] chunk = new byte[1024];
+            for (int entry = 0; entry < 65; entry++) {
+                zip.putNextEntry(new ZipEntry("word/part-" + entry + ".xml"));
+                for (int i = 0; i < 1024; i++) {
+                    zip.write(chunk);
+                }
+                zip.closeEntry();
+            }
+            zip.finish();
             return out.toByteArray();
         }
     }

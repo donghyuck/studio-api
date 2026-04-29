@@ -100,11 +100,31 @@ class AttachmentControllerTest {
 
         assertEquals(200, response.getStatusCode().value());
         assertEquals("image/png", response.getHeaders().getContentType().toString());
+        assertEquals("ready", response.getHeaders().getFirst("X-Thumbnail-Status"));
         assertEquals(2L, response.getHeaders().getContentLength());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ((org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody) response.getBody())
                 .writeTo(out);
         assertEquals(2, out.toByteArray().length);
+    }
+
+    @Test
+    void thumbnailPendingReturnsImageWithNoStoreAndRetryAfter() throws Exception {
+        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        Attachment attachment = mock(Attachment.class);
+        ThumbnailService thumbnailService = mock(ThumbnailService.class);
+
+        when(thumbnailServiceProvider.getIfAvailable()).thenReturn(thumbnailService);
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(thumbnailService.getOrCreate(attachment, 128, "png"))
+                .thenReturn(Optional.of(new ThumbnailData(new byte[] { 1, 2 }, "image/png", "pending")));
+
+        ResponseEntity<?> response = controller.thumbnail(88L, 128, "png");
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("pending", response.getHeaders().getFirst("X-Thumbnail-Status"));
+        assertEquals("3", response.getHeaders().getFirst("Retry-After"));
+        assertEquals("no-store", response.getHeaders().getCacheControl());
     }
 
     @Test
@@ -121,6 +141,8 @@ class AttachmentControllerTest {
         ResponseEntity<?> response = controller.thumbnail(88L, null, null);
 
         assertEquals(204, response.getStatusCode().value());
+        assertEquals("unavailable", response.getHeaders().getFirst("X-Thumbnail-Status"));
+        assertEquals("no-store", response.getHeaders().getCacheControl());
         verify(thumbnailService).getOrCreate(attachment, 0, null);
     }
 }

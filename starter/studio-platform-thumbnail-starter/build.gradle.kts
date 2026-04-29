@@ -26,7 +26,10 @@ dependencies {
     api(project(":studio-platform-thumbnail"))
     api(project(":studio-platform-autoconfigure"))
     implementation("org.springframework.boot:spring-boot-starter-validation")
+    compileOnly(project(":studio-platform-textract"))
     compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
 
+    testImplementation(project(":studio-platform-textract"))
     testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
+    testImplementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
 }

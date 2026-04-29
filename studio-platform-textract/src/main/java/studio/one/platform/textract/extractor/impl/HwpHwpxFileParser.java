@@ -51,6 +51,9 @@ import studio.one.platform.textract.model.ParsedFile;
  */
 public class HwpHwpxFileParser extends AbstractFileParser implements StructuredFileParser {
 
+    private static final int BUFFER_SIZE = 8192;
+    private static final int DEFAULT_MAX_CONTAINER_ENTRY_BYTES = 16 * 1024 * 1024;
+    private static final int DEFAULT_MAX_CONTAINER_TOTAL_BYTES = 64 * 1024 * 1024;
     private static final int HWPTAG_BEGIN = 0x010;
     private static final int HWPTAG_BIN_DATA = HWPTAG_BEGIN + 2;
     private static final int HWPTAG_PARA_HEADER = HWPTAG_BEGIN + 50;
@@ -58,6 +61,18 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
     private static final byte[] HWP_CFB_SIGNATURE = {
             (byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1
     };
+
+    private final int maxContainerEntryBytes;
+    private final int maxContainerTotalBytes;
+
+    public HwpHwpxFileParser() {
+        this(DEFAULT_MAX_CONTAINER_ENTRY_BYTES, DEFAULT_MAX_CONTAINER_TOTAL_BYTES);
+    }
+
+    HwpHwpxFileParser(int maxContainerEntryBytes, int maxContainerTotalBytes) {
+        this.maxContainerEntryBytes = maxContainerEntryBytes;
+        this.maxContainerTotalBytes = maxContainerTotalBytes;
+    }
 
     @Override
     public boolean supports(String contentType, String filename) {
@@ -308,8 +323,9 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
 
     private ParsedFile parseHwp(byte[] bytes, String contentType, String filename) throws FileParseException {
         try (POIFSFileSystem fs = new POIFSFileSystem(new ByteArrayInputStream(bytes))) {
+            ExtractionBudget budget = new ExtractionBudget(maxContainerTotalBytes);
             DirectoryEntry root = fs.getRoot();
-            byte[] header = readDocument(root, "FileHeader");
+            byte[] header = readDocument(root, "FileHeader", budget);
             HwpFlags flags = parseHwpFlags(header);
             List<ParseWarning> warnings = new ArrayList<>();
             if (flags.encrypted()) {
@@ -327,18 +343,23 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
                         Map.of()));
             }
 
-            List<BinDataRef> binDataRefs = readHwpBinDataRefs(root, flags.compressed(), warnings);
+            List<BinDataRef> binDataRefs = readHwpBinDataRefs(root, flags.compressed(), warnings, budget);
             List<ParsedBlock> blocks = new ArrayList<>();
             StringBuilder plain = new StringBuilder();
             for (int sectionIndex = 0; ; sectionIndex++) {
-                Optional<byte[]> section = readHwpSection(root, sectionIndex, flags.compressed(), flags.distribution());
+                Optional<byte[]> section = readHwpSection(
+                        root,
+                        sectionIndex,
+                        flags.compressed(),
+                        flags.distribution(),
+                        budget);
                 if (section.isEmpty()) {
                     break;
                 }
                 parseHwpSection(section.get(), sectionIndex, plain, blocks, warnings);
             }
 
-            List<ExtractedImage> images = readHwpImages(root, binDataRefs);
+            List<ExtractedImage> images = readHwpImages(root, binDataRefs, budget);
             return new ParsedFile(
                     DocumentFormat.HWP,
                     cleanText(plain.toString()),
@@ -439,14 +460,18 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         return (ch >= 1 && ch <= 8) || (ch >= 11 && ch <= 12) || (ch >= 14 && ch <= 23);
     }
 
-    private List<BinDataRef> readHwpBinDataRefs(DirectoryEntry root, boolean compressed, List<ParseWarning> warnings) {
+    private List<BinDataRef> readHwpBinDataRefs(
+            DirectoryEntry root,
+            boolean compressed,
+            List<ParseWarning> warnings,
+            ExtractionBudget budget) {
         if (!hasEntry(root, "DocInfo")) {
             return List.of();
         }
         try {
-            byte[] docInfo = readDocument(root, "DocInfo");
+            byte[] docInfo = readDocument(root, "DocInfo", budget);
             if (compressed) {
-                docInfo = inflate(docInfo);
+                docInfo = inflate(docInfo, budget);
             }
             List<HwpRecord> records = readHwpRecords(docInfo, warnings);
             List<BinDataRef> refs = new ArrayList<>();
@@ -493,7 +518,10 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         return Optional.of(new String(data, start, byteLength, StandardCharsets.UTF_16LE));
     }
 
-    private List<ExtractedImage> readHwpImages(DirectoryEntry root, List<BinDataRef> binDataRefs) throws IOException {
+    private List<ExtractedImage> readHwpImages(
+            DirectoryEntry root,
+            List<BinDataRef> binDataRefs,
+            ExtractionBudget budget) throws IOException {
         if (!hasEntry(root, "BinData") || !(root.getEntry("BinData") instanceof DirectoryEntry binDataDir)) {
             return List.of();
         }
@@ -506,7 +534,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             if (entry.isDirectoryEntry()) {
                 continue;
             }
-            byte[] data = readDocument(binDataDir, entry.getName());
+            byte[] data = readDocument(binDataDir, entry.getName(), budget);
             String ext = extensionOf(entry.getName());
             int id = storageIdFromBinName(entry.getName()).orElse(images.size() + 1);
             BinDataRef ref = refsByStorageId.get(id);
@@ -525,16 +553,21 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         return images;
     }
 
-    private Optional<byte[]> readHwpSection(DirectoryEntry root, int sectionIndex, boolean compressed, boolean distribution)
+    private Optional<byte[]> readHwpSection(
+            DirectoryEntry root,
+            int sectionIndex,
+            boolean compressed,
+            boolean distribution,
+            ExtractionBudget budget)
             throws IOException {
         String[] candidates = distribution
                 ? new String[] { "ViewText/Section" + sectionIndex, "BodyText/Section" + sectionIndex, "Section" + sectionIndex }
                 : new String[] { "BodyText/Section" + sectionIndex, "Section" + sectionIndex };
         for (String candidate : candidates) {
-            Optional<byte[]> raw = readDocumentPath(root, candidate);
+            Optional<byte[]> raw = readDocumentPath(root, candidate, budget);
             if (raw.isPresent()) {
                 return Optional.of(compressed && !candidate.startsWith("ViewText/")
-                        ? inflate(raw.get())
+                        ? inflate(raw.get(), budget)
                         : raw.get());
             }
         }
@@ -588,11 +621,17 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
 
     private Map<String, byte[]> readZipEntries(byte[] bytes) throws IOException {
         Map<String, byte[]> entries = new LinkedHashMap<>();
+        ExtractionBudget budget = new ExtractionBudget(maxContainerTotalBytes);
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry entry;
             while ((entry = zip.getNextEntry()) != null) {
                 if (!entry.isDirectory()) {
-                    entries.put(entry.getName(), zip.readAllBytes());
+                    byte[] entryBytes = readBounded(
+                            zip,
+                            maxContainerEntryBytes,
+                            entry.getName(),
+                            budget);
+                    entries.put(entry.getName(), entryBytes);
                 }
             }
         }
@@ -757,7 +796,8 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         }
     }
 
-    private Optional<byte[]> readDocumentPath(DirectoryEntry root, String path) throws IOException {
+    private Optional<byte[]> readDocumentPath(DirectoryEntry root, String path, ExtractionBudget budget)
+            throws IOException {
         String[] parts = path.split("/");
         DirectoryEntry dir = root;
         for (int i = 0; i < parts.length - 1; i++) {
@@ -769,28 +809,74 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         if (!hasEntry(dir, parts[parts.length - 1])) {
             return Optional.empty();
         }
-        return Optional.of(readDocument(dir, parts[parts.length - 1]));
+        return Optional.of(readDocument(dir, parts[parts.length - 1], budget));
     }
 
-    private byte[] readDocument(DirectoryEntry dir, String name) throws IOException {
+    private byte[] readDocument(DirectoryEntry dir, String name, ExtractionBudget budget) throws IOException {
         try (DocumentInputStream in = new DocumentInputStream((DocumentEntry) dir.getEntry(name))) {
-            return in.readAllBytes();
+            return readBounded(in, maxContainerEntryBytes, name, budget);
         }
     }
 
-    private byte[] inflate(byte[] raw) throws IOException {
+    private byte[] inflate(byte[] raw, ExtractionBudget budget) throws IOException {
         try {
-            return inflate(raw, true);
+            return inflate(raw, true, budget);
         } catch (IOException e) {
-            return inflate(raw, false);
+            return inflate(raw, false, budget);
         }
     }
 
-    private byte[] inflate(byte[] raw, boolean nowrap) throws IOException {
+    private byte[] inflate(byte[] raw, boolean nowrap, ExtractionBudget budget) throws IOException {
         try (InputStream in = new InflaterInputStream(new ByteArrayInputStream(raw), new Inflater(nowrap));
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            in.transferTo(out);
-            return out.toByteArray();
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int total = 0;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                total += read;
+                if (total > maxContainerEntryBytes) {
+                    throw new IOException("HWP compressed stream exceeds max extracted bytes: "
+                            + maxContainerEntryBytes);
+                }
+                out.write(buffer, 0, read);
+            }
+            byte[] inflated = out.toByteArray();
+            budget.add(inflated.length, "HWP compressed stream");
+            return inflated;
+        }
+    }
+
+    private byte[] readBounded(InputStream in, int maxBytes, String name, ExtractionBudget budget)
+            throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[BUFFER_SIZE];
+        int total = 0;
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            total += read;
+            if (total > maxBytes) {
+                throw new IOException("HWP/HWPX entry exceeds max extracted bytes: " + name + " " + maxBytes);
+            }
+            budget.add(read, name);
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
+    }
+
+    private static final class ExtractionBudget {
+        private final int maxBytes;
+        private long usedBytes;
+
+        private ExtractionBudget(int maxBytes) {
+            this.maxBytes = maxBytes;
+        }
+
+        private void add(long bytes, String source) throws IOException {
+            usedBytes += bytes;
+            if (usedBytes > maxBytes) {
+                throw new IOException("HWP/HWPX container exceeds max extracted bytes: "
+                        + source + " " + maxBytes);
+            }
         }
     }
 

@@ -3,6 +3,11 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #371 대응으로 `studio-platform-thumbnail`에 PPTX/DOCX/HWP/HWPX 문서 썸네일 renderer를 추가했다.
+- PPTX는 Apache POI slide renderer로 실제 slide thumbnail을 생성하고, DOCX/HWP/HWPX는 `FileContentExtractionService`의 구조화 추출 결과로 preview thumbnail을 생성한다.
+- `studio.thumbnail.renderers.<format>.*` configuration metadata 및 README 예시를 추가했다.
+- 문서 썸네일 renderer는 PPTX package pre-scan, HWP/HWPX aggregate extraction budget, deterministic failure memoization으로 반복 파싱과 압축 확장 위험을 줄였다.
+- attachment 썸네일은 저장된 썸네일이 없을 때 pending placeholder 이미지를 즉시 반환하고, 실제 생성은 백그라운드 executor에서 수행하도록 변경했다. 변환 실패는 bounded TTL 캐시에 memoize하고 동일 source의 동시 요청은 하나의 background job으로 합친다.
 - 이슈 #368 대응으로 독립 `studio-platform-thumbnail` SPI와 `studio-platform-thumbnail-starter`를 추가해 image/PDF 썸네일 생성을 attachment 도메인 밖으로 분리했다.
 - attachment 썸네일 endpoint와 저장소 구조는 유지하되, 기존 `ThumbnailServiceImpl`은 `ThumbnailGenerationService`에 위임하도록 변경했다.
 - 썸네일 생성 기본값은 `studio.thumbnail.*`로 이동하고, `studio.attachment.thumbnail.default-size/default-format` 및 기존 `studio.features.attachment.thumbnail.default-size/default-format`는 fallback과 deprecation warning을 유지한다.

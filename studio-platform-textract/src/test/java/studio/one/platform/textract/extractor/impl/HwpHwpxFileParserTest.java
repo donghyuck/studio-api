@@ -4,6 +4,7 @@ import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
@@ -17,6 +18,7 @@ import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
+import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.model.BlockType;
 import studio.one.platform.textract.model.ParseWarningSeverity;
 import studio.one.platform.textract.model.ParsedFile;
@@ -82,6 +84,26 @@ class HwpHwpxFileParserTest {
         assertFalse(result.warnings().get(0).partialParse());
     }
 
+    @Test
+    void parseHwpxRejectsOversizedExtractedZipEntry() throws Exception {
+        FileParseException ex = assertThrows(
+                FileParseException.class,
+                () -> parser.parseStructured(hwpxBytesWithLargeEntry(), "application/hwpx", "large.hwpx"));
+
+        assertTrue(ex.getCause().getMessage().contains("exceeds max extracted bytes"));
+    }
+
+    @Test
+    void parseHwpRejectsAggregateExtractedBytesOverLimit() throws Exception {
+        HwpHwpxFileParser boundedParser = new HwpHwpxFileParser(1024, 300);
+
+        FileParseException ex = assertThrows(
+                FileParseException.class,
+                () -> boundedParser.parseStructured(hwpBytesWithSections(3), "application/x-hwp", "large.hwp"));
+
+        assertTrue(ex.getCause().getMessage().contains("exceeds max extracted bytes"));
+    }
+
     private byte[] hwpxBytes() throws Exception {
         Map<String, byte[]> entries = Map.of(
                 "Contents/content.hpf", """
@@ -145,16 +167,39 @@ class HwpHwpxFileParserTest {
         return out.toByteArray();
     }
 
+    private byte[] hwpxBytesWithLargeEntry() throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(out)) {
+            zip.putNextEntry(new ZipEntry("Contents/content.hpf"));
+            zip.write("<package/>".getBytes(UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("Contents/section0.xml"));
+            zip.write(new byte[17 * 1024 * 1024]);
+            zip.closeEntry();
+        }
+        return out.toByteArray();
+    }
+
     private byte[] hwpBytes() throws Exception {
         return hwpBytesWithFlags(0);
     }
 
     private byte[] hwpBytesWithFlags(int flags) throws Exception {
+        return hwpBytesWithSectionsAndFlags(1, flags);
+    }
+
+    private byte[] hwpBytesWithSections(int sectionCount) throws Exception {
+        return hwpBytesWithSectionsAndFlags(sectionCount, 0);
+    }
+
+    private byte[] hwpBytesWithSectionsAndFlags(int sectionCount, int flags) throws Exception {
         try (POIFSFileSystem fs = new POIFSFileSystem();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             fs.getRoot().createDocument("FileHeader", new ByteArrayInputStream(fileHeader(flags)));
             DirectoryEntry bodyText = fs.getRoot().createDirectory("BodyText");
-            bodyText.createDocument("Section0", new ByteArrayInputStream(section("한글 본문")));
+            for (int i = 0; i < sectionCount; i++) {
+                bodyText.createDocument("Section" + i, new ByteArrayInputStream(section("한글 본문 " + i)));
+            }
             DirectoryEntry binData = fs.getRoot().createDirectory("BinData");
             binData.createDocument("BIN0001.png", new ByteArrayInputStream(new byte[] { (byte) 0x89, 'P', 'N', 'G' }));
             fs.writeFilesystem(out);

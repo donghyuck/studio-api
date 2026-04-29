@@ -2,11 +2,13 @@ package studio.one.platform.thumbnail.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,12 +20,22 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
+import studio.one.platform.textract.extractor.DocumentFormat;
+import studio.one.platform.textract.extractor.FileParser;
+import studio.one.platform.textract.extractor.FileParserFactory;
+import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.service.FileContentExtractionService;
 import studio.one.platform.thumbnail.ThumbnailGenerationOptions;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
+import studio.one.platform.thumbnail.ThumbnailOptions;
 import studio.one.platform.thumbnail.ThumbnailRenderer;
 import studio.one.platform.thumbnail.ThumbnailRendererFactory;
+import studio.one.platform.thumbnail.ThumbnailResult;
+import studio.one.platform.thumbnail.ThumbnailSource;
+import studio.one.platform.thumbnail.renderer.DocxThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.ImageThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PdfThumbnailRenderer;
+import studio.one.platform.thumbnail.renderer.PptxThumbnailRenderer;
 
 @ExtendWith(OutputCaptureExtension.class)
 class ThumbnailAutoConfigurationTest {
@@ -31,7 +43,8 @@ class ThumbnailAutoConfigurationTest {
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(
                     ValidationAutoConfiguration.class,
-                    ThumbnailAutoConfiguration.class));
+                    ThumbnailAutoConfiguration.class,
+                    ThumbnailTextractPreviewAutoConfiguration.class));
 
     @BeforeEach
     void resetWarnings() throws Exception {
@@ -73,6 +86,18 @@ class ThumbnailAutoConfigurationTest {
     }
 
     @Test
+    void acceptsLowercaseHumanReadableMaxSourceSize() {
+        contextRunner
+                .withPropertyValues("studio.thumbnail.max-source-size=10mb")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    ThumbnailGenerationOptions options = context.getBean(ThumbnailGenerationService.class)
+                            .generationOptions();
+                    assertThat(options.maxSourceBytes()).isEqualTo(10 * 1024 * 1024);
+                });
+    }
+
+    @Test
     void pdfRendererIsOptIn() {
         contextRunner
                 .run(context -> {
@@ -102,6 +127,108 @@ class ThumbnailAutoConfigurationTest {
                     assertThat(context).hasSingleBean(ImageThumbnailRenderer.class);
                     assertThat(context).doesNotHaveBean(PdfThumbnailRenderer.class);
                 });
+    }
+
+    @Test
+    void documentRenderersAreOptIn() {
+        contextRunner
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(PptxThumbnailRenderer.class);
+                    assertThat(context).doesNotHaveBean(TextractDocumentPreviewThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void pptxRendererIsRegisteredWhenExplicitlyEnabled() {
+        contextRunner
+                .withPropertyValues("studio.thumbnail.renderers.pptx.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(PptxThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void pptxRendererIsConditionalOnPoiClasspath() {
+        contextRunner
+                .withPropertyValues("studio.thumbnail.renderers.pptx.enabled=true")
+                .withClassLoader(new FilteredClassLoader(XMLSlideShow.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(PptxThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void textractPreviewRenderersRequireTextractServiceBean() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.thumbnail.renderers.docx.enabled=true",
+                        "studio.thumbnail.renderers.hwp.enabled=true",
+                        "studio.thumbnail.renderers.hwpx.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(TextractDocumentPreviewThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void textractPreviewAutoConfigurationIsSafeWhenTextractClasspathIsMissing() {
+        contextRunner
+                .withPropertyValues("studio.thumbnail.renderers.docx.enabled=true")
+                .withClassLoader(new FilteredClassLoader(FileContentExtractionService.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(TextractDocumentPreviewThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void textractPreviewRenderersAreRegisteredWhenExplicitlyEnabledAndTextractServiceExists() {
+        contextRunner
+                .withBean(FileContentExtractionService.class, ThumbnailAutoConfigurationTest::textExtractionService)
+                .withPropertyValues(
+                        "studio.thumbnail.renderers.docx.enabled=true",
+                        "studio.thumbnail.renderers.hwp.enabled=true",
+                        "studio.thumbnail.renderers.hwpx.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBeansOfType(TextractDocumentPreviewThumbnailRenderer.class))
+                            .hasSize(3);
+                });
+    }
+
+    @Test
+    void customDocxRendererByTypePreventsDefaultPreviewRenderer() {
+        DocxThumbnailRenderer customRenderer = new TestDocxRenderer();
+
+        contextRunner
+                .withBean("customDocxRenderer", DocxThumbnailRenderer.class, () -> customRenderer)
+                .withBean(FileContentExtractionService.class, ThumbnailAutoConfigurationTest::textExtractionService)
+                .withPropertyValues("studio.thumbnail.renderers.docx.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(DocxThumbnailRenderer.class);
+                    assertThat(context).getBean(DocxThumbnailRenderer.class).isSameAs(customRenderer);
+                });
+    }
+
+    @Test
+    void textractPreviewRendererGeneratesPngFromParsedText() throws Exception {
+        DocxThumbnailRenderer renderer =
+                TextractDocumentPreviewThumbnailRenderer.docx(textExtractionService());
+
+        ThumbnailResult result = renderer.render(
+                new ThumbnailSource(
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "sample.docx",
+                        "docx".getBytes()),
+                new ThumbnailOptions(96, "png", 25_000_000, 1024 * 1024));
+
+        assertThat(result.contentType()).isEqualTo("image/png");
+        assertThat(javax.imageio.ImageIO.read(new ByteArrayInputStream(result.bytes())).getWidth())
+                .isLessThanOrEqualTo(96);
     }
 
     @Test
@@ -197,5 +324,28 @@ class ThumbnailAutoConfigurationTest {
                 studio.one.platform.thumbnail.ThumbnailOptions options) {
             throw new UnsupportedOperationException();
         }
+    }
+
+    private static final class TestDocxRenderer extends TestRenderer implements DocxThumbnailRenderer {
+    }
+
+    private static FileContentExtractionService textExtractionService() {
+        FileParser parser = new FileParser() {
+            @Override
+            public boolean supports(String contentType, String filename) {
+                return true;
+            }
+
+            @Override
+            public String parse(byte[] bytes, String contentType, String filename) {
+                return "Hello document\nSecond line";
+            }
+
+            @Override
+            public ParsedFile parseStructured(byte[] bytes, String contentType, String filename) {
+                return ParsedFile.textOnly(DocumentFormat.DOCX, parse(bytes, contentType, filename), filename);
+            }
+        };
+        return new FileContentExtractionService(new FileParserFactory(List.of(parser)));
     }
 }

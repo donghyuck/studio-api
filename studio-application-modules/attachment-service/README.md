@@ -47,6 +47,15 @@ studio:
       pdf:
         enabled: false            # PDFBox classpath가 있고 명시적으로 true일 때만 등록
         page: 0
+      pptx:
+        enabled: false            # POI 기반 opt-in renderer
+        slide: 0
+      docx:
+        enabled: false            # textract preview 기반 opt-in renderer
+      hwp:
+        enabled: false            # textract preview 기반 opt-in renderer
+      hwpx:
+        enabled: false            # textract preview 기반 opt-in renderer
 ```
 
 ### 동작 방식
@@ -54,7 +63,7 @@ studio:
 - `persistence`가 `jpa` 면 `AttachmentJpaRepository` + `JpaFileStore`(database 선택 시) 사용, `jdbc` 면 `JdbcAttachmentRepository` + `JdbcFileStore`.
 - `attachment.storage.type=filesystem` → `LocalFileStore`에 바이너리 저장.
 - `attachment.storage.type=database` → 선택한 persistence 저장소에 바이너리를 넣고, `cache-enabled=true` 시 `LocalFileStore`로 읽기 캐시.
-- `ThumbnailGenerationService`가 있으면 image 썸네일을 생성한다. PDF 썸네일은 `studio.thumbnail.renderers.pdf.enabled=true`로 명시 opt-in 했을 때만 생성한다. 지원 renderer가 없거나 변환할 수 없는 문서는 `/thumbnail`에서 204를 반환한다.
+- `ThumbnailGenerationService`가 있으면 image 썸네일을 생성한다. PDF/PPTX/DOCX/HWP/HWPX 썸네일은 각 `studio.thumbnail.renderers.<format>.enabled=true`로 명시 opt-in 했을 때만 생성한다. PDF는 PDFBox, PPTX는 POI, DOCX/HWP/HWPX는 textract `FileContentExtractionService`가 필요하다. 저장된 썸네일이 없으면 `/thumbnail`은 `X-Thumbnail-Status: pending` 헤더와 함께 placeholder 이미지를 즉시 반환하고, starter가 등록한 `attachmentThumbnailExecutor`에서 실제 생성을 수행한 뒤 저장한다. 직접 `ThumbnailServiceImpl`를 생성하는 테스트/커스텀 구성에서 요청 스레드 생성을 피하려면 executor를 받는 생성자를 사용한다. 지원 renderer가 없거나 변환할 수 없는 문서는 bounded TTL 실패 상태를 memoize하고 이후 `X-Thumbnail-Status: unavailable` 204를 반환한다. DOCX/HWP/HWPX preview는 textract parser 표면을 사용하므로 필요한 경우에만 켜고, `studio.textract.max-extract-size`는 압축 입력 크기 제한으로 보수적으로 설정한다. DOCX parser는 압축 해제 work에 별도 entry/total budget을 적용한다.
 - 운영 환경에서는 `studio.attachment.storage.base-dir`와 `studio.attachment.thumbnail.base-dir`를 애플리케이션 전용 private 경로로 명시한다. 기본 tmp 경로는 로컬 개발 편의용이다.
 - `web.enabled=true` 시 `AttachmentMgmtController`/`AttachmentController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
 - `ObjectTypeRuntimeService` 빈이 있을 경우 업로드 시 `validateUpload`로 정책 검증을 수행한다(없으면 생략).
