@@ -83,6 +83,12 @@ studio:
 | `POST` | `{mgmtBasePath}/embedding` | 텍스트 임베딩 벡터 생성 | `services:ai_embedding write` |
 | `POST` | `{mgmtBasePath}/vectors` | 벡터 문서 업서트 | `services:ai_vector read` |
 | `POST` | `{mgmtBasePath}/vectors/search` | 벡터 유사도 검색 | `services:ai_vector read` |
+| `POST` | `{mgmtBasePath}/vectors/projections` | 벡터 2D projection 생성 job 요청 | `services:ai_vector admin` |
+| `GET` | `{mgmtBasePath}/vectors/projections` | 벡터 projection 목록 조회 | `services:ai_vector read` |
+| `GET` | `{mgmtBasePath}/vectors/projections/{projectionId}` | 벡터 projection 상세 조회 | `services:ai_vector read` |
+| `GET` | `{mgmtBasePath}/vectors/projections/{projectionId}/points` | 산점도 렌더링용 projection point 조회 | `services:ai_vector admin` |
+| `GET` | `{mgmtBasePath}/vectors/items/{vectorItemId}` | 벡터 항목 상세 조회 | `services:ai_vector admin` |
+| `POST` | `{mgmtBasePath}/vectors/search-visualization` | 검색어 기반 projection highlight 좌표 조회 | `services:ai_vector admin` |
 | `POST` | `{mgmtBasePath}/rag/index` | 문서 RAG 인덱싱 | `services:ai_rag read` |
 | `POST` | `{mgmtBasePath}/rag/search` | RAG 시맨틱 검색 | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/jobs` | RAG 색인 job 목록 조회 | `services:ai_rag read` |
@@ -100,6 +106,86 @@ studio:
 | `GET` | `{mgmtBasePath}/rag/chunks/config` | chunk/RAG 설정 조회 | `services:ai_rag read` |
 
 > `studio.ai.endpoints.enabled=false`이면 위 AI web endpoint 전체가 등록되지 않는다.
+
+### Vector Projection Visualization
+
+관리자 화면에서 기존 `tb_ai_document_chunk` 벡터를 2D 산점도로 표시할 수 있도록 projection API를 제공한다.
+원본 embedding 테이블은 변경하지 않고, `tb_ai_vector_projection`과 `tb_ai_vector_projection_point`에
+projection job 상태와 미리 계산된 좌표만 저장한다. 화면 요청 시마다 고차원 벡터를 다시 projection하지 않는다.
+
+기본 알고리즘은 `PCA`다. v1 구현은 Java 내장 연산으로 PCA 좌표를 계산하고, 후속 UMAP/t-SNE는
+`VectorProjectionGenerator` 구현을 추가해 확장한다. `targetTypes`가 비어 있으면 전체 vector item을 대상으로 한다.
+`filters`는 v1에서 metadata equality 조건만 사용하며 null 값은 무시한다. 한 projection job은 최대
+1,000개 vector item, 2,048 embedding dimension까지 처리한다. 더 큰 범위는 `targetTypes`나 metadata filter로 나눠 생성한다.
+projection 생성과 point/item/search visualization 조회는 object별 ACL을 행마다 평가하지 않는 corpus-level 관리 API이므로
+`services:ai_vector admin` 권한이 필요하다.
+
+Projection 생성:
+
+```http
+POST /api/mgmt/ai/vectors/projections
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "NCS-과정-청크 벡터맵",
+  "targetTypes": ["NCS_UNIT", "COURSE", "COURSE_CHUNK"],
+  "algorithm": "PCA",
+  "filters": {
+    "useYn": "Y"
+  }
+}
+```
+
+응답은 즉시 `REQUESTED`를 반환한다. 서버는 비동기 job에서 `PROCESSING`으로 전환한 뒤 기존
+`tb_ai_document_chunk`의 embedding을 읽어 좌표를 만들고, 기존 point를 삭제 후 재생성한다.
+완료 시 `COMPLETED`, 실패 시 `FAILED`와 `errorMessage`를 저장한다.
+
+```json
+{
+  "data": {
+    "projectionId": "proj-20260430010000-a1b2c3d4",
+    "status": "REQUESTED",
+    "message": "벡터 시각화 좌표 생성 작업이 요청되었습니다."
+  }
+}
+```
+
+산점도 point 조회:
+
+```http
+GET /api/mgmt/ai/vectors/projections/{projectionId}/points?targetType=COURSE_CHUNK&keyword=java&limit=2000&offset=0
+Authorization: Bearer <token>
+```
+
+`limit` 기본값은 2000, 최대값은 5000이다. projection 상태가 `COMPLETED`가 아니면
+`409 Conflict`와 `PROJECTION_NOT_READY` detail을 반환하므로 클라이언트는 목록/상세 API를 polling하다가
+완료 후 point를 요청해야 한다. point 응답은 산점도 렌더링에 필요한 `vectorItemId`, `targetType`,
+`sourceId`, `label`, `x`, `y`, `clusterId`, `metadata`를 함께 제공한다. 응답 metadata에서는
+embedding, 원문 text/content, keyword text 같은 대용량/민감 가능성이 큰 필드는 반환하지 않고,
+표시용 allowlist metadata만 반환한다.
+
+검색어 기반 시각화:
+
+```http
+POST /api/mgmt/ai/vectors/search-visualization
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "projectionId": "proj-20260430010000-a1b2c3d4",
+  "query": "자바 백엔드 개발자가 되고 싶어",
+  "targetTypes": ["NCS_UNIT", "COURSE", "COURSE_CHUNK"],
+  "topK": 10
+}
+```
+
+이 API는 기존 `EmbeddingPort`와 `VectorStorePort` 검색을 재사용한다. 검색 결과의 `vectorItemId`와
+projection point를 매칭하고, query 위치는 매칭된 Top-K point 좌표의 평균으로 계산한다.
+매칭 point가 없으면 `query.x`, `query.y`는 `null`, `results`는 빈 배열로 200 응답한다.
+검색은 선택된 projection의 `targetTypes`와 `filters` 범위를 기준으로 제한하고, 요청 `targetTypes`가 있으면
+projection 범위와 교집합인 type만 대상으로 한다. `query`는 provider 비용과 지연을 제한하기 위해 최대
+2,000자까지 허용한다.
 
 ### RAG Index Job Management
 

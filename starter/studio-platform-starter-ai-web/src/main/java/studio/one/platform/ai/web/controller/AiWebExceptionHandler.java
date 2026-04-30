@@ -17,6 +17,7 @@ import studio.one.platform.web.dto.ProblemDetails;
         ChatController.class,
         EmbeddingController.class,
         VectorController.class,
+        VectorVisualizationMgmtController.class,
         RagController.class,
         RagChunkPreviewController.class,
         RagIndexJobController.class,
