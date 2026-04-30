@@ -41,10 +41,22 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
             String metadataJson = rs.getString("metadata");
             double distance = rs.getDouble("distance");
             double score = 1.0d / (1.0d + distance);
-            Map<String, Object> metadata = Json.read(metadataJson);
+            Map<String, Object> metadata = new HashMap<>(Json.read(metadataJson));
+            addRowId(metadata, rs);
             String documentId = Objects.toString(metadata.getOrDefault("documentId", objectId), objectId);
             VectorDocument document = new VectorDocument(documentId, content, metadata, List.of());
             return new VectorSearchResult(document, score);
+        }
+
+        private void addRowId(Map<String, Object> metadata, ResultSet rs) {
+            try {
+                long rowId = rs.getLong("id");
+                if (!rs.wasNull()) {
+                    metadata.putIfAbsent("_vectorRowId", "row-" + rowId);
+                }
+            } catch (SQLException ignored) {
+                // Older test SQL/result sets may not expose the physical row id.
+            }
         }
     };
     private static final Pattern ORDER_BY_PATTERN = Pattern.compile("\\border\\s+by\\b", Pattern.CASE_INSENSITIVE);

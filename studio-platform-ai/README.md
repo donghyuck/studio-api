@@ -158,6 +158,27 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 - `VectorSearchRequest.includeText=false`이면 `VectorSearchHit.text()`는 `null`일 수 있고, `includeMetadata=false`이면 `metadata()`는 empty map일 수 있다.
 - `VectorStorePort.searchWithFilter(...)`는 filtered-search override를 위한 확장점이며 기본 구현은 `searchRecords(...)`에 위임한다.
 - `VectorStorePort.existsByContentHash(...)`의 기본 `false`는 미구현 fallback이다. content hash deduplication이 필요한 adapter는 반드시 override해야 한다.
+
+## Vector projection visualization contract
+
+관리자 산점도 화면은 원본 embedding 저장소와 2D projection 좌표를 분리해서 사용한다.
+기존 원본 벡터 테이블 `tb_ai_document_chunk`는 변경하지 않고, projection 상태와 좌표는
+AI migration `V603__create_vector_projection_tables.sql`이 추가하는 `tb_ai_vector_projection`,
+`tb_ai_vector_projection_point`에 저장한다.
+
+Core 계약은 `studio.one.platform.ai.core.vector.visualization` 패키지에 둔다.
+
+| 타입 | 설명 |
+|---|---|
+| `VectorItem` | 기존 벡터 테이블 row를 화면/좌표 생성용 item으로 변환한 모델 |
+| `VectorProjection` | projection job 상태, 대상 target type, filter, item count |
+| `VectorProjectionPoint` | projection별 2D 좌표 저장 모델 |
+| `VectorProjectionGenerator` | PCA/UMAP/t-SNE 같은 projection 알고리즘 확장점 |
+| `ExistingVectorItemRepository` | 기존 벡터 테이블을 읽는 adapter 포트 |
+| `VectorProjectionRepository` / `VectorProjectionPointRepository` | projection 상태와 좌표 저장소 포트 |
+
+기본 `PcaVectorProjectionGenerator`는 추가 의존성 없이 PCA 좌표를 계산한다. 화면 API는 원본 embedding 값을
+반환하지 않으며, metadata는 표시용 allowlist로 제한한다. 원문 text는 벡터 항목 상세 조회에서만 제공한다.
 - 기존 `VectorDocument`와 `VectorSearchResult`는 기존 호출자 호환성을 위해 유지한다.
 - 새 context assembly 계약은 아직 만들지 않는다. web context 조립은 `starter-ai-web`의 `RagContextBuilder`, chunk 주변 문맥 확장은 `studio-platform-chunking`의 `ChunkContextExpander`를 우선 사용한다.
 

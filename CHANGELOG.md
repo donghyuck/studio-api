@@ -3,6 +3,9 @@
 ## 2026-04-28
 
 ### 변경됨
+- 이슈 #380 대응으로 기존 `tb_ai_document_chunk`를 원본으로 사용하는 vector projection visualization API를 추가했다.
+- `tb_ai_vector_projection`, `tb_ai_vector_projection_point` migration을 추가하고, 비동기 PCA job으로 2D 좌표를 미리 계산해 저장하도록 했다.
+- `/api/mgmt/ai/vectors/projections`, `/api/mgmt/ai/vectors/items/{vectorItemId}`, `/api/mgmt/ai/vectors/search-visualization` 관리자 API와 클라이언트 산점도용 응답 DTO를 추가했다.
 - 이슈 #371 대응으로 `studio-platform-thumbnail`에 PPTX/DOCX/HWP/HWPX 문서 썸네일 renderer를 추가했다.
 - PPTX는 Apache POI slide renderer로 실제 slide thumbnail을 생성하고, DOCX/HWP/HWPX는 `FileContentExtractionService`의 구조화 추출 결과로 preview thumbnail을 생성한다.
 - `studio.thumbnail.renderers.<format>.*` configuration metadata 및 README 예시를 추가했다.

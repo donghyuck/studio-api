@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.lang.Nullable;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -28,9 +29,23 @@ import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.core.vector.visualization.ExistingVectorItemRepository;
+import studio.one.platform.ai.core.vector.visualization.PcaVectorProjectionGenerator;
+import studio.one.platform.ai.core.vector.visualization.VectorProjectionGenerator;
+import studio.one.platform.ai.core.vector.visualization.VectorProjectionPointRepository;
+import studio.one.platform.ai.core.vector.visualization.VectorProjectionRepository;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.ai.service.visualization.DefaultVectorProjectionJobService;
+import studio.one.platform.ai.service.visualization.DefaultVectorProjectionService;
+import studio.one.platform.ai.service.visualization.DefaultVectorSearchVisualizationService;
+import studio.one.platform.ai.service.visualization.JdbcExistingVectorItemRepository;
+import studio.one.platform.ai.service.visualization.JdbcVectorProjectionPointRepository;
+import studio.one.platform.ai.service.visualization.JdbcVectorProjectionRepository;
+import studio.one.platform.ai.service.visualization.VectorProjectionJobService;
+import studio.one.platform.ai.service.visualization.VectorProjectionService;
+import studio.one.platform.ai.service.visualization.VectorSearchVisualizationService;
 import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
@@ -42,6 +57,7 @@ import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
 import studio.one.platform.ai.web.controller.VectorController;
+import studio.one.platform.ai.web.controller.VectorVisualizationMgmtController;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
@@ -138,6 +154,80 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    VectorProjectionGenerator vectorProjectionGenerator() {
+        return new PcaVectorProjectionGenerator();
+    }
+
+    @Bean(name = "vectorProjectionExecutor")
+    @ConditionalOnMissingBean(name = "vectorProjectionExecutor")
+    Executor vectorProjectionExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("vector-projection-");
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(10);
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean
+    @ConditionalOnBean({VectorProjectionRepository.class, VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
+    @ConditionalOnMissingBean
+    VectorProjectionJobService vectorProjectionJobService(
+            VectorProjectionRepository projectionRepository,
+            VectorProjectionPointRepository pointRepository,
+            ExistingVectorItemRepository itemRepository,
+            ObjectProvider<VectorProjectionGenerator> generators) {
+        return new DefaultVectorProjectionJobService(
+                projectionRepository,
+                pointRepository,
+                itemRepository,
+                generators.orderedStream().toList());
+    }
+
+    @Bean
+    @ConditionalOnBean(VectorProjectionJobService.class)
+    @ConditionalOnMissingBean
+    VectorProjectionService vectorProjectionService(
+            VectorProjectionRepository projectionRepository,
+            VectorProjectionPointRepository pointRepository,
+            ExistingVectorItemRepository itemRepository,
+            VectorProjectionJobService jobService,
+            @Qualifier("vectorProjectionExecutor") Executor vectorProjectionExecutor) {
+        return new DefaultVectorProjectionService(
+                projectionRepository,
+                pointRepository,
+                itemRepository,
+                jobService,
+                vectorProjectionExecutor);
+    }
+
+    @Bean
+    @ConditionalOnBean({EmbeddingPort.class, VectorStorePort.class, VectorProjectionRepository.class,
+            VectorProjectionPointRepository.class})
+    @ConditionalOnMissingBean
+    VectorSearchVisualizationService vectorSearchVisualizationService(
+            EmbeddingPort embeddingPort,
+            VectorStorePort vectorStorePort,
+            VectorProjectionRepository projectionRepository,
+            VectorProjectionPointRepository pointRepository) {
+        return new DefaultVectorSearchVisualizationService(
+                embeddingPort,
+                vectorStorePort,
+                projectionRepository,
+                pointRepository);
+    }
+
+    @Bean
+    @ConditionalOnBean(VectorProjectionService.class)
+    VectorVisualizationMgmtController vectorVisualizationMgmtController(
+            VectorProjectionService projectionService,
+            @Nullable VectorSearchVisualizationService searchVisualizationService) {
+        return new VectorVisualizationMgmtController(projectionService, searchVisualizationService);
+    }
+
+    @Bean
     RagController ragController(
             RagPipelineService ragPipelineService,
             @Nullable RagIndexJobService ragIndexJobService,
@@ -228,5 +318,37 @@ public class AiWebAutoConfiguration {
             Environment environment,
             @Nullable VectorStorePort vectorStorePort) {
         return new AiInfoController(properties, chatProperties, environment, vectorStorePort);
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(NamedParameterJdbcTemplate.class)
+    static class VectorProjectionJdbcConfiguration {
+
+        @Bean
+        @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+        @ConditionalOnMissingBean
+        ExistingVectorItemRepository existingVectorItemRepository(
+                NamedParameterJdbcTemplate jdbcTemplate,
+                ObjectMapper objectMapper) {
+            return new JdbcExistingVectorItemRepository(jdbcTemplate, objectMapper);
+        }
+
+        @Bean
+        @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+        @ConditionalOnMissingBean
+        VectorProjectionRepository vectorProjectionRepository(
+                NamedParameterJdbcTemplate jdbcTemplate,
+                ObjectMapper objectMapper) {
+            return new JdbcVectorProjectionRepository(jdbcTemplate, objectMapper);
+        }
+
+        @Bean
+        @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+        @ConditionalOnMissingBean
+        VectorProjectionPointRepository vectorProjectionPointRepository(
+                NamedParameterJdbcTemplate jdbcTemplate,
+                ObjectMapper objectMapper) {
+            return new JdbcVectorProjectionPointRepository(jdbcTemplate, objectMapper);
+        }
     }
 }

@@ -23,6 +23,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
+    compileOnly("org.springframework:spring-jdbc")
     compileOnly("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
 
