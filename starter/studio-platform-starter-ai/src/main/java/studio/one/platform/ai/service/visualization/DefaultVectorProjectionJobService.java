@@ -6,7 +6,10 @@ import java.util.Objects;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.ai.core.vector.visualization.ExistingVectorItemRepository;
+import studio.one.platform.ai.core.vector.visualization.PcaVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.ProjectionStatus;
+import studio.one.platform.ai.core.vector.visualization.TsneVectorProjectionGenerator;
+import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjection;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionGenerator;
@@ -67,10 +70,20 @@ public class DefaultVectorProjectionJobService implements VectorProjectionJobSer
     }
 
     private VectorProjectionGenerator generatorFor(VectorProjection projection) {
-        return generators.stream()
+        List<VectorProjectionGenerator> matching = generators.stream()
                 .filter(generator -> generator.algorithm() == projection.algorithm())
+                .toList();
+        return matching.stream()
+                .filter(generator -> !isDefaultGenerator(generator))
                 .findFirst()
+                .or(() -> matching.stream().findFirst())
                 .orElseThrow(() -> new IllegalArgumentException("UNSUPPORTED_PROJECTION_ALGORITHM"));
+    }
+
+    private boolean isDefaultGenerator(VectorProjectionGenerator generator) {
+        return generator instanceof PcaVectorProjectionGenerator
+                || generator instanceof UmapVectorProjectionGenerator
+                || generator instanceof TsneVectorProjectionGenerator;
     }
 
     private List<String> actualTargetTypes(List<VectorItem> items) {

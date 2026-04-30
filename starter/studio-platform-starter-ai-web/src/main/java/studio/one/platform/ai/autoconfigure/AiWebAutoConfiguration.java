@@ -14,6 +14,9 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -31,6 +34,8 @@ import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.core.vector.visualization.ExistingVectorItemRepository;
 import studio.one.platform.ai.core.vector.visualization.PcaVectorProjectionGenerator;
+import studio.one.platform.ai.core.vector.visualization.TsneVectorProjectionGenerator;
+import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionPointRepository;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionRepository;
@@ -154,9 +159,25 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    @Primary
+    @Order(Ordered.LOWEST_PRECEDENCE)
     @ConditionalOnMissingBean
-    VectorProjectionGenerator vectorProjectionGenerator() {
+    PcaVectorProjectionGenerator pcaVectorProjectionGenerator() {
         return new PcaVectorProjectionGenerator();
+    }
+
+    @Bean
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    @ConditionalOnMissingBean
+    UmapVectorProjectionGenerator umapVectorProjectionGenerator() {
+        return new UmapVectorProjectionGenerator();
+    }
+
+    @Bean
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    @ConditionalOnMissingBean
+    TsneVectorProjectionGenerator tsneVectorProjectionGenerator() {
+        return new TsneVectorProjectionGenerator();
     }
 
     @Bean(name = "vectorProjectionExecutor")

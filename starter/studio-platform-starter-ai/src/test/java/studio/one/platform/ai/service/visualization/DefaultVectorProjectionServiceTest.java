@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.vector.visualization.ExistingVectorItemRepository;
+import studio.one.platform.ai.core.vector.visualization.PcaVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.ProjectionAlgorithm;
 import studio.one.platform.ai.core.vector.visualization.ProjectionPointPage;
 import studio.one.platform.ai.core.vector.visualization.ProjectionPointView;
@@ -71,6 +72,72 @@ class DefaultVectorProjectionServiceTest {
         assertThat(saved.itemCount()).isEqualTo(1);
         assertThat(saved.targetTypes()).containsExactly("COURSE_CHUNK");
         assertThat(points.points).hasSize(1);
+    }
+
+    @Test
+    void createRunsRequestedNonPcaGenerator() {
+        FakeProjectionRepository projections = new FakeProjectionRepository();
+        FakePointRepository points = new FakePointRepository();
+        FakeItemRepository items = new FakeItemRepository(List.of(item("chunk-1")));
+        DefaultVectorProjectionJobService job = new DefaultVectorProjectionJobService(
+                projections,
+                points,
+                items,
+                List.of(generator(ProjectionAlgorithm.UMAP)));
+        DefaultVectorProjectionService service = new DefaultVectorProjectionService(
+                projections,
+                points,
+                items,
+                job,
+                Runnable::run);
+
+        VectorProjection projection = service.create(new VectorProjectionCreateCommand(
+                "map",
+                ProjectionAlgorithm.UMAP,
+                List.of("COURSE_CHUNK"),
+                Map.of(),
+                "tester"));
+
+        assertThat(projection.algorithm()).isEqualTo(ProjectionAlgorithm.UMAP);
+        VectorProjection saved = projections.findById(projection.projectionId()).orElseThrow();
+        assertThat(saved.status()).isEqualTo(ProjectionStatus.COMPLETED);
+        assertThat(saved.algorithm()).isEqualTo(ProjectionAlgorithm.UMAP);
+        assertThat(points.points).singleElement()
+                .extracting(VectorProjectionPoint::projectionId)
+                .isEqualTo(projection.projectionId());
+    }
+
+    @Test
+    void createPrefersCustomGeneratorWhenDefaultGeneratorHasSameAlgorithm() {
+        FakeProjectionRepository projections = new FakeProjectionRepository();
+        FakePointRepository points = new FakePointRepository();
+        FakeItemRepository items = new FakeItemRepository(List.of(item("chunk-1")));
+        DefaultVectorProjectionJobService job = new DefaultVectorProjectionJobService(
+                projections,
+                points,
+                items,
+                List.of(new PcaVectorProjectionGenerator(), generator(ProjectionAlgorithm.PCA, 0.7, 0.8)));
+        DefaultVectorProjectionService service = new DefaultVectorProjectionService(
+                projections,
+                points,
+                items,
+                job,
+                Runnable::run);
+
+        VectorProjection projection = service.create(new VectorProjectionCreateCommand(
+                "map",
+                ProjectionAlgorithm.PCA,
+                List.of("COURSE_CHUNK"),
+                Map.of(),
+                "tester"));
+
+        assertThat(projections.findById(projection.projectionId()).orElseThrow().status())
+                .isEqualTo(ProjectionStatus.COMPLETED);
+        assertThat(points.points).singleElement()
+                .satisfies(point -> {
+                    assertThat(point.x()).isEqualTo(0.7);
+                    assertThat(point.y()).isEqualTo(0.8);
+                });
     }
 
     @Test
@@ -146,6 +213,26 @@ class DefaultVectorProjectionServiceTest {
 
     private static VectorItem item(String id) {
         return new VectorItem(id, "COURSE_CHUNK", "course-1", "label", "text", List.of(0.1, 0.2), "model", 2, Map.of(), Instant.now());
+    }
+
+    private static VectorProjectionGenerator generator(ProjectionAlgorithm algorithm) {
+        return generator(algorithm, 0.1, 0.2);
+    }
+
+    private static VectorProjectionGenerator generator(ProjectionAlgorithm algorithm, double x, double y) {
+        return new VectorProjectionGenerator() {
+            @Override
+            public ProjectionAlgorithm algorithm() {
+                return algorithm;
+            }
+
+            @Override
+            public List<VectorProjectionPoint> generate(String projectionId, List<VectorItem> sourceItems, Instant createdAt) {
+                return sourceItems.stream()
+                        .map(source -> new VectorProjectionPoint(projectionId, source.vectorItemId(), x, y, null, 0, createdAt))
+                        .toList();
+            }
+        };
     }
 
     private static final class FakeProjectionRepository implements VectorProjectionRepository {

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -21,6 +22,7 @@ import studio.one.platform.ai.core.vector.visualization.ProjectionPointView;
 import studio.one.platform.ai.core.vector.visualization.ProjectionStatus;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjection;
+import studio.one.platform.ai.service.visualization.VectorProjectionCreateCommand;
 import studio.one.platform.ai.service.visualization.VectorProjectionService;
 import studio.one.platform.ai.service.visualization.VectorSearchVisualizationService;
 import studio.one.platform.ai.web.dto.visualization.ProjectionCreateRequest;
@@ -46,6 +48,39 @@ class VectorVisualizationMgmtControllerTest {
         assertThat(response.getBody().getData().projectionId()).isEqualTo("proj-1");
         assertThat(response.getBody().getData().status()).isEqualTo("REQUESTED");
         verify(projectionService).create(any());
+    }
+
+    @Test
+    void createProjectionAcceptsUmapAndTsneAlgorithms() {
+        VectorProjectionService projectionService = mock(VectorProjectionService.class);
+        when(projectionService.create(any())).thenReturn(projection(ProjectionStatus.REQUESTED));
+        VectorVisualizationMgmtController controller = new VectorVisualizationMgmtController(
+                projectionService,
+                mock(VectorSearchVisualizationService.class));
+        ArgumentCaptor<VectorProjectionCreateCommand> captor = ArgumentCaptor.forClass(VectorProjectionCreateCommand.class);
+
+        controller.createProjection(new ProjectionCreateRequest("UMAP map", List.of(), "UMAP", Map.of()));
+        controller.createProjection(new ProjectionCreateRequest("TSNE map", List.of(), "tsne", Map.of()));
+
+        verify(projectionService, org.mockito.Mockito.times(2)).create(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(VectorProjectionCreateCommand::algorithm)
+                .containsExactly(ProjectionAlgorithm.UMAP, ProjectionAlgorithm.TSNE);
+    }
+
+    @Test
+    void createProjectionRejectsUnsupportedAlgorithm() {
+        VectorVisualizationMgmtController controller = new VectorVisualizationMgmtController(
+                mock(VectorProjectionService.class),
+                mock(VectorSearchVisualizationService.class));
+
+        assertThatThrownBy(() -> controller.createProjection(new ProjectionCreateRequest(
+                "bad map",
+                List.of(),
+                "MDS",
+                Map.of())))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("UNSUPPORTED_PROJECTION_ALGORITHM");
     }
 
     @Test

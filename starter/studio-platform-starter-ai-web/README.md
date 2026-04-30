@@ -113,8 +113,10 @@ studio:
 원본 embedding 테이블은 변경하지 않고, `tb_ai_vector_projection`과 `tb_ai_vector_projection_point`에
 projection job 상태와 미리 계산된 좌표만 저장한다. 화면 요청 시마다 고차원 벡터를 다시 projection하지 않는다.
 
-기본 알고리즘은 `PCA`다. v1 구현은 Java 내장 연산으로 PCA 좌표를 계산하고, 후속 UMAP/t-SNE는
-`VectorProjectionGenerator` 구현을 추가해 확장한다. `targetTypes`는 UI 문서 분류가 아니라
+지원 알고리즘은 `PCA`, `UMAP`, `TSNE`다. 기본값은 `PCA`이며, UMAP/t-SNE는 서버가 PCA 초기 좌표를
+embedding cosine distance 기반 이웃 보존 방식으로 보정해 저장하는 deterministic 구현이다. 클라이언트는 알고리즘별 계산을 하지 않고
+points API가 내려준 `x`, `y` 좌표를 그대로 렌더링한다. 더 높은 품질의 projection이 필요하면
+`VectorProjectionGenerator` 구현을 교체해 확장한다. `targetTypes`는 UI 문서 분류가 아니라
 `tb_ai_document_chunk.object_type`에 저장된 RAG index objectType 기준이다. 예를 들어 `attachment`,
 `forums-post-attachment`, 정책 object type 값처럼 색인 job이 사용한 objectType을 지정한다.
 `targetTypes`가 비어 있으면 전체 vector item을 대상으로 한다.
@@ -133,7 +135,7 @@ Content-Type: application/json
 {
   "name": "NCS-과정-청크 벡터맵",
   "targetTypes": ["NCS_UNIT", "COURSE", "COURSE_CHUNK"],
-  "algorithm": "PCA",
+  "algorithm": "UMAP",
   "filters": {
     "useYn": "Y"
   }
