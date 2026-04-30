@@ -81,12 +81,7 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
         return jdbcTemplate.query("""
                 SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at
                  FROM tb_ai_document_chunk
-                 WHERE """ + jsonText(null, "chunkId") + """
-                    IN (:ids)
-                    OR """ + rowVectorItemId("id") + """
-                    IN (:ids)
-                    OR """ + jsonText(null, "documentId") + """
-                    IN (:ids)
+                """ + JdbcVectorProjectionSql.vectorItemIdMatchClause(postgres) + """
                  ORDER BY object_type, object_id, chunk_index, id
                 """, new MapSqlParameterSource("ids", ids), rowMapper);
     }
