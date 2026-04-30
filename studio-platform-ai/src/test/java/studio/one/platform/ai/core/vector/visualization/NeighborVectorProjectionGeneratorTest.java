@@ -48,6 +48,16 @@ class NeighborVectorProjectionGeneratorTest {
                 .isEmpty();
     }
 
+    @Test
+    void repulsionSamplerKeepsDistinctPeersWhenSizeIsMultipleOfDefaultStride() {
+        assertThat(NeighborVectorProjectionGenerator.sampledPeerIndexes(0, 37, 16))
+                .doesNotHaveDuplicates()
+                .hasSize(16);
+        assertThat(NeighborVectorProjectionGenerator.sampledPeerIndexes(0, 74, 16))
+                .doesNotHaveDuplicates()
+                .hasSize(16);
+    }
+
     private List<VectorItem> items() {
         return List.of(
                 item("a", List.of(1.0, 0.0, 0.0, 0.2)),

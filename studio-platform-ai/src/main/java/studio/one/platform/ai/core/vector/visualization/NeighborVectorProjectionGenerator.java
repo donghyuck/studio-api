@@ -91,16 +91,12 @@ abstract class NeighborVectorProjectionGenerator implements VectorProjectionGene
     }
 
     private void applySampledRepulsion(int index, List<double[]> coordinates, double[] delta) {
-        int samples = Math.min(16, coordinates.size() - 1);
-        if (samples <= 0) {
+        List<Integer> peers = sampledPeerIndexes(index, coordinates.size(), 16);
+        if (peers.isEmpty()) {
             return;
         }
         double[] current = coordinates.get(index);
-        for (int sample = 1; sample <= samples; sample++) {
-            int otherIndex = Math.floorMod(index + sample * 37, coordinates.size());
-            if (otherIndex == index) {
-                otherIndex = (otherIndex + 1) % coordinates.size();
-            }
+        for (int otherIndex : peers) {
             double[] other = coordinates.get(otherIndex);
             double dx = current[0] - other[0];
             double dy = current[1] - other[1];
@@ -109,6 +105,41 @@ abstract class NeighborVectorProjectionGenerator implements VectorProjectionGene
             delta[0] += force * dx;
             delta[1] += force * dy;
         }
+    }
+
+    static List<Integer> sampledPeerIndexes(int index, int size, int maxSamples) {
+        int samples = Math.min(maxSamples, size - 1);
+        if (samples <= 0) {
+            return List.of();
+        }
+        int stride = coprimeStride(size);
+        List<Integer> peers = new ArrayList<>(samples);
+        for (int sample = 1; sample <= samples; sample++) {
+            int otherIndex = Math.floorMod(index + sample * stride, size);
+            if (otherIndex != index) {
+                peers.add(otherIndex);
+            }
+        }
+        return peers;
+    }
+
+    private static int coprimeStride(int size) {
+        int stride = Math.min(37, Math.max(1, size - 1));
+        while (stride > 1 && gcd(stride, size) != 1) {
+            stride--;
+        }
+        return stride;
+    }
+
+    private static int gcd(int left, int right) {
+        int a = Math.abs(left);
+        int b = Math.abs(right);
+        while (b != 0) {
+            int next = a % b;
+            a = b;
+            b = next;
+        }
+        return a;
     }
 
     private double similarity(double distance) {
