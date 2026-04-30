@@ -155,6 +155,7 @@ public class VectorVisualizationMgmtController {
                 projection.name(),
                 projection.algorithm().name(),
                 projection.status().name(),
+                projection.targetTypes(),
                 projection.itemCount(),
                 projection.createdAt(),
                 projection.completedAt());

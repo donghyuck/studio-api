@@ -78,6 +78,20 @@ class VectorVisualizationMgmtControllerTest {
     }
 
     @Test
+    void listProjectionIncludesActualTargetTypes() {
+        VectorProjectionService projectionService = mock(VectorProjectionService.class);
+        when(projectionService.list(50, 0)).thenReturn(List.of(projection(ProjectionStatus.COMPLETED)));
+        VectorVisualizationMgmtController controller = new VectorVisualizationMgmtController(
+                projectionService,
+                mock(VectorSearchVisualizationService.class));
+
+        var response = controller.listProjections(50, 0);
+
+        assertThat(response.getBody().getData().items()).singleElement()
+                .satisfies(item -> assertThat(item.targetTypes()).containsExactly("COURSE_CHUNK"));
+    }
+
+    @Test
     void itemDetailDoesNotReturnEmbeddingMetadata() {
         VectorProjectionService projectionService = mock(VectorProjectionService.class);
         when(projectionService.item("chunk-1")).thenReturn(new VectorItem(

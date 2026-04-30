@@ -14,5 +14,5 @@ public interface VectorProjectionRepository {
 
     void updateStatus(String projectionId, ProjectionStatus status, String errorMessage, Instant completedAt);
 
-    void markCompleted(String projectionId, int itemCount, Instant completedAt);
+    void markCompleted(String projectionId, int itemCount, List<String> targetTypes, Instant completedAt);
 }

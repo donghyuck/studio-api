@@ -69,6 +69,7 @@ class DefaultVectorProjectionServiceTest {
         VectorProjection saved = projections.findById(projection.projectionId()).orElseThrow();
         assertThat(saved.status()).isEqualTo(ProjectionStatus.COMPLETED);
         assertThat(saved.itemCount()).isEqualTo(1);
+        assertThat(saved.targetTypes()).containsExactly("COURSE_CHUNK");
         assertThat(points.points).hasSize(1);
     }
 
@@ -183,14 +184,14 @@ class DefaultVectorProjectionServiceTest {
         }
 
         @Override
-        public void markCompleted(String projectionId, int itemCount, Instant completedAt) {
+        public void markCompleted(String projectionId, int itemCount, List<String> targetTypes, Instant completedAt) {
             VectorProjection current = projections.get(projectionId);
             projections.put(projectionId, new VectorProjection(
                     current.projectionId(),
                     current.name(),
                     current.algorithm(),
                     ProjectionStatus.COMPLETED,
-                    current.targetTypes(),
+                    targetTypes,
                     current.filters(),
                     itemCount,
                     null,

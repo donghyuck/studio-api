@@ -114,7 +114,10 @@ studio:
 projection job 상태와 미리 계산된 좌표만 저장한다. 화면 요청 시마다 고차원 벡터를 다시 projection하지 않는다.
 
 기본 알고리즘은 `PCA`다. v1 구현은 Java 내장 연산으로 PCA 좌표를 계산하고, 후속 UMAP/t-SNE는
-`VectorProjectionGenerator` 구현을 추가해 확장한다. `targetTypes`가 비어 있으면 전체 vector item을 대상으로 한다.
+`VectorProjectionGenerator` 구현을 추가해 확장한다. `targetTypes`는 UI 문서 분류가 아니라
+`tb_ai_document_chunk.object_type`에 저장된 RAG index objectType 기준이다. 예를 들어 `attachment`,
+`forums-post-attachment`, 정책 object type 값처럼 색인 job이 사용한 objectType을 지정한다.
+`targetTypes`가 비어 있으면 전체 vector item을 대상으로 한다.
 `filters`는 v1에서 metadata equality 조건만 사용하며 null 값은 무시한다. 한 projection job은 최대
 1,000개 vector item, 2,048 embedding dimension까지 처리한다. 더 큰 범위는 `targetTypes`나 metadata filter로 나눠 생성한다.
 projection 생성과 point/item/search visualization 조회는 object별 ACL을 행마다 평가하지 않는 corpus-level 관리 API이므로
@@ -139,7 +142,9 @@ Content-Type: application/json
 
 응답은 즉시 `REQUESTED`를 반환한다. 서버는 비동기 job에서 `PROCESSING`으로 전환한 뒤 기존
 `tb_ai_document_chunk`의 embedding을 읽어 좌표를 만들고, 기존 point를 삭제 후 재생성한다.
-완료 시 `COMPLETED`, 실패 시 `FAILED`와 `errorMessage`를 저장한다.
+완료 시 `COMPLETED`, 실패 시 `FAILED`와 `errorMessage`를 저장한다. 완료된 projection의 목록/상세 응답
+`targetTypes`는 실제 좌표에 포함된 `tb_ai_document_chunk.object_type` 목록을 반환하므로 클라이언트는 이 값을
+필터와 범례 구성에 사용할 수 있다.
 
 ```json
 {
@@ -184,7 +189,7 @@ Content-Type: application/json
 projection point를 매칭하고, query 위치는 매칭된 Top-K point 좌표의 평균으로 계산한다.
 매칭 point가 없으면 `query.x`, `query.y`는 `null`, `results`는 빈 배열로 200 응답한다.
 검색은 선택된 projection의 `targetTypes`와 `filters` 범위를 기준으로 제한하고, 요청 `targetTypes`가 있으면
-projection 범위와 교집합인 type만 대상으로 한다. `query`는 provider 비용과 지연을 제한하기 위해 최대
+projection 범위와 교집합인 RAG index objectType만 대상으로 한다. `query`는 provider 비용과 지연을 제한하기 위해 최대
 2,000자까지 허용한다.
 
 ### RAG Index Job Management

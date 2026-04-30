@@ -89,10 +89,11 @@ public class JdbcVectorProjectionRepository implements VectorProjectionRepositor
     }
 
     @Override
-    public void markCompleted(String projectionId, int itemCount, Instant completedAt) {
+    public void markCompleted(String projectionId, int itemCount, List<String> targetTypes, Instant completedAt) {
         jdbcTemplate.update("""
                 UPDATE tb_ai_vector_projection
                    SET status = 'COMPLETED',
+                       target_types = :targetTypes,
                        item_count = :itemCount,
                        error_message = NULL,
                        completed_at = :completedAt
@@ -100,6 +101,7 @@ public class JdbcVectorProjectionRepository implements VectorProjectionRepositor
                 """, new MapSqlParameterSource()
                 .addValue("projectionId", projectionId)
                 .addValue("itemCount", itemCount)
+                .addValue("targetTypes", String.join(",", targetTypes == null ? List.of() : targetTypes))
                 .addValue("completedAt", timestamp(completedAt)));
     }
 
