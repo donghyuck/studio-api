@@ -52,4 +52,10 @@ final class JdbcVectorProjectionSql {
     static String orderByDisplayOrderClause(boolean postgres) {
         return " ORDER BY " + orderByDisplayOrder(postgres);
     }
+
+    static String vectorItemIdMatchClause(boolean postgres) {
+        return " WHERE " + jsonText(null, "chunkId", postgres) + " IN (:ids)"
+                + " OR " + rowVectorItemId("id", postgres) + " IN (:ids)"
+                + " OR " + jsonText(null, "documentId", postgres) + " IN (:ids)";
+    }
 }

@@ -37,4 +37,12 @@ class JdbcVectorProjectionSqlTest {
         assertThat("WHERE p.projection_id = :projectionId" + JdbcVectorProjectionSql.orderByDisplayOrderClause(true))
                 .contains(" ORDER BY p.display_order");
     }
+
+    @Test
+    void vectorItemIdMatchClauseKeepsSpacesAroundWhereInAndOr() {
+        assertThat(JdbcVectorProjectionSql.vectorItemIdMatchClause(true))
+                .isEqualTo(" WHERE metadata ->> 'chunkId' IN (:ids)"
+                        + " OR 'row-' || id IN (:ids)"
+                        + " OR metadata ->> 'documentId' IN (:ids)");
+    }
 }
