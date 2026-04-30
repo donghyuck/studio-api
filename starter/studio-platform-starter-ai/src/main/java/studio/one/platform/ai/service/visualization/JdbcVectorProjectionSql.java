@@ -24,7 +24,10 @@ final class JdbcVectorProjectionSql {
     static String jsonText(String alias, String keyExpression, boolean postgres) {
         String column = alias == null || alias.isBlank() ? "metadata" : alias + ".metadata";
         if (postgres) {
-            return column + " ->> " + keyExpression;
+            if (keyExpression.startsWith(":")) {
+                return column + " ->> " + keyExpression;
+            }
+            return column + " ->> '" + keyExpression.replace("'", "''") + "'";
         }
         String path = keyExpression.startsWith(":")
                 ? "CONCAT('$.', " + keyExpression + ")"

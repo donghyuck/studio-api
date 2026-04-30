@@ -55,7 +55,7 @@ public class DefaultVectorProjectionJobService implements VectorProjectionJobSer
             }
             pointRepository.deleteByProjectionId(projectionId);
             pointRepository.saveAll(points);
-            projectionRepository.markCompleted(projectionId, points.size(), Instant.now());
+            projectionRepository.markCompleted(projectionId, points.size(), actualTargetTypes(items), Instant.now());
         } catch (Exception ex) {
             log.warn("Vector projection job failed. projectionId={}", projectionId, ex);
             projectionRepository.updateStatus(
@@ -71,5 +71,13 @@ public class DefaultVectorProjectionJobService implements VectorProjectionJobSer
                 .filter(generator -> generator.algorithm() == projection.algorithm())
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("UNSUPPORTED_PROJECTION_ALGORITHM"));
+    }
+
+    private List<String> actualTargetTypes(List<VectorItem> items) {
+        return items.stream()
+                .map(VectorItem::targetType)
+                .filter(value -> value != null && !value.isBlank())
+                .distinct()
+                .toList();
     }
 }
