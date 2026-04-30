@@ -30,8 +30,8 @@
         <![CDATA[
         SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
           FROM tb_ai_document_chunk
-         WHERE (:objectType IS NULL OR object_type = :objectType)
-           AND (:objectId IS NULL OR object_id = :objectId)
+         WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))
+           AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
          ORDER BY embedding <-> :vector ASC
          LIMIT :limit
         ]]>
@@ -56,8 +56,8 @@
                ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
                ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
           FROM tb_ai_document_chunk
-         WHERE (:objectType IS NULL OR object_type = :objectType)
-           AND (:objectId IS NULL OR object_id = :objectId)
+         WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))
+           AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
          ORDER BY hybrid ASC
          LIMIT :limit
         ]]>

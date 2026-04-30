@@ -2,7 +2,9 @@ package studio.one.platform.ai.service.visualization;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Instant;
@@ -16,8 +18,10 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchHit;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
+import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorSearchResults;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.core.vector.visualization.ProjectionAlgorithm;
@@ -123,6 +127,39 @@ class DefaultVectorSearchVisualizationServiceTest {
         assertThat(result.results()).singleElement()
                 .extracting(VectorSearchVisualizationResult.ResultPoint::vectorItemId)
                 .isEqualTo("row-7");
+    }
+
+    @Test
+    void searchWithTargetTypesUsesObjectTypeOnlyVectorScope() {
+        EmbeddingPort embeddingPort = mock(EmbeddingPort.class);
+        VectorStorePort vectorStorePort = mock(VectorStorePort.class);
+        VectorProjectionRepository projections = mock(VectorProjectionRepository.class);
+        VectorProjectionPointRepository points = new FakePointRepository(List.of(
+                new ProjectionPointView("chunk-1", "attachment", "6", "Document", 0.2, 0.4, null, Map.of())));
+        when(projections.findById("proj-1")).thenReturn(Optional.of(projection()));
+        when(embeddingPort.embed(any())).thenReturn(new EmbeddingResponse(List.of(
+                new EmbeddingVector("query", List.of(0.1, 0.2)))));
+        when(vectorStorePort.searchByObject(eq("attachment"), eq(null), any(VectorSearchRequest.class)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("chunk-1", "stored chunk", Map.of("chunkId", "chunk-1"), List.of()),
+                        0.9)));
+        DefaultVectorSearchVisualizationService service = new DefaultVectorSearchVisualizationService(
+                embeddingPort,
+                vectorStorePort,
+                projections,
+                points);
+
+        VectorSearchVisualizationResult result = service.search(new VectorSearchVisualizationCommand(
+                "proj-1",
+                "java",
+                List.of("attachment"),
+                10,
+                null));
+
+        assertThat(result.results()).singleElement()
+                .extracting(VectorSearchVisualizationResult.ResultPoint::vectorItemId)
+                .isEqualTo("chunk-1");
+        verify(vectorStorePort).searchByObject(eq("attachment"), eq(null), any(VectorSearchRequest.class));
     }
 
     private VectorProjection projection() {
