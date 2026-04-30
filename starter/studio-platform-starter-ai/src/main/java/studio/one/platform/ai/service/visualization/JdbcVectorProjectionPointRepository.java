@@ -93,7 +93,7 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
                     ON p.vector_item_id = """ + pointJoinExpression() + """
                  WHERE p.projection_id = :projectionId
                 """ + where + """
-                 ORDER BY """ + JdbcVectorProjectionSql.orderByDisplayOrder(postgres) + """
+                """ + JdbcVectorProjectionSql.orderByDisplayOrderClause(postgres) + """
                  LIMIT :limit OFFSET :offset
                 """, params, rowMapper);
         return new ProjectionPointPage(total == null ? 0L : total, items);

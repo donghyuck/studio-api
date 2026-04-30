@@ -29,4 +29,12 @@ class JdbcVectorProjectionSqlTest {
         assertThat(JdbcVectorProjectionSql.jsonText(null, ":filterKey0", false))
                 .isEqualTo("JSON_UNQUOTE(JSON_EXTRACT(metadata, CONCAT('$.', :filterKey0)))");
     }
+
+    @Test
+    void orderByDisplayOrderClauseKeepsSpaceAfterOrderBy() {
+        assertThat(JdbcVectorProjectionSql.orderByDisplayOrderClause(true))
+                .isEqualTo(" ORDER BY p.display_order NULLS LAST, p.vector_item_id");
+        assertThat("WHERE p.projection_id = :projectionId" + JdbcVectorProjectionSql.orderByDisplayOrderClause(true))
+                .contains(" ORDER BY p.display_order");
+    }
 }

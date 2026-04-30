@@ -48,4 +48,8 @@ final class JdbcVectorProjectionSql {
         }
         return "p.display_order IS NULL, p.display_order, p.vector_item_id";
     }
+
+    static String orderByDisplayOrderClause(boolean postgres) {
+        return " ORDER BY " + orderByDisplayOrder(postgres);
+    }
 }
