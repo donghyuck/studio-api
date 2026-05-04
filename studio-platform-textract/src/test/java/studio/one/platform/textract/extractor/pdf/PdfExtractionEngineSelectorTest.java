@@ -84,6 +84,45 @@ class PdfExtractionEngineSelectorTest {
         assertThat(result.metadata()).containsEntry(PdfExtractionEngineSelector.KEY_EXTRACTION_ENGINE, "pymupdf4llm");
     }
 
+    @Test
+    void autoUsesPyMuPdfWhenPdfBoxIsDisabled() {
+        PdfExtractionOptions options = new PdfExtractionOptions(
+                PdfExtractionMode.AUTO,
+                true,
+                false,
+                true,
+                false,
+                false,
+                false,
+                null,
+                3,
+                1024);
+
+        ParsedFile result = selector(pyMuPdf("markdown text")).extract(request(options));
+
+        assertThat(result.plainText()).isEqualTo("markdown text");
+        assertThat(result.metadata()).containsEntry(PdfExtractionEngineSelector.KEY_EXTRACTION_ENGINE, "pymupdf4llm");
+    }
+
+    @Test
+    void supportsRespectsExplicitPdfBoxSelection() {
+        PdfExtractionOptions options = new PdfExtractionOptions(
+                PdfExtractionMode.PDFBOX,
+                true,
+                false,
+                true,
+                false,
+                false,
+                false,
+                null,
+                3,
+                1024);
+
+        boolean supported = selector(pyMuPdf("markdown text")).supports(request(options));
+
+        assertThat(supported).isFalse();
+    }
+
     private PdfExtractionEngineSelector selector(PdfExtractionEngine... engines) {
         return new PdfExtractionEngineSelector(List.of(engines));
     }

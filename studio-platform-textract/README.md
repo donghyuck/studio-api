@@ -87,7 +87,7 @@ studio:
 
 - `engine=pdfbox`: PDFBox만 사용한다.
 - `engine=pymupdf4llm`: PyMuPDF4LLM worker를 우선 사용한다.
-- `engine=auto`: worker가 활성화되어 있고 page threshold 또는 요청 option이 PyMuPDF4LLM을 선호할 때 worker를 사용한다. 기본 요청에는 별도 option이 없으므로 Java-only 호환성을 유지한다.
+- `engine=auto`: PDFBox가 활성화되어 있으면 기본적으로 PDFBox를 사용한다. worker가 활성화되어 있고 page threshold 또는 요청 option이 PyMuPDF4LLM을 선호할 때 worker를 사용한다. PDFBox를 비활성화하고 worker만 활성화한 구성에서는 worker를 사용한다.
 - PyMuPDF4LLM이 비활성화되었거나 실패하고 `fallback-enabled=true`이면 PDFBox로 재시도하고 `ParseWarning`에 fallback 사실을 남긴다.
 - `fallback-enabled=false`이면 worker 실패를 `FileParseException`으로 노출한다.
 

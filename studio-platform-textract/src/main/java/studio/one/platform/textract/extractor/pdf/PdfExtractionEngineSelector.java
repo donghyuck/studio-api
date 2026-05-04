@@ -31,14 +31,25 @@ public class PdfExtractionEngineSelector {
     }
 
     public boolean supports(PdfExtractionRequest request) {
-        return engines.stream().anyMatch(engine -> engine.supports(request));
+        PdfExtractionOptions options = request.options();
+        return switch (options.engine()) {
+            case PDFBOX -> supports(request, PdfExtractionEngineType.PDFBOX);
+            case PYMUPDF4LLM -> supports(request, PdfExtractionEngineType.PYMUPDF4LLM)
+                    || (options.fallbackEnabled() && supports(request, PdfExtractionEngineType.PDFBOX));
+            case AUTO -> supports(request, PdfExtractionEngineType.PDFBOX)
+                    || supports(request, PdfExtractionEngineType.PYMUPDF4LLM);
+        };
     }
 
     private ParsedFile extractAuto(PdfExtractionRequest request) throws FileParseException {
         if (request.options().prefersPyMuPdf4Llm()) {
             return extractPyMuPdfFirst(request);
         }
-        return extractRequired(request, PdfExtractionEngineType.PDFBOX);
+        PdfExtractionEngine pdfBox = find(PdfExtractionEngineType.PDFBOX);
+        if (pdfBox != null && pdfBox.supports(request)) {
+            return pdfBox.extract(request);
+        }
+        return extractRequired(request, PdfExtractionEngineType.PYMUPDF4LLM);
     }
 
     private ParsedFile extractPyMuPdfFirst(PdfExtractionRequest request) throws FileParseException {
@@ -82,6 +93,11 @@ public class PdfExtractionEngineSelector {
                 .filter(engine -> engine.type() == type)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private boolean supports(PdfExtractionRequest request, PdfExtractionEngineType type) {
+        PdfExtractionEngine engine = find(type);
+        return engine != null && engine.supports(request);
     }
 
     private ParsedFile withFallbackWarning(ParsedFile file, String code, Exception failure) {
