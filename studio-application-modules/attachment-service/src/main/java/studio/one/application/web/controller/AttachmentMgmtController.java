@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +30,13 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
+import studio.one.application.attachment.service.AttachmentDownloadUrl;
+import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
+import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.web.dto.AttachmentDownloadUrlDto;
+import studio.one.application.web.dto.AttachmentDownloadUrlIssueRequestDto;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
@@ -45,6 +54,8 @@ import studio.one.platform.web.dto.ApiResponse;
 public class AttachmentMgmtController {
 
     private final AttachmentService attachmentService;
+    private final AttachmentDownloadUrlService downloadUrlService;
+    private final AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
     private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
@@ -110,6 +121,34 @@ public class AttachmentMgmtController {
                 attachment,
                 attachmentService.getInputStream(attachment),
                 CacheControl.noCache());
+    }
+
+    @PostMapping("/{attachmentId:[\\p{Digit}]+}/download-url")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','download')")
+    public ResponseEntity<ApiResponse<AttachmentDownloadUrlDto>> issueDownloadUrl(
+            @PathVariable("attachmentId") long attachmentId,
+            @RequestBody(required = false) AttachmentDownloadUrlIssueRequestDto request,
+            HttpServletRequest httpRequest) throws NotFoundException {
+        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        ApplicationPrincipal principal = requirePrincipal();
+        AttachmentAccessSupport.requireAttachmentAccess(attachment, principal);
+        AttachmentUrlIssueRequestDetails details = requestDetailsResolver.resolve(httpRequest);
+        try {
+            AttachmentDownloadUrl issued = downloadUrlService.issueDownloadUrl(
+                    attachment,
+                    request == null ? null : request.ttlSeconds(),
+                    AttachmentDownloadUrlEndpointKind.MGMT,
+                    AttachmentWebSupport.auditActor(principal),
+                    details.clientIp(),
+                    details.userAgent());
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(ApiResponse.ok(new AttachmentDownloadUrlDto(issued.url(), issued.expiresAt())));
+        } catch (IllegalArgumentException ex) {
+            return AttachmentWebSupport.badRequest(ex.getMessage());
+        } catch (AttachmentDownloadUrlUnavailableException ex) {
+            return AttachmentWebSupport.conflict("Attachment download URL is not available");
+        }
     }
 
     @GetMapping

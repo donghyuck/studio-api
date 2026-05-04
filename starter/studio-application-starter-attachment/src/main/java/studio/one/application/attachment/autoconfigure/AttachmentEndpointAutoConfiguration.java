@@ -34,11 +34,14 @@ import org.springframework.context.annotation.Lazy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.controller.AttachmentController;
+import studio.one.application.web.controller.AttachmentUrlIssueRequestDetailsResolver;
 
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.LogUtils;
 /**
@@ -59,7 +62,7 @@ import studio.one.platform.util.LogUtils;
 @Configuration
 @AutoConfigureAfter(AttachmentAutoConfiguration.class)
 @RequiredArgsConstructor
-@EnableConfigurationProperties({ AttachmentFeatureProperties.class })
+@EnableConfigurationProperties({ AttachmentFeatureProperties.class, AttachmentProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
                 + ".attachment.web", name = "enabled", havingValue = "true")
 @ComponentScan(basePackageClasses = { AttachmentController.class })
@@ -70,11 +73,22 @@ public class AttachmentEndpointAutoConfiguration {
         private final I18n i18n;
 
         @Bean
+        @ConditionalOnMissingBean(AttachmentUrlIssueRequestDetailsResolver.class)
+        AttachmentUrlIssueRequestDetailsResolver attachmentUrlIssueRequestDetailsResolver(
+                        AttachmentProperties attachmentProperties) {
+                return new AttachmentUrlIssueRequestDetailsResolver(
+                                attachmentProperties.getAudit().getUrlIssue().isTrustForwardedFor());
+        }
+
+        @Bean
         @Lazy
         @ConditionalOnMissingBean(AttachmentController.class)
         AttachmentController attachmentController(
                         AttachmentService attachmentService,
-                        ObjectProvider<ThumbnailService> thumbnailServiceProvider) {
+                        AttachmentDownloadUrlService downloadUrlService,
+                        AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver,
+                        ObjectProvider<ThumbnailService> thumbnailServiceProvider,
+                        ObjectProvider<PrincipalResolver> principalResolverProvider) {
 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                                 AttachmentAutoConfiguration.FEATURE_NAME,
@@ -82,7 +96,12 @@ public class AttachmentEndpointAutoConfiguration {
                                 LogUtils.blue(AttachmentController.class, true),
                                 props.getWeb().getMgmtBasePath(),
                                 "CRUD"));
-                return new AttachmentController(attachmentService, thumbnailServiceProvider);
+                return new AttachmentController(
+                                attachmentService,
+                                downloadUrlService,
+                                requestDetailsResolver,
+                                thumbnailServiceProvider,
+                                principalResolverProvider);
         }
 
 }

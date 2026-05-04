@@ -18,13 +18,21 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
+import studio.one.application.attachment.service.AttachmentDownloadUrl;
+import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
+import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.thumbnail.ThumbnailData;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
+import studio.one.application.web.dto.AttachmentDownloadUrlDto;
+import studio.one.application.web.dto.AttachmentDownloadUrlIssueRequestDto;
 import studio.one.application.web.dto.AttachmentDto;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,11 +42,20 @@ class AttachmentControllerTest {
     private AttachmentService attachmentService;
 
     @Mock
+    private AttachmentDownloadUrlService downloadUrlService;
+
+    @Mock
+    private AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
+
+    @Mock
     private ObjectProvider<ThumbnailService> thumbnailServiceProvider;
+
+    @Mock
+    private ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @Test
     void uploadSanitizesFilenameAndNormalizesContentType() throws Exception {
-        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        AttachmentController controller = controller();
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "C:\\temp\\contract.pdf",
@@ -68,7 +85,7 @@ class AttachmentControllerTest {
 
     @Test
     void downloadBuildsAttachmentHeaders() throws Exception {
-        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        AttachmentController controller = controller();
         Attachment attachment = mock(Attachment.class);
 
         when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
@@ -87,7 +104,7 @@ class AttachmentControllerTest {
 
     @Test
     void thumbnailReturnsSameResponseShape() throws Exception {
-        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        AttachmentController controller = controller();
         Attachment attachment = mock(Attachment.class);
         ThumbnailService thumbnailService = mock(ThumbnailService.class);
 
@@ -110,7 +127,7 @@ class AttachmentControllerTest {
 
     @Test
     void thumbnailPendingReturnsImageWithNoStoreAndRetryAfter() throws Exception {
-        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        AttachmentController controller = controller();
         Attachment attachment = mock(Attachment.class);
         ThumbnailService thumbnailService = mock(ThumbnailService.class);
 
@@ -129,7 +146,7 @@ class AttachmentControllerTest {
 
     @Test
     void thumbnailOmittedSizeAndFormatUseServiceDefaults() throws Exception {
-        AttachmentController controller = new AttachmentController(attachmentService, thumbnailServiceProvider);
+        AttachmentController controller = controller();
         Attachment attachment = mock(Attachment.class);
         ThumbnailService thumbnailService = mock(ThumbnailService.class);
 
@@ -144,5 +161,78 @@ class AttachmentControllerTest {
         assertEquals("unavailable", response.getHeaders().getFirst("X-Thumbnail-Status"));
         assertEquals("no-store", response.getHeaders().getCacheControl());
         verify(thumbnailService).getOrCreate(attachment, 0, null);
+    }
+
+    @Test
+    void issueDownloadUrlReturnsNoStoreResponse() throws Exception {
+        AttachmentController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        AttachmentUrlIssueRequestDetails details = new AttachmentUrlIssueRequestDetails("10.0.0.1", "JUnit");
+        java.time.Instant expiresAt = java.time.Instant.parse("2026-05-04T00:05:00Z");
+
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(requestDetailsResolver.resolve(request)).thenReturn(details);
+        when(downloadUrlService.issueDownloadUrl(
+                eq(attachment),
+                eq(120L),
+                eq(AttachmentDownloadUrlEndpointKind.SERVICE),
+                any(),
+                eq("10.0.0.1"),
+                eq("JUnit"))).thenReturn(new AttachmentDownloadUrl("https://signed.example/download", expiresAt));
+
+        ResponseEntity<ApiResponse<AttachmentDownloadUrlDto>> response = controller.issueDownloadUrl(
+                88L,
+                new AttachmentDownloadUrlIssueRequestDto(120L),
+                request);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("no-store", response.getHeaders().getCacheControl());
+        assertEquals("https://signed.example/download", response.getBody().getData().url());
+        assertEquals(expiresAt, response.getBody().getData().expiresAt());
+    }
+
+    @Test
+    void issueDownloadUrlMapsInvalidTtlToBadRequest() throws Exception {
+        AttachmentController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails(null, null));
+        when(downloadUrlService.issueDownloadUrl(eq(attachment), eq(0L), eq(AttachmentDownloadUrlEndpointKind.SERVICE),
+                any(), eq(null), eq(null))).thenThrow(new IllegalArgumentException("ttlSeconds must be between 1 and 3600"));
+
+        ResponseEntity<ApiResponse<AttachmentDownloadUrlDto>> response = controller.issueDownloadUrl(
+                88L,
+                new AttachmentDownloadUrlIssueRequestDto(0L),
+                request);
+
+        assertEquals(400, response.getStatusCode().value());
+    }
+
+    @Test
+    void issueDownloadUrlMapsUnavailableStorageToConflict() throws Exception {
+        AttachmentController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails(null, null));
+        when(downloadUrlService.issueDownloadUrl(eq(attachment), eq(null), eq(AttachmentDownloadUrlEndpointKind.SERVICE),
+                any(), eq(null), eq(null))).thenThrow(new AttachmentDownloadUrlUnavailableException());
+
+        ResponseEntity<ApiResponse<AttachmentDownloadUrlDto>> response = controller.issueDownloadUrl(88L, null, request);
+
+        assertEquals(409, response.getStatusCode().value());
+    }
+
+    private AttachmentController controller() {
+        return new AttachmentController(
+                attachmentService,
+                downloadUrlService,
+                requestDetailsResolver,
+                thumbnailServiceProvider,
+                principalResolverProvider);
     }
 }

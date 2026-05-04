@@ -3,6 +3,7 @@ package studio.one.application.attachment.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.Test;
@@ -24,7 +26,11 @@ import org.springframework.beans.factory.ObjectProvider;
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.persistence.AttachmentRepository;
+import studio.one.application.attachment.storage.AttachmentFileStorageResolver;
+import studio.one.application.attachment.storage.AttachmentStorageMetadata;
 import studio.one.application.attachment.storage.FileStorage;
+import studio.one.application.attachment.storage.FileStorageSaveResult;
+import studio.one.application.attachment.storage.FileStorageSaveResultCapable;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
@@ -37,6 +43,9 @@ class AttachmentServiceImplTest {
 
     @Mock
     private FileStorage fileStorage;
+
+    @Mock
+    private ObjectProvider<AttachmentFileStorageResolver> fileStorageResolverProvider;
 
     @Mock
     private ObjectProvider<PrincipalResolver> principalResolverProvider;
@@ -148,10 +157,47 @@ class AttachmentServiceImplTest {
         verify(fileStorage).save(any(Attachment.class), any(InputStream.class));
     }
 
+    @Test
+    void createAttachmentCleansUpObjectWhenMetadataUpdateFailsAfterStorageSave() {
+        ResultFileStorage resultStorage = new ResultFileStorage();
+        AttachmentServiceImpl service = new AttachmentServiceImpl(
+                attachmentRepository,
+                resultStorage,
+                fileStorageResolverProvider,
+                principalResolverProvider,
+                objectTypeRuntimeServiceProvider,
+                thumbnailServiceProvider);
+        RuntimeException metadataFailure = new RuntimeException("metadata failed");
+        AtomicInteger saves = new AtomicInteger();
+
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
+            ApplicationAttachment attachment = invocation.getArgument(0);
+            attachment.setAttachmentId(55L);
+            if (saves.incrementAndGet() == 2) {
+                throw metadataFailure;
+            }
+            return attachment;
+        });
+
+        RuntimeException thrown = assertThrows(RuntimeException.class, () -> service.createAttachment(
+                12,
+                34L,
+                "report.pdf",
+                "application/pdf",
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3));
+
+        assertSame(metadataFailure, thrown);
+        assertTrue(resultStorage.deleted);
+        assertEquals("secret-key", resultStorage.deletedAttachment.getProperties()
+                .get(AttachmentStorageMetadata.STORAGE_KEY));
+    }
+
     private AttachmentServiceImpl service() {
         return new AttachmentServiceImpl(
                 attachmentRepository,
                 fileStorage,
+                fileStorageResolverProvider,
                 principalResolverProvider,
                 objectTypeRuntimeServiceProvider,
                 thumbnailServiceProvider);
@@ -166,6 +212,37 @@ class AttachmentServiceImplTest {
         @Override
         public synchronized int available() {
             return 0;
+        }
+    }
+
+    private static final class ResultFileStorage implements FileStorage, FileStorageSaveResultCapable {
+
+        private boolean deleted;
+        private Attachment deletedAttachment;
+
+        @Override
+        public String save(Attachment attachment, InputStream input) {
+            return "objectstorage";
+        }
+
+        @Override
+        public FileStorageSaveResult saveWithResult(Attachment attachment, InputStream input) {
+            return new FileStorageSaveResult("objectstorage", Map.of(
+                    AttachmentStorageMetadata.STORAGE_TYPE, "objectstorage",
+                    AttachmentStorageMetadata.STORAGE_PROVIDER, "main",
+                    AttachmentStorageMetadata.STORAGE_BUCKET, "bucket",
+                    AttachmentStorageMetadata.STORAGE_KEY, "secret-key"));
+        }
+
+        @Override
+        public InputStream load(Attachment attachment) {
+            return new ByteArrayInputStream(new byte[0]);
+        }
+
+        @Override
+        public void delete(Attachment attachment) {
+            this.deleted = true;
+            this.deletedAttachment = attachment;
         }
     }
 }

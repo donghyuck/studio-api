@@ -10,13 +10,18 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.service.AttachmentDownloadUrlIssueActor;
 import studio.one.application.web.dto.AttachmentDto;
+import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.identity.UserDto;
 import studio.one.platform.identity.UserRef;
 import studio.one.platform.web.dto.ApiResponse;
@@ -108,6 +113,33 @@ final class AttachmentWebSupport {
         return ResponseEntity.badRequest().body(body);
     }
 
+    static <T> ResponseEntity<ApiResponse<T>> conflict(String message) {
+        ApiResponse<T> body = ApiResponse.<T>builder()
+                .message(message)
+                .build();
+        return ResponseEntity.status(409).body(body);
+    }
+
+    static AttachmentDownloadUrlIssueActor auditActor(ApplicationPrincipal principal) {
+        if (principal == null) {
+            return null;
+        }
+        return new AttachmentDownloadUrlIssueActor(principal.getUserId(), principalName(principal));
+    }
+
+    static AttachmentDownloadUrlIssueActor auditActor(ObjectProvider<PrincipalResolver> principalResolverProvider) {
+        PrincipalResolver resolver = principalResolverProvider == null ? null : principalResolverProvider.getIfAvailable();
+        ApplicationPrincipal principal = resolver == null ? null : resolver.currentOrNull();
+        if (principal != null) {
+            return auditActor(principal);
+        }
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !StringUtils.hasText(authentication.getName())) {
+            return null;
+        }
+        return new AttachmentDownloadUrlIssueActor(null, authentication.getName());
+    }
+
     private static UserDto findUserDto(
             ObjectProvider<IdentityService> identityServiceProvider,
             long userId,
@@ -130,6 +162,14 @@ final class AttachmentWebSupport {
 
     private static UserDto toUserDto(UserRef userRef) {
         return new UserDto(userRef.userId(), userRef.username());
+    }
+
+    private static String principalName(ApplicationPrincipal principal) {
+        if (StringUtils.hasText(principal.getUsername())) {
+            return principal.getUsername();
+        }
+        Long userId = principal.getUserId();
+        return userId == null ? null : String.valueOf(userId);
     }
 
     record PreparedUpload(String name, String contentType, int sizeBytes) {

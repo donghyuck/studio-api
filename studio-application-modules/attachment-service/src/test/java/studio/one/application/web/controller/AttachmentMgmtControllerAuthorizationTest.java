@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
@@ -31,6 +32,12 @@ class AttachmentMgmtControllerAuthorizationTest {
 
     @Mock
     private AttachmentService attachmentService;
+
+    @Mock
+    private AttachmentDownloadUrlService downloadUrlService;
+
+    @Mock
+    private AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
 
     @Mock
     private ObjectProvider<IdentityService> identityServiceProvider;
@@ -118,6 +125,8 @@ class AttachmentMgmtControllerAuthorizationTest {
     private AttachmentMgmtController controller() {
         return new AttachmentMgmtController(
                 attachmentService,
+                downloadUrlService,
+                requestDetailsResolver,
                 identityServiceProvider,
                 principalResolverProvider,
                 textExtractionProvider);

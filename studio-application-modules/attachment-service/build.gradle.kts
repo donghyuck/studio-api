@@ -24,6 +24,7 @@ dependencies {
     compileOnly(project(":studio-platform-identity"))
     compileOnly(project(":studio-platform-data")) 
     compileOnly(project(":studio-platform-textract"))
+    api(project(":studio-platform-storage"))
     api(project(":studio-platform-thumbnail"))
 
     testImplementation("org.mockito:mockito-core")
@@ -39,4 +40,5 @@ dependencies {
     testImplementation(project(":studio-platform-thumbnail"))
     testImplementation(project(":studio-platform-identity"))
     testImplementation(project(":studio-platform-objecttype"))
+    testImplementation(project(":studio-platform-storage"))
 }

@@ -13,6 +13,10 @@
       "description": "Attachment thumbnail storage and attachment integration properties."
     },
     {
+      "name": "studio.attachment.audit.url-issue",
+      "description": "Attachment signed download URL issuance audit properties."
+    },
+    {
       "name": "studio.thumbnail",
       "description": "Platform thumbnail generation runtime properties."
     }
@@ -70,6 +74,28 @@
       "type": "java.lang.Boolean",
       "defaultValue": false,
       "description": "Enable local cache for database-backed attachment storage."
+    },
+    {
+      "name": "studio.attachment.storage.object-storage.provider-id",
+      "type": "java.lang.String",
+      "description": "Object storage provider id used when attachment storage type is objectstorage."
+    },
+    {
+      "name": "studio.attachment.storage.object-storage.bucket",
+      "type": "java.lang.String",
+      "description": "Object storage bucket used when attachment storage type is objectstorage."
+    },
+    {
+      "name": "studio.attachment.storage.object-storage.key-prefix",
+      "type": "java.lang.String",
+      "defaultValue": "attachments",
+      "description": "Object key prefix for newly uploaded objectstorage attachments."
+    },
+    {
+      "name": "studio.attachment.audit.url-issue.trust-forwarded-for",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Trust X-Forwarded-For for attachment download URL issuance audit client IP only behind a trusted proxy."
     },
     {
       "name": "studio.attachment.thumbnail.enabled",

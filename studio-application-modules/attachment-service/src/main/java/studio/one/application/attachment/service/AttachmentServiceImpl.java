@@ -7,7 +7,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -25,7 +27,10 @@ import studio.one.application.attachment.domain.entity.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.exception.AttachmentNotFoundException;
 import studio.one.application.attachment.persistence.AttachmentRepository;
+import studio.one.application.attachment.storage.AttachmentFileStorageResolver;
 import studio.one.application.attachment.storage.FileStorage;
+import studio.one.application.attachment.storage.FileStorageSaveResult;
+import studio.one.application.attachment.storage.FileStorageSaveResultCapable;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -43,6 +48,7 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     private final AttachmentRepository attachmentRepository;
     private final FileStorage fileStorage;
+    private final ObjectProvider<AttachmentFileStorageResolver> fileStorageResolverProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
     private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
@@ -182,9 +188,14 @@ public class AttachmentServiceImpl implements AttachmentService {
                 attachment.setCreatedBy(principal.getUserId());
             }
         }
-        Attachment savedAttachment = attachmentRepository.save(attachment);
+        FileStorage storage = resolveForWrite();
+        ApplicationAttachment savedAttachment = toEntity(attachmentRepository.save(attachment));
         try {
-            fileStorage.save(savedAttachment, inputStream);
+            FileStorageSaveResult saveResult = saveToStorage(storage, savedAttachment, inputStream);
+            if (!saveResult.properties().isEmpty()) {
+                mergeProperties(savedAttachment, saveResult.properties());
+                savedAttachment = toEntity(attachmentRepository.save(savedAttachment));
+            }
             return savedAttachment;
         } catch (RuntimeException e) {
             cleanupAfterStorageFailure(savedAttachment, e);
@@ -205,7 +216,7 @@ public class AttachmentServiceImpl implements AttachmentService {
             @CacheEvict(cacheNames = CACHE_BY_ID, key = "#attachment.attachmentId")
     })
     public void removeAttachment(Attachment attachment) {
-        fileStorage.delete(attachment);
+        resolveForRead(attachment).delete(attachment);
         ThumbnailService thumbnailService = thumbnailServiceProvider.getIfAvailable();
         if (thumbnailService != null) {
             thumbnailService.deleteAll(attachment);
@@ -215,7 +226,7 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     public InputStream getInputStream(Attachment attachment) throws IOException {
-        return fileStorage.load(attachment);
+        return resolveForRead(attachment).load(attachment);
     }
 
     private ApplicationAttachment toEntity(Attachment attachment) {
@@ -229,6 +240,9 @@ public class AttachmentServiceImpl implements AttachmentService {
         entity.setName(attachment.getName());
         entity.setContentType(attachment.getContentType());
         entity.setSize(attachment.getSize());
+        entity.setCreatedBy(attachment.getCreatedBy());
+        entity.setCreatedAt(attachment.getCreatedAt());
+        entity.setProperties(attachment.getProperties());
         return entity;
     }
 
@@ -265,10 +279,11 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     private void cleanupAfterStorageFailure(Attachment savedAttachment, RuntimeException original) {
         try {
-            fileStorage.delete(savedAttachment);
+            resolveForRead(savedAttachment).delete(savedAttachment);
         } catch (RuntimeException cleanupException) {
-            log.warn("Attachment storage cleanup failed for id={}: {}",
-                    savedAttachment.getAttachmentId(), cleanupException.getMessage());
+            log.warn("Attachment storage cleanup failed for id={} ({})",
+                    savedAttachment.getAttachmentId(), cleanupException.getClass().getSimpleName());
+            log.debug("Attachment storage cleanup failure details", cleanupException);
             original.addSuppressed(cleanupException);
         }
     }
@@ -299,5 +314,34 @@ public class AttachmentServiceImpl implements AttachmentService {
         if (sizeBytes < 0 || sizeBytes > MAX_BUFFER_BYTES || sizeBytes > Integer.MAX_VALUE) {
             throw new IllegalArgumentException("File size exceeds supported limit");
         }
+    }
+
+    private FileStorage resolveForWrite() {
+        AttachmentFileStorageResolver resolver = fileStorageResolverProvider.getIfAvailable();
+        return resolver == null ? fileStorage : resolver.resolveForWrite();
+    }
+
+    private FileStorage resolveForRead(Attachment attachment) {
+        AttachmentFileStorageResolver resolver = fileStorageResolverProvider.getIfAvailable();
+        return resolver == null ? fileStorage : resolver.resolveForRead(attachment);
+    }
+
+    private FileStorageSaveResult saveToStorage(
+            FileStorage storage,
+            Attachment attachment,
+            InputStream inputStream) {
+        if (storage instanceof FileStorageSaveResultCapable capable) {
+            return capable.saveWithResult(attachment, inputStream);
+        }
+        return FileStorageSaveResult.of(storage.save(attachment, inputStream));
+    }
+
+    private void mergeProperties(ApplicationAttachment attachment, Map<String, String> properties) {
+        Map<String, String> merged = new HashMap<>();
+        if (attachment.getProperties() != null) {
+            merged.putAll(attachment.getProperties());
+        }
+        merged.putAll(properties);
+        attachment.setProperties(merged);
     }
 }
