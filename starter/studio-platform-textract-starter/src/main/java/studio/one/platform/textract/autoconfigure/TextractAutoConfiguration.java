@@ -1,10 +1,12 @@
 package studio.one.platform.textract.autoconfigure;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.context.annotation.Bean;
@@ -14,6 +16,9 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -27,6 +32,13 @@ import studio.one.platform.textract.extractor.impl.ImageFileParser;
 import studio.one.platform.textract.extractor.impl.PdfFileParser;
 import studio.one.platform.textract.extractor.impl.PptxFileParser;
 import studio.one.platform.textract.extractor.impl.TextFileParser;
+import studio.one.platform.textract.extractor.pdf.PdfExtractionEngine;
+import studio.one.platform.textract.extractor.pdf.PdfExtractionEngineSelector;
+import studio.one.platform.textract.extractor.pdf.PdfExtractionMode;
+import studio.one.platform.textract.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.extractor.pdf.pdfbox.PdfBoxExtractionEngine;
+import studio.one.platform.textract.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
+import studio.one.platform.textract.extractor.pdf.pymupdf.PyMuPdf4LlmExtractionEngine;
 import studio.one.platform.textract.service.FileContentExtractionService;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -61,9 +73,31 @@ public class TextractAutoConfiguration {
 
     @Bean
     @ConditionalOnClass(name = "org.apache.pdfbox.pdmodel.PDDocument")
-    public FileParser pdfFileParser() {
+    public FileParser pdfFileParser(ObjectProvider<PyMuPdf4LlmClient> pyMuPdf4LlmClientProvider) {
         logCreated(PdfFileParser.class);
-        return new PdfFileParser();
+        List<PdfExtractionEngine> engines = new ArrayList<>();
+        if (props.getPdf().getEngines().getPdfbox().isEnabled()) {
+            engines.add(new PdfBoxExtractionEngine());
+        }
+        PyMuPdf4LlmClient pyMuPdf4LlmClient = pyMuPdf4LlmClientProvider.getIfAvailable();
+        if (pyMuPdf4LlmClient != null) {
+            engines.add(new PyMuPdf4LlmExtractionEngine(pyMuPdf4LlmClient));
+        }
+        return new PdfFileParser(new PdfExtractionEngineSelector(engines), pdfExtractionOptions());
+    }
+
+    @Bean
+    @ConditionalOnClass(ObjectMapper.class)
+    @ConditionalOnProperty(prefix = "studio.textract.pdf.engines.pymupdf4llm", name = "enabled", havingValue = "true")
+    public PyMuPdf4LlmClient pyMuPdf4LlmClient(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        logCreated(PyMuPdf4LlmClient.class);
+        TextractProperties.PyMuPdf4Llm worker = props.getPdf().getEngines().getPymupdf4llm();
+        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        return new PyMuPdf4LlmHttpClient(
+                worker.getEndpoint(),
+                worker.getTimeout(),
+                worker.getMaxFileSizeBytes(),
+                objectMapper);
     }
 
     @Bean
@@ -152,6 +186,23 @@ public class TextractAutoConfiguration {
         bindTesseractFallback(targetPrefix, legacyRuntimePrefix, legacyFeaturePrefix,
                 "language", tesseract::setLanguage);
         return tesseract;
+    }
+
+    private PdfExtractionOptions pdfExtractionOptions() {
+        TextractProperties.Pdf pdf = props.getPdf();
+        TextractProperties.PreferPyMuPdf4LlmWhen prefer = pdf.getAuto().getPreferPymupdf4llmWhen();
+        TextractProperties.PdfEngines engines = pdf.getEngines();
+        return new PdfExtractionOptions(
+                PdfExtractionMode.valueOf(pdf.getEngine().name()),
+                pdf.isFallbackEnabled(),
+                engines.getPdfbox().isEnabled(),
+                engines.getPymupdf4llm().isEnabled(),
+                false,
+                false,
+                false,
+                null,
+                prefer.getMinPages(),
+                engines.getPymupdf4llm().getMaxFileSizeBytes());
     }
 
     private void bindTesseractFallback(

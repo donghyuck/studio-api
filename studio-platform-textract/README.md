@@ -54,6 +54,58 @@ List<ParsedBlock> blocks = parsed.blocks();
 | HWPX | 문단, 표, 이미지 BinData 참조 | JDK ZIP/XML |
 | HWP | BodyText 문단, BinData 이미지 목록 | `org.apache.poi:poi` |
 
+## PDF extraction engines
+
+PDF 추출은 기본적으로 Java/PDFBox 엔진을 사용한다.
+PyMuPDF4LLM은 Python 패키지이므로 Java artifact에 포함하지 않고 별도 worker로 선택 연동한다.
+
+기본값은 Java-only 동작이다.
+
+```yaml
+studio:
+  textract:
+    pdf:
+      engine: auto # auto, pdfbox, pymupdf4llm
+      fallback-enabled: true
+      engines:
+        pdfbox:
+          enabled: true
+        pymupdf4llm:
+          enabled: false
+          endpoint: http://localhost:8000/extract/pdf
+          timeout: 60s
+          max-file-size: 50MB
+      auto:
+        prefer-pymupdf4llm-when:
+          min-pages: 3
+          table-detection-required: true
+          ocr-required: true
+          preserve-layout: true
+```
+
+선택 정책:
+
+- `engine=pdfbox`: PDFBox만 사용한다.
+- `engine=pymupdf4llm`: PyMuPDF4LLM worker를 우선 사용한다.
+- `engine=auto`: worker가 활성화되어 있고 page threshold 또는 요청 option이 PyMuPDF4LLM을 선호할 때 worker를 사용한다. 기본 요청에는 별도 option이 없으므로 Java-only 호환성을 유지한다.
+- PyMuPDF4LLM이 비활성화되었거나 실패하고 `fallback-enabled=true`이면 PDFBox로 재시도하고 `ParseWarning`에 fallback 사실을 남긴다.
+- `fallback-enabled=false`이면 worker 실패를 `FileParseException`으로 노출한다.
+
+PyMuPDF4LLM worker는 `tools/pymupdf4llm-worker`에 PoC와 운영 문서가 있다.
+로컬 Python 환경에서는 Python 3.10 이상에서 다음처럼 설치한다.
+
+```bash
+pip install -U pymupdf4llm
+pip install -U pymupdf4llm[ocr,layout]
+```
+
+worker는 `POST /extract/pdf`와 `GET /health`를 제공한다.
+Java mapper는 worker의 `markdown`, `pages`, `blocks`, `tables`, `images`, `metadata`, `warnings`, `elapsedMs`, `ocrApplied`를 기존 `ParsedFile` 모델로 변환한다.
+
+RAG 색인은 기존 흐름을 유지한다.
+`ParsedFile`은 조립 모듈에서 `TextractNormalizedDocumentAdapter`를 거쳐 `NormalizedDocument`로 변환되고, table은 `ExtractedTable.vectorText()`, image는 caption/alt/OCR text를 chunking 입력으로 사용한다.
+검색 결과에서 원문 위치를 표시할 수 있도록 `page`, `sourceRef`, `bbox`, `headingPath`, `pdfExtractionEngine` metadata를 보존한다.
+
 ## 구조화 결과 계약
 
 `ParsedFile`은 벡터화 파이프라인의 원천 입력으로 사용할 수 있는 구조화 결과를 제공한다.

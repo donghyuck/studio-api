@@ -17,6 +17,8 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
+import studio.one.platform.textract.extractor.FileParser;
+import studio.one.platform.textract.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
 import studio.one.platform.textract.service.FileContentExtractionService;
 
 @ExtendWith(OutputCaptureExtension.class)
@@ -230,7 +232,30 @@ class TextractAutoConfigurationTest {
                     assertThat(ReflectionTestUtils.getField(service, "maxExtractBytes"))
                             .isEqualTo(10 * 1024 * 1024);
                     assertThat(context).hasBean("textFileParser");
+                    assertThat(context).hasBean("pdfFileParser");
+                    assertThat(context).doesNotHaveBean(PyMuPdf4LlmClient.class);
                     assertThat(context).hasBean("hwpHwpxFileParser");
+                });
+    }
+
+    @Test
+    void registersPyMuPdfWorkerClientOnlyWhenEnabled() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.textract.pdf.engine=pymupdf4llm",
+                        "studio.textract.pdf.engines.pymupdf4llm.enabled=true",
+                        "studio.textract.pdf.engines.pymupdf4llm.endpoint=http://localhost:8000/extract/pdf",
+                        "studio.textract.pdf.engines.pymupdf4llm.timeout=5s",
+                        "studio.textract.pdf.engines.pymupdf4llm.max-file-size=20MB")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(PyMuPdf4LlmClient.class);
+                    assertThat(context).hasBean("pdfFileParser");
+                    assertThat(context.getBean("pdfFileParser", FileParser.class)).isNotNull();
+                    TextractProperties properties = context.getBean(TextractProperties.class);
+                    assertThat(properties.getPdf().getEngine()).isEqualTo(TextractProperties.PdfEngine.PYMUPDF4LLM);
+                    assertThat(properties.getPdf().getEngines().getPymupdf4llm().getMaxFileSizeBytes())
+                            .isEqualTo(20 * 1024 * 1024);
                 });
     }
 
