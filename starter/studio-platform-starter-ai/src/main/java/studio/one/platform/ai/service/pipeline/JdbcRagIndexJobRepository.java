@@ -218,6 +218,33 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                 """, new MapSqlParameterSource("jobId", jobId), LOG_ROW_MAPPER);
     }
 
+    @Override
+    public List<String> deleteByObject(String objectType, String objectId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId);
+        List<String> jobIds = template.queryForList("""
+                SELECT job_id
+                  FROM tb_ai_rag_index_job
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                """, params, String.class);
+        if (jobIds.isEmpty()) {
+            return List.of();
+        }
+
+        MapSqlParameterSource deleteParams = new MapSqlParameterSource("jobIds", jobIds);
+        template.update("""
+                DELETE FROM tb_ai_rag_index_job_log
+                 WHERE job_id IN (:jobIds)
+                """, deleteParams);
+        template.update("""
+                DELETE FROM tb_ai_rag_index_job
+                 WHERE job_id IN (:jobIds)
+                """, deleteParams);
+        return jobIds;
+    }
+
     private RagIndexJob requireJob(String jobId) {
         return findById(jobId)
                 .orElseThrow(() -> new NoSuchElementException("RAG index job not found: " + jobId));

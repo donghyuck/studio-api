@@ -646,8 +646,9 @@ class RagIndexJobControllerTest {
     @Test
     void objectDeleteUsesRagPipelineDeleteByObject() {
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        CapturingJobService jobService = new CapturingJobService(RagIndexJobStatus.SUCCEEDED);
         RagIndexJobController controller = new RagIndexJobController(
-                new CapturingJobService(RagIndexJobStatus.SUCCEEDED),
+                jobService,
                 ragPipelineService,
                 null);
 
@@ -655,6 +656,8 @@ class RagIndexJobControllerTest {
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         verify(ragPipelineService).deleteByObject("attachment", "42");
+        assertThat(jobService.deletedObjectType).isEqualTo("attachment");
+        assertThat(jobService.deletedObjectId).isEqualTo("42");
     }
 
     @Test
@@ -943,6 +946,8 @@ class RagIndexJobControllerTest {
         private RagIndexJobSourceRequest createdSourceRequest;
         private RagIndexJobPageRequest pageRequest;
         private RagIndexJobSort sort;
+        private String deletedObjectType;
+        private String deletedObjectId;
 
         CapturingJobService() {
             this(RagIndexJobStatus.SUCCEEDED);
@@ -1028,6 +1033,12 @@ class RagIndexJobControllerTest {
                     "started",
                     null,
                     java.time.Instant.parse("2026-04-26T00:00:00Z")));
+        }
+
+        @Override
+        public void deleteObjectHistory(String objectType, String objectId) {
+            this.deletedObjectType = objectType;
+            this.deletedObjectId = objectId;
         }
 
         @Override

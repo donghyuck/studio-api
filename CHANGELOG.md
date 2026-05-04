@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### 변경됨
-- 이슈 #395 대응으로 `DELETE /api/mgmt/ai/rag/objects/{objectType}/{objectId}`를 추가해 object scope의 RAG chunk/vector/metadata를 삭제할 수 있게 했다. 진행 중인 `PENDING`/`RUNNING` job이 있으면 `409 Conflict`로 거부하고, 삭제 후 metadata 응답은 `indexed=false`를 반환한다.
+- 이슈 #395 대응으로 `DELETE /api/mgmt/ai/rag/objects/{objectType}/{objectId}`를 추가해 object scope의 RAG chunk/vector/metadata와 종료된 색인 이력을 삭제할 수 있게 했다. 진행 중인 `PENDING`/`RUNNING` job이 있으면 `409 Conflict`로 거부하고, 삭제 후 metadata 응답은 `indexed=false`를 반환한다.
 - 이슈 #392 대응으로 `studio-platform-textract` PDF 추출을 `PdfExtractionEngine` 전략 구조로 분리하고, 기존 PDFBox 구현은 기본/fallback 엔진으로 유지했다.
 - PyMuPDF4LLM 기반 Python worker 선택 연동을 위해 Java client/mapper/engine 구조와 `studio.textract.pdf.*` 설정 metadata를 추가했다.
 - `tools/pymupdf4llm-worker`에 FastAPI worker PoC, Dockerfile, PyMuPDF4LLM 설치 및 환경 구성 문서를 추가했다.

@@ -169,6 +169,41 @@ class DefaultRagIndexJobServiceTest {
     }
 
     @Test
+    void deleteObjectHistoryRemovesTerminalJobsAndLogs() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of("objectType", "attachment", "objectId", "42"))));
+        service.startJob(job.jobId());
+
+        service.deleteObjectHistory(" attachment ", " 42 ");
+
+        assertThat(service.getJob(job.jobId())).isEmpty();
+        assertThat(service.getLogs(job.jobId())).isEmpty();
+    }
+
+    @Test
+    void deleteObjectHistoryRejectsActiveJob() {
+        DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
+        RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "raw",
+                false,
+                new RagIndexRequest("doc-1", "content", Map.of("objectType", "attachment", "objectId", "42"))));
+
+        assertThatThrownBy(() -> service.deleteObjectHistory("attachment", "42"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("cannot be deleted while job is active");
+        assertThat(service.getJob(job.jobId())).isPresent();
+    }
+
+    @Test
     void cancelledJobIgnoresLateCompletionCallbacks() {
         DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
         RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(

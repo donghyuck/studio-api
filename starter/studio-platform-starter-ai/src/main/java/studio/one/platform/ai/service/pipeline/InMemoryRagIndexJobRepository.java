@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -127,6 +128,20 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
     @Override
     public List<RagIndexJobLog> findLogs(String jobId) {
         return List.copyOf(logs.getOrDefault(jobId, new CopyOnWriteArrayList<>()));
+    }
+
+    @Override
+    public List<String> deleteByObject(String objectType, String objectId) {
+        List<String> jobIds = jobs.values().stream()
+                .filter(job -> Objects.equals(objectType, job.objectType())
+                        && Objects.equals(objectId, job.objectId()))
+                .map(RagIndexJob::jobId)
+                .toList();
+        jobIds.forEach(jobId -> {
+            jobs.remove(jobId);
+            logs.remove(jobId);
+        });
+        return jobIds;
     }
 
     private boolean matches(RagIndexJobFilter filter, RagIndexJob job) {

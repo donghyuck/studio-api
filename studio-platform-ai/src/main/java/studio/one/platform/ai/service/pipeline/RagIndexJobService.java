@@ -42,5 +42,8 @@ public interface RagIndexJobService {
 
     List<RagIndexJobLog> getLogs(String jobId);
 
+    default void deleteObjectHistory(String objectType, String objectId) {
+    }
+
     RagIndexProgressListener progressListener(String jobId);
 }
