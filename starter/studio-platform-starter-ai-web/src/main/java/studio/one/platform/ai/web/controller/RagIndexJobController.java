@@ -270,12 +270,14 @@ public class RagIndexJobController {
     public ResponseEntity<ApiResponse<Void>> deleteObject(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId) {
-        if (!hasText(objectType) || !hasText(objectId)) {
+        String normalizedObjectType = pathSegment(objectType);
+        String normalizedObjectId = pathSegment(objectId);
+        if (normalizedObjectType == null || normalizedObjectId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "objectType and objectId are required");
         }
-        rejectActiveObjectJob(objectType, objectId);
+        rejectActiveObjectJob(normalizedObjectType, normalizedObjectId);
         try {
-            ragPipelineService.deleteByObject(objectType, objectId);
+            ragPipelineService.deleteByObject(normalizedObjectType, normalizedObjectId);
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "RAG object delete is not supported", ex);
         }
@@ -484,6 +486,10 @@ public class RagIndexJobController {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String pathSegment(String value) {
+        return hasText(value) ? value.trim() : null;
     }
 
     private String text(Object value) {

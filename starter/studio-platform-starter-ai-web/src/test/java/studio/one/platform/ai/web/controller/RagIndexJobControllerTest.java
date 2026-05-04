@@ -658,6 +658,19 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void objectDeleteTrimsObjectScopeBeforeDeleting() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.SUCCEEDED),
+                ragPipelineService,
+                null);
+
+        controller.deleteObject(" attachment ", " 42 ");
+
+        verify(ragPipelineService).deleteByObject("attachment", "42");
+    }
+
+    @Test
     void objectDeleteRejectsActiveJob() {
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagIndexJobController controller = new RagIndexJobController(
