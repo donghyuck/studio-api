@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -262,6 +263,25 @@ public class RagIndexJobController {
                 hasMore)));
     }
 
+    @DeleteMapping("/objects/{objectType}/{objectId}")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','write')"
+            + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
+            + " or @endpointAuthz.can('features:attachment','write'))")
+    public ResponseEntity<ApiResponse<Void>> deleteObject(
+            @PathVariable("objectType") String objectType,
+            @PathVariable("objectId") String objectId) {
+        if (!hasText(objectType) || !hasText(objectId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "objectType and objectId are required");
+        }
+        rejectActiveObjectJob(objectType, objectId);
+        try {
+            ragPipelineService.deleteByObject(objectType, objectId);
+        } catch (UnsupportedOperationException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "RAG object delete is not supported", ex);
+        }
+        return ResponseEntity.ok(ApiResponse.ok());
+    }
+
     @GetMapping("/objects/{objectType}/{objectId}/metadata")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
@@ -272,7 +292,32 @@ public class RagIndexJobController {
         if (vectorStorePort == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "VectorStorePort is not configured");
         }
-        return ResponseEntity.ok(ApiResponse.ok(vectorStorePort.getMetadata(objectType, objectId)));
+        Map<String, Object> metadata = vectorStorePort.getMetadata(objectType, objectId);
+        if (metadata == null || metadata.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.ok(Map.of(
+                    "objectType", objectType,
+                    "objectId", objectId,
+                    "indexed", false)));
+        }
+        return ResponseEntity.ok(ApiResponse.ok(metadata));
+    }
+
+    private void rejectActiveObjectJob(String objectType, String objectId) {
+        for (RagIndexJobStatus status : List.of(RagIndexJobStatus.PENDING, RagIndexJobStatus.RUNNING)) {
+            RagIndexJobPage page = jobService.listJobs(
+                    new RagIndexJobFilter(status, objectType, objectId, null),
+                    new RagIndexJobPageRequest(0, 1),
+                    RagIndexJobSort.defaults());
+            Optional<RagIndexJob> activeJob = page.jobs().stream()
+                    .filter(job -> job.status() == status)
+                    .findFirst();
+            if (activeJob.isPresent()) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "RAG index object cannot be deleted while job is active: "
+                                + activeJob.get().jobId());
+            }
+        }
     }
 
     private CreateJobCommand toCreateRequest(RagIndexJobCreateRequestDto request) {
