@@ -20,8 +20,12 @@ class PyMuPdf4LlmHttpClientTest {
     @Test
     void sanitizesMultipartFilenameAndContentTypeHeaderValues() throws Exception {
         AtomicReference<String> bodyRef = new AtomicReference<>();
+        AtomicReference<String> upgradeHeaderRef = new AtomicReference<>();
+        AtomicReference<String> protocolRef = new AtomicReference<>();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/extract/pdf", exchange -> {
+            upgradeHeaderRef.set(exchange.getRequestHeaders().getFirst("Upgrade"));
+            protocolRef.set(exchange.getProtocol());
             bodyRef.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
             byte[] response = """
                     {
@@ -63,5 +67,7 @@ class PyMuPdf4LlmHttpClientTest {
                 .contains("Content-Type: application/pdf")
                 .contains("filename=\"sample.pdf\"")
                 .doesNotContain("X-Injected");
+        assertThat(protocolRef.get()).isEqualTo("HTTP/1.1");
+        assertThat(upgradeHeaderRef.get()).isNull();
     }
 }

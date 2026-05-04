@@ -39,6 +39,7 @@ class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
         this.maxFileSizeBytes = maxFileSizeBytes;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(this.timeout)
                 .build();
     }
@@ -52,6 +53,7 @@ class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
         try {
             String boundary = boundary();
             HttpRequest httpRequest = HttpRequest.newBuilder(endpoint)
+                    .version(HttpClient.Version.HTTP_1_1)
                     .timeout(timeout)
                     .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                     .POST(HttpRequest.BodyPublishers.ofByteArray(multipartBody(request, boundary)))
