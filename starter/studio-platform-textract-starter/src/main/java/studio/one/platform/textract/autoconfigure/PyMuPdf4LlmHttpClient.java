@@ -91,9 +91,7 @@ class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
 
     private void writeFilePart(ByteArrayOutputStream out, String boundary, PdfExtractionRequest request) throws IOException {
         String filename = request.filename() == null || request.filename().isBlank() ? "document.pdf" : request.filename();
-        String contentType = request.contentType() == null || request.contentType().isBlank()
-                ? "application/pdf"
-                : request.contentType();
+        String contentType = sanitizeHeaderValue(request.contentType(), "application/pdf");
         out.write(("--" + boundary + CRLF).getBytes(StandardCharsets.UTF_8));
         out.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + sanitizeFilename(filename) + "\"" + CRLF)
                 .getBytes(StandardCharsets.UTF_8));
@@ -107,12 +105,40 @@ class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
         options.put("ocrRequired", request.options().ocrRequired());
         options.put("preserveLayout", request.options().preserveLayout());
         options.put("tableExtractionRequired", request.options().tableExtractionRequired());
-        options.put("filename", request.filename());
-        options.put("contentType", request.contentType());
+        options.put("filename", sanitizeFilename(request.filename()));
+        options.put("contentType", sanitizeHeaderValue(request.contentType(), "application/pdf"));
         return objectMapper.writeValueAsString(options);
     }
 
     private String sanitizeFilename(String filename) {
-        return filename.replace("\\", "_").replace("/", "_").replace("\"", "");
+        if (filename == null || filename.isBlank()) {
+            return "document.pdf";
+        }
+        String sanitized = firstHeaderLine(filename)
+                .replace("\\", "_")
+                .replace("/", "_")
+                .replace("\"", "")
+                .trim();
+        return sanitized.isBlank() ? "document.pdf" : sanitized;
+    }
+
+    private String sanitizeHeaderValue(String value, String fallback) {
+        if (value == null || value.isBlank()) {
+            return fallback;
+        }
+        String sanitized = firstHeaderLine(value).trim();
+        return sanitized.isBlank() ? fallback : sanitized;
+    }
+
+    private String firstHeaderLine(String value) {
+        int lineBreak = -1;
+        for (int index = 0; index < value.length(); index++) {
+            char current = value.charAt(index);
+            if (current == '\r' || current == '\n') {
+                lineBreak = index;
+                break;
+            }
+        }
+        return lineBreak < 0 ? value : value.substring(0, lineBreak);
     }
 }

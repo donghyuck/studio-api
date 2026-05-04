@@ -30,6 +30,10 @@ public class PdfExtractionEngineSelector {
         };
     }
 
+    public boolean supports(PdfExtractionRequest request) {
+        return engines.stream().anyMatch(engine -> engine.supports(request));
+    }
+
     private ParsedFile extractAuto(PdfExtractionRequest request) throws FileParseException {
         if (request.options().prefersPyMuPdf4Llm()) {
             return extractPyMuPdfFirst(request);

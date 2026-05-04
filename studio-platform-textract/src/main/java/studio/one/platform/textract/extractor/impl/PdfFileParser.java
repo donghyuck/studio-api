@@ -48,17 +48,19 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
 
     @Override
     public boolean supports(String contentType, String filename) {
+        boolean pdf = false;
         try {
             if (contentType != null) {
                 MediaType mt = MediaType.parseMediaType(contentType);
                 if (MediaType.APPLICATION_PDF.includes(mt)) {
-                    return true;
+                    pdf = true;
                 }
             }
         } catch (Exception e) {
             log.debug("Failed to parse media type: {}", contentType, e);
         }
-        return hasExtension(filename, ".pdf");
+        pdf = pdf || hasExtension(filename, ".pdf");
+        return pdf && selector.supports(new PdfExtractionRequest(new byte[0], contentType, filename, options));
     }
 
     @Override
