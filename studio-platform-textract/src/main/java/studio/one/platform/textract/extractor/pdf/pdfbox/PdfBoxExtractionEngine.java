@@ -15,9 +15,10 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImage;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 
-import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.textract.extractor.DocumentFormat;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.impl.AbstractFileParser;
@@ -34,8 +35,9 @@ import studio.one.platform.textract.model.ParseWarning;
 import studio.one.platform.textract.model.ParsedBlock;
 import studio.one.platform.textract.model.ParsedFile;
 
-@Slf4j
 public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExtractionEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(PdfBoxExtractionEngine.class);
 
     private static final double REPEATED_BOUNDARY_RATIO = 0.50d;
 

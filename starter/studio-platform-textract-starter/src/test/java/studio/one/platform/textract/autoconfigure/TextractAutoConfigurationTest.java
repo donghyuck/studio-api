@@ -233,6 +233,7 @@ class TextractAutoConfigurationTest {
                             .isEqualTo(10 * 1024 * 1024);
                     assertThat(context).hasBean("textFileParser");
                     assertThat(context).hasBean("pdfFileParser");
+                    assertThat(context).hasBean("excelFileParser");
                     assertThat(context).doesNotHaveBean(PyMuPdf4LlmClient.class);
                     assertThat(context).hasBean("hwpHwpxFileParser");
                 });
@@ -276,6 +277,26 @@ class TextractAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).doesNotHaveBean("hwpHwpxFileParser");
+                });
+    }
+
+    @Test
+    void skipsExcelParserWhenPoiWorkbookFactoryIsNotAvailable() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader("org.apache.poi.ss.usermodel.WorkbookFactory"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean("excelFileParser");
+                });
+    }
+
+    @Test
+    void skipsExcelParserWhenPoiXlsxRuntimeIsNotAvailable() {
+        contextRunner
+                .withClassLoader(new FilteredClassLoader("org.apache.poi.xssf.usermodel"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean("excelFileParser");
                 });
     }
 }

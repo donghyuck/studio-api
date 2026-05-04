@@ -16,11 +16,20 @@ public final class DocumentFormatDetector {
         if (type.startsWith("text/html") || name.endsWith(".html") || name.endsWith(".htm")) {
             return DocumentFormat.HTML;
         }
+        if (name.endsWith(".csv")) {
+            return DocumentFormat.TEXT;
+        }
         if (type.startsWith("text/") || name.endsWith(".txt") || name.endsWith(".log") || name.endsWith(".csv")) {
             return DocumentFormat.TEXT;
         }
         if (type.startsWith("application/pdf") || name.endsWith(".pdf")) {
             return DocumentFormat.PDF;
+        }
+        if (type.startsWith("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                || type.startsWith("application/vnd.ms-excel")
+                || name.endsWith(".xlsx")
+                || name.endsWith(".xls")) {
+            return DocumentFormat.EXCEL;
         }
         if (type.startsWith("application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 || name.endsWith(".docx")) {
