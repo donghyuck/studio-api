@@ -67,6 +67,9 @@ public class AttachmentProperties {
     @Valid
     private Thumbnail thumbnail = new Thumbnail();
 
+    @Valid
+    private Audit audit = new Audit();
+
     public Storage storage(Environment environment, Logger log) {
         bindStorageLeaf(environment, "base-dir", String.class, storage::setBaseDir, log);
         bindStorageLeaf(environment, "ensure-dirs", Boolean.class, storage::setEnsureDirs, log);
@@ -122,7 +125,8 @@ public class AttachmentProperties {
     public static class Storage {
         public enum Type {
             filesystem,
-            database
+            database,
+            objectstorage
         }
 
         /**
@@ -141,11 +145,38 @@ public class AttachmentProperties {
          */
         private Type type = Type.filesystem;
 
+        @Valid
+        private ObjectStorage objectStorage = new ObjectStorage();
+
         /**
          * When storing in the database, optionally keep a local filesystem cache for
          * faster reads.
          */
         private boolean cacheEnabled = false;
+
+        @Getter
+        @Setter
+        @NoArgsConstructor
+        public static class ObjectStorage {
+            private String providerId;
+            private String bucket;
+            private String keyPrefix = "attachments";
+        }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Audit {
+        @Valid
+        private UrlIssue urlIssue = new UrlIssue();
+
+        @Getter
+        @Setter
+        @NoArgsConstructor
+        public static class UrlIssue {
+            private boolean trustForwardedFor = false;
+        }
     }
 
     @Getter

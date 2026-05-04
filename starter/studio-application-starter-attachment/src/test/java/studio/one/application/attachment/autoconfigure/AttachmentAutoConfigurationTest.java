@@ -25,6 +25,7 @@ import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.storage.LocalFileStore;
+import studio.one.application.attachment.storage.ObjectStorageFileStore;
 import studio.one.application.attachment.thumbnail.LocalThumbnailStore;
 import studio.one.application.attachment.thumbnail.ThumbnailKey;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
@@ -32,6 +33,8 @@ import studio.one.application.attachment.thumbnail.ThumbnailStorage;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
+import studio.one.platform.storage.service.CloudObjectStorage;
+import studio.one.platform.storage.service.ObjectStorageRegistry;
 
 @ExtendWith(OutputCaptureExtension.class)
 class AttachmentAutoConfigurationTest {
@@ -199,6 +202,40 @@ class AttachmentAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(LocalThumbnailStore.class);
                     assertThat(context).hasSingleBean(AttachmentService.class);
                     assertThat(context).hasSingleBean(ThumbnailService.class);
+                });
+    }
+
+    @Test
+    void createsObjectStorageFileStorageWhenConfigured() {
+        contextRunner
+                .withBean(ObjectStorageRegistry.class, () -> new ObjectStorageRegistry(List.of(objectStorage("main"))))
+                .withPropertyValues(
+                        "studio.attachment.storage.type=objectstorage",
+                        "studio.attachment.storage.object-storage.provider-id=main",
+                        "studio.attachment.storage.object-storage.bucket=attachments")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(FileStorage.class)).isInstanceOf(ObjectStorageFileStore.class);
+                });
+    }
+
+    private static CloudObjectStorage objectStorage(String name) {
+        return (CloudObjectStorage) Proxy.newProxyInstance(
+                CloudObjectStorage.class.getClassLoader(),
+                new Class<?>[] { CloudObjectStorage.class },
+                (proxy, method, args) -> {
+                    if (method.getDeclaringClass() == Object.class) {
+                        return switch (method.getName()) {
+                            case "toString" -> "CloudObjectStorageStub";
+                            case "hashCode" -> System.identityHashCode(proxy);
+                            case "equals" -> proxy == args[0];
+                            default -> null;
+                        };
+                    }
+                    if ("name".equals(method.getName())) {
+                        return name;
+                    }
+                    return null;
                 });
     }
 

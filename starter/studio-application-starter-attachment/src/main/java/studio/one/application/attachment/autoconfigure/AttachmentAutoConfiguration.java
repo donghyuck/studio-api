@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -54,17 +55,26 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentPersistence;
 import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentThumbnailEnabled;
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
+import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentRepository;
+import studio.one.application.attachment.persistence.jdbc.JdbcAttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.jdbc.JdbcAttachmentRepository;
 import studio.one.application.attachment.persistence.jpa.AttachmentDataJpaRepository;
+import studio.one.application.attachment.persistence.jpa.AttachmentDownloadUrlIssueAuditLogJpaRepository;
 import studio.one.application.attachment.persistence.jpa.AttachmentJpaRepository;
+import studio.one.application.attachment.service.AttachmentDownloadUrlService;
+import studio.one.application.attachment.service.AttachmentDownloadUrlServiceImpl;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.service.AttachmentServiceImpl;
+import studio.one.application.attachment.storage.AttachmentFileStorageResolver;
+import studio.one.application.attachment.storage.AttachmentStorageBackend;
+import studio.one.application.attachment.storage.AttachmentStorageType;
 import studio.one.application.attachment.storage.CachedFileStore;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.storage.JdbcFileStore;
 import studio.one.application.attachment.storage.JpaFileStore;
 import studio.one.application.attachment.storage.LocalFileStore;
+import studio.one.application.attachment.storage.ObjectStorageFileStore;
 import studio.one.application.attachment.thumbnail.LocalThumbnailStore;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.attachment.thumbnail.ThumbnailServiceImpl;
@@ -79,6 +89,7 @@ import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
+import studio.one.platform.storage.service.ObjectStorageRegistry;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
 import studio.one.platform.util.I18nUtils;
@@ -121,58 +132,128 @@ public class AttachmentAutoConfiguration {
             ObjectProvider<I18n> i18nProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            ObjectProvider<ObjectStorageRegistry> objectStorageRegistryProvider,
             PersistenceProperties persistenceProperties) {
         AttachmentProperties.Storage storage = properties.storage(environment, log);
         I18n i18n = I18nUtils.resolve(i18nProvider);
 
         if (storage.getType() == AttachmentProperties.Storage.Type.database) {
-            PersistenceProperties.Type persistence = persistenceProperties.getType();
-            if (persistence == PersistenceProperties.Type.jpa) {
-                AttachmentDataJpaRepository repo = dataRepositoryProvider.getIfAvailable();
-                if (repo == null) {
-                    throw new IllegalStateException(
-                            "AttachmentDataJpaRepository is required for database storage (JPA)");
-                }
-                FileStorage dbStore = new JpaFileStore(repo);
-                if (storage.isCacheEnabled()) {
-                    String baseDir = resolveBaseDir(storage, repositoryProvider.getIfAvailable());
-                    ensureDirectory(baseDir, storage.isEnsureDirs());
-                    FileStorage cache = new LocalFileStore(baseDir);
-                    log.info("{} feature using cache base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
-                    log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                            LogUtils.blue(CachedFileStore.class, true), LogUtils.red(State.CREATED.toString())));
-                    return new CachedFileStore(dbStore, cache);
-                }
-                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                        LogUtils.blue(JpaFileStore.class, true), LogUtils.red(State.CREATED.toString())));
-                return dbStore;
-            }
-            NamedParameterJdbcTemplate template = templateProvider.getIfAvailable();
-            if (template == null) {
-                throw new IllegalStateException("NamedParameterJdbcTemplate is required for database storage (JDBC)");
-            }
-            FileStorage dbStore = new JdbcFileStore(template);
-            if (storage.isCacheEnabled()) {
-                String baseDir = resolveBaseDir(storage, repositoryProvider.getIfAvailable());
-                ensureDirectory(baseDir, storage.isEnsureDirs());
-                FileStorage cache = new LocalFileStore(baseDir);
-                log.info("{} feature using cache base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
-                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                        LogUtils.blue(CachedFileStore.class, true), LogUtils.red(State.CREATED.toString())));
-                return new CachedFileStore(dbStore, cache);
-            }
-            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                    LogUtils.blue(JdbcFileStore.class, true), LogUtils.red(State.CREATED.toString())));
-            return dbStore;
+            return createDatabaseFileStore(
+                    storage,
+                    repositoryProvider.getIfAvailable(),
+                    dataRepositoryProvider,
+                    templateProvider,
+                    persistenceProperties,
+                    i18n);
         }
 
-        String baseDir = resolveBaseDir(storage, repositoryProvider.getIfAvailable());
-        ensureDirectory(baseDir, storage.isEnsureDirs());
-        log.info("{} feature using base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
-        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
-                LogUtils.blue(LocalFileStore.class, true), LogUtils.red(State.CREATED.toString())));
+        if (storage.getType() == AttachmentProperties.Storage.Type.objectstorage) {
+            ObjectStorageRegistry registry = objectStorageRegistryProvider.getIfAvailable();
+            if (registry == null) {
+                throw new IllegalStateException("ObjectStorageRegistry is required for objectstorage attachment storage");
+            }
+            return createObjectStorageFileStore(storage, registry, true, i18n);
+        }
 
-        return new LocalFileStore(baseDir);
+        return createLocalFileStore(storage, repositoryProvider.getIfAvailable(), i18n);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AttachmentFileStorageResolver.class)
+    AttachmentFileStorageResolver attachmentFileStorageResolver(
+            AttachmentProperties properties,
+            Environment environment,
+            FileStorage fileStorage,
+            List<AttachmentStorageBackend> storageBackends) {
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
+        return new AttachmentFileStorageResolver(
+                AttachmentStorageType.valueOf(storage.getType().name()),
+                fileStorage,
+                storageBackends);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "attachmentFilesystemStorageBackend")
+    AttachmentStorageBackend attachmentFilesystemStorageBackend(
+            AttachmentProperties properties,
+            Environment environment,
+            ObjectProvider<Repository> repositoryProvider,
+            ObjectProvider<I18n> i18nProvider) {
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
+        return new AttachmentStorageBackend(
+                AttachmentStorageType.filesystem,
+                createLocalFileStore(storage, repositoryProvider.getIfAvailable(), I18nUtils.resolve(i18nProvider)));
+    }
+
+    @Bean
+    @ConditionalOnBean(ObjectStorageRegistry.class)
+    @ConditionalOnMissingBean(name = "attachmentObjectStorageStorageBackend")
+    AttachmentStorageBackend attachmentObjectStorageStorageBackend(
+            AttachmentProperties properties,
+            Environment environment,
+            ObjectStorageRegistry registry,
+            ObjectProvider<I18n> i18nProvider) {
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
+        return new AttachmentStorageBackend(
+                AttachmentStorageType.objectstorage,
+                createObjectStorageFileStore(storage, registry, false, I18nUtils.resolve(i18nProvider)));
+    }
+
+    @Bean(name = "attachmentDatabaseStorageBackend")
+    @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jpa)
+    @ConditionalOnBean(AttachmentDataJpaRepository.class)
+    @ConditionalOnMissingBean(name = "attachmentDatabaseStorageBackend")
+    AttachmentStorageBackend attachmentJpaDatabaseStorageBackend(
+            AttachmentProperties properties,
+            Environment environment,
+            ObjectProvider<Repository> repositoryProvider,
+            ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
+            ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            PersistenceProperties persistenceProperties,
+            ObjectProvider<I18n> i18nProvider) {
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
+        return new AttachmentStorageBackend(
+                AttachmentStorageType.database,
+                createDatabaseFileStore(
+                        storage,
+                        repositoryProvider.getIfAvailable(),
+                        dataRepositoryProvider,
+                        templateProvider,
+                        persistenceProperties,
+                        I18nUtils.resolve(i18nProvider)));
+    }
+
+    @Bean(name = "attachmentDatabaseStorageBackend")
+    @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jdbc)
+    @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+    @ConditionalOnMissingBean(name = "attachmentDatabaseStorageBackend")
+    AttachmentStorageBackend attachmentJdbcDatabaseStorageBackend(
+            AttachmentProperties properties,
+            Environment environment,
+            ObjectProvider<Repository> repositoryProvider,
+            ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
+            ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            PersistenceProperties persistenceProperties,
+            ObjectProvider<I18n> i18nProvider) {
+        AttachmentProperties.Storage storage = properties.storage(environment, log);
+        return new AttachmentStorageBackend(
+                AttachmentStorageType.database,
+                createDatabaseFileStore(
+                        storage,
+                        repositoryProvider.getIfAvailable(),
+                        dataRepositoryProvider,
+                        templateProvider,
+                        persistenceProperties,
+                        I18nUtils.resolve(i18nProvider)));
+    }
+
+    @Bean
+    @ConditionalOnBean(AttachmentDownloadUrlIssueAuditLogRepository.class)
+    @ConditionalOnMissingBean(AttachmentDownloadUrlService.class)
+    AttachmentDownloadUrlService attachmentDownloadUrlService(
+            AttachmentFileStorageResolver storageResolver,
+            AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
+        return new AttachmentDownloadUrlServiceImpl(storageResolver, auditLogRepository);
     }
 
     @Bean(name = AttachmentService.SERVICE_NAME)
@@ -180,6 +261,7 @@ public class AttachmentAutoConfiguration {
     public AttachmentService attachmentService(
             AttachmentRepository attachmentRepository,
             FileStorage fileStorage,
+            ObjectProvider<AttachmentFileStorageResolver> fileStorageResolverProvider,
             ObjectProvider<PrincipalResolver> principalResolverProvider,
             ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
             ObjectProvider<ThumbnailService> thumbnailServiceProvider,
@@ -191,7 +273,7 @@ public class AttachmentAutoConfiguration {
                 LogUtils.blue(AttachmentServiceImpl.class, true), LogUtils.red(State.CREATED.toString())));
         log.info("{} service ready with repository: {}", AttachmentService.class.getSimpleName(),
                 LogUtils.green(attachmentRepository instanceof JdbcAttachmentRepository ? "JDBC" : "JPA"));
-        return new AttachmentServiceImpl(attachmentRepository, fileStorage, principalResolverProvider,
+        return new AttachmentServiceImpl(attachmentRepository, fileStorage, fileStorageResolverProvider, principalResolverProvider,
                 objectTypeRuntimeServiceProvider, thumbnailServiceProvider);
     }
 
@@ -251,6 +333,83 @@ public class AttachmentAutoConfiguration {
                 attachmentThumbnailExecutor);
     }
 
+    private FileStorage createLocalFileStore(
+            AttachmentProperties.Storage storage,
+            Repository repository,
+            I18n i18n) {
+        String baseDir = resolveBaseDir(storage, repository);
+        ensureDirectory(baseDir, storage.isEnsureDirs());
+        log.info("{} feature using base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(LocalFileStore.class, true), LogUtils.red(State.CREATED.toString())));
+        return new LocalFileStore(baseDir);
+    }
+
+    private FileStorage createDatabaseFileStore(
+            AttachmentProperties.Storage storage,
+            Repository repository,
+            ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
+            ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            PersistenceProperties persistenceProperties,
+            I18n i18n) {
+        FileStorage dbStore;
+        if (persistenceProperties.getType() == PersistenceProperties.Type.jpa) {
+            AttachmentDataJpaRepository repo = dataRepositoryProvider.getIfAvailable();
+            if (repo == null) {
+                throw new IllegalStateException("AttachmentDataJpaRepository is required for database storage (JPA)");
+            }
+            dbStore = new JpaFileStore(repo);
+            if (!storage.isCacheEnabled()) {
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                        LogUtils.blue(JpaFileStore.class, true), LogUtils.red(State.CREATED.toString())));
+                return dbStore;
+            }
+        } else {
+            NamedParameterJdbcTemplate template = templateProvider.getIfAvailable();
+            if (template == null) {
+                throw new IllegalStateException("NamedParameterJdbcTemplate is required for database storage (JDBC)");
+            }
+            dbStore = new JdbcFileStore(template);
+            if (!storage.isCacheEnabled()) {
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                        LogUtils.blue(JdbcFileStore.class, true), LogUtils.red(State.CREATED.toString())));
+                return dbStore;
+            }
+        }
+        String baseDir = resolveBaseDir(storage, repository);
+        ensureDirectory(baseDir, storage.isEnsureDirs());
+        FileStorage cache = new LocalFileStore(baseDir);
+        log.info("{} feature using cache base directory: {}", FEATURE_NAME, LogUtils.green(baseDir));
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(CachedFileStore.class, true), LogUtils.red(State.CREATED.toString())));
+        return new CachedFileStore(dbStore, cache);
+    }
+
+    private FileStorage createObjectStorageFileStore(
+            AttachmentProperties.Storage storage,
+            ObjectStorageRegistry registry,
+            boolean requireWritableConfig,
+            I18n i18n) {
+        AttachmentProperties.Storage.ObjectStorage objectStorage = storage.getObjectStorage();
+        if (requireWritableConfig) {
+            requireText(objectStorage.getProviderId(), "studio.attachment.storage.object-storage.provider-id");
+            requireText(objectStorage.getBucket(), "studio.attachment.storage.object-storage.bucket");
+        }
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                LogUtils.blue(ObjectStorageFileStore.class, true), LogUtils.red(State.CREATED.toString())));
+        return new ObjectStorageFileStore(
+                registry,
+                objectStorage.getProviderId(),
+                objectStorage.getBucket(),
+                objectStorage.getKeyPrefix());
+    }
+
+    private void requireText(String value, String propertyName) {
+        if (!StringUtils.hasText(value)) {
+            throw new IllegalStateException(propertyName + " is required for objectstorage attachment storage");
+        }
+    }
+
     private String resolveBaseDir(AttachmentProperties.Storage storage, Repository repository) {
         if (StringUtils.hasText(storage.getBaseDir())) {
             return storage.getBaseDir();
@@ -304,7 +463,10 @@ public class AttachmentAutoConfiguration {
     @AutoConfigureAfter(EntityScanConfig.class)
     @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jpa)
-    @EnableJpaRepositories(basePackageClasses = { AttachmentJpaRepository.class, AttachmentDataJpaRepository.class })
+    @EnableJpaRepositories(basePackageClasses = {
+            AttachmentJpaRepository.class,
+            AttachmentDataJpaRepository.class,
+            AttachmentDownloadUrlIssueAuditLogJpaRepository.class })
     static class AttachmentJpaConfig {
     }
 
@@ -317,6 +479,14 @@ public class AttachmentAutoConfiguration {
         AttachmentRepository attachmentJdbcRepository(
                 @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
             return new JdbcAttachmentRepository(template);
+        }
+
+        @Bean
+        @ConditionalOnBean(name = ServiceNames.NAMED_JDBC_TEMPLATE)
+        @ConditionalOnMissingBean(AttachmentDownloadUrlIssueAuditLogRepository.class)
+        AttachmentDownloadUrlIssueAuditLogRepository attachmentDownloadUrlIssueAuditLogRepository(
+                @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
+            return new JdbcAttachmentDownloadUrlIssueAuditLogRepository(template);
         }
     }
 }
