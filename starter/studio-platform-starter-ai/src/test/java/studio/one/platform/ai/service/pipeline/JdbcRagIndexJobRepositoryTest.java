@@ -114,6 +114,32 @@ class JdbcRagIndexJobRepositoryTest {
                 .isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void deleteByObjectRemovesJobsAndLogs() {
+        repository.save(pending("job-1", "attachment", "42", "doc-1")
+                .withStatus(RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null, Instant.now()));
+        repository.save(pending("job-active", "attachment", "42", "doc-active"));
+        repository.save(pending("job-2", "attachment", "43", "doc-2")
+                .withStatus(RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null, Instant.now()));
+        repository.appendLog(new RagIndexJobLog(
+                "log-1",
+                "job-1",
+                RagIndexJobLogLevel.INFO,
+                RagIndexJobStep.COMPLETED,
+                RagIndexJobLogCode.JOB_COMPLETED,
+                "completed",
+                null,
+                Instant.parse("2026-04-26T00:00:01Z")));
+
+        List<String> deletedJobIds = repository.deleteByObject("attachment", "42");
+
+        assertThat(deletedJobIds).containsExactly("job-1");
+        assertThat(repository.findById("job-1")).isEmpty();
+        assertThat(repository.findLogs("job-1")).isEmpty();
+        assertThat(repository.findById("job-active")).isPresent();
+        assertThat(repository.findById("job-2")).isPresent();
+    }
+
     private RagIndexJob pending(String jobId, String objectType, String objectId, String documentId) {
         return RagIndexJob.pending(
                 jobId,

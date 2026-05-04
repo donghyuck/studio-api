@@ -44,4 +44,8 @@ public interface RagIndexJobRepository {
     RagIndexJobLog appendLog(RagIndexJobLog log);
 
     List<RagIndexJobLog> findLogs(String jobId);
+
+    default List<String> deleteByObject(String objectType, String objectId) {
+        return List.of();
+    }
 }

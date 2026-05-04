@@ -278,8 +278,11 @@ public class RagIndexJobController {
         rejectActiveObjectJob(normalizedObjectType, normalizedObjectId);
         try {
             ragPipelineService.deleteByObject(normalizedObjectType, normalizedObjectId);
+            jobService.deleteObjectHistory(normalizedObjectType, normalizedObjectId);
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "RAG object delete is not supported", ex);
+        } catch (IllegalStateException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
         }
         return ResponseEntity.ok(ApiResponse.ok());
     }

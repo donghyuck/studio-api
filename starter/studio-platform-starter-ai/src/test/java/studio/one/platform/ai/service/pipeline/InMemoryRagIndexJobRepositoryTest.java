@@ -3,6 +3,7 @@ package studio.one.platform.ai.service.pipeline;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -229,5 +230,34 @@ class InMemoryRagIndexJobRepositoryTest {
         assertThat(repository.findLogs("job-1"))
                 .extracting(RagIndexJobLog::code)
                 .containsExactly(RagIndexJobLogCode.JOB_CANCELLED);
+    }
+
+    @Test
+    void deleteByObjectRemovesOnlyTerminalJobsAndLogs() {
+        repository.save(RagIndexJob.pending("job-terminal", "attachment", "1", "doc-terminal", "attachment",
+                        Instant.parse("2026-04-26T00:00:00Z"))
+                .withStatus(RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null, Instant.now()));
+        repository.save(RagIndexJob.pending("job-active", "attachment", "1", "doc-active", "attachment",
+                Instant.parse("2026-04-26T00:00:01Z")));
+        repository.save(RagIndexJob.pending("job-other", "attachment", "2", "doc-other", "attachment",
+                        Instant.parse("2026-04-26T00:00:02Z"))
+                .withStatus(RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null, Instant.now()));
+        repository.appendLog(new RagIndexJobLog(
+                "log-terminal",
+                "job-terminal",
+                RagIndexJobLogLevel.INFO,
+                RagIndexJobStep.COMPLETED,
+                RagIndexJobLogCode.JOB_COMPLETED,
+                "completed",
+                null,
+                Instant.now()));
+
+        List<String> deletedJobIds = repository.deleteByObject("attachment", "1");
+
+        assertThat(deletedJobIds).containsExactly("job-terminal");
+        assertThat(repository.findById("job-terminal")).isEmpty();
+        assertThat(repository.findLogs("job-terminal")).isEmpty();
+        assertThat(repository.findById("job-active")).isPresent();
+        assertThat(repository.findById("job-other")).isPresent();
     }
 }

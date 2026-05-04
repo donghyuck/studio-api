@@ -213,6 +213,19 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     }
 
     @Override
+    public void deleteObjectHistory(String objectType, String objectId) {
+        String normalizedObjectType = normalizeRequired(objectType, "objectType");
+        String normalizedObjectId = normalizeRequired(objectId, "objectId");
+        rejectActiveObjectJob(normalizedObjectType, normalizedObjectId);
+        List<String> deletedJobIds = repository.deleteByObject(normalizedObjectType, normalizedObjectId);
+        deletedJobIds.forEach(jobId -> {
+            requests.remove(jobId);
+            requestOrder.remove(jobId);
+            runningJobs.remove(jobId);
+        });
+    }
+
+    @Override
     public RagIndexProgressListener progressListener(String jobId) {
         return new RepositoryBackedProgressListener(jobId);
     }
@@ -250,6 +263,20 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         return RagIndexJobLogCode.UNKNOWN_ERROR;
     }
 
+    private void rejectActiveObjectJob(String objectType, String objectId) {
+        for (RagIndexJobStatus status : List.of(RagIndexJobStatus.PENDING, RagIndexJobStatus.RUNNING)) {
+            RagIndexJobPage page = repository.findAll(
+                    new RagIndexJobFilter(status, objectType, objectId, null),
+                    new RagIndexJobPageRequest(0, 1),
+                    RagIndexJobSort.defaults());
+            if (!page.jobs().isEmpty()) {
+                throw new IllegalStateException(
+                        "RAG index object cannot be deleted while job is active: "
+                                + page.jobs().get(0).jobId());
+            }
+        }
+    }
+
     private void evictStoredRequests() {
         while (requests.size() > MAX_STORED_REQUESTS) {
             String oldestJobId = requestOrder.poll();
@@ -270,6 +297,13 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                 return;
             }
         }
+    }
+
+    private String normalizeRequired(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " is required");
+        }
+        return value.trim();
     }
 
     private record StoredRequest(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {

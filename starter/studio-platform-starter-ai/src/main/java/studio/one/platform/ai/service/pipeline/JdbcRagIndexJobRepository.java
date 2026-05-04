@@ -26,6 +26,12 @@ import studio.one.platform.ai.core.rag.RagIndexJobStep;
 
 public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
 
+    private static final List<String> TERMINAL_STATUS_NAMES = List.of(
+            RagIndexJobStatus.SUCCEEDED.name(),
+            RagIndexJobStatus.WARNING.name(),
+            RagIndexJobStatus.FAILED.name(),
+            RagIndexJobStatus.CANCELLED.name());
+
     private static final RowMapper<RagIndexJob> JOB_ROW_MAPPER = (rs, rowNum) -> new RagIndexJob(
             rs.getString("job_id"),
             rs.getString("object_type"),
@@ -216,6 +222,35 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                  WHERE job_id = :jobId
                  ORDER BY created_at ASC, log_id ASC
                 """, new MapSqlParameterSource("jobId", jobId), LOG_ROW_MAPPER);
+    }
+
+    @Override
+    public List<String> deleteByObject(String objectType, String objectId) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId)
+                .addValue("terminalStatuses", TERMINAL_STATUS_NAMES);
+        List<String> jobIds = template.queryForList("""
+                SELECT job_id
+                  FROM tb_ai_rag_index_job
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                   AND status IN (:terminalStatuses)
+                """, params, String.class);
+        if (jobIds.isEmpty()) {
+            return List.of();
+        }
+
+        MapSqlParameterSource deleteParams = new MapSqlParameterSource("jobIds", jobIds);
+        template.update("""
+                DELETE FROM tb_ai_rag_index_job_log
+                 WHERE job_id IN (:jobIds)
+                """, deleteParams);
+        template.update("""
+                DELETE FROM tb_ai_rag_index_job
+                 WHERE job_id IN (:jobIds)
+                """, deleteParams);
+        return jobIds;
     }
 
     private RagIndexJob requireJob(String jobId) {
