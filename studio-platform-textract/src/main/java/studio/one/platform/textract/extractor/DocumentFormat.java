@@ -7,6 +7,7 @@ public enum DocumentFormat {
     TEXT,
     HTML,
     PDF,
+    EXCEL,
     DOCX,
     PPTX,
     IMAGE,

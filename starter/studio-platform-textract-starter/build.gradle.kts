@@ -30,5 +30,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
+    testImplementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
     testImplementation("org.apache.poi:poi:${property("apachePoiVersion")}")
 }

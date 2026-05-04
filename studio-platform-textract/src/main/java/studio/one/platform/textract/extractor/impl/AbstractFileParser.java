@@ -8,15 +8,17 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import studio.one.platform.textract.extractor.FileParser;
 import studio.one.platform.textract.model.ExtractedImage;
 import studio.one.platform.textract.model.ExtractedTable;
 import studio.one.platform.textract.model.ExtractedTableCell;
 import studio.one.platform.textract.model.ParsedBlock;
 
-@Slf4j
 public abstract class AbstractFileParser implements FileParser {
+
+    private static final Logger log = LoggerFactory.getLogger(AbstractFileParser.class);
 
     private static final Pattern CONTROL_CHARS = Pattern.compile("[\\p{Cntrl}&&[^\r\n\t]]");
     private static final Pattern MULTI_BLANK_LINES = Pattern.compile("\\n{3,}");

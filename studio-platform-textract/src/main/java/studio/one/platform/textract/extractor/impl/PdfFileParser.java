@@ -6,9 +6,10 @@ import java.util.Objects;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 
-import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.extractor.StructuredFileParser;
 import studio.one.platform.textract.extractor.pdf.PdfExtractionEngineSelector;
@@ -18,8 +19,9 @@ import studio.one.platform.textract.extractor.pdf.PdfExtractionRequest;
 import studio.one.platform.textract.extractor.pdf.pdfbox.PdfBoxExtractionEngine;
 import studio.one.platform.textract.model.ParsedFile;
 
-@Slf4j
 public class PdfFileParser extends AbstractFileParser implements StructuredFileParser {
+
+    private static final Logger log = LoggerFactory.getLogger(PdfFileParser.class);
 
     private final PdfExtractionEngineSelector selector;
     private final PdfExtractionOptions options;

@@ -26,6 +26,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.textract.extractor.FileParser;
 import studio.one.platform.textract.extractor.FileParserFactory;
 import studio.one.platform.textract.extractor.impl.DocxFileParser;
+import studio.one.platform.textract.extractor.impl.ExcelFileParser;
 import studio.one.platform.textract.extractor.impl.HtmlFileParser;
 import studio.one.platform.textract.extractor.impl.HwpHwpxFileParser;
 import studio.one.platform.textract.extractor.impl.ImageFileParser;
@@ -106,6 +107,16 @@ public class TextractAutoConfiguration {
         logCreated(ImageFileParser.class);
         TextractProperties.Tesseract tesseract = resolveTesseractProperties();
         return new ImageFileParser(tesseract.getDatapath(), tesseract.getLanguage());
+    }
+
+    @Bean
+    @ConditionalOnClass(name = {
+            "org.apache.poi.ss.usermodel.WorkbookFactory",
+            "org.apache.poi.xssf.usermodel.XSSFWorkbook"
+    })
+    public FileParser excelFileParser() {
+        logCreated(ExcelFileParser.class);
+        return new ExcelFileParser();
     }
 
     @Bean

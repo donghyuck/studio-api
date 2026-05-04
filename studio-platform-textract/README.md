@@ -7,7 +7,7 @@
 - `FileParser` 계약과 `FileParserFactory` dispatcher를 제공한다.
 - `FileContentExtractionService`로 파일 또는 `InputStream`에서 텍스트를 추출한다.
 - `ParsedFile`로 `plainText`, block 목록, 메타데이터, warning, 표/이미지/OCR 정보를 구조화해 반환한다.
-- PDF, DOCX, PPTX, HTML, TXT, 이미지 OCR, HWP/HWPX 파서를 단일 모듈 안에 패키지 수준으로 둔다.
+- PDF, Excel, DOCX, PPTX, HTML, TXT, 이미지 OCR, HWP/HWPX 파서를 단일 모듈 안에 패키지 수준으로 둔다.
 - HWP/HWPX 파서는 `rhwp`의 컨테이너/섹션/문단/컨트롤 흐름을 참고해 HWPX 문단·표·이미지와 HWP 본문·BinData 이미지를 추출한다.
 
 ## 패키지
@@ -48,6 +48,7 @@ List<ParsedBlock> blocks = parsed.blocks();
 | TXT/CSV/LOG | 전체 텍스트 | JDK |
 | HTML | Jsoup 기반 semantic block, 표, 이미지 src/alt | `org.jsoup:jsoup` |
 | PDF | PDFBox 기반 page/paragraph, 표 후보, 실제 content stream 이미지 | `org.apache.pdfbox:pdfbox` |
+| Excel | visible sheet의 used range, 표, 수식 표시값/formula metadata | `org.apache.poi:poi`, `org.apache.poi:poi-ooxml` |
 | DOCX | 문단, 표, header/footer/footnote/list, 내장 이미지/caption | `org.apache.poi:poi-ooxml` |
 | PPTX | slide title/body/footer, picture shape, caption 후보 | `org.apache.poi:poi-ooxml` |
 | Image | Tesseract OCR line/word, confidence, bbox, warning metadata | `net.sourceforge.tess4j:tess4j` |
@@ -117,6 +118,11 @@ RAG 색인은 기존 흐름을 유지한다.
 - `tables`: 표 markdown, cell 목록, `vectorText`, `headerRowCount`, sourceRef/format metadata
 - `images`: 이미지 sourceRef, sourceRefs, binDataRef, packageId, caption, src/altText, OCR metadata
 - `warnings`: `canonicalCode`, `severity`, `sourceRef`, `blockRef`, `partialParse` 기반 warning/error
+
+Excel parser는 `.xlsx`와 `.xls`를 지원한다.
+CSV는 기존처럼 텍스트 파일로 처리한다.
+숨김/very hidden sheet는 추출하지 않고, visible sheet의 non-empty used range를 sheet별 table로 만든다.
+수식 셀은 `DataFormatter`와 `FormulaEvaluator` 기반 표시값을 table text로 사용하고, 원본 formula는 cell metadata에 보존한다.
 
 ### 표 vector text
 

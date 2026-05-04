@@ -20,6 +20,9 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.poi.poifs.filesystem.DirectoryEntry;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.wp.usermodel.HeaderFooterType;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFSlide;
@@ -30,6 +33,7 @@ import org.apache.poi.xwpf.usermodel.XWPFFootnote;
 import org.apache.poi.xwpf.usermodel.XWPFHeader;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.apache.poi.xwpf.usermodel.XWPFTable;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.textract.extractor.DocumentFormat;
@@ -107,6 +111,22 @@ class FormatGoldenTest {
         assertEquals(List.of("html|table[3]|2x2|4|A | B↵A: 1 | B: 2"), snapshot.tables());
         assertEquals(List.of("|img[4]|hero.png"), snapshot.images());
         assertTrue(!snapshot.plainText().contains("메뉴 링크"));
+    }
+
+    @Test
+    void excelGoldenCapturesSheetAndTableProvenance() throws Exception {
+        ParsedFile result = new ExcelFileParser().parseStructured(
+                excelBytes(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "golden.xlsx");
+
+        GoldenSnapshot snapshot = snapshot(result);
+
+        assertEquals(DocumentFormat.EXCEL.name(), snapshot.format());
+        assertEquals(List.of("PAGE||sheet[0]|0"), snapshot.pages());
+        assertEquals(List.of("TABLE||sheet[0]|0|| A | B |↵| 1 | 2 |"), snapshot.blocks());
+        assertEquals(List.of("excel|sheet[0]|2x2|4|A | B↵A: 1 | B: 2"), snapshot.tables());
+        assertTrue(snapshot.plainText().contains("Sheet1"));
     }
 
     @Test
@@ -302,6 +322,21 @@ class FormatGoldenTest {
                   </body>
                 </html>
                 """.getBytes(UTF_8);
+    }
+
+    private byte[] excelBytes() throws Exception {
+        try (Workbook workbook = new XSSFWorkbook();
+                ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Sheet1");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("A");
+            header.createCell(1).setCellValue("B");
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue(1);
+            row.createCell(1).setCellValue(2);
+            workbook.write(out);
+            return out.toByteArray();
+        }
     }
 
     private byte[] hwpxBytes() throws Exception {
