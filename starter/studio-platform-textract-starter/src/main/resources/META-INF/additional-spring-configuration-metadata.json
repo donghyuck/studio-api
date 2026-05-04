@@ -14,6 +14,26 @@
       "name": "studio.textract.tesseract",
       "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Tesseract",
       "description": "Studio OCR runtime policy."
+    },
+    {
+      "name": "studio.textract.pdf",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Pdf",
+      "description": "Studio PDF extraction engine policy."
+    },
+    {
+      "name": "studio.textract.pdf.engines.pdfbox",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PdfBox",
+      "description": "PDFBox extraction engine policy."
+    },
+    {
+      "name": "studio.textract.pdf.engines.pymupdf4llm",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PyMuPdf4Llm",
+      "description": "PyMuPDF4LLM worker extraction engine policy."
+    },
+    {
+      "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PreferPyMuPdf4LlmWhen",
+      "description": "Automatic PyMuPDF4LLM preference thresholds."
     }
   ],
   "properties": [
@@ -40,6 +60,72 @@
       "type": "java.lang.String",
       "description": "Tesseract OCR language expression.",
       "defaultValue": "kor+eng"
+    },
+    {
+      "name": "studio.textract.pdf.engine",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PdfEngine",
+      "description": "PDF extraction engine selection. Supported values are auto, pdfbox, and pymupdf4llm.",
+      "defaultValue": "AUTO"
+    },
+    {
+      "name": "studio.textract.pdf.fallback-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether PDFBox fallback is allowed when PyMuPDF4LLM is selected and fails.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.engines.pdfbox.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the PDFBox PDF extraction engine is enabled.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.engines.pymupdf4llm.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the optional PyMuPDF4LLM worker PDF extraction engine is enabled.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.pdf.engines.pymupdf4llm.endpoint",
+      "type": "java.lang.String",
+      "description": "PyMuPDF4LLM worker POST /extract/pdf endpoint.",
+      "defaultValue": "http://localhost:8000/extract/pdf"
+    },
+    {
+      "name": "studio.textract.pdf.engines.pymupdf4llm.timeout",
+      "type": "java.time.Duration",
+      "description": "HTTP timeout for PyMuPDF4LLM worker calls.",
+      "defaultValue": "60s"
+    },
+    {
+      "name": "studio.textract.pdf.engines.pymupdf4llm.max-file-size",
+      "type": "java.lang.String",
+      "description": "Maximum PDF size sent to the PyMuPDF4LLM worker. Plain numbers are bytes; K, KB, M, MB, G, GB, T, and TB suffixes are supported.",
+      "defaultValue": "50MB"
+    },
+    {
+      "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when.min-pages",
+      "type": "java.lang.Integer",
+      "description": "When engine=auto and the worker is enabled, prefer PyMuPDF4LLM for PDFs with at least this many pages.",
+      "defaultValue": 3
+    },
+    {
+      "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when.table-detection-required",
+      "type": "java.lang.Boolean",
+      "description": "Reserved preference flag for request-level table extraction hints.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when.ocr-required",
+      "type": "java.lang.Boolean",
+      "description": "Reserved preference flag for request-level OCR hints.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when.preserve-layout",
+      "type": "java.lang.Boolean",
+      "description": "Reserved preference flag for request-level layout preservation hints.",
+      "defaultValue": true
     },
     {
       "name": "studio.features.text.enabled",

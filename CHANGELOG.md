@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### 변경됨
+- 이슈 #392 대응으로 `studio-platform-textract` PDF 추출을 `PdfExtractionEngine` 전략 구조로 분리하고, 기존 PDFBox 구현은 기본/fallback 엔진으로 유지했다.
+- PyMuPDF4LLM 기반 Python worker 선택 연동을 위해 Java client/mapper/engine 구조와 `studio.textract.pdf.*` 설정 metadata를 추가했다.
+- `tools/pymupdf4llm-worker`에 FastAPI worker PoC, Dockerfile, PyMuPDF4LLM 설치 및 환경 구성 문서를 추가했다.
+- `studio-platform-textract` README에 PDF extraction engine 선택, fallback 정책, RAG chunking 연결, worker 운영 주의 사항을 문서화했다.
+
 ## 2026-04-28
 
 ### 변경됨

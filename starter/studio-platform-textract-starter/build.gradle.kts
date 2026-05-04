@@ -26,7 +26,9 @@ dependencies {
     api(project(":studio-platform-textract"))
     api(project(":studio-platform-autoconfigure"))
     compileOnly("org.springframework.boot:spring-boot-starter-web")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     testImplementation("org.apache.poi:poi:${property("apachePoiVersion")}")
 }
