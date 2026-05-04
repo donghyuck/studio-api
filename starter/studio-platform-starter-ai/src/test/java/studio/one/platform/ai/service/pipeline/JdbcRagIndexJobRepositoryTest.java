@@ -118,6 +118,7 @@ class JdbcRagIndexJobRepositoryTest {
     void deleteByObjectRemovesJobsAndLogs() {
         repository.save(pending("job-1", "attachment", "42", "doc-1")
                 .withStatus(RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null, Instant.now()));
+        repository.save(pending("job-active", "attachment", "42", "doc-active"));
         repository.save(pending("job-2", "attachment", "43", "doc-2")
                 .withStatus(RagIndexJobStatus.SUCCEEDED, RagIndexJobStep.COMPLETED, null, Instant.now()));
         repository.appendLog(new RagIndexJobLog(
@@ -135,6 +136,7 @@ class JdbcRagIndexJobRepositoryTest {
         assertThat(deletedJobIds).containsExactly("job-1");
         assertThat(repository.findById("job-1")).isEmpty();
         assertThat(repository.findLogs("job-1")).isEmpty();
+        assertThat(repository.findById("job-active")).isPresent();
         assertThat(repository.findById("job-2")).isPresent();
     }
 

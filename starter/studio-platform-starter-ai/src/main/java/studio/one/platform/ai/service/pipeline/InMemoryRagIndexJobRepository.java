@@ -134,7 +134,8 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
     public List<String> deleteByObject(String objectType, String objectId) {
         List<String> jobIds = jobs.values().stream()
                 .filter(job -> Objects.equals(objectType, job.objectType())
-                        && Objects.equals(objectId, job.objectId()))
+                        && Objects.equals(objectId, job.objectId())
+                        && isTerminal(job.status()))
                 .map(RagIndexJob::jobId)
                 .toList();
         jobIds.forEach(jobId -> {
@@ -142,6 +143,13 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
             logs.remove(jobId);
         });
         return jobIds;
+    }
+
+    private boolean isTerminal(RagIndexJobStatus status) {
+        return status == RagIndexJobStatus.SUCCEEDED
+                || status == RagIndexJobStatus.WARNING
+                || status == RagIndexJobStatus.FAILED
+                || status == RagIndexJobStatus.CANCELLED;
     }
 
     private boolean matches(RagIndexJobFilter filter, RagIndexJob job) {
