@@ -2,9 +2,12 @@ package studio.one.platform.ai.web.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,10 +62,13 @@ class RagIndexJobControllerTest {
         Method createJob = RagIndexJobController.class.getMethod("createJob", RagIndexJobCreateRequestDto.class);
         Method retryJob = RagIndexJobController.class.getMethod("retryJob", String.class);
         Method cancelJob = RagIndexJobController.class.getMethod("cancelJob", String.class);
+        Method deleteObject = RagIndexJobController.class.getMethod("deleteObject", String.class, String.class);
 
         assertThat(preAuthorizeValue(createJob)).contains("services:ai_rag','write");
         assertThat(preAuthorizeValue(retryJob)).contains("services:ai_rag','write");
         assertThat(preAuthorizeValue(cancelJob)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(deleteObject)).contains("services:ai_rag','write");
+        assertThat(preAuthorizeValue(deleteObject)).contains("features:attachment','write");
     }
 
     @Test
@@ -638,6 +644,86 @@ class RagIndexJobControllerTest {
     }
 
     @Test
+    void objectDeleteUsesRagPipelineDeleteByObject() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.SUCCEEDED),
+                ragPipelineService,
+                null);
+
+        ResponseEntity<ApiResponse<Void>> response = controller.deleteObject("attachment", "42");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        verify(ragPipelineService).deleteByObject("attachment", "42");
+    }
+
+    @Test
+    void objectDeleteTrimsObjectScopeBeforeDeleting() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.SUCCEEDED),
+                ragPipelineService,
+                null);
+
+        controller.deleteObject(" attachment ", " 42 ");
+
+        verify(ragPipelineService).deleteByObject("attachment", "42");
+    }
+
+    @Test
+    void objectDeleteRejectsActiveJob() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.RUNNING),
+                ragPipelineService,
+                null);
+
+        assertThatThrownBy(() -> controller.deleteObject("attachment", "42"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+        verify(ragPipelineService, never()).deleteByObject("attachment", "42");
+    }
+
+    @Test
+    void objectDeleteMapsUnsupportedPipelineToNotImplemented() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        doThrow(new UnsupportedOperationException("deleteByObject is not implemented"))
+                .when(ragPipelineService).deleteByObject("attachment", "42");
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(RagIndexJobStatus.SUCCEEDED),
+                ragPipelineService,
+                null);
+
+        assertThatThrownBy(() -> controller.deleteObject("attachment", "42"))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(501));
+    }
+
+    @Test
+    void objectDeleteReturnsOkThroughMvc() throws Exception {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        MockMvc mockMvc = jobControllerMockMvc(new CapturingJobService(RagIndexJobStatus.SUCCEEDED), ragPipelineService);
+
+        mockMvc.perform(delete("/api/mgmt/ai/rag/objects/attachment/42"))
+                .andExpect(status().isOk());
+
+        verify(ragPipelineService).deleteByObject("attachment", "42");
+    }
+
+    @Test
+    void activeObjectDeleteReturnsConflictThroughMvc() throws Exception {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        MockMvc mockMvc = jobControllerMockMvc(new CapturingJobService(RagIndexJobStatus.PENDING), ragPipelineService);
+
+        mockMvc.perform(delete("/api/mgmt/ai/rag/objects/attachment/42"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.detail").value("RAG index object cannot be deleted while job is active: job-1"));
+
+        verify(ragPipelineService, never()).deleteByObject("attachment", "42");
+    }
+
+    @Test
     void jobChunksPageReturnsNotFoundWhenJobIsMissingThroughMvc() throws Exception {
         MockMvc mockMvc = jobControllerMockMvc(new MissingJobService());
 
@@ -692,10 +778,31 @@ class RagIndexJobControllerTest {
         verify(vectorStorePort).getMetadata("attachment", "42");
     }
 
+    @Test
+    void objectMetadataReturnsUnindexedStateWhenMetadataIsEmpty() {
+        VectorStorePort vectorStorePort = mock(VectorStorePort.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                mock(RagPipelineService.class),
+                vectorStorePort);
+        when(vectorStorePort.getMetadata("attachment", "42")).thenReturn(Map.of());
+
+        ResponseEntity<ApiResponse<Map<String, Object>>> response = controller.objectMetadata("attachment", "42");
+
+        assertThat(response.getBody().getData())
+                .containsEntry("objectType", "attachment")
+                .containsEntry("objectId", "42")
+                .containsEntry("indexed", false);
+    }
+
     private static MockMvc jobControllerMockMvc(RagIndexJobService jobService) {
+        return jobControllerMockMvc(jobService, mock(RagPipelineService.class));
+    }
+
+    private static MockMvc jobControllerMockMvc(RagIndexJobService jobService, RagPipelineService ragPipelineService) {
         return MockMvcBuilders.standaloneSetup(new RagIndexJobController(
                         jobService,
-                        mock(RagPipelineService.class),
+                        ragPipelineService,
                         null))
                 .setMessageConverters(new MappingJackson2HttpMessageConverter(
                         Jackson2ObjectMapperBuilder.json()

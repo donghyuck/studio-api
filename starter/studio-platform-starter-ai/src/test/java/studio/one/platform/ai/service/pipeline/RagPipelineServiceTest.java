@@ -1187,6 +1187,13 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldDeleteObjectScopeFromVectorStore() {
+        ragPipelineService.deleteByObject("attachment", "42");
+
+        verify(vectorStorePort).deleteByObject("attachment", "42");
+    }
+
+    @Test
     void shouldNotExposeDiagnosticsWhenDisabled() {
         RagSearchRequest request = new RagSearchRequest("hello", 2);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))

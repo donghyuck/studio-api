@@ -27,6 +27,10 @@ public interface RagPipelineService {
 
     List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit);
 
+    default void deleteByObject(String objectType, String objectId) {
+        throw new UnsupportedOperationException("deleteByObject is not implemented");
+    }
+
     default List<RagSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
         int safeOffset = Math.max(0, offset);
         int safeLimit = limit <= 0 ? 50 : limit;

@@ -461,6 +461,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     @Override
+    public void deleteByObject(String objectType, String objectId) {
+        clearDiagnostics();
+        vectorStorePort.deleteByObject(objectType, objectId);
+    }
+
+    @Override
     public List<RagSearchResult> listByObject(String objectType, String objectId, int offset, int limit) {
         clearDiagnostics();
         List<VectorSearchResult> results = vectorStorePort.listByObject(
