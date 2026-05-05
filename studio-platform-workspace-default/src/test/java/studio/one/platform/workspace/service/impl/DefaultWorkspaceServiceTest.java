@@ -163,6 +163,21 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void ancestorsHidePrivateParentsWithoutRole() {
+        var root = treeService.createRoot(new CreateWorkspaceCommand(
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var child = treeService.createChild(
+                root.id(),
+                new CreateWorkspaceCommand("Child", "child", WorkspaceVisibility.PRIVATE, OWNER));
+        memberService.addMember(child.id(), new WorkspaceMemberCommand(VIEWER.userId(), WorkspaceRole.VIEWER, OWNER));
+
+        assertThat(treeService.getAncestors(child.id(), VIEWER)).isEmpty();
+    }
+
+    @Test
     void archiveRejectsFurtherMutation() {
         var root = createRoot("Acme", "acme", OWNER);
         treeService.archive(root.id(), OWNER);

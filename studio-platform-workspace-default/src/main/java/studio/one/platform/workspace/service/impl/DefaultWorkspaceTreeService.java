@@ -165,6 +165,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 .filter(closure -> closure.getDepth() > 0)
                 .map(closure -> byId.get(closure.ancestorId()))
                 .filter(entity -> entity != null)
+                .filter(entity -> isReadable(entity, actor))
                 .map(WorkspaceEntity::toRef)
                 .toList();
     }
