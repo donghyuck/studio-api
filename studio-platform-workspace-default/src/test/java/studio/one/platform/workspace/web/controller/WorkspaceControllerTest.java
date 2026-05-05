@@ -12,6 +12,8 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -22,6 +24,7 @@ import studio.one.platform.workspace.model.WorkspaceVisibility;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
+import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
@@ -94,6 +97,29 @@ class WorkspaceControllerTest {
         ArgumentCaptor<CreateWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void mgmtControllerListUsesFiltersAndPlatformAdminAccessContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        var pageable = PageRequest.of(1, 5);
+        when(treeService.list(any(), eq(pageable), any()))
+                .thenReturn(new PageImpl<>(List.of(workspace()), pageable, 1));
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        controller.list("acme", 3L, false, true, pageable);
+
+        ArgumentCaptor<WorkspaceListQuery> queryCaptor = ArgumentCaptor.forClass(WorkspaceListQuery.class);
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).list(queryCaptor.capture(), eq(pageable), contextCaptor.capture());
+        assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceListQuery("acme", 3L, false, true));
+        assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
     }
 
     @Test

@@ -10,6 +10,8 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.security.access.AccessDeniedException;
@@ -25,6 +27,7 @@ import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepositor
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
+import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberCommand;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
@@ -159,6 +162,49 @@ class DefaultWorkspaceServiceTest {
         assertThat(treeService.getDescendants(root.id(), authenticated)).isEmpty();
         assertThat(treeService.getTree(root.id(), authenticated).children()).isEmpty();
         assertThatThrownBy(() -> treeService.getById(privateChild.id(), authenticated))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void managementListFiltersAndPagesWorkspaces() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var design = treeService.createChild(acme.id(), createCommand("Design", "design", OWNER));
+        var beta = createRoot("Beta", "beta", OWNER);
+        treeService.archive(design.id(), OWNER);
+
+        var sortedByPath = PageRequest.of(0, 10, Sort.by("path").ascending());
+
+        assertThat(treeService.list(new WorkspaceListQuery(null, null, true, null), sortedByPath, PLATFORM_ADMIN)
+                .getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
+                .containsExactly(acme.id(), beta.id());
+        assertThat(treeService.list(new WorkspaceListQuery(null, acme.id(), false, false), sortedByPath, PLATFORM_ADMIN)
+                .getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
+                .containsExactly(engineering.id());
+        assertThat(treeService.list(new WorkspaceListQuery("ACME/ENG", null, null, null), sortedByPath, PLATFORM_ADMIN)
+                .getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
+                .containsExactly(engineering.id());
+        assertThat(treeService.list(new WorkspaceListQuery(null, null, null, true), sortedByPath, PLATFORM_ADMIN)
+                .getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
+                .containsExactly(design.id());
+        assertThat(treeService.list(new WorkspaceListQuery(null, null, null, null), PageRequest.of(0, 2, Sort.by("id").descending()), PLATFORM_ADMIN)
+                .getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
+                .containsExactly(beta.id(), design.id());
+    }
+
+    @Test
+    void managementListRequiresPlatformAdminContext() {
+        createRoot("Acme", "acme", OWNER);
+
+        assertThatThrownBy(() -> treeService.list(
+                new WorkspaceListQuery(null, null, null, null),
+                PageRequest.of(0, 10),
+                OWNER))
                 .isInstanceOf(AccessDeniedException.class);
     }
 

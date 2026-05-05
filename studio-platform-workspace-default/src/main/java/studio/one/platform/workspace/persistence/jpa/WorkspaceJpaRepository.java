@@ -5,8 +5,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-public interface WorkspaceJpaRepository extends JpaRepository<WorkspaceEntity, Long> {
+public interface WorkspaceJpaRepository extends JpaRepository<WorkspaceEntity, Long>, JpaSpecificationExecutor<WorkspaceEntity> {
 
     Optional<WorkspaceEntity> findByPath(String path);
 

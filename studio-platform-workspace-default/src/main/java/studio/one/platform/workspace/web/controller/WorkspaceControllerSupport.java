@@ -3,6 +3,8 @@ package studio.one.platform.workspace.web.controller;
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -15,6 +17,7 @@ import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
+import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberCommand;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
@@ -71,6 +74,10 @@ abstract class WorkspaceControllerSupport {
 
     WorkspaceRef getByPath(String path, boolean platformAdmin) {
         return treeService.getByPath(path, context(platformAdmin));
+    }
+
+    Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, boolean platformAdmin) {
+        return treeService.list(query, pageable, context(platformAdmin));
     }
 
     List<WorkspaceRef> children(Long workspaceId, boolean platformAdmin) {

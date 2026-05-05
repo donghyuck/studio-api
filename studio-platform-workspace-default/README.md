@@ -41,6 +41,12 @@ root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다
 
 관리용 기본 경로는 `/api/mgmt/workspaces`이며 같은 endpoint shape를 제공합니다. 관리용 API는 `features:workspace/manage` 또는 platform `ADMIN` role을 요구합니다.
 
+관리 화면의 첫 진입용 목록 API는 관리용 경로에만 제공됩니다.
+
+- `GET /api/mgmt/workspaces`
+
+지원 query parameter는 `q`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort`입니다. `q`는 `name`, `slug`, `path`를 부분 검색하고, `rootOnly=true`는 root workspace만 반환합니다. 응답 item은 `id`, `parentId`, `rootId`, `name`, `slug`, `path`, `depth`, `visibility`, `archived`를 포함합니다.
+
 ## Schema
 Flyway range는 `workspace` `1300-1399`입니다.
 

@@ -19,5 +19,6 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     api(project(":studio-platform"))
     compileOnly("org.springframework:spring-web")
+    compileOnly("org.springframework.data:spring-data-commons")
     testImplementation("org.junit.jupiter:junit-jupiter")
 }
