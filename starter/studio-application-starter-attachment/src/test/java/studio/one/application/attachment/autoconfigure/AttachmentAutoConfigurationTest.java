@@ -20,8 +20,12 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentRepository;
+import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQuery;
+import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.storage.LocalFileStore;
@@ -219,6 +223,18 @@ class AttachmentAutoConfigurationTest {
                 });
     }
 
+    @Test
+    void createsDownloadUrlIssueAuditQueryServiceWhenAuditRepositoryExists() {
+        contextRunner
+                .withBean(
+                        AttachmentDownloadUrlIssueAuditLogRepository.class,
+                        AttachmentAutoConfigurationTest::auditLogRepository)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(AttachmentDownloadUrlIssueAuditLogQueryService.class);
+                });
+    }
+
     private static CloudObjectStorage objectStorage(String name) {
         return (CloudObjectStorage) Proxy.newProxyInstance(
                 CloudObjectStorage.class.getClassLoader(),
@@ -278,6 +294,22 @@ class AttachmentAutoConfigurationTest {
                     }
                     return null;
                 });
+    }
+
+    private static AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository() {
+        return new AttachmentDownloadUrlIssueAuditLogRepository() {
+            @Override
+            public AttachmentDownloadUrlIssueAuditLog save(AttachmentDownloadUrlIssueAuditLog log) {
+                return log;
+            }
+
+            @Override
+            public Page<AttachmentDownloadUrlIssueAuditLog> search(
+                    AttachmentDownloadUrlIssueAuditLogQuery query,
+                    org.springframework.data.domain.Pageable pageable) {
+                return Page.empty(pageable);
+            }
+        };
     }
 
     private static class TestFileStorage implements FileStorage {

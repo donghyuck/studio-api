@@ -6,7 +6,7 @@
 - **AttachmentRepository**: 메타데이터 저장소. `JdbcAttachmentRepository`(TB_APPLICATION_ATTACHMENT, TB_APPLICATION_ATTACHMENT_PROPERTY) 또는 `AttachmentJpaRepository`로 동작.
 - **FileStorage**: 바이너리 저장소. 기본은 `LocalFileStore`; `JpaFileStore`/`JdbcFileStore`로 DB 저장 가능하며, DB 저장 시 `CachedFileStore`로 로컬 캐시 옵션 지원.
 - **엔티티**: `ApplicationAttachment`(메타데이터), `ApplicationAttachmentData`(바이너리), 속성 맵은 TB_APPLICATION_ATTACHMENT_PROPERTY에 저장.
-- **REST 컨트롤러**: `AttachmentMgmtController`(관리자/운영), `AttachmentController`(서비스 간 호출), `MeAttachmentController`(로그인 사용자 전용)가 업로드/다운로드/조회/검색/삭제와 텍스트 추출/썸네일 API를 제공.
+- **REST 컨트롤러**: `AttachmentMgmtController`(관리자/운영), `AttachmentAuditMgmtController`(감사 로그 조회), `AttachmentController`(서비스 간 호출), `MeAttachmentController`(로그인 사용자 전용)가 업로드/다운로드/조회/검색/삭제, 텍스트 추출, 썸네일, 감사 조회 API를 제공.
 - **썸네일 생성**: attachment 모듈은 저장소와 endpoint 계약을 유지하고, 실제 image/PDF 생성은 `studio-platform-thumbnail`의 `ThumbnailGenerationService`에 위임한다.
 - **ObjectType 정책 검증(옵션)**: `ObjectTypeRuntimeService` 빈이 존재하면 업로드 시 정책(용량/확장자/MIME)을 검증한다. 빈이 없으면 검증을 생략한다.
 
@@ -79,6 +79,12 @@ studio:
 
 보안은 `@endpointAuthz.can('features:attachment','<action>')` 스코프를 사용하며, 업로드/다운로드/삭제 등 주요 API에 적용되어 있다.
 관리자 범위 판별은 소유자 우회가 필요한 mgmt 엔드포인트에서 `ADMIN`과 `ROLE_ADMIN`을 모두 허용한다.
+
+### 감사 API (기본 base-path: `/api/mgmt/audit`)
+- `GET /attachment-download-url-issues`: object storage signed download URL 발급 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_url_issue_audit/read`.
+- 필터: `attachmentId`, `objectType`, `objectId`, `endpointKind`(`MGMT`/`SERVICE`), `issuedByPrincipalName`(부분 검색), `from`, `to`. `from`은 포함, `to`는 제외 기준으로 `issuedAt`에 적용한다.
+- 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
+- signed URL과 raw object key는 응답하지 않는다. 저장 위치 추적은 `objectKeyHash`로만 수행한다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
 
 ### 업로드 예시 (multipart)
 ```bash
@@ -154,6 +160,7 @@ objecttypes:
 - `features:attachment/read` 조회/목록/텍스트 추출
 - `features:attachment/download` 다운로드/썸네일 조회
 - `features:attachment/delete` 삭제
+- `features:attachment_download_url_issue_audit/read` signed download URL 발급 감사 로그 조회
 - `features:attachment/service-upload` 서비스 업로드
 - `features:attachment/service-read` 서비스 조회/목록
 - `features:attachment/service-download` 서비스 다운로드/썸네일 조회
@@ -172,6 +179,7 @@ objecttypes:
 - **TB_APPLICATION_ATTACHMENT**: `ATTACHMENT_ID`(PK), `OBJECT_TYPE`, `OBJECT_ID`, `FILE_NAME`, `CONTENT_TYPE`, `FILE_SIZE`, `CREATED_BY`, `CREATED_AT`, `UPDATED_AT`.
 - **TB_APPLICATION_ATTACHMENT_PROPERTY**: 첨부 속성 맵(`PROPERTY_NAME`/`PROPERTY_VALUE`)을 저장.
 - **TB_APPLICATION_ATTACHMENT_DATA**: 바이너리 BLOB 저장(DB 스토리지 선택 시 사용).
+- **TB_APPLICATION_ATTACHMENT_URL_ISSUE_LOG**: signed download URL 발급 이력. raw URL/object key 대신 storage metadata와 `OBJECT_KEY_HASH`를 저장한다.
 
 ## 개발 시 참고사항
 - 업로드 시 `SecurityHelper.getUser()`가 존재하면 `createdBy`를 세팅한다.
