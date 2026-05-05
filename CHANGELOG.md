@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #410 대응으로 `studio-platform-workspace`, `studio-platform-workspace-default`, `starter:studio-platform-starter-workspace`를 추가해 workspace tree 생성/조회, member role, effective permission, 사용자용/관리용 API와 JPA 자동구성을 제공한다.
+- `workspace` Flyway range `1300-1399`와 `V1300__create_workspace_tables.sql`을 postgres/mysql/mariadb에 추가하고, 사용자용 `public-base-path`와 관리용 `mgmt-base-path`를 분리했다.
 - 이슈 #408 대응으로 `GET /api/mgmt/audit/attachment-download-url-issues` 응답에 실제 signed-download 접근 이력 수인 `downloadCount`를 추가했다. 집계는 현재 페이지의 발급 로그를 `issueLogId`/`tokenHash` 기준으로 bulk 조회하며, 접근 이력이 없으면 `0`을 반환한다.
 - 이슈 #406 대응으로 `GET /api/attachments/signed-download` 실제 접근 이력을 `TB_APPLICATION_ATTACHMENT_DOWNLOAD_LOG`에 저장하고, `GET /api/mgmt/audit/attachment-downloads` 조회 API를 추가했다. 응답은 `tokenHash`만 노출하고 raw token/signed URL은 포함하지 않으며, `features:attachment_download_audit/read` 권한과 pagination/filter/default `requestedAt desc` 정렬을 적용한다.
 - 이슈 #404 대응으로 attachment download-url 기능을 object storage presigned URL에서 application-level HMAC-SHA256 signed link로 전환하고, `GET /api/attachments/signed-download` token-only 스트리밍 endpoint와 `linkType`/`tokenHash` 감사 로그 필드를 추가했다.
