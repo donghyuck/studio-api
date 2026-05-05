@@ -218,6 +218,17 @@ class AttachmentDownloadUrlServiceImplTest {
         assertThat(invalid.tokenHash()).isEqualTo(sha256("bad-token"));
     }
 
+    @Test
+    void inspectDownloadTokenDoesNotHashOversizedToken() {
+        AttachmentDownloadUrlServiceImpl verifier =
+                service(Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class), CLOCK);
+
+        AttachmentDownloadTokenInspection invalid = verifier.inspectDownloadToken("a".repeat(4097));
+
+        assertThat(invalid.status()).isEqualTo(AttachmentDownloadTokenInspectionStatus.INVALID_TOKEN);
+        assertThat(invalid.tokenHash()).isNull();
+    }
+
     private AttachmentDownloadUrlServiceImpl service(
             AttachmentDownloadUrlIssueAuditLogRepository auditRepository,
             Clock clock) {

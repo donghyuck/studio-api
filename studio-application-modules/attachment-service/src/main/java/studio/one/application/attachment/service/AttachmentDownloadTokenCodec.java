@@ -75,7 +75,7 @@ final class AttachmentDownloadTokenCodec {
     }
 
     AttachmentDownloadTokenInspection inspect(String token) {
-        String tokenHash = hashIfPresent(token);
+        String tokenHash = tokenHashForAudit(token);
         if (!StringUtils.hasText(token) || token.length() > TOKEN_MAX_LENGTH) {
             return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
@@ -137,8 +137,11 @@ final class AttachmentDownloadTokenCodec {
         }
     }
 
-    private String hashIfPresent(String token) {
-        return StringUtils.hasText(token) ? sha256Hex(token) : null;
+    static String tokenHashForAudit(String token) {
+        if (!StringUtils.hasText(token) || token.length() > TOKEN_MAX_LENGTH) {
+            return null;
+        }
+        return sha256HexValue(token);
     }
 
     private Map<String, String> parsePayload(String payloadSegment) {

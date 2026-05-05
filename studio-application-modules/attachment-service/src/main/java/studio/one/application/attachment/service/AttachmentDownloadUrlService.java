@@ -18,9 +18,7 @@ public interface AttachmentDownloadUrlService {
     }
 
     default AttachmentDownloadTokenInspection inspectDownloadToken(String token) {
-        String tokenHash = token == null || token.isBlank()
-                ? null
-                : AttachmentDownloadTokenCodec.sha256HexValue(token);
+        String tokenHash = AttachmentDownloadTokenCodec.tokenHashForAudit(token);
         try {
             return AttachmentDownloadTokenInspection.valid(verifyDownloadToken(token), tokenHash);
         } catch (AttachmentDownloadTokenInvalidException ex) {

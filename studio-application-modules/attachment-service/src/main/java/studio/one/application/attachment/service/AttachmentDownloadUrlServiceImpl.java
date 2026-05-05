@@ -91,7 +91,7 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
     @Override
     @Transactional(readOnly = true)
     public AttachmentDownloadTokenInspection inspectDownloadToken(String token) {
-        String tokenHash = StringUtils.hasText(token) ? AttachmentDownloadTokenCodec.sha256HexValue(token) : null;
+        String tokenHash = AttachmentDownloadTokenCodec.tokenHashForAudit(token);
         try {
             return new AttachmentDownloadTokenCodec(signingSecret, clock).inspect(token);
         } catch (IllegalStateException ex) {
