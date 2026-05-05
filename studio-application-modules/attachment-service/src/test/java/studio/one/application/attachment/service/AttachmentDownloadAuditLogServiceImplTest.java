@@ -8,7 +8,10 @@ import static org.mockito.Mockito.when;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,6 +22,7 @@ import org.springframework.data.domain.Sort;
 
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 
@@ -90,6 +94,52 @@ class AttachmentDownloadAuditLogServiceImplTest {
         assertThat(captor.getValue().getSort().toString()).contains("requestedAt: DESC", "downloadLogId: DESC");
     }
 
+    @Test
+    void countByIssueLogsAggregatesByIssueLogIdAndTokenHashFallback() {
+        AttachmentDownloadAuditLogRepository downloadRepository =
+                Mockito.mock(AttachmentDownloadAuditLogRepository.class);
+        AttachmentDownloadUrlIssueAuditLogRepository issueRepository =
+                Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class);
+        when(downloadRepository.countByIssueLogIdsOrTokenHashes(any(), any())).thenReturn(List.of(
+                new AttachmentDownloadAuditLogCount(1L, "token-a", 2L),
+                new AttachmentDownloadAuditLogCount(null, "token-b", 3L)));
+        AttachmentDownloadAuditLogServiceImpl service = new AttachmentDownloadAuditLogServiceImpl(
+                downloadRepository,
+                issueRepository,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        Map<Long, Long> counts = service.countByIssueLogs(List.of(
+                issueLog(1L, "token-a"),
+                issueLog(2L, "token-b")));
+
+        assertThat(counts).containsEntry(1L, 2L).containsEntry(2L, 3L);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<Long>> issueIdsCaptor = ArgumentCaptor.forClass(Set.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Set<String>> tokenHashesCaptor = ArgumentCaptor.forClass(Set.class);
+        verify(downloadRepository).countByIssueLogIdsOrTokenHashes(
+                issueIdsCaptor.capture(),
+                tokenHashesCaptor.capture());
+        assertThat(issueIdsCaptor.getValue()).containsExactlyInAnyOrder(1L, 2L);
+        assertThat(tokenHashesCaptor.getValue()).containsExactlyInAnyOrder("token-a", "token-b");
+    }
+
+    @Test
+    void countByIssueLogsReturnsEmptyForEmptyPage() {
+        AttachmentDownloadAuditLogRepository downloadRepository =
+                Mockito.mock(AttachmentDownloadAuditLogRepository.class);
+        AttachmentDownloadUrlIssueAuditLogRepository issueRepository =
+                Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class);
+        AttachmentDownloadAuditLogServiceImpl service = new AttachmentDownloadAuditLogServiceImpl(
+                downloadRepository,
+                issueRepository,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        assertThat(service.countByIssueLogs(List.of())).isEmpty();
+
+        Mockito.verifyNoInteractions(downloadRepository);
+    }
+
     private AttachmentDownloadUrlIssueAuditLog issueLog() {
         AttachmentDownloadUrlIssueAuditLog log = new AttachmentDownloadUrlIssueAuditLog();
         log.setLogId(1L);
@@ -97,6 +147,14 @@ class AttachmentDownloadAuditLogServiceImplTest {
         log.setObjectType(20);
         log.setObjectId(30L);
         log.setLinkType("APPLICATION_SIGNED");
+        log.setTokenHash("token-hash");
+        return log;
+    }
+
+    private AttachmentDownloadUrlIssueAuditLog issueLog(long logId, String tokenHash) {
+        AttachmentDownloadUrlIssueAuditLog log = issueLog();
+        log.setLogId(logId);
+        log.setTokenHash(tokenHash);
         return log;
     }
 }

@@ -21,6 +21,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.service.AttachmentDownloadAuditLogQuery;
 import studio.one.application.attachment.service.AttachmentDownloadAuditResult;
 
@@ -97,11 +98,35 @@ class JdbcAttachmentDownloadAuditLogRepositoryTest {
                 .doesNotContain("rawToken");
     }
 
+    @Test
+    void countByIssueLogIdsOrTokenHashesUsesBulkGroupQuery() {
+        JdbcAttachmentDownloadAuditLogRepository repository =
+                new JdbcAttachmentDownloadAuditLogRepository(template);
+        when(template.query(anyString(), anyParams(), anyCountRowMapper())).thenReturn(List.of());
+
+        repository.countByIssueLogIdsOrTokenHashes(List.of(1L, 2L), List.of("token-a"));
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(template).query(sqlCaptor.capture(), paramsCaptor.capture(), anyCountRowMapper());
+        assertThat(sqlCaptor.getValue())
+                .contains("ISSUE_LOG_ID in (:issueLogIds)")
+                .contains("TOKEN_HASH in (:tokenHashes)")
+                .contains("group by ISSUE_LOG_ID, TOKEN_HASH");
+        assertThat(paramsCaptor.getValue())
+                .containsEntry("issueLogIds", List.of(1L, 2L))
+                .containsEntry("tokenHashes", List.of("token-a"));
+    }
+
     private Map<String, ?> anyParams() {
         return org.mockito.ArgumentMatchers.any();
     }
 
     private RowMapper<AttachmentDownloadAuditLog> anyRowMapper() {
+        return org.mockito.ArgumentMatchers.any();
+    }
+
+    private RowMapper<AttachmentDownloadAuditLogCount> anyCountRowMapper() {
         return org.mockito.ArgumentMatchers.any();
     }
 }

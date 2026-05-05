@@ -89,8 +89,9 @@ studio:
 ### 감사 API (기본 base-path: `/api/mgmt/audit`)
 - `GET /attachment-download-url-issues`: signed download URL 발급 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_url_issue_audit/read`.
 - 필터: `attachmentId`, `objectType`, `objectId`, `endpointKind`(`MGMT`/`SERVICE`), `issuedByPrincipalName`(부분 검색), `from`, `to`. `from`은 포함, `to`는 제외 기준으로 `issuedAt`에 적용한다.
-- 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
+- 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `downloadCount`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
 - signed URL, raw token, raw object key는 응답하지 않는다. 신규 application link는 `tokenHash`만 저장하고, `storageProviderId`/`bucket`/`objectKeyHash`는 legacy objectstorage presigned 로그 호환 필드다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
+- `downloadCount`는 해당 발급 로그의 실제 signed-download 접근 감사 로그 수다. `issueLogId`와 `tokenHash`를 기준으로 페이지 단위 bulk 집계하며, 접근 이력이 없으면 `0`을 반환한다.
 - `GET /attachment-downloads`: signed download URL 실제 접근 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_audit/read`.
 - 필터: `attachmentId`, `objectType`, `objectId`, `tokenHash`, `result`(`SUCCEEDED`/`FAILED`/`EXPIRED`/`INVALID_TOKEN`), `from`, `to`, `clientIp`. `from`은 포함, `to`는 제외 기준으로 `requestedAt`에 적용한다.
 - 응답 필드: `downloadLogId`, `issueLogId`, `tokenHash`, `attachmentId`, `objectType`, `objectId`, `linkType`, `requestedAt`, `result`, `httpStatus`, `downloadedBytes`, `clientIp`, `userAgent`, `errorCode`.
@@ -193,6 +194,7 @@ objecttypes:
 - **TB_APPLICATION_ATTACHMENT_PROPERTY**: 첨부 속성 맵(`PROPERTY_NAME`/`PROPERTY_VALUE`)을 저장.
 - **TB_APPLICATION_ATTACHMENT_DATA**: 바이너리 BLOB 저장(DB 스토리지 선택 시 사용).
 - **TB_APPLICATION_ATTACHMENT_URL_ISSUE_LOG**: signed download URL 발급 이력. raw URL/object key 대신 storage metadata와 `OBJECT_KEY_HASH`를 저장한다.
+- **TB_APPLICATION_ATTACHMENT_DOWNLOAD_LOG**: signed download 실제 접근 이력. raw token 대신 `TOKEN_HASH`를 저장하며, 발급 이력 응답의 `downloadCount` 집계 원본이다.
 
 ## 개발 시 참고사항
 - 업로드 시 `SecurityHelper.getUser()`가 존재하면 `createdBy`를 세팅한다.
