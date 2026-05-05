@@ -1,6 +1,7 @@
 package studio.one.application.attachment.service;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
 
 public interface AttachmentDownloadUrlService {
 
@@ -11,4 +12,8 @@ public interface AttachmentDownloadUrlService {
             AttachmentDownloadUrlIssueActor actor,
             String clientIp,
             String userAgent);
+
+    default AttachmentDownloadTokenClaims verifyDownloadToken(String token) {
+        throw new AttachmentDownloadTokenInvalidException();
+    }
 }

@@ -50,13 +50,19 @@ public class AttachmentDownloadUrlIssueAuditLog {
     @Column(name = "TTL_SECONDS", nullable = false)
     private Long ttlSeconds;
 
-    @Column(name = "STORAGE_PROVIDER_ID", nullable = false, length = 100)
+    @Column(name = "LINK_TYPE", nullable = false, length = 40)
+    private String linkType;
+
+    @Column(name = "TOKEN_HASH", length = 64)
+    private String tokenHash;
+
+    @Column(name = "STORAGE_PROVIDER_ID", length = 100)
     private String storageProviderId;
 
-    @Column(name = "BUCKET", nullable = false, length = 255)
+    @Column(name = "BUCKET", length = 255)
     private String bucket;
 
-    @Column(name = "OBJECT_KEY_HASH", nullable = false, length = 64)
+    @Column(name = "OBJECT_KEY_HASH", length = 64)
     private String objectKeyHash;
 
     @Column(name = "CLIENT_IP", length = 45)

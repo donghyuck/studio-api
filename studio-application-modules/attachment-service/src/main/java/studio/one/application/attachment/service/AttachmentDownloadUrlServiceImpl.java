@@ -1,38 +1,51 @@
 package studio.one.application.attachment.service;
 
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
+import java.net.URI;
+import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
 
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+import org.springframework.web.util.UriComponentsBuilder;
 
-import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
-import studio.one.application.attachment.storage.AttachmentContentDisposition;
-import studio.one.application.attachment.storage.AttachmentFileStorageResolver;
-import studio.one.application.attachment.storage.AttachmentStorageMetadata;
-import studio.one.application.attachment.storage.AttachmentStorageType;
-import studio.one.application.attachment.storage.FileStorage;
-import studio.one.application.attachment.storage.SignedDownloadUrlFileStorage;
-import studio.one.platform.storage.exception.ObjectStorageNotFoundException;
 
-@RequiredArgsConstructor
 @Transactional
 public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlService {
 
     private static final long DEFAULT_TTL_SECONDS = 300L;
     private static final long MIN_TTL_SECONDS = 1L;
     private static final long MAX_TTL_SECONDS = 3600L;
+    private static final String LINK_TYPE_APPLICATION_SIGNED = "APPLICATION_SIGNED";
 
-    private final AttachmentFileStorageResolver storageResolver;
+    private final String publicBaseUrl;
+    private final String downloadPath;
     private final AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository;
+    private final Clock clock;
+    private final AttachmentDownloadTokenCodec tokenCodec;
+
+    public AttachmentDownloadUrlServiceImpl(
+            String publicBaseUrl,
+            String signingSecret,
+            String attachmentBasePath,
+            AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
+        this(publicBaseUrl, signingSecret, attachmentBasePath, auditLogRepository, Clock.systemUTC());
+    }
+
+    AttachmentDownloadUrlServiceImpl(
+            String publicBaseUrl,
+            String signingSecret,
+            String attachmentBasePath,
+            AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository,
+            Clock clock) {
+        this.publicBaseUrl = normalizePublicBaseUrl(publicBaseUrl);
+        this.downloadPath = normalizeDownloadPath(attachmentBasePath);
+        this.auditLogRepository = auditLogRepository;
+        this.clock = clock == null ? Clock.systemUTC() : clock;
+        this.tokenCodec = new AttachmentDownloadTokenCodec(signingSecret, this.clock);
+    }
 
     @Override
     public AttachmentDownloadUrl issueDownloadUrl(
@@ -43,28 +56,10 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
             String clientIp,
             String userAgent) {
         long resolvedTtl = resolveTtl(ttlSeconds);
-        AttachmentStorageMetadata.ObjectStorageLocation location =
-                AttachmentStorageMetadata.explicitObjectStorageLocation(attachment)
-                        .orElseThrow(AttachmentDownloadUrlUnavailableException::new);
-        FileStorage fileStorage = storageResolver.resolve(AttachmentStorageType.objectstorage)
-                .orElseThrow(AttachmentDownloadUrlUnavailableException::new);
-        if (!(fileStorage instanceof SignedDownloadUrlFileStorage signedStorage)) {
-            throw new AttachmentDownloadUrlUnavailableException();
-        }
-
-        Instant issuedAt = Instant.now();
-        Duration ttl = Duration.ofSeconds(resolvedTtl);
-        Instant expiresAt = issuedAt.plus(ttl);
-        String contentDisposition = AttachmentContentDisposition.attachment(attachment);
-        URL url;
-        try {
-            url = signedStorage.createSignedDownloadUrl(attachment, ttl, contentDisposition);
-        } catch (ObjectStorageNotFoundException | UnsupportedOperationException ex) {
-            throw new AttachmentDownloadUrlUnavailableException();
-        }
-        if (url == null) {
-            throw new AttachmentDownloadUrlUnavailableException();
-        }
+        Instant issuedAt = clock.instant();
+        Instant expiresAt = issuedAt.plusSeconds(resolvedTtl);
+        String token = tokenCodec.issue(attachment.getAttachmentId(), issuedAt, expiresAt);
+        String url = signedDownloadUrl(token);
 
         auditLogRepository.save(toAuditLog(
                 attachment,
@@ -75,8 +70,14 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
                 issuedAt,
                 expiresAt,
                 resolvedTtl,
-                location));
-        return new AttachmentDownloadUrl(url.toString(), expiresAt);
+                token));
+        return new AttachmentDownloadUrl(url, expiresAt);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownloadTokenClaims verifyDownloadToken(String token) {
+        return tokenCodec.verify(token);
     }
 
     private long resolveTtl(Long ttlSeconds) {
@@ -96,7 +97,7 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
             Instant issuedAt,
             Instant expiresAt,
             long ttlSeconds,
-            AttachmentStorageMetadata.ObjectStorageLocation location) {
+            String token) {
         AttachmentDownloadUrlIssueAuditLog log = new AttachmentDownloadUrlIssueAuditLog();
         log.setAttachmentId(attachment.getAttachmentId());
         log.setObjectType(attachment.getObjectType());
@@ -109,22 +110,61 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
         log.setIssuedAt(issuedAt);
         log.setExpiresAt(expiresAt);
         log.setTtlSeconds(ttlSeconds);
-        log.setStorageProviderId(location.providerId());
-        log.setBucket(location.bucket());
-        log.setObjectKeyHash(objectKeyHash(location));
+        log.setLinkType(LINK_TYPE_APPLICATION_SIGNED);
+        log.setTokenHash(tokenCodec.sha256Hex(token));
         log.setClientIp(clientIp);
         log.setUserAgent(userAgent);
         return log;
     }
 
-    private static String objectKeyHash(AttachmentStorageMetadata.ObjectStorageLocation location) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashed = digest.digest((location.providerId() + ":" + location.bucket() + ":" + location.key())
-                    .getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hashed);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
+    private String signedDownloadUrl(String token) {
+        return UriComponentsBuilder.fromUriString(publicBaseUrl)
+                .path(downloadPath)
+                .queryParam("token", token)
+                .build()
+                .toUriString();
+    }
+
+    private static String normalizeDownloadPath(String attachmentBasePath) {
+        String basePath = StringUtils.hasText(attachmentBasePath) ? attachmentBasePath.trim() : "/api/attachments";
+        if (!basePath.startsWith("/")) {
+            basePath = "/" + basePath;
         }
+        while (basePath.endsWith("/") && basePath.length() > 1) {
+            basePath = basePath.substring(0, basePath.length() - 1);
+        }
+        return basePath + "/signed-download";
+    }
+
+    private static String normalizePublicBaseUrl(String publicBaseUrl) {
+        if (!StringUtils.hasText(publicBaseUrl)) {
+            throw new IllegalStateException("studio.attachment.download-url.public-base-url must be configured");
+        }
+        String normalized = trimTrailingSlash(publicBaseUrl.trim());
+        URI uri;
+        try {
+            uri = URI.create(normalized);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "studio.attachment.download-url.public-base-url must be an absolute URL with scheme and host",
+                    ex);
+        }
+        if (!uri.isAbsolute()
+                || !StringUtils.hasText(uri.getScheme())
+                || !StringUtils.hasText(uri.getHost())
+                || uri.getRawQuery() != null
+                || uri.getRawFragment() != null) {
+            throw new IllegalStateException(
+                    "studio.attachment.download-url.public-base-url must be an absolute URL with scheme and host");
+        }
+        return normalized;
+    }
+
+    private static String trimTrailingSlash(String value) {
+        String trimmed = value;
+        while (trimmed.endsWith("/") && trimmed.length() > 1) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
     }
 }

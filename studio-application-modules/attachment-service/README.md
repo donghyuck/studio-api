@@ -30,6 +30,9 @@ studio:
       base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
       ensure-dirs: true           # 시작 시 디렉터리 생성
       cache-enabled: false        # database 사용 시 로컬 캐시 on/off
+    download-url:
+      public-base-url: http://localhost:8080
+      signing-secret: ${ATTACHMENT_DOWNLOAD_URL_SIGNING_SECRET}
     thumbnail:
       enabled: true               # 썸네일 생성 기능
       base-dir: ""                # 비우면 attachments/thumbnails 사용
@@ -67,12 +70,15 @@ studio:
 - 운영 환경에서는 `studio.attachment.storage.base-dir`와 `studio.attachment.thumbnail.base-dir`를 애플리케이션 전용 private 경로로 명시한다. 기본 tmp 경로는 로컬 개발 편의용이다.
 - `web.enabled=true` 시 `AttachmentMgmtController`/`AttachmentController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
 - `ObjectTypeRuntimeService` 빈이 있을 경우 업로드 시 `validateUpload`로 정책 검증을 수행한다(없으면 생략).
+- download-url 발급은 application-level HMAC-SHA256 token을 사용한다. objectstorage presigned URL을 만들지 않으며, filesystem/database/objectstorage 저장소 모두 `AttachmentService.getInputStream()` 경로로 다운로드된다.
+- `GET /api/attachments/signed-download`는 token-only 공개 링크다. 전역 `/api/**` 인증 필터를 사용하는 애플리케이션은 이 경로를 `permitAll`에 추가해야 한다.
 
 ## REST API (기본 base-path: `/api/mgmt/attachments`)
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수. 권한 `features:attachment/upload`.
 - `GET /{attachmentId}`: 메타데이터 조회. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/text`: 텍스트 추출. `FileContentExtractionService` 빈이 있을 때만 200, 없으면 501. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/download`: 스트리밍 다운로드. 권한 `features:attachment/download`.
+- `POST /{attachmentId}/download-url`: 짧은 수명의 application signed download URL 발급. 권한 `features:attachment/download`.
 - `GET /` : 페이지 목록. `objectType`, `objectId`, `keyword` 선택. (컨트롤러 상 별도 PreAuthorize 없음)
 - `GET /objects/{objectType}/{objectId}`: 객체별 전체 목록. 권한 `features:attachment/read`.
 - `DELETE /{attachmentId}`: 메타데이터 및 바이너리 삭제. 권한 `features:attachment/delete`.
@@ -81,10 +87,10 @@ studio:
 관리자 범위 판별은 소유자 우회가 필요한 mgmt 엔드포인트에서 `ADMIN`과 `ROLE_ADMIN`을 모두 허용한다.
 
 ### 감사 API (기본 base-path: `/api/mgmt/audit`)
-- `GET /attachment-download-url-issues`: object storage signed download URL 발급 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_url_issue_audit/read`.
+- `GET /attachment-download-url-issues`: signed download URL 발급 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_url_issue_audit/read`.
 - 필터: `attachmentId`, `objectType`, `objectId`, `endpointKind`(`MGMT`/`SERVICE`), `issuedByPrincipalName`(부분 검색), `from`, `to`. `from`은 포함, `to`는 제외 기준으로 `issuedAt`에 적용한다.
-- 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
-- signed URL과 raw object key는 응답하지 않는다. 저장 위치 추적은 `objectKeyHash`로만 수행한다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
+- 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
+- signed URL, raw token, raw object key는 응답하지 않는다. 신규 application link는 `tokenHash`만 저장하고, `storageProviderId`/`bucket`/`objectKeyHash`는 legacy objectstorage presigned 로그 호환 필드다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
 
 ### 업로드 예시 (multipart)
 ```bash
@@ -117,6 +123,8 @@ curl -X POST "/api/mgmt/attachments" \
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수. 권한 `features:attachment/service-upload`.
 - `GET /{attachmentId}`: 메타데이터 조회. 권한 `features:attachment/service-read`.
 - `GET /{attachmentId}/download`: 스트리밍 다운로드. 권한 `features:attachment/service-download`.
+- `POST /{attachmentId}/download-url`: 짧은 수명의 application signed download URL 발급. 권한 `features:attachment/service-download`.
+- `GET /signed-download?token=...`: token 검증 후 스트리밍 다운로드. 별도 `@PreAuthorize` 없이 token-only로 동작한다.
 - `GET /{attachmentId}/thumbnail`: 썸네일 이미지. 원본 파생 콘텐츠이므로 권한 `features:attachment/service-download`.
 - `GET /objects/{objectType}/{objectId}`: 객체별 목록(페이지/keyword 지원). 권한 `features:attachment/service-read`.
 - `DELETE /{attachmentId}`: 삭제. 권한 `features:attachment/service-delete`.

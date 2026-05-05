@@ -26,6 +26,7 @@ import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueA
 import studio.one.application.attachment.persistence.AttachmentRepository;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQuery;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
+import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.storage.FileStorage;
 import studio.one.application.attachment.storage.LocalFileStore;
@@ -229,8 +230,12 @@ class AttachmentAutoConfigurationTest {
                 .withBean(
                         AttachmentDownloadUrlIssueAuditLogRepository.class,
                         AttachmentAutoConfigurationTest::auditLogRepository)
+                .withPropertyValues(
+                        "studio.attachment.download-url.public-base-url=https://app.example",
+                        "studio.attachment.download-url.signing-secret=test-only-signing-secret-value-32b")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(AttachmentDownloadUrlService.class);
                     assertThat(context).hasSingleBean(AttachmentDownloadUrlIssueAuditLogQueryService.class);
                 });
     }

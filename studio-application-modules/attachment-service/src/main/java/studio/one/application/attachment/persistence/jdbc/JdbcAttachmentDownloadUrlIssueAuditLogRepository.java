@@ -40,6 +40,8 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
             Map.entry("issuedAt", "ISSUED_AT"),
             Map.entry("expiresAt", "EXPIRES_AT"),
             Map.entry("ttlSeconds", "TTL_SECONDS"),
+            Map.entry("linkType", "LINK_TYPE"),
+            Map.entry("tokenHash", "TOKEN_HASH"),
             Map.entry("storageProviderId", "STORAGE_PROVIDER_ID"),
             Map.entry("bucket", "BUCKET"),
             Map.entry("objectKeyHash", "OBJECT_KEY_HASH"),
@@ -58,12 +60,14 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
                     ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND,
                     ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME,
                     ISSUED_AT, EXPIRES_AT, TTL_SECONDS,
+                    LINK_TYPE, TOKEN_HASH,
                     STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH,
                     CLIENT_IP, USER_AGENT
                 ) values (
                     :attachmentId, :objectType, :objectId, :endpointKind,
                     :issuedByUserId, :issuedByPrincipalName,
                     :issuedAt, :expiresAt, :ttlSeconds,
+                    :linkType, :tokenHash,
                     :storageProviderId, :bucket, :objectKeyHash,
                     :clientIp, :userAgent
                 )
@@ -90,6 +94,7 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
                     LOG_ID, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND,
                     ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME,
                     ISSUED_AT, EXPIRES_AT, TTL_SECONDS,
+                    LINK_TYPE, TOKEN_HASH,
                     STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH,
                     CLIENT_IP, USER_AGENT
                 from %s
@@ -114,6 +119,8 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
         params.put("issuedAt", Timestamp.from(log.getIssuedAt()));
         params.put("expiresAt", Timestamp.from(log.getExpiresAt()));
         params.put("ttlSeconds", log.getTtlSeconds());
+        params.put("linkType", log.getLinkType());
+        params.put("tokenHash", log.getTokenHash());
         params.put("storageProviderId", log.getStorageProviderId());
         params.put("bucket", log.getBucket());
         params.put("objectKeyHash", log.getObjectKeyHash());
@@ -193,6 +200,8 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
         log.setIssuedAt(rs.getTimestamp("ISSUED_AT").toInstant());
         log.setExpiresAt(rs.getTimestamp("EXPIRES_AT").toInstant());
         log.setTtlSeconds(rs.getLong("TTL_SECONDS"));
+        log.setLinkType(rs.getString("LINK_TYPE"));
+        log.setTokenHash(rs.getString("TOKEN_HASH"));
         log.setStorageProviderId(rs.getString("STORAGE_PROVIDER_ID"));
         log.setBucket(rs.getString("BUCKET"));
         log.setObjectKeyHash(rs.getString("OBJECT_KEY_HASH"));

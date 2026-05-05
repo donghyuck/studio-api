@@ -253,9 +253,14 @@ public class AttachmentAutoConfiguration {
     @ConditionalOnBean(AttachmentDownloadUrlIssueAuditLogRepository.class)
     @ConditionalOnMissingBean(AttachmentDownloadUrlService.class)
     AttachmentDownloadUrlService attachmentDownloadUrlService(
-            AttachmentFileStorageResolver storageResolver,
+            AttachmentProperties attachmentProperties,
+            AttachmentFeatureProperties featureProperties,
             AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
-        return new AttachmentDownloadUrlServiceImpl(storageResolver, auditLogRepository);
+        return new AttachmentDownloadUrlServiceImpl(
+                attachmentProperties.getDownloadUrl().getPublicBaseUrl(),
+                attachmentProperties.getDownloadUrl().getSigningSecret(),
+                featureProperties.getWeb().getBasePath(),
+                auditLogRepository);
     }
 
     @Bean
