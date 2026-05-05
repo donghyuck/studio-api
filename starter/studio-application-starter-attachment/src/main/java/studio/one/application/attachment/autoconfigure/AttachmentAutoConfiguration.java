@@ -55,13 +55,18 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentPersistence;
 import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentThumbnailEnabled;
 import studio.one.application.attachment.domain.entity.ApplicationAttachment;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentRepository;
+import studio.one.application.attachment.persistence.jdbc.JdbcAttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.persistence.jdbc.JdbcAttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.jdbc.JdbcAttachmentRepository;
 import studio.one.application.attachment.persistence.jpa.AttachmentDataJpaRepository;
+import studio.one.application.attachment.persistence.jpa.AttachmentDownloadAuditLogJpaRepository;
 import studio.one.application.attachment.persistence.jpa.AttachmentDownloadUrlIssueAuditLogJpaRepository;
 import studio.one.application.attachment.persistence.jpa.AttachmentJpaRepository;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogServiceImpl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlServiceImpl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
@@ -269,6 +274,17 @@ public class AttachmentAutoConfiguration {
     AttachmentDownloadUrlIssueAuditLogQueryService attachmentDownloadUrlIssueAuditLogQueryService(
             AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
         return new AttachmentDownloadUrlIssueAuditLogQueryServiceImpl(auditLogRepository);
+    }
+
+    @Bean
+    @ConditionalOnBean({
+            AttachmentDownloadAuditLogRepository.class,
+            AttachmentDownloadUrlIssueAuditLogRepository.class })
+    @ConditionalOnMissingBean(AttachmentDownloadAuditLogService.class)
+    AttachmentDownloadAuditLogService attachmentDownloadAuditLogService(
+            AttachmentDownloadAuditLogRepository downloadLogRepository,
+            AttachmentDownloadUrlIssueAuditLogRepository issueLogRepository) {
+        return new AttachmentDownloadAuditLogServiceImpl(downloadLogRepository, issueLogRepository);
     }
 
     @Bean(name = AttachmentService.SERVICE_NAME)
@@ -481,6 +497,7 @@ public class AttachmentAutoConfiguration {
     @EnableJpaRepositories(basePackageClasses = {
             AttachmentJpaRepository.class,
             AttachmentDataJpaRepository.class,
+            AttachmentDownloadAuditLogJpaRepository.class,
             AttachmentDownloadUrlIssueAuditLogJpaRepository.class })
     static class AttachmentJpaConfig {
     }
@@ -502,6 +519,14 @@ public class AttachmentAutoConfiguration {
         AttachmentDownloadUrlIssueAuditLogRepository attachmentDownloadUrlIssueAuditLogRepository(
                 @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
             return new JdbcAttachmentDownloadUrlIssueAuditLogRepository(template);
+        }
+
+        @Bean
+        @ConditionalOnBean(name = ServiceNames.NAMED_JDBC_TEMPLATE)
+        @ConditionalOnMissingBean(AttachmentDownloadAuditLogRepository.class)
+        AttachmentDownloadAuditLogRepository attachmentDownloadAuditLogRepository(
+                @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
+            return new JdbcAttachmentDownloadAuditLogRepository(template);
         }
     }
 }

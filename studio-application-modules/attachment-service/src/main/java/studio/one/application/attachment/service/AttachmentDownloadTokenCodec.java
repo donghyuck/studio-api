@@ -67,51 +67,78 @@ final class AttachmentDownloadTokenCodec {
     }
 
     AttachmentDownloadTokenClaims verify(String token) {
-        if (!StringUtils.hasText(token) || token.length() > TOKEN_MAX_LENGTH) {
+        AttachmentDownloadTokenInspection inspection = inspect(token);
+        if (inspection.status() != AttachmentDownloadTokenInspectionStatus.VALID) {
             throw new AttachmentDownloadTokenInvalidException();
+        }
+        return inspection.claims();
+    }
+
+    AttachmentDownloadTokenInspection inspect(String token) {
+        String tokenHash = hashIfPresent(token);
+        if (!StringUtils.hasText(token) || token.length() > TOKEN_MAX_LENGTH) {
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
         String[] segments = token.split("\\.", -1);
         if (segments.length != 2 || !StringUtils.hasText(segments[0]) || !StringUtils.hasText(segments[1])) {
-            throw new AttachmentDownloadTokenInvalidException();
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
 
         byte[] signature;
         try {
             signature = BASE64_URL_DECODER.decode(segments[1]);
         } catch (IllegalArgumentException ex) {
-            throw new AttachmentDownloadTokenInvalidException();
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
         if (!MessageDigest.isEqual(hmac(segments[0]), signature)) {
-            throw new AttachmentDownloadTokenInvalidException();
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
 
-        Map<String, String> payload = parsePayload(segments[0]);
+        Map<String, String> payload;
+        try {
+            payload = parsePayload(segments[0]);
+        } catch (AttachmentDownloadTokenInvalidException ex) {
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
+        }
         if (!PURPOSE.equals(payload.get("purpose"))) {
-            throw new AttachmentDownloadTokenInvalidException();
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
         try {
             long attachmentId = Long.parseLong(required(payload, "attachmentId"));
             Instant issuedAt = Instant.parse(required(payload, "issuedAt"));
             Instant expiresAt = Instant.parse(required(payload, "expiresAt"));
             String nonce = required(payload, "nonce");
-            if (attachmentId <= 0 || !expiresAt.isAfter(clock.instant()) || !expiresAt.isAfter(issuedAt)) {
-                throw new AttachmentDownloadTokenInvalidException();
+            if (attachmentId <= 0 || !expiresAt.isAfter(issuedAt)) {
+                return AttachmentDownloadTokenInspection.invalid(tokenHash);
             }
-            return new AttachmentDownloadTokenClaims(attachmentId, issuedAt, expiresAt, nonce);
+            AttachmentDownloadTokenClaims claims =
+                    new AttachmentDownloadTokenClaims(attachmentId, issuedAt, expiresAt, nonce);
+            if (!expiresAt.isAfter(clock.instant())) {
+                return AttachmentDownloadTokenInspection.expired(claims, tokenHash);
+            }
+            return AttachmentDownloadTokenInspection.valid(claims, tokenHash);
         } catch (AttachmentDownloadTokenInvalidException ex) {
-            throw ex;
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         } catch (RuntimeException ex) {
-            throw new AttachmentDownloadTokenInvalidException();
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
     }
 
     String sha256Hex(String value) {
+        return sha256HexValue(value);
+    }
+
+    static String sha256HexValue(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException ex) {
             throw new IllegalStateException("SHA-256 is not available", ex);
         }
+    }
+
+    private String hashIfPresent(String token) {
+        return StringUtils.hasText(token) ? sha256Hex(token) : null;
     }
 
     private Map<String, String> parsePayload(String payloadSegment) {

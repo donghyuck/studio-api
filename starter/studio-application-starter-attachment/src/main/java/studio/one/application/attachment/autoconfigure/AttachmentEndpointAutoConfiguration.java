@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Lazy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.controller.AttachmentController;
@@ -86,6 +87,7 @@ public class AttachmentEndpointAutoConfiguration {
         AttachmentController attachmentController(
                         AttachmentService attachmentService,
                         AttachmentDownloadUrlService downloadUrlService,
+                        AttachmentDownloadAuditLogService downloadAuditLogService,
                         AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver,
                         ObjectProvider<ThumbnailService> thumbnailServiceProvider,
                         ObjectProvider<PrincipalResolver> principalResolverProvider) {
@@ -99,6 +101,7 @@ public class AttachmentEndpointAutoConfiguration {
                 return new AttachmentController(
                                 attachmentService,
                                 downloadUrlService,
+                                downloadAuditLogService,
                                 requestDetailsResolver,
                                 thumbnailServiceProvider,
                                 principalResolverProvider);

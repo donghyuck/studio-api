@@ -21,10 +21,15 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 
+import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogQuery;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
+import studio.one.application.attachment.service.AttachmentDownloadAuditResult;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQuery;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
+import studio.one.application.web.dto.AttachmentDownloadAuditLogDto;
 import studio.one.application.web.dto.AttachmentDownloadUrlIssueAuditLogDto;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,9 +38,13 @@ class AttachmentAuditMgmtControllerTest {
     @Mock
     private AttachmentDownloadUrlIssueAuditLogQueryService auditLogQueryService;
 
+    @Mock
+    private AttachmentDownloadAuditLogService downloadAuditLogService;
+
     @Test
     void listDownloadUrlIssueLogsMapsFiltersAndResponse() {
-        AttachmentAuditMgmtController controller = new AttachmentAuditMgmtController(auditLogQueryService);
+        AttachmentAuditMgmtController controller =
+                new AttachmentAuditMgmtController(auditLogQueryService, downloadAuditLogService);
         var pageable = PageRequest.of(0, 20);
         AttachmentDownloadUrlIssueAuditLog log = auditLog();
         when(auditLogQueryService.find(any(), eq(pageable))).thenReturn(new PageImpl<>(List.of(log), pageable, 1));
@@ -70,6 +79,46 @@ class AttachmentAuditMgmtControllerTest {
     }
 
     @Test
+    void listDownloadLogsMapsFiltersAndResponse() {
+        AttachmentAuditMgmtController controller =
+                new AttachmentAuditMgmtController(auditLogQueryService, downloadAuditLogService);
+        var pageable = PageRequest.of(0, 20);
+        AttachmentDownloadAuditLog log = downloadAuditLog();
+        when(downloadAuditLogService.find(any(), eq(pageable))).thenReturn(new PageImpl<>(List.of(log), pageable, 1));
+
+        var response = controller.listDownloadLogs(
+                10L,
+                20,
+                30L,
+                "token-hash",
+                AttachmentDownloadAuditResult.SUCCEEDED,
+                OffsetDateTime.parse("2026-05-05T00:00:00+09:00"),
+                OffsetDateTime.parse("2026-05-06T00:00:00+09:00"),
+                "127.0.0.1",
+                pageable);
+
+        ArgumentCaptor<AttachmentDownloadAuditLogQuery> captor =
+                ArgumentCaptor.forClass(AttachmentDownloadAuditLogQuery.class);
+        verify(downloadAuditLogService).find(captor.capture(), eq(pageable));
+        AttachmentDownloadAuditLogQuery query = captor.getValue();
+        assertThat(query.attachmentId()).isEqualTo(10L);
+        assertThat(query.objectType()).isEqualTo(20);
+        assertThat(query.objectId()).isEqualTo(30L);
+        assertThat(query.tokenHash()).isEqualTo("token-hash");
+        assertThat(query.result()).isEqualTo(AttachmentDownloadAuditResult.SUCCEEDED);
+        assertThat(query.from()).isEqualTo(Instant.parse("2026-05-04T15:00:00Z"));
+        assertThat(query.to()).isEqualTo(Instant.parse("2026-05-05T15:00:00Z"));
+        assertThat(query.clientIp()).isEqualTo("127.0.0.1");
+
+        AttachmentDownloadAuditLogDto dto = response.getBody().getData().getContent().get(0);
+        assertThat(dto.downloadLogId()).isEqualTo(2L);
+        assertThat(dto.issueLogId()).isEqualTo(1L);
+        assertThat(dto.tokenHash()).isEqualTo("token-hash");
+        assertThat(dto.result()).isEqualTo("SUCCEEDED");
+        assertThat(dto.downloadedBytes()).isEqualTo(123L);
+    }
+
+    @Test
     void listDownloadUrlIssueLogsUsesDedicatedAuditReadPermission() throws Exception {
         PreAuthorize annotation = AttachmentAuditMgmtController.class
                 .getMethod(
@@ -88,6 +137,25 @@ class AttachmentAuditMgmtControllerTest {
     }
 
     @Test
+    void listDownloadLogsUsesDedicatedAuditReadPermission() throws Exception {
+        PreAuthorize annotation = AttachmentAuditMgmtController.class
+                .getMethod(
+                        "listDownloadLogs",
+                        Long.class,
+                        Integer.class,
+                        Long.class,
+                        String.class,
+                        AttachmentDownloadAuditResult.class,
+                        OffsetDateTime.class,
+                        OffsetDateTime.class,
+                        String.class,
+                        org.springframework.data.domain.Pageable.class)
+                .getAnnotation(PreAuthorize.class);
+
+        assertThat(annotation.value()).contains("features','attachment_download_audit','read");
+    }
+
+    @Test
     void auditDtoDoesNotExposeRawSignedUrlOrObjectKey() {
         List<String> fieldNames = Arrays.stream(AttachmentDownloadUrlIssueAuditLogDto.class.getRecordComponents())
                 .map(RecordComponent::getName)
@@ -95,6 +163,16 @@ class AttachmentAuditMgmtControllerTest {
 
         assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "objectKey", "token", "rawToken");
         assertThat(fieldNames).contains("objectKeyHash", "tokenHash", "linkType");
+    }
+
+    @Test
+    void downloadAuditDtoDoesNotExposeRawToken() {
+        List<String> fieldNames = Arrays.stream(AttachmentDownloadAuditLogDto.class.getRecordComponents())
+                .map(RecordComponent::getName)
+                .toList();
+
+        assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "token", "rawToken");
+        assertThat(fieldNames).contains("tokenHash", "result", "downloadedBytes");
     }
 
     private AttachmentDownloadUrlIssueAuditLog auditLog() {
@@ -114,6 +192,24 @@ class AttachmentAuditMgmtControllerTest {
         log.setStorageProviderId("main");
         log.setBucket("attachments");
         log.setObjectKeyHash("hash");
+        log.setClientIp("127.0.0.1");
+        log.setUserAgent("JUnit");
+        return log;
+    }
+
+    private AttachmentDownloadAuditLog downloadAuditLog() {
+        AttachmentDownloadAuditLog log = new AttachmentDownloadAuditLog();
+        log.setDownloadLogId(2L);
+        log.setIssueLogId(1L);
+        log.setTokenHash("token-hash");
+        log.setAttachmentId(10L);
+        log.setObjectType(20);
+        log.setObjectId(30L);
+        log.setLinkType("APPLICATION_SIGNED");
+        log.setRequestedAt(Instant.parse("2026-05-05T00:01:00Z"));
+        log.setResult("SUCCEEDED");
+        log.setHttpStatus(200);
+        log.setDownloadedBytes(123L);
         log.setClientIp("127.0.0.1");
         log.setUserAgent("JUnit");
         return log;
