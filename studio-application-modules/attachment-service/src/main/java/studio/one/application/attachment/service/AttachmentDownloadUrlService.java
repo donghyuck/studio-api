@@ -16,4 +16,13 @@ public interface AttachmentDownloadUrlService {
     default AttachmentDownloadTokenClaims verifyDownloadToken(String token) {
         throw new AttachmentDownloadTokenInvalidException();
     }
+
+    default AttachmentDownloadTokenInspection inspectDownloadToken(String token) {
+        String tokenHash = AttachmentDownloadTokenCodec.tokenHashForAudit(token);
+        try {
+            return AttachmentDownloadTokenInspection.valid(verifyDownloadToken(token), tokenHash);
+        } catch (AttachmentDownloadTokenInvalidException ex) {
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
+        }
+    }
 }

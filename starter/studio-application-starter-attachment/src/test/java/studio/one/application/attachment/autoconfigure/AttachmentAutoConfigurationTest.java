@@ -20,10 +20,14 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentRepository;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogQuery;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQuery;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
@@ -230,6 +234,9 @@ class AttachmentAutoConfigurationTest {
                 .withBean(
                         AttachmentDownloadUrlIssueAuditLogRepository.class,
                         AttachmentAutoConfigurationTest::auditLogRepository)
+                .withBean(
+                        AttachmentDownloadAuditLogRepository.class,
+                        AttachmentAutoConfigurationTest::downloadAuditLogRepository)
                 .withPropertyValues(
                         "studio.attachment.download-url.public-base-url=https://app.example",
                         "studio.attachment.download-url.signing-secret=test-only-signing-secret-value-32b")
@@ -237,6 +244,7 @@ class AttachmentAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(AttachmentDownloadUrlService.class);
                     assertThat(context).hasSingleBean(AttachmentDownloadUrlIssueAuditLogQueryService.class);
+                    assertThat(context).hasSingleBean(AttachmentDownloadAuditLogService.class);
                 });
     }
 
@@ -246,10 +254,14 @@ class AttachmentAutoConfigurationTest {
                 .withBean(
                         AttachmentDownloadUrlIssueAuditLogRepository.class,
                         AttachmentAutoConfigurationTest::auditLogRepository)
+                .withBean(
+                        AttachmentDownloadAuditLogRepository.class,
+                        AttachmentAutoConfigurationTest::downloadAuditLogRepository)
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(AttachmentDownloadUrlService.class);
                     assertThat(context).hasSingleBean(AttachmentDownloadUrlIssueAuditLogQueryService.class);
+                    assertThat(context).hasSingleBean(AttachmentDownloadAuditLogService.class);
                 });
     }
 
@@ -322,8 +334,29 @@ class AttachmentAutoConfigurationTest {
             }
 
             @Override
+            public Optional<AttachmentDownloadUrlIssueAuditLog> findByTokenHash(String tokenHash) {
+                return Optional.empty();
+            }
+
+            @Override
             public Page<AttachmentDownloadUrlIssueAuditLog> search(
                     AttachmentDownloadUrlIssueAuditLogQuery query,
+                    org.springframework.data.domain.Pageable pageable) {
+                return Page.empty(pageable);
+            }
+        };
+    }
+
+    private static AttachmentDownloadAuditLogRepository downloadAuditLogRepository() {
+        return new AttachmentDownloadAuditLogRepository() {
+            @Override
+            public AttachmentDownloadAuditLog save(AttachmentDownloadAuditLog log) {
+                return log;
+            }
+
+            @Override
+            public Page<AttachmentDownloadAuditLog> search(
+                    AttachmentDownloadAuditLogQuery query,
                     org.springframework.data.domain.Pageable pageable) {
                 return Page.empty(pageable);
             }

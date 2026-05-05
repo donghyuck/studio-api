@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -74,6 +75,29 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
                 """.formatted(TABLE);
         template.update(sql, params(log));
         return log;
+    }
+
+    @Override
+    public Optional<AttachmentDownloadUrlIssueAuditLog> findByTokenHash(String tokenHash) {
+        if (!StringUtils.hasText(tokenHash)) {
+            return Optional.empty();
+        }
+        String sql = """
+                select
+                    LOG_ID, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND,
+                    ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME,
+                    ISSUED_AT, EXPIRES_AT, TTL_SECONDS,
+                    LINK_TYPE, TOKEN_HASH,
+                    STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH,
+                    CLIENT_IP, USER_AGENT
+                from %s
+                where TOKEN_HASH = :tokenHash
+                order by ISSUED_AT desc, LOG_ID desc
+                limit 1
+                """.formatted(TABLE);
+        List<AttachmentDownloadUrlIssueAuditLog> logs =
+                template.query(sql, Map.of("tokenHash", tokenHash), ROW_MAPPER);
+        return logs.stream().findFirst();
     }
 
     @Override

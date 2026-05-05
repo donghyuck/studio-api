@@ -91,6 +91,10 @@ studio:
 - 필터: `attachmentId`, `objectType`, `objectId`, `endpointKind`(`MGMT`/`SERVICE`), `issuedByPrincipalName`(부분 검색), `from`, `to`. `from`은 포함, `to`는 제외 기준으로 `issuedAt`에 적용한다.
 - 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
 - signed URL, raw token, raw object key는 응답하지 않는다. 신규 application link는 `tokenHash`만 저장하고, `storageProviderId`/`bucket`/`objectKeyHash`는 legacy objectstorage presigned 로그 호환 필드다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
+- `GET /attachment-downloads`: signed download URL 실제 접근 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_audit/read`.
+- 필터: `attachmentId`, `objectType`, `objectId`, `tokenHash`, `result`(`SUCCEEDED`/`FAILED`/`EXPIRED`/`INVALID_TOKEN`), `from`, `to`, `clientIp`. `from`은 포함, `to`는 제외 기준으로 `requestedAt`에 적용한다.
+- 응답 필드: `downloadLogId`, `issueLogId`, `tokenHash`, `attachmentId`, `objectType`, `objectId`, `linkType`, `requestedAt`, `result`, `httpStatus`, `downloadedBytes`, `clientIp`, `userAgent`, `errorCode`.
+- signed download 접근 감사 로그도 raw token과 signed URL은 저장/응답하지 않는다. malformed token은 attachment/object 정보를 복원할 수 없어 nullable로 남을 수 있다. 기본 정렬은 `requestedAt desc`, `downloadLogId desc`이다.
 
 ### 업로드 예시 (multipart)
 ```bash
@@ -169,6 +173,7 @@ objecttypes:
 - `features:attachment/download` 다운로드/썸네일 조회
 - `features:attachment/delete` 삭제
 - `features:attachment_download_url_issue_audit/read` signed download URL 발급 감사 로그 조회
+- `features:attachment_download_audit/read` signed download URL 실제 접근 감사 로그 조회
 - `features:attachment/service-upload` 서비스 업로드
 - `features:attachment/service-read` 서비스 조회/목록
 - `features:attachment/service-download` 서비스 다운로드/썸네일 조회
@@ -200,7 +205,7 @@ objecttypes:
 - 기본 캐시 이름은 `attachments.byId`이며, 캐시 설정이 필요하면 전역 CacheManager에 매핑을 추가한다.
 
 ## 스키마
-마이그레이션 파일 위치: `src/main/resources/schema/attachment/{postgres,mysql,mariadb}/V800__create_attachment_tables.sql`
+마이그레이션 파일 위치: `src/main/resources/schema/attachment/{postgres,mysql,mariadb}/V800__create_attachment_tables.sql`, `V801__create_attachment_url_issue_log.sql`, `V802__application_signed_attachment_download_url.sql`, `V803__create_attachment_download_log.sql`
 
 Flyway 버전 범위는 `docs/flyway-versioning.md`의 attachment 범위(V800-V899)를 따른다.
 

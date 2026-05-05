@@ -81,10 +81,21 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
     @Override
     @Transactional(readOnly = true)
     public AttachmentDownloadTokenClaims verifyDownloadToken(String token) {
-        try {
-            return new AttachmentDownloadTokenCodec(signingSecret, clock).verify(token);
-        } catch (IllegalStateException ex) {
+        AttachmentDownloadTokenInspection inspection = inspectDownloadToken(token);
+        if (inspection.status() != AttachmentDownloadTokenInspectionStatus.VALID) {
             throw new AttachmentDownloadTokenInvalidException();
+        }
+        return inspection.claims();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownloadTokenInspection inspectDownloadToken(String token) {
+        String tokenHash = AttachmentDownloadTokenCodec.tokenHashForAudit(token);
+        try {
+            return new AttachmentDownloadTokenCodec(signingSecret, clock).inspect(token);
+        } catch (IllegalStateException ex) {
+            return AttachmentDownloadTokenInspection.invalid(tokenHash);
         }
     }
 

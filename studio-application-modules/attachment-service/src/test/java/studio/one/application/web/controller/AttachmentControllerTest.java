@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Optional;
 
@@ -23,10 +24,12 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
 import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
 import studio.one.application.attachment.exception.AttachmentNotFoundException;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
+import studio.one.application.attachment.service.AttachmentDownloadAuditResult;
 import studio.one.application.attachment.service.AttachmentDownloadTokenClaims;
+import studio.one.application.attachment.service.AttachmentDownloadTokenInspection;
 import studio.one.application.attachment.service.AttachmentDownloadUrl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
@@ -47,6 +50,9 @@ class AttachmentControllerTest {
 
     @Mock
     private AttachmentDownloadUrlService downloadUrlService;
+
+    @Mock
+    private AttachmentDownloadAuditLogService downloadAuditLogService;
 
     @Mock
     private AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
@@ -237,20 +243,26 @@ class AttachmentControllerTest {
         Attachment attachment = mock(Attachment.class);
         ByteArrayInputStream input = new ByteArrayInputStream(new byte[] { 1, 2, 3 });
 
-        when(downloadUrlService.verifyDownloadToken("signed-token"))
-                .thenReturn(new AttachmentDownloadTokenClaims(
-                        88L,
-                        java.time.Instant.parse("2026-05-05T00:00:00Z"),
-                        java.time.Instant.parse("2026-05-05T00:05:00Z"),
-                        "nonce"));
         when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
         when(attachment.getContentType()).thenReturn("application/pdf");
         when(attachment.getSize()).thenReturn(3L);
         when(attachment.getName()).thenReturn("sample.pdf");
+        when(attachment.getAttachmentId()).thenReturn(88L);
+        when(attachment.getObjectType()).thenReturn(12);
+        when(attachment.getObjectId()).thenReturn(34L);
         when(attachmentService.getInputStream(attachment)).thenReturn(input);
+        when(requestDetailsResolver.resolve(any())).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.1", "JUnit"));
+        when(downloadUrlService.inspectDownloadToken("signed-token"))
+                .thenReturn(AttachmentDownloadTokenInspection.valid(
+                        new AttachmentDownloadTokenClaims(
+                                88L,
+                                java.time.Instant.parse("2026-05-05T00:00:00Z"),
+                                java.time.Instant.parse("2026-05-05T00:05:00Z"),
+                                "nonce"),
+                        "token-hash"));
 
         ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
-                controller.signedDownload("signed-token");
+                controller.signedDownload("signed-token", new MockHttpServletRequest());
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         response.getBody().writeTo(out);
 
@@ -259,39 +271,123 @@ class AttachmentControllerTest {
         assertEquals("application/pdf", response.getHeaders().getContentType().toString());
         assertEquals("attachment; filename=\"sample.pdf\"", response.getHeaders().getFirst("Content-Disposition"));
         assertEquals(3, out.toByteArray().length);
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.SUCCEEDED
+                        && command.downloadedBytes() == 3L
+                        && command.httpStatus() == 200
+                        && "token-hash".equals(command.tokenHash())));
     }
 
     @Test
     void signedDownloadRejectsInvalidTokenWithUnauthorized() throws Exception {
         AttachmentController controller = controller();
-        when(downloadUrlService.verifyDownloadToken("bad-token"))
-                .thenThrow(new AttachmentDownloadTokenInvalidException());
+        when(requestDetailsResolver.resolve(any())).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.1", "JUnit"));
+        when(downloadUrlService.inspectDownloadToken("bad-token"))
+                .thenReturn(AttachmentDownloadTokenInspection.invalid("bad-token-hash"));
 
         ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
-                controller.signedDownload("bad-token");
+                controller.signedDownload("bad-token", new MockHttpServletRequest());
 
         assertEquals(401, response.getStatusCode().value());
         assertEquals("no-store", response.getHeaders().getCacheControl());
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.INVALID_TOKEN
+                        && command.httpStatus() == 401
+                        && "TOKEN_INVALID".equals(command.errorCode())
+                        && "bad-token-hash".equals(command.tokenHash())));
+    }
+
+    @Test
+    void signedDownloadRecordsExpiredTokenWithUnauthorized() throws Exception {
+        AttachmentController controller = controller();
+        when(requestDetailsResolver.resolve(any())).thenReturn(new AttachmentUrlIssueRequestDetails(null, null));
+        when(downloadUrlService.inspectDownloadToken("expired-token"))
+                .thenReturn(AttachmentDownloadTokenInspection.expired(
+                        new AttachmentDownloadTokenClaims(
+                                88L,
+                                java.time.Instant.parse("2026-05-05T00:00:00Z"),
+                                java.time.Instant.parse("2026-05-05T00:05:00Z"),
+                                "nonce"),
+                        "expired-hash"));
+
+        ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
+                controller.signedDownload("expired-token", new MockHttpServletRequest());
+
+        assertEquals(401, response.getStatusCode().value());
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.EXPIRED
+                        && command.attachmentId() == 88L
+                        && command.httpStatus() == 401
+                        && "TOKEN_EXPIRED".equals(command.errorCode())));
     }
 
     @Test
     void signedDownloadPropagatesNotFoundForDeletedAttachment() throws Exception {
         AttachmentController controller = controller();
-        when(downloadUrlService.verifyDownloadToken("signed-token"))
-                .thenReturn(new AttachmentDownloadTokenClaims(
-                        88L,
-                        java.time.Instant.parse("2026-05-05T00:00:00Z"),
-                        java.time.Instant.parse("2026-05-05T00:05:00Z"),
-                        "nonce"));
+        when(requestDetailsResolver.resolve(any())).thenReturn(new AttachmentUrlIssueRequestDetails(null, null));
+        when(downloadUrlService.inspectDownloadToken("signed-token"))
+                .thenReturn(AttachmentDownloadTokenInspection.valid(
+                        new AttachmentDownloadTokenClaims(
+                                88L,
+                                java.time.Instant.parse("2026-05-05T00:00:00Z"),
+                                java.time.Instant.parse("2026-05-05T00:05:00Z"),
+                                "nonce"),
+                        "token-hash"));
         when(attachmentService.getAttachmentById(88L)).thenThrow(AttachmentNotFoundException.byId(88L));
 
-        assertThrows(AttachmentNotFoundException.class, () -> controller.signedDownload("signed-token"));
+        assertThrows(AttachmentNotFoundException.class,
+                () -> controller.signedDownload("signed-token", new MockHttpServletRequest()));
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.FAILED
+                        && command.httpStatus() == 404
+                        && "ATTACHMENT_NOT_FOUND".equals(command.errorCode())));
+    }
+
+    @Test
+    void signedDownloadRecordsStreamFailureAndPropagates() throws Exception {
+        AttachmentController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        InputStream failing = new InputStream() {
+            @Override
+            public int read() throws IOException {
+                throw new IOException("boom");
+            }
+        };
+
+        when(requestDetailsResolver.resolve(any())).thenReturn(new AttachmentUrlIssueRequestDetails(null, null));
+        when(downloadUrlService.inspectDownloadToken("signed-token"))
+                .thenReturn(AttachmentDownloadTokenInspection.valid(
+                        new AttachmentDownloadTokenClaims(
+                                88L,
+                                java.time.Instant.parse("2026-05-05T00:00:00Z"),
+                                java.time.Instant.parse("2026-05-05T00:05:00Z"),
+                                "nonce"),
+                        "token-hash"));
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(attachment.getContentType()).thenReturn("application/pdf");
+        when(attachment.getSize()).thenReturn(3L);
+        when(attachment.getName()).thenReturn("sample.pdf");
+        when(attachment.getAttachmentId()).thenReturn(88L);
+        when(attachment.getObjectType()).thenReturn(12);
+        when(attachment.getObjectId()).thenReturn(34L);
+        when(attachmentService.getInputStream(attachment)).thenReturn(failing);
+
+        ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
+                controller.signedDownload("signed-token", new MockHttpServletRequest());
+
+        assertThrows(IOException.class, () -> response.getBody().writeTo(new ByteArrayOutputStream()));
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.FAILED
+                        && command.httpStatus() == 200
+                        && command.downloadedBytes() == 0L
+                        && "STREAM_FAILED".equals(command.errorCode())));
     }
 
     private AttachmentController controller() {
         return new AttachmentController(
                 attachmentService,
                 downloadUrlService,
+                downloadAuditLogService,
                 requestDetailsResolver,
                 thumbnailServiceProvider,
                 principalResolverProvider);

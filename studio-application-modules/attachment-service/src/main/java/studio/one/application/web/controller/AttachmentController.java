@@ -1,6 +1,8 @@
 package studio.one.application.web.controller;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.time.Instant;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,11 +10,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,8 +32,12 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
 import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogCommand;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
+import studio.one.application.attachment.service.AttachmentDownloadAuditResult;
+import studio.one.application.attachment.service.AttachmentDownloadTokenInspection;
+import studio.one.application.attachment.service.AttachmentDownloadTokenInspectionStatus;
 import studio.one.application.attachment.service.AttachmentDownloadUrl;
 import studio.one.application.attachment.service.AttachmentDownloadTokenClaims;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
@@ -52,8 +60,11 @@ import studio.one.platform.web.dto.ApiResponse;
 @Validated
 public class AttachmentController {
 
+    private static final String LINK_TYPE_APPLICATION_SIGNED = "APPLICATION_SIGNED";
+
     private final AttachmentService attachmentService;
     private final AttachmentDownloadUrlService downloadUrlService;
+    private final AttachmentDownloadAuditLogService downloadAuditLogService;
     private final AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
     private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
@@ -129,21 +140,97 @@ public class AttachmentController {
 
     @GetMapping("/signed-download")
     public ResponseEntity<StreamingResponseBody> signedDownload(
-            @RequestParam(value = "token", required = false) String token)
+            @RequestParam(value = "token", required = false) String token,
+            HttpServletRequest httpRequest)
             throws IOException, NotFoundException {
-        AttachmentDownloadTokenClaims claims;
-        try {
-            claims = downloadUrlService.verifyDownloadToken(token);
-        } catch (AttachmentDownloadTokenInvalidException ex) {
+        Instant requestedAt = Instant.now();
+        AttachmentUrlIssueRequestDetails details = requestDetailsResolver.resolve(httpRequest);
+        AttachmentDownloadTokenInspection inspection = downloadUrlService.inspectDownloadToken(token);
+        if (inspection.status() == AttachmentDownloadTokenInspectionStatus.INVALID_TOKEN) {
+            recordDownloadAudit(new AttachmentDownloadAuditLogCommand(
+                    inspection.tokenHash(),
+                    null,
+                    null,
+                    null,
+                    LINK_TYPE_APPLICATION_SIGNED,
+                    requestedAt,
+                    AttachmentDownloadAuditResult.INVALID_TOKEN,
+                    HttpStatus.UNAUTHORIZED.value(),
+                    null,
+                    details.clientIp(),
+                    details.userAgent(),
+                    "TOKEN_INVALID"));
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .cacheControl(CacheControl.noStore())
                     .build();
         }
-        Attachment attachment = attachmentService.getAttachmentById(claims.attachmentId());
-        return AttachmentWebSupport.downloadResponse(
+
+        AttachmentDownloadTokenClaims claims = inspection.claims();
+        if (inspection.status() == AttachmentDownloadTokenInspectionStatus.EXPIRED) {
+            recordDownloadAudit(new AttachmentDownloadAuditLogCommand(
+                    inspection.tokenHash(),
+                    claims.attachmentId(),
+                    null,
+                    null,
+                    LINK_TYPE_APPLICATION_SIGNED,
+                    requestedAt,
+                    AttachmentDownloadAuditResult.EXPIRED,
+                    HttpStatus.UNAUTHORIZED.value(),
+                    null,
+                    details.clientIp(),
+                    details.userAgent(),
+                    "TOKEN_EXPIRED"));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .cacheControl(CacheControl.noStore())
+                    .build();
+        }
+
+        Attachment attachment;
+        try {
+            attachment = attachmentService.getAttachmentById(claims.attachmentId());
+        } catch (NotFoundException ex) {
+            recordDownloadAudit(new AttachmentDownloadAuditLogCommand(
+                    inspection.tokenHash(),
+                    claims.attachmentId(),
+                    null,
+                    null,
+                    LINK_TYPE_APPLICATION_SIGNED,
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.NOT_FOUND.value(),
+                    null,
+                    details.clientIp(),
+                    details.userAgent(),
+                    "ATTACHMENT_NOT_FOUND"));
+            throw ex;
+        }
+
+        InputStream input;
+        try {
+            input = attachmentService.getInputStream(attachment);
+        } catch (IOException | RuntimeException ex) {
+            recordDownloadAudit(new AttachmentDownloadAuditLogCommand(
+                    inspection.tokenHash(),
+                    attachment.getAttachmentId(),
+                    attachment.getObjectType(),
+                    attachment.getObjectId(),
+                    LINK_TYPE_APPLICATION_SIGNED,
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    null,
+                    details.clientIp(),
+                    details.userAgent(),
+                    "STREAM_OPEN_FAILED"));
+            throw ex;
+        }
+
+        return auditedSignedDownloadResponse(
                 attachment,
-                attachmentService.getInputStream(attachment),
-                CacheControl.noStore());
+                input,
+                inspection.tokenHash(),
+                requestedAt,
+                details);
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/thumbnail")
@@ -211,5 +298,72 @@ public class AttachmentController {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    private ResponseEntity<StreamingResponseBody> auditedSignedDownloadResponse(
+            Attachment attachment,
+            InputStream input,
+            String tokenHash,
+            Instant requestedAt,
+            AttachmentUrlIssueRequestDetails details) {
+        StreamingResponseBody body = out -> {
+            long downloadedBytes = 0L;
+            byte[] buffer = new byte[8192];
+            try (input) {
+                int read;
+                while ((read = input.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                    downloadedBytes += read;
+                }
+                recordDownloadAudit(new AttachmentDownloadAuditLogCommand(
+                        tokenHash,
+                        attachment.getAttachmentId(),
+                        attachment.getObjectType(),
+                        attachment.getObjectId(),
+                        LINK_TYPE_APPLICATION_SIGNED,
+                        requestedAt,
+                        AttachmentDownloadAuditResult.SUCCEEDED,
+                        HttpStatus.OK.value(),
+                        downloadedBytes,
+                        details.clientIp(),
+                        details.userAgent(),
+                        null));
+            } catch (IOException | RuntimeException ex) {
+                recordDownloadAudit(new AttachmentDownloadAuditLogCommand(
+                        tokenHash,
+                        attachment.getAttachmentId(),
+                        attachment.getObjectType(),
+                        attachment.getObjectId(),
+                        LINK_TYPE_APPLICATION_SIGNED,
+                        requestedAt,
+                        AttachmentDownloadAuditResult.FAILED,
+                        HttpStatus.OK.value(),
+                        downloadedBytes,
+                        details.clientIp(),
+                        details.userAgent(),
+                        "STREAM_FAILED"));
+                throw ex;
+            }
+        };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+        headers.setContentType(AttachmentWebSupport.resolveMediaType(attachment.getContentType()));
+        headers.setContentLength(attachment.getSize());
+        if (StringUtils.hasText(attachment.getName())) {
+            headers.setContentDisposition(ContentDisposition.attachment()
+                    .filename(attachment.getName())
+                    .build());
+        }
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
+    }
+
+    private void recordDownloadAudit(AttachmentDownloadAuditLogCommand command) {
+        try {
+            downloadAuditLogService.record(command);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record attachment signed download audit log: {}", ex.getMessage());
+        }
     }
 }

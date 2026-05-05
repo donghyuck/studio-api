@@ -191,6 +191,44 @@ class AttachmentDownloadUrlServiceImplTest {
                 () -> verifier.verifyDownloadToken(token(issued.url())));
     }
 
+    @Test
+    void inspectDownloadTokenDistinguishesExpiredAndInvalidTokens() throws Exception {
+        AttachmentDownloadUrlServiceImpl issuer =
+                service(Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class), CLOCK);
+        AttachmentDownloadUrl issued = issuer.issueDownloadUrl(
+                attachment(),
+                1L,
+                AttachmentDownloadUrlEndpointKind.SERVICE,
+                null,
+                null,
+                null);
+        String token = token(issued.url());
+        AttachmentDownloadUrlServiceImpl verifier = service(
+                Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class),
+                Clock.fixed(NOW.plusSeconds(1), ZoneOffset.UTC));
+
+        AttachmentDownloadTokenInspection expired = verifier.inspectDownloadToken(token);
+        AttachmentDownloadTokenInspection invalid = verifier.inspectDownloadToken("bad-token");
+
+        assertThat(expired.status()).isEqualTo(AttachmentDownloadTokenInspectionStatus.EXPIRED);
+        assertThat(expired.claims().attachmentId()).isEqualTo(11L);
+        assertThat(expired.tokenHash()).isEqualTo(sha256(token));
+        assertThat(invalid.status()).isEqualTo(AttachmentDownloadTokenInspectionStatus.INVALID_TOKEN);
+        assertThat(invalid.claims()).isNull();
+        assertThat(invalid.tokenHash()).isEqualTo(sha256("bad-token"));
+    }
+
+    @Test
+    void inspectDownloadTokenDoesNotHashOversizedToken() {
+        AttachmentDownloadUrlServiceImpl verifier =
+                service(Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class), CLOCK);
+
+        AttachmentDownloadTokenInspection invalid = verifier.inspectDownloadToken("a".repeat(4097));
+
+        assertThat(invalid.status()).isEqualTo(AttachmentDownloadTokenInspectionStatus.INVALID_TOKEN);
+        assertThat(invalid.tokenHash()).isNull();
+    }
+
     private AttachmentDownloadUrlServiceImpl service(
             AttachmentDownloadUrlIssueAuditLogRepository auditRepository,
             Clock clock) {

@@ -18,9 +18,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogQuery;
+import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
+import studio.one.application.attachment.service.AttachmentDownloadAuditResult;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQuery;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
+import studio.one.application.web.dto.AttachmentDownloadAuditLogDto;
 import studio.one.application.web.dto.AttachmentDownloadUrlIssueAuditLogDto;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -31,6 +35,7 @@ import studio.one.platform.web.dto.ApiResponse;
 public class AttachmentAuditMgmtController {
 
     private final AttachmentDownloadUrlIssueAuditLogQueryService auditLogQueryService;
+    private final AttachmentDownloadAuditLogService downloadAuditLogService;
 
     @GetMapping("/attachment-download-url-issues")
     @PreAuthorize("@endpointAuthz.can('features','attachment_download_url_issue_audit','read')")
@@ -53,5 +58,30 @@ public class AttachmentAuditMgmtController {
                 to == null ? null : to.toInstant());
         return ok(ApiResponse.ok(auditLogQueryService.find(query, pageable)
                 .map(AttachmentDownloadUrlIssueAuditLogDto::from)));
+    }
+
+    @GetMapping("/attachment-downloads")
+    @PreAuthorize("@endpointAuthz.can('features','attachment_download_audit','read')")
+    public ResponseEntity<ApiResponse<Page<AttachmentDownloadAuditLogDto>>> listDownloadLogs(
+            @RequestParam(required = false) Long attachmentId,
+            @RequestParam(required = false) Integer objectType,
+            @RequestParam(required = false) Long objectId,
+            @RequestParam(required = false) String tokenHash,
+            @RequestParam(required = false) AttachmentDownloadAuditResult result,
+            @RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE_TIME) OffsetDateTime to,
+            @RequestParam(required = false) String clientIp,
+            @PageableDefault(size = 20) Pageable pageable) {
+        var query = new AttachmentDownloadAuditLogQuery(
+                attachmentId,
+                objectType,
+                objectId,
+                tokenHash,
+                result,
+                from == null ? null : from.toInstant(),
+                to == null ? null : to.toInstant(),
+                clientIp);
+        return ok(ApiResponse.ok(downloadAuditLogService.find(query, pageable)
+                .map(AttachmentDownloadAuditLogDto::from)));
     }
 }
