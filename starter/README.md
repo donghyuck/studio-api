@@ -8,6 +8,7 @@
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`
 - ACL이 필요하면 `:starter:studio-platform-starter-security-acl`
 - objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
+- workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - image/PDF 썸네일 생성 SPI가 필요하면 `:starter:studio-platform-thumbnail-starter`
@@ -35,6 +36,7 @@ dependencies {
 - `studio-platform-starter-security-acl`: ACL 엔티티/리포지토리 스캔과 ACL 연동
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
 - `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성
+- `studio-platform-starter-workspace`: workspace tree/member/permission JPA 기본 구현과 API 자동 구성
 - `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
 - `studio-platform-starter-chunking`: RAG indexing용 fixed-size/recursive chunking 자동 구성
 - `studio-platform-thumbnail-starter`: image/PDF 썸네일 generation service 자동 구성
@@ -258,6 +260,7 @@ spring:
 - Security starter 상세: `studio-platform-starter-security/README.md`
 - Security ACL starter 상세: `studio-platform-starter-security-acl/README.md`
 - 사용자 starter 상세: `studio-platform-starter-user/README.md`
+- Workspace starter 상세: `studio-platform-starter-workspace/README.md`
 - Jasypt starter 상세: `studio-platform-starter-jasypt/README.md`
 - ObjectType starter 상세: `studio-platform-starter-objecttype/README.md`
 - Realtime starter 상세: `studio-platform-starter-realtime/README.md`

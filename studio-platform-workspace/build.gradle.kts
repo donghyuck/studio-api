@@ -1,0 +1,23 @@
+description = "Studio Platform Workspace Contracts"
+
+plugins {
+    id("java-library")
+    id("org.springframework.boot")
+    id("io.spring.dependency-management")
+    id("maven-publish")
+}
+
+tasks.named<Jar>("jar") {
+    enabled = true
+    archiveClassifier.set("")
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    enabled = false
+}
+
+dependencies {
+    api(project(":studio-platform"))
+    compileOnly("org.springframework:spring-web")
+    testImplementation("org.junit.jupiter:junit-jupiter")
+}

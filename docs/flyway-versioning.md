@@ -40,6 +40,7 @@ Use clear names that describe the actual schema change.
 | `mail` | `1000-1099` |
 | `forum` | `1100-1199` |
 | `pages` | `1200-1299` |
+| `workspace` | `1300-1399` |
 
 ## Adding a Migration
 
@@ -61,7 +62,7 @@ Example:
 
 Example:
 
-- `schema/new-module/postgres/V1300__create_new_module_tables.sql`
+- `schema/new-module/postgres/V1400__create_new_module_tables.sql`
 
 ## Do Not
 

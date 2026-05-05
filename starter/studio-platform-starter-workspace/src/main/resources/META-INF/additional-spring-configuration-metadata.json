@@ -1,0 +1,62 @@
+{
+  "properties": [
+    {
+      "name": "studio.features.workspace.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable workspace platform services."
+    },
+    {
+      "name": "studio.features.workspace.persistence",
+      "type": "java.lang.String",
+      "description": "Workspace persistence implementation. Version 1 supports jpa only.",
+      "defaultValue": "jpa"
+    },
+    {
+      "name": "studio.features.workspace.web.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Expose workspace HTTP endpoints."
+    },
+    {
+      "name": "studio.features.workspace.web.mgmt-base-path",
+      "type": "java.lang.String",
+      "description": "Management workspace API base path.",
+      "defaultValue": "/api/mgmt/workspaces"
+    },
+    {
+      "name": "studio.features.workspace.web.public-base-path",
+      "type": "java.lang.String",
+      "description": "Authenticated user workspace API base path.",
+      "defaultValue": "/api/workspaces"
+    },
+    {
+      "name": "studio.workspace.tree.max-depth",
+      "type": "java.lang.Integer",
+      "description": "Maximum workspace tree depth.",
+      "defaultValue": 10
+    },
+    {
+      "name": "studio.workspace.tree.max-children-per-node",
+      "type": "java.lang.Integer",
+      "description": "Maximum direct children per workspace.",
+      "defaultValue": 200
+    },
+    {
+      "name": "studio.workspace.slug.max-length",
+      "type": "java.lang.Integer",
+      "description": "Maximum workspace slug length.",
+      "defaultValue": 100
+    },
+    {
+      "name": "studio.workspace.permission.inherit-parent-role",
+      "type": "java.lang.Boolean",
+      "description": "Inherit direct roles from ancestor workspaces.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.workspace.permission.deny-override-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Reserved for a future deny override feature. Must remain false in v1.",
+      "defaultValue": false
+    }
+  ]
+}
