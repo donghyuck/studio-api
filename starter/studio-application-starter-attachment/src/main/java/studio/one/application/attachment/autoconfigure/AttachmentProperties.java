@@ -70,6 +70,9 @@ public class AttachmentProperties {
     @Valid
     private Audit audit = new Audit();
 
+    @Valid
+    private DownloadUrl downloadUrl = new DownloadUrl();
+
     public Storage storage(Environment environment, Logger log) {
         bindStorageLeaf(environment, "base-dir", String.class, storage::setBaseDir, log);
         bindStorageLeaf(environment, "ensure-dirs", Boolean.class, storage::setEnsureDirs, log);
@@ -177,6 +180,14 @@ public class AttachmentProperties {
         public static class UrlIssue {
             private boolean trustForwardedFor = false;
         }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class DownloadUrl {
+        private String publicBaseUrl;
+        private String signingSecret;
     }
 
     @Getter

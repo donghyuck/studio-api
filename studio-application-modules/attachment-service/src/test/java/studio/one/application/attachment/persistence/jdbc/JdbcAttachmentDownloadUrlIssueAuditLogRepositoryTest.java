@@ -31,6 +31,33 @@ class JdbcAttachmentDownloadUrlIssueAuditLogRepositoryTest {
     private NamedParameterJdbcTemplate template;
 
     @Test
+    void savePersistsApplicationSignedAuditFields() {
+        JdbcAttachmentDownloadUrlIssueAuditLogRepository repository =
+                new JdbcAttachmentDownloadUrlIssueAuditLogRepository(template);
+        AttachmentDownloadUrlIssueAuditLog log = new AttachmentDownloadUrlIssueAuditLog();
+        log.setAttachmentId(10L);
+        log.setObjectType(20);
+        log.setObjectId(30L);
+        log.setEndpointKind("SERVICE");
+        log.setIssuedAt(Instant.parse("2026-05-05T00:00:00Z"));
+        log.setExpiresAt(Instant.parse("2026-05-05T00:05:00Z"));
+        log.setTtlSeconds(300L);
+        log.setLinkType("APPLICATION_SIGNED");
+        log.setTokenHash("token-hash");
+
+        repository.save(log);
+
+        ArgumentCaptor<Map<String, Object>> paramsCaptor = ArgumentCaptor.forClass(Map.class);
+        verify(template).update(anyString(), paramsCaptor.capture());
+        assertThat(paramsCaptor.getValue())
+                .containsEntry("linkType", "APPLICATION_SIGNED")
+                .containsEntry("tokenHash", "token-hash")
+                .containsEntry("storageProviderId", null)
+                .containsEntry("bucket", null)
+                .containsEntry("objectKeyHash", null);
+    }
+
+    @Test
     void searchBuildsFiltersAndWhitelistedOrderOnly() {
         JdbcAttachmentDownloadUrlIssueAuditLogRepository repository =
                 new JdbcAttachmentDownloadUrlIssueAuditLogRepository(template);

@@ -17,6 +17,10 @@
       "description": "Attachment signed download URL issuance audit properties."
     },
     {
+      "name": "studio.attachment.download-url",
+      "description": "Application-level signed attachment download URL properties."
+    },
+    {
       "name": "studio.thumbnail",
       "description": "Platform thumbnail generation runtime properties."
     }
@@ -96,6 +100,16 @@
       "type": "java.lang.Boolean",
       "defaultValue": false,
       "description": "Trust X-Forwarded-For for attachment download URL issuance audit client IP only behind a trusted proxy."
+    },
+    {
+      "name": "studio.attachment.download-url.public-base-url",
+      "type": "java.lang.String",
+      "description": "Public base URL used to issue application-level signed attachment download links, for example http://localhost:8080."
+    },
+    {
+      "name": "studio.attachment.download-url.signing-secret",
+      "type": "java.lang.String",
+      "description": "HMAC-SHA256 signing secret for application-level signed attachment download tokens. Use at least 32 UTF-8 bytes."
     },
     {
       "name": "studio.attachment.thumbnail.enabled",

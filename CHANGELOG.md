@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #404 대응으로 attachment download-url 기능을 object storage presigned URL에서 application-level HMAC-SHA256 signed link로 전환하고, `GET /api/attachments/signed-download` token-only 스트리밍 endpoint와 `linkType`/`tokenHash` 감사 로그 필드를 추가했다.
 - 이슈 #402 대응으로 object storage signed download URL 발급 감사 로그를 조회하는 `GET /api/mgmt/audit/attachment-download-url-issues` API를 추가했다. 조회 응답은 `objectKeyHash`만 노출하고 signed URL/raw object key는 포함하지 않으며, `features:attachment_download_url_issue_audit/read` 권한과 pagination/filter/default `issuedAt desc` 정렬을 적용한다.
 - 이슈 #398 대응으로 `studio-platform-textract`에 Apache POI 기반 Excel 구조화 추출기를 추가해 `.xlsx`/`.xls`의 visible sheet used range를 `ParsedFile`, `ParsedBlock`, `ExtractedTable`로 반환하도록 했다.
 - 이슈 #395 대응으로 `DELETE /api/mgmt/ai/rag/objects/{objectType}/{objectId}`를 추가해 object scope의 RAG chunk/vector/metadata와 종료된 색인 이력을 삭제할 수 있게 했다. 진행 중인 `PENDING`/`RUNNING` job이 있으면 `409 Conflict`로 거부하고, 삭제 후 metadata 응답은 `indexed=false`를 반환한다.

@@ -1,6 +1,7 @@
 package studio.one.application.web.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -22,7 +23,10 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockMultipartFile;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
 import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
+import studio.one.application.attachment.exception.AttachmentNotFoundException;
+import studio.one.application.attachment.service.AttachmentDownloadTokenClaims;
 import studio.one.application.attachment.service.AttachmentDownloadUrl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
@@ -225,6 +229,63 @@ class AttachmentControllerTest {
         ResponseEntity<ApiResponse<AttachmentDownloadUrlDto>> response = controller.issueDownloadUrl(88L, null, request);
 
         assertEquals(409, response.getStatusCode().value());
+    }
+
+    @Test
+    void signedDownloadStreamsAttachmentThroughAttachmentService() throws Exception {
+        AttachmentController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        ByteArrayInputStream input = new ByteArrayInputStream(new byte[] { 1, 2, 3 });
+
+        when(downloadUrlService.verifyDownloadToken("signed-token"))
+                .thenReturn(new AttachmentDownloadTokenClaims(
+                        88L,
+                        java.time.Instant.parse("2026-05-05T00:00:00Z"),
+                        java.time.Instant.parse("2026-05-05T00:05:00Z"),
+                        "nonce"));
+        when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
+        when(attachment.getContentType()).thenReturn("application/pdf");
+        when(attachment.getSize()).thenReturn(3L);
+        when(attachment.getName()).thenReturn("sample.pdf");
+        when(attachmentService.getInputStream(attachment)).thenReturn(input);
+
+        ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
+                controller.signedDownload("signed-token");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        response.getBody().writeTo(out);
+
+        assertEquals(200, response.getStatusCode().value());
+        assertEquals("no-store", response.getHeaders().getCacheControl());
+        assertEquals("application/pdf", response.getHeaders().getContentType().toString());
+        assertEquals("attachment; filename=\"sample.pdf\"", response.getHeaders().getFirst("Content-Disposition"));
+        assertEquals(3, out.toByteArray().length);
+    }
+
+    @Test
+    void signedDownloadRejectsInvalidTokenWithUnauthorized() throws Exception {
+        AttachmentController controller = controller();
+        when(downloadUrlService.verifyDownloadToken("bad-token"))
+                .thenThrow(new AttachmentDownloadTokenInvalidException());
+
+        ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
+                controller.signedDownload("bad-token");
+
+        assertEquals(401, response.getStatusCode().value());
+        assertEquals("no-store", response.getHeaders().getCacheControl());
+    }
+
+    @Test
+    void signedDownloadPropagatesNotFoundForDeletedAttachment() throws Exception {
+        AttachmentController controller = controller();
+        when(downloadUrlService.verifyDownloadToken("signed-token"))
+                .thenReturn(new AttachmentDownloadTokenClaims(
+                        88L,
+                        java.time.Instant.parse("2026-05-05T00:00:00Z"),
+                        java.time.Instant.parse("2026-05-05T00:05:00Z"),
+                        "nonce"));
+        when(attachmentService.getAttachmentById(88L)).thenThrow(AttachmentNotFoundException.byId(88L));
+
+        assertThrows(AttachmentNotFoundException.class, () -> controller.signedDownload("signed-token"));
     }
 
     private AttachmentController controller() {

@@ -64,6 +64,8 @@ class AttachmentAuditMgmtControllerTest {
 
         AttachmentDownloadUrlIssueAuditLogDto dto = response.getBody().getData().getContent().get(0);
         assertThat(dto.logId()).isEqualTo(1L);
+        assertThat(dto.linkType()).isEqualTo("APPLICATION_SIGNED");
+        assertThat(dto.tokenHash()).isEqualTo("token-hash");
         assertThat(dto.objectKeyHash()).isEqualTo("hash");
     }
 
@@ -91,8 +93,8 @@ class AttachmentAuditMgmtControllerTest {
                 .map(RecordComponent::getName)
                 .toList();
 
-        assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "objectKey");
-        assertThat(fieldNames).contains("objectKeyHash");
+        assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "objectKey", "token", "rawToken");
+        assertThat(fieldNames).contains("objectKeyHash", "tokenHash", "linkType");
     }
 
     private AttachmentDownloadUrlIssueAuditLog auditLog() {
@@ -107,6 +109,8 @@ class AttachmentAuditMgmtControllerTest {
         log.setIssuedAt(Instant.parse("2026-05-05T00:00:00Z"));
         log.setExpiresAt(Instant.parse("2026-05-05T00:05:00Z"));
         log.setTtlSeconds(300L);
+        log.setLinkType("APPLICATION_SIGNED");
+        log.setTokenHash("token-hash");
         log.setStorageProviderId("main");
         log.setBucket("attachments");
         log.setObjectKeyHash("hash");

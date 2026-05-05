@@ -1,8 +1,6 @@
 package studio.one.application.attachment.storage;
 
 import java.io.InputStream;
-import java.net.URL;
-import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
@@ -14,7 +12,7 @@ import studio.one.platform.storage.service.CloudObjectStorage;
 import studio.one.platform.storage.service.ObjectStorageRegistry;
 
 @RequiredArgsConstructor
-public class ObjectStorageFileStore implements FileStorage, FileStorageSaveResultCapable, SignedDownloadUrlFileStorage {
+public class ObjectStorageFileStore implements FileStorage, FileStorageSaveResultCapable {
 
     private final ObjectStorageRegistry registry;
     private final String providerId;
@@ -51,17 +49,6 @@ public class ObjectStorageFileStore implements FileStorage, FileStorageSaveResul
     public void delete(Attachment attachment) {
         AttachmentStorageMetadata.ObjectStorageLocation location = location(attachment);
         storage(location.providerId()).delete(location.bucket(), location.key());
-    }
-
-    @Override
-    public URL createSignedDownloadUrl(Attachment attachment, Duration ttl, String contentDisposition) {
-        AttachmentStorageMetadata.ObjectStorageLocation location = location(attachment);
-        return storage(location.providerId()).presignedGetUrl(
-                location.bucket(),
-                location.key(),
-                ttl,
-                attachment.getContentType(),
-                contentDisposition);
     }
 
     private AttachmentStorageMetadata.ObjectStorageLocation location(Attachment attachment) {

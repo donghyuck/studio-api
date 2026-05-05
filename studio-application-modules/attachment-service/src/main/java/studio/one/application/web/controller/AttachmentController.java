@@ -9,6 +9,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,8 +28,10 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
 import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
 import studio.one.application.attachment.service.AttachmentDownloadUrl;
+import studio.one.application.attachment.service.AttachmentDownloadTokenClaims;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentService;
@@ -122,6 +125,25 @@ public class AttachmentController {
         } catch (AttachmentDownloadUrlUnavailableException ex) {
             return AttachmentWebSupport.conflict("Attachment download URL is not available");
         }
+    }
+
+    @GetMapping("/signed-download")
+    public ResponseEntity<StreamingResponseBody> signedDownload(
+            @RequestParam(value = "token", required = false) String token)
+            throws IOException, NotFoundException {
+        AttachmentDownloadTokenClaims claims;
+        try {
+            claims = downloadUrlService.verifyDownloadToken(token);
+        } catch (AttachmentDownloadTokenInvalidException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .cacheControl(CacheControl.noStore())
+                    .build();
+        }
+        Attachment attachment = attachmentService.getAttachmentById(claims.attachmentId());
+        return AttachmentWebSupport.downloadResponse(
+                attachment,
+                attachmentService.getInputStream(attachment),
+                CacheControl.noStore());
     }
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/thumbnail")
