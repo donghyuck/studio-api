@@ -5,6 +5,10 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -25,6 +29,7 @@ import studio.one.platform.workspace.model.WorkspaceMemberRef;
 import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
+import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
@@ -57,6 +62,19 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
             @PathVariable Long workspaceId,
             @Valid @RequestBody WorkspaceCreateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(createChild(workspaceId, request, true)));
+    }
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<Page<WorkspaceRef>>> list(
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "parentId", required = false) Long parentId,
+            @RequestParam(value = "rootOnly", required = false) Boolean rootOnly,
+            @RequestParam(value = "archived", required = false) Boolean archived,
+            @PageableDefault(size = 20, sort = "path", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(list(
+                new WorkspaceListQuery(q, parentId, rootOnly, archived),
+                pageable,
+                true)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}")

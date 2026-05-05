@@ -12,6 +12,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import jakarta.persistence.criteria.Predicate;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
@@ -31,6 +39,7 @@ import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberEntity;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepository;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
+import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
@@ -40,6 +49,18 @@ import studio.one.platform.workspace.service.WorkspaceTreeService;
 public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
 
     private static final Pattern SLUG = Pattern.compile("^[a-z0-9][a-z0-9-]*$");
+    private static final Sort DEFAULT_LIST_SORT = Sort.by("path").ascending();
+    private static final Map<String, String> LIST_SORT_PROPERTIES = Map.ofEntries(
+            Map.entry("id", "workspaceId"),
+            Map.entry("workspaceId", "workspaceId"),
+            Map.entry("parentId", "parentId"),
+            Map.entry("rootId", "rootId"),
+            Map.entry("name", "name"),
+            Map.entry("slug", "slug"),
+            Map.entry("path", "path"),
+            Map.entry("depth", "depth"),
+            Map.entry("visibility", "visibility"),
+            Map.entry("archived", "archived"));
 
     private final WorkspaceJpaRepository workspaceRepository;
     private final WorkspaceClosureJpaRepository closureRepository;
@@ -144,6 +165,17 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         WorkspaceEntity entity = workspaceByPath(path);
         permissionService.assertGranted(entity.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
         return entity.toRef();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, WorkspaceAccessContext actor) {
+        WorkspaceAccessContext resolved = requireActor(actor);
+        if (!resolved.platformAdmin()) {
+            throw new AccessDeniedException("Workspace management permission required");
+        }
+        return workspaceRepository.findAll(listSpecification(query), safeListPageable(pageable))
+                .map(WorkspaceEntity::toRef);
     }
 
     @Override
@@ -295,6 +327,63 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
         return workspaceRepository.findByPath(path.trim())
                 .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found by path: " + path));
+    }
+
+    private Specification<WorkspaceEntity> listSpecification(WorkspaceListQuery query) {
+        return (root, criteria, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (query != null) {
+                if (StringUtils.hasText(query.q())) {
+                    String pattern = "%" + escapeLike(query.q().trim().toLowerCase(Locale.ROOT)) + "%";
+                    predicates.add(builder.or(
+                            builder.like(builder.lower(root.get("name")), pattern, '\\'),
+                            builder.like(builder.lower(root.get("slug")), pattern, '\\'),
+                            builder.like(builder.lower(root.get("path")), pattern, '\\')));
+                }
+                if (query.rootOnlyEnabled()) {
+                    predicates.add(builder.isNull(root.get("parentId")));
+                } else if (query.parentId() != null) {
+                    predicates.add(builder.equal(root.get("parentId"), query.parentId()));
+                }
+                if (query.archived() != null) {
+                    predicates.add(builder.equal(root.get("archived"), query.archived()));
+                }
+            }
+            return builder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private Pageable safeListPageable(Pageable pageable) {
+        if (pageable == null || pageable.isUnpaged()) {
+            return PageRequest.of(0, 20, DEFAULT_LIST_SORT);
+        }
+        int page = Math.max(pageable.getPageNumber(), 0);
+        int size = Math.min(Math.max(pageable.getPageSize(), 1), 200);
+        return PageRequest.of(page, size, safeListSort(pageable.getSort()));
+    }
+
+    private Sort safeListSort(Sort requested) {
+        if (requested == null || requested.isUnsorted()) {
+            return DEFAULT_LIST_SORT;
+        }
+        List<Sort.Order> orders = requested.stream()
+                .map(order -> {
+                    String property = LIST_SORT_PROPERTIES.get(order.getProperty());
+                    if (property == null) {
+                        return null;
+                    }
+                    return new Sort.Order(order.getDirection(), property);
+                })
+                .filter(order -> order != null)
+                .toList();
+        return orders.isEmpty() ? DEFAULT_LIST_SORT : Sort.by(orders);
+    }
+
+    private String escapeLike(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     private Map<Long, WorkspaceEntity> byId(List<Long> ids) {

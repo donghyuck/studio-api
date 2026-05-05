@@ -2,6 +2,9 @@ package studio.one.platform.workspace.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
 
@@ -16,6 +19,8 @@ public interface WorkspaceTreeService {
     WorkspaceRef getById(Long workspaceId, WorkspaceAccessContext actor);
 
     WorkspaceRef getByPath(String path, WorkspaceAccessContext actor);
+
+    Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, WorkspaceAccessContext actor);
 
     List<WorkspaceRef> getChildren(Long workspaceId, WorkspaceAccessContext actor);
 
