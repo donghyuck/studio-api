@@ -1,5 +1,8 @@
 package studio.one.application.attachment.persistence;
 
+import java.util.Collection;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -11,4 +14,8 @@ public interface AttachmentDownloadAuditLogRepository {
     AttachmentDownloadAuditLog save(AttachmentDownloadAuditLog log);
 
     Page<AttachmentDownloadAuditLog> search(AttachmentDownloadAuditLogQuery query, Pageable pageable);
+
+    List<AttachmentDownloadAuditLogCount> countByIssueLogIdsOrTokenHashes(
+            Collection<Long> issueLogIds,
+            Collection<String> tokenHashes);
 }

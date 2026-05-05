@@ -11,6 +11,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,6 +49,7 @@ class AttachmentAuditMgmtControllerTest {
         var pageable = PageRequest.of(0, 20);
         AttachmentDownloadUrlIssueAuditLog log = auditLog();
         when(auditLogQueryService.find(any(), eq(pageable))).thenReturn(new PageImpl<>(List.of(log), pageable, 1));
+        when(downloadAuditLogService.countByIssueLogs(List.of(log))).thenReturn(Map.of(1L, 3L));
 
         var response = controller.listDownloadUrlIssueLogs(
                 10L,
@@ -75,7 +77,31 @@ class AttachmentAuditMgmtControllerTest {
         assertThat(dto.logId()).isEqualTo(1L);
         assertThat(dto.linkType()).isEqualTo("APPLICATION_SIGNED");
         assertThat(dto.tokenHash()).isEqualTo("token-hash");
+        assertThat(dto.downloadCount()).isEqualTo(3L);
         assertThat(dto.objectKeyHash()).isEqualTo("hash");
+    }
+
+    @Test
+    void listDownloadUrlIssueLogsDefaultsMissingDownloadCountToZero() {
+        AttachmentAuditMgmtController controller =
+                new AttachmentAuditMgmtController(auditLogQueryService, downloadAuditLogService);
+        var pageable = PageRequest.of(0, 20);
+        AttachmentDownloadUrlIssueAuditLog log = auditLog();
+        when(auditLogQueryService.find(any(), eq(pageable))).thenReturn(new PageImpl<>(List.of(log), pageable, 1));
+        when(downloadAuditLogService.countByIssueLogs(List.of(log))).thenReturn(Map.of());
+
+        var response = controller.listDownloadUrlIssueLogs(
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                pageable);
+
+        AttachmentDownloadUrlIssueAuditLogDto dto = response.getBody().getData().getContent().get(0);
+        assertThat(dto.downloadCount()).isZero();
     }
 
     @Test
@@ -162,7 +188,7 @@ class AttachmentAuditMgmtControllerTest {
                 .toList();
 
         assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "objectKey", "token", "rawToken");
-        assertThat(fieldNames).contains("objectKeyHash", "tokenHash", "linkType");
+        assertThat(fieldNames).contains("objectKeyHash", "tokenHash", "linkType", "downloadCount");
     }
 
     @Test

@@ -3,6 +3,7 @@ package studio.one.application.web.controller;
 import static org.springframework.http.ResponseEntity.ok;
 
 import java.time.OffsetDateTime;
+import java.util.Map;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -56,8 +57,11 @@ public class AttachmentAuditMgmtController {
                 issuedByPrincipalName,
                 from == null ? null : from.toInstant(),
                 to == null ? null : to.toInstant());
-        return ok(ApiResponse.ok(auditLogQueryService.find(query, pageable)
-                .map(AttachmentDownloadUrlIssueAuditLogDto::from)));
+        var page = auditLogQueryService.find(query, pageable);
+        Map<Long, Long> downloadCounts = downloadAuditLogService.countByIssueLogs(page.getContent());
+        return ok(ApiResponse.ok(page.map(log -> AttachmentDownloadUrlIssueAuditLogDto.from(
+                log,
+                log.getLogId() == null ? 0L : downloadCounts.getOrDefault(log.getLogId(), 0L)))));
     }
 
     @GetMapping("/attachment-downloads")

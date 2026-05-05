@@ -2,8 +2,12 @@ package studio.one.application.attachment.service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -15,6 +19,7 @@ import org.springframework.util.StringUtils;
 import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 
@@ -22,6 +27,8 @@ import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueA
 public class AttachmentDownloadAuditLogServiceImpl implements AttachmentDownloadAuditLogService {
 
     private static final String LINK_TYPE_APPLICATION_SIGNED = "APPLICATION_SIGNED";
+    private static final Long NO_ISSUE_LOG_ID = Long.MIN_VALUE;
+    private static final String NO_TOKEN_HASH = "__no_attachment_download_token_hash__";
     private static final Sort DEFAULT_SORT = Sort.by(
             Sort.Order.desc("requestedAt"),
             Sort.Order.desc("downloadLogId"));
@@ -79,11 +86,57 @@ public class AttachmentDownloadAuditLogServiceImpl implements AttachmentDownload
         return downloadLogRepository.search(query, normalize(pageable));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public Map<Long, Long> countByIssueLogs(List<AttachmentDownloadUrlIssueAuditLog> issueLogs) {
+        if (issueLogs == null || issueLogs.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Long> issueLogIdByTokenHash = new HashMap<>();
+        Set<Long> issueLogIds = issueLogs.stream()
+                .map(AttachmentDownloadUrlIssueAuditLog::getLogId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        for (AttachmentDownloadUrlIssueAuditLog issueLog : issueLogs) {
+            if (issueLog.getLogId() != null && StringUtils.hasText(issueLog.getTokenHash())) {
+                issueLogIdByTokenHash.putIfAbsent(issueLog.getTokenHash(), issueLog.getLogId());
+            }
+        }
+        if (issueLogIds.isEmpty() && issueLogIdByTokenHash.isEmpty()) {
+            return Map.of();
+        }
+        Set<String> tokenHashes = issueLogIdByTokenHash.keySet();
+        List<AttachmentDownloadAuditLogCount> counts = downloadLogRepository.countByIssueLogIdsOrTokenHashes(
+                issueLogIds.isEmpty() ? Set.of(NO_ISSUE_LOG_ID) : issueLogIds,
+                tokenHashes.isEmpty() ? Set.of(NO_TOKEN_HASH) : tokenHashes);
+        Map<Long, Long> result = new LinkedHashMap<>();
+        for (AttachmentDownloadAuditLogCount count : counts) {
+            Long targetLogId = resolveIssueLogId(count, issueLogIds, issueLogIdByTokenHash);
+            if (targetLogId != null) {
+                result.merge(targetLogId, count.count(), Long::sum);
+            }
+        }
+        return result;
+    }
+
     private AttachmentDownloadUrlIssueAuditLog findIssueLog(String tokenHash) {
         if (!StringUtils.hasText(tokenHash)) {
             return null;
         }
         return issueLogRepository.findByTokenHash(tokenHash).orElse(null);
+    }
+
+    private Long resolveIssueLogId(
+            AttachmentDownloadAuditLogCount count,
+            Set<Long> issueLogIds,
+            Map<String, Long> issueLogIdByTokenHash) {
+        if (count.issueLogId() != null && issueLogIds.contains(count.issueLogId())) {
+            return count.issueLogId();
+        }
+        if (StringUtils.hasText(count.tokenHash())) {
+            return issueLogIdByTokenHash.get(count.tokenHash());
+        }
+        return null;
     }
 
     private Pageable normalize(Pageable pageable) {

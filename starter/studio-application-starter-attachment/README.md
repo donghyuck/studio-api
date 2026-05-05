@@ -133,7 +133,7 @@ studio:
 | `GET` | `/attachment-download-url-issues` | signed download URL 발급 감사 로그 페이지 조회. `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByPrincipalName`, `from`, `to` 필터와 `page`/`size`/`sort` 지원 | `features:attachment_download_url_issue_audit/read` |
 | `GET` | `/attachment-downloads` | signed download URL 실제 접근 감사 로그 페이지 조회. `attachmentId`, `objectType`, `objectId`, `tokenHash`, `result`, `from`, `to`, `clientIp` 필터와 `page`/`size`/`sort` 지원 | `features:attachment_download_audit/read` |
 
-응답은 `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`를 포함한다. signed URL, raw token, raw object key는 응답에 포함하지 않는다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
+발급 감사 응답은 `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `downloadCount`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`를 포함한다. `downloadCount`는 해당 발급 로그의 실제 signed-download 접근 감사 로그 수이며, 접근 이력이 없으면 `0`이다. signed URL, raw token, raw object key는 응답에 포함하지 않는다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
 다운로드 접근 감사 응답은 `downloadLogId`, `issueLogId`, `tokenHash`, `attachmentId`, `objectType`, `objectId`, `linkType`, `requestedAt`, `result`, `httpStatus`, `downloadedBytes`, `clientIp`, `userAgent`, `errorCode`를 포함한다. raw token과 signed URL은 저장/응답하지 않으며 기본 정렬은 `requestedAt desc`, `downloadLogId desc`이다.
 
 ### 서비스 API (`/api/attachments`)

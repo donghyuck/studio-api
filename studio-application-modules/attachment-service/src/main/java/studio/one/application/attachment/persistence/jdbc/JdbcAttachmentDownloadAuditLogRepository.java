@@ -3,6 +3,7 @@ package studio.one.application.attachment.persistence.jdbc;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +21,7 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.service.AttachmentDownloadAuditLogQuery;
 
@@ -91,6 +93,38 @@ public class JdbcAttachmentDownloadAuditLogRepository implements AttachmentDownl
         }
         List<AttachmentDownloadAuditLog> content = template.query(dataSql, params, ROW_MAPPER);
         return new PageImpl<>(content, pageable == null ? Pageable.unpaged() : pageable, totalCount);
+    }
+
+    @Override
+    public List<AttachmentDownloadAuditLogCount> countByIssueLogIdsOrTokenHashes(
+            Collection<Long> issueLogIds,
+            Collection<String> tokenHashes) {
+        if ((issueLogIds == null || issueLogIds.isEmpty()) && (tokenHashes == null || tokenHashes.isEmpty())) {
+            return List.of();
+        }
+        Map<String, Object> params = new HashMap<>();
+        StringBuilder where = new StringBuilder();
+        if (issueLogIds != null && !issueLogIds.isEmpty()) {
+            where.append("ISSUE_LOG_ID in (:issueLogIds)");
+            params.put("issueLogIds", issueLogIds);
+        }
+        if (tokenHashes != null && !tokenHashes.isEmpty()) {
+            if (!where.isEmpty()) {
+                where.append(" or ");
+            }
+            where.append("TOKEN_HASH in (:tokenHashes)");
+            params.put("tokenHashes", tokenHashes);
+        }
+        String sql = """
+                select ISSUE_LOG_ID, TOKEN_HASH, count(*) as DOWNLOAD_COUNT
+                from %s
+                where %s
+                group by ISSUE_LOG_ID, TOKEN_HASH
+                """.formatted(TABLE, where);
+        return template.query(sql, params, (rs, rowNum) -> new AttachmentDownloadAuditLogCount(
+                nullableLong(rs, "ISSUE_LOG_ID"),
+                rs.getString("TOKEN_HASH"),
+                rs.getLong("DOWNLOAD_COUNT")));
     }
 
     private Map<String, Object> params(AttachmentDownloadAuditLog log) {

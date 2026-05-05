@@ -23,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.persistence.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.persistence.AttachmentRepository;
@@ -359,6 +360,13 @@ class AttachmentAutoConfigurationTest {
                     AttachmentDownloadAuditLogQuery query,
                     org.springframework.data.domain.Pageable pageable) {
                 return Page.empty(pageable);
+            }
+
+            @Override
+            public List<AttachmentDownloadAuditLogCount> countByIssueLogIdsOrTokenHashes(
+                    java.util.Collection<Long> issueLogIds,
+                    java.util.Collection<String> tokenHashes) {
+                return List.of();
             }
         };
     }
