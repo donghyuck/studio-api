@@ -240,6 +240,19 @@ class AttachmentAutoConfigurationTest {
                 });
     }
 
+    @Test
+    void createsDownloadUrlServiceWithoutDownloadUrlConfiguration() {
+        contextRunner
+                .withBean(
+                        AttachmentDownloadUrlIssueAuditLogRepository.class,
+                        AttachmentAutoConfigurationTest::auditLogRepository)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(AttachmentDownloadUrlService.class);
+                    assertThat(context).hasSingleBean(AttachmentDownloadUrlIssueAuditLogQueryService.class);
+                });
+    }
+
     private static CloudObjectStorage objectStorage(String name) {
         return (CloudObjectStorage) Proxy.newProxyInstance(
                 CloudObjectStorage.class.getClassLoader(),

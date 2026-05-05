@@ -10,6 +10,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
+import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 
 @Transactional
@@ -21,10 +23,10 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
     private static final String LINK_TYPE_APPLICATION_SIGNED = "APPLICATION_SIGNED";
 
     private final String publicBaseUrl;
+    private final String signingSecret;
     private final String downloadPath;
     private final AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository;
     private final Clock clock;
-    private final AttachmentDownloadTokenCodec tokenCodec;
 
     public AttachmentDownloadUrlServiceImpl(
             String publicBaseUrl,
@@ -40,11 +42,11 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
             String attachmentBasePath,
             AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository,
             Clock clock) {
-        this.publicBaseUrl = normalizePublicBaseUrl(publicBaseUrl);
+        this.publicBaseUrl = publicBaseUrl;
+        this.signingSecret = signingSecret;
         this.downloadPath = normalizeDownloadPath(attachmentBasePath);
         this.auditLogRepository = auditLogRepository;
         this.clock = clock == null ? Clock.systemUTC() : clock;
-        this.tokenCodec = new AttachmentDownloadTokenCodec(signingSecret, this.clock);
     }
 
     @Override
@@ -58,7 +60,8 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
         long resolvedTtl = resolveTtl(ttlSeconds);
         Instant issuedAt = clock.instant();
         Instant expiresAt = issuedAt.plusSeconds(resolvedTtl);
-        String token = tokenCodec.issue(attachment.getAttachmentId(), issuedAt, expiresAt);
+        AttachmentDownloadTokenCodec codec = issueTokenCodec();
+        String token = codec.issue(attachment.getAttachmentId(), issuedAt, expiresAt);
         String url = signedDownloadUrl(token);
 
         auditLogRepository.save(toAuditLog(
@@ -70,14 +73,19 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
                 issuedAt,
                 expiresAt,
                 resolvedTtl,
-                token));
+                token,
+                codec));
         return new AttachmentDownloadUrl(url, expiresAt);
     }
 
     @Override
     @Transactional(readOnly = true)
     public AttachmentDownloadTokenClaims verifyDownloadToken(String token) {
-        return tokenCodec.verify(token);
+        try {
+            return new AttachmentDownloadTokenCodec(signingSecret, clock).verify(token);
+        } catch (IllegalStateException ex) {
+            throw new AttachmentDownloadTokenInvalidException();
+        }
     }
 
     private long resolveTtl(Long ttlSeconds) {
@@ -97,7 +105,8 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
             Instant issuedAt,
             Instant expiresAt,
             long ttlSeconds,
-            String token) {
+            String token,
+            AttachmentDownloadTokenCodec codec) {
         AttachmentDownloadUrlIssueAuditLog log = new AttachmentDownloadUrlIssueAuditLog();
         log.setAttachmentId(attachment.getAttachmentId());
         log.setObjectType(attachment.getObjectType());
@@ -111,14 +120,22 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
         log.setExpiresAt(expiresAt);
         log.setTtlSeconds(ttlSeconds);
         log.setLinkType(LINK_TYPE_APPLICATION_SIGNED);
-        log.setTokenHash(tokenCodec.sha256Hex(token));
+        log.setTokenHash(codec.sha256Hex(token));
         log.setClientIp(clientIp);
         log.setUserAgent(userAgent);
         return log;
     }
 
+    private AttachmentDownloadTokenCodec issueTokenCodec() {
+        try {
+            return new AttachmentDownloadTokenCodec(signingSecret, clock);
+        } catch (IllegalStateException ex) {
+            throw new AttachmentDownloadUrlUnavailableException();
+        }
+    }
+
     private String signedDownloadUrl(String token) {
-        return UriComponentsBuilder.fromUriString(publicBaseUrl)
+        return UriComponentsBuilder.fromUriString(normalizePublicBaseUrl(publicBaseUrl))
                 .path(downloadPath)
                 .queryParam("token", token)
                 .build()
@@ -138,24 +155,21 @@ public class AttachmentDownloadUrlServiceImpl implements AttachmentDownloadUrlSe
 
     private static String normalizePublicBaseUrl(String publicBaseUrl) {
         if (!StringUtils.hasText(publicBaseUrl)) {
-            throw new IllegalStateException("studio.attachment.download-url.public-base-url must be configured");
+            throw new AttachmentDownloadUrlUnavailableException();
         }
         String normalized = trimTrailingSlash(publicBaseUrl.trim());
         URI uri;
         try {
             uri = URI.create(normalized);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException(
-                    "studio.attachment.download-url.public-base-url must be an absolute URL with scheme and host",
-                    ex);
+            throw new AttachmentDownloadUrlUnavailableException();
         }
         if (!uri.isAbsolute()
                 || !StringUtils.hasText(uri.getScheme())
                 || !StringUtils.hasText(uri.getHost())
                 || uri.getRawQuery() != null
                 || uri.getRawFragment() != null) {
-            throw new IllegalStateException(
-                    "studio.attachment.download-url.public-base-url must be an absolute URL with scheme and host");
+            throw new AttachmentDownloadUrlUnavailableException();
         }
         return normalized;
     }

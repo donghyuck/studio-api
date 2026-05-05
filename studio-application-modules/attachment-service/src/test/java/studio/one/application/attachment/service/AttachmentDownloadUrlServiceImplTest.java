@@ -26,6 +26,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.exception.AttachmentDownloadTokenInvalidException;
+import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavailableException;
 import studio.one.application.attachment.persistence.AttachmentDownloadUrlIssueAuditLogRepository;
 
 class AttachmentDownloadUrlServiceImplTest {
@@ -92,28 +93,53 @@ class AttachmentDownloadUrlServiceImplTest {
     }
 
     @Test
-    void invalidConfigurationIsRejectedBeforeIssuingLinks() {
+    void invalidConfigurationRejectsIssuingWithoutBreakingConstruction() {
         AttachmentDownloadUrlIssueAuditLogRepository auditRepository =
                 Mockito.mock(AttachmentDownloadUrlIssueAuditLogRepository.class);
+        Attachment attachment = attachment();
 
-        assertThrows(IllegalStateException.class, () -> new AttachmentDownloadUrlServiceImpl(
+        AttachmentDownloadUrlServiceImpl relativeBaseUrl = new AttachmentDownloadUrlServiceImpl(
                 "localhost:8080",
                 SECRET,
                 "/api/attachments",
                 auditRepository,
-                CLOCK));
-        assertThrows(IllegalStateException.class, () -> new AttachmentDownloadUrlServiceImpl(
+                CLOCK);
+        AttachmentDownloadUrlServiceImpl queryBaseUrl = new AttachmentDownloadUrlServiceImpl(
                 "https://app.example?from=config",
                 SECRET,
                 "/api/attachments",
                 auditRepository,
-                CLOCK));
-        assertThrows(IllegalStateException.class, () -> new AttachmentDownloadUrlServiceImpl(
+                CLOCK);
+        AttachmentDownloadUrlServiceImpl shortSecret = new AttachmentDownloadUrlServiceImpl(
                 "https://app.example",
                 "short",
                 "/api/attachments",
                 auditRepository,
-                CLOCK));
+                CLOCK);
+
+        assertThrows(AttachmentDownloadUrlUnavailableException.class, () -> relativeBaseUrl.issueDownloadUrl(
+                attachment,
+                null,
+                AttachmentDownloadUrlEndpointKind.SERVICE,
+                null,
+                null,
+                null));
+        assertThrows(AttachmentDownloadUrlUnavailableException.class, () -> queryBaseUrl.issueDownloadUrl(
+                attachment,
+                null,
+                AttachmentDownloadUrlEndpointKind.SERVICE,
+                null,
+                null,
+                null));
+        assertThrows(AttachmentDownloadUrlUnavailableException.class, () -> shortSecret.issueDownloadUrl(
+                attachment,
+                null,
+                AttachmentDownloadUrlEndpointKind.SERVICE,
+                null,
+                null,
+                null));
+        assertThrows(AttachmentDownloadTokenInvalidException.class, () -> shortSecret.verifyDownloadToken("token"));
+        verify(auditRepository, never()).save(Mockito.any());
     }
 
     @Test
