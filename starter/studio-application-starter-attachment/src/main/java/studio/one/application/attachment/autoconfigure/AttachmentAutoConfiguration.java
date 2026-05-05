@@ -64,6 +64,8 @@ import studio.one.application.attachment.persistence.jpa.AttachmentDownloadUrlIs
 import studio.one.application.attachment.persistence.jpa.AttachmentJpaRepository;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlServiceImpl;
+import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
+import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryServiceImpl;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.service.AttachmentServiceImpl;
 import studio.one.application.attachment.storage.AttachmentFileStorageResolver;
@@ -254,6 +256,14 @@ public class AttachmentAutoConfiguration {
             AttachmentFileStorageResolver storageResolver,
             AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
         return new AttachmentDownloadUrlServiceImpl(storageResolver, auditLogRepository);
+    }
+
+    @Bean
+    @ConditionalOnBean(AttachmentDownloadUrlIssueAuditLogRepository.class)
+    @ConditionalOnMissingBean(AttachmentDownloadUrlIssueAuditLogQueryService.class)
+    AttachmentDownloadUrlIssueAuditLogQueryService attachmentDownloadUrlIssueAuditLogQueryService(
+            AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
+        return new AttachmentDownloadUrlIssueAuditLogQueryServiceImpl(auditLogRepository);
     }
 
     @Bean(name = AttachmentService.SERVICE_NAME)
