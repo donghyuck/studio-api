@@ -157,6 +157,24 @@ class DefaultWikiPageServiceTest {
     }
 
     @Test
+    void wikiReadAndWriteUseWorkspacePermissionService() {
+        var created = service.putPage(
+                WORKSPACE_ID,
+                "Home",
+                new WikiPageWriteCommand("Home", "content", null, OWNER));
+
+        service.getPage(WORKSPACE_ID, "Home", OWNER);
+        service.putPage(
+                WORKSPACE_ID,
+                "Home",
+                new WikiPageWriteCommand("Home", "updated", created.currentRevisionId(), OWNER));
+
+        verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.PAGE_CREATE));
+        verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.PAGE_READ));
+        verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.PAGE_UPDATE));
+    }
+
+    @Test
     void rendererStripsUnsafeHtml() {
         var page = service.putPage(
                 WORKSPACE_ID,

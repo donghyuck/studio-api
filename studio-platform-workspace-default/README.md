@@ -17,6 +17,8 @@ parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 clo
 - effective role은 ancestor direct role 중 가장 높은 role입니다.
 - `PRIVATE` workspace는 role이 없으면 접근을 거부합니다.
 - `INTERNAL`/`PUBLIC` workspace는 인증 사용자에게 implicit `VIEWER`를 부여합니다.
+- company-scoped workspace에서는 visibility만으로 implicit `VIEWER`를 부여하지 않습니다. `studio.workspace.permission.company-owner-override-enabled=true`일 때 Workspace role이 부족한 Company `OWNER`만 Workspace `OWNER`급 override를 받을 수 있습니다. 이 설정은 `ApplicationCompanyMemberService` bean을 전제로 하며, bean이 없으면 starter가 fail-fast 처리합니다.
+- Company `ADMIN`은 tenant 관리자 역할이며 private workspace/wiki content super-reader가 아닙니다.
 - archived workspace는 read/tree/member/permission read 계열만 허용하고 mutation은 거부합니다.
 - 관리용 컨트롤러는 platform admin context로 service를 호출하지만, 사용자용 컨트롤러는 workspace permission을 우회하지 않습니다.
 

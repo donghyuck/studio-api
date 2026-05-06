@@ -63,6 +63,12 @@
       "type": "java.lang.Boolean",
       "description": "Reserved for a future deny override feature. Must remain false in v1.",
       "defaultValue": false
+    },
+    {
+      "name": "studio.workspace.permission.company-owner-override-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable Company OWNER fallback override for company-scoped workspace permissions.",
+      "defaultValue": false
     }
   ]
 }
