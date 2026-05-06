@@ -22,6 +22,7 @@ import studio.one.application.wiki.persistence.jpa.WikiPageEntity;
 import studio.one.application.wiki.persistence.jpa.WikiPageJpaRepository;
 import studio.one.application.wiki.persistence.jpa.WikiPageRevisionEntity;
 import studio.one.application.wiki.persistence.jpa.WikiPageRevisionJpaRepository;
+import studio.one.application.wiki.service.WikiPageArchiveCommand;
 import studio.one.application.wiki.service.WikiPageRevertCommand;
 import studio.one.application.wiki.service.WikiPageService;
 import studio.one.application.wiki.service.WikiPageWriteCommand;
@@ -68,7 +69,8 @@ public class DefaultWikiPageService implements WikiPageService {
         String markdown = command == null || command.markdown() == null ? "" : command.markdown();
         Long baseRevisionId = command == null ? null : command.baseRevisionId();
 
-        WikiPageEntity page = pageRepository.findByWorkspaceIdAndSlug(workspaceId, slug)
+        validateWorkspaceId(workspaceId);
+        WikiPageEntity page = pageRepository.findByWorkspaceIdAndSlugForUpdate(workspaceId, slug)
                 .orElse(null);
         boolean creating = page == null;
         String action = actionForWrite(slug, creating ? WikiPermissionActions.PAGE_CREATE : WikiPermissionActions.PAGE_UPDATE);
@@ -104,11 +106,12 @@ public class DefaultWikiPageService implements WikiPageService {
 
     @Override
     @Transactional
-    public void archivePage(Long workspaceId, String pageSlug, WorkspaceAccessContext actor) {
-        WorkspaceAccessContext resolved = requireActor(actor);
+    public void archivePage(Long workspaceId, String pageSlug, WikiPageArchiveCommand command) {
+        WorkspaceAccessContext resolved = requireActor(command == null ? null : command.actor());
         String slug = normalizeSlug(pageSlug);
         permissionService.assertGranted(workspaceId, resolved, actionForWrite(slug, WikiPermissionActions.PAGE_DELETE));
-        WikiPageEntity page = activePage(workspaceId, slug);
+        WikiPageEntity page = activePageForUpdate(workspaceId, slug);
+        assertCurrentRevision(page, command == null ? null : command.baseRevisionId());
         page.setArchived(true);
         page.setArchivedAt(Instant.now());
         page.setArchivedBy(resolved.requireUserId());
@@ -144,7 +147,7 @@ public class DefaultWikiPageService implements WikiPageService {
         WorkspaceAccessContext actor = requireActor(command == null ? null : command.actor());
         String slug = normalizeSlug(pageSlug);
         permissionService.assertGranted(workspaceId, actor, actionForWrite(slug, WikiPermissionActions.PAGE_REVERT));
-        WikiPageEntity page = activePage(workspaceId, slug);
+        WikiPageEntity page = activePageForUpdate(workspaceId, slug);
         assertCurrentRevision(page, command == null ? null : command.baseRevisionId());
         WikiPageRevisionEntity source = revision(page, revisionId);
 
@@ -213,12 +216,30 @@ public class DefaultWikiPageService implements WikiPageService {
         return page;
     }
 
+    private WikiPageEntity activePageForUpdate(Long workspaceId, String slug) {
+        WikiPageEntity page = pageForUpdate(workspaceId, slug);
+        if (page.isArchived()) {
+            throw new WikiNotFoundException("Wiki page is archived: " + slug);
+        }
+        return page;
+    }
+
     private WikiPageEntity page(Long workspaceId, String slug) {
+        validateWorkspaceId(workspaceId);
+        return pageRepository.findByWorkspaceIdAndSlug(workspaceId, slug)
+                .orElseThrow(() -> new WikiNotFoundException("Wiki page not found: " + slug));
+    }
+
+    private WikiPageEntity pageForUpdate(Long workspaceId, String slug) {
+        validateWorkspaceId(workspaceId);
+        return pageRepository.findByWorkspaceIdAndSlugForUpdate(workspaceId, slug)
+                .orElseThrow(() -> new WikiNotFoundException("Wiki page not found: " + slug));
+    }
+
+    private void validateWorkspaceId(Long workspaceId) {
         if (workspaceId == null || workspaceId <= 0) {
             throw new WikiValidationException("workspaceId is required");
         }
-        return pageRepository.findByWorkspaceIdAndSlug(workspaceId, slug)
-                .orElseThrow(() -> new WikiNotFoundException("Wiki page not found: " + slug));
     }
 
     private WikiPageRevisionEntity currentRevision(WikiPageEntity page) {
@@ -238,7 +259,10 @@ public class DefaultWikiPageService implements WikiPageService {
     }
 
     private void assertCurrentRevision(WikiPageEntity page, Long baseRevisionId) {
-        if (baseRevisionId != null && !baseRevisionId.equals(page.getCurrentRevisionId())) {
+        if (baseRevisionId == null || baseRevisionId <= 0) {
+            throw new WikiConflictException("Wiki baseRevisionId is required");
+        }
+        if (!baseRevisionId.equals(page.getCurrentRevisionId())) {
             throw new WikiConflictException("Wiki baseRevisionId does not match current revision");
         }
     }

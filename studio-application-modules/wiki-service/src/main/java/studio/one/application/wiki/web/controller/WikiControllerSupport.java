@@ -5,9 +5,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 
+import studio.one.application.wiki.service.WikiPageArchiveCommand;
 import studio.one.application.wiki.service.WikiPageRevertCommand;
 import studio.one.application.wiki.service.WikiPageService;
 import studio.one.application.wiki.service.WikiPageWriteCommand;
+import studio.one.application.wiki.web.dto.WikiArchiveRequest;
 import studio.one.application.wiki.web.dto.WikiPageDto;
 import studio.one.application.wiki.web.dto.WikiPageSummaryDto;
 import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
@@ -50,8 +52,13 @@ abstract class WikiControllerSupport {
                         context(platformAdmin))));
     }
 
-    void archivePage(Long workspaceId, String pageSlug, boolean platformAdmin) {
-        wikiPageService.archivePage(workspaceId, pageSlug, context(platformAdmin));
+    void archivePage(Long workspaceId, String pageSlug, WikiArchiveRequest request, boolean platformAdmin) {
+        wikiPageService.archivePage(
+                workspaceId,
+                pageSlug,
+                new WikiPageArchiveCommand(
+                        request == null ? null : request.baseRevisionId(),
+                        context(platformAdmin)));
     }
 
     Page<WikiRevisionSummaryDto> listRevisions(

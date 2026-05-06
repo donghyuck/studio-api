@@ -15,8 +15,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import studio.one.application.wiki.model.WikiPage;
+import studio.one.application.wiki.service.WikiPageArchiveCommand;
 import studio.one.application.wiki.service.WikiPageService;
 import studio.one.application.wiki.service.WikiPageWriteCommand;
+import studio.one.application.wiki.web.dto.WikiArchiveRequest;
 import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
@@ -58,6 +60,19 @@ class WikiControllerTest {
         ArgumentCaptor<WikiPageWriteCommand> captor = ArgumentCaptor.forClass(WikiPageWriteCommand.class);
         verify(wikiPageService).putPage(eq(1L), eq("Home"), captor.capture());
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void archiveRequestPassesBaseRevisionIdToService() {
+        WikiPageService wikiPageService = org.mockito.Mockito.mock(WikiPageService.class);
+        WikiController controller = new WikiController(wikiPageService, principalProvider("user", false));
+
+        controller.archivePage(1L, "Home", new WikiArchiveRequest(7L));
+
+        ArgumentCaptor<WikiPageArchiveCommand> captor = ArgumentCaptor.forClass(WikiPageArchiveCommand.class);
+        verify(wikiPageService).archivePage(eq(1L), eq("Home"), captor.capture());
+        assertThat(captor.getValue().baseRevisionId()).isEqualTo(7L);
+        assertThat(captor.getValue().actor().platformAdmin()).isFalse();
     }
 
     private WikiPage page() {

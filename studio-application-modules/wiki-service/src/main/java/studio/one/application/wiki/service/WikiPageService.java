@@ -17,7 +17,7 @@ public interface WikiPageService {
 
     WikiPage putPage(Long workspaceId, String pageSlug, WikiPageWriteCommand command);
 
-    void archivePage(Long workspaceId, String pageSlug, WorkspaceAccessContext actor);
+    void archivePage(Long workspaceId, String pageSlug, WikiPageArchiveCommand command);
 
     Page<WikiRevisionSummary> listRevisions(Long workspaceId, String pageSlug, Pageable pageable, WorkspaceAccessContext actor);
 

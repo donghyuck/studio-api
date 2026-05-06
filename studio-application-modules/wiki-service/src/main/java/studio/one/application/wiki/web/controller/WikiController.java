@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import studio.one.application.wiki.service.WikiPageService;
+import studio.one.application.wiki.web.dto.WikiArchiveRequest;
 import studio.one.application.wiki.web.dto.WikiPageDto;
 import studio.one.application.wiki.web.dto.WikiPageSummaryDto;
 import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
@@ -69,8 +70,9 @@ public class WikiController extends WikiControllerSupport {
     @PreAuthorize("@endpointAuthz.can('features:workspace','write')")
     public ResponseEntity<ApiResponse<Void>> archivePage(
             @PathVariable Long workspaceId,
-            @PathVariable String pageSlug) {
-        archivePage(workspaceId, pageSlug, false);
+            @PathVariable String pageSlug,
+            @Valid @RequestBody(required = false) WikiArchiveRequest request) {
+        archivePage(workspaceId, pageSlug, request, false);
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
@@ -98,7 +100,7 @@ public class WikiController extends WikiControllerSupport {
             @PathVariable Long workspaceId,
             @PathVariable String pageSlug,
             @PathVariable Long revisionId,
-            @RequestBody(required = false) WikiRevertRequest request) {
+            @Valid @RequestBody(required = false) WikiRevertRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(revertRevision(workspaceId, pageSlug, revisionId, request, false)));
     }
 }

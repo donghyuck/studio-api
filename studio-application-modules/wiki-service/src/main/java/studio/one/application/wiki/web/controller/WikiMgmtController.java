@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import studio.one.application.wiki.service.WikiPageService;
+import studio.one.application.wiki.web.dto.WikiArchiveRequest;
 import studio.one.application.wiki.web.dto.WikiPageDto;
 import studio.one.application.wiki.web.dto.WikiPageSummaryDto;
 import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
@@ -66,8 +67,9 @@ public class WikiMgmtController extends WikiControllerSupport {
     @DeleteMapping("/pages/{pageSlug}")
     public ResponseEntity<ApiResponse<Void>> archivePage(
             @PathVariable Long workspaceId,
-            @PathVariable String pageSlug) {
-        archivePage(workspaceId, pageSlug, true);
+            @PathVariable String pageSlug,
+            @Valid @RequestBody(required = false) WikiArchiveRequest request) {
+        archivePage(workspaceId, pageSlug, request, true);
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
@@ -92,7 +94,7 @@ public class WikiMgmtController extends WikiControllerSupport {
             @PathVariable Long workspaceId,
             @PathVariable String pageSlug,
             @PathVariable Long revisionId,
-            @RequestBody(required = false) WikiRevertRequest request) {
+            @Valid @RequestBody(required = false) WikiRevertRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(revertRevision(workspaceId, pageSlug, revisionId, request, true)));
     }
 }

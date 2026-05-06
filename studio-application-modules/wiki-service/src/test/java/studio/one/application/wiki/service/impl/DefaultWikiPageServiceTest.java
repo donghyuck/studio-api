@@ -23,6 +23,7 @@ import studio.one.application.wiki.permission.WikiPermissionActions;
 import studio.one.application.wiki.persistence.jpa.WikiPageEntity;
 import studio.one.application.wiki.persistence.jpa.WikiPageJpaRepository;
 import studio.one.application.wiki.persistence.jpa.WikiPageRevisionJpaRepository;
+import studio.one.application.wiki.service.WikiPageArchiveCommand;
 import studio.one.application.wiki.service.WikiPageRevertCommand;
 import studio.one.application.wiki.service.WikiPageWriteCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
@@ -103,13 +104,38 @@ class DefaultWikiPageServiceTest {
     }
 
     @Test
+    void rejectsMissingBaseRevisionIdForExistingPageMutation() {
+        var created = service.putPage(
+                WORKSPACE_ID,
+                "Home",
+                new WikiPageWriteCommand("Home", "content", null, OWNER));
+
+        assertThatThrownBy(() -> service.putPage(
+                WORKSPACE_ID,
+                "Home",
+                new WikiPageWriteCommand("Home", "other", null, OWNER)))
+                .isInstanceOf(WikiConflictException.class);
+        assertThatThrownBy(() -> service.revertRevision(
+                WORKSPACE_ID,
+                "Home",
+                created.currentRevisionId(),
+                new WikiPageRevertCommand(null, OWNER)))
+                .isInstanceOf(WikiConflictException.class);
+        assertThatThrownBy(() -> service.archivePage(
+                WORKSPACE_ID,
+                "Home",
+                new WikiPageArchiveCommand(null, OWNER)))
+                .isInstanceOf(WikiConflictException.class);
+    }
+
+    @Test
     void excludesArchivedPageFromNormalReadAndListButKeepsHistory() {
         var created = service.putPage(
                 WORKSPACE_ID,
                 "Home",
                 new WikiPageWriteCommand("Home", "content", null, OWNER));
 
-        service.archivePage(WORKSPACE_ID, "Home", OWNER);
+        service.archivePage(WORKSPACE_ID, "Home", new WikiPageArchiveCommand(created.currentRevisionId(), OWNER));
 
         assertThat(service.listPages(WORKSPACE_ID, PageRequest.of(0, 10), OWNER).getTotalElements()).isZero();
         assertThatThrownBy(() -> service.getPage(WORKSPACE_ID, "Home", OWNER))

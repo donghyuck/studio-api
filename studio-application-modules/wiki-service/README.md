@@ -50,12 +50,12 @@ Wiki action은 workspace permission action으로 등록된다.
 | `GET` | `/pages` | non-archived page 목록 |
 | `GET` | `/pages/{pageSlug}` | page 조회. `markdown`, `sanitizedHtml` 포함 |
 | `PUT` | `/pages/{pageSlug}` | create-or-update. body: `title`, `markdown`, `baseRevisionId` |
-| `DELETE` | `/pages/{pageSlug}` | archive |
+| `DELETE` | `/pages/{pageSlug}` | archive. body: `baseRevisionId` |
 | `GET` | `/pages/{pageSlug}/revisions` | revision 목록 |
 | `GET` | `/pages/{pageSlug}/revisions/{revisionId}` | revision 상세. `markdown`, `sanitizedHtml` 포함 |
-| `POST` | `/pages/{pageSlug}/revisions/{revisionId}/revert` | 이전 revision을 새 revision으로 복사 |
+| `POST` | `/pages/{pageSlug}/revisions/{revisionId}/revert` | 이전 revision을 새 revision으로 복사. body: `baseRevisionId` |
 
-`baseRevisionId`가 현재 revision과 다르면 `409 Conflict`가 반환된다. Archived page는 일반 read/list에서 제외되며, revision history는 조회 가능하다.
+신규 page 생성은 `baseRevisionId`를 생략한다. 기존 page update, archive, revert는 현재 `currentRevisionId`를 `baseRevisionId`로 전달해야 하며 누락되거나 현재 revision과 다르면 `409 Conflict`가 반환된다. Archived page는 일반 read/list에서 제외되며, revision history는 조회 가능하다.
 
 ## 데이터 모델
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE`: workspace별 page slug, archive 상태, current revision 포인터.
