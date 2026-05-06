@@ -604,6 +604,23 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void companyOwnerOverrideIsReflectedInPermissionSummaryWhenWorkspaceRoleIsWeaker() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var companyOwner = new WorkspaceAccessContext(50L, "company-owner", false);
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(50L, WorkspaceRole.VIEWER, OWNER));
+        WorkspacePermissionService permissions = permissionServiceWithCompanyRole(10L, 50L, CompanyRole.OWNER);
+
+        assertThat(permissions.getEffectiveRole(root.id(), companyOwner)).isEqualTo(WorkspaceRole.OWNER);
+        assertThat(permissions.getGrantedActions(root.id(), companyOwner))
+                .contains("workspace.update", "workspace.member.manage", "wiki.page.update");
+    }
+
+    @Test
     void companyAdminDoesNotOverridePrivateWorkspaceOrWikiRead() {
         var root = treeService.createRoot(new CreateRootWorkspaceCommand(
                 10L,

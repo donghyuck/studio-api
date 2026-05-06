@@ -151,7 +151,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
 
     private WorkspaceRole getEffectiveRole(WorkspaceEntity workspace, Long userId) {
         WorkspaceRole role = getEffectiveWorkspaceRole(workspace, userId);
-        if (role == null && isCompanyOwner(workspace, userId)) {
+        if (isCompanyOwner(workspace, userId)) {
             return WorkspaceRole.OWNER;
         }
         return role;

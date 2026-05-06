@@ -66,14 +66,18 @@ public class WorkspaceAutoConfiguration {
             WorkspaceMemberJpaRepository memberRepository,
             ObjectProvider<WorkspacePermissionContributor> contributors,
             ObjectProvider<ApplicationCompanyMemberService> companyMemberServiceProvider,
+            WorkspaceProperties properties,
             WorkspaceSettings settings) {
+        ApplicationCompanyMemberService companyMemberService = properties.getPermission().isCompanyOwnerOverrideEnabled()
+                ? companyMemberServiceProvider.getIfAvailable()
+                : null;
         return new DefaultWorkspacePermissionService(
                 workspaceRepository,
                 closureRepository,
                 memberRepository,
                 contributors.orderedStream().toList(),
                 settings,
-                companyMemberServiceProvider.getIfAvailable());
+                companyMemberService);
     }
 
     @Bean

@@ -34,5 +34,6 @@ public class WorkspaceProperties {
     public static class Permission {
         private boolean inheritParentRole = true;
         private boolean denyOverrideEnabled = false;
+        private boolean companyOwnerOverrideEnabled = false;
     }
 }

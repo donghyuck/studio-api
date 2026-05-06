@@ -8,10 +8,13 @@ import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAut
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.service.impl.DefaultWorkspacePermissionService;
 import studio.one.platform.workspace.service.impl.WorkspaceSettings;
 import studio.one.platform.workspace.web.controller.WorkspaceController;
 import studio.one.platform.workspace.web.controller.WorkspaceMgmtController;
@@ -65,6 +68,34 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(WorkspaceSettings.class);
                     assertThat(context.getBean(WorkspaceSettings.class).companyRequired()).isTrue();
+                });
+    }
+
+    @Test
+    void companyOwnerOverrideIsOptInEvenWhenCompanyMemberServiceExists() {
+        contextRunner
+                .withBean(ApplicationCompanyMemberService.class,
+                        () -> org.mockito.Mockito.mock(ApplicationCompanyMemberService.class))
+                .withPropertyValues("studio.features.workspace.enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    DefaultWorkspacePermissionService service = context.getBean(DefaultWorkspacePermissionService.class);
+                    assertThat(ReflectionTestUtils.getField(service, "companyMemberService")).isNull();
+                });
+    }
+
+    @Test
+    void companyOwnerOverrideInjectsCompanyMemberServiceWhenEnabled() {
+        contextRunner
+                .withBean(ApplicationCompanyMemberService.class,
+                        () -> org.mockito.Mockito.mock(ApplicationCompanyMemberService.class))
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.workspace.permission.company-owner-override-enabled=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    DefaultWorkspacePermissionService service = context.getBean(DefaultWorkspacePermissionService.class);
+                    assertThat(ReflectionTestUtils.getField(service, "companyMemberService")).isNotNull();
                 });
     }
 
