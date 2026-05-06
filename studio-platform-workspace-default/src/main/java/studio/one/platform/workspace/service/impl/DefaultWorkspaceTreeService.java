@@ -38,10 +38,11 @@ import studio.one.platform.workspace.persistence.jpa.WorkspaceEntity;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberEntity;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepository;
+import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
-import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
+import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
 
@@ -150,6 +151,91 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
         entity.setUpdatedBy(actor.requireUserId());
         return workspaceRepository.save(entity).toRef();
+    }
+
+    @Override
+    @Transactional
+    public WorkspaceRef changeParent(Long workspaceId, ChangeWorkspaceParentCommand command) {
+        WorkspaceAccessContext actor = requireActor(command.actor());
+        permissionService.assertGranted(workspaceId, actor, WorkspacePermissionActions.UPDATE);
+        WorkspaceEntity entity = workspace(workspaceId);
+        rejectArchivedMutation(entity);
+
+        Long newParentId = command.newParentId();
+        if (sameParent(entity.getParentId(), newParentId)) {
+            return entity.toRef();
+        }
+
+        List<WorkspaceClosureEntity> subtreeClosures = closureRepository.findByIdAncestorIdOrderByDepthAsc(workspaceId);
+        Set<Long> subtreeIds = new HashSet<>();
+        Map<Long, Integer> relativeDepths = new HashMap<>();
+        for (WorkspaceClosureEntity closure : subtreeClosures) {
+            subtreeIds.add(closure.descendantId());
+            relativeDepths.put(closure.descendantId(), closure.getDepth());
+        }
+        if (newParentId != null && subtreeIds.contains(newParentId)) {
+            throw new WorkspaceConflictException("Workspace cannot be moved under itself or its descendant");
+        }
+
+        WorkspaceEntity newParent = null;
+        if (newParentId != null) {
+            newParent = workspace(newParentId);
+            permissionService.assertGranted(newParentId, actor, WorkspacePermissionActions.CREATE);
+            rejectArchivedMutation(newParent);
+            if (workspaceRepository.countByParentId(newParentId) >= settings.maxChildrenPerNode()) {
+                throw new WorkspaceValidationException("Workspace max children per node exceeded");
+            }
+            if (workspaceRepository.existsByParentIdAndSlug(newParentId, entity.getSlug())) {
+                throw new WorkspaceConflictException("Duplicate child workspace slug: " + entity.getSlug());
+            }
+        } else if (workspaceRepository.existsByParentIdIsNullAndSlug(entity.getSlug())) {
+            throw new WorkspaceConflictException("Duplicate root workspace slug: " + entity.getSlug());
+        }
+
+        int newDepth = newParent == null ? 0 : newParent.getDepth() + 1;
+        int maxRelativeDepth = relativeDepths.values().stream().max(Integer::compareTo).orElse(0);
+        if (newDepth + maxRelativeDepth > settings.maxDepth()) {
+            throw new WorkspaceValidationException("Workspace max depth exceeded");
+        }
+
+        String oldBasePath = entity.getPath();
+        String newBasePath = newParent == null ? entity.getSlug() : newParent.getPath() + "/" + entity.getSlug();
+        Long newRootId = newParent == null ? entity.getWorkspaceId() : newParent.getRootId();
+        int newPosition = newParent == null ? 0 : (int) workspaceRepository.countByParentId(newParentId);
+
+        List<WorkspaceEntity> subtree = workspaceRepository.findByWorkspaceIdIn(subtreeIds).stream()
+                .sorted(Comparator.comparing(WorkspaceEntity::getDepth))
+                .toList();
+        Long updatedBy = actor.requireUserId();
+        for (WorkspaceEntity descendant : subtree) {
+            String suffix = descendant.getPath().substring(oldBasePath.length());
+            descendant.setRootId(newRootId);
+            descendant.setPath(newBasePath + suffix);
+            descendant.setDepth(newDepth + relativeDepths.get(descendant.getWorkspaceId()));
+            descendant.setUpdatedBy(updatedBy);
+            if (descendant.getWorkspaceId().equals(workspaceId)) {
+                descendant.setParentId(newParentId);
+                descendant.setPosition(newPosition);
+            }
+        }
+        workspaceRepository.saveAll(subtree);
+
+        closureRepository.deleteExternalAncestorsForDescendants(subtreeIds);
+        if (newParent != null) {
+            List<WorkspaceClosureEntity> newParentAncestors =
+                    closureRepository.findByIdDescendantIdOrderByDepthDesc(newParentId);
+            List<WorkspaceClosureEntity> newClosures = new ArrayList<>();
+            for (WorkspaceClosureEntity parentAncestor : newParentAncestors) {
+                for (WorkspaceClosureEntity subtreeClosure : subtreeClosures) {
+                    newClosures.add(new WorkspaceClosureEntity(
+                            parentAncestor.ancestorId(),
+                            subtreeClosure.descendantId(),
+                            parentAncestor.getDepth() + subtreeClosure.getDepth() + 1));
+                }
+            }
+            closureRepository.saveAll(newClosures);
+        }
+        return entity.toRef();
     }
 
     @Override
@@ -308,6 +394,10 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
 
     private WorkspaceVisibility defaultVisibility(WorkspaceVisibility visibility) {
         return visibility == null ? WorkspaceVisibility.PRIVATE : visibility;
+    }
+
+    private boolean sameParent(Long currentParentId, Long newParentId) {
+        return currentParentId == null ? newParentId == null : currentParentId.equals(newParentId);
     }
 
     private void rejectArchivedMutation(WorkspaceEntity entity) {

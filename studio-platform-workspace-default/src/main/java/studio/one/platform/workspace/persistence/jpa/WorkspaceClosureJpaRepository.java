@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -35,4 +36,12 @@ public interface WorkspaceClosureJpaRepository extends JpaRepository<WorkspaceCl
             where c.id.descendantId in :workspaceIds
             """)
     List<WorkspaceClosureEntity> findByDescendantIds(@Param("workspaceIds") Collection<Long> workspaceIds);
+
+    @Modifying
+    @Query("""
+            delete from WorkspaceClosureEntity c
+            where c.id.descendantId in :descendantIds
+              and c.id.ancestorId not in :descendantIds
+            """)
+    void deleteExternalAncestorsForDescendants(@Param("descendantIds") Collection<Long> descendantIds);
 }

@@ -22,6 +22,7 @@ import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
+import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
 import studio.one.platform.workspace.service.WorkspaceListQuery;
@@ -29,6 +30,7 @@ import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
 
 class WorkspaceControllerTest {
 
@@ -120,6 +122,48 @@ class WorkspaceControllerTest {
         verify(treeService).list(queryCaptor.capture(), eq(pageable), contextCaptor.capture());
         assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceListQuery("acme", 3L, false, true));
         assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void parentChangeUsesAccessContextAndRequestParentId() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.changeParent(eq(1L), any())).thenReturn(workspace());
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        controller.changeParent(1L, new WorkspaceParentChangeRequest(2L));
+
+        ArgumentCaptor<ChangeWorkspaceParentCommand> captor =
+                ArgumentCaptor.forClass(ChangeWorkspaceParentCommand.class);
+        verify(treeService).changeParent(eq(1L), captor.capture());
+        assertThat(captor.getValue().newParentId()).isEqualTo(2L);
+        assertThat(captor.getValue().actor().platformAdmin()).isFalse();
+    }
+
+    @Test
+    void mgmtParentChangeUsesPlatformAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.changeParent(eq(1L), any())).thenReturn(workspace());
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        controller.changeParent(1L, new WorkspaceParentChangeRequest(null));
+
+        ArgumentCaptor<ChangeWorkspaceParentCommand> captor =
+                ArgumentCaptor.forClass(ChangeWorkspaceParentCommand.class);
+        verify(treeService).changeParent(eq(1L), captor.capture());
+        assertThat(captor.getValue().newParentId()).isNull();
+        assertThat(captor.getValue().actor().platformAdmin()).isTrue();
     }
 
     @Test

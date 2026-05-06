@@ -47,6 +47,16 @@ studio:
 
 관리 화면에서 전체 workspace 목록을 시작점으로 조회할 때는 `GET /api/mgmt/workspaces`를 사용합니다. `q`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort` query parameter를 지원하며 기본 정렬은 `path ASC`입니다.
 
+Workspace parent 변경은 사용자용/관리용 경로 모두에서 `PATCH {base-path}/{workspaceId}/parent`로 제공합니다. 요청 body의 `newParentId`가 `null`이면 root로 이동합니다.
+
+```json
+{
+  "newParentId": 10
+}
+```
+
+서버는 이동 시 subtree의 `rootId`, `path`, `depth`와 closure table을 재계산합니다. 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 `409 Conflict`로 거부하고, archived workspace 이동은 기존 mutation 정책에 따라 거부합니다.
+
 ## 자동구성
 - `WorkspaceAutoConfiguration`: JPA entity/repository scan, `WorkspaceTreeService`, `WorkspaceMemberService`, `WorkspacePermissionService`
 - `WorkspaceWebAutoConfiguration`: `WorkspaceController`, `WorkspaceMgmtController`

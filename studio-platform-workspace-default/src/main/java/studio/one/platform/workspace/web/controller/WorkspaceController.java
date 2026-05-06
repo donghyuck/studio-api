@@ -30,6 +30,7 @@ import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
 import studio.one.platform.workspace.web.dto.WorkspacePermissionSummaryDto;
 import studio.one.platform.workspace.web.dto.WorkspaceUpdateRequest;
 
@@ -102,6 +103,14 @@ public class WorkspaceController extends WorkspaceControllerSupport {
             @PathVariable Long workspaceId,
             @Valid @RequestBody WorkspaceUpdateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(update(workspaceId, request, false)));
+    }
+
+    @PatchMapping("/{workspaceId:[\\p{Digit}]+}/parent")
+    @PreAuthorize("@endpointAuthz.can('features:workspace','write')")
+    public ResponseEntity<ApiResponse<WorkspaceRef>> changeParent(
+            @PathVariable Long workspaceId,
+            @Valid @RequestBody WorkspaceParentChangeRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(changeParent(workspaceId, request, false)));
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/archive")
