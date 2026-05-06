@@ -119,6 +119,23 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void companyRequiredRejectsMovingLegacyWorkspaceToRoot() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        WorkspaceTreeService companyRequiredTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                (WorkspaceMemberJpaRepository) null,
+                permissionService,
+                new WorkspaceSettings(10, 200, 100, true, true));
+
+        assertThatThrownBy(() -> companyRequiredTreeService.changeParent(
+                child.id(),
+                new ChangeWorkspaceParentCommand(null, OWNER)))
+                .isInstanceOf(WorkspaceValidationException.class);
+    }
+
+    @Test
     void rejectsDuplicateSlugUnderSameParentButAllowsDifferentParent() {
         var root = createRoot("Acme", "acme", OWNER);
         var engineering = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));

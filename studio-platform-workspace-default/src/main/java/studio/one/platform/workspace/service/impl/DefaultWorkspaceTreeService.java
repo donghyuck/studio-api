@@ -206,6 +206,8 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             }
         } else if (workspaceRepository.existsByParentIdIsNullAndSlug(entity.getSlug())) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + entity.getSlug());
+        } else if (settings.companyRequired() && entity.getCompanyId() == null) {
+            throw new WorkspaceValidationException("Workspace companyId is required");
         }
 
         int newDepth = newParent == null ? 0 : newParent.getDepth() + 1;
