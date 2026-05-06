@@ -37,11 +37,10 @@ public interface WorkspaceClosureJpaRepository extends JpaRepository<WorkspaceCl
             """)
     List<WorkspaceClosureEntity> findByDescendantIds(@Param("workspaceIds") Collection<Long> workspaceIds);
 
-    @Modifying
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
             delete from WorkspaceClosureEntity c
             where c.id.descendantId in :descendantIds
-              and c.id.ancestorId not in :descendantIds
             """)
-    void deleteExternalAncestorsForDescendants(@Param("descendantIds") Collection<Long> descendantIds);
+    void deleteByDescendantIds(@Param("descendantIds") Collection<Long> descendantIds);
 }

@@ -176,6 +176,53 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void changeParentRebuildsMissingClosureRowsFromParentTree() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var backend = treeService.createChild(engineering.id(), createCommand("Backend", "backend", OWNER));
+        var beta = createRoot("Beta", "beta", OWNER);
+        closureRepository.deleteAll();
+
+        var moved = treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(beta.id(), PLATFORM_ADMIN));
+
+        assertThat(moved.parentId()).isEqualTo(beta.id());
+        assertThat(moved.rootId()).isEqualTo(beta.id());
+        assertThat(moved.path()).isEqualTo("beta/engineering");
+        assertThat(treeService.getById(backend.id(), PLATFORM_ADMIN).path())
+                .isEqualTo("beta/engineering/backend");
+        assertThat(closureRepository.findAncestorIds(beta.id()))
+                .containsExactly(beta.id());
+        assertThat(closureRepository.findAncestorIds(backend.id()))
+                .containsExactly(beta.id(), engineering.id(), backend.id());
+        assertThat(treeService.getTree(beta.id(), PLATFORM_ADMIN).children())
+                .extracting(node -> node.workspace().id())
+                .containsExactly(engineering.id());
+    }
+
+    @Test
+    void changeParentMovesRootLeafWhenClosureRowsAreMissing() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var beta = createRoot("Beta", "beta", OWNER);
+        closureRepository.deleteAll();
+
+        var moved = treeService.changeParent(
+                acme.id(),
+                new ChangeWorkspaceParentCommand(beta.id(), PLATFORM_ADMIN));
+
+        assertThat(moved.parentId()).isEqualTo(beta.id());
+        assertThat(moved.rootId()).isEqualTo(beta.id());
+        assertThat(moved.path()).isEqualTo("beta/acme");
+        assertThat(moved.depth()).isEqualTo(1);
+        assertThat(closureRepository.findAncestorIds(acme.id()))
+                .containsExactly(beta.id(), acme.id());
+        assertThat(treeService.getTree(beta.id(), PLATFORM_ADMIN).children())
+                .extracting(node -> node.workspace().id())
+                .containsExactly(acme.id());
+    }
+
+    @Test
     void changeParentAllowsMovingWorkspaceToRoot() {
         var acme = createRoot("Acme", "acme", OWNER);
         var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));

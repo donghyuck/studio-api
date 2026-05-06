@@ -166,12 +166,12 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             return entity.toRef();
         }
 
-        List<WorkspaceClosureEntity> subtreeClosures = closureRepository.findByIdAncestorIdOrderByDepthAsc(workspaceId);
-        Set<Long> subtreeIds = new HashSet<>();
+        List<WorkspaceEntity> subtree = new ArrayList<>();
         Map<Long, Integer> relativeDepths = new HashMap<>();
-        for (WorkspaceClosureEntity closure : subtreeClosures) {
-            subtreeIds.add(closure.descendantId());
-            relativeDepths.put(closure.descendantId(), closure.getDepth());
+        collectSubtree(entity, 0, subtree, relativeDepths, new HashSet<>());
+        Set<Long> subtreeIds = new HashSet<>();
+        for (WorkspaceEntity descendant : subtree) {
+            subtreeIds.add(descendant.getWorkspaceId());
         }
         if (newParentId != null && subtreeIds.contains(newParentId)) {
             throw new WorkspaceConflictException("Workspace cannot be moved under itself or its descendant");
@@ -203,9 +203,6 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         Long newRootId = newParent == null ? entity.getWorkspaceId() : newParent.getRootId();
         int newPosition = newParent == null ? 0 : (int) workspaceRepository.countByParentId(newParentId);
 
-        List<WorkspaceEntity> subtree = workspaceRepository.findByWorkspaceIdIn(subtreeIds).stream()
-                .sorted(Comparator.comparing(WorkspaceEntity::getDepth))
-                .toList();
         Long updatedBy = actor.requireUserId();
         for (WorkspaceEntity descendant : subtree) {
             String suffix = descendant.getPath().substring(oldBasePath.length());
@@ -220,21 +217,14 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
         workspaceRepository.saveAll(subtree);
 
-        closureRepository.deleteExternalAncestorsForDescendants(subtreeIds);
-        if (newParent != null) {
-            List<WorkspaceClosureEntity> newParentAncestors =
-                    closureRepository.findByIdDescendantIdOrderByDepthDesc(newParentId);
-            List<WorkspaceClosureEntity> newClosures = new ArrayList<>();
-            for (WorkspaceClosureEntity parentAncestor : newParentAncestors) {
-                for (WorkspaceClosureEntity subtreeClosure : subtreeClosures) {
-                    newClosures.add(new WorkspaceClosureEntity(
-                            parentAncestor.ancestorId(),
-                            subtreeClosure.descendantId(),
-                            parentAncestor.getDepth() + subtreeClosure.getDepth() + 1));
-                }
-            }
-            closureRepository.saveAll(newClosures);
-        }
+        List<WorkspaceAncestor> newParentAncestors = newParent == null
+                ? List.of()
+                : collectAncestorDistances(newParent);
+        closureRepository.deleteByDescendantIds(subtreeIds);
+        List<WorkspaceClosureEntity> rebuiltClosures = new ArrayList<>();
+        rebuiltClosures.addAll(rebuildAncestorClosureRows(newParentAncestors));
+        rebuiltClosures.addAll(rebuildClosureRows(subtree, relativeDepths, newParentAncestors));
+        closureRepository.saveAll(rebuiltClosures);
         return entity.toRef();
     }
 
@@ -487,6 +477,93 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
 
     private boolean isReadable(WorkspaceEntity entity, WorkspaceAccessContext actor) {
         return permissionService.isGranted(entity.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
+    }
+
+    private void collectSubtree(
+            WorkspaceEntity entity,
+            int relativeDepth,
+            List<WorkspaceEntity> subtree,
+            Map<Long, Integer> relativeDepths,
+            Set<Long> visited) {
+        if (!visited.add(entity.getWorkspaceId())) {
+            throw new WorkspaceConflictException("Workspace tree contains a cycle");
+        }
+        subtree.add(entity);
+        relativeDepths.put(entity.getWorkspaceId(), relativeDepth);
+        for (WorkspaceEntity child : workspaceRepository.findByParentIdOrderByPositionAscWorkspaceIdAsc(
+                entity.getWorkspaceId())) {
+            collectSubtree(child, relativeDepth + 1, subtree, relativeDepths, visited);
+        }
+    }
+
+    private List<WorkspaceAncestor> collectAncestorDistances(WorkspaceEntity entity) {
+        List<WorkspaceAncestor> ancestors = new ArrayList<>();
+        Set<Long> visited = new HashSet<>();
+        WorkspaceEntity current = entity;
+        int depth = 0;
+        while (current != null) {
+            if (!visited.add(current.getWorkspaceId())) {
+                throw new WorkspaceConflictException("Workspace tree contains a cycle");
+            }
+            ancestors.add(new WorkspaceAncestor(current.getWorkspaceId(), depth));
+            Long parentId = current.getParentId();
+            current = parentId == null ? null : workspace(parentId);
+            depth++;
+        }
+        return ancestors;
+    }
+
+    private List<WorkspaceClosureEntity> rebuildClosureRows(
+            List<WorkspaceEntity> subtree,
+            Map<Long, Integer> relativeDepths,
+            List<WorkspaceAncestor> newParentAncestors) {
+        Map<Long, WorkspaceEntity> subtreeById = new HashMap<>();
+        for (WorkspaceEntity descendant : subtree) {
+            subtreeById.put(descendant.getWorkspaceId(), descendant);
+        }
+
+        List<WorkspaceClosureEntity> closures = new ArrayList<>();
+        for (WorkspaceEntity descendant : subtree) {
+            Long descendantId = descendant.getWorkspaceId();
+            int descendantRelativeDepth = relativeDepths.get(descendantId);
+            closures.add(new WorkspaceClosureEntity(descendantId, descendantId, 0));
+
+            Long ancestorId = descendant.getParentId();
+            while (ancestorId != null && subtreeById.containsKey(ancestorId)) {
+                int ancestorRelativeDepth = relativeDepths.get(ancestorId);
+                closures.add(new WorkspaceClosureEntity(
+                        ancestorId,
+                        descendantId,
+                        descendantRelativeDepth - ancestorRelativeDepth));
+                ancestorId = subtreeById.get(ancestorId).getParentId();
+            }
+
+            for (WorkspaceAncestor ancestor : newParentAncestors) {
+                closures.add(new WorkspaceClosureEntity(
+                        ancestor.workspaceId(),
+                        descendantId,
+                        ancestor.depthToNewParent() + descendantRelativeDepth + 1));
+            }
+        }
+        return closures;
+    }
+
+    private List<WorkspaceClosureEntity> rebuildAncestorClosureRows(List<WorkspaceAncestor> ancestors) {
+        List<WorkspaceClosureEntity> closures = new ArrayList<>();
+        for (WorkspaceAncestor descendant : ancestors) {
+            for (WorkspaceAncestor ancestor : ancestors) {
+                if (ancestor.depthToNewParent() >= descendant.depthToNewParent()) {
+                    closures.add(new WorkspaceClosureEntity(
+                            ancestor.workspaceId(),
+                            descendant.workspaceId(),
+                            ancestor.depthToNewParent() - descendant.depthToNewParent()));
+                }
+            }
+        }
+        return closures;
+    }
+
+    private record WorkspaceAncestor(Long workspaceId, int depthToNewParent) {
     }
 
     private static final class WorkspaceTreeNodeBuilder {
