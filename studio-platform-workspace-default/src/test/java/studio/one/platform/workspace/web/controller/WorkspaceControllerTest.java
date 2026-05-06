@@ -27,6 +27,7 @@ import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
 import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
+import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
@@ -167,6 +168,54 @@ class WorkspaceControllerTest {
     }
 
     @Test
+    void memberListUsesPageableQueryAndNonAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        var pageable = PageRequest.of(1, 5);
+        when(memberService.getDirectMembers(eq(1L), any(), eq(pageable), any()))
+                .thenReturn(new PageImpl<>(List.of(member()), pageable, 1));
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        controller.members(1L, "ali", null, WorkspaceRole.VIEWER, false, pageable);
+
+        ArgumentCaptor<WorkspaceMemberListQuery> queryCaptor =
+                ArgumentCaptor.forClass(WorkspaceMemberListQuery.class);
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(memberService).getDirectMembers(eq(1L), queryCaptor.capture(), eq(pageable), contextCaptor.capture());
+        assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceMemberListQuery("ali", WorkspaceRole.VIEWER, false));
+        assertThat(contextCaptor.getValue().platformAdmin()).isFalse();
+    }
+
+    @Test
+    void mgmtEffectiveMemberListUsesKeywordAliasAndPlatformAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        var pageable = PageRequest.of(0, 20);
+        when(memberService.getEffectiveMembers(eq(1L), any(), eq(pageable), any()))
+                .thenReturn(new PageImpl<>(List.of(member()), pageable, 1));
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        controller.effectiveMembers(1L, "ignored", "bob", WorkspaceRole.EDITOR, true, pageable);
+
+        ArgumentCaptor<WorkspaceMemberListQuery> queryCaptor =
+                ArgumentCaptor.forClass(WorkspaceMemberListQuery.class);
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(memberService).getEffectiveMembers(eq(1L), queryCaptor.capture(), eq(pageable), contextCaptor.capture());
+        assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceMemberListQuery("bob", WorkspaceRole.EDITOR, true));
+        assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
+    }
+
+    @Test
     void permissionsMeChecksReadPermission() {
         WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
         WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
@@ -191,6 +240,10 @@ class WorkspaceControllerTest {
 
     private WorkspaceRef workspace() {
         return new WorkspaceRef(1L, null, 1L, "Acme", "acme", "acme", 0, WorkspaceVisibility.PRIVATE, false);
+    }
+
+    private studio.one.platform.workspace.model.WorkspaceMemberRef member() {
+        return new studio.one.platform.workspace.model.WorkspaceMemberRef(1L, 10L, WorkspaceRole.OWNER, false);
     }
 
     @SuppressWarnings("unchecked")

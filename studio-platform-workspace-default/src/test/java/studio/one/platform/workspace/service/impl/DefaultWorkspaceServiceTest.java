@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
+import jakarta.persistence.EntityManager;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.SpringBootConfiguration;
@@ -33,6 +35,7 @@ import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
 import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberCommand;
+import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
@@ -60,6 +63,9 @@ class DefaultWorkspaceServiceTest {
 
     @jakarta.annotation.Resource
     private WorkspaceJpaRepository workspaceRepository;
+
+    @jakarta.annotation.Resource
+    private EntityManager entityManager;
 
     @Test
     void createsRootAndChildWithPathClosureAndOwner() {
@@ -117,6 +123,82 @@ class DefaultWorkspaceServiceTest {
                 .filteredOn(member -> member.userId().equals(EDITOR.userId()))
                 .singleElement()
                 .satisfies(member -> assertThat(member.inherited()).isFalse());
+    }
+
+    @Test
+    void directMembersSupportServerPagingRoleAndKeywordSearch() {
+        var root = createRoot("Acme", "acme", OWNER);
+        insertUser(20L, "alice", "Alice Park", "alice@example.com");
+        insertUser(21L, "bob", "Bob Lee", "bob@example.com");
+        insertUser(22L, "carol", "Carol Kim", "carol@example.com");
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(20L, WorkspaceRole.EDITOR, OWNER));
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(21L, WorkspaceRole.VIEWER, OWNER));
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(22L, WorkspaceRole.VIEWER, OWNER));
+
+        var secondPage = memberService.getDirectMembers(
+                root.id(),
+                WorkspaceMemberListQuery.all(),
+                PageRequest.of(1, 2, Sort.by("userId").ascending()),
+                OWNER);
+        assertThat(secondPage.getTotalElements()).isEqualTo(4);
+        assertThat(secondPage.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .containsExactly(21L, 22L);
+
+        var viewerPage = memberService.getDirectMembers(
+                root.id(),
+                new WorkspaceMemberListQuery(null, WorkspaceRole.VIEWER, null),
+                PageRequest.of(0, 10, Sort.by("userId").ascending()),
+                OWNER);
+        assertThat(viewerPage.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .containsExactly(21L, 22L);
+
+        var keywordPage = memberService.getDirectMembers(
+                root.id(),
+                new WorkspaceMemberListQuery("alice", null, null),
+                PageRequest.of(0, 10),
+                OWNER);
+        assertThat(keywordPage.getTotalElements()).isOne();
+        assertThat(keywordPage.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .containsExactly(20L);
+
+        assertThat(memberService.getDirectMembers(
+                root.id(),
+                new WorkspaceMemberListQuery(null, null, true),
+                PageRequest.of(0, 10),
+                OWNER).getTotalElements()).isZero();
+    }
+
+    @Test
+    void effectiveMembersSupportServerPagingInheritedAndKeywordSearch() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        var backend = treeService.createChild(engineering.id(), createCommand("Backend", "backend", OWNER));
+        insertUser(20L, "alice", "Alice Park", "alice@example.com");
+        insertUser(21L, "bob", "Bob Lee", "bob@example.com");
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(20L, WorkspaceRole.EDITOR, OWNER));
+        memberService.addMember(backend.id(), new WorkspaceMemberCommand(21L, WorkspaceRole.VIEWER, OWNER));
+
+        var inheritedPage = memberService.getEffectiveMembers(
+                backend.id(),
+                new WorkspaceMemberListQuery(null, null, true),
+                PageRequest.of(0, 10, Sort.by("userId").ascending()),
+                OWNER);
+        assertThat(inheritedPage.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .contains(OWNER.userId(), 20L)
+                .doesNotContain(21L);
+
+        var keywordPage = memberService.getEffectiveMembers(
+                backend.id(),
+                new WorkspaceMemberListQuery("bob", null, false),
+                PageRequest.of(0, 10),
+                OWNER);
+        assertThat(keywordPage.getTotalElements()).isOne();
+        assertThat(keywordPage.getContent().get(0).userId()).isEqualTo(21L);
+        assertThat(keywordPage.getContent().get(0).inherited()).isFalse();
     }
 
     @Test
@@ -413,7 +495,9 @@ class DefaultWorkspaceServiceTest {
     }
 
     @SpringBootConfiguration
-    @EntityScan(basePackageClasses = WorkspaceClosureEntity.class)
+    @EntityScan(basePackageClasses = {
+            WorkspaceClosureEntity.class,
+            DefaultWorkspaceServiceTest.TestApplicationUserEntity.class })
     @EnableJpaRepositories(basePackageClasses = {
             WorkspaceJpaRepository.class,
             WorkspaceClosureJpaRepository.class,
@@ -479,12 +563,46 @@ class DefaultWorkspaceServiceTest {
                 WorkspaceJpaRepository workspaceRepository,
                 WorkspaceClosureJpaRepository closureRepository,
                 WorkspaceMemberJpaRepository memberRepository,
-                WorkspacePermissionService permissionService) {
+                WorkspacePermissionService permissionService,
+                EntityManager entityManager) {
             return new DefaultWorkspaceMemberService(
                     workspaceRepository,
                     closureRepository,
                     memberRepository,
-                    permissionService);
+                    permissionService,
+                    entityManager);
         }
+    }
+
+    private void insertUser(Long userId, String username, String name, String email) {
+        entityManager.createNativeQuery("delete from TB_APPLICATION_USER where USER_ID = :userId")
+                .setParameter("userId", userId)
+                .executeUpdate();
+        entityManager.createNativeQuery("""
+                insert into TB_APPLICATION_USER (USER_ID, USERNAME, NAME, EMAIL)
+                values (:userId, :username, :name, :email)
+                """)
+                .setParameter("userId", userId)
+                .setParameter("username", username)
+                .setParameter("name", name)
+                .setParameter("email", email)
+                .executeUpdate();
+    }
+
+    @jakarta.persistence.Entity
+    @jakarta.persistence.Table(name = "TB_APPLICATION_USER")
+    static class TestApplicationUserEntity {
+        @jakarta.persistence.Id
+        @jakarta.persistence.Column(name = "USER_ID")
+        private Long userId;
+
+        @jakarta.persistence.Column(name = "USERNAME")
+        private String username;
+
+        @jakarta.persistence.Column(name = "NAME")
+        private String name;
+
+        @jakarta.persistence.Column(name = "EMAIL")
+        private String email;
     }
 }
