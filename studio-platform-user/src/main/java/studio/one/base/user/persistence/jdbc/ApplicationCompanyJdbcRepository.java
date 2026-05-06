@@ -16,6 +16,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Repository;
 
+import studio.one.base.user.company.model.CompanyStatus;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 
@@ -30,6 +31,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
             "name", "NAME",
             "displayName", "DISPLAY_NAME",
             "domainName", "DOMAIN_NAME",
+            "status", "STATUS",
             "creationDate", "CREATION_DATE",
             "modifiedDate", "MODIFIED_DATE");
 
@@ -40,6 +42,11 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
         company.setDisplayName(rs.getString("DISPLAY_NAME"));
         company.setDomainName(rs.getString("DOMAIN_NAME"));
         company.setDescription(rs.getString("DESCRIPTION"));
+        company.setStatus(CompanyStatus.valueOf(rs.getString("STATUS")));
+        Timestamp archivedAt = rs.getTimestamp("ARCHIVED_AT");
+        company.setArchivedAt(archivedAt == null ? null : archivedAt.toInstant());
+        long archivedBy = rs.getLong("ARCHIVED_BY");
+        company.setArchivedBy(rs.wasNull() ? null : archivedBy);
         Timestamp created = rs.getTimestamp("CREATION_DATE");
         Timestamp modified = rs.getTimestamp("MODIFIED_DATE");
         company.setCreationDate(created == null ? null : created.toInstant());
@@ -60,7 +67,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
     @Override
     public Page<ApplicationCompany> findAll(Pageable pageable) {
         String select = """
-                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
+                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, STATUS, ARCHIVED_AT, ARCHIVED_BY, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_COMPANY
                 """;
         String count = "select count(*) from TB_APPLICATION_COMPANY";
@@ -72,7 +79,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
     @Override
     public List<ApplicationCompany> findAll() {
         String sql = """
-                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
+                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, STATUS, ARCHIVED_AT, ARCHIVED_BY, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_COMPANY
                   order by COMPANY_ID
                 """;
@@ -84,7 +91,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
     @Override
     public Optional<ApplicationCompany> findById(Long companyId) {
         String sql = """
-                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
+                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, STATUS, ARCHIVED_AT, ARCHIVED_BY, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_COMPANY
                  where COMPANY_ID = :companyId
                 """;
@@ -96,7 +103,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
     @Override
     public Optional<ApplicationCompany> findByName(String name) {
         String sql = """
-                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
+                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, STATUS, ARCHIVED_AT, ARCHIVED_BY, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_COMPANY
                  where lower(NAME) = lower(:name)
                 """;
@@ -108,7 +115,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
     @Override
     public Optional<ApplicationCompany> findByDomainName(String domainName) {
         String sql = """
-                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
+                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, STATUS, ARCHIVED_AT, ARCHIVED_BY, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_COMPANY
                  where lower(DOMAIN_NAME) = lower(:domainName)
                 """;
@@ -128,7 +135,7 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
     public Page<ApplicationCompany> search(String keyword, Pageable pageable) {
         Map<String, Object> params = Map.of("q", keyword == null ? "" : "%" + keyword.toLowerCase() + "%");
         String select = """
-                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
+                select COMPANY_ID, NAME, DISPLAY_NAME, DOMAIN_NAME, DESCRIPTION, STATUS, ARCHIVED_AT, ARCHIVED_BY, CREATION_DATE, MODIFIED_DATE
                   from TB_APPLICATION_COMPANY
                  where (:q = '' or
                         lower(NAME) like :q or
@@ -169,6 +176,9 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
                 .addValue("DISPLAY_NAME", company.getDisplayName())
                 .addValue("DOMAIN_NAME", company.getDomainName())
                 .addValue("DESCRIPTION", company.getDescription())
+                .addValue("STATUS", company.getStatus() == null ? CompanyStatus.ACTIVE.name() : company.getStatus().name())
+                .addValue("ARCHIVED_AT", company.getArchivedAt() == null ? null : Timestamp.from(company.getArchivedAt()))
+                .addValue("ARCHIVED_BY", company.getArchivedBy())
                 .addValue("CREATION_DATE", Timestamp.from(company.getCreationDate()))
                 .addValue("MODIFIED_DATE", Timestamp.from(company.getModifiedDate()));
         Number key = insert.executeAndReturnKey(params);
@@ -187,6 +197,9 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
                        DISPLAY_NAME = :displayName,
                        DOMAIN_NAME = :domainName,
                        DESCRIPTION = :description,
+                       STATUS = :status,
+                       ARCHIVED_AT = :archivedAt,
+                       ARCHIVED_BY = :archivedBy,
                        MODIFIED_DATE = :modifiedDate
                  where COMPANY_ID = :companyId
                 """;
@@ -195,6 +208,9 @@ public class ApplicationCompanyJdbcRepository extends BaseJdbcRepository impleme
         params.put("displayName", company.getDisplayName());
         params.put("domainName", company.getDomainName());
         params.put("description", company.getDescription());
+        params.put("status", company.getStatus() == null ? CompanyStatus.ACTIVE.name() : company.getStatus().name());
+        params.put("archivedAt", company.getArchivedAt() == null ? null : Timestamp.from(company.getArchivedAt()));
+        params.put("archivedBy", company.getArchivedBy());
         params.put("modifiedDate", Timestamp.from(company.getModifiedDate()));
         params.put("companyId", company.getCompanyId());
         namedTemplate.update(sql, params);

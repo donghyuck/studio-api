@@ -27,6 +27,7 @@ import java.util.function.Consumer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import studio.one.base.user.company.model.CompanyStatus;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.platform.constant.ServiceNames;
 /**
@@ -52,9 +53,13 @@ public interface ApplicationCompanyService {
 
     ApplicationCompany create(ApplicationCompany company);
 
+    ApplicationCompany create(ApplicationCompany company, Long actorUserId);
+
     ApplicationCompany update(Long companyId, Consumer<ApplicationCompany> mutator);
 
     void delete(Long companyId);
+
+    ApplicationCompany archive(Long companyId, Long actorUserId);
 
     // properties (ElementCollection or 별도 테이블)
     void setProperty(Long companyId, String name, String value);
@@ -62,4 +67,8 @@ public interface ApplicationCompanyService {
     void removeProperty(Long companyId, String name);
 
     Page<ApplicationCompany> search(String q, Pageable pageable);
+
+    default boolean isArchived(ApplicationCompany company) {
+        return company != null && company.getStatus() == CompanyStatus.ARCHIVED;
+    }
 }

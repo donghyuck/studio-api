@@ -9,6 +9,18 @@ and error types that other modules depend on. Keep this module stable and focuse
 - Controller API interfaces
 - Error types
 
+## Company Member / Permission Contract
+Company는 enterprise tenant/account의 기본 경계이며 기존 `ApplicationCompany*` 계약을 확장한다.
+
+- `ApplicationCompanyService`: 기존 Company CRUD와 archive 흐름을 제공한다. 기존 `delete()`는 호환용으로 유지한다.
+- `ApplicationCompanyMemberService`: Company별 member role을 관리한다.
+- `ApplicationCompanyPermissionService`: Company role 기반 action check를 제공한다.
+- `CompanyRole`: `MEMBER`, `BILLING_ADMIN`, `ADMIN`, `OWNER`
+
+기본 action은 `company.read`, `company.update`, `company.archive`, `company.member.*`,
+`company.permission.*`, `company.workspace.*`, `company.billing.*`이다.
+Company 권한은 Workspace 콘텐츠 권한을 대체하지 않으며, Workspace/Wiki 콘텐츠 접근은 후속 Workspace 권한 통합에서 별도로 판정한다.
+
 ## Self Profile API (Contract)
 Base path is configurable, default is `/api/self`.
 

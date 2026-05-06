@@ -108,6 +108,7 @@ studio:
 
 ## 6) 자동 구성되는 주요 빈
 - `ApplicationUserService`, `ApplicationGroupService`, `ApplicationRoleService`, `ApplicationCompanyService`
+- `ApplicationCompanyMemberService`, `ApplicationCompanyPermissionService`
 - `UserMutator` (기본 `ApplicationUserMutator`)
 - `UserCacheEvictListener` (CacheManager가 있을 때)
 
@@ -132,12 +133,15 @@ studio:
             enabled: true
           role:
             enabled: true
+          company:
+            enabled: true
 ```
 
 기본 엔드포인트 경로:
 - `/api/mgmt/users`
 - `/api/mgmt/groups`
 - `/api/mgmt/roles`
+- `/api/mgmt/companies`
 - `/api/self`
 
 기본 사용자 관리 API에는 `DELETE /api/mgmt/users/{id}`가 포함된다. 이 엔드포인트는
@@ -171,6 +175,9 @@ studio:
 - 사용자 스키마는 `studio-platform-user-default`에 포함된다:
   `studio-platform-user-default/src/main/resources/schema/user/{db}/V300__create_user_tables.sql`
   (`docs/flyway-versioning.md`의 user 범위 V300-V399 참고)
+- Company member/permission 기반은 `V302__extend_company_and_create_company_members.sql`에서 추가된다.
+  `TB_APPLICATION_COMPANY.STATUS`, `ARCHIVED_AT`, `ARCHIVED_BY`와
+  `TB_APPLICATION_COMPANY_MEMBERS`를 생성한다.
 - PostgreSQL에서는 그룹 멤버 summary 검색의 `username`/`name`/`email` 부분 검색을 위해
   `schema/user/postgres/V301__optimize_group_member_summary_search.sql`가 `pg_trgm` 확장과
   `lower(...)` GIN trigram index를 추가한다. 운영 DB의 Flyway 계정은 `CREATE EXTENSION IF NOT EXISTS pg_trgm`

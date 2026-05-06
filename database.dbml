@@ -96,9 +96,30 @@ Table "studioapi"."tb_application_company" {
   "name" varchar(100) [unique, not null]
   "domain_name" varchar(100)
   "description" varchar(1000)
+  "status" varchar(30) [not null, default: 'ACTIVE']
+  "archived_at" timestamptz
+  "archived_by" int8
   "creation_date" timestamptz [default: `now()`]
   "modified_date" timestamptz [default: `now()`]
   Note: '회사 테이블'
+}
+
+Table "studioapi"."tb_application_company_members" {
+  "company_id" int8 [not null]
+  "user_id" int8 [not null]
+  "role" varchar(30) [not null]
+  "status" varchar(30) [not null, default: 'ACTIVE']
+  "joined_at" timestamptz [not null, default: `now()`]
+  "joined_by" int8
+  "updated_at" timestamptz
+  "updated_by" int8
+
+  Indexes {
+    (company_id, user_id) [pk, type: btree, name: "tb_application_company_members_pkey"]
+    user_id [type: btree, name: "idx_application_company_members_user"]
+    (company_id, role) [type: btree, name: "idx_application_company_members_company_role"]
+  }
+  Note: '회사 멤버 테이블'
 }
 
 Table "studioapi"."tb_application_company_property" {
@@ -429,6 +450,10 @@ Ref "foreign_fk_2":"studioapi"."acl_class"."id" < "studioapi"."acl_object_identi
 Ref "foreign_fk_3":"studioapi"."acl_sid"."id" < "studioapi"."acl_object_identity"."owner_sid"
 
 Ref "tb_application_company_property_company_id_fkey":"studioapi"."tb_application_company"."company_id" < "studioapi"."tb_application_company_property"."company_id" [delete: cascade]
+
+Ref "tb_application_company_members_company_id_fkey":"studioapi"."tb_application_company"."company_id" < "studioapi"."tb_application_company_members"."company_id" [delete: cascade]
+
+Ref "tb_application_company_members_user_id_fkey":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_company_members"."user_id" [delete: cascade]
 
 Ref "tb_application_group_members_group_id_fkey":"studioapi"."tb_application_group"."group_id" < "studioapi"."tb_application_group_members"."group_id" [delete: cascade]
 

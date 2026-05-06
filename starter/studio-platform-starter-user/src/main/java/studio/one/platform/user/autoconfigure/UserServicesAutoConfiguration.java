@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.event.listener.UserCacheEvictListener;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
+import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
@@ -29,12 +30,16 @@ import studio.one.base.user.persistence.ApplicationRoleRepository;
 import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.service.impl.ApplicationCompanyServiceImpl;
+import studio.one.base.user.service.impl.ApplicationCompanyMemberServiceImpl;
+import studio.one.base.user.service.impl.ApplicationCompanyPermissionServiceImpl;
 import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
 import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
 import studio.one.base.user.service.impl.ApplicationUserMutator;
@@ -166,12 +171,41 @@ public class UserServicesAutoConfiguration {
         @ConditionalOnMissingBean(ApplicationCompanyService.class)
         @ConditionalOnClass({ ApplicationCompanyRepository.class })
         @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
-        public ApplicationCompanyService applicationCompanyService(ApplicationCompanyRepository companyRepo) {
+        public ApplicationCompanyService applicationCompanyService(
+                        ApplicationCompanyRepository companyRepo,
+                        ObjectProvider<ApplicationCompanyMemberService> memberServiceProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(ApplicationCompanyServiceImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new ApplicationCompanyServiceImpl(companyRepo, i18nProvider);
+                return new ApplicationCompanyServiceImpl(companyRepo, memberServiceProvider, i18nProvider);
+        }
+
+        @Bean(name = ApplicationCompanyMemberService.SERVICE_NAME)
+        @ConditionalOnMissingBean(ApplicationCompanyMemberService.class)
+        @ConditionalOnClass({ ApplicationCompanyMemberRepository.class })
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
+        public ApplicationCompanyMemberService applicationCompanyMemberService(
+                        ApplicationCompanyRepository companyRepo,
+                        ApplicationCompanyMemberRepository memberRepo) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationCompanyMemberServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationCompanyMemberServiceImpl(companyRepo, memberRepo);
+        }
+
+        @Bean(name = ApplicationCompanyPermissionService.SERVICE_NAME)
+        @ConditionalOnMissingBean(ApplicationCompanyPermissionService.class)
+        @ConditionalOnBean(ApplicationCompanyMemberService.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
+        public ApplicationCompanyPermissionService applicationCompanyPermissionService(
+                        ApplicationCompanyMemberService memberService) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationCompanyPermissionServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationCompanyPermissionServiceImpl(memberService);
         }
 
         @Bean

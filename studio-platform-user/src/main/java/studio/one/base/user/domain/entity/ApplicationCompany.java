@@ -9,6 +9,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -27,6 +29,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import studio.one.base.user.company.model.CompanyStatus;
 import studio.one.base.user.constant.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.ENTITY)
@@ -53,6 +56,17 @@ public class ApplicationCompany {
     @Column(name = "DESCRIPTION", length = 1000)
     private String description;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "STATUS", nullable = false, length = 30)
+    @Builder.Default
+    private CompanyStatus status = CompanyStatus.ACTIVE;
+
+    @Column(name = "ARCHIVED_AT")
+    private Instant archivedAt;
+
+    @Column(name = "ARCHIVED_BY")
+    private Long archivedBy;
+
     @CreatedDate
     @Column(name = "CREATION_DATE", updatable = false)
     private Instant creationDate;
@@ -75,6 +89,8 @@ public class ApplicationCompany {
             creationDate = now;
         if (modifiedDate == null)
             modifiedDate = now;
+        if (status == null)
+            status = CompanyStatus.ACTIVE;
     }
 
     @PreUpdate

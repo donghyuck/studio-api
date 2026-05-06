@@ -11,6 +11,16 @@ Project-specific customizations should be made here rather than in
 - Mapping logic
 - Policy decisions (validation, security, cache)
 
+## Company Member / Permission
+기존 `TB_APPLICATION_COMPANY`를 tenant/account 경계로 확장한다.
+
+- `V302__extend_company_and_create_company_members.sql`에서 `STATUS`, `ARCHIVED_AT`, `ARCHIVED_BY`를 추가한다.
+- `TB_APPLICATION_COMPANY_MEMBERS`는 `(COMPANY_ID, USER_ID)`를 primary key로 사용한다.
+- Company 생성 시 actor user id가 제공되면 생성자를 `OWNER` member로 등록한다.
+- 신규 관리 흐름은 archive를 사용하고, 기존 `ApplicationCompanyService.delete()`는 호환용으로 유지한다.
+
+Company 권한은 tenant 관리용 기반이며 Workspace 콘텐츠 권한의 1차 기준은 기존 Workspace role이다.
+
 ## Self Profile Update (Implementation Notes)
 Implemented in:
 - `UserMeController` (PATCH/PUT endpoints)
