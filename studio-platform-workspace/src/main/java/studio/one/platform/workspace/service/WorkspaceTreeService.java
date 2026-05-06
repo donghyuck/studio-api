@@ -48,5 +48,15 @@ public interface WorkspaceTreeService {
 
     WorkspaceTreeNode getTree(Long workspaceId, WorkspaceAccessContext actor);
 
-    void archive(Long workspaceId, WorkspaceAccessContext actor);
+    default void archive(Long workspaceId, WorkspaceAccessContext actor) {
+        archive(workspaceId, actor, false);
+    }
+
+    WorkspaceRef archive(Long workspaceId, WorkspaceAccessContext actor, boolean cascade);
+
+    default WorkspaceRef activate(Long workspaceId, WorkspaceAccessContext actor) {
+        return activate(workspaceId, actor, false);
+    }
+
+    WorkspaceRef activate(Long workspaceId, WorkspaceAccessContext actor, boolean cascade);
 }

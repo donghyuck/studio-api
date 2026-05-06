@@ -27,6 +27,8 @@ import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
@@ -117,8 +119,14 @@ abstract class WorkspaceControllerSupport {
         return treeService.getTree(workspaceId, context(platformAdmin));
     }
 
-    void archive(Long workspaceId, boolean platformAdmin) {
-        treeService.archive(workspaceId, context(platformAdmin));
+    WorkspaceRef archive(Long workspaceId, WorkspaceArchiveRequest request, boolean platformAdmin) {
+        boolean cascade = request != null && request.cascadeEnabled();
+        return treeService.archive(workspaceId, context(platformAdmin), cascade);
+    }
+
+    WorkspaceRef activate(Long workspaceId, WorkspaceActivateRequest request, boolean platformAdmin) {
+        boolean cascade = request != null && request.cascadeEnabled();
+        return treeService.activate(workspaceId, context(platformAdmin), cascade);
     }
 
     WorkspaceMemberRef addMember(Long workspaceId, WorkspaceMemberRequest request, boolean platformAdmin) {

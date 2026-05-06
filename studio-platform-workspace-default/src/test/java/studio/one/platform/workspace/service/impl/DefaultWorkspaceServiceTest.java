@@ -701,6 +701,49 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void archiveRequiresCascadeWhenWorkspaceHasActiveDescendants() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+
+        assertThatThrownBy(() -> treeService.archive(root.id(), OWNER, false))
+                .isInstanceOf(WorkspaceConflictException.class);
+
+        treeService.archive(root.id(), OWNER, true);
+
+        assertThat(treeService.getById(root.id(), OWNER).archived()).isTrue();
+        assertThat(treeService.getById(child.id(), OWNER).archived()).isTrue();
+    }
+
+    @Test
+    void activateRestoresWorkspaceAndCascadeRestoresDescendants() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        treeService.archive(root.id(), OWNER, true);
+
+        var activated = treeService.activate(root.id(), OWNER, true);
+
+        assertThat(activated.archived()).isFalse();
+        assertThat(treeService.getById(child.id(), OWNER).archived()).isFalse();
+    }
+
+    @Test
+    void activateRejectsArchivedAncestor() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        treeService.archive(root.id(), OWNER, true);
+
+        assertThatThrownBy(() -> treeService.activate(child.id(), OWNER, false))
+                .isInstanceOf(WorkspaceConflictException.class);
+    }
+
+    @Test
+    void activateAlreadyActiveWorkspaceIsIdempotent() {
+        var root = createRoot("Acme", "acme", OWNER);
+
+        assertThat(treeService.activate(root.id(), OWNER, false).archived()).isFalse();
+    }
+
+    @Test
     void archivedWorkspaceAllowsContributedReadActionsOnly() {
         var root = createRoot("Acme", "acme", OWNER);
         treeService.archive(root.id(), OWNER);
@@ -708,8 +751,9 @@ class DefaultWorkspaceServiceTest {
         assertThat(permissionService.isGranted(root.id(), OWNER, "wiki.page.read")).isTrue();
         assertThat(permissionService.isGranted(root.id(), OWNER, "wiki.page.history.read")).isTrue();
         assertThat(permissionService.isGranted(root.id(), OWNER, "wiki.page.update")).isFalse();
+        assertThat(permissionService.isGranted(root.id(), OWNER, "workspace.activate")).isTrue();
         assertThat(permissionService.getGrantedActions(root.id(), OWNER))
-                .contains("wiki.page.read", "wiki.page.history.read")
+                .contains("wiki.page.read", "wiki.page.history.read", "workspace.activate")
                 .doesNotContain("wiki.page.update");
     }
 
@@ -776,6 +820,7 @@ class DefaultWorkspaceServiceTest {
 
         assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.read")).isTrue();
         assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.update")).isFalse();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.activate")).isTrue();
         assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.update")).isFalse();
     }
 

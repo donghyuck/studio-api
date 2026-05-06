@@ -31,6 +31,8 @@ import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
 
@@ -203,6 +205,44 @@ class WorkspaceControllerTest {
         verify(treeService).changeParent(eq(1L), captor.capture());
         assertThat(captor.getValue().newParentId()).isNull();
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void userArchivePassesCascadeRequestAndNonAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.archive(eq(1L), any(), eq(true))).thenReturn(workspace());
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        controller.archive(1L, new WorkspaceArchiveRequest(true));
+
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).archive(eq(1L), contextCaptor.capture(), eq(true));
+        assertThat(contextCaptor.getValue().platformAdmin()).isFalse();
+    }
+
+    @Test
+    void mgmtActivatePassesCascadeRequestAndPlatformAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.activate(eq(1L), any(), eq(true))).thenReturn(workspace());
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        controller.activate(1L, new WorkspaceActivateRequest(true));
+
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).activate(eq(1L), contextCaptor.capture(), eq(true));
+        assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
     }
 
     @Test

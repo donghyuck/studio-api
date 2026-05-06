@@ -34,6 +34,8 @@ import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
@@ -127,9 +129,17 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/archive")
-    public ResponseEntity<ApiResponse<Void>> archive(@PathVariable Long workspaceId) {
-        archive(workspaceId, true);
-        return ResponseEntity.ok(ApiResponse.ok());
+    public ResponseEntity<ApiResponse<WorkspaceRef>> archive(
+            @PathVariable Long workspaceId,
+            @RequestBody(required = false) WorkspaceArchiveRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(archive(workspaceId, request, true)));
+    }
+
+    @PostMapping("/{workspaceId:[\\p{Digit}]+}/activate")
+    public ResponseEntity<ApiResponse<WorkspaceRef>> activate(
+            @PathVariable Long workspaceId,
+            @RequestBody(required = false) WorkspaceActivateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(activate(workspaceId, request, true)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/members")

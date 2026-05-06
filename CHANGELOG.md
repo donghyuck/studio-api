@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #425 대응으로 Workspace 활성화 API `POST /api/workspaces/{workspaceId}/activate`, `POST /api/mgmt/workspaces/{workspaceId}/activate`를 추가하고, archive/activate 요청 body에 `cascade` 정책을 문서화했다. 활성 descendant가 있는 workspace archive는 `cascade=true`가 필요하며, archived ancestor 아래 child 단독 활성화는 거부한다.
 - Company → Workspace → Wiki 단계별 작업 리뷰 보완으로 Company 관리 API에 tenant 객체 권한 검사를 추가하고, workspace company scope 적용 시 `ApplicationCompanyService` 기반 company 존재 검증과 `V1303__add_workspace_company_fk.sql`을 추가했다. V1302 schema가 적용된 환경은 `studio.features.workspace.company-scope-enforced=true` 설정 없이는 기동하지 않도록 보강했고, workspace member keyword 검색은 기본 user 테이블 네이티브 의존 대신 `ApplicationUserService`를 사용하도록 변경했다.
 - 이슈 #430 대응으로 Workspace Company scope 운영 강제 전환용 `V1302__enforce_workspace_company_scope.sql`을 postgres/mysql/mariadb에 추가했다. `COMPANY_ID NOT NULL`, company-scoped path/root slug/parent slug unique 제약과 MySQL/MariaDB `PARENT_KEY` generated column 전략, `studio.features.workspace.company-scope-enforced` runtime 전환 설정, backfill/duplicate 검증 운영 문서를 제공한다.
 - 이슈 #428 대응으로 Workspace permission 판정에 opt-in Company `OWNER` override를 연결했다. `studio.workspace.permission.company-owner-override-enabled=true`일 때 Workspace direct/ancestor role을 우선 적용하고, 부족할 때만 Company `OWNER`가 Workspace `OWNER`급 권한을 받으며, Company `ADMIN`은 private workspace/wiki content read 권한을 자동으로 얻지 않는다.

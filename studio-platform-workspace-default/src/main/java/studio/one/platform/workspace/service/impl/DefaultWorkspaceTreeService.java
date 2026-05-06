@@ -371,18 +371,44 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
 
     @Override
     @Transactional
-    public void archive(Long workspaceId, WorkspaceAccessContext actor) {
+    public WorkspaceRef archive(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
         WorkspaceAccessContext resolved = requireActor(actor);
         permissionService.assertGranted(workspaceId, resolved, WorkspacePermissionActions.ARCHIVE);
         WorkspaceEntity entity = workspace(workspaceId);
-        if (entity.isArchived()) {
-            return;
+        List<WorkspaceEntity> descendants = descendantsOf(entity);
+        List<WorkspaceEntity> activeDescendants = descendants.stream()
+                .filter(descendant -> !descendant.isArchived())
+                .toList();
+        if (!cascade && !activeDescendants.isEmpty()) {
+            throw new WorkspaceConflictException("Workspace has active descendants; cascade archive is required");
         }
-        entity.setArchived(true);
-        entity.setArchivedAt(Instant.now());
-        entity.setArchivedBy(resolved.requireUserId());
-        entity.setUpdatedBy(resolved.requireUserId());
-        workspaceRepository.save(entity);
+        Instant now = Instant.now();
+        Long userId = resolved.requireUserId();
+        archiveEntity(entity, now, userId);
+        if (cascade) {
+            activeDescendants.forEach(descendant -> archiveEntity(descendant, now, userId));
+            workspaceRepository.saveAll(activeDescendants);
+        }
+        return workspaceRepository.save(entity).toRef();
+    }
+
+    @Override
+    @Transactional
+    public WorkspaceRef activate(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
+        WorkspaceAccessContext resolved = requireActor(actor);
+        permissionService.assertGranted(workspaceId, resolved, WorkspacePermissionActions.ACTIVATE);
+        WorkspaceEntity entity = workspace(workspaceId);
+        rejectArchivedAncestorActivation(entity);
+        Long userId = resolved.requireUserId();
+        activateEntity(entity, userId);
+        if (cascade) {
+            List<WorkspaceEntity> archivedDescendants = descendantsOf(entity).stream()
+                    .filter(WorkspaceEntity::isArchived)
+                    .toList();
+            archivedDescendants.forEach(descendant -> activateEntity(descendant, userId));
+            workspaceRepository.saveAll(archivedDescendants);
+        }
+        return workspaceRepository.save(entity).toRef();
     }
 
     private WorkspaceAccessContext requireActor(WorkspaceAccessContext actor) {
@@ -440,6 +466,48 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         if (entity.isArchived()) {
             throw new WorkspaceValidationException("Archived workspace cannot be mutated");
         }
+    }
+
+    private void rejectArchivedAncestorActivation(WorkspaceEntity entity) {
+        List<Long> ancestorIds = closureRepository.findAncestorIds(entity.getWorkspaceId());
+        if (ancestorIds.isEmpty()) {
+            return;
+        }
+        for (WorkspaceEntity ancestor : workspaceRepository.findByWorkspaceIdIn(ancestorIds)) {
+            if (!ancestor.getWorkspaceId().equals(entity.getWorkspaceId()) && ancestor.isArchived()) {
+                throw new WorkspaceConflictException("Workspace cannot be activated while an ancestor is archived");
+            }
+        }
+    }
+
+    private void archiveEntity(WorkspaceEntity entity, Instant archivedAt, Long userId) {
+        if (entity.isArchived()) {
+            return;
+        }
+        entity.setArchived(true);
+        entity.setArchivedAt(archivedAt);
+        entity.setArchivedBy(userId);
+        entity.setUpdatedBy(userId);
+    }
+
+    private void activateEntity(WorkspaceEntity entity, Long userId) {
+        if (!entity.isArchived()) {
+            return;
+        }
+        entity.setArchived(false);
+        entity.setArchivedAt(null);
+        entity.setArchivedBy(null);
+        entity.setUpdatedBy(userId);
+    }
+
+    private List<WorkspaceEntity> descendantsOf(WorkspaceEntity entity) {
+        List<Long> descendantIds = closureRepository.findDescendantIds(entity.getWorkspaceId()).stream()
+                .filter(id -> !id.equals(entity.getWorkspaceId()))
+                .toList();
+        if (descendantIds.isEmpty()) {
+            return List.of();
+        }
+        return workspaceRepository.findByWorkspaceIdIn(descendantIds);
     }
 
     private WorkspaceEntity workspace(Long workspaceId) {

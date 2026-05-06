@@ -3,7 +3,7 @@
 Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effective permission 계산에 필요한 public contract만 제공합니다.
 
 ## 범위
-- `WorkspaceTreeService`: root/child 생성, parent 변경, id/path 조회, children/tree/ancestors/descendants 조회, name/visibility 변경, archive
+- `WorkspaceTreeService`: root/child 생성, parent 변경, id/path 조회, children/tree/ancestors/descendants 조회, name/visibility 변경, archive/activate
 - `WorkspaceMemberService`: direct/effective member 조회, pageable member 조회, member 추가/역할 변경/제거
 - `WorkspacePermissionService`: role/visibility/ancestor 상속 기반 권한 계산
 - `WorkspacePermissionContributor`: 모듈별 action과 기본 role mapping 확장
@@ -20,6 +20,7 @@ Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effec
 - `workspace.create`
 - `workspace.update`
 - `workspace.archive`
+- `workspace.activate`
 - `workspace.tree.read`
 - `workspace.member.read`
 - `workspace.member.manage`
@@ -29,7 +30,7 @@ Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effec
 ## 기본 role mapping
 - `VIEWER`: read/tree/member/permission read
 - `EDITOR`: `VIEWER` + create/update
-- `ADMIN`: `EDITOR` + archive/member.manage/permission.manage
+- `ADMIN`: `EDITOR` + archive/activate/member.manage/permission.manage
 - `OWNER`: 전체 action
 
 ## 구현 모듈

@@ -73,6 +73,21 @@ Workspace parent 변경은 사용자용/관리용 경로 모두에서 `PATCH {ba
 
 서버는 이동 시 subtree의 `rootId`, `path`, `depth`와 closure table을 재계산합니다. 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 `409 Conflict`로 거부하고, archived workspace 이동은 기존 mutation 정책에 따라 거부합니다.
 
+Workspace 상태 변경은 사용자용/관리용 경로 모두에서 제공합니다.
+
+- `POST {base-path}/{workspaceId}/archive`
+- `POST {base-path}/{workspaceId}/activate`
+
+요청 body는 선택 사항이며 child를 함께 처리할 때 `cascade=true`를 전달합니다.
+
+```json
+{
+  "cascade": true
+}
+```
+
+`archive`는 대상 workspace에 활성 descendant가 있으면 `cascade=true` 없이 거부합니다. `cascade=true`는 대상과 모든 활성 descendant를 함께 비활성화합니다. `activate`는 성공 시 `WorkspaceRef`를 반환하며 이미 활성 상태인 workspace에는 idempotent하게 동작합니다. archived parent 아래의 child 단독 활성화는 거부되며 parent subtree를 복구하려면 parent에 `cascade=true`로 요청합니다.
+
 ## 자동구성
 - `WorkspaceAutoConfiguration`: JPA entity/repository scan, `WorkspaceTreeService`, `WorkspaceMemberService`, `WorkspacePermissionService`
 - `WorkspaceWebAutoConfiguration`: `WorkspaceController`, `WorkspaceMgmtController`
