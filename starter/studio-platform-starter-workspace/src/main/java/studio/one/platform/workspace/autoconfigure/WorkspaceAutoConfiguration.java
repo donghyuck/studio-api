@@ -44,7 +44,7 @@ public class WorkspaceAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    WorkspaceSettings workspaceSettings(WorkspaceProperties properties) {
+    WorkspaceSettings workspaceSettings(WorkspaceProperties properties, WorkspaceFeatureProperties featureProperties) {
         if (properties.getPermission().isDenyOverrideEnabled()) {
             throw new IllegalStateException("studio.workspace.permission.deny-override-enabled is reserved for a future release");
         }
@@ -52,7 +52,8 @@ public class WorkspaceAutoConfiguration {
                 properties.getTree().getMaxDepth(),
                 properties.getTree().getMaxChildrenPerNode(),
                 properties.getSlug().getMaxLength(),
-                properties.getPermission().isInheritParentRole());
+                properties.getPermission().isInheritParentRole(),
+                featureProperties.isCompanyRequired());
     }
 
     @Bean

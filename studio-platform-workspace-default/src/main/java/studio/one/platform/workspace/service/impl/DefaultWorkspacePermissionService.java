@@ -146,7 +146,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
                 strongest = WorkspaceRole.strongest(strongest, member.getRole());
             }
         }
-        if (strongest == null && workspace.getVisibility() != WorkspaceVisibility.PRIVATE) {
+        if (strongest == null && workspace.getCompanyId() == null && workspace.getVisibility() != WorkspaceVisibility.PRIVATE) {
             strongest = WorkspaceRole.VIEWER;
         }
         return strongest;

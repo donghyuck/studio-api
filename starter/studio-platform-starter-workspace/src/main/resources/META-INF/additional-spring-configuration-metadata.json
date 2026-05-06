@@ -12,6 +12,12 @@
       "defaultValue": "jpa"
     },
     {
+      "name": "studio.features.workspace.company-required",
+      "type": "java.lang.Boolean",
+      "description": "Require companyId when creating root workspaces. Defaults to false for legacy workspace compatibility.",
+      "defaultValue": false
+    },
+    {
       "name": "studio.features.workspace.web.enabled",
       "type": "java.lang.Boolean",
       "description": "Expose workspace HTTP endpoints."

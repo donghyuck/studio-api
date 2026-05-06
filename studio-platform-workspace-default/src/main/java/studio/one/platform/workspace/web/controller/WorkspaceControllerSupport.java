@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -16,6 +17,7 @@ import studio.one.platform.workspace.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
+import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
@@ -50,7 +52,11 @@ abstract class WorkspaceControllerSupport {
     }
 
     WorkspaceRef createRoot(WorkspaceCreateRequest request, boolean platformAdmin) {
-        return treeService.createRoot(new CreateWorkspaceCommand(
+        if (!platformAdmin && request.companyId() != null) {
+            throw new AccessDeniedException("Company-scoped root workspace creation requires management access");
+        }
+        return treeService.createRoot(new CreateRootWorkspaceCommand(
+                request.companyId(),
                 request.name(),
                 request.slug(),
                 request.visibility(),
@@ -82,8 +88,13 @@ abstract class WorkspaceControllerSupport {
         return treeService.getById(workspaceId, context(platformAdmin));
     }
 
+    @Deprecated(since = "2.x", forRemoval = false)
     WorkspaceRef getByPath(String path, boolean platformAdmin) {
         return treeService.getByPath(path, context(platformAdmin));
+    }
+
+    WorkspaceRef getByPath(Long companyId, String path, boolean platformAdmin) {
+        return treeService.getByPath(companyId, path, context(platformAdmin));
     }
 
     Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, boolean platformAdmin) {

@@ -12,6 +12,14 @@ public interface WorkspaceTreeService {
 
     WorkspaceRef createRoot(CreateWorkspaceCommand command);
 
+    default WorkspaceRef createRoot(CreateRootWorkspaceCommand command) {
+        return createRoot(new CreateWorkspaceCommand(
+                command.name(),
+                command.slug(),
+                command.visibility(),
+                command.actor()));
+    }
+
     WorkspaceRef createChild(Long parentWorkspaceId, CreateWorkspaceCommand command);
 
     WorkspaceRef update(Long workspaceId, UpdateWorkspaceCommand command);
@@ -20,7 +28,15 @@ public interface WorkspaceTreeService {
 
     WorkspaceRef getById(Long workspaceId, WorkspaceAccessContext actor);
 
+    /**
+     * @deprecated use {@link #getByPath(Long, String, WorkspaceAccessContext)} for company-scoped lookup.
+     */
+    @Deprecated(since = "2.x", forRemoval = false)
     WorkspaceRef getByPath(String path, WorkspaceAccessContext actor);
+
+    default WorkspaceRef getByPath(Long companyId, String path, WorkspaceAccessContext actor) {
+        return getByPath(path, actor);
+    }
 
     Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, WorkspaceAccessContext actor);
 

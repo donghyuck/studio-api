@@ -20,6 +20,7 @@ import org.springframework.security.access.AccessDeniedException;
 
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
+import studio.one.platform.workspace.exception.WorkspaceValidationException;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
 import studio.one.platform.workspace.permission.WorkspacePermissionContributor;
@@ -30,6 +31,7 @@ import studio.one.platform.workspace.persistence.jpa.WorkspaceClosureJpaReposito
 import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepository;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
+import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
@@ -72,7 +74,9 @@ class DefaultWorkspaceServiceTest {
         var root = createRoot("Acme", "acme", OWNER);
         var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
 
+        assertThat(root.companyId()).isNull();
         assertThat(root.path()).isEqualTo("acme");
+        assertThat(child.companyId()).isNull();
         assertThat(child.path()).isEqualTo("acme/engineering");
         assertThat(child.rootId()).isEqualTo(root.id());
         assertThat(closureRepository.findAncestorIds(child.id())).containsExactly(root.id(), child.id());
@@ -82,6 +86,67 @@ class DefaultWorkspaceServiceTest {
                         OWNER.userId(),
                         WorkspaceRole.OWNER,
                         false));
+    }
+
+    @Test
+    void rootCanBeScopedToCompanyAndChildInheritsCompany() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+
+        assertThat(root.companyId()).isEqualTo(10L);
+        assertThat(child.companyId()).isEqualTo(10L);
+        assertThat(treeService.getByPath(10L, "acme/engineering", OWNER).id()).isEqualTo(child.id());
+        assertThatThrownBy(() -> treeService.getByPath(20L, "acme/engineering", PLATFORM_ADMIN))
+                .isInstanceOf(WorkspaceNotFoundException.class);
+    }
+
+    @Test
+    void companyScopedPublicWorkspaceDoesNotGrantImplicitViewerAcrossCompanies() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PUBLIC,
+                OWNER));
+        var authenticated = new WorkspaceAccessContext(77L, "authenticated", false);
+
+        assertThatThrownBy(() -> treeService.getById(root.id(), authenticated))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void companyRequiredRejectsLegacyRootCreationWithoutCompanyId() {
+        WorkspaceTreeService companyRequiredTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                (WorkspaceMemberJpaRepository) null,
+                permissionService,
+                new WorkspaceSettings(10, 200, 100, true, true));
+
+        assertThatThrownBy(() -> companyRequiredTreeService.createRoot(createCommand("Acme", "acme", OWNER)))
+                .isInstanceOf(WorkspaceValidationException.class);
+    }
+
+    @Test
+    void companyRequiredRejectsMovingLegacyWorkspaceToRoot() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        WorkspaceTreeService companyRequiredTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                (WorkspaceMemberJpaRepository) null,
+                permissionService,
+                new WorkspaceSettings(10, 200, 100, true, true));
+
+        assertThatThrownBy(() -> companyRequiredTreeService.changeParent(
+                child.id(),
+                new ChangeWorkspaceParentCommand(null, OWNER)))
+                .isInstanceOf(WorkspaceValidationException.class);
     }
 
     @Test
@@ -361,6 +426,28 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void changeParentRejectsCrossCompanyMove() {
+        var acme = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var beta = treeService.createRoot(new CreateRootWorkspaceCommand(
+                20L,
+                "Beta",
+                "beta",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+
+        assertThatThrownBy(() -> treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(beta.id(), PLATFORM_ADMIN)))
+                .isInstanceOf(WorkspaceConflictException.class);
+    }
+
+    @Test
     void changeParentRejectsArchivedWorkspaceMutation() {
         var acme = createRoot("Acme", "acme", OWNER);
         var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
@@ -427,6 +514,15 @@ class DefaultWorkspaceServiceTest {
                 .getContent())
                 .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
                 .containsExactly(beta.id(), design.id());
+    }
+
+    @Test
+    void managementListRejectsInvalidCompanyIdFilter() {
+        assertThatThrownBy(() -> treeService.list(
+                new WorkspaceListQuery(null, 0L, null, null, null),
+                PageRequest.of(0, 10),
+                PLATFORM_ADMIN))
+                .isInstanceOf(WorkspaceValidationException.class);
     }
 
     @Test

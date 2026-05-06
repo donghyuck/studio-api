@@ -69,12 +69,13 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     @GetMapping
     public ResponseEntity<ApiResponse<Page<WorkspaceRef>>> list(
             @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "companyId", required = false) Long companyId,
             @RequestParam(value = "parentId", required = false) Long parentId,
             @RequestParam(value = "rootOnly", required = false) Boolean rootOnly,
             @RequestParam(value = "archived", required = false) Boolean archived,
             @PageableDefault(size = 20, sort = "path", direction = Sort.Direction.ASC) Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok(list(
-                new WorkspaceListQuery(q, parentId, rootOnly, archived),
+                new WorkspaceListQuery(q, companyId, parentId, rootOnly, archived),
                 pageable,
                 true)));
     }
@@ -85,8 +86,10 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     }
 
     @GetMapping("/by-path")
-    public ResponseEntity<ApiResponse<WorkspaceRef>> getByPath(@RequestParam("path") String path) {
-        return ResponseEntity.ok(ApiResponse.ok(getByPath(path, true)));
+    public ResponseEntity<ApiResponse<WorkspaceRef>> getByPath(
+            @RequestParam(value = "companyId", required = false) Long companyId,
+            @RequestParam("path") String path) {
+        return ResponseEntity.ok(ApiResponse.ok(getByPath(companyId, path, true)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/children")

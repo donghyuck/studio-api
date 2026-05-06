@@ -11,7 +11,11 @@ public interface WorkspaceJpaRepository extends JpaRepository<WorkspaceEntity, L
 
     Optional<WorkspaceEntity> findByPath(String path);
 
+    Optional<WorkspaceEntity> findByCompanyIdAndPath(Long companyId, String path);
+
     boolean existsByPath(String path);
+
+    boolean existsByCompanyIdAndPath(Long companyId, String path);
 
     boolean existsByParentIdAndSlug(Long parentId, String slug);
 
