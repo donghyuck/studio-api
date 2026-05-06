@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
+import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.workspace.permission.WorkspacePermissionContributor;
@@ -64,13 +65,15 @@ public class WorkspaceAutoConfiguration {
             WorkspaceClosureJpaRepository closureRepository,
             WorkspaceMemberJpaRepository memberRepository,
             ObjectProvider<WorkspacePermissionContributor> contributors,
+            ObjectProvider<ApplicationCompanyMemberService> companyMemberServiceProvider,
             WorkspaceSettings settings) {
         return new DefaultWorkspacePermissionService(
                 workspaceRepository,
                 closureRepository,
                 memberRepository,
                 contributors.orderedStream().toList(),
-                settings);
+                settings,
+                companyMemberServiceProvider.getIfAvailable());
     }
 
     @Bean

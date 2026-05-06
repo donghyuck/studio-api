@@ -12,12 +12,17 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.security.access.AccessDeniedException;
 
+import studio.one.base.user.company.model.CompanyMemberRef;
+import studio.one.base.user.company.model.CompanyRole;
+import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.exception.WorkspaceValidationException;
@@ -65,6 +70,9 @@ class DefaultWorkspaceServiceTest {
 
     @jakarta.annotation.Resource
     private WorkspaceJpaRepository workspaceRepository;
+
+    @jakarta.annotation.Resource
+    private WorkspaceMemberJpaRepository memberRepository;
 
     @jakarta.annotation.Resource
     private EntityManager entityManager;
@@ -579,6 +587,55 @@ class DefaultWorkspaceServiceTest {
                 .doesNotContain("wiki.page.update");
     }
 
+    @Test
+    void companyOwnerOverrideGrantsWorkspaceAndWikiActionsWhenWorkspaceRoleIsMissing() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var companyOwner = new WorkspaceAccessContext(50L, "company-owner", false);
+        WorkspacePermissionService permissions = permissionServiceWithCompanyRole(10L, 50L, CompanyRole.OWNER);
+
+        assertThat(permissions.getEffectiveRole(root.id(), companyOwner)).isEqualTo(WorkspaceRole.OWNER);
+        assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.update")).isTrue();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.update")).isTrue();
+    }
+
+    @Test
+    void companyAdminDoesNotOverridePrivateWorkspaceOrWikiRead() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var companyAdmin = new WorkspaceAccessContext(51L, "company-admin", false);
+        WorkspacePermissionService permissions = permissionServiceWithCompanyRole(10L, 51L, CompanyRole.ADMIN);
+
+        assertThat(permissions.getEffectiveRole(root.id(), companyAdmin)).isNull();
+        assertThat(permissions.isGranted(root.id(), companyAdmin, "workspace.read")).isFalse();
+        assertThat(permissions.isGranted(root.id(), companyAdmin, "wiki.page.read")).isFalse();
+    }
+
+    @Test
+    void archivedWorkspaceBlocksCompanyOwnerMutationOverride() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        treeService.archive(root.id(), OWNER);
+        var companyOwner = new WorkspaceAccessContext(50L, "company-owner", false);
+        WorkspacePermissionService permissions = permissionServiceWithCompanyRole(10L, 50L, CompanyRole.OWNER);
+
+        assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.read")).isTrue();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.update")).isFalse();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.update")).isFalse();
+    }
+
     private studio.one.platform.workspace.model.WorkspaceRef createRoot(
             String name,
             String slug,
@@ -588,6 +645,83 @@ class DefaultWorkspaceServiceTest {
 
     private CreateWorkspaceCommand createCommand(String name, String slug, WorkspaceAccessContext actor) {
         return new CreateWorkspaceCommand(name, slug, WorkspaceVisibility.PRIVATE, actor);
+    }
+
+    private WorkspacePermissionService permissionServiceWithCompanyRole(
+            Long companyId,
+            Long userId,
+            CompanyRole role) {
+        return new DefaultWorkspacePermissionService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                List.of(wikiLikeContributor()),
+                WorkspaceSettings.defaults(),
+                companyMemberService(companyId, userId, role));
+    }
+
+    private ApplicationCompanyMemberService companyMemberService(Long companyId, Long userId, CompanyRole role) {
+        return new ApplicationCompanyMemberService() {
+            @Override
+            public CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void removeMember(Long companyId, Long userId, Long actorUserId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompanyMemberRef getMember(Long companyId, Long userId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Page<CompanyMemberRef> getMembers(Long companyId, Pageable pageable) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<CompanyMemberRef> getMembers(Long companyId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public boolean isCompanyMember(Long companyId, Long userId) {
+                return getCompanyRole(companyId, userId) != null;
+            }
+
+            @Override
+            public CompanyRole getCompanyRole(Long requestedCompanyId, Long requestedUserId) {
+                return companyId.equals(requestedCompanyId) && userId.equals(requestedUserId) ? role : null;
+            }
+        };
+    }
+
+    private static WorkspacePermissionContributor wikiLikeContributor() {
+        return new WorkspacePermissionContributor() {
+            @Override
+            public List<WorkspacePermissionDefinition> permissions() {
+                return List.of(
+                        new WorkspacePermissionDefinition("wiki.page.read", "Read wiki pages"),
+                        new WorkspacePermissionDefinition("wiki.page.history.read", "Read wiki page history"),
+                        new WorkspacePermissionDefinition("wiki.page.update", "Update wiki pages"));
+            }
+
+            @Override
+            public List<WorkspaceRolePermissionMapping> defaultMappings() {
+                return List.of(
+                        new WorkspaceRolePermissionMapping(WorkspaceRole.VIEWER, "wiki.page.read"),
+                        new WorkspaceRolePermissionMapping(WorkspaceRole.VIEWER, "wiki.page.history.read"),
+                        new WorkspaceRolePermissionMapping(WorkspaceRole.EDITOR, "wiki.page.update"));
+            }
+        };
     }
 
     @SpringBootConfiguration

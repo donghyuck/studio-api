@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.base.user.company.model.CompanyRole;
+import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
@@ -42,6 +44,16 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
     private final WorkspaceMemberJpaRepository memberRepository;
     private final List<WorkspacePermissionContributor> contributors;
     private final WorkspaceSettings settings;
+    private final ApplicationCompanyMemberService companyMemberService;
+
+    public DefaultWorkspacePermissionService(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository,
+            List<WorkspacePermissionContributor> contributors,
+            WorkspaceSettings settings) {
+        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, null);
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -62,8 +74,12 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
         if (actor != null && actor.platformAdmin()) {
             return true;
         }
-        WorkspaceRole role = getEffectiveRole(workspace, actor == null ? null : actor.userId());
-        return isMapped(role, action);
+        Long userId = actor == null ? null : actor.userId();
+        WorkspaceRole role = getEffectiveWorkspaceRole(workspace, userId);
+        if (isMapped(role, action)) {
+            return true;
+        }
+        return isCompanyOwner(workspace, userId) && isMapped(WorkspaceRole.OWNER, action);
     }
 
     @Override
@@ -134,6 +150,14 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
     }
 
     private WorkspaceRole getEffectiveRole(WorkspaceEntity workspace, Long userId) {
+        WorkspaceRole role = getEffectiveWorkspaceRole(workspace, userId);
+        if (role == null && isCompanyOwner(workspace, userId)) {
+            return WorkspaceRole.OWNER;
+        }
+        return role;
+    }
+
+    private WorkspaceRole getEffectiveWorkspaceRole(WorkspaceEntity workspace, Long userId) {
         if (userId == null || userId <= 0) {
             return null;
         }
@@ -150,6 +174,13 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             strongest = WorkspaceRole.VIEWER;
         }
         return strongest;
+    }
+
+    private boolean isCompanyOwner(WorkspaceEntity workspace, Long userId) {
+        if (companyMemberService == null || workspace.getCompanyId() == null || userId == null || userId <= 0) {
+            return false;
+        }
+        return companyMemberService.getCompanyRole(workspace.getCompanyId(), userId) == CompanyRole.OWNER;
     }
 
     private boolean isMapped(WorkspaceRole role, String action) {
