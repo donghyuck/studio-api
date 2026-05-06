@@ -68,9 +68,14 @@ public class WorkspaceAutoConfiguration {
             ObjectProvider<ApplicationCompanyMemberService> companyMemberServiceProvider,
             WorkspaceProperties properties,
             WorkspaceSettings settings) {
-        ApplicationCompanyMemberService companyMemberService = properties.getPermission().isCompanyOwnerOverrideEnabled()
-                ? companyMemberServiceProvider.getIfAvailable()
-                : null;
+        ApplicationCompanyMemberService companyMemberService = null;
+        if (properties.getPermission().isCompanyOwnerOverrideEnabled()) {
+            companyMemberService = companyMemberServiceProvider.getIfAvailable();
+            if (companyMemberService == null) {
+                throw new IllegalStateException(
+                        "studio.workspace.permission.company-owner-override-enabled requires ApplicationCompanyMemberService");
+            }
+        }
         return new DefaultWorkspacePermissionService(
                 workspaceRepository,
                 closureRepository,

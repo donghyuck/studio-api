@@ -47,7 +47,7 @@ studio:
 
 관리용 API는 `features:workspace/manage` 또는 platform `ADMIN` role을 요구합니다. 사용자용 API는 endpoint auth 통과 후 service layer에서 workspace role/visibility permission을 다시 검사합니다.
 
-Company scope가 있는 workspace는 Workspace role을 1차 권한 기준으로 사용합니다. `studio.workspace.permission.company-owner-override-enabled=true`일 때만 Workspace role이 부족한 Company `OWNER`가 Workspace `OWNER`급 override를 받으며, Company `ADMIN`은 private workspace나 wiki content read 권한을 자동으로 얻지 않습니다.
+Company scope가 있는 workspace는 Workspace role을 1차 권한 기준으로 사용합니다. `studio.workspace.permission.company-owner-override-enabled=true`일 때만 Workspace role이 부족한 Company `OWNER`가 Workspace `OWNER`급 override를 받으며, Company `ADMIN`은 private workspace나 wiki content read 권한을 자동으로 얻지 않습니다. 이 설정을 켜려면 `ApplicationCompanyMemberService` bean이 필요하며, 없으면 애플리케이션이 기동 단계에서 실패합니다.
 
 관리 화면에서 전체 workspace 목록을 시작점으로 조회할 때는 `GET /api/mgmt/workspaces`를 사용합니다. `q`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort` query parameter를 지원하며 기본 정렬은 `path ASC`입니다.
 

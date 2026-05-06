@@ -100,6 +100,19 @@ class WorkspaceAutoConfigurationTest {
     }
 
     @Test
+    void companyOwnerOverrideFailsFastWhenCompanyMemberServiceIsMissing() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.workspace.permission.company-owner-override-enabled=true")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("company-owner-override-enabled requires ApplicationCompanyMemberService");
+                });
+    }
+
+    @Test
     void registersWebControllersOnlyWhenWebFeatureEnabled() {
         contextRunner
                 .withPropertyValues(
