@@ -9,7 +9,7 @@
 
 root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다. child 생성 시 parent ancestor closure를 복사하고 self closure를 추가합니다.
 
-root 생성은 `companyId`를 받을 수 있습니다. `companyId`는 전환 단계에서 nullable이며, child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다.
+root 생성은 `companyId`를 받을 수 있습니다. `companyId`는 `V1301` 전환 단계에서 nullable이며, child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다. `V1302__enforce_workspace_company_scope.sql` 적용 후에는 DB도 `COMPANY_ID NOT NULL`을 강제하므로 이 설정을 함께 켜야 합니다.
 
 parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 closure row를 서버에서 재계산합니다. `newParentId=null`은 root 이동으로 처리하며, 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 거부합니다.
 
@@ -21,6 +21,15 @@ parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 clo
 - Company `ADMIN`은 tenant 관리자 역할이며 private workspace/wiki content super-reader가 아닙니다.
 - archived workspace는 read/tree/member/permission read 계열만 허용하고 mutation은 거부합니다.
 - 관리용 컨트롤러는 platform admin context로 service를 호출하지만, 사용자용 컨트롤러는 workspace permission을 우회하지 않습니다.
+
+## Company scope enforcement
+
+운영 backfill 완료 후 `V1302__enforce_workspace_company_scope.sql`을 적용하면 `TB_PLATFORM_WORKSPACE.COMPANY_ID`가 필수 컬럼이 되고 기존 전역 `PATH`/`PARENT_ID+SLUG` unique 제약은 company-scoped unique 제약으로 교체됩니다.
+
+- PostgreSQL: `(COMPANY_ID, PATH)`, `(COMPANY_ID, PARENT_ID, SLUG)`, root 전용 partial unique `(COMPANY_ID, SLUG) WHERE PARENT_ID IS NULL`
+- MySQL/MariaDB: generated `PARENT_KEY = COALESCE(PARENT_ID, 0)`와 `(COMPANY_ID, PARENT_KEY, SLUG)` unique
+
+적용 전 null/duplicate 검증과 backfill 절차는 [workspace-company-scope-enforcement.md](../docs/dev/workspace-company-scope-enforcement.md)를 따릅니다.
 
 ## API
 웹 컨트롤러는 starter에서 `studio.features.workspace.web.enabled=true`일 때 등록됩니다.

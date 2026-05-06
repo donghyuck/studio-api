@@ -53,6 +53,8 @@ Company scope가 있는 workspace는 Workspace role을 1차 권한 기준으로 
 
 root workspace 생성 request는 선택적으로 `companyId`를 받을 수 있습니다. `company-required=false`가 기본값이라 기존 company 없는 root 생성은 유지되며, `company-required=true`에서는 root 생성 시 `companyId`가 필수입니다. child workspace는 parent의 `companyId`를 상속합니다. path 조회는 `GET {base-path}/by-path?companyId=10&path=acme/engineering`처럼 company scope를 함께 보낼 수 있고, 기존 `path` 단독 조회도 호환됩니다.
 
+`V1302__enforce_workspace_company_scope.sql`을 적용한 운영 환경은 DB가 `COMPANY_ID NOT NULL`을 강제합니다. 이 단계에서는 `studio.features.workspace.company-required=true`를 함께 설정하고, 기존 데이터 backfill과 duplicate 검증을 먼저 완료해야 합니다. 절차는 [workspace-company-scope-enforcement.md](../../docs/dev/workspace-company-scope-enforcement.md)를 참고합니다.
+
 Workspace member 목록은 사용자용/관리용 경로 모두에서 서버 페이징으로 조회합니다.
 
 - `GET {base-path}/{workspaceId}/members`
