@@ -28,6 +28,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.workspace.permission.WorkspacePermissionContributor;
@@ -71,12 +73,13 @@ public class WorkspaceAutoConfiguration {
 
     @Bean
     @ConditionalOnBean(EntityManagerFactory.class)
-    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace", name = "company-scope-enforced", havingValue = "true")
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     WorkspaceCompanyScopeEnforcementGuard workspaceCompanyScopeEnforcementGuard(
             DataSource dataSource,
-            EntityManagerFactory entityManagerFactory) {
+            EntityManagerFactory entityManagerFactory,
+            WorkspaceFeatureProperties featureProperties) {
         WorkspaceCompanyScopeEnforcementGuard guard = new WorkspaceCompanyScopeEnforcementGuard();
-        guard.verify(dataSource);
+        guard.verify(dataSource, featureProperties);
         return guard;
     }
 
@@ -116,13 +119,25 @@ public class WorkspaceAutoConfiguration {
             WorkspaceClosureJpaRepository closureRepository,
             WorkspaceMemberJpaRepository memberRepository,
             WorkspacePermissionService permissionService,
-            WorkspaceSettings settings) {
+            WorkspaceSettings settings,
+            ObjectProvider<ApplicationCompanyService> companyServiceProvider) {
+        ApplicationCompanyService companyService = null;
+        if (settings.companyRequired() || settings.companyScopeEnforced()) {
+            companyService = companyServiceProvider.getIfAvailable();
+            if (companyService == null) {
+                throw new IllegalStateException(
+                        "studio.features.workspace.company-required/company-scope-enforced requires ApplicationCompanyService");
+            }
+        } else {
+            companyService = companyServiceProvider.getIfAvailable();
+        }
         return new DefaultWorkspaceTreeService(
                 workspaceRepository,
                 closureRepository,
                 memberRepository,
                 permissionService,
-                settings);
+                settings,
+                companyService);
     }
 
     @Bean
@@ -133,13 +148,15 @@ public class WorkspaceAutoConfiguration {
             WorkspaceClosureJpaRepository closureRepository,
             WorkspaceMemberJpaRepository memberRepository,
             WorkspacePermissionService permissionService,
-            EntityManager entityManager) {
+            EntityManager entityManager,
+            ObjectProvider<ApplicationUserService<?, ?>> userServiceProvider) {
         return new DefaultWorkspaceMemberService(
                 workspaceRepository,
                 closureRepository,
                 memberRepository,
                 permissionService,
-                entityManager);
+                entityManager,
+                userServiceProvider.getIfAvailable());
     }
 
     @Configuration
@@ -174,12 +191,17 @@ public class WorkspaceAutoConfiguration {
         private static final String MYSQL = "mysql";
         private static final String MARIADB = "mariadb";
 
-        void verify(DataSource dataSource) {
+        void verify(DataSource dataSource, WorkspaceFeatureProperties featureProperties) {
             try (Connection connection = dataSource.getConnection()) {
                 DatabaseMetaData metadata = connection.getMetaData();
-                if (!hasV1302Shape(metadata, connection)) {
+                boolean v1302Shape = hasV1302Shape(metadata, connection);
+                if (featureProperties.isCompanyScopeEnforced() && !v1302Shape) {
                     throw new IllegalStateException(
                             "studio.features.workspace.company-scope-enforced=true requires V1302 workspace company scope schema");
+                }
+                if (!featureProperties.isCompanyScopeEnforced() && v1302Shape) {
+                    throw new IllegalStateException(
+                            "V1302 workspace company scope schema requires studio.features.workspace.company-scope-enforced=true");
                 }
             } catch (SQLException ex) {
                 throw new IllegalStateException("Failed to verify workspace company scope enforcement schema", ex);

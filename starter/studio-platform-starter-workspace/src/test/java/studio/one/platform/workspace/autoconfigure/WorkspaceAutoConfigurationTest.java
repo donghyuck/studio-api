@@ -1,16 +1,26 @@
 package studio.one.platform.workspace.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
+import org.springframework.boot.autoconfigure.sql.init.SqlInitializationAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
@@ -25,6 +35,7 @@ class WorkspaceAutoConfigurationTest {
             .withConfiguration(AutoConfigurations.of(
                     ConfigurationPropertiesAutoConfiguration.class,
                     DataSourceAutoConfiguration.class,
+                    SqlInitializationAutoConfiguration.class,
                     HibernateJpaAutoConfiguration.class,
                     WorkspaceAutoConfiguration.class,
                     WorkspaceWebAutoConfiguration.class))
@@ -61,6 +72,8 @@ class WorkspaceAutoConfigurationTest {
     @Test
     void mapsCompanyRequiredPropertyToWorkspaceSettings() {
         contextRunner
+                .withBean(ApplicationCompanyService.class,
+                        () -> org.mockito.Mockito.mock(ApplicationCompanyService.class))
                 .withPropertyValues(
                         "studio.features.workspace.enabled=true",
                         "studio.features.workspace.company-required=true")
@@ -74,6 +87,8 @@ class WorkspaceAutoConfigurationTest {
     @Test
     void companyScopeEnforcedFailsFastWhenV1302IndexesAreMissing() {
         contextRunner
+                .withBean(ApplicationCompanyService.class,
+                        () -> org.mockito.Mockito.mock(ApplicationCompanyService.class))
                 .withPropertyValues(
                         "studio.features.workspace.enabled=true",
                         "studio.features.workspace.company-required=true",
@@ -82,6 +97,39 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasMessageContaining("company-scope-enforced=true requires V1302");
+                });
+    }
+
+    @Test
+    void companyScopeEnforcedStartsWhenV1302SchemaShapeExists() {
+        contextRunner
+                .withBean(ApplicationCompanyService.class,
+                        () -> org.mockito.Mockito.mock(ApplicationCompanyService.class))
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.features.workspace.company-required=true",
+                        "studio.features.workspace.company-scope-enforced=true",
+                        "spring.jpa.hibernate.ddl-auto=none",
+                        "spring.sql.init.mode=always",
+                        "spring.sql.init.schema-locations=classpath:workspace-company-scope-v1302-h2.sql")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(WorkspaceAutoConfiguration.WorkspaceCompanyScopeEnforcementGuard.class);
+                });
+    }
+
+    @Test
+    void v1302SchemaShapeRequiresCompanyScopeEnforcedProperty() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "spring.jpa.hibernate.ddl-auto=none",
+                        "spring.sql.init.mode=always",
+                        "spring.sql.init.schema-locations=classpath:workspace-company-scope-v1302-h2.sql")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("V1302 workspace company scope schema requires");
                 });
     }
 
@@ -96,6 +144,66 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context.getStartupFailure())
                             .hasMessageContaining("company-scope-enforced=true requires studio.features.workspace.company-required=true");
                 });
+    }
+
+    @Test
+    void companyRequiredRequiresCompanyService() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.features.workspace.company-required=true")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("requires ApplicationCompanyService");
+                });
+    }
+
+    @Test
+    void v1303CompanyForeignKeyRejectsOrphanWorkspaceRows() throws Exception {
+        assertV1303RejectsOrphanWorkspaceRows("PostgreSQL", "postgres");
+        assertV1303RejectsOrphanWorkspaceRows("MySQL", "mysql");
+        assertV1303RejectsOrphanWorkspaceRows("MySQL", "mariadb");
+    }
+
+    @Test
+    void v1303CompanyForeignKeyRejectsExistingOrphanWorkspaceRows() throws Exception {
+        assertV1303RejectsExistingOrphanWorkspaceRows("PostgreSQL", "postgres");
+        assertV1303RejectsExistingOrphanWorkspaceRows("MySQL", "mysql");
+        assertV1303RejectsExistingOrphanWorkspaceRows("MySQL", "mariadb");
+    }
+
+    private static void assertV1303RejectsOrphanWorkspaceRows(String h2Mode, String dialect) throws Exception {
+        String databaseName = "workspace_fk_" + dialect + "_" + System.nanoTime();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:h2:mem:" + databaseName + ";MODE=" + h2Mode + ";DB_CLOSE_DELAY=-1");
+                Statement statement = connection.createStatement()) {
+            statement.execute("create table TB_APPLICATION_COMPANY (COMPANY_ID BIGINT primary key)");
+            statement.execute("create table TB_PLATFORM_WORKSPACE (WORKSPACE_ID BIGINT primary key, COMPANY_ID BIGINT not null)");
+            statement.execute("insert into TB_APPLICATION_COMPANY (COMPANY_ID) values (10)");
+            statement.execute("insert into TB_PLATFORM_WORKSPACE (WORKSPACE_ID, COMPANY_ID) values (1, 10)");
+            executeSqlResource(statement, "schema/workspace/" + dialect + "/V1303__add_workspace_company_fk.sql");
+
+            assertThatThrownBy(() -> statement.execute(
+                    "insert into TB_PLATFORM_WORKSPACE (WORKSPACE_ID, COMPANY_ID) values (2, 999)"))
+                    .isInstanceOf(SQLException.class);
+        }
+    }
+
+    private static void assertV1303RejectsExistingOrphanWorkspaceRows(String h2Mode, String dialect) throws Exception {
+        String databaseName = "workspace_fk_orphan_" + dialect + "_" + System.nanoTime();
+        try (Connection connection = DriverManager.getConnection(
+                "jdbc:h2:mem:" + databaseName + ";MODE=" + h2Mode + ";DB_CLOSE_DELAY=-1");
+                Statement statement = connection.createStatement()) {
+            statement.execute("create table TB_APPLICATION_COMPANY (COMPANY_ID BIGINT primary key)");
+            statement.execute("create table TB_PLATFORM_WORKSPACE (WORKSPACE_ID BIGINT primary key, COMPANY_ID BIGINT not null)");
+            statement.execute("insert into TB_PLATFORM_WORKSPACE (WORKSPACE_ID, COMPANY_ID) values (1, 999)");
+
+            assertThatThrownBy(() -> executeSqlResource(
+                    statement,
+                    "schema/workspace/" + dialect + "/V1303__add_workspace_company_fk.sql"))
+                    .isInstanceOf(SQLException.class);
+        }
     }
 
     @Test
@@ -167,5 +275,15 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(WorkspaceController.class);
                     assertThat(context).doesNotHaveBean(WorkspaceMgmtController.class);
                 });
+    }
+
+    private static void executeSqlResource(Statement statement, String path) throws Exception {
+        ClassPathResource resource = new ClassPathResource(path);
+        String sql = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        for (String command : sql.split(";")) {
+            if (!command.isBlank()) {
+                statement.execute(command);
+            }
+        }
     }
 }

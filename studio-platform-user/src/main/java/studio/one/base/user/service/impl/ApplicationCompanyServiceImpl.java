@@ -6,6 +6,7 @@ import java.util.function.Consumer;
 import jakarta.annotation.PostConstruct;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -82,7 +83,16 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
 
     @Override
     public void delete(Long companyId) {
-        companyRepo.deleteById(companyId);
+        try {
+            companyRepo.deleteById(companyId);
+            if (companyRepo instanceof org.springframework.data.jpa.repository.JpaRepository<?, ?> jpaRepository) {
+                jpaRepository.flush();
+            }
+        } catch (DataIntegrityViolationException ex) {
+            throw new IllegalStateException(
+                    "Company has dependent data; archive the company before removing related records: " + companyId,
+                    ex);
+        }
     }
 
     @Override

@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import jakarta.persistence.EntityManager;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.SpringBootConfiguration;
@@ -22,7 +25,15 @@ import org.springframework.security.access.AccessDeniedException;
 
 import studio.one.base.user.company.model.CompanyMemberRef;
 import studio.one.base.user.company.model.CompanyRole;
+import studio.one.base.user.domain.entity.ApplicationCompany;
+import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.domain.model.Status;
+import studio.one.base.user.domain.model.User;
+import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.service.ApplicationUserService;
+import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.exception.WorkspaceValidationException;
@@ -55,6 +66,7 @@ class DefaultWorkspaceServiceTest {
     private static final WorkspaceAccessContext EDITOR = new WorkspaceAccessContext(2L, "editor", false);
     private static final WorkspaceAccessContext VIEWER = new WorkspaceAccessContext(3L, "viewer", false);
     private static final WorkspaceAccessContext PLATFORM_ADMIN = new WorkspaceAccessContext(99L, "admin", true);
+    private static final Map<Long, TestUser> TEST_USERS = new ConcurrentHashMap<>();
 
     @jakarta.annotation.Resource
     private WorkspaceTreeService treeService;
@@ -76,6 +88,11 @@ class DefaultWorkspaceServiceTest {
 
     @jakarta.annotation.Resource
     private EntityManager entityManager;
+
+    @BeforeEach
+    void clearTestUsers() {
+        TEST_USERS.clear();
+    }
 
     @Test
     void createsRootAndChildWithPathClosureAndOwner() {
@@ -120,7 +137,8 @@ class DefaultWorkspaceServiceTest {
                 closureRepository,
                 memberRepository,
                 permissionService,
-                new WorkspaceSettings(10, 200, 100, true, true, true));
+                new WorkspaceSettings(10, 200, 100, true, true, true),
+                companyService());
 
         var acme = companyScopeEnforcedTreeService.createRoot(new CreateRootWorkspaceCommand(
                 10L,
@@ -173,6 +191,29 @@ class DefaultWorkspaceServiceTest {
 
         assertThatThrownBy(() -> companyRequiredTreeService.createRoot(createCommand("Acme", "acme", OWNER)))
                 .isInstanceOf(WorkspaceValidationException.class);
+    }
+
+    @Test
+    void companyRequiredRejectsMissingCompanyIdBeforePersistingRoot() {
+        ApplicationCompanyService missingCompanyService = org.mockito.Mockito.mock(ApplicationCompanyService.class);
+        org.mockito.Mockito.when(missingCompanyService.get(404L)).thenThrow(NotFoundException.of("company", 404L));
+        WorkspaceTreeService companyRequiredTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                permissionService,
+                new WorkspaceSettings(10, 200, 100, true, true, true),
+                missingCompanyService);
+        long before = workspaceRepository.count();
+
+        assertThatThrownBy(() -> companyRequiredTreeService.createRoot(new CreateRootWorkspaceCommand(
+                404L,
+                "Missing Company",
+                "missing-company",
+                WorkspaceVisibility.PRIVATE,
+                OWNER)))
+                .isInstanceOf(NotFoundException.class);
+        assertThat(workspaceRepository.count()).isEqualTo(before);
     }
 
     @Test
@@ -277,6 +318,56 @@ class DefaultWorkspaceServiceTest {
                 new WorkspaceMemberListQuery(null, null, true),
                 PageRequest.of(0, 10),
                 OWNER).getTotalElements()).isZero();
+    }
+
+    @Test
+    void directMemberKeywordSearchWorksWithoutUserServiceUsingNumericKeywordOnly() {
+        var root = createRoot("Acme", "acme", OWNER);
+        WorkspaceMemberService numericOnlyMemberService = new DefaultWorkspaceMemberService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                permissionService,
+                entityManager,
+                null);
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(123L, WorkspaceRole.EDITOR, OWNER));
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(456L, WorkspaceRole.VIEWER, OWNER));
+
+        var numericKeyword = numericOnlyMemberService.getDirectMembers(
+                root.id(),
+                new WorkspaceMemberListQuery("123", null, null),
+                PageRequest.of(0, 10),
+                OWNER);
+        var textKeyword = numericOnlyMemberService.getDirectMembers(
+                root.id(),
+                new WorkspaceMemberListQuery("alice", null, null),
+                PageRequest.of(0, 10),
+                OWNER);
+
+        assertThat(numericKeyword.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .containsExactly(123L);
+        assertThat(textKeyword.getTotalElements()).isZero();
+    }
+
+    @Test
+    void directMemberKeywordSearchFindsWorkspaceMemberBeyondFirstUserSearchPage() {
+        var root = createRoot("Acme", "acme", OWNER);
+        for (long userId = 1000; userId <= 1200; userId++) {
+            insertUser(userId, "alice-" + userId, "Alice " + userId, "alice-" + userId + "@example.com");
+        }
+        insertUser(1201L, "alice-target", "Alice Target", "alice-target@example.com");
+        memberService.addMember(root.id(), new WorkspaceMemberCommand(1201L, WorkspaceRole.EDITOR, OWNER));
+
+        var keywordPage = memberService.getDirectMembers(
+                root.id(),
+                new WorkspaceMemberListQuery("alice", null, null),
+                PageRequest.of(0, 10),
+                OWNER);
+
+        assertThat(keywordPage.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .containsExactly(1201L);
     }
 
     @Test
@@ -852,7 +943,8 @@ class DefaultWorkspaceServiceTest {
                     closureRepository,
                     memberRepository,
                     permissionService,
-                    entityManager);
+                    entityManager,
+                    testUserService());
         }
     }
 
@@ -869,6 +961,164 @@ class DefaultWorkspaceServiceTest {
                 .setParameter("name", name)
                 .setParameter("email", email)
                 .executeUpdate();
+        TEST_USERS.put(userId, new TestUser(userId, username, name, email));
+    }
+
+    private static ApplicationCompanyService companyService() {
+        ApplicationCompanyService service = org.mockito.Mockito.mock(ApplicationCompanyService.class);
+        org.mockito.Mockito.when(service.get(org.mockito.Mockito.anyLong())).thenAnswer(invocation -> {
+            ApplicationCompany company = new ApplicationCompany();
+            company.setCompanyId(invocation.getArgument(0));
+            return company;
+        });
+        return service;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ApplicationUserService<User, Role> testUserService() {
+        return (ApplicationUserService<User, Role>) java.lang.reflect.Proxy.newProxyInstance(
+                ApplicationUserService.class.getClassLoader(),
+                new Class<?>[] { ApplicationUserService.class },
+                (proxy, method, args) -> {
+                    if ("findByNameOrUsernameOrEmail".equals(method.getName())) {
+                        String keyword = String.valueOf(args[0]).toLowerCase(java.util.Locale.ROOT);
+                        Pageable pageable = (Pageable) args[1];
+                        List<User> users = TEST_USERS.values().stream()
+                                .filter(user -> contains(user.getUsername(), keyword)
+                                        || contains(user.getName(), keyword)
+                                        || contains(user.getEmail(), keyword))
+                                .sorted(java.util.Comparator.comparing(User::getUserId))
+                                .skip(pageable.getOffset())
+                                .limit(pageable.getPageSize())
+                                .map(user -> (User) user)
+                                .toList();
+                        long total = TEST_USERS.values().stream()
+                                .filter(user -> contains(user.getUsername(), keyword)
+                                        || contains(user.getName(), keyword)
+                                        || contains(user.getEmail(), keyword))
+                                .count();
+                        return new org.springframework.data.domain.PageImpl<>(users, pageable, total);
+                    }
+                    if ("get".equals(method.getName())) {
+                        Long userId = (Long) args[0];
+                        TestUser user = TEST_USERS.get(userId);
+                        if (user == null) {
+                            throw UserNotFoundException.byId(userId);
+                        }
+                        return user;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    private static boolean contains(String value, String keyword) {
+        return value != null && value.toLowerCase(java.util.Locale.ROOT).contains(keyword);
+    }
+
+    record TestUser(Long userId, String username, String name, String email) implements User {
+        @Override
+        public Long getUserId() {
+            return userId;
+        }
+
+        @Override
+        public String getUsername() {
+            return username;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public String getFirstName() {
+            return null;
+        }
+
+        @Override
+        public String getLastName() {
+            return null;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return true;
+        }
+
+        @Override
+        public boolean isNameVisible() {
+            return true;
+        }
+
+        @Override
+        public boolean isEmailVisible() {
+            return true;
+        }
+
+        @Override
+        public Status getStatus() {
+            return Status.APPROVED;
+        }
+
+        @Override
+        public String getPassword() {
+            return null;
+        }
+
+        @Override
+        public boolean isAnonymous() {
+            return false;
+        }
+
+        @Override
+        public String getEmail() {
+            return email;
+        }
+
+        @Override
+        public int getFailedAttempts() {
+            return 0;
+        }
+
+        @Override
+        public boolean isAccountLockedNow(java.time.Instant now) {
+            return false;
+        }
+
+        @Override
+        public java.time.Instant getLastFailedAt() {
+            return null;
+        }
+
+        @Override
+        public java.time.Instant getAccountLockedUntil() {
+            return null;
+        }
+
+        @Override
+        public java.time.Instant getCreationDate() {
+            return null;
+        }
+
+        @Override
+        public java.time.Instant getModifiedDate() {
+            return null;
+        }
+
+        @Override
+        public boolean isExternal() {
+            return false;
+        }
+
+        @Override
+        public Map<String, String> getProperties() {
+            return Map.of();
+        }
+
+        @Override
+        public void setProperties(Map<String, String> properties) {
+        }
     }
 
     @jakarta.persistence.Entity

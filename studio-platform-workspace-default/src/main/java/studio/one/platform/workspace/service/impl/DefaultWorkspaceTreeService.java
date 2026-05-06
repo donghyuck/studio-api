@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.exception.WorkspaceValidationException;
@@ -69,6 +70,16 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     private final WorkspaceMemberJpaRepository memberRepository;
     private final WorkspacePermissionService permissionService;
     private final WorkspaceSettings settings;
+    private final ApplicationCompanyService companyService;
+
+    public DefaultWorkspaceTreeService(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository,
+            WorkspacePermissionService permissionService,
+            WorkspaceSettings settings) {
+        this(workspaceRepository, closureRepository, memberRepository, permissionService, settings, null);
+    }
 
     @Override
     @Transactional
@@ -84,6 +95,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         if (requiresCompanyId() && companyId == null) {
             throw new WorkspaceValidationException("Workspace companyId is required");
         }
+        validateCompanyExists(companyId);
         String slug = normalizeSlug(command.slug());
         String name = normalizeName(command.name());
         if (existsByScopedRootSlug(companyId, slug) || existsByScopedPath(companyId, slug)) {
@@ -467,6 +479,19 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             throw new WorkspaceValidationException("Workspace companyId must be positive");
         }
         return companyId;
+    }
+
+    private void validateCompanyExists(Long companyId) {
+        if (companyId == null) {
+            return;
+        }
+        if (companyService != null) {
+            companyService.get(companyId);
+            return;
+        }
+        if (settings.companyRequired() || settings.companyScopeEnforced()) {
+            throw new IllegalStateException("ApplicationCompanyService is required to validate workspace companyId");
+        }
     }
 
     private boolean existsByScopedPath(Long companyId, String path) {

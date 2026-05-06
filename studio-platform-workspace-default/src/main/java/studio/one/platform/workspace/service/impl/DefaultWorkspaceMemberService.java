@@ -6,7 +6,6 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -22,6 +21,9 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.domain.model.User;
+import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.exception.WorkspaceValidationException;
@@ -61,6 +63,16 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
     private final WorkspaceMemberJpaRepository memberRepository;
     private final WorkspacePermissionService permissionService;
     private final EntityManager entityManager;
+    private final ApplicationUserService<? extends User, ? extends Role> userService;
+
+    public DefaultWorkspaceMemberService(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository,
+            WorkspacePermissionService permissionService,
+            EntityManager entityManager) {
+        this(workspaceRepository, closureRepository, memberRepository, permissionService, entityManager, null);
+    }
 
     @Override
     @Transactional
@@ -234,22 +246,35 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
         } catch (NumberFormatException ignored) {
             // Numeric keyword support is additive; non-numeric keywords use user metadata search.
         }
-        String pattern = "%" + escapeLike(keyword.toLowerCase(Locale.ROOT)) + "%";
-        @SuppressWarnings("unchecked")
-        List<Number> rows = entityManager.createNativeQuery("""
-                        select distinct m.USER_ID
-                          from TB_PLATFORM_WORKSPACE_MEMBER m
-                          left join TB_APPLICATION_USER u on u.USER_ID = m.USER_ID
-                         where m.WORKSPACE_ID in (:workspaceIds)
-                           and (lower(coalesce(u.USERNAME, '')) like :pattern escape '!'
-                            or lower(coalesce(u.NAME, '')) like :pattern escape '!'
-                            or lower(coalesce(u.EMAIL, '')) like :pattern escape '!')
-                        """)
-                .setParameter("workspaceIds", workspaceIds)
-                .setParameter("pattern", pattern)
-                .getResultList();
-        rows.forEach(row -> result.add(row.longValue()));
+        if (userService != null) {
+            Set<Long> workspaceUserIds = workspaceUserIds(workspaceIds);
+            searchUsers(keyword, workspaceUserIds).stream()
+                    .map(User::getUserId)
+                    .forEach(result::add);
+        }
         return result;
+    }
+
+    private List<? extends User> searchUsers(String keyword, Set<Long> workspaceUserIds) {
+        if (workspaceUserIds.isEmpty()) {
+            return List.of();
+        }
+        List<User> matches = new ArrayList<>();
+        int page = 0;
+        Page<? extends User> users;
+        do {
+            users = userService.findByNameOrUsernameOrEmail(keyword, PageRequest.of(page++, MAX_PAGE_SIZE));
+            users.getContent().stream()
+                    .filter(user -> workspaceUserIds.contains(user.getUserId()))
+                    .forEach(matches::add);
+        } while (users.hasNext() && matches.size() < workspaceUserIds.size());
+        return matches;
+    }
+
+    private Set<Long> workspaceUserIds(Collection<Long> workspaceIds) {
+        return memberRepository.findByWorkspaceIdIn(workspaceIds).stream()
+                .map(WorkspaceMemberEntity::getUserId)
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private WorkspaceMemberListQuery queryOrAll(WorkspaceMemberListQuery query) {
@@ -307,13 +332,6 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
         int start = Math.toIntExact(Math.min(pageable.getOffset(), members.size()));
         int end = Math.min(start + pageable.getPageSize(), members.size());
         return new PageImpl<>(members.subList(start, end), pageable, members.size());
-    }
-
-    private String escapeLike(String value) {
-        return value
-                .replace("!", "!!")
-                .replace("%", "!%")
-                .replace("_", "!_");
     }
 
     private WorkspaceAccessContext requireActor(WorkspaceAccessContext actor) {

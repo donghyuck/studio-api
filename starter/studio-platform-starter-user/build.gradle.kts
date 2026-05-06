@@ -26,4 +26,10 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.mapstruct:mapstruct:$mapstructVersion")
     testImplementation(project(":studio-platform-autoconfigure"))
+    testImplementation(project(":studio-platform-identity"))
+    testImplementation(project(":studio-platform-user-default"))
+    testImplementation("org.springframework.data:spring-data-commons")
+    testImplementation("org.springframework:spring-jdbc")
+    testImplementation("org.springframework.security:spring-security-core")
+    testImplementation("org.springframework.security:spring-security-crypto")
 }

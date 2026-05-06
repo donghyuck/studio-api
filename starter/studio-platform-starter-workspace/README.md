@@ -54,14 +54,14 @@ Company scope가 있는 workspace는 Workspace role을 1차 권한 기준으로 
 
 root workspace 생성 request는 선택적으로 `companyId`를 받을 수 있습니다. `company-required=false`가 기본값이라 기존 company 없는 root 생성은 유지되며, `company-required=true`에서는 root 생성 시 `companyId`가 필수입니다. 사용자용 `POST /api/workspaces`는 company-scoped root 생성을 허용하지 않으므로, company root 생성은 관리용 `POST /api/mgmt/workspaces`를 사용해야 합니다. child workspace는 parent의 `companyId`를 상속합니다. path 조회는 `GET {base-path}/by-path?companyId=10&path=acme/engineering`처럼 company scope를 함께 보낼 수 있습니다. 기존 `path` 단독 조회는 `company-required=false` 전환 기간의 legacy 호환 경로이며, enforcement 전에는 client가 `companyId`를 보내도록 먼저 전환해야 합니다.
 
-`V1302__enforce_workspace_company_scope.sql`을 적용한 운영 환경은 DB가 `COMPANY_ID NOT NULL`과 company-scoped unique 제약을 강제합니다. 이 단계에서는 기존 데이터 backfill과 duplicate 검증을 완료한 뒤 `studio.features.workspace.company-required=true`, `studio.features.workspace.company-scope-enforced=true`를 함께 설정합니다. `company-scope-enforced=true`는 `company-required=true`와 함께만 사용할 수 있고, runtime root slug 중복 체크를 company scope로 전환합니다. V1302 schema가 없으면 애플리케이션은 기동 단계에서 실패합니다. 절차는 [workspace-company-scope-enforcement.md](../../docs/dev/workspace-company-scope-enforcement.md)를 참고합니다.
+`V1302__enforce_workspace_company_scope.sql`을 적용한 운영 환경은 DB가 `COMPANY_ID NOT NULL`과 company-scoped unique 제약을 강제합니다. 이 단계에서는 기존 데이터 backfill과 duplicate 검증을 완료한 뒤 `studio.features.workspace.company-required=true`, `studio.features.workspace.company-scope-enforced=true`를 함께 설정합니다. `company-scope-enforced=true`는 `company-required=true`와 함께만 사용할 수 있고, runtime root slug 중복 체크를 company scope로 전환합니다. V1302 schema가 없으면 애플리케이션은 기동 단계에서 실패합니다. 반대로 V1302 schema가 이미 적용된 DB에서 `company-scope-enforced=false`로 기동하는 것도 tenant-ambiguous `path` 조회를 막기 위해 실패합니다. `V1303__add_workspace_company_fk.sql`은 `TB_PLATFORM_WORKSPACE.COMPANY_ID`가 `TB_APPLICATION_COMPANY.COMPANY_ID`를 참조하도록 강제하므로 user schema migration을 먼저 적용하고 orphan workspace가 없는지 확인해야 합니다. 절차는 [workspace-company-scope-enforcement.md](../../docs/dev/workspace-company-scope-enforcement.md)를 참고합니다.
 
 Workspace member 목록은 사용자용/관리용 경로 모두에서 서버 페이징으로 조회합니다.
 
 - `GET {base-path}/{workspaceId}/members`
 - `GET {base-path}/{workspaceId}/members/effective`
 
-지원 query parameter는 `q`, `keyword`, `role`, `inherited`, `page`, `size`, `sort`입니다. `keyword`는 `q`보다 우선하며 사용자 `username`, `name`, `email`과 숫자 `userId`를 검색합니다. direct member 목록은 항상 `inherited=false`이므로 `inherited=true` 요청 시 빈 페이지를 반환합니다. 응답은 `content`, `totalElements`, `totalPages`, `number`, `size`를 포함하는 `Page<WorkspaceMemberRef>` 형태입니다.
+지원 query parameter는 `q`, `keyword`, `role`, `inherited`, `page`, `size`, `sort`입니다. `keyword`는 `q`보다 우선하며 숫자 `userId`와, `ApplicationUserService` bean이 있을 때 사용자 `username`, `name`, `email`을 검색합니다. direct member 목록은 항상 `inherited=false`이므로 `inherited=true` 요청 시 빈 페이지를 반환합니다. 응답은 `content`, `totalElements`, `totalPages`, `number`, `size`를 포함하는 `Page<WorkspaceMemberRef>` 형태입니다.
 
 Workspace parent 변경은 사용자용/관리용 경로 모두에서 `PATCH {base-path}/{workspaceId}/parent`로 제공합니다. 요청 body의 `newParentId`가 `null`이면 root로 이동합니다.
 
