@@ -41,6 +41,7 @@ Use clear names that describe the actual schema change.
 | `forum` | `1100-1199` |
 | `pages` | `1200-1299` |
 | `workspace` | `1300-1399` |
+| `wiki` | `1400-1499` |
 
 ## Adding a Migration
 

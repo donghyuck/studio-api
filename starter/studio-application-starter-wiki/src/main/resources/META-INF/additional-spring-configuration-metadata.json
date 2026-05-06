@@ -1,0 +1,32 @@
+{
+  "properties": [
+    {
+      "name": "studio.features.wiki.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Enable workspace wiki services."
+    },
+    {
+      "name": "studio.features.wiki.persistence",
+      "type": "java.lang.String",
+      "description": "Wiki persistence implementation. Version 1 supports jpa only.",
+      "defaultValue": "jpa"
+    },
+    {
+      "name": "studio.features.wiki.web.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Expose workspace wiki HTTP endpoints."
+    },
+    {
+      "name": "studio.features.wiki.web.mgmt-base-path",
+      "type": "java.lang.String",
+      "description": "Management workspace API prefix used for wiki endpoints. The controller appends /{workspaceId}/wiki.",
+      "defaultValue": "/api/mgmt/workspaces"
+    },
+    {
+      "name": "studio.features.wiki.web.public-base-path",
+      "type": "java.lang.String",
+      "description": "Authenticated user workspace API prefix used for wiki endpoints. The controller appends /{workspaceId}/wiki.",
+      "defaultValue": "/api/workspaces"
+    }
+  ]
+}
