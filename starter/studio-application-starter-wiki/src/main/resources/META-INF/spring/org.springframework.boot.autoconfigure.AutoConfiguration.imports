@@ -1,0 +1,3 @@
+studio.one.application.wiki.autoconfigure.WikiPermissionAutoConfiguration
+studio.one.application.wiki.autoconfigure.WikiAutoConfiguration
+studio.one.application.wiki.autoconfigure.WikiWebAutoConfiguration

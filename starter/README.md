@@ -9,10 +9,11 @@
 - ACL이 필요하면 `:starter:studio-platform-starter-security-acl`
 - objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
+- workspace 기반 Wiki page/revision API가 필요하면 `:starter:studio-application-starter-wiki`
 - WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - image/PDF 썸네일 생성 SPI가 필요하면 `:starter:studio-platform-thumbnail-starter`
-- 첨부/아바타/템플릿/메일은 각 application starter를 추가
+- 첨부/아바타/템플릿/메일/Wiki는 각 application starter를 추가
 
 최소 예시:
 
@@ -44,7 +45,7 @@ dependencies {
 - `studio-platform-starter-ai-web`: AI HTTP endpoint와 JSON component 노출
 - `studio-platform-starter-jasypt`: Jasypt 암호화/복호화 지원
 - `studio-platform-starter-objectstorage`, `-aws`, `-oci`: 오브젝트 스토리지 공통 및 provider별 구성
-- `studio-application-starter-attachment`, `-avatar`, `-template`, `-mail`: 애플리케이션 기능 모듈 자동 구성
+- `studio-application-starter-attachment`, `-avatar`, `-template`, `-mail`, `-wiki`: 애플리케이션 기능 모듈 자동 구성
 
 ## 대표 조합
 
@@ -80,6 +81,12 @@ implementation("org.springframework.boot:spring-boot-starter-data-redis")
 ```kotlin
 implementation(project(":starter:studio-application-starter-template"))
 implementation(project(":starter:studio-application-starter-mail"))
+```
+
+**Workspace + Wiki 앱**
+```kotlin
+implementation(project(":starter:studio-platform-starter-workspace"))
+implementation(project(":starter:studio-application-starter-wiki"))
 ```
 
 ## studio-platform-starter-ai 사용법

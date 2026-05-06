@@ -20,6 +20,8 @@ import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
 import studio.one.platform.workspace.permission.WorkspacePermissionContributor;
+import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
+import studio.one.platform.workspace.permission.WorkspaceRolePermissionMapping;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceClosureEntity;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceClosureJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
@@ -238,6 +240,19 @@ class DefaultWorkspaceServiceTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void archivedWorkspaceAllowsContributedReadActionsOnly() {
+        var root = createRoot("Acme", "acme", OWNER);
+        treeService.archive(root.id(), OWNER);
+
+        assertThat(permissionService.isGranted(root.id(), OWNER, "wiki.page.read")).isTrue();
+        assertThat(permissionService.isGranted(root.id(), OWNER, "wiki.page.history.read")).isTrue();
+        assertThat(permissionService.isGranted(root.id(), OWNER, "wiki.page.update")).isFalse();
+        assertThat(permissionService.getGrantedActions(root.id(), OWNER))
+                .contains("wiki.page.read", "wiki.page.history.read")
+                .doesNotContain("wiki.page.update");
+    }
+
     private studio.one.platform.workspace.model.WorkspaceRef createRoot(
             String name,
             String slug,
@@ -271,8 +286,29 @@ class DefaultWorkspaceServiceTest {
                     workspaceRepository,
                     closureRepository,
                     memberRepository,
-                    List.<WorkspacePermissionContributor>of(),
+                    List.of(wikiLikeContributor()),
                     settings);
+        }
+
+        @Bean
+        WorkspacePermissionContributor wikiLikeContributor() {
+            return new WorkspacePermissionContributor() {
+                @Override
+                public List<WorkspacePermissionDefinition> permissions() {
+                    return List.of(
+                            new WorkspacePermissionDefinition("wiki.page.read", "Read wiki pages"),
+                            new WorkspacePermissionDefinition("wiki.page.history.read", "Read wiki page history"),
+                            new WorkspacePermissionDefinition("wiki.page.update", "Update wiki pages"));
+                }
+
+                @Override
+                public List<WorkspaceRolePermissionMapping> defaultMappings() {
+                    return List.of(
+                            new WorkspaceRolePermissionMapping(WorkspaceRole.VIEWER, "wiki.page.read"),
+                            new WorkspaceRolePermissionMapping(WorkspaceRole.VIEWER, "wiki.page.history.read"),
+                            new WorkspaceRolePermissionMapping(WorkspaceRole.EDITOR, "wiki.page.update"));
+                }
+            };
         }
 
         @Bean

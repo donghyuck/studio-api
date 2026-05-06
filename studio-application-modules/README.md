@@ -8,6 +8,7 @@
 - 첨부 텍스트 추출, 임베딩, RAG 인덱싱이 필요하면 `content-embedding-pipeline`
 - 템플릿 관리가 필요하면 `template-service`
 - IMAP 동기화와 메일 조회가 필요하면 `mail-service`
+- workspace 기반 Wiki page/revision 관리가 필요하면 `wiki-service`
 
 ## 사용 원칙
 - 일반적으로는 각 모듈보다 대응되는 starter를 통해 붙이는 편이 단순하다.
@@ -64,6 +65,14 @@
 - REST: `studio.features.mail.web.enabled=true` 시 `/api/mgmt/mail` 기본 경로에 컨트롤러 노출(`GET /{mailId}`, `POST /sync`, `GET /sync/logs`, `GET /sync/logs/page`).
 - SSE: 동기화 상태 스트림을 분리된 컨트롤러(`/sync/stream`)로 제공하며, `studio.features.mail.web.sse=true|false`(기본 true)로 노출 여부를 제어.
 
+## Workspace Wiki 서비스
+- 의존성: `studio-application-modules/wiki-service` 또는 `studio-application-starter-wiki`.
+- 활성화: `studio.features.wiki.enabled=true` (+ REST 사용 시 `studio.features.wiki.web.enabled=true`).
+- 저장소: `studio.features.wiki.persistence=jpa` (v1 JPA only).
+- 권한: 별도 Wiki ACL 테이블 없이 `WorkspacePermissionService`와 `WikiWorkspacePermissionContributor`로 `wiki.page.*`, `wiki.admin` action을 등록한다.
+- REST: 사용자용 `/api/workspaces/{workspaceId}/wiki`, 관리용 `/api/mgmt/workspaces/{workspaceId}/wiki` 기본 경로에 page/revision API를 노출한다.
+- 렌더링: CommonMark markdown 렌더링 후 Jsoup sanitize 결과를 `sanitizedHtml`로 응답한다.
+
 ## 문서 바로가기
 - 루트 개요: `../README.md`
 - avatar 상세: `avatar-service/README.md`
@@ -71,3 +80,4 @@
 - attachment 상세: `attachment-service/README.md`
 - mail 상세: `mail-service/README.md`
 - template 상세: `template-service/README.md`
+- wiki 상세: `wiki-service/README.md`
