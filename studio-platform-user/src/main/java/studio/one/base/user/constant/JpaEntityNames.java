@@ -8,6 +8,11 @@ public class JpaEntityNames {
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
     public static final class Company {
         public static final String ENTITY = "ApplicationCompany";
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class Member {
+            public static final String ENTITY = "ApplicationCompanyMember";
+        }
     }
 
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)

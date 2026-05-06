@@ -34,10 +34,14 @@ import org.springframework.context.annotation.Configuration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.service.ApplicationGroupService;
+import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
+import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.web.controller.GroupMgmtController;
+import studio.one.base.user.web.controller.CompanyMgmtController;
 import studio.one.base.user.web.controller.UserMeController;
 import studio.one.base.user.web.controller.UserMeApi;
 import studio.one.base.user.web.controller.UserAuthPublicController;
@@ -192,6 +196,26 @@ public class UserEndpointsAutoConfiguration {
                 webProperties.normalizedBasePath() + "/roles",
                 LogUtils.blue("ACL-managed")));
         return new RoleMgmtController(svc, mapper, gmapper, identityServiceProvider);
+    }
+
+    @Bean
+    @ConditionalOnBean({
+            ApplicationCompanyService.class,
+            ApplicationCompanyMemberService.class,
+            ApplicationCompanyPermissionService.class })
+    @ConditionalOnMissingBean(CompanyMgmtController.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".company", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public CompanyMgmtController companyEndpoint(
+            ApplicationCompanyService companyService,
+            ApplicationCompanyMemberService memberService,
+            ApplicationCompanyPermissionService permissionService,
+            ObjectProvider<IdentityService> identityServiceProvider) {
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue(ApplicationCompanyService.class, true),
+                LogUtils.blue(CompanyMgmtController.class, true),
+                webProperties.normalizedBasePath() + "/companies",
+                LogUtils.blue("ACL-managed")));
+        return new CompanyMgmtController(companyService, memberService, permissionService, identityServiceProvider);
     }
 
     @Bean

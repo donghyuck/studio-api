@@ -13,8 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.company.model.CompanyRole;
+import studio.one.base.user.company.model.CompanyStatus;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
+import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.platform.component.State;
 import studio.one.platform.exception.NotFoundException;
@@ -29,6 +32,8 @@ import studio.one.platform.util.LogUtils;
 public class ApplicationCompanyServiceImpl implements ApplicationCompanyService {
 
     private final ApplicationCompanyRepository companyRepo;
+
+    private final ObjectProvider<ApplicationCompanyMemberService> memberServiceProvider;
 
     private final ObjectProvider<I18n> i18nProvider;
 
@@ -48,8 +53,23 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
 
     @Override
     public ApplicationCompany create(ApplicationCompany company) {
+        return create(company, null);
+    }
+
+    @Override
+    public ApplicationCompany create(ApplicationCompany company, Long actorUserId) {
         company.setCompanyId(null);
-        return companyRepo.save(company);
+        if (company.getStatus() == null) {
+            company.setStatus(CompanyStatus.ACTIVE);
+        }
+        ApplicationCompany saved = companyRepo.save(company);
+        if (actorUserId != null && actorUserId > 0) {
+            ApplicationCompanyMemberService memberService = memberServiceProvider.getIfAvailable();
+            if (memberService != null) {
+                memberService.addMember(saved.getCompanyId(), actorUserId, CompanyRole.OWNER, actorUserId);
+            }
+        }
+        return saved;
     }
 
     @Override
@@ -62,6 +82,15 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
     @Override
     public void delete(Long companyId) {
         companyRepo.deleteById(companyId);
+    }
+
+    @Override
+    public ApplicationCompany archive(Long companyId, Long actorUserId) {
+        return update(companyId, company -> {
+            company.setStatus(CompanyStatus.ARCHIVED);
+            company.setArchivedAt(java.time.Instant.now());
+            company.setArchivedBy(actorUserId);
+        });
     }
 
     @Override
