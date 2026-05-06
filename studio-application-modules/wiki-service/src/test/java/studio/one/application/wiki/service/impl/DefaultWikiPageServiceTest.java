@@ -3,6 +3,7 @@ package studio.one.application.wiki.service.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
@@ -152,6 +153,60 @@ class DefaultWikiPageServiceTest {
                 WORKSPACE_ID,
                 "_Sidebar",
                 new WikiPageWriteCommand("_Sidebar", "links", null, OWNER));
+
+        verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.ADMIN));
+    }
+
+    @Test
+    void footerWritesRequireWikiAdminPermission() {
+        service.putPage(
+                WORKSPACE_ID,
+                "_Footer",
+                new WikiPageWriteCommand("_Footer", "footer", null, OWNER));
+
+        verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.ADMIN));
+    }
+
+    @Test
+    void reservedPageArchiveRequiresWikiAdminPermission() {
+        var created = service.putPage(
+                WORKSPACE_ID,
+                "_Footer",
+                new WikiPageWriteCommand("_Footer", "footer", null, OWNER));
+        clearInvocations(permissionService);
+
+        service.archivePage(
+                WORKSPACE_ID,
+                "_Footer",
+                new WikiPageArchiveCommand(created.currentRevisionId(), OWNER));
+
+        verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.ADMIN));
+    }
+
+    @Test
+    void reservedPageRevertRequiresWikiAdminPermission() {
+        var created = service.putPage(
+                WORKSPACE_ID,
+                "_Sidebar",
+                new WikiPageWriteCommand("_Sidebar", "links", null, OWNER));
+        var updated = service.putPage(
+                WORKSPACE_ID,
+                "_Sidebar",
+                new WikiPageWriteCommand("_Sidebar", "updated", created.currentRevisionId(), OWNER));
+        var firstRevisionId = service.listRevisions(WORKSPACE_ID, "_Sidebar", PageRequest.of(0, 10), OWNER)
+                .getContent()
+                .stream()
+                .filter(revision -> revision.revisionNo() == 1)
+                .findFirst()
+                .orElseThrow()
+                .revisionId();
+        clearInvocations(permissionService);
+
+        service.revertRevision(
+                WORKSPACE_ID,
+                "_Sidebar",
+                firstRevisionId,
+                new WikiPageRevertCommand(updated.currentRevisionId(), OWNER));
 
         verify(permissionService).assertGranted(eq(WORKSPACE_ID), eq(OWNER), eq(WikiPermissionActions.ADMIN));
     }

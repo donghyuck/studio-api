@@ -21,6 +21,11 @@ Company는 enterprise tenant/account의 기본 경계이며 기존 `ApplicationC
 `company.permission.*`, `company.workspace.*`, `company.billing.*`이다.
 Company 권한은 Workspace 콘텐츠 권한을 대체하지 않으며, Workspace/Wiki 콘텐츠 접근은 후속 Workspace 권한 통합에서 별도로 판정한다.
 
+Company management endpoint는 endpoint-level `features:company/*` 권한을 먼저 적용한 뒤 Company 객체 권한을 검사한다.
+객체 권한 검사는 인증 principal을 `IdentityService`로 userId에 매핑할 수 있어야 하며,
+`IdentityService`가 없거나 actor를 해석할 수 없는 경우 객체 단위 조회/수정/member/permission endpoint는 fail-closed로 거부한다.
+목록 조회는 기존 호환성을 위해 endpoint-level 권한만 사용한다.
+
 ## Self Profile API (Contract)
 Base path is configurable, default is `/api/self`.
 

@@ -13,11 +13,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import studio.one.base.user.company.model.CompanyRole;
 import studio.one.base.user.company.model.CompanyStatus;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
+import studio.one.base.user.persistence.jpa.ApplicationCompanyJpaRepository;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.platform.service.I18n;
 
@@ -87,6 +89,30 @@ class ApplicationCompanyServiceImplTest {
         assertThat(archived.getStatus()).isEqualTo(CompanyStatus.ARCHIVED);
         assertThat(archived.getArchivedAt()).isNotNull();
         assertThat(archived.getArchivedBy()).isEqualTo(99L);
+    }
+
+    @Test
+    void deleteTranslatesDependentDataConstraintViolation() {
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("fk"))
+                .when(companyRepository)
+                .deleteById(10L);
+
+        assertThatThrownBy(() -> service().delete(10L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("archive the company");
+    }
+
+    @Test
+    void deleteTranslatesJpaFlushConstraintViolation() {
+        ApplicationCompanyJpaRepository jpaRepository = org.mockito.Mockito.mock(ApplicationCompanyJpaRepository.class);
+        org.mockito.Mockito.doThrow(new DataIntegrityViolationException("fk"))
+                .when(jpaRepository)
+                .flush();
+
+        assertThatThrownBy(() -> new ApplicationCompanyServiceImpl(jpaRepository, memberServiceProvider, i18nProvider)
+                .delete(10L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("archive the company");
     }
 
     private ApplicationCompanyServiceImpl service() {

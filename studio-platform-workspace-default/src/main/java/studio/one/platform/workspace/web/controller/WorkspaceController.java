@@ -33,6 +33,8 @@ import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
@@ -122,9 +124,19 @@ public class WorkspaceController extends WorkspaceControllerSupport {
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/archive")
     @PreAuthorize("@endpointAuthz.can('features:workspace','write')")
-    public ResponseEntity<ApiResponse<Void>> archive(@PathVariable Long workspaceId) {
-        archive(workspaceId, false);
+    public ResponseEntity<ApiResponse<Void>> archive(
+            @PathVariable Long workspaceId,
+            @RequestBody(required = false) WorkspaceArchiveRequest request) {
+        archive(workspaceId, request, false);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    @PostMapping("/{workspaceId:[\\p{Digit}]+}/activate")
+    @PreAuthorize("@endpointAuthz.can('features:workspace','write')")
+    public ResponseEntity<ApiResponse<WorkspaceRef>> activate(
+            @PathVariable Long workspaceId,
+            @RequestBody(required = false) WorkspaceActivateRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(activate(workspaceId, request, false)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/members")

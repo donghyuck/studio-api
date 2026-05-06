@@ -49,4 +49,20 @@ public interface WorkspaceTreeService {
     WorkspaceTreeNode getTree(Long workspaceId, WorkspaceAccessContext actor);
 
     void archive(Long workspaceId, WorkspaceAccessContext actor);
+
+    default WorkspaceRef archive(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
+        if (cascade) {
+            throw new UnsupportedOperationException("Cascade archive is not supported by this WorkspaceTreeService");
+        }
+        archive(workspaceId, actor);
+        return getById(workspaceId, actor);
+    }
+
+    default WorkspaceRef activate(Long workspaceId, WorkspaceAccessContext actor) {
+        return activate(workspaceId, actor, false);
+    }
+
+    default WorkspaceRef activate(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
+        throw new UnsupportedOperationException("Workspace activation is not supported by this WorkspaceTreeService");
+    }
 }

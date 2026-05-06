@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.exception.WorkspaceValidationException;
@@ -69,6 +70,16 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     private final WorkspaceMemberJpaRepository memberRepository;
     private final WorkspacePermissionService permissionService;
     private final WorkspaceSettings settings;
+    private final ApplicationCompanyService companyService;
+
+    public DefaultWorkspaceTreeService(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository,
+            WorkspacePermissionService permissionService,
+            WorkspaceSettings settings) {
+        this(workspaceRepository, closureRepository, memberRepository, permissionService, settings, null);
+    }
 
     @Override
     @Transactional
@@ -84,6 +95,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         if (requiresCompanyId() && companyId == null) {
             throw new WorkspaceValidationException("Workspace companyId is required");
         }
+        validateCompanyExists(companyId);
         String slug = normalizeSlug(command.slug());
         String name = normalizeName(command.name());
         if (existsByScopedRootSlug(companyId, slug) || existsByScopedPath(companyId, slug)) {
@@ -360,17 +372,53 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     @Override
     @Transactional
     public void archive(Long workspaceId, WorkspaceAccessContext actor) {
+        archive(workspaceId, actor, false);
+    }
+
+    @Override
+    @Transactional
+    public WorkspaceRef archive(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
         WorkspaceAccessContext resolved = requireActor(actor);
         permissionService.assertGranted(workspaceId, resolved, WorkspacePermissionActions.ARCHIVE);
         WorkspaceEntity entity = workspace(workspaceId);
-        if (entity.isArchived()) {
-            return;
+        List<WorkspaceEntity> descendants = descendantsOf(entity);
+        List<WorkspaceEntity> activeDescendants = descendants.stream()
+                .filter(descendant -> !descendant.isArchived())
+                .toList();
+        if (!cascade && !activeDescendants.isEmpty()) {
+            throw new WorkspaceConflictException("Workspace has active descendants; cascade archive is required");
         }
-        entity.setArchived(true);
-        entity.setArchivedAt(Instant.now());
-        entity.setArchivedBy(resolved.requireUserId());
-        entity.setUpdatedBy(resolved.requireUserId());
-        workspaceRepository.save(entity);
+        if (cascade) {
+            assertGranted(activeDescendants, resolved, WorkspacePermissionActions.ARCHIVE);
+        }
+        Instant now = Instant.now();
+        Long userId = resolved.requireUserId();
+        archiveEntity(entity, now, userId);
+        if (cascade) {
+            activeDescendants.forEach(descendant -> archiveEntity(descendant, now, userId));
+            workspaceRepository.saveAll(activeDescendants);
+        }
+        return workspaceRepository.save(entity).toRef();
+    }
+
+    @Override
+    @Transactional
+    public WorkspaceRef activate(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
+        WorkspaceAccessContext resolved = requireActor(actor);
+        permissionService.assertGranted(workspaceId, resolved, WorkspacePermissionActions.ACTIVATE);
+        WorkspaceEntity entity = workspace(workspaceId);
+        rejectArchivedAncestorActivation(entity);
+        Long userId = resolved.requireUserId();
+        activateEntity(entity, userId);
+        if (cascade) {
+            List<WorkspaceEntity> archivedDescendants = descendantsOf(entity).stream()
+                    .filter(WorkspaceEntity::isArchived)
+                    .toList();
+            assertGranted(archivedDescendants, resolved, WorkspacePermissionActions.ACTIVATE);
+            archivedDescendants.forEach(descendant -> activateEntity(descendant, userId));
+            workspaceRepository.saveAll(archivedDescendants);
+        }
+        return workspaceRepository.save(entity).toRef();
     }
 
     private WorkspaceAccessContext requireActor(WorkspaceAccessContext actor) {
@@ -430,6 +478,54 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
     }
 
+    private void rejectArchivedAncestorActivation(WorkspaceEntity entity) {
+        List<Long> ancestorIds = closureRepository.findAncestorIds(entity.getWorkspaceId());
+        if (ancestorIds.isEmpty()) {
+            return;
+        }
+        for (WorkspaceEntity ancestor : workspaceRepository.findByWorkspaceIdIn(ancestorIds)) {
+            if (!ancestor.getWorkspaceId().equals(entity.getWorkspaceId()) && ancestor.isArchived()) {
+                throw new WorkspaceConflictException("Workspace cannot be activated while an ancestor is archived");
+            }
+        }
+    }
+
+    private void assertGranted(List<WorkspaceEntity> entities, WorkspaceAccessContext actor, String action) {
+        for (WorkspaceEntity entity : entities) {
+            permissionService.assertGranted(entity.getWorkspaceId(), actor, action);
+        }
+    }
+
+    private void archiveEntity(WorkspaceEntity entity, Instant archivedAt, Long userId) {
+        if (entity.isArchived()) {
+            return;
+        }
+        entity.setArchived(true);
+        entity.setArchivedAt(archivedAt);
+        entity.setArchivedBy(userId);
+        entity.setUpdatedBy(userId);
+    }
+
+    private void activateEntity(WorkspaceEntity entity, Long userId) {
+        if (!entity.isArchived()) {
+            return;
+        }
+        entity.setArchived(false);
+        entity.setArchivedAt(null);
+        entity.setArchivedBy(null);
+        entity.setUpdatedBy(userId);
+    }
+
+    private List<WorkspaceEntity> descendantsOf(WorkspaceEntity entity) {
+        List<Long> descendantIds = closureRepository.findDescendantIds(entity.getWorkspaceId()).stream()
+                .filter(id -> !id.equals(entity.getWorkspaceId()))
+                .toList();
+        if (descendantIds.isEmpty()) {
+            return List.of();
+        }
+        return workspaceRepository.findByWorkspaceIdIn(descendantIds);
+    }
+
     private WorkspaceEntity workspace(Long workspaceId) {
         return workspaceRepository.findById(workspaceId)
                 .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found: " + workspaceId));
@@ -467,6 +563,19 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             throw new WorkspaceValidationException("Workspace companyId must be positive");
         }
         return companyId;
+    }
+
+    private void validateCompanyExists(Long companyId) {
+        if (companyId == null) {
+            return;
+        }
+        if (companyService != null) {
+            companyService.get(companyId);
+            return;
+        }
+        if (settings.companyRequired() || settings.companyScopeEnforced()) {
+            throw new IllegalStateException("ApplicationCompanyService is required to validate workspace companyId");
+        }
     }
 
     private boolean existsByScopedPath(Long companyId, String path) {

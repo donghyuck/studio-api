@@ -22,6 +22,7 @@ import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
+import studio.one.platform.workspace.exception.WorkspaceUnsupportedOperationException;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
 import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
@@ -31,6 +32,8 @@ import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
 
@@ -203,6 +206,95 @@ class WorkspaceControllerTest {
         verify(treeService).changeParent(eq(1L), captor.capture());
         assertThat(captor.getValue().newParentId()).isNull();
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void userArchivePassesCascadeRequestAndNonAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.archive(eq(1L), any(), eq(true))).thenReturn(workspace());
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        controller.archive(1L, new WorkspaceArchiveRequest(true));
+
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).archive(eq(1L), contextCaptor.capture(), eq(true));
+        assertThat(contextCaptor.getValue().platformAdmin()).isFalse();
+    }
+
+    @Test
+    void userArchiveTreatsMissingBodyAsNonCascade() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        controller.archive(1L, null);
+
+        verify(treeService).archive(eq(1L), any(WorkspaceAccessContext.class));
+    }
+
+    @Test
+    void mgmtActivatePassesCascadeRequestAndPlatformAdminContext() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.activate(eq(1L), any(), eq(true))).thenReturn(workspace());
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        controller.activate(1L, new WorkspaceActivateRequest(true));
+
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).activate(eq(1L), contextCaptor.capture(), eq(true));
+        assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void mgmtActivateTreatsMissingBodyAsNonCascade() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.activate(eq(1L), any(), eq(false))).thenReturn(workspace());
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        controller.activate(1L, null);
+
+        verify(treeService).activate(eq(1L), any(WorkspaceAccessContext.class), eq(false));
+    }
+
+    @Test
+    void unsupportedActivateIsTranslatedToWorkspaceNotImplementedError() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.activate(eq(1L), any(), eq(false)))
+                .thenThrow(new UnsupportedOperationException("activation unsupported"));
+        WorkspaceMgmtController controller = new WorkspaceMgmtController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("admin", false));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.activate(1L, null))
+                .isInstanceOf(WorkspaceUnsupportedOperationException.class)
+                .hasMessage("activation unsupported");
     }
 
     @Test

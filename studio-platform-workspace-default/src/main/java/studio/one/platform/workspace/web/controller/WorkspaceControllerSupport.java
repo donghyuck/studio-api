@@ -14,6 +14,7 @@ import studio.one.platform.workspace.model.WorkspaceMemberRef;
 import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
+import studio.one.platform.workspace.exception.WorkspaceUnsupportedOperationException;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
@@ -27,6 +28,8 @@ import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
@@ -117,8 +120,26 @@ abstract class WorkspaceControllerSupport {
         return treeService.getTree(workspaceId, context(platformAdmin));
     }
 
-    void archive(Long workspaceId, boolean platformAdmin) {
-        treeService.archive(workspaceId, context(platformAdmin));
+    void archive(Long workspaceId, WorkspaceArchiveRequest request, boolean platformAdmin) {
+        boolean cascade = request != null && request.cascadeEnabled();
+        try {
+            if (cascade) {
+                treeService.archive(workspaceId, context(platformAdmin), true);
+                return;
+            }
+            treeService.archive(workspaceId, context(platformAdmin));
+        } catch (UnsupportedOperationException ex) {
+            throw new WorkspaceUnsupportedOperationException(ex.getMessage());
+        }
+    }
+
+    WorkspaceRef activate(Long workspaceId, WorkspaceActivateRequest request, boolean platformAdmin) {
+        boolean cascade = request != null && request.cascadeEnabled();
+        try {
+            return treeService.activate(workspaceId, context(platformAdmin), cascade);
+        } catch (UnsupportedOperationException ex) {
+            throw new WorkspaceUnsupportedOperationException(ex.getMessage());
+        }
     }
 
     WorkspaceMemberRef addMember(Long workspaceId, WorkspaceMemberRequest request, boolean platformAdmin) {

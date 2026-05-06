@@ -7,6 +7,7 @@ import java.util.Optional;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -16,7 +17,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.company.model.CompanyMemberRef;
+import studio.one.base.user.company.permission.CompanyPermissionActions;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyPermissionService;
@@ -55,9 +59,10 @@ public class CompanyMgmtController {
     private final ApplicationCompanyMemberService memberService;
     private final ApplicationCompanyPermissionService permissionService;
     private final ObjectProvider<IdentityService> identityServiceProvider;
+    private final ObjectProvider<Environment> environmentProvider;
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('features:company','read')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
     public ResponseEntity<ApiResponse<Page<CompanyDto>>> list(
             @RequestParam(value = "q", required = false) String q,
             @PageableDefault(size = 15, sort = "companyId", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -65,7 +70,7 @@ public class CompanyMgmtController {
     }
 
     @PostMapping
-    @PreAuthorize("@endpointAuthz.can('features:company','write')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<CompanyDto>> create(
             @Valid @RequestBody CompanyDto request,
             @AuthenticationPrincipal UserDetails principal) {
@@ -77,16 +82,21 @@ public class CompanyMgmtController {
     }
 
     @GetMapping("/{companyId}")
-    @PreAuthorize("@endpointAuthz.can('features:company','read')")
-    public ResponseEntity<ApiResponse<CompanyDto>> get(@PathVariable Long companyId) {
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
+    public ResponseEntity<ApiResponse<CompanyDto>> get(
+            @PathVariable Long companyId,
+            @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.READ);
         return ResponseEntity.ok(ApiResponse.ok(toDto(companyService.get(companyId))));
     }
 
     @PutMapping("/{companyId}")
-    @PreAuthorize("@endpointAuthz.can('features:company','write')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<CompanyDto>> update(
             @PathVariable Long companyId,
-            @Valid @RequestBody CompanyUpdateRequest request) {
+            @Valid @RequestBody CompanyUpdateRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.UPDATE);
         ApplicationCompany updated = companyService.update(companyId, company -> {
             company.setDisplayName(request.displayName());
             company.setDomainName(request.domainName());
@@ -97,57 +107,64 @@ public class CompanyMgmtController {
     }
 
     @PostMapping("/{companyId}/archive")
-    @PreAuthorize("@endpointAuthz.can('features:company','write')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<CompanyDto>> archive(
             @PathVariable Long companyId,
             @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.ARCHIVE);
         return ResponseEntity.ok(ApiResponse.ok(toDto(companyService.archive(companyId, actorUserId(principal)))));
     }
 
     @GetMapping("/{companyId}/members")
-    @PreAuthorize("@endpointAuthz.can('features:company','read')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
     public ResponseEntity<ApiResponse<Page<CompanyMemberDto>>> members(
             @PathVariable Long companyId,
+            @AuthenticationPrincipal UserDetails principal,
             @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.ASC) Pageable pageable) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_READ);
         return ResponseEntity.ok(ApiResponse.ok(memberService.getMembers(companyId, pageable).map(this::toDto)));
     }
 
     @PostMapping("/{companyId}/members")
-    @PreAuthorize("@endpointAuthz.can('features:company','write')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<CompanyMemberDto>> addMember(
             @PathVariable Long companyId,
             @Valid @RequestBody CompanyMemberRequest request,
             @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE);
         CompanyMemberRef ref = memberService.addMember(companyId, request.userId(), request.role(), actorUserId(principal));
         return ResponseEntity.ok(ApiResponse.ok(toDto(ref)));
     }
 
     @PutMapping("/{companyId}/members/{userId}")
-    @PreAuthorize("@endpointAuthz.can('features:company','write')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<CompanyMemberDto>> changeRole(
             @PathVariable Long companyId,
             @PathVariable Long userId,
             @Valid @RequestBody CompanyMemberRoleRequest request,
             @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE);
         CompanyMemberRef ref = memberService.changeRole(companyId, userId, request.role(), actorUserId(principal));
         return ResponseEntity.ok(ApiResponse.ok(toDto(ref)));
     }
 
     @DeleteMapping("/{companyId}/members/{userId}")
-    @PreAuthorize("@endpointAuthz.can('features:company','write')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<Void>> removeMember(
             @PathVariable Long companyId,
             @PathVariable Long userId,
             @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE);
         memberService.removeMember(companyId, userId, actorUserId(principal));
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
     @GetMapping("/{companyId}/permissions/me")
-    @PreAuthorize("@endpointAuthz.can('features:company','read')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
     public ResponseEntity<ApiResponse<CompanyPermissionSummaryDto>> permissionsMe(
             @PathVariable Long companyId,
             @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.PERMISSION_READ);
         Long userId = actorUserId(principal);
         return ResponseEntity.ok(ApiResponse.ok(new CompanyPermissionSummaryDto(
                 companyId,
@@ -156,10 +173,46 @@ public class CompanyMgmtController {
     }
 
     @GetMapping("/{companyId}/permissions/actions")
-    @PreAuthorize("@endpointAuthz.can('features:company','read')")
-    public ResponseEntity<ApiResponse<List<String>>> permissionActions(@PathVariable Long companyId) {
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
+    public ResponseEntity<ApiResponse<List<String>>> permissionActions(
+            @PathVariable Long companyId,
+            @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.PERMISSION_READ);
         companyService.get(companyId);
         return ResponseEntity.ok(ApiResponse.ok(studio.one.base.user.company.permission.CompanyPermissionActions.definitions()));
+    }
+
+    private void assertCompanyAction(Long companyId, UserDetails principal, String action) {
+        if (isPlatformAdmin()) {
+            return;
+        }
+        permissionService.assertGranted(companyId, actorUserId(principal), action);
+    }
+
+    private boolean isPlatformAdmin() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getAuthorities() == null) {
+            return false;
+        }
+        String configuredAdminRole = Optional.ofNullable(environmentProvider.getIfAvailable())
+                .map(environment -> environment.getProperty(PropertyKeys.Security.Acl.PREFIX + ".admin-role"))
+                .filter(role -> !role.isBlank())
+                .orElse("ROLE_ADMIN");
+        return authentication.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(authority -> isAdminAuthority(authority, configuredAdminRole));
+    }
+
+    private boolean isAdminAuthority(String authority, String configuredAdminRole) {
+        if (authority == null) {
+            return false;
+        }
+        return authority.equals(configuredAdminRole)
+                || authority.equals(stripRolePrefix(configuredAdminRole));
+    }
+
+    private String stripRolePrefix(String authority) {
+        return authority != null && authority.startsWith("ROLE_") ? authority.substring(5) : authority;
     }
 
     private ApplicationCompany toEntity(CompanyDto dto) {

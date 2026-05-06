@@ -22,6 +22,7 @@
 package studio.one.platform.user.autoconfigure;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.env.Environment;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -209,13 +210,19 @@ public class UserEndpointsAutoConfiguration {
             ApplicationCompanyService companyService,
             ApplicationCompanyMemberService memberService,
             ApplicationCompanyPermissionService permissionService,
-            ObjectProvider<IdentityService> identityServiceProvider) {
+            ObjectProvider<IdentityService> identityServiceProvider,
+            ObjectProvider<Environment> environmentProvider) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationCompanyService.class, true),
                 LogUtils.blue(CompanyMgmtController.class, true),
                 webProperties.normalizedBasePath() + "/companies",
                 LogUtils.blue("ACL-managed")));
-        return new CompanyMgmtController(companyService, memberService, permissionService, identityServiceProvider);
+        return new CompanyMgmtController(
+                companyService,
+                memberService,
+                permissionService,
+                identityServiceProvider,
+                environmentProvider);
     }
 
     @Bean
