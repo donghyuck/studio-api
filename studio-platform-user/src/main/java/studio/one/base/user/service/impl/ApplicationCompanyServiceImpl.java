@@ -65,9 +65,10 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
         ApplicationCompany saved = companyRepo.save(company);
         if (actorUserId != null && actorUserId > 0) {
             ApplicationCompanyMemberService memberService = memberServiceProvider.getIfAvailable();
-            if (memberService != null) {
-                memberService.addMember(saved.getCompanyId(), actorUserId, CompanyRole.OWNER, actorUserId);
+            if (memberService == null) {
+                throw new IllegalStateException("ApplicationCompanyMemberService is required to create company with actor");
             }
+            memberService.addMember(saved.getCompanyId(), actorUserId, CompanyRole.OWNER, actorUserId);
         }
         return saved;
     }
