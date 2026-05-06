@@ -23,7 +23,7 @@ import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
-import studio.one.platform.workspace.service.CreateWorkspaceCommand;
+import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
 import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
@@ -48,7 +48,7 @@ class WorkspaceControllerTest {
         WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
         WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
         WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
-        when(treeService.createRoot(any())).thenReturn(workspace());
+        when(treeService.createRoot(any(CreateRootWorkspaceCommand.class))).thenReturn(workspace());
         WorkspaceController controller = new WorkspaceController(
                 treeService,
                 memberService,
@@ -57,7 +57,7 @@ class WorkspaceControllerTest {
 
         controller.createRoot(new WorkspaceCreateRequest("Acme", "acme", WorkspaceVisibility.PRIVATE));
 
-        ArgumentCaptor<CreateWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateWorkspaceCommand.class);
+        ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
         WorkspaceAccessContext actor = captor.getValue().actor();
         assertThat(actor.userId()).isEqualTo(10L);
@@ -69,7 +69,7 @@ class WorkspaceControllerTest {
         WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
         WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
         WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
-        when(treeService.createRoot(any())).thenReturn(workspace());
+        when(treeService.createRoot(any(CreateRootWorkspaceCommand.class))).thenReturn(workspace());
         WorkspaceController controller = new WorkspaceController(
                 treeService,
                 memberService,
@@ -78,7 +78,7 @@ class WorkspaceControllerTest {
 
         controller.createRoot(new WorkspaceCreateRequest("Acme", "acme", WorkspaceVisibility.PRIVATE));
 
-        ArgumentCaptor<CreateWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateWorkspaceCommand.class);
+        ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
         assertThat(captor.getValue().actor().platformAdmin()).isFalse();
     }
@@ -88,7 +88,7 @@ class WorkspaceControllerTest {
         WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
         WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
         WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
-        when(treeService.createRoot(any())).thenReturn(workspace());
+        when(treeService.createRoot(any(CreateRootWorkspaceCommand.class))).thenReturn(workspace());
         WorkspaceMgmtController controller = new WorkspaceMgmtController(
                 treeService,
                 memberService,
@@ -97,7 +97,7 @@ class WorkspaceControllerTest {
 
         controller.createRoot(new WorkspaceCreateRequest("Acme", "acme", WorkspaceVisibility.PRIVATE));
 
-        ArgumentCaptor<CreateWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateWorkspaceCommand.class);
+        ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
     }
@@ -116,12 +116,12 @@ class WorkspaceControllerTest {
                 permissionService,
                 principalProvider("admin", false));
 
-        controller.list("acme", 3L, false, true, pageable);
+        controller.list("acme", 7L, 3L, false, true, pageable);
 
         ArgumentCaptor<WorkspaceListQuery> queryCaptor = ArgumentCaptor.forClass(WorkspaceListQuery.class);
         ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
         verify(treeService).list(queryCaptor.capture(), eq(pageable), contextCaptor.capture());
-        assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceListQuery("acme", 3L, false, true));
+        assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceListQuery("acme", 7L, 3L, false, true));
         assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
     }
 

@@ -39,6 +39,7 @@ import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberEntity;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepository;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
+import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
@@ -72,13 +73,24 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     @Override
     @Transactional
     public WorkspaceRef createRoot(CreateWorkspaceCommand command) {
+        return createRoot(CreateRootWorkspaceCommand.from(command));
+    }
+
+    @Override
+    @Transactional
+    public WorkspaceRef createRoot(CreateRootWorkspaceCommand command) {
         WorkspaceAccessContext actor = requireActor(command.actor());
+        Long companyId = normalizeCompanyId(command.companyId());
+        if (settings.companyRequired() && companyId == null) {
+            throw new WorkspaceValidationException("Workspace companyId is required");
+        }
         String slug = normalizeSlug(command.slug());
         String name = normalizeName(command.name());
-        if (workspaceRepository.existsByParentIdIsNullAndSlug(slug) || workspaceRepository.existsByPath(slug)) {
+        if (workspaceRepository.existsByParentIdIsNullAndSlug(slug) || existsByScopedPath(companyId, slug)) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + slug);
         }
         WorkspaceEntity entity = new WorkspaceEntity();
+        entity.setCompanyId(companyId);
         entity.setName(name);
         entity.setSlug(slug);
         entity.setPath(slug);
@@ -117,6 +129,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         WorkspaceEntity entity = new WorkspaceEntity();
         entity.setParentId(parentWorkspaceId);
         entity.setRootId(parent.getRootId());
+        entity.setCompanyId(parent.getCompanyId());
         entity.setName(normalizeName(command.name()));
         entity.setSlug(slug);
         entity.setPath(parent.getPath() + "/" + slug);
@@ -188,6 +201,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             if (workspaceRepository.existsByParentIdAndSlug(newParentId, entity.getSlug())) {
                 throw new WorkspaceConflictException("Duplicate child workspace slug: " + entity.getSlug());
             }
+            if (!sameCompany(entity.getCompanyId(), newParent.getCompanyId())) {
+                throw new WorkspaceConflictException("Workspace cannot be moved across companies");
+            }
         } else if (workspaceRepository.existsByParentIdIsNullAndSlug(entity.getSlug())) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + entity.getSlug());
         }
@@ -236,9 +252,18 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     }
 
     @Override
+    @Deprecated(since = "2.x", forRemoval = false)
     @Transactional(readOnly = true)
     public WorkspaceRef getByPath(String path, WorkspaceAccessContext actor) {
         WorkspaceEntity entity = workspaceByPath(path);
+        permissionService.assertGranted(entity.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
+        return entity.toRef();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WorkspaceRef getByPath(Long companyId, String path, WorkspaceAccessContext actor) {
+        WorkspaceEntity entity = workspaceByPath(companyId, path);
         permissionService.assertGranted(entity.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
         return entity.toRef();
     }
@@ -390,6 +415,10 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         return currentParentId == null ? newParentId == null : currentParentId.equals(newParentId);
     }
 
+    private boolean sameCompany(Long left, Long right) {
+        return left == null ? right == null : left.equals(right);
+    }
+
     private void rejectArchivedMutation(WorkspaceEntity entity) {
         if (entity.isArchived()) {
             throw new WorkspaceValidationException("Archived workspace cannot be mutated");
@@ -407,6 +436,35 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
         return workspaceRepository.findByPath(path.trim())
                 .orElseThrow(() -> new WorkspaceNotFoundException("Workspace not found by path: " + path));
+    }
+
+    private WorkspaceEntity workspaceByPath(Long companyId, String path) {
+        if (!StringUtils.hasText(path)) {
+            throw new WorkspaceValidationException("Workspace path is required");
+        }
+        Long normalizedCompanyId = normalizeCompanyId(companyId);
+        if (normalizedCompanyId == null) {
+            return workspaceByPath(path);
+        }
+        return workspaceRepository.findByCompanyIdAndPath(normalizedCompanyId, path.trim())
+                .orElseThrow(() -> new WorkspaceNotFoundException(
+                        "Workspace not found by company/path: " + normalizedCompanyId + "/" + path));
+    }
+
+    private Long normalizeCompanyId(Long companyId) {
+        if (companyId == null) {
+            return null;
+        }
+        if (companyId <= 0) {
+            throw new WorkspaceValidationException("Workspace companyId must be positive");
+        }
+        return companyId;
+    }
+
+    private boolean existsByScopedPath(Long companyId, String path) {
+        return companyId == null
+                ? workspaceRepository.existsByPath(path)
+                : workspaceRepository.existsByCompanyIdAndPath(companyId, path);
     }
 
     private Specification<WorkspaceEntity> listSpecification(WorkspaceListQuery query) {
@@ -427,6 +485,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 }
                 if (query.archived() != null) {
                     predicates.add(builder.equal(root.get("archived"), query.archived()));
+                }
+                if (query.companyId() != null) {
+                    predicates.add(builder.equal(root.get("companyId"), query.companyId()));
                 }
             }
             return builder.and(predicates.toArray(Predicate[]::new));

@@ -1,13 +1,15 @@
 # Studio Platform Workspace Default
 
-`studio-platform-workspace` 계약의 JPA-only 기본 구현입니다. v1은 workspace tree와 member role 기반 effective permission, parent 변경 기반 subtree move를 다루며 Wiki, page-level ACL, custom role, deny override, hard delete는 포함하지 않습니다.
+`studio-platform-workspace` 계약의 JPA-only 기본 구현입니다. v1은 workspace tree와 member role 기반 effective permission, parent 변경 기반 subtree move, nullable Company scope를 다루며 Wiki, page-level ACL, custom role, deny override, hard delete는 포함하지 않습니다.
 
 ## 저장 모델
-- `TB_PLATFORM_WORKSPACE`: workspace 본문, `parentId`, immutable `slug`, materialized `path`, archive 상태
+- `TB_PLATFORM_WORKSPACE`: workspace 본문, nullable `companyId`, `parentId`, immutable `slug`, materialized `path`, archive 상태
 - `TB_PLATFORM_WORKSPACE_CLOSURE`: ancestor/descendant closure table
 - `TB_PLATFORM_WORKSPACE_MEMBER`: workspace별 direct member role
 
 root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다. child 생성 시 parent ancestor closure를 복사하고 self closure를 추가합니다.
+
+root 생성은 `companyId`를 받을 수 있습니다. `companyId`는 전환 단계에서 nullable이며, child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다.
 
 parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 closure row를 서버에서 재계산합니다. `newParentId=null`은 root 이동으로 처리하며, 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 거부합니다.
 
@@ -26,7 +28,7 @@ parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 clo
 - `POST /api/workspaces`
 - `POST /api/workspaces/{workspaceId}/children`
 - `GET /api/workspaces/{workspaceId}`
-- `GET /api/workspaces/by-path?path=...`
+- `GET /api/workspaces/by-path?companyId=...&path=...`
 - `GET /api/workspaces/{workspaceId}/children`
 - `GET /api/workspaces/{workspaceId}/ancestors`
 - `GET /api/workspaces/{workspaceId}/descendants`
@@ -67,15 +69,18 @@ parent 변경 request body:
 
 - `GET /api/mgmt/workspaces`
 
-지원 query parameter는 `q`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort`입니다. `q`는 `name`, `slug`, `path`를 부분 검색하고, `rootOnly=true`는 root workspace만 반환합니다. 응답 item은 `id`, `parentId`, `rootId`, `name`, `slug`, `path`, `depth`, `visibility`, `archived`를 포함합니다.
+지원 query parameter는 `q`, `companyId`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort`입니다. `q`는 `name`, `slug`, `path`를 부분 검색하고, `rootOnly=true`는 root workspace만 반환합니다. 응답 item은 `id`, `companyId`, `parentId`, `rootId`, `name`, `slug`, `path`, `depth`, `visibility`, `archived`를 포함합니다.
 
 ## Schema
 Flyway range는 `workspace` `1300-1399`입니다.
 
 마이그레이션 위치:
 - `src/main/resources/schema/workspace/postgres/V1300__create_workspace_tables.sql`
+- `src/main/resources/schema/workspace/postgres/V1301__add_workspace_company_scope.sql`
 - `src/main/resources/schema/workspace/mysql/V1300__create_workspace_tables.sql`
+- `src/main/resources/schema/workspace/mysql/V1301__add_workspace_company_scope.sql`
 - `src/main/resources/schema/workspace/mariadb/V1300__create_workspace_tables.sql`
+- `src/main/resources/schema/workspace/mariadb/V1301__add_workspace_company_scope.sql`
 
 ## 검증
 ```bash

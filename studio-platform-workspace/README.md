@@ -13,6 +13,7 @@ Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effec
 - visibility: `PRIVATE`, `INTERNAL`, `PUBLIC`
 - slug는 v1에서 immutable이다.
 - `WorkspaceRef.path`는 materialized path 표현이며 기본 구현은 closure table을 함께 사용한다.
+- `WorkspaceRef.companyId`는 tenant scope 식별자다. v1 전환 단계에서는 nullable이며, child workspace는 parent의 `companyId`를 상속한다.
 
 ## 기본 action
 - `workspace.read`
@@ -33,3 +34,9 @@ Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effec
 
 ## 구현 모듈
 기본 구현은 `studio-platform-workspace-default`에 있다. 이 계약 모듈은 JPA, web, Spring Boot auto-configuration을 직접 포함하지 않는다.
+
+## Company scope
+- root workspace는 `CreateRootWorkspaceCommand(companyId, ...)`로 company scope를 받을 수 있다.
+- 기존 `CreateWorkspaceCommand` 기반 root 생성은 legacy 호환 경로로 유지되며 `companyId=null` root를 생성한다.
+- path 조회는 `getByPath(companyId, path, actor)`를 우선 사용한다. 기존 `getByPath(path, actor)`는 legacy 조회 호환을 위해 유지한다.
+- Company 권한 override는 이 모듈에서 직접 판정하지 않으며 후속 Phase에서 `WorkspacePermissionService` 흐름에 연결한다.

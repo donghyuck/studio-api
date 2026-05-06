@@ -18,6 +18,7 @@ import studio.one.platform.constant.PropertyKeys;
 public class WorkspaceFeatureProperties extends FeatureToggle {
 
     private Web web = new Web();
+    private boolean companyRequired = false;
 
     @Getter
     @Setter

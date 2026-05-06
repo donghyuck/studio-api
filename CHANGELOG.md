@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #426 대응으로 Workspace root 생성과 조회에 nullable Company scope를 추가했다. `WorkspaceRef.companyId`, `CreateRootWorkspaceCommand`, company-aware `getByPath`, `studio.features.workspace.company-required` 설정과 `V1301__add_workspace_company_scope.sql` migration을 제공하며 child workspace는 parent companyId를 상속한다.
 - 이슈 #423 대응으로 Company member/permission 기반을 추가했다. 기존 `ApplicationCompany*` 구조를 유지하면서 `CompanyRole`, `ApplicationCompanyMemberService`, `ApplicationCompanyPermissionService`, Company archive 상태와 `TB_APPLICATION_COMPANY_MEMBERS` migration을 제공한다.
 - 이슈 #421 대응으로 Workspace direct/effective member 목록 조회 API를 서버 페이징 응답으로 전환했다. `q`/`keyword`, `role`, `inherited`, pagination, sort를 지원하고 `keyword`는 사용자 `username`/`name`/`email` 및 숫자 `userId` 검색에 사용한다.
 - 이슈 #417 대응으로 Workspace parent 변경 API `PATCH /api/workspaces/{workspaceId}/parent`, `PATCH /api/mgmt/workspaces/{workspaceId}/parent`를 추가했다. `newParentId=null`은 root 이동으로 처리하고, subtree의 `rootId`/`path`/`depth`와 closure table을 재계산하며 자기 자신 또는 descendant 아래 이동은 거부한다.

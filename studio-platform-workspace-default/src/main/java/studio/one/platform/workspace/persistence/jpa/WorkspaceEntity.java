@@ -43,6 +43,9 @@ public class WorkspaceEntity {
     @Column(name = "ROOT_ID")
     private Long rootId;
 
+    @Column(name = "COMPANY_ID")
+    private Long companyId;
+
     @Column(name = "NAME", nullable = false, length = 255)
     private String name;
 
@@ -88,6 +91,7 @@ public class WorkspaceEntity {
     public WorkspaceRef toRef() {
         return new WorkspaceRef(
                 workspaceId,
+                companyId,
                 parentId,
                 rootId,
                 name,
