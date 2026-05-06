@@ -133,6 +133,62 @@ Table "studioapi"."tb_application_company_property" {
   Note: '회사 프로퍼티 테이블'
 }
 
+Table "studioapi"."tb_platform_workspace" {
+  "workspace_id" int8 [pk, not null, increment]
+  "parent_id" int8
+  "root_id" int8
+  "company_id" int8 [not null]
+  "name" varchar(255) [not null]
+  "slug" varchar(100) [not null]
+  "path" varchar(1024) [not null]
+  "depth" int4 [not null, default: 0]
+  "position" int4 [not null, default: 0]
+  "visibility" varchar(20) [not null, default: 'PRIVATE']
+  "archived" bool [not null, default: false]
+  "archived_at" timestamptz
+  "archived_by" int8
+  "created_by" int8 [not null]
+  "updated_by" int8 [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+  "updated_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (company_id, path) [unique, type: btree, name: "uk_platform_workspace_company_path"]
+    (company_id, parent_id, slug) [unique, type: btree, name: "uk_platform_workspace_company_parent_slug"]
+    parent_id [type: btree, name: "idx_platform_workspace_parent"]
+    root_id [type: btree, name: "idx_platform_workspace_root"]
+    company_id [type: btree, name: "idx_platform_workspace_company"]
+  }
+  Note: 'Workspace 테이블. PostgreSQL은 root slug를 partial unique index로 강제하고, MySQL/MariaDB는 generated PARENT_KEY로 root/child slug unique를 강제한다.'
+}
+
+Table "studioapi"."tb_platform_workspace_closure" {
+  "ancestor_id" int8 [not null]
+  "descendant_id" int8 [not null]
+  "depth" int4 [not null]
+
+  Indexes {
+    (ancestor_id, descendant_id) [pk, type: btree, name: "tb_platform_workspace_closure_pkey"]
+    descendant_id [type: btree, name: "idx_platform_workspace_closure_desc"]
+  }
+  Note: 'Workspace ancestor/descendant closure table'
+}
+
+Table "studioapi"."tb_platform_workspace_member" {
+  "member_id" int8 [pk, not null, increment]
+  "workspace_id" int8 [not null]
+  "user_id" int8 [not null]
+  "role" varchar(20) [not null]
+  "created_by" int8 [not null]
+  "created_at" timestamptz [not null, default: `now()`]
+
+  Indexes {
+    (workspace_id, user_id) [unique, type: btree, name: "uk_platform_workspace_member"]
+    user_id [type: btree, name: "idx_platform_workspace_member_user"]
+  }
+  Note: 'Workspace direct member role table'
+}
+
 Table "studioapi"."tb_application_group" {
   "group_id" int8 [pk, not null, increment]
   "name" varchar(255) [unique, not null]
@@ -454,6 +510,20 @@ Ref "tb_application_company_property_company_id_fkey":"studioapi"."tb_applicatio
 Ref "tb_application_company_members_company_id_fkey":"studioapi"."tb_application_company"."company_id" < "studioapi"."tb_application_company_members"."company_id" [delete: cascade]
 
 Ref "tb_application_company_members_user_id_fkey":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_application_company_members"."user_id" [delete: cascade]
+
+Ref "fk_platform_workspace_parent":"studioapi"."tb_platform_workspace"."workspace_id" < "studioapi"."tb_platform_workspace"."parent_id"
+
+Ref "fk_platform_workspace_root":"studioapi"."tb_platform_workspace"."workspace_id" < "studioapi"."tb_platform_workspace"."root_id"
+
+Ref "fk_platform_workspace_company":"studioapi"."tb_application_company"."company_id" < "studioapi"."tb_platform_workspace"."company_id"
+
+Ref "fk_platform_workspace_closure_ancestor":"studioapi"."tb_platform_workspace"."workspace_id" < "studioapi"."tb_platform_workspace_closure"."ancestor_id" [delete: cascade]
+
+Ref "fk_platform_workspace_closure_descendant":"studioapi"."tb_platform_workspace"."workspace_id" < "studioapi"."tb_platform_workspace_closure"."descendant_id" [delete: cascade]
+
+Ref "fk_platform_workspace_member_workspace":"studioapi"."tb_platform_workspace"."workspace_id" < "studioapi"."tb_platform_workspace_member"."workspace_id" [delete: cascade]
+
+Ref "fk_platform_workspace_member_user":"studioapi"."tb_application_user"."user_id" < "studioapi"."tb_platform_workspace_member"."user_id" [delete: cascade]
 
 Ref "tb_application_group_members_group_id_fkey":"studioapi"."tb_application_group"."group_id" < "studioapi"."tb_application_group_members"."group_id" [delete: cascade]
 
