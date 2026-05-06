@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -51,6 +52,9 @@ abstract class WorkspaceControllerSupport {
     }
 
     WorkspaceRef createRoot(WorkspaceCreateRequest request, boolean platformAdmin) {
+        if (!platformAdmin && request.companyId() != null) {
+            throw new AccessDeniedException("Company-scoped root workspace creation requires management access");
+        }
         return treeService.createRoot(new CreateRootWorkspaceCommand(
                 request.companyId(),
                 request.name(),

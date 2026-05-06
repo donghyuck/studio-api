@@ -14,6 +14,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import studio.one.platform.identity.ApplicationPrincipal;
@@ -55,14 +56,30 @@ class WorkspaceControllerTest {
                 permissionService,
                 principalProvider("user", false));
 
-        controller.createRoot(new WorkspaceCreateRequest(7L, "Acme", "acme", WorkspaceVisibility.PRIVATE));
+        controller.createRoot(new WorkspaceCreateRequest("Acme", "acme", WorkspaceVisibility.PRIVATE));
 
         ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
         WorkspaceAccessContext actor = captor.getValue().actor();
-        assertThat(captor.getValue().companyId()).isEqualTo(7L);
+        assertThat(captor.getValue().companyId()).isNull();
         assertThat(actor.userId()).isEqualTo(10L);
         assertThat(actor.platformAdmin()).isFalse();
+    }
+
+    @Test
+    void userControllerRejectsCallerProvidedCompanyScopeOnRootCreation() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.createRoot(
+                new WorkspaceCreateRequest(7L, "Acme", "acme", WorkspaceVisibility.PRIVATE)))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test
@@ -96,10 +113,11 @@ class WorkspaceControllerTest {
                 permissionService,
                 principalProvider("admin", false));
 
-        controller.createRoot(new WorkspaceCreateRequest("Acme", "acme", WorkspaceVisibility.PRIVATE));
+        controller.createRoot(new WorkspaceCreateRequest(7L, "Acme", "acme", WorkspaceVisibility.PRIVATE));
 
         ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
+        assertThat(captor.getValue().companyId()).isEqualTo(7L);
         assertThat(captor.getValue().actor().platformAdmin()).isTrue();
     }
 

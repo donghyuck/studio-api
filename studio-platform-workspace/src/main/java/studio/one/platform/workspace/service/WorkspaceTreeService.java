@@ -12,7 +12,13 @@ public interface WorkspaceTreeService {
 
     WorkspaceRef createRoot(CreateWorkspaceCommand command);
 
-    WorkspaceRef createRoot(CreateRootWorkspaceCommand command);
+    default WorkspaceRef createRoot(CreateRootWorkspaceCommand command) {
+        return createRoot(new CreateWorkspaceCommand(
+                command.name(),
+                command.slug(),
+                command.visibility(),
+                command.actor()));
+    }
 
     WorkspaceRef createChild(Long parentWorkspaceId, CreateWorkspaceCommand command);
 
@@ -28,7 +34,9 @@ public interface WorkspaceTreeService {
     @Deprecated(since = "2.x", forRemoval = false)
     WorkspaceRef getByPath(String path, WorkspaceAccessContext actor);
 
-    WorkspaceRef getByPath(Long companyId, String path, WorkspaceAccessContext actor);
+    default WorkspaceRef getByPath(Long companyId, String path, WorkspaceAccessContext actor) {
+        return getByPath(path, actor);
+    }
 
     Page<WorkspaceRef> list(WorkspaceListQuery query, Pageable pageable, WorkspaceAccessContext actor);
 

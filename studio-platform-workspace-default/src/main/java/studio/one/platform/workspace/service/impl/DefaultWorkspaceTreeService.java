@@ -257,6 +257,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     @Deprecated(since = "2.x", forRemoval = false)
     @Transactional(readOnly = true)
     public WorkspaceRef getByPath(String path, WorkspaceAccessContext actor) {
+        if (settings.companyRequired()) {
+            throw new WorkspaceValidationException("Workspace companyId is required");
+        }
         WorkspaceEntity entity = workspaceByPath(path);
         permissionService.assertGranted(entity.getWorkspaceId(), actor, WorkspacePermissionActions.READ);
         return entity.toRef();
@@ -445,6 +448,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             throw new WorkspaceValidationException("Workspace path is required");
         }
         Long normalizedCompanyId = normalizeCompanyId(companyId);
+        if (settings.companyRequired() && normalizedCompanyId == null) {
+            throw new WorkspaceValidationException("Workspace companyId is required");
+        }
         if (normalizedCompanyId == null) {
             return workspaceByPath(path);
         }
@@ -489,7 +495,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                     predicates.add(builder.equal(root.get("archived"), query.archived()));
                 }
                 if (query.companyId() != null) {
-                    predicates.add(builder.equal(root.get("companyId"), query.companyId()));
+                    predicates.add(builder.equal(root.get("companyId"), normalizeCompanyId(query.companyId())));
                 }
             }
             return builder.and(predicates.toArray(Predicate[]::new));

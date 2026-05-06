@@ -106,6 +106,20 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void companyScopedPublicWorkspaceDoesNotGrantImplicitViewerAcrossCompanies() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PUBLIC,
+                OWNER));
+        var authenticated = new WorkspaceAccessContext(77L, "authenticated", false);
+
+        assertThatThrownBy(() -> treeService.getById(root.id(), authenticated))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void companyRequiredRejectsLegacyRootCreationWithoutCompanyId() {
         WorkspaceTreeService companyRequiredTreeService = new DefaultWorkspaceTreeService(
                 workspaceRepository,
@@ -500,6 +514,15 @@ class DefaultWorkspaceServiceTest {
                 .getContent())
                 .extracting(studio.one.platform.workspace.model.WorkspaceRef::id)
                 .containsExactly(beta.id(), design.id());
+    }
+
+    @Test
+    void managementListRejectsInvalidCompanyIdFilter() {
+        assertThatThrownBy(() -> treeService.list(
+                new WorkspaceListQuery(null, 0L, null, null, null),
+                PageRequest.of(0, 10),
+                PLATFORM_ADMIN))
+                .isInstanceOf(WorkspaceValidationException.class);
     }
 
     @Test
