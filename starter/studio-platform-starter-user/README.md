@@ -144,6 +144,12 @@ studio:
 - `/api/mgmt/companies`
 - `/api/self`
 
+Company endpoint는 `features:company/*` 권한을 먼저 확인하고, 단일 Company 조회/수정,
+member 조회/변경, permission 조회에는 Company 객체 권한을 추가로 적용한다.
+이 객체 권한 검사는 `IdentityService`가 principal을 userId로 해석할 수 있어야 하며,
+해석할 수 없으면 fail-closed로 거부한다. Company 목록 조회는 기존 호환성을 위해
+endpoint-level 권한만 사용한다.
+
 기본 사용자 관리 API에는 `DELETE /api/mgmt/users/{id}`가 포함된다. 이 엔드포인트는
 `features:user` admin 권한을 요구하며, 성공 시 `204 No Content`를 반환한다.
 

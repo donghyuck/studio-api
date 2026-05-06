@@ -20,6 +20,7 @@ import org.springframework.mock.env.MockEnvironment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -37,6 +38,7 @@ import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.web.dto.CompanyDto;
 import studio.one.base.user.web.dto.CompanyMemberRequest;
+import studio.one.base.user.web.dto.CompanyMemberRoleRequest;
 import studio.one.base.user.web.dto.CompanyUpdateRequest;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
@@ -59,12 +61,11 @@ class CompanyMgmtControllerTest {
         permissionService = mock(ApplicationCompanyPermissionService.class);
         IdentityService identityService = mock(IdentityService.class);
         when(identityService.findByUsername("actor")).thenReturn(Optional.of(new UserRef(ACTOR_ID, "actor", Set.of())));
-        ObjectProvider<IdentityService> identityProvider = new SingletonObjectProvider<>(identityService);
         controller = new CompanyMgmtController(
                 companyService,
                 memberService,
                 permissionService,
-                identityProvider,
+                new SingletonObjectProvider<>(identityService),
                 new SingletonObjectProvider<Environment>(null));
         principal = User.withUsername("actor").password("n/a").authorities("ROLE_USER").build();
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
@@ -109,6 +110,22 @@ class CompanyMgmtControllerTest {
     }
 
     @Test
+    void memberRoleChangeRequiresCompanyMemberManagePermission() {
+        when(memberService.changeRole(COMPANY_ID, 7L, CompanyRole.MEMBER, ACTOR_ID)).thenReturn(member());
+
+        controller.changeRole(COMPANY_ID, 7L, new CompanyMemberRoleRequest(CompanyRole.MEMBER), principal);
+
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.MEMBER_MANAGE);
+    }
+
+    @Test
+    void memberRemovalRequiresCompanyMemberManagePermission() {
+        controller.removeMember(COMPANY_ID, 7L, principal);
+
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.MEMBER_MANAGE);
+    }
+
+    @Test
     void archiveRequiresCompanyArchivePermission() {
         when(companyService.archive(COMPANY_ID, ACTOR_ID)).thenReturn(company());
 
@@ -131,6 +148,15 @@ class CompanyMgmtControllerTest {
         when(permissionService.getGrantedActions(COMPANY_ID, ACTOR_ID)).thenReturn(List.of(CompanyPermissionActions.READ));
 
         controller.permissionsMe(COMPANY_ID, principal);
+
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_READ);
+    }
+
+    @Test
+    void permissionActionsRequiresCompanyPermissionReadPermission() {
+        when(companyService.get(COMPANY_ID)).thenReturn(company());
+
+        controller.permissionActions(COMPANY_ID, principal);
 
         verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_READ);
     }
@@ -170,11 +196,69 @@ class CompanyMgmtControllerTest {
     }
 
     @Test
+    void genericAdminDoesNotBypassWhenCustomPlatformAdminRoleIsConfigured() {
+        controller = new CompanyMgmtController(
+                companyService,
+                memberService,
+                permissionService,
+                new SingletonObjectProvider<>(mockIdentityService()),
+                new SingletonObjectProvider<Environment>(new MockEnvironment()
+                        .withProperty("studio.security.acl.admin-role", "COMPANY_ROOT")));
+        principal = User.withUsername("actor").password("n/a").authorities("ADMIN").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ADMIN"))));
+        when(memberService.getMembers(COMPANY_ID, PageRequest.of(0, 15))).thenReturn(Page.empty());
+
+        controller.members(COMPANY_ID, principal, PageRequest.of(0, 15));
+
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.MEMBER_READ);
+    }
+
+    @Test
+    void strippedConfiguredPlatformAdminRoleBypassesCompanyObjectPermission() {
+        controller = new CompanyMgmtController(
+                companyService,
+                memberService,
+                permissionService,
+                new SingletonObjectProvider<>(mockIdentityService()),
+                new SingletonObjectProvider<Environment>(new MockEnvironment()
+                        .withProperty("studio.security.acl.admin-role", "ROLE_COMPANY_ROOT")));
+        principal = User.withUsername("actor").password("n/a").authorities("COMPANY_ROOT").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("COMPANY_ROOT"))));
+        when(memberService.getMembers(COMPANY_ID, PageRequest.of(0, 15))).thenReturn(Page.empty());
+
+        controller.members(COMPANY_ID, principal, PageRequest.of(0, 15));
+
+        org.mockito.Mockito.verifyNoInteractions(permissionService);
+    }
+
+    @Test
+    void objectLevelReadFailsClosedWhenIdentityServiceIsAbsent() {
+        controller = new CompanyMgmtController(
+                companyService,
+                memberService,
+                permissionService,
+                new SingletonObjectProvider<IdentityService>(null),
+                new SingletonObjectProvider<Environment>(new MockEnvironment()));
+        when(companyService.get(COMPANY_ID)).thenReturn(company());
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> controller.get(COMPANY_ID, principal))
+                .isInstanceOf(AuthenticationCredentialsNotFoundException.class);
+
+        org.mockito.Mockito.verifyNoInteractions(permissionService);
+    }
+
+    @Test
     void endpointAuthorizationUsesExistingCompanyPolicyContract() throws Exception {
         assertThat(preAuthorize("list", String.class, org.springframework.data.domain.Pageable.class))
-                .isEqualTo("@endpointAuthz.can('features:company','admin')");
+                .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
         assertThat(preAuthorize("create", CompanyDto.class, UserDetails.class))
-                .isEqualTo("@endpointAuthz.can('features:company','admin')");
+                .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')");
         assertThat(preAuthorize("get", Long.class, UserDetails.class))
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
         assertThat(preAuthorize("update", Long.class, CompanyUpdateRequest.class, UserDetails.class))

@@ -129,10 +129,11 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/archive")
-    public ResponseEntity<ApiResponse<WorkspaceRef>> archive(
+    public ResponseEntity<ApiResponse<Void>> archive(
             @PathVariable Long workspaceId,
             @RequestBody(required = false) WorkspaceArchiveRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(archive(workspaceId, request, true)));
+        archive(workspaceId, request, true);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/activate")

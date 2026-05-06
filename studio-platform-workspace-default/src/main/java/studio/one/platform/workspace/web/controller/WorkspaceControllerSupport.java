@@ -14,6 +14,7 @@ import studio.one.platform.workspace.model.WorkspaceMemberRef;
 import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
+import studio.one.platform.workspace.exception.WorkspaceUnsupportedOperationException;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
@@ -119,14 +120,26 @@ abstract class WorkspaceControllerSupport {
         return treeService.getTree(workspaceId, context(platformAdmin));
     }
 
-    WorkspaceRef archive(Long workspaceId, WorkspaceArchiveRequest request, boolean platformAdmin) {
+    void archive(Long workspaceId, WorkspaceArchiveRequest request, boolean platformAdmin) {
         boolean cascade = request != null && request.cascadeEnabled();
-        return treeService.archive(workspaceId, context(platformAdmin), cascade);
+        try {
+            if (cascade) {
+                treeService.archive(workspaceId, context(platformAdmin), true);
+                return;
+            }
+            treeService.archive(workspaceId, context(platformAdmin));
+        } catch (UnsupportedOperationException ex) {
+            throw new WorkspaceUnsupportedOperationException(ex.getMessage());
+        }
     }
 
     WorkspaceRef activate(Long workspaceId, WorkspaceActivateRequest request, boolean platformAdmin) {
         boolean cascade = request != null && request.cascadeEnabled();
-        return treeService.activate(workspaceId, context(platformAdmin), cascade);
+        try {
+            return treeService.activate(workspaceId, context(platformAdmin), cascade);
+        } catch (UnsupportedOperationException ex) {
+            throw new WorkspaceUnsupportedOperationException(ex.getMessage());
+        }
     }
 
     WorkspaceMemberRef addMember(Long workspaceId, WorkspaceMemberRequest request, boolean platformAdmin) {

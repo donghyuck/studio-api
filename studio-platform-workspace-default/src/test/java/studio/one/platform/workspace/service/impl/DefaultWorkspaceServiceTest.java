@@ -321,7 +321,7 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
-    void directMemberKeywordSearchWorksWithoutUserServiceUsingNumericKeywordOnly() {
+    void directMemberKeywordSearchFallsBackToDatabaseWithoutUserService() {
         var root = createRoot("Acme", "acme", OWNER);
         WorkspaceMemberService numericOnlyMemberService = new DefaultWorkspaceMemberService(
                 workspaceRepository,
@@ -330,6 +330,7 @@ class DefaultWorkspaceServiceTest {
                 permissionService,
                 entityManager,
                 null);
+        insertUser(123L, "alice", "Alice Park", "alice@example.com");
         memberService.addMember(root.id(), new WorkspaceMemberCommand(123L, WorkspaceRole.EDITOR, OWNER));
         memberService.addMember(root.id(), new WorkspaceMemberCommand(456L, WorkspaceRole.VIEWER, OWNER));
 
@@ -347,7 +348,9 @@ class DefaultWorkspaceServiceTest {
         assertThat(numericKeyword.getContent())
                 .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
                 .containsExactly(123L);
-        assertThat(textKeyword.getTotalElements()).isZero();
+        assertThat(textKeyword.getContent())
+                .extracting(studio.one.platform.workspace.model.WorkspaceMemberRef::userId)
+                .containsExactly(123L);
     }
 
     @Test
@@ -715,6 +718,27 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void cascadeArchiveRequiresArchivePermissionOnDescendants() {
+        var root = createRoot("Acme", "acme", OWNER);
+        treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        WorkspacePermissionService nonInheritedPermissionService = new DefaultWorkspacePermissionService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                List.of(wikiLikeContributor()),
+                new WorkspaceSettings(10, 200, 100, false, false, false));
+        WorkspaceTreeService nonInheritedTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                nonInheritedPermissionService,
+                new WorkspaceSettings(10, 200, 100, false, false, false));
+
+        assertThatThrownBy(() -> nonInheritedTreeService.archive(root.id(), OWNER, true))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     void activateRestoresWorkspaceAndCascadeRestoresDescendants() {
         var root = createRoot("Acme", "acme", OWNER);
         var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
@@ -724,6 +748,40 @@ class DefaultWorkspaceServiceTest {
 
         assertThat(activated.archived()).isFalse();
         assertThat(treeService.getById(child.id(), OWNER).archived()).isFalse();
+    }
+
+    @Test
+    void activateWithoutCascadeLeavesArchivedDescendantsArchived() {
+        var root = createRoot("Acme", "acme", OWNER);
+        var child = treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        treeService.archive(root.id(), OWNER, true);
+
+        var activated = treeService.activate(root.id(), OWNER, false);
+
+        assertThat(activated.archived()).isFalse();
+        assertThat(treeService.getById(child.id(), OWNER).archived()).isTrue();
+    }
+
+    @Test
+    void cascadeActivateRequiresActivatePermissionOnDescendants() {
+        var root = createRoot("Acme", "acme", OWNER);
+        treeService.createChild(root.id(), createCommand("Engineering", "engineering", OWNER));
+        treeService.archive(root.id(), OWNER, true);
+        WorkspacePermissionService nonInheritedPermissionService = new DefaultWorkspacePermissionService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                List.of(wikiLikeContributor()),
+                new WorkspaceSettings(10, 200, 100, false, false, false));
+        WorkspaceTreeService nonInheritedTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                nonInheritedPermissionService,
+                new WorkspaceSettings(10, 200, 100, false, false, false));
+
+        assertThatThrownBy(() -> nonInheritedTreeService.activate(root.id(), OWNER, true))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

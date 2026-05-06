@@ -18,6 +18,9 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.web.controller.CompanyMgmtController;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.service.I18n;
 
 class UserServicesAutoConfigurationTest {
 
@@ -69,6 +72,53 @@ class UserServicesAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(ApplicationCompanyService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyMemberService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyPermissionService.class);
+                });
+    }
+
+    @Test
+    void registersCompanyEndpointWithEnvironmentProvider() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        UserEndpointsAutoConfiguration.class))
+                .withBean(I18n.class, () -> (code, args, locale) -> code)
+                .withBean(ApplicationCompanyService.class, () -> stub(ApplicationCompanyService.class))
+                .withBean(ApplicationCompanyMemberService.class, () -> stub(ApplicationCompanyMemberService.class))
+                .withBean(ApplicationCompanyPermissionService.class, () -> stub(ApplicationCompanyPermissionService.class))
+                .withBean(IdentityService.class, () -> stub(IdentityService.class))
+                .withPropertyValues(
+                        "studio.features.user.web.enabled=true",
+                        "studio.features.user.web.endpoints.group.enabled=false",
+                        "studio.features.user.web.endpoints.user.enabled=false",
+                        "studio.features.user.web.endpoints.public.enabled=false",
+                        "studio.features.user.web.endpoints.role.enabled=false",
+                        "studio.features.user.web.self.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(CompanyMgmtController.class);
+                });
+    }
+
+    @Test
+    void registersCompanyEndpointWithoutIdentityServiceForLegacyFeatureLevelAccess() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        UserEndpointsAutoConfiguration.class))
+                .withBean(I18n.class, () -> (code, args, locale) -> code)
+                .withBean(ApplicationCompanyService.class, () -> stub(ApplicationCompanyService.class))
+                .withBean(ApplicationCompanyMemberService.class, () -> stub(ApplicationCompanyMemberService.class))
+                .withBean(ApplicationCompanyPermissionService.class, () -> stub(ApplicationCompanyPermissionService.class))
+                .withPropertyValues(
+                        "studio.features.user.web.enabled=true",
+                        "studio.features.user.web.endpoints.group.enabled=false",
+                        "studio.features.user.web.endpoints.user.enabled=false",
+                        "studio.features.user.web.endpoints.public.enabled=false",
+                        "studio.features.user.web.endpoints.role.enabled=false",
+                        "studio.features.user.web.self.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(CompanyMgmtController.class);
                 });
     }
 

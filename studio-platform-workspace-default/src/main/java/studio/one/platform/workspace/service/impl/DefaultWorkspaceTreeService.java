@@ -371,6 +371,12 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
 
     @Override
     @Transactional
+    public void archive(Long workspaceId, WorkspaceAccessContext actor) {
+        archive(workspaceId, actor, false);
+    }
+
+    @Override
+    @Transactional
     public WorkspaceRef archive(Long workspaceId, WorkspaceAccessContext actor, boolean cascade) {
         WorkspaceAccessContext resolved = requireActor(actor);
         permissionService.assertGranted(workspaceId, resolved, WorkspacePermissionActions.ARCHIVE);
@@ -381,6 +387,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 .toList();
         if (!cascade && !activeDescendants.isEmpty()) {
             throw new WorkspaceConflictException("Workspace has active descendants; cascade archive is required");
+        }
+        if (cascade) {
+            assertGranted(activeDescendants, resolved, WorkspacePermissionActions.ARCHIVE);
         }
         Instant now = Instant.now();
         Long userId = resolved.requireUserId();
@@ -405,6 +414,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             List<WorkspaceEntity> archivedDescendants = descendantsOf(entity).stream()
                     .filter(WorkspaceEntity::isArchived)
                     .toList();
+            assertGranted(archivedDescendants, resolved, WorkspacePermissionActions.ACTIVATE);
             archivedDescendants.forEach(descendant -> activateEntity(descendant, userId));
             workspaceRepository.saveAll(archivedDescendants);
         }
@@ -477,6 +487,12 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             if (!ancestor.getWorkspaceId().equals(entity.getWorkspaceId()) && ancestor.isArchived()) {
                 throw new WorkspaceConflictException("Workspace cannot be activated while an ancestor is archived");
             }
+        }
+    }
+
+    private void assertGranted(List<WorkspaceEntity> entities, WorkspaceAccessContext actor, String action) {
+        for (WorkspaceEntity entity : entities) {
+            permissionService.assertGranted(entity.getWorkspaceId(), actor, action);
         }
     }
 

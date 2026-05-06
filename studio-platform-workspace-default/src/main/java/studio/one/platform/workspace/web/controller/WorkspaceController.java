@@ -124,10 +124,11 @@ public class WorkspaceController extends WorkspaceControllerSupport {
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/archive")
     @PreAuthorize("@endpointAuthz.can('features:workspace','write')")
-    public ResponseEntity<ApiResponse<WorkspaceRef>> archive(
+    public ResponseEntity<ApiResponse<Void>> archive(
             @PathVariable Long workspaceId,
             @RequestBody(required = false) WorkspaceArchiveRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(archive(workspaceId, request, false)));
+        archive(workspaceId, request, false);
+        return ResponseEntity.ok(ApiResponse.ok());
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/activate")

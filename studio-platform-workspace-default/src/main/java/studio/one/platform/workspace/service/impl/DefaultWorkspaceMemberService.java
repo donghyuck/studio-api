@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -251,6 +252,8 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
             searchUsers(keyword, workspaceUserIds).stream()
                     .map(User::getUserId)
                     .forEach(result::add);
+        } else {
+            searchUsersViaDatabase(keyword, workspaceIds).forEach(result::add);
         }
         return result;
     }
@@ -275,6 +278,32 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
         return memberRepository.findByWorkspaceIdIn(workspaceIds).stream()
                 .map(WorkspaceMemberEntity::getUserId)
                 .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private List<Long> searchUsersViaDatabase(String keyword, Collection<Long> workspaceIds) {
+        String pattern = "%" + escapeLike(keyword.toLowerCase(Locale.ROOT)) + "%";
+        @SuppressWarnings("unchecked")
+        List<Number> rows = entityManager.createNativeQuery("""
+                        select distinct m.USER_ID
+                          from TB_PLATFORM_WORKSPACE_MEMBER m
+                          left join TB_APPLICATION_USER u on u.USER_ID = m.USER_ID
+                         where m.WORKSPACE_ID in (:workspaceIds)
+                           and (lower(coalesce(u.USERNAME, '')) like :pattern escape '!'
+                            or lower(coalesce(u.NAME, '')) like :pattern escape '!'
+                            or lower(coalesce(u.EMAIL, '')) like :pattern escape '!')
+                        """)
+                .setParameter("workspaceIds", workspaceIds)
+                .setParameter("pattern", pattern)
+                .getResultList();
+        return rows.stream()
+                .map(Number::longValue)
+                .toList();
+    }
+
+    private String escapeLike(String value) {
+        return value.replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
     }
 
     private WorkspaceMemberListQuery queryOrAll(WorkspaceMemberListQuery query) {

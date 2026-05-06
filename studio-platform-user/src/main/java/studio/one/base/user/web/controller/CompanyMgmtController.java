@@ -62,7 +62,7 @@ public class CompanyMgmtController {
     private final ObjectProvider<Environment> environmentProvider;
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('features:company','admin')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
     public ResponseEntity<ApiResponse<Page<CompanyDto>>> list(
             @RequestParam(value = "q", required = false) String q,
             @PageableDefault(size = 15, sort = "companyId", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -70,7 +70,7 @@ public class CompanyMgmtController {
     }
 
     @PostMapping
-    @PreAuthorize("@endpointAuthz.can('features:company','admin')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
     public ResponseEntity<ApiResponse<CompanyDto>> create(
             @Valid @RequestBody CompanyDto request,
             @AuthenticationPrincipal UserDetails principal) {
@@ -208,9 +208,7 @@ public class CompanyMgmtController {
             return false;
         }
         return authority.equals(configuredAdminRole)
-                || authority.equals(stripRolePrefix(configuredAdminRole))
-                || "ROLE_ADMIN".equals(authority)
-                || "ADMIN".equals(authority);
+                || authority.equals(stripRolePrefix(configuredAdminRole));
     }
 
     private String stripRolePrefix(String authority) {
