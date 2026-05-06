@@ -56,7 +56,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             return false;
         }
         WorkspaceEntity workspace = workspace(workspaceId);
-        if (workspace.isArchived() && !READ_ONLY_ACTIONS.contains(action)) {
+        if (workspace.isArchived() && !isReadOnlyAction(action)) {
             return false;
         }
         if (actor != null && actor.platformAdmin()) {
@@ -115,7 +115,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             getPermissionDefinitions().forEach(def -> actions.add(def.action()));
         }
         return actions.stream()
-                .filter(action -> !workspace.isArchived() || READ_ONLY_ACTIONS.contains(action))
+                .filter(action -> !workspace.isArchived() || isReadOnlyAction(action))
                 .sorted()
                 .toList();
     }
@@ -161,6 +161,10 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
         }
         return mappings().stream()
                 .anyMatch(mapping -> action.equals(mapping.action()) && role.rank() >= mapping.role().rank());
+    }
+
+    private boolean isReadOnlyAction(String action) {
+        return READ_ONLY_ACTIONS.contains(action) || action.endsWith(".read");
     }
 
     private List<WorkspaceRolePermissionMapping> mappings() {
