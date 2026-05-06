@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
+import studio.one.platform.workspace.service.impl.WorkspaceSettings;
 import studio.one.platform.workspace.web.controller.WorkspaceController;
 import studio.one.platform.workspace.web.controller.WorkspaceMgmtController;
 
@@ -51,6 +52,19 @@ class WorkspaceAutoConfigurationTest {
                     assertThat(context).hasSingleBean(WorkspacePermissionService.class);
                     assertThat(context).doesNotHaveBean(WorkspaceController.class);
                     assertThat(context).doesNotHaveBean(WorkspaceMgmtController.class);
+                });
+    }
+
+    @Test
+    void mapsCompanyRequiredPropertyToWorkspaceSettings() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.features.workspace.company-required=true")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(WorkspaceSettings.class);
+                    assertThat(context.getBean(WorkspaceSettings.class).companyRequired()).isTrue();
                 });
     }
 

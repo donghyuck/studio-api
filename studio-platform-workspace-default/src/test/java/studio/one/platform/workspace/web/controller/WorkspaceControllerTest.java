@@ -55,11 +55,12 @@ class WorkspaceControllerTest {
                 permissionService,
                 principalProvider("user", false));
 
-        controller.createRoot(new WorkspaceCreateRequest("Acme", "acme", WorkspaceVisibility.PRIVATE));
+        controller.createRoot(new WorkspaceCreateRequest(7L, "Acme", "acme", WorkspaceVisibility.PRIVATE));
 
         ArgumentCaptor<CreateRootWorkspaceCommand> captor = ArgumentCaptor.forClass(CreateRootWorkspaceCommand.class);
         verify(treeService).createRoot(captor.capture());
         WorkspaceAccessContext actor = captor.getValue().actor();
+        assertThat(captor.getValue().companyId()).isEqualTo(7L);
         assertThat(actor.userId()).isEqualTo(10L);
         assertThat(actor.platformAdmin()).isFalse();
     }
@@ -123,6 +124,25 @@ class WorkspaceControllerTest {
         verify(treeService).list(queryCaptor.capture(), eq(pageable), contextCaptor.capture());
         assertThat(queryCaptor.getValue()).isEqualTo(new WorkspaceListQuery("acme", 7L, 3L, false, true));
         assertThat(contextCaptor.getValue().platformAdmin()).isTrue();
+    }
+
+    @Test
+    void getByPathPassesCompanyScopeToService() {
+        WorkspaceTreeService treeService = org.mockito.Mockito.mock(WorkspaceTreeService.class);
+        WorkspaceMemberService memberService = org.mockito.Mockito.mock(WorkspaceMemberService.class);
+        WorkspacePermissionService permissionService = org.mockito.Mockito.mock(WorkspacePermissionService.class);
+        when(treeService.getByPath(eq(7L), eq("acme"), any())).thenReturn(workspace());
+        WorkspaceController controller = new WorkspaceController(
+                treeService,
+                memberService,
+                permissionService,
+                principalProvider("user", false));
+
+        controller.getByPath(7L, "acme");
+
+        ArgumentCaptor<WorkspaceAccessContext> contextCaptor = ArgumentCaptor.forClass(WorkspaceAccessContext.class);
+        verify(treeService).getByPath(eq(7L), eq("acme"), contextCaptor.capture());
+        assertThat(contextCaptor.getValue().platformAdmin()).isFalse();
     }
 
     @Test
