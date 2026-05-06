@@ -598,13 +598,13 @@ class DefaultWorkspaceServiceTest {
         var companyOwner = new WorkspaceAccessContext(50L, "company-owner", false);
         WorkspacePermissionService permissions = permissionServiceWithCompanyRole(10L, 50L, CompanyRole.OWNER);
 
-        assertThat(permissions.getEffectiveRole(root.id(), companyOwner)).isEqualTo(WorkspaceRole.OWNER);
+        assertThat(permissions.getEffectiveRole(root.id(), companyOwner)).isNull();
         assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.update")).isTrue();
         assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.update")).isTrue();
     }
 
     @Test
-    void companyOwnerOverrideIsReflectedInPermissionSummaryWhenWorkspaceRoleIsWeaker() {
+    void companyOwnerOverrideExpandsActionsWithoutRewritingEffectiveWorkspaceRole() {
         var root = treeService.createRoot(new CreateRootWorkspaceCommand(
                 10L,
                 "Acme",
@@ -615,7 +615,7 @@ class DefaultWorkspaceServiceTest {
         memberService.addMember(root.id(), new WorkspaceMemberCommand(50L, WorkspaceRole.VIEWER, OWNER));
         WorkspacePermissionService permissions = permissionServiceWithCompanyRole(10L, 50L, CompanyRole.OWNER);
 
-        assertThat(permissions.getEffectiveRole(root.id(), companyOwner)).isEqualTo(WorkspaceRole.OWNER);
+        assertThat(permissions.getEffectiveRole(root.id(), companyOwner)).isEqualTo(WorkspaceRole.VIEWER);
         assertThat(permissions.getGrantedActions(root.id(), companyOwner))
                 .contains("workspace.update", "workspace.member.manage", "wiki.page.update");
     }

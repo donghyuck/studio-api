@@ -115,9 +115,13 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
     @Transactional(readOnly = true)
     public List<String> getGrantedActions(Long workspaceId, WorkspaceAccessContext actor) {
         WorkspaceEntity workspace = workspace(workspaceId);
+        Long userId = actor == null ? null : actor.userId();
         WorkspaceRole role = actor != null && actor.platformAdmin()
                 ? WorkspaceRole.OWNER
-                : getEffectiveRole(workspace, actor == null ? null : actor.userId());
+                : getEffectiveWorkspaceRole(workspace, userId);
+        if (role != WorkspaceRole.OWNER && isCompanyOwner(workspace, userId)) {
+            role = WorkspaceRole.OWNER;
+        }
         if (role == null) {
             return List.of();
         }
@@ -150,11 +154,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
     }
 
     private WorkspaceRole getEffectiveRole(WorkspaceEntity workspace, Long userId) {
-        WorkspaceRole role = getEffectiveWorkspaceRole(workspace, userId);
-        if (isCompanyOwner(workspace, userId)) {
-            return WorkspaceRole.OWNER;
-        }
-        return role;
+        return getEffectiveWorkspaceRole(workspace, userId);
     }
 
     private WorkspaceRole getEffectiveWorkspaceRole(WorkspaceEntity workspace, Long userId) {
