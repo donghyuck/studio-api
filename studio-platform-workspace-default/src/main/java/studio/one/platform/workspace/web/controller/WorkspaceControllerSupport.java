@@ -14,6 +14,7 @@ import studio.one.platform.workspace.model.WorkspaceRef;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
+import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
@@ -24,6 +25,7 @@ import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
 import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
 import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
+import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
 import studio.one.platform.workspace.web.dto.WorkspacePermissionSummaryDto;
 import studio.one.platform.workspace.web.dto.WorkspaceUpdateRequest;
 
@@ -65,6 +67,12 @@ abstract class WorkspaceControllerSupport {
         return treeService.update(workspaceId, new UpdateWorkspaceCommand(
                 request.name(),
                 request.visibility(),
+                context(platformAdmin)));
+    }
+
+    WorkspaceRef changeParent(Long workspaceId, WorkspaceParentChangeRequest request, boolean platformAdmin) {
+        return treeService.changeParent(workspaceId, new ChangeWorkspaceParentCommand(
+                request.newParentId(),
                 context(platformAdmin)));
     }
 

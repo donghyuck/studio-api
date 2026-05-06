@@ -16,6 +16,8 @@ public interface WorkspaceTreeService {
 
     WorkspaceRef update(Long workspaceId, UpdateWorkspaceCommand command);
 
+    WorkspaceRef changeParent(Long workspaceId, ChangeWorkspaceParentCommand command);
+
     WorkspaceRef getById(Long workspaceId, WorkspaceAccessContext actor);
 
     WorkspaceRef getByPath(String path, WorkspaceAccessContext actor);

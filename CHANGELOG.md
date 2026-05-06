@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #417 대응으로 Workspace parent 변경 API `PATCH /api/workspaces/{workspaceId}/parent`, `PATCH /api/mgmt/workspaces/{workspaceId}/parent`를 추가했다. `newParentId=null`은 root 이동으로 처리하고, subtree의 `rootId`/`path`/`depth`와 closure table을 재계산하며 자기 자신 또는 descendant 아래 이동은 거부한다.
 - 이슈 #415 대응으로 `studio-application-modules:wiki-service`와 `starter:studio-application-starter-wiki`를 추가해 workspace 단위 Wiki page/revision MVP, 사용자용/관리용 API, markdown render/sanitize, 기존 page write의 `baseRevisionId` 충돌 검증, JPA schema `V1400`을 제공한다.
 - 이슈 #412 대응으로 Workspace 관리 화면 진입용 `GET /api/mgmt/workspaces` 목록 조회 API를 추가했다. `q`, `parentId`, `rootOnly`, `archived`, pagination, sort를 지원하고 기존 관리용 권한 정책을 적용한다.
 - 이슈 #410 대응으로 `studio-platform-workspace`, `studio-platform-workspace-default`, `starter:studio-platform-starter-workspace`를 추가해 workspace tree 생성/조회, member role, effective permission, 사용자용/관리용 API와 JPA 자동구성을 제공한다.

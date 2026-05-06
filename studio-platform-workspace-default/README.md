@@ -1,6 +1,6 @@
 # Studio Platform Workspace Default
 
-`studio-platform-workspace` 계약의 JPA-only 기본 구현입니다. v1은 workspace tree와 member role 기반 effective permission만 다루며 Wiki, page-level ACL, custom role, deny override, hard delete, subtree move는 포함하지 않습니다.
+`studio-platform-workspace` 계약의 JPA-only 기본 구현입니다. v1은 workspace tree와 member role 기반 effective permission, parent 변경 기반 subtree move를 다루며 Wiki, page-level ACL, custom role, deny override, hard delete는 포함하지 않습니다.
 
 ## 저장 모델
 - `TB_PLATFORM_WORKSPACE`: workspace 본문, `parentId`, immutable `slug`, materialized `path`, archive 상태
@@ -8,6 +8,8 @@
 - `TB_PLATFORM_WORKSPACE_MEMBER`: workspace별 direct member role
 
 root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다. child 생성 시 parent ancestor closure를 복사하고 self closure를 추가합니다.
+
+parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 closure row를 서버에서 재계산합니다. `newParentId=null`은 root 이동으로 처리하며, 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 거부합니다.
 
 ## 권한 규칙
 - effective role은 ancestor direct role 중 가장 높은 role입니다.
@@ -30,6 +32,7 @@ root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다
 - `GET /api/workspaces/{workspaceId}/descendants`
 - `GET /api/workspaces/{workspaceId}/tree`
 - `PATCH /api/workspaces/{workspaceId}`
+- `PATCH /api/workspaces/{workspaceId}/parent`
 - `POST /api/workspaces/{workspaceId}/archive`
 - `GET /api/workspaces/{workspaceId}/members`
 - `GET /api/workspaces/{workspaceId}/members/effective`
@@ -40,6 +43,16 @@ root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다
 - `GET /api/workspaces/{workspaceId}/permissions/actions`
 
 관리용 기본 경로는 `/api/mgmt/workspaces`이며 같은 endpoint shape를 제공합니다. 관리용 API는 `features:workspace/manage` 또는 platform `ADMIN` role을 요구합니다.
+
+parent 변경 request body:
+
+```json
+{
+  "newParentId": 10
+}
+```
+
+`newParentId`를 `null`로 보내면 root workspace로 이동합니다. 사용자용 API는 이동 대상 workspace에 `workspace.update`, 새 parent가 있으면 parent에 `workspace.create` 권한을 요구합니다. 관리용 API는 기존 platform admin 우회 정책을 사용합니다. archived workspace는 이동할 수 없고 archived parent 아래로도 이동할 수 없습니다.
 
 관리 화면의 첫 진입용 목록 API는 관리용 경로에만 제공됩니다.
 

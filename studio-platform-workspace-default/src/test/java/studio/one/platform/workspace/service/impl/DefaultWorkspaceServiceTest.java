@@ -17,6 +17,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.security.access.AccessDeniedException;
 
 import studio.one.platform.workspace.exception.WorkspaceConflictException;
+import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
 import studio.one.platform.workspace.permission.WorkspacePermissionContributor;
@@ -26,6 +27,7 @@ import studio.one.platform.workspace.persistence.jpa.WorkspaceClosureEntity;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceClosureJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
 import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepository;
+import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
 import studio.one.platform.workspace.service.CreateWorkspaceCommand;
 import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
@@ -55,6 +57,9 @@ class DefaultWorkspaceServiceTest {
 
     @jakarta.annotation.Resource
     private WorkspaceClosureJpaRepository closureRepository;
+
+    @jakarta.annotation.Resource
+    private WorkspaceJpaRepository workspaceRepository;
 
     @Test
     void createsRootAndChildWithPathClosureAndOwner() {
@@ -143,6 +148,102 @@ class DefaultWorkspaceServiceTest {
         var updated = treeService.getById(root.id(), OWNER);
         assertThat(updated.name()).isEqualTo("Renamed");
         assertThat(updated.visibility()).isEqualTo(WorkspaceVisibility.INTERNAL);
+    }
+
+    @Test
+    void changeParentMovesSubtreeAndRebuildsClosure() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var backend = treeService.createChild(engineering.id(), createCommand("Backend", "backend", OWNER));
+        var beta = createRoot("Beta", "beta", OWNER);
+
+        var moved = treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(beta.id(), OWNER));
+
+        assertThat(moved.parentId()).isEqualTo(beta.id());
+        assertThat(moved.rootId()).isEqualTo(beta.id());
+        assertThat(moved.path()).isEqualTo("beta/engineering");
+        assertThat(moved.depth()).isEqualTo(1);
+
+        var movedBackend = treeService.getById(backend.id(), OWNER);
+        assertThat(movedBackend.parentId()).isEqualTo(engineering.id());
+        assertThat(movedBackend.rootId()).isEqualTo(beta.id());
+        assertThat(movedBackend.path()).isEqualTo("beta/engineering/backend");
+        assertThat(movedBackend.depth()).isEqualTo(2);
+        assertThat(closureRepository.findAncestorIds(backend.id()))
+                .containsExactly(beta.id(), engineering.id(), backend.id());
+    }
+
+    @Test
+    void changeParentAllowsMovingWorkspaceToRoot() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+
+        var moved = treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(null, OWNER));
+
+        assertThat(moved.parentId()).isNull();
+        assertThat(moved.rootId()).isEqualTo(engineering.id());
+        assertThat(moved.path()).isEqualTo("engineering");
+        assertThat(moved.depth()).isZero();
+        assertThat(closureRepository.findAncestorIds(engineering.id()))
+                .containsExactly(engineering.id());
+    }
+
+    @Test
+    void changeParentRejectsCyclesAndDuplicateSiblingSlug() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var backend = treeService.createChild(engineering.id(), createCommand("Backend", "backend", OWNER));
+        var design = treeService.createChild(acme.id(), createCommand("Design", "design", OWNER));
+        treeService.createChild(design.id(), createCommand("Backend", "backend", OWNER));
+
+        assertThatThrownBy(() -> treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(backend.id(), OWNER)))
+                .isInstanceOf(WorkspaceConflictException.class);
+        assertThatThrownBy(() -> treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(engineering.id(), OWNER)))
+                .isInstanceOf(WorkspaceConflictException.class);
+        assertThatThrownBy(() -> treeService.changeParent(
+                backend.id(),
+                new ChangeWorkspaceParentCommand(design.id(), OWNER)))
+                .isInstanceOf(WorkspaceConflictException.class);
+    }
+
+    @Test
+    void changeParentEnforcesPermissionAndParentExistence() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var beta = createRoot("Beta", "beta", OWNER);
+        memberService.addMember(acme.id(), new WorkspaceMemberCommand(VIEWER.userId(), WorkspaceRole.VIEWER, OWNER));
+
+        assertThatThrownBy(() -> treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(beta.id(), VIEWER)))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(999L, OWNER)))
+                .isInstanceOf(WorkspaceNotFoundException.class);
+    }
+
+    @Test
+    void changeParentRejectsArchivedWorkspaceMutation() {
+        var acme = createRoot("Acme", "acme", OWNER);
+        var engineering = treeService.createChild(acme.id(), createCommand("Engineering", "engineering", OWNER));
+        var beta = createRoot("Beta", "beta", OWNER);
+        treeService.archive(engineering.id(), OWNER);
+
+        assertThatThrownBy(() -> treeService.changeParent(
+                engineering.id(),
+                new ChangeWorkspaceParentCommand(beta.id(), OWNER)))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThat(workspaceRepository.findById(engineering.id()).orElseThrow().getParentId())
+                .isEqualTo(acme.id());
     }
 
     @Test
