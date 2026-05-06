@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### 변경됨
-- 이슈 #430 대응으로 Workspace Company scope 운영 강제 전환용 `V1302__enforce_workspace_company_scope.sql`을 postgres/mysql/mariadb에 추가했다. `COMPANY_ID NOT NULL`, company-scoped path/root slug/parent slug unique 제약과 MySQL/MariaDB `PARENT_KEY` generated column 전략, backfill/duplicate 검증 운영 문서를 제공한다.
+- 이슈 #430 대응으로 Workspace Company scope 운영 강제 전환용 `V1302__enforce_workspace_company_scope.sql`을 postgres/mysql/mariadb에 추가했다. `COMPANY_ID NOT NULL`, company-scoped path/root slug/parent slug unique 제약과 MySQL/MariaDB `PARENT_KEY` generated column 전략, `studio.features.workspace.company-scope-enforced` runtime 전환 설정, backfill/duplicate 검증 운영 문서를 제공한다.
 - 이슈 #428 대응으로 Workspace permission 판정에 opt-in Company `OWNER` override를 연결했다. `studio.workspace.permission.company-owner-override-enabled=true`일 때 Workspace direct/ancestor role을 우선 적용하고, 부족할 때만 Company `OWNER`가 Workspace `OWNER`급 권한을 받으며, Company `ADMIN`은 private workspace/wiki content read 권한을 자동으로 얻지 않는다.
 - 이슈 #426 대응으로 Workspace root 생성과 조회에 nullable Company scope를 추가했다. `WorkspaceRef.companyId`, `CreateRootWorkspaceCommand`, company-aware `getByPath`, `studio.features.workspace.company-required` 설정과 `V1301__add_workspace_company_scope.sql` migration을 제공하며 child workspace는 parent companyId를 상속한다.
 - 이슈 #423 대응으로 Company member/permission 기반을 추가했다. 기존 `ApplicationCompany*` 구조를 유지하면서 `CompanyRole`, `ApplicationCompanyMemberService`, `ApplicationCompanyPermissionService`, Company archive 상태와 `TB_APPLICATION_COMPANY_MEMBERS` migration을 제공한다.

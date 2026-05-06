@@ -81,12 +81,12 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     public WorkspaceRef createRoot(CreateRootWorkspaceCommand command) {
         WorkspaceAccessContext actor = requireActor(command.actor());
         Long companyId = normalizeCompanyId(command.companyId());
-        if (settings.companyRequired() && companyId == null) {
+        if (requiresCompanyId() && companyId == null) {
             throw new WorkspaceValidationException("Workspace companyId is required");
         }
         String slug = normalizeSlug(command.slug());
         String name = normalizeName(command.name());
-        if (workspaceRepository.existsByParentIdIsNullAndSlug(slug) || existsByScopedPath(companyId, slug)) {
+        if (existsByScopedRootSlug(companyId, slug) || existsByScopedPath(companyId, slug)) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + slug);
         }
         WorkspaceEntity entity = new WorkspaceEntity();
@@ -204,9 +204,9 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             if (!sameCompany(entity.getCompanyId(), newParent.getCompanyId())) {
                 throw new WorkspaceConflictException("Workspace cannot be moved across companies");
             }
-        } else if (workspaceRepository.existsByParentIdIsNullAndSlug(entity.getSlug())) {
+        } else if (existsByScopedRootSlug(entity.getCompanyId(), entity.getSlug())) {
             throw new WorkspaceConflictException("Duplicate root workspace slug: " + entity.getSlug());
-        } else if (settings.companyRequired() && entity.getCompanyId() == null) {
+        } else if (requiresCompanyId() && entity.getCompanyId() == null) {
             throw new WorkspaceValidationException("Workspace companyId is required");
         }
 
@@ -257,7 +257,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     @Deprecated(since = "2.x", forRemoval = false)
     @Transactional(readOnly = true)
     public WorkspaceRef getByPath(String path, WorkspaceAccessContext actor) {
-        if (settings.companyRequired()) {
+        if (requiresCompanyId()) {
             throw new WorkspaceValidationException("Workspace companyId is required");
         }
         WorkspaceEntity entity = workspaceByPath(path);
@@ -448,7 +448,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
             throw new WorkspaceValidationException("Workspace path is required");
         }
         Long normalizedCompanyId = normalizeCompanyId(companyId);
-        if (settings.companyRequired() && normalizedCompanyId == null) {
+        if (requiresCompanyId() && normalizedCompanyId == null) {
             throw new WorkspaceValidationException("Workspace companyId is required");
         }
         if (normalizedCompanyId == null) {
@@ -473,6 +473,17 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         return companyId == null
                 ? workspaceRepository.existsByPath(path)
                 : workspaceRepository.existsByCompanyIdAndPath(companyId, path);
+    }
+
+    private boolean existsByScopedRootSlug(Long companyId, String slug) {
+        if (settings.companyScopeEnforced() && companyId != null) {
+            return workspaceRepository.existsByCompanyIdAndParentIdIsNullAndSlug(companyId, slug);
+        }
+        return workspaceRepository.existsByParentIdIsNullAndSlug(slug);
+    }
+
+    private boolean requiresCompanyId() {
+        return settings.companyRequired() || settings.companyScopeEnforced();
     }
 
     private Specification<WorkspaceEntity> listSpecification(WorkspaceListQuery query) {

@@ -38,6 +38,6 @@ Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effec
 ## Company scope
 - root workspace는 `CreateRootWorkspaceCommand(companyId, ...)`로 company scope를 받을 수 있다.
 - 기존 `CreateWorkspaceCommand` 기반 root 생성은 legacy 호환 경로로 유지되며 `companyId=null` root를 생성한다.
-- `V1302__enforce_workspace_company_scope.sql` 적용 환경에서는 `studio.features.workspace.company-required=true`를 함께 사용하고 root 생성 시 `companyId`를 반드시 전달해야 한다.
-- path 조회는 `getByPath(companyId, path, actor)`를 우선 사용한다. 기존 `getByPath(path, actor)`는 legacy 조회 호환을 위해 유지한다.
+- `V1302__enforce_workspace_company_scope.sql` 적용 환경에서는 `studio.features.workspace.company-required=true`, `studio.features.workspace.company-scope-enforced=true`를 함께 사용하고 root 생성 시 `companyId`를 반드시 전달해야 한다.
+- path 조회는 `getByPath(companyId, path, actor)`를 우선 사용한다. 기존 `getByPath(path, actor)`는 `company-required=false` 전환 기간의 legacy 조회 호환을 위해 유지하며, enforcement 이후에는 `companyId`를 반드시 전달해야 한다.
 - 기본 구현은 Workspace direct/ancestor role을 우선 판정한다. `studio.workspace.permission.company-owner-override-enabled=true`일 때만 부족한 권한을 Company `OWNER`의 Workspace `OWNER`급 override로 보강한다. 이 설정은 `ApplicationCompanyMemberService` bean이 있어야 기동된다. Company `ADMIN`은 private workspace나 wiki content read 권한을 자동으로 얻지 않는다.

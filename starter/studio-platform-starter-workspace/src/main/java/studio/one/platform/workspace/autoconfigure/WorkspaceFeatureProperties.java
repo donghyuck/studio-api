@@ -19,6 +19,7 @@ public class WorkspaceFeatureProperties extends FeatureToggle {
 
     private Web web = new Web();
     private boolean companyRequired = false;
+    private boolean companyScopeEnforced = false;
 
     @Getter
     @Setter

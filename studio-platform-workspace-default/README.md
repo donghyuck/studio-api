@@ -9,7 +9,7 @@
 
 root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다. child 생성 시 parent ancestor closure를 복사하고 self closure를 추가합니다.
 
-root 생성은 `companyId`를 받을 수 있습니다. `companyId`는 `V1301` 전환 단계에서 nullable이며, child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다. `V1302__enforce_workspace_company_scope.sql` 적용 후에는 DB도 `COMPANY_ID NOT NULL`을 강제하므로 이 설정을 함께 켜야 합니다.
+root 생성은 `companyId`를 받을 수 있습니다. `companyId`는 `V1301` 전환 단계에서 nullable이며, child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다. `V1302__enforce_workspace_company_scope.sql` 적용 후에는 DB도 `COMPANY_ID NOT NULL`을 강제하므로 `company-required=true`를 켜야 하며, company-scoped root slug 중복 체크는 `studio.features.workspace.company-scope-enforced=true`에서만 활성화됩니다.
 
 parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 closure row를 서버에서 재계산합니다. `newParentId=null`은 root 이동으로 처리하며, 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 거부합니다.
 
@@ -31,10 +31,12 @@ parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 clo
 
 적용 전 null/duplicate 검증과 backfill 절차는 [workspace-company-scope-enforcement.md](../docs/dev/workspace-company-scope-enforcement.md)를 따릅니다.
 
+`studio.features.workspace.company-scope-enforced=true`는 `V1302` 적용 후에만 켭니다. 이 설정은 `studio.features.workspace.company-required=true`와 함께만 사용할 수 있습니다. 설정을 켜면 root slug 중복 검사가 company scope로 동작하며, `V1302` schema가 없으면 애플리케이션이 기동 단계에서 실패합니다.
+
 ## API
 웹 컨트롤러는 starter에서 `studio.features.workspace.web.enabled=true`일 때 등록됩니다.
 
-사용자용 기본 경로는 `/api/workspaces`이며 익명 공개 API가 아닙니다.
+사용자용 기본 경로는 `/api/workspaces`이며 익명 공개 API가 아닙니다. 사용자용 `POST /api/workspaces`는 company-scoped root 생성을 허용하지 않습니다. company-scoped root 생성은 관리용 `POST /api/mgmt/workspaces`에서 `companyId`를 전달해야 합니다.
 
 - `POST /api/workspaces`
 - `POST /api/workspaces/{workspaceId}/children`
@@ -88,10 +90,13 @@ Flyway range는 `workspace` `1300-1399`입니다.
 마이그레이션 위치:
 - `src/main/resources/schema/workspace/postgres/V1300__create_workspace_tables.sql`
 - `src/main/resources/schema/workspace/postgres/V1301__add_workspace_company_scope.sql`
+- `src/main/resources/schema/workspace/postgres/V1302__enforce_workspace_company_scope.sql`
 - `src/main/resources/schema/workspace/mysql/V1300__create_workspace_tables.sql`
 - `src/main/resources/schema/workspace/mysql/V1301__add_workspace_company_scope.sql`
+- `src/main/resources/schema/workspace/mysql/V1302__enforce_workspace_company_scope.sql`
 - `src/main/resources/schema/workspace/mariadb/V1300__create_workspace_tables.sql`
 - `src/main/resources/schema/workspace/mariadb/V1301__add_workspace_company_scope.sql`
+- `src/main/resources/schema/workspace/mariadb/V1302__enforce_workspace_company_scope.sql`
 
 ## 검증
 ```bash

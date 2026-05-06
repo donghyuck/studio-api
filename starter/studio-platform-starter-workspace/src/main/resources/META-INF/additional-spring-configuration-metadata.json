@@ -18,6 +18,12 @@
       "defaultValue": false
     },
     {
+      "name": "studio.features.workspace.company-scope-enforced",
+      "type": "java.lang.Boolean",
+      "description": "Enable runtime behavior that assumes V1302 company-scoped workspace database constraints are already applied. Startup fails when required V1302 indexes are missing.",
+      "defaultValue": false
+    },
+    {
       "name": "studio.features.workspace.web.enabled",
       "type": "java.lang.Boolean",
       "description": "Expose workspace HTTP endpoints."

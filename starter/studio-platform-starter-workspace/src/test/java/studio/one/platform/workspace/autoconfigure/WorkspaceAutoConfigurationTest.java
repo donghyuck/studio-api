@@ -72,6 +72,33 @@ class WorkspaceAutoConfigurationTest {
     }
 
     @Test
+    void companyScopeEnforcedFailsFastWhenV1302IndexesAreMissing() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.features.workspace.company-required=true",
+                        "studio.features.workspace.company-scope-enforced=true")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("company-scope-enforced=true requires V1302");
+                });
+    }
+
+    @Test
+    void companyScopeEnforcedRequiresCompanyRequired() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.features.workspace.enabled=true",
+                        "studio.features.workspace.company-scope-enforced=true")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("company-scope-enforced=true requires studio.features.workspace.company-required=true");
+                });
+    }
+
+    @Test
     void companyOwnerOverrideIsOptInEvenWhenCompanyMemberServiceExists() {
         contextRunner
                 .withBean(ApplicationCompanyMemberService.class,

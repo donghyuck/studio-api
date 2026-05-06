@@ -21,6 +21,8 @@ public interface WorkspaceJpaRepository extends JpaRepository<WorkspaceEntity, L
 
     boolean existsByParentIdIsNullAndSlug(String slug);
 
+    boolean existsByCompanyIdAndParentIdIsNullAndSlug(Long companyId, String slug);
+
     long countByParentId(Long parentId);
 
     List<WorkspaceEntity> findByParentIdOrderByPositionAscWorkspaceIdAsc(Long parentId);

@@ -114,6 +114,41 @@ class DefaultWorkspaceServiceTest {
     }
 
     @Test
+    void rootSlugUniquenessIsScopedByCompanyOnlyAfterCompanyScopeEnforcement() {
+        WorkspaceTreeService companyScopeEnforcedTreeService = new DefaultWorkspaceTreeService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                permissionService,
+                new WorkspaceSettings(10, 200, 100, true, true, true));
+
+        var acme = companyScopeEnforcedTreeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "portal",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var contoso = companyScopeEnforcedTreeService.createRoot(new CreateRootWorkspaceCommand(
+                20L,
+                "Contoso",
+                "portal",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+
+        assertThat(acme.slug()).isEqualTo("portal");
+        assertThat(contoso.slug()).isEqualTo("portal");
+        assertThat(companyScopeEnforcedTreeService.getByPath(10L, "portal", OWNER).id()).isEqualTo(acme.id());
+        assertThat(companyScopeEnforcedTreeService.getByPath(20L, "portal", OWNER).id()).isEqualTo(contoso.id());
+        assertThatThrownBy(() -> companyScopeEnforcedTreeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme Duplicate",
+                "portal",
+                WorkspaceVisibility.PRIVATE,
+                OWNER)))
+                .isInstanceOf(WorkspaceConflictException.class);
+    }
+
+    @Test
     void companyScopedPublicWorkspaceDoesNotGrantImplicitViewerAcrossCompanies() {
         var root = treeService.createRoot(new CreateRootWorkspaceCommand(
                 10L,
@@ -134,7 +169,7 @@ class DefaultWorkspaceServiceTest {
                 closureRepository,
                 (WorkspaceMemberJpaRepository) null,
                 permissionService,
-                new WorkspaceSettings(10, 200, 100, true, true));
+                new WorkspaceSettings(10, 200, 100, true, true, false));
 
         assertThatThrownBy(() -> companyRequiredTreeService.createRoot(createCommand("Acme", "acme", OWNER)))
                 .isInstanceOf(WorkspaceValidationException.class);
@@ -149,7 +184,7 @@ class DefaultWorkspaceServiceTest {
                 closureRepository,
                 (WorkspaceMemberJpaRepository) null,
                 permissionService,
-                new WorkspaceSettings(10, 200, 100, true, true));
+                new WorkspaceSettings(10, 200, 100, true, true, false));
 
         assertThatThrownBy(() -> companyRequiredTreeService.changeParent(
                 child.id(),

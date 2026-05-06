@@ -159,7 +159,7 @@ Table "studioapi"."tb_platform_workspace" {
     root_id [type: btree, name: "idx_platform_workspace_root"]
     company_id [type: btree, name: "idx_platform_workspace_company"]
   }
-  Note: 'Workspace 테이블. PostgreSQL은 root slug를 partial unique index로 강제하고, MySQL/MariaDB는 generated PARENT_KEY로 root/child slug unique를 강제한다.'
+  Note: 'Workspace 논리 테이블. slug unique는 company + parent scope로 강제한다. PostgreSQL은 (company_id,parent_id,slug)와 root partial unique index를 사용하고, MySQL/MariaDB는 generated PARENT_KEY 기반 (company_id,parent_key,slug)를 사용한다.'
 }
 
 Table "studioapi"."tb_platform_workspace_closure" {

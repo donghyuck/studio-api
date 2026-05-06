@@ -5,9 +5,10 @@ public record WorkspaceSettings(
         int maxChildrenPerNode,
         int slugMaxLength,
         boolean inheritParentRole,
-        boolean companyRequired) {
+        boolean companyRequired,
+        boolean companyScopeEnforced) {
 
     public static WorkspaceSettings defaults() {
-        return new WorkspaceSettings(10, 200, 100, true, false);
+        return new WorkspaceSettings(10, 200, 100, true, false, false);
     }
 }
