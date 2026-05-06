@@ -47,6 +47,13 @@ studio:
 
 관리 화면에서 전체 workspace 목록을 시작점으로 조회할 때는 `GET /api/mgmt/workspaces`를 사용합니다. `q`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort` query parameter를 지원하며 기본 정렬은 `path ASC`입니다.
 
+Workspace member 목록은 사용자용/관리용 경로 모두에서 서버 페이징으로 조회합니다.
+
+- `GET {base-path}/{workspaceId}/members`
+- `GET {base-path}/{workspaceId}/members/effective`
+
+지원 query parameter는 `q`, `keyword`, `role`, `inherited`, `page`, `size`, `sort`입니다. `keyword`는 `q`보다 우선하며 사용자 `username`, `name`, `email`과 숫자 `userId`를 검색합니다. direct member 목록은 항상 `inherited=false`이므로 `inherited=true` 요청 시 빈 페이지를 반환합니다. 응답은 `content`, `totalElements`, `totalPages`, `number`, `size`를 포함하는 `Page<WorkspaceMemberRef>` 형태입니다.
+
 Workspace parent 변경은 사용자용/관리용 경로 모두에서 `PATCH {base-path}/{workspaceId}/parent`로 제공합니다. 요청 body의 `newParentId`가 `null`이면 root로 이동합니다.
 
 ```json

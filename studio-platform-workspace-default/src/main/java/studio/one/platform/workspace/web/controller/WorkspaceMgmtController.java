@@ -27,6 +27,7 @@ import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.platform.workspace.model.WorkspaceMemberRef;
 import studio.one.platform.workspace.model.WorkspaceRef;
+import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.WorkspaceListQuery;
@@ -129,13 +130,39 @@ public class WorkspaceMgmtController extends WorkspaceControllerSupport {
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/members")
-    public ResponseEntity<ApiResponse<List<WorkspaceMemberRef>>> members(@PathVariable Long workspaceId) {
-        return ResponseEntity.ok(ApiResponse.ok(directMembers(workspaceId, true)));
+    public ResponseEntity<ApiResponse<Page<WorkspaceMemberRef>>> members(
+            @PathVariable Long workspaceId,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "role", required = false) WorkspaceRole role,
+            @RequestParam(value = "inherited", required = false) Boolean inherited,
+            @PageableDefault(size = 20, sort = "userId", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(directMembers(
+                workspaceId,
+                q,
+                keyword,
+                role,
+                inherited,
+                pageable,
+                true)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/members/effective")
-    public ResponseEntity<ApiResponse<List<WorkspaceMemberRef>>> effectiveMembers(@PathVariable Long workspaceId) {
-        return ResponseEntity.ok(ApiResponse.ok(effectiveMembers(workspaceId, true)));
+    public ResponseEntity<ApiResponse<Page<WorkspaceMemberRef>>> effectiveMembers(
+            @PathVariable Long workspaceId,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "role", required = false) WorkspaceRole role,
+            @RequestParam(value = "inherited", required = false) Boolean inherited,
+            @PageableDefault(size = 20, sort = "userId", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(effectiveMembers(
+                workspaceId,
+                q,
+                keyword,
+                role,
+                inherited,
+                pageable,
+                true)));
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/members")

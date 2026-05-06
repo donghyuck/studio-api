@@ -2,6 +2,7 @@ package studio.one.platform.workspace.autoconfigure;
 
 import java.util.List;
 
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -95,12 +96,14 @@ public class WorkspaceAutoConfiguration {
             WorkspaceJpaRepository workspaceRepository,
             WorkspaceClosureJpaRepository closureRepository,
             WorkspaceMemberJpaRepository memberRepository,
-            WorkspacePermissionService permissionService) {
+            WorkspacePermissionService permissionService,
+            EntityManager entityManager) {
         return new DefaultWorkspaceMemberService(
                 workspaceRepository,
                 closureRepository,
                 memberRepository,
-                permissionService);
+                permissionService,
+                entityManager);
     }
 
     @Configuration

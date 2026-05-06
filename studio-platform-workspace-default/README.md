@@ -44,6 +44,15 @@ parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 clo
 
 관리용 기본 경로는 `/api/mgmt/workspaces`이며 같은 endpoint shape를 제공합니다. 관리용 API는 `features:workspace/manage` 또는 platform `ADMIN` role을 요구합니다.
 
+member 목록 조회는 사용자용/관리용 경로 모두 서버 페이징 응답을 반환합니다.
+
+- `GET {base-path}/{workspaceId}/members`
+- `GET {base-path}/{workspaceId}/members/effective`
+
+지원 query parameter는 `q`, `keyword`, `role`, `inherited`, `page`, `size`, `sort`입니다. `keyword`가 있으면 `q`보다 우선하며 사용자 `username`, `name`, `email`과 숫자 `userId`를 검색합니다. `role`은 `VIEWER`, `EDITOR`, `ADMIN`, `OWNER` 중 하나입니다. `inherited=true`는 inherited effective member만 조회할 때 사용하며 direct member 목록에서는 결과가 없습니다. 정렬은 `userId`, `workspaceId`, `role`을 지원하고 effective member 목록은 `inherited` 정렬도 지원합니다.
+
+응답은 Spring Data `Page<WorkspaceMemberRef>` 형태이며 `content`, `totalElements`, `totalPages`, `number`, `size`를 포함합니다. `WorkspaceMemberRef` item은 `workspaceId`, `userId`, `role`, `inherited`를 포함합니다.
+
 parent 변경 request body:
 
 ```json

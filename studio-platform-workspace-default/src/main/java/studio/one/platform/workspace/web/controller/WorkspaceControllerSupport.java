@@ -11,6 +11,7 @@ import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.workspace.model.WorkspaceMemberRef;
 import studio.one.platform.workspace.model.WorkspaceRef;
+import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.permission.WorkspacePermissionActions;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
@@ -20,6 +21,7 @@ import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
 import studio.one.platform.workspace.service.WorkspaceAccessContext;
 import studio.one.platform.workspace.service.WorkspaceListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberCommand;
+import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
 import studio.one.platform.workspace.service.WorkspacePermissionService;
 import studio.one.platform.workspace.service.WorkspaceTreeService;
@@ -134,6 +136,36 @@ abstract class WorkspaceControllerSupport {
         return memberService.getEffectiveMembers(workspaceId, context(platformAdmin));
     }
 
+    Page<WorkspaceMemberRef> directMembers(
+            Long workspaceId,
+            String q,
+            String keyword,
+            WorkspaceRole role,
+            Boolean inherited,
+            Pageable pageable,
+            boolean platformAdmin) {
+        return memberService.getDirectMembers(
+                workspaceId,
+                memberListQuery(q, keyword, role, inherited),
+                pageable,
+                context(platformAdmin));
+    }
+
+    Page<WorkspaceMemberRef> effectiveMembers(
+            Long workspaceId,
+            String q,
+            String keyword,
+            WorkspaceRole role,
+            Boolean inherited,
+            Pageable pageable,
+            boolean platformAdmin) {
+        return memberService.getEffectiveMembers(
+                workspaceId,
+                memberListQuery(q, keyword, role, inherited),
+                pageable,
+                context(platformAdmin));
+    }
+
     WorkspacePermissionSummaryDto myPermissions(Long workspaceId, boolean platformAdmin) {
         WorkspaceAccessContext context = context(platformAdmin);
         permissionService.assertGranted(workspaceId, context, WorkspacePermissionActions.READ);
@@ -146,6 +178,15 @@ abstract class WorkspaceControllerSupport {
 
     List<WorkspacePermissionDefinition> permissionActions() {
         return permissionService.getPermissionDefinitions();
+    }
+
+    private WorkspaceMemberListQuery memberListQuery(
+            String q,
+            String keyword,
+            WorkspaceRole role,
+            Boolean inherited) {
+        String resolvedKeyword = keyword != null && !keyword.isBlank() ? keyword : q;
+        return new WorkspaceMemberListQuery(resolvedKeyword, role, inherited);
     }
 
     WorkspaceAccessContext context(boolean platformAdmin) {

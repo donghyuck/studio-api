@@ -5,6 +5,10 @@ import java.util.List;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -23,6 +27,7 @@ import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.platform.workspace.model.WorkspaceMemberRef;
 import studio.one.platform.workspace.model.WorkspaceRef;
+import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
 import studio.one.platform.workspace.service.WorkspaceMemberService;
@@ -122,14 +127,40 @@ public class WorkspaceController extends WorkspaceControllerSupport {
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/members")
     @PreAuthorize("@endpointAuthz.can('features:workspace','read')")
-    public ResponseEntity<ApiResponse<List<WorkspaceMemberRef>>> members(@PathVariable Long workspaceId) {
-        return ResponseEntity.ok(ApiResponse.ok(directMembers(workspaceId, false)));
+    public ResponseEntity<ApiResponse<Page<WorkspaceMemberRef>>> members(
+            @PathVariable Long workspaceId,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "role", required = false) WorkspaceRole role,
+            @RequestParam(value = "inherited", required = false) Boolean inherited,
+            @PageableDefault(size = 20, sort = "userId", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(directMembers(
+                workspaceId,
+                q,
+                keyword,
+                role,
+                inherited,
+                pageable,
+                false)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}/members/effective")
     @PreAuthorize("@endpointAuthz.can('features:workspace','read')")
-    public ResponseEntity<ApiResponse<List<WorkspaceMemberRef>>> effectiveMembers(@PathVariable Long workspaceId) {
-        return ResponseEntity.ok(ApiResponse.ok(effectiveMembers(workspaceId, false)));
+    public ResponseEntity<ApiResponse<Page<WorkspaceMemberRef>>> effectiveMembers(
+            @PathVariable Long workspaceId,
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "role", required = false) WorkspaceRole role,
+            @RequestParam(value = "inherited", required = false) Boolean inherited,
+            @PageableDefault(size = 20, sort = "userId", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(effectiveMembers(
+                workspaceId,
+                q,
+                keyword,
+                role,
+                inherited,
+                pageable,
+                false)));
     }
 
     @PostMapping("/{workspaceId:[\\p{Digit}]+}/members")
