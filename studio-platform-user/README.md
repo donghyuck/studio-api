@@ -14,7 +14,7 @@ Company는 enterprise tenant/account의 기본 경계이며 기존 `ApplicationC
 
 - `ApplicationCompanyService`: 기존 Company CRUD와 archive 흐름을 제공한다. 기존 `delete()`는 호환용으로 유지한다.
 - `ApplicationCompanyMemberService`: Company별 member role을 관리한다.
-- `ApplicationCompanyPermissionService`: Company role 기반 action check를 제공한다.
+- `ApplicationCompanyPermissionService`: Company role 기반 action check와 Company별 permission policy override를 제공한다.
 - `CompanyRole`: `MEMBER`, `BILLING_ADMIN`, `ADMIN`, `OWNER`
 
 기본 action은 `company.read`, `company.update`, `company.archive`, `company.member.*`,
@@ -25,6 +25,13 @@ Company management endpoint는 endpoint-level `features:company/*` 권한을 먼
 객체 권한 검사는 인증 principal을 `IdentityService`로 userId에 매핑할 수 있어야 하며,
 `IdentityService`가 없거나 actor를 해석할 수 없는 경우 객체 단위 조회/수정/member/permission endpoint는 fail-closed로 거부한다.
 전체 Company 목록 조회는 교차 tenant 메타데이터 노출을 막기 위해 `features:company/admin` 권한만 허용한다.
+
+Company permission policy는 기본 role/action mapping 위에 Company 단위 override를 저장한다.
+정책이 없거나 특정 role override가 없으면 `CompanyPermissionActions.actionsFor(role)` 기본값을 사용한다.
+`GET /api/mgmt/companies/{companyId}/permissions/policy`는 role별 `actions`, `defaultActions`, `override`를 반환한다.
+`PUT /api/mgmt/companies/{companyId}/permissions/policy`는 요청에 포함된 role만 override로 저장하고, 요청이 비어 있으면 Company policy를 기본값으로 reset한다.
+정책 수정은 `company.permission.manage` 객체 권한 또는 platform admin 권한이 필요하며, 알 수 없는 action은 `400 Bad Request`로 거부한다.
+`permissions/me`와 service-level 권한 판정은 저장된 policy override를 반영한다.
 
 ## Company Join Request Contract
 Company 멤버 가입은 멤버 키 발급 후 가입 요청을 승인/거절하는 흐름을 사용한다.

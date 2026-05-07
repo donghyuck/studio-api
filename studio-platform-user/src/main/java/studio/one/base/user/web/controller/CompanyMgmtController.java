@@ -30,10 +30,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.company.model.CompanyMemberRef;
+import studio.one.base.user.company.model.CompanyPermissionPolicyRef;
+import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
 import studio.one.base.user.company.permission.CompanyPermissionActions;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
@@ -43,6 +46,9 @@ import studio.one.base.user.web.dto.CompanyDto;
 import studio.one.base.user.web.dto.CompanyMemberDto;
 import studio.one.base.user.web.dto.CompanyMemberRequest;
 import studio.one.base.user.web.dto.CompanyMemberRoleRequest;
+import studio.one.base.user.web.dto.CompanyPermissionPolicyDto;
+import studio.one.base.user.web.dto.CompanyPermissionPolicyUpdateRequest;
+import studio.one.base.user.web.dto.CompanyPermissionRolePolicyDto;
 import studio.one.base.user.web.dto.CompanyPermissionSummaryDto;
 import studio.one.base.user.web.dto.CompanyUpdateRequest;
 import studio.one.platform.constant.PropertyKeys;
@@ -185,6 +191,39 @@ public class CompanyMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(studio.one.base.user.company.permission.CompanyPermissionActions.definitions()));
     }
 
+    @GetMapping("/{companyId}/permissions/policy")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
+    public ResponseEntity<ApiResponse<CompanyPermissionPolicyDto>> permissionPolicy(
+            @PathVariable Long companyId,
+            @AuthenticationPrincipal UserDetails principal) {
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.PERMISSION_READ);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(permissionService.getPolicy(companyId))));
+    }
+
+    @PutMapping("/{companyId}/permissions/policy")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')")
+    public ResponseEntity<ApiResponse<CompanyPermissionPolicyDto>> updatePermissionPolicy(
+            @PathVariable Long companyId,
+            @Valid @RequestBody CompanyPermissionPolicyUpdateRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+        boolean platformAdmin = isPlatformAdmin();
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.PERMISSION_MANAGE, platformAdmin);
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(toDto(permissionService.updatePolicy(
+                    companyId,
+                    request.roles().stream()
+                            .map(role -> new CompanyPermissionRolePolicyRef(
+                                    role.role(),
+                                    role.actions(),
+                                    List.of(),
+                                    true))
+                            .toList(),
+                    actorUserId(principal)))));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
+    }
+
     private void assertCompanyAction(Long companyId, UserDetails principal, String action) {
         assertCompanyAction(companyId, principal, action, isPlatformAdmin());
     }
@@ -257,6 +296,18 @@ public class CompanyMgmtController {
                 member.joinedBy(),
                 member.updatedAt(),
                 member.updatedBy());
+    }
+
+    private CompanyPermissionPolicyDto toDto(CompanyPermissionPolicyRef policy) {
+        return new CompanyPermissionPolicyDto(
+                policy.companyId(),
+                policy.roles().stream()
+                        .map(role -> new CompanyPermissionRolePolicyDto(
+                                role.role(),
+                                role.actions(),
+                                role.defaultActions(),
+                                role.override()))
+                        .toList());
     }
 
     private Long actorUserId(UserDetails principal) {

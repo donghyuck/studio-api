@@ -25,6 +25,7 @@ import studio.one.base.user.persistence.ApplicationCompanyRepository;
 import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
 import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
 import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
+import studio.one.base.user.persistence.ApplicationCompanyPermissionPolicyRepository;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
@@ -201,15 +202,20 @@ public class UserServicesAutoConfiguration {
 
         @Bean(name = ApplicationCompanyPermissionService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationCompanyPermissionService.class)
-        @ConditionalOnBean(ApplicationCompanyMemberService.class)
+        @ConditionalOnBean({
+                        ApplicationCompanyRepository.class,
+                        ApplicationCompanyMemberService.class,
+                        ApplicationCompanyPermissionPolicyRepository.class })
         @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public ApplicationCompanyPermissionService applicationCompanyPermissionService(
-                        ApplicationCompanyMemberService memberService) {
+                        ApplicationCompanyRepository companyRepo,
+                        ApplicationCompanyMemberService memberService,
+                        ApplicationCompanyPermissionPolicyRepository policyRepo) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(ApplicationCompanyPermissionServiceImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new ApplicationCompanyPermissionServiceImpl(memberService);
+                return new ApplicationCompanyPermissionServiceImpl(companyRepo, memberService, policyRepo);
         }
 
         @Bean(name = ApplicationCompanyJoinRequestService.SERVICE_NAME)

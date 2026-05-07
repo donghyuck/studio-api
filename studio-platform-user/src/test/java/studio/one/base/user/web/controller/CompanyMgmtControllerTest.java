@@ -29,6 +29,8 @@ import org.springframework.security.core.userdetails.User;
 
 import studio.one.base.user.company.model.CompanyMemberRef;
 import studio.one.base.user.company.model.CompanyMemberStatus;
+import studio.one.base.user.company.model.CompanyPermissionPolicyRef;
+import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
 import studio.one.base.user.company.model.CompanyRole;
 import studio.one.base.user.company.model.CompanyStatus;
 import studio.one.base.user.company.permission.CompanyPermissionActions;
@@ -39,6 +41,8 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.web.dto.CompanyDto;
 import studio.one.base.user.web.dto.CompanyMemberRequest;
 import studio.one.base.user.web.dto.CompanyMemberRoleRequest;
+import studio.one.base.user.web.dto.CompanyPermissionPolicyUpdateRequest;
+import studio.one.base.user.web.dto.CompanyPermissionRolePolicyRequest;
 import studio.one.base.user.web.dto.CompanyUpdateRequest;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
@@ -159,6 +163,53 @@ class CompanyMgmtControllerTest {
         controller.permissionActions(COMPANY_ID, principal);
 
         verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_READ);
+    }
+
+    @Test
+    void permissionPolicyRequiresCompanyPermissionReadPermission() {
+        when(permissionService.getPolicy(COMPANY_ID)).thenReturn(permissionPolicy(false));
+
+        var response = controller.permissionPolicy(COMPANY_ID, principal);
+
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_READ);
+        assertThat(response.getBody().getData().roles()).hasSize(1);
+        assertThat(response.getBody().getData().roles().get(0).override()).isFalse();
+    }
+
+    @Test
+    void permissionPolicyUpdateRequiresCompanyPermissionManagePermission() {
+        when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID)))
+                .thenReturn(permissionPolicy(true));
+
+        var response = controller.updatePermissionPolicy(
+                COMPANY_ID,
+                new CompanyPermissionPolicyUpdateRequest(List.of(new CompanyPermissionRolePolicyRequest(
+                        CompanyRole.ADMIN,
+                        List.of(CompanyPermissionActions.READ)))),
+                principal);
+
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_MANAGE);
+        assertThat(response.getBody().getData().roles().get(0).override()).isTrue();
+    }
+
+    @Test
+    void platformAdminBypassesPermissionPolicyUpdateObjectPermission() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ADMIN"))));
+        when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID)))
+                .thenReturn(permissionPolicy(true));
+
+        controller.updatePermissionPolicy(
+                COMPANY_ID,
+                new CompanyPermissionPolicyUpdateRequest(List.of(new CompanyPermissionRolePolicyRequest(
+                        CompanyRole.ADMIN,
+                        List.of(CompanyPermissionActions.READ)))),
+                principal);
+
+        org.mockito.Mockito.verify(permissionService, org.mockito.Mockito.never())
+                .assertGranted(eq(COMPANY_ID), eq(ACTOR_ID), eq(CompanyPermissionActions.PERMISSION_MANAGE));
     }
 
     @Test
@@ -317,6 +368,10 @@ class CompanyMgmtControllerTest {
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
         assertThat(preAuthorize("permissionActions", Long.class, UserDetails.class))
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
+        assertThat(preAuthorize("permissionPolicy", Long.class, UserDetails.class))
+                .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
+        assertThat(preAuthorize("updatePermissionPolicy", Long.class, CompanyPermissionPolicyUpdateRequest.class, UserDetails.class))
+                .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')");
     }
 
     private String preAuthorize(String methodName, Class<?>... parameterTypes) throws Exception {
@@ -335,6 +390,14 @@ class CompanyMgmtControllerTest {
 
     private CompanyMemberRef member() {
         return new CompanyMemberRef(COMPANY_ID, 7L, CompanyRole.ADMIN, CompanyMemberStatus.ACTIVE, null, ACTOR_ID, null, ACTOR_ID);
+    }
+
+    private CompanyPermissionPolicyRef permissionPolicy(boolean override) {
+        return new CompanyPermissionPolicyRef(COMPANY_ID, List.of(new CompanyPermissionRolePolicyRef(
+                CompanyRole.ADMIN,
+                List.of(CompanyPermissionActions.READ),
+                List.of(CompanyPermissionActions.READ, CompanyPermissionActions.MEMBER_MANAGE),
+                override)));
     }
 
     private IdentityService mockIdentityService() {
