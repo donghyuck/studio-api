@@ -168,6 +168,30 @@ class CompanyMgmtControllerWebTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test
+    void platformAdminUpdatePermissionPolicyUsesServiceValidationForInvalidCompanyId() throws Exception {
+        ApplicationCompanyService companyService = mock(ApplicationCompanyService.class);
+        ApplicationCompanyPermissionService permissionService = mock(ApplicationCompanyPermissionService.class);
+        when(permissionService.updatePolicy(eq(0L), any(), eq(99L), eq(true)))
+                .thenThrow(new IllegalArgumentException("companyId must be positive"));
+        MockMvc mvc = mockMvc(companyService, permissionService, identityService());
+        var principal = User.withUsername("actor").password("n/a").authorities("ROLE_ADMIN").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+
+        mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 0L)
+                        .principal(() -> "actor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":[{"role":"ADMIN","actions":["company.read"],"override":true}]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verifyNoInteractions(companyService);
+    }
+
     private MockMvc mockMvc(ApplicationCompanyService companyService) {
         return mockMvc(companyService, mock(ApplicationCompanyPermissionService.class), new EmptyObjectProvider<>());
     }
