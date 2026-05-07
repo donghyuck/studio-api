@@ -37,12 +37,17 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyPermissionService;
+import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.PasswordPolicyService;
 import studio.one.base.user.web.controller.GroupMgmtController;
+import studio.one.base.user.web.controller.CompanyJoinRequestMgmtApi;
+import studio.one.base.user.web.controller.CompanyJoinRequestMgmtController;
 import studio.one.base.user.web.controller.CompanyMgmtController;
+import studio.one.base.user.web.controller.CompanySelfJoinRequestApi;
+import studio.one.base.user.web.controller.CompanySelfJoinRequestController;
 import studio.one.base.user.web.controller.UserMeController;
 import studio.one.base.user.web.controller.UserMeApi;
 import studio.one.base.user.web.controller.UserAuthPublicController;
@@ -223,6 +228,38 @@ public class UserEndpointsAutoConfiguration {
                 permissionService,
                 identityServiceProvider,
                 environmentProvider);
+    }
+
+    @Bean
+    @ConditionalOnBean({ ApplicationCompanyPermissionService.class, ApplicationCompanyJoinRequestService.class, IdentityService.class })
+    @ConditionalOnMissingBean(CompanyJoinRequestMgmtApi.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Endpoints.PREFIX + ".company", name = "enabled", havingValue = "true", matchIfMissing = true)
+    public CompanyJoinRequestMgmtController companyJoinRequestMgmtEndpoint(
+            ApplicationCompanyPermissionService permissionService,
+            ApplicationCompanyJoinRequestService joinRequestService,
+            IdentityService identityService,
+            ObjectProvider<Environment> environmentProvider) {
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue(ApplicationCompanyJoinRequestService.class, true),
+                LogUtils.blue(CompanyJoinRequestMgmtController.class, true),
+                webProperties.normalizedBasePath() + "/companies/{companyId}/member-join-requests",
+                LogUtils.blue("ACL-managed")));
+        return new CompanyJoinRequestMgmtController(permissionService, joinRequestService, identityService, environmentProvider);
+    }
+
+    @Bean
+    @ConditionalOnBean({ ApplicationCompanyJoinRequestService.class, IdentityService.class })
+    @ConditionalOnMissingBean(CompanySelfJoinRequestApi.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.User.Web.Self.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = true)
+    public CompanySelfJoinRequestController companySelfJoinRequestEndpoint(
+            ApplicationCompanyJoinRequestService joinRequestService,
+            IdentityService identityService) {
+        log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
+                LogUtils.blue(ApplicationCompanyJoinRequestService.class, true),
+                LogUtils.blue(CompanySelfJoinRequestController.class, true),
+                webProperties.getSelf().getPath() + "/company-join-requests",
+                LogUtils.blue("ACL-managed")));
+        return new CompanySelfJoinRequestController(joinRequestService, identityService);
     }
 
     @Bean

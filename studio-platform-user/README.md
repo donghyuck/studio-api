@@ -24,7 +24,36 @@ Company 권한은 Workspace 콘텐츠 권한을 대체하지 않으며, Workspac
 Company management endpoint는 endpoint-level `features:company/*` 권한을 먼저 적용한 뒤 Company 객체 권한을 검사한다.
 객체 권한 검사는 인증 principal을 `IdentityService`로 userId에 매핑할 수 있어야 하며,
 `IdentityService`가 없거나 actor를 해석할 수 없는 경우 객체 단위 조회/수정/member/permission endpoint는 fail-closed로 거부한다.
-목록 조회는 기존 호환성을 위해 endpoint-level 권한만 사용한다.
+전체 Company 목록 조회는 교차 tenant 메타데이터 노출을 막기 위해 `features:company/admin` 권한만 허용한다.
+
+## Company Join Request Contract
+Company 멤버 가입은 멤버 키 발급 후 가입 요청을 승인/거절하는 흐름을 사용한다.
+
+- `ApplicationCompanyJoinRequestService`: 멤버 키 생성, 가입 요청 생성, 관리자 조회/승인/거절을 제공한다.
+- 멤버 키는 생성 응답에서만 평문 `memberKey`로 반환하며 저장소에는 `SHA-256(memberKey)` hash만 저장한다.
+- Company member 관리자는 자신의 Company role보다 높은 role의 멤버 키를 발급할 수 없다. 플랫폼 관리자는 관리용 endpoint에서 이 제한을 우회할 수 있다.
+- Company member role 변경/삭제는 마지막 `OWNER`를 제거하지 못하도록 거부한다.
+- 가입 요청은 `PENDING`, `APPROVED`, `REJECTED` 상태를 가진다.
+- 가입 요청은 인증 사용자 경로인 `/api/self/company-join-requests`에서 생성한다.
+- email만 받는 비로그인 가입 요청은 소유권 증명 없이 기존 계정에 안전하게 연결할 수 없으므로 이번 범위에서 노출하지 않는다.
+- 승인 시 `ApplicationCompanyMemberService.addMember(...)`를 통해 Company member를 생성한다.
+- `maxUses`는 요청 생성 시점이 아니라 승인 시점에 차감된다.
+- `maxUses` 한도 계산은 승인 완료 건과 대기 중인 요청을 함께 반영해 과도한 대기 요청을 제한한다.
+- 이미 승인/거절된 요청은 다시 처리할 수 없으며 `409 Conflict`로 거부된다.
+
+기본 API 계약:
+
+| Method | Path | 설명 |
+|---|---|---|
+| `POST` | `/api/mgmt/companies/{companyId}/member-keys` | Company 관리자 멤버 키 생성 |
+| `POST` | `/api/self/company-join-requests` | 로그인 사용자 가입 요청 생성 |
+| `GET` | `/api/mgmt/companies/{companyId}/member-join-requests` | Company 관리자 가입 요청 목록 조회 |
+| `POST` | `/api/mgmt/companies/{companyId}/member-join-requests/{requestId}/approve` | 가입 요청 승인 |
+| `POST` | `/api/mgmt/companies/{companyId}/member-join-requests/{requestId}/reject` | 가입 요청 거절 |
+
+가입 요청 관리 API는 신청자 email/message를 포함하므로 `company.member.manage` 객체 권한을 추가로 검사한다.
+멤버 키는 로그, 감사 응답, 목록 응답에 저장하거나 노출하지 않고 생성 응답에서만 전달해야 한다.
+`POST /api/self/company-join-requests`는 인증 사용자 경로이므로 전역 `/api/**` 인증 필터에서 보호되어야 한다.
 
 ## Self Profile API (Contract)
 Base path is configurable, default is `/api/self`.

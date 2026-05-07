@@ -13,6 +13,16 @@ public class JpaEntityNames {
         public static final class Member {
             public static final String ENTITY = "ApplicationCompanyMember";
         }
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class MemberKey {
+            public static final String ENTITY = "ApplicationCompanyMemberKey";
+        }
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class JoinRequest {
+            public static final String ENTITY = "ApplicationCompanyJoinRequest";
+        }
     }
 
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)

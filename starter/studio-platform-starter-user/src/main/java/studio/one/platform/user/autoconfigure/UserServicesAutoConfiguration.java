@@ -23,6 +23,8 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.event.listener.UserCacheEvictListener;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
+import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
+import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
 import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 import studio.one.base.user.persistence.ApplicationGroupRepository;
 import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
@@ -32,6 +34,7 @@ import studio.one.base.user.persistence.ApplicationUserRepository;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyPermissionService;
+import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
@@ -40,6 +43,7 @@ import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.service.impl.ApplicationCompanyServiceImpl;
 import studio.one.base.user.service.impl.ApplicationCompanyMemberServiceImpl;
 import studio.one.base.user.service.impl.ApplicationCompanyPermissionServiceImpl;
+import studio.one.base.user.service.impl.ApplicationCompanyJoinRequestServiceImpl;
 import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
 import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
 import studio.one.base.user.service.impl.ApplicationUserMutator;
@@ -206,6 +210,31 @@ public class UserServicesAutoConfiguration {
                                 LogUtils.blue(ApplicationCompanyPermissionServiceImpl.class, true),
                                 LogUtils.red(State.CREATED.toString())));
                 return new ApplicationCompanyPermissionServiceImpl(memberService);
+        }
+
+        @Bean(name = ApplicationCompanyJoinRequestService.SERVICE_NAME)
+        @ConditionalOnMissingBean(ApplicationCompanyJoinRequestService.class)
+        @ConditionalOnClass({ ApplicationCompanyMemberKeyRepository.class, ApplicationCompanyJoinRequestRepository.class })
+        @ConditionalOnBean({
+                        ApplicationCompanyRepository.class,
+                        ApplicationCompanyMemberKeyRepository.class,
+                        ApplicationCompanyJoinRequestRepository.class,
+                        ApplicationCompanyMemberService.class })
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
+        public ApplicationCompanyJoinRequestService applicationCompanyJoinRequestService(
+                        ApplicationCompanyRepository companyRepo,
+                        ApplicationCompanyMemberKeyRepository memberKeyRepo,
+                        ApplicationCompanyJoinRequestRepository joinRequestRepo,
+                        ApplicationCompanyMemberService memberService) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(ApplicationCompanyJoinRequestServiceImpl.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new ApplicationCompanyJoinRequestServiceImpl(
+                                companyRepo,
+                                memberKeyRepo,
+                                joinRequestRepo,
+                                memberService);
         }
 
         @Bean

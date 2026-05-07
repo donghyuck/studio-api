@@ -105,6 +105,21 @@ public class ApplicationCompanyMemberJdbcRepository extends BaseJdbcRepository i
     }
 
     @Override
+    public long countByCompanyIdAndRole(Long companyId, CompanyRole role) {
+        String sql = """
+                select count(*)
+                  from TB_APPLICATION_COMPANY_MEMBERS
+                 where COMPANY_ID = :companyId
+                   and ROLE = :role
+                """;
+        Long count = namedTemplate.queryForObject(
+                sql,
+                Map.of("companyId", companyId, "role", role.name()),
+                Long.class);
+        return count == null ? 0 : count;
+    }
+
+    @Override
     public ApplicationCompanyMember save(ApplicationCompanyMember member) {
         ApplicationCompanyMemberId id = member.getId();
         if (existsById(id)) {

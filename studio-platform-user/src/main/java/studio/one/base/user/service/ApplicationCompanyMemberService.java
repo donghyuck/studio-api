@@ -13,11 +13,23 @@ public interface ApplicationCompanyMemberService {
 
     String SERVICE_NAME = ServiceNames.Featrues.PREFIX + ":user:application-company-member-service";
 
-    CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId);
+    default CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
+        return addMember(companyId, userId, role, actorUserId, false);
+    }
 
-    CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId);
+    CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId, boolean bypassRoleLimit);
 
-    void removeMember(Long companyId, Long userId, Long actorUserId);
+    default CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
+        return changeRole(companyId, userId, role, actorUserId, false);
+    }
+
+    CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId, boolean bypassRoleLimit);
+
+    default void removeMember(Long companyId, Long userId, Long actorUserId) {
+        removeMember(companyId, userId, actorUserId, false);
+    }
+
+    void removeMember(Long companyId, Long userId, Long actorUserId, boolean bypassRoleLimit);
 
     CompanyMemberRef getMember(Long companyId, Long userId);
 

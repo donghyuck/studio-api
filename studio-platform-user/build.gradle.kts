@@ -29,6 +29,7 @@ dependencies {
     testImplementation("org.mockito:mockito-junit-jupiter")
     testImplementation("org.mapstruct:mapstruct:$mapstructVersion")
     testImplementation("org.springframework.boot:spring-boot-starter-web")
+    testImplementation("org.springframework.boot:spring-boot-starter-validation")
     testImplementation("org.springframework.data:spring-data-commons")
     testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")

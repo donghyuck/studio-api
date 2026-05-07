@@ -27,8 +27,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
@@ -62,7 +62,7 @@ public class CompanyMgmtController {
     private final ObjectProvider<Environment> environmentProvider;
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')")
+    @PreAuthorize("@endpointAuthz.can('features:company','admin')")
     public ResponseEntity<ApiResponse<Page<CompanyDto>>> list(
             @RequestParam(value = "q", required = false) String q,
             @PageableDefault(size = 15, sort = "companyId", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -131,8 +131,9 @@ public class CompanyMgmtController {
             @PathVariable Long companyId,
             @Valid @RequestBody CompanyMemberRequest request,
             @AuthenticationPrincipal UserDetails principal) {
-        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE);
-        CompanyMemberRef ref = memberService.addMember(companyId, request.userId(), request.role(), actorUserId(principal));
+        boolean platformAdmin = isPlatformAdmin();
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE, platformAdmin);
+        CompanyMemberRef ref = memberService.addMember(companyId, request.userId(), request.role(), actorUserId(principal), platformAdmin);
         return ResponseEntity.ok(ApiResponse.ok(toDto(ref)));
     }
 
@@ -143,8 +144,9 @@ public class CompanyMgmtController {
             @PathVariable Long userId,
             @Valid @RequestBody CompanyMemberRoleRequest request,
             @AuthenticationPrincipal UserDetails principal) {
-        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE);
-        CompanyMemberRef ref = memberService.changeRole(companyId, userId, request.role(), actorUserId(principal));
+        boolean platformAdmin = isPlatformAdmin();
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE, platformAdmin);
+        CompanyMemberRef ref = memberService.changeRole(companyId, userId, request.role(), actorUserId(principal), platformAdmin);
         return ResponseEntity.ok(ApiResponse.ok(toDto(ref)));
     }
 
@@ -154,8 +156,9 @@ public class CompanyMgmtController {
             @PathVariable Long companyId,
             @PathVariable Long userId,
             @AuthenticationPrincipal UserDetails principal) {
-        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE);
-        memberService.removeMember(companyId, userId, actorUserId(principal));
+        boolean platformAdmin = isPlatformAdmin();
+        assertCompanyAction(companyId, principal, CompanyPermissionActions.MEMBER_MANAGE, platformAdmin);
+        memberService.removeMember(companyId, userId, actorUserId(principal), platformAdmin);
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
@@ -183,7 +186,11 @@ public class CompanyMgmtController {
     }
 
     private void assertCompanyAction(Long companyId, UserDetails principal, String action) {
-        if (isPlatformAdmin()) {
+        assertCompanyAction(companyId, principal, action, isPlatformAdmin());
+    }
+
+    private void assertCompanyAction(Long companyId, UserDetails principal, String action, boolean platformAdmin) {
+        if (platformAdmin) {
             return;
         }
         permissionService.assertGranted(companyId, actorUserId(principal), action);
@@ -208,7 +215,7 @@ public class CompanyMgmtController {
             return false;
         }
         return authority.equals(configuredAdminRole)
-                || authority.equals(stripRolePrefix(configuredAdminRole));
+                || stripRolePrefix(authority).equals(stripRolePrefix(configuredAdminRole));
     }
 
     private String stripRolePrefix(String authority) {

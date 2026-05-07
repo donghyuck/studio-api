@@ -102,7 +102,7 @@ class CompanyMgmtControllerTest {
 
     @Test
     void memberMutationRequiresCompanyMemberManagePermission() {
-        when(memberService.addMember(COMPANY_ID, 7L, CompanyRole.ADMIN, ACTOR_ID)).thenReturn(member());
+        when(memberService.addMember(COMPANY_ID, 7L, CompanyRole.ADMIN, ACTOR_ID, false)).thenReturn(member());
 
         controller.addMember(COMPANY_ID, new CompanyMemberRequest(7L, CompanyRole.ADMIN), principal);
 
@@ -111,7 +111,7 @@ class CompanyMgmtControllerTest {
 
     @Test
     void memberRoleChangeRequiresCompanyMemberManagePermission() {
-        when(memberService.changeRole(COMPANY_ID, 7L, CompanyRole.MEMBER, ACTOR_ID)).thenReturn(member());
+        when(memberService.changeRole(COMPANY_ID, 7L, CompanyRole.MEMBER, ACTOR_ID, false)).thenReturn(member());
 
         controller.changeRole(COMPANY_ID, 7L, new CompanyMemberRoleRequest(CompanyRole.MEMBER), principal);
 
@@ -159,6 +159,25 @@ class CompanyMgmtControllerTest {
         controller.permissionActions(COMPANY_ID, principal);
 
         verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_READ);
+    }
+
+    @Test
+    void platformAdminBypassIsPassedToMemberMutations() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ADMIN"))));
+        when(memberService.addMember(COMPANY_ID, 7L, CompanyRole.OWNER, ACTOR_ID, true)).thenReturn(member());
+        when(memberService.changeRole(COMPANY_ID, 7L, CompanyRole.OWNER, ACTOR_ID, true)).thenReturn(member());
+
+        controller.addMember(COMPANY_ID, new CompanyMemberRequest(7L, CompanyRole.OWNER), principal);
+        controller.changeRole(COMPANY_ID, 7L, new CompanyMemberRoleRequest(CompanyRole.OWNER), principal);
+        controller.removeMember(COMPANY_ID, 7L, principal);
+
+        verify(memberService).addMember(COMPANY_ID, 7L, CompanyRole.OWNER, ACTOR_ID, true);
+        verify(memberService).changeRole(COMPANY_ID, 7L, CompanyRole.OWNER, ACTOR_ID, true);
+        verify(memberService).removeMember(COMPANY_ID, 7L, ACTOR_ID, true);
+        org.mockito.Mockito.verifyNoInteractions(permissionService);
     }
 
     @Test
@@ -238,6 +257,27 @@ class CompanyMgmtControllerTest {
     }
 
     @Test
+    void prefixedAuthorityBypassesWhenConfiguredPlatformAdminRoleIsBare() {
+        controller = new CompanyMgmtController(
+                companyService,
+                memberService,
+                permissionService,
+                new SingletonObjectProvider<>(mockIdentityService()),
+                new SingletonObjectProvider<Environment>(new MockEnvironment()
+                        .withProperty("studio.security.acl.admin-role", "COMPANY_ROOT")));
+        principal = User.withUsername("actor").password("n/a").authorities("ROLE_COMPANY_ROOT").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_COMPANY_ROOT"))));
+        when(memberService.getMembers(COMPANY_ID, PageRequest.of(0, 15))).thenReturn(Page.empty());
+
+        controller.members(COMPANY_ID, principal, PageRequest.of(0, 15));
+
+        org.mockito.Mockito.verifyNoInteractions(permissionService);
+    }
+
+    @Test
     void objectLevelReadFailsClosedWhenIdentityServiceIsAbsent() {
         controller = new CompanyMgmtController(
                 companyService,
@@ -256,7 +296,7 @@ class CompanyMgmtControllerTest {
     @Test
     void endpointAuthorizationUsesExistingCompanyPolicyContract() throws Exception {
         assertThat(preAuthorize("list", String.class, org.springframework.data.domain.Pageable.class))
-                .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
+                .isEqualTo("@endpointAuthz.can('features:company','admin')");
         assertThat(preAuthorize("create", CompanyDto.class, UserDetails.class))
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')");
         assertThat(preAuthorize("get", Long.class, UserDetails.class))
