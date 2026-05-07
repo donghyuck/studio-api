@@ -230,6 +230,23 @@ class ApplicationCompanyPermissionServiceImplTest {
                 .save(any());
     }
 
+    @Test
+    void updatePolicyRejectsInvalidCompanyIdBeforePlatformAdminBypass() {
+        assertThatThrownBy(() -> service().updatePolicy(
+                0L,
+                List.of(new CompanyPermissionRolePolicyRef(
+                        CompanyRole.ADMIN,
+                        List.of(CompanyPermissionActions.READ),
+                        List.of(),
+                        true)),
+                99L,
+                true))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("companyId must be positive");
+
+        org.mockito.Mockito.verifyNoInteractions(companyRepository, memberService, policyRepository);
+    }
+
     private ApplicationCompanyPermissionServiceImpl service() {
         return new ApplicationCompanyPermissionServiceImpl(companyRepository, memberService, policyRepository);
     }
