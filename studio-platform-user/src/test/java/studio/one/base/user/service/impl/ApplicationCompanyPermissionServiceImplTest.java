@@ -208,6 +208,28 @@ class ApplicationCompanyPermissionServiceImplTest {
                 .isInstanceOf(AccessDeniedException.class);
     }
 
+    @Test
+    void updatePolicyAllowsPlatformAdminWithoutCompanyOwnerRole() {
+        when(companyRepository.findById(10L)).thenReturn(Optional.of(company()));
+        when(policyRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(policyRepository.findAllByCompanyId(10L)).thenReturn(List.of());
+
+        service().updatePolicy(
+                10L,
+                List.of(new CompanyPermissionRolePolicyRef(
+                        CompanyRole.ADMIN,
+                        List.of(CompanyPermissionActions.READ),
+                        List.of(),
+                        true)),
+                99L,
+                true);
+
+        org.mockito.Mockito.verify(memberService, org.mockito.Mockito.never()).getCompanyRole(10L, 99L);
+        org.mockito.Mockito.verify(policyRepository).deleteAllByCompanyId(10L);
+        org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.times(CompanyPermissionActions.definitions().size()))
+                .save(any());
+    }
+
     private ApplicationCompanyPermissionServiceImpl service() {
         return new ApplicationCompanyPermissionServiceImpl(companyRepository, memberService, policyRepository);
     }

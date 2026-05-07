@@ -207,7 +207,10 @@ public class CompanyMgmtController {
             @Valid @RequestBody CompanyPermissionPolicyUpdateRequest request,
             @AuthenticationPrincipal UserDetails principal) {
         boolean platformAdmin = isPlatformAdmin();
-        assertCompanyAction(companyId, principal, CompanyPermissionActions.PERMISSION_MANAGE, platformAdmin);
+        Long actorUserId = actorUserId(principal);
+        if (platformAdmin) {
+            companyService.get(companyId);
+        }
         try {
             return ResponseEntity.ok(ApiResponse.ok(toDto(permissionService.updatePolicy(
                     companyId,
@@ -218,7 +221,7 @@ public class CompanyMgmtController {
                                     List.of(),
                                     role.override()))
                             .toList(),
-                    actorUserId(principal),
+                    actorUserId,
                     platformAdmin))));
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);

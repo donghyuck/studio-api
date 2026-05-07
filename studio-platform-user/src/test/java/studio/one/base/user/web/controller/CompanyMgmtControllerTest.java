@@ -177,7 +177,7 @@ class CompanyMgmtControllerTest {
     }
 
     @Test
-    void permissionPolicyUpdateRequiresCompanyPermissionManagePermission() {
+    void permissionPolicyUpdateDelegatesOwnerGuardToService() {
         when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID), eq(false)))
                 .thenReturn(permissionPolicy(true));
 
@@ -189,7 +189,9 @@ class CompanyMgmtControllerTest {
                         true))),
                 principal);
 
-        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_MANAGE);
+        org.mockito.Mockito.verify(permissionService, org.mockito.Mockito.never())
+                .assertGranted(eq(COMPANY_ID), eq(ACTOR_ID), eq(CompanyPermissionActions.PERMISSION_MANAGE));
+        verify(permissionService).updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID), eq(false));
         assertThat(response.getBody().getData().roles().get(0).override()).isTrue();
     }
 
@@ -201,6 +203,7 @@ class CompanyMgmtControllerTest {
                 List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID), eq(true)))
                 .thenReturn(permissionPolicy(true));
+        when(companyService.get(COMPANY_ID)).thenReturn(company());
 
         controller.updatePermissionPolicy(
                 COMPANY_ID,
@@ -212,6 +215,7 @@ class CompanyMgmtControllerTest {
 
         org.mockito.Mockito.verify(permissionService, org.mockito.Mockito.never())
                 .assertGranted(eq(COMPANY_ID), eq(ACTOR_ID), eq(CompanyPermissionActions.PERMISSION_MANAGE));
+        verify(companyService).get(COMPANY_ID);
     }
 
     @Test
