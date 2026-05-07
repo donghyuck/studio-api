@@ -178,14 +178,15 @@ class CompanyMgmtControllerTest {
 
     @Test
     void permissionPolicyUpdateRequiresCompanyPermissionManagePermission() {
-        when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID)))
+        when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID), eq(false)))
                 .thenReturn(permissionPolicy(true));
 
         var response = controller.updatePermissionPolicy(
                 COMPANY_ID,
                 new CompanyPermissionPolicyUpdateRequest(List.of(new CompanyPermissionRolePolicyRequest(
                         CompanyRole.ADMIN,
-                        List.of(CompanyPermissionActions.READ)))),
+                        List.of(CompanyPermissionActions.READ),
+                        true))),
                 principal);
 
         verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.PERMISSION_MANAGE);
@@ -197,15 +198,16 @@ class CompanyMgmtControllerTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 principal,
                 "n/a",
-                List.of(new SimpleGrantedAuthority("ADMIN"))));
-        when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID)))
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+        when(permissionService.updatePolicy(eq(COMPANY_ID), org.mockito.ArgumentMatchers.any(), eq(ACTOR_ID), eq(true)))
                 .thenReturn(permissionPolicy(true));
 
         controller.updatePermissionPolicy(
                 COMPANY_ID,
                 new CompanyPermissionPolicyUpdateRequest(List.of(new CompanyPermissionRolePolicyRequest(
                         CompanyRole.ADMIN,
-                        List.of(CompanyPermissionActions.READ)))),
+                        List.of(CompanyPermissionActions.READ),
+                        true))),
                 principal);
 
         org.mockito.Mockito.verify(permissionService, org.mockito.Mockito.never())
@@ -217,7 +219,7 @@ class CompanyMgmtControllerTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 principal,
                 "n/a",
-                List.of(new SimpleGrantedAuthority("ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         when(memberService.addMember(COMPANY_ID, 7L, CompanyRole.OWNER, ACTOR_ID, true)).thenReturn(member());
         when(memberService.changeRole(COMPANY_ID, 7L, CompanyRole.OWNER, ACTOR_ID, true)).thenReturn(member());
 
@@ -236,7 +238,7 @@ class CompanyMgmtControllerTest {
         SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
                 principal,
                 "n/a",
-                List.of(new SimpleGrantedAuthority("ADMIN"))));
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
         when(memberService.getMembers(COMPANY_ID, PageRequest.of(0, 15))).thenReturn(Page.empty());
 
         controller.members(COMPANY_ID, principal, PageRequest.of(0, 15));
@@ -287,7 +289,7 @@ class CompanyMgmtControllerTest {
     }
 
     @Test
-    void strippedConfiguredPlatformAdminRoleBypassesCompanyObjectPermission() {
+    void strippedConfiguredPlatformAdminRoleDoesNotBypassCompanyObjectPermission() {
         controller = new CompanyMgmtController(
                 companyService,
                 memberService,
@@ -304,11 +306,11 @@ class CompanyMgmtControllerTest {
 
         controller.members(COMPANY_ID, principal, PageRequest.of(0, 15));
 
-        org.mockito.Mockito.verifyNoInteractions(permissionService);
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.MEMBER_READ);
     }
 
     @Test
-    void prefixedAuthorityBypassesWhenConfiguredPlatformAdminRoleIsBare() {
+    void prefixedAuthorityDoesNotBypassWhenConfiguredPlatformAdminRoleIsBare() {
         controller = new CompanyMgmtController(
                 companyService,
                 memberService,
@@ -325,7 +327,7 @@ class CompanyMgmtControllerTest {
 
         controller.members(COMPANY_ID, principal, PageRequest.of(0, 15));
 
-        org.mockito.Mockito.verifyNoInteractions(permissionService);
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.MEMBER_READ);
     }
 
     @Test

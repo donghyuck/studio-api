@@ -159,8 +159,10 @@ Company permission policy API는 기본 role/action mapping 위에 Company별 ov
 | `GET` | `/api/mgmt/companies/{companyId}/permissions/policy` | `features:company/read` + `company.permission.read` |
 | `PUT` | `/api/mgmt/companies/{companyId}/permissions/policy` | `features:company/write` + `company.permission.manage` |
 
-정책 응답은 role별 `actions`, `defaultActions`, `override`를 포함한다. 특정 role override가 없으면 기본 mapping을 반환하며, 저장된 policy는 `permissions/me`와 service-level 권한 판정에 반영된다.
-알 수 없는 action이나 중복 role 요청은 `400 Bad Request`로 거부된다.
+정책 응답은 role별 `actions`, `defaultActions`, `override`를 포함한다.
+저장 요청은 role별 `actions`와 `override`를 명시해야 하며, `override=true` role만 저장하고 `override=false` role은 기본 mapping을 계속 사용한다.
+특정 role override가 없으면 기본 mapping을 반환하며, 저장된 policy는 `permissions/me`와 service-level 권한 판정에 반영된다.
+정책 수정은 Company `OWNER` 또는 platform admin만 수행할 수 있다. 알 수 없는 action, blank action, 중복 role 요청은 `400 Bad Request`로 거부된다.
 
 Company join request API는 멤버 키 기반 가입 요청 흐름을 제공한다.
 

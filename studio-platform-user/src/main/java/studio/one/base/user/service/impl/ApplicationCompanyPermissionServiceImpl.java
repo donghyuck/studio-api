@@ -73,8 +73,10 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
     public CompanyPermissionPolicyRef updatePolicy(
             Long companyId,
             List<CompanyPermissionRolePolicyRef> roles,
-            Long actorUserId) {
+            Long actorUserId,
+            boolean platformAdmin) {
         ApplicationCompany company = company(companyId);
+        assertPolicyWritable(companyId, actorUserId, platformAdmin);
         List<CompanyPermissionRolePolicyRef> normalized = normalize(roles);
         policyRepository.deleteAllByCompanyId(companyId);
         for (CompanyPermissionRolePolicyRef rolePolicy : normalized) {
@@ -89,6 +91,18 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
             }
         }
         return getPolicy(companyId);
+    }
+
+    private void assertPolicyWritable(Long companyId, Long actorUserId, boolean platformAdmin) {
+        if (platformAdmin) {
+            return;
+        }
+        if (actorUserId == null || actorUserId <= 0) {
+            throw new AccessDeniedException("Company permission policy requires an authenticated actor");
+        }
+        if (memberService.getCompanyRole(companyId, actorUserId) != CompanyRole.OWNER) {
+            throw new AccessDeniedException("Company permission policy can be changed by company owner only");
+        }
     }
 
     private Set<String> effectiveActions(Long companyId, CompanyRole role) {
@@ -141,6 +155,9 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
             }
             if (!seenRoles.add(rolePolicy.role())) {
                 throw new IllegalArgumentException("duplicate role: " + rolePolicy.role());
+            }
+            if (!rolePolicy.override()) {
+                continue;
             }
             LinkedHashSet<String> actions = new LinkedHashSet<>();
             if (rolePolicy.actions() != null) {

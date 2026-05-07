@@ -29,8 +29,10 @@ Company management endpoint는 endpoint-level `features:company/*` 권한을 먼
 Company permission policy는 기본 role/action mapping 위에 Company 단위 override를 저장한다.
 정책이 없거나 특정 role override가 없으면 `CompanyPermissionActions.actionsFor(role)` 기본값을 사용한다.
 `GET /api/mgmt/companies/{companyId}/permissions/policy`는 role별 `actions`, `defaultActions`, `override`를 반환한다.
-`PUT /api/mgmt/companies/{companyId}/permissions/policy`는 요청에 포함된 role만 override로 저장하고, 요청이 비어 있으면 Company policy를 기본값으로 reset한다.
-정책 수정은 `company.permission.manage` 객체 권한 또는 platform admin 권한이 필요하며, 알 수 없는 action은 `400 Bad Request`로 거부한다.
+`PUT /api/mgmt/companies/{companyId}/permissions/policy`는 role별 `actions`와 `override`를 명시적으로 받는다.
+`override=true` role만 저장하고 `override=false` role은 기본 mapping을 계속 사용한다.
+요청이 비어 있으면 Company policy를 기본값으로 reset한다.
+정책 수정은 `company.permission.manage` 객체 권한을 가진 Company `OWNER` 또는 platform admin 권한이 필요하며, 알 수 없는 action은 `400 Bad Request`로 거부한다.
 `permissions/me`와 service-level 권한 판정은 저장된 policy override를 반영한다.
 
 ## Company Join Request Contract

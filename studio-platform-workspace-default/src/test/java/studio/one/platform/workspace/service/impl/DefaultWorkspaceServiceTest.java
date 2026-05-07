@@ -25,12 +25,16 @@ import org.springframework.security.access.AccessDeniedException;
 
 import studio.one.base.user.company.model.CompanyMemberRef;
 import studio.one.base.user.company.model.CompanyRole;
+import studio.one.base.user.company.permission.CompanyPermissionActions;
+import studio.one.base.user.company.model.CompanyPermissionPolicyRef;
+import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.Status;
 import studio.one.base.user.domain.model.User;
 import studio.one.base.user.exception.UserNotFoundException;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.exception.NotFoundException;
@@ -882,6 +886,33 @@ class DefaultWorkspaceServiceTest {
         assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.update")).isFalse();
     }
 
+    @Test
+    void companyOwnerOverrideHonorsCompanyWorkspacePolicy() {
+        var root = treeService.createRoot(new CreateRootWorkspaceCommand(
+                10L,
+                "Acme",
+                "acme",
+                WorkspaceVisibility.PRIVATE,
+                OWNER));
+        var companyOwner = new WorkspaceAccessContext(50L, "company-owner", false);
+        WorkspacePermissionService permissions = new DefaultWorkspacePermissionService(
+                workspaceRepository,
+                closureRepository,
+                memberRepository,
+                List.of(wikiLikeContributor()),
+                WorkspaceSettings.defaults(),
+                companyMemberService(10L, 50L, CompanyRole.OWNER),
+                companyPermissionService(10L, 50L, CompanyPermissionActions.WORKSPACE_READ));
+
+        assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.read")).isTrue();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "workspace.update")).isFalse();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.read")).isTrue();
+        assertThat(permissions.isGranted(root.id(), companyOwner, "wiki.page.update")).isFalse();
+        assertThat(permissions.getGrantedActions(root.id(), companyOwner))
+                .contains("workspace.read", "wiki.page.read")
+                .doesNotContain("workspace.update", "wiki.page.update");
+    }
+
     private studio.one.platform.workspace.model.WorkspaceRef createRoot(
             String name,
             String slug,
@@ -914,12 +945,27 @@ class DefaultWorkspaceServiceTest {
             }
 
             @Override
+            public CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId, boolean bypassRoleLimit) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+            public CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId, boolean bypassRoleLimit) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
             public void removeMember(Long companyId, Long userId, Long actorUserId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void removeMember(Long companyId, Long userId, Long actorUserId, boolean bypassRoleLimit) {
                 throw new UnsupportedOperationException();
             }
 
@@ -946,6 +992,40 @@ class DefaultWorkspaceServiceTest {
             @Override
             public CompanyRole getCompanyRole(Long requestedCompanyId, Long requestedUserId) {
                 return companyId.equals(requestedCompanyId) && userId.equals(requestedUserId) ? role : null;
+            }
+        };
+    }
+
+    private ApplicationCompanyPermissionService companyPermissionService(Long companyId, Long userId, String... grantedActions) {
+        java.util.Set<String> granted = java.util.Set.of(grantedActions);
+        return new ApplicationCompanyPermissionService() {
+            @Override
+            public boolean isGranted(Long requestedCompanyId, Long requestedUserId, String action) {
+                return companyId.equals(requestedCompanyId) && userId.equals(requestedUserId) && granted.contains(action);
+            }
+
+            @Override
+            public void assertGranted(Long companyId, Long userId, String action) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public List<String> getGrantedActions(Long companyId, Long userId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompanyPermissionPolicyRef getPolicy(Long companyId) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public CompanyPermissionPolicyRef updatePolicy(
+                    Long companyId,
+                    List<CompanyPermissionRolePolicyRef> roles,
+                    Long actorUserId,
+                    boolean platformAdmin) {
+                throw new UnsupportedOperationException();
             }
         };
     }

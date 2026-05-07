@@ -34,9 +34,9 @@ public class ApplicationCompanyPermissionPolicy implements Serializable {
 
     @EmbeddedId
     @AttributeOverrides({
-            @AttributeOverride(name = "companyId", column = @Column(name = "COMPANY_ID")),
-            @AttributeOverride(name = "role", column = @Column(name = "ROLE")),
-            @AttributeOverride(name = "action", column = @Column(name = "ACTION_NAME"))
+            @AttributeOverride(name = "companyId", column = @Column(name = "COMPANY_ID", nullable = false)),
+            @AttributeOverride(name = "role", column = @Column(name = "ROLE", nullable = false, length = 30)),
+            @AttributeOverride(name = "action", column = @Column(name = "ACTION_NAME", nullable = false, length = 100))
     })
     private ApplicationCompanyPermissionPolicyId id;
 

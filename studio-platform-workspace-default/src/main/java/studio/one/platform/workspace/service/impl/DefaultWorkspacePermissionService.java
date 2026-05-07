@@ -14,7 +14,9 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.base.user.company.model.CompanyRole;
+import studio.one.base.user.company.permission.CompanyPermissionActions;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.platform.workspace.exception.WorkspaceNotFoundException;
 import studio.one.platform.workspace.model.WorkspaceRole;
 import studio.one.platform.workspace.model.WorkspaceVisibility;
@@ -45,6 +47,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
     private final List<WorkspacePermissionContributor> contributors;
     private final WorkspaceSettings settings;
     private final ApplicationCompanyMemberService companyMemberService;
+    private final ApplicationCompanyPermissionService companyPermissionService;
 
     public DefaultWorkspacePermissionService(
             WorkspaceJpaRepository workspaceRepository,
@@ -52,7 +55,17 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             WorkspaceMemberJpaRepository memberRepository,
             List<WorkspacePermissionContributor> contributors,
             WorkspaceSettings settings) {
-        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, null);
+        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, null, null);
+    }
+
+    public DefaultWorkspacePermissionService(
+            WorkspaceJpaRepository workspaceRepository,
+            WorkspaceClosureJpaRepository closureRepository,
+            WorkspaceMemberJpaRepository memberRepository,
+            List<WorkspacePermissionContributor> contributors,
+            WorkspaceSettings settings,
+            ApplicationCompanyMemberService companyMemberService) {
+        this(workspaceRepository, closureRepository, memberRepository, contributors, settings, companyMemberService, null);
     }
 
     @Override
@@ -79,7 +92,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
         if (isMapped(role, action)) {
             return true;
         }
-        return isCompanyOwner(workspace, userId) && isMapped(WorkspaceRole.OWNER, action);
+        return hasCompanyOwnerOverride(workspace, userId, action) && isMapped(WorkspaceRole.OWNER, action);
     }
 
     @Override
@@ -119,7 +132,8 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
         WorkspaceRole role = actor != null && actor.platformAdmin()
                 ? WorkspaceRole.OWNER
                 : getEffectiveWorkspaceRole(workspace, userId);
-        if (role != WorkspaceRole.OWNER && isCompanyOwner(workspace, userId)) {
+        boolean companyOwnerOverride = role != WorkspaceRole.OWNER && isCompanyOwner(workspace, userId);
+        if (companyOwnerOverride) {
             role = WorkspaceRole.OWNER;
         }
         if (role == null) {
@@ -138,6 +152,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
                 .filter(action -> !workspace.isArchived()
                         || isReadOnlyAction(action)
                         || WorkspacePermissionActions.ACTIVATE.equals(action))
+                .filter(action -> !companyOwnerOverride || hasCompanyOwnerOverride(workspace, userId, action))
                 .sorted()
                 .toList();
     }
@@ -183,6 +198,19 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
             return false;
         }
         return companyMemberService.getCompanyRole(workspace.getCompanyId(), userId) == CompanyRole.OWNER;
+    }
+
+    private boolean hasCompanyOwnerOverride(WorkspaceEntity workspace, Long userId, String workspaceAction) {
+        if (!isCompanyOwner(workspace, userId)) {
+            return false;
+        }
+        if (companyPermissionService == null) {
+            return true;
+        }
+        String companyAction = isReadOnlyAction(workspaceAction)
+                ? CompanyPermissionActions.WORKSPACE_READ
+                : CompanyPermissionActions.WORKSPACE_CREATE;
+        return companyPermissionService.isGranted(workspace.getCompanyId(), userId, companyAction);
     }
 
     private boolean isMapped(WorkspaceRole role, String action) {

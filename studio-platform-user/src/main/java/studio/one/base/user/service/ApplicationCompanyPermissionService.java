@@ -18,5 +18,9 @@ public interface ApplicationCompanyPermissionService {
 
     CompanyPermissionPolicyRef getPolicy(Long companyId);
 
-    CompanyPermissionPolicyRef updatePolicy(Long companyId, List<CompanyPermissionRolePolicyRef> roles, Long actorUserId);
+    CompanyPermissionPolicyRef updatePolicy(
+            Long companyId,
+            List<CompanyPermissionRolePolicyRef> roles,
+            Long actorUserId,
+            boolean platformAdmin);
 }

@@ -122,7 +122,8 @@ class ApplicationCompanyPermissionServiceImplTest {
         assertThatThrownBy(() -> service().updatePolicy(
                 10L,
                 List.of(new CompanyPermissionRolePolicyRef(CompanyRole.ADMIN, List.of("company.unknown"), List.of(), true)),
-                99L))
+                99L,
+                true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown company permission action");
     }
@@ -134,14 +135,16 @@ class ApplicationCompanyPermissionServiceImplTest {
         assertThatThrownBy(() -> service().updatePolicy(
                 10L,
                 List.of(new CompanyPermissionRolePolicyRef(CompanyRole.ADMIN, Collections.singletonList(null), List.of(), true)),
-                99L))
+                99L,
+                true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("action must not be blank");
 
         assertThatThrownBy(() -> service().updatePolicy(
                 10L,
                 List.of(new CompanyPermissionRolePolicyRef(CompanyRole.ADMIN, List.of(" "), List.of(), true)),
-                99L))
+                99L,
+                true))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("action must not be blank");
     }
@@ -149,6 +152,7 @@ class ApplicationCompanyPermissionServiceImplTest {
     @Test
     void updatePolicyStoresAllDefinitionsForProvidedRoles() {
         when(companyRepository.findById(10L)).thenReturn(Optional.of(company()));
+        when(memberService.getCompanyRole(10L, 99L)).thenReturn(CompanyRole.OWNER);
         when(policyRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(policyRepository.findAllByCompanyId(10L)).thenReturn(List.of());
 
@@ -159,11 +163,49 @@ class ApplicationCompanyPermissionServiceImplTest {
                         List.of(CompanyPermissionActions.READ),
                         List.of(),
                         true)),
-                99L);
+                99L,
+                false);
 
         org.mockito.Mockito.verify(policyRepository).deleteAllByCompanyId(10L);
         org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.times(CompanyPermissionActions.definitions().size()))
                 .save(any());
+    }
+
+    @Test
+    void updatePolicySkipsRolesMarkedAsDefault() {
+        when(companyRepository.findById(10L)).thenReturn(Optional.of(company()));
+        when(memberService.getCompanyRole(10L, 99L)).thenReturn(CompanyRole.OWNER);
+        when(policyRepository.findAllByCompanyId(10L)).thenReturn(List.of());
+
+        service().updatePolicy(
+                10L,
+                List.of(new CompanyPermissionRolePolicyRef(
+                        CompanyRole.ADMIN,
+                        sorted(CompanyPermissionActions.actionsFor(CompanyRole.ADMIN)),
+                        sorted(CompanyPermissionActions.actionsFor(CompanyRole.ADMIN)),
+                        false)),
+                99L,
+                false);
+
+        org.mockito.Mockito.verify(policyRepository).deleteAllByCompanyId(10L);
+        org.mockito.Mockito.verify(policyRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void updatePolicyRequiresCompanyOwnerWhenNotPlatformAdmin() {
+        when(companyRepository.findById(10L)).thenReturn(Optional.of(company()));
+        when(memberService.getCompanyRole(10L, 99L)).thenReturn(CompanyRole.ADMIN);
+
+        assertThatThrownBy(() -> service().updatePolicy(
+                10L,
+                List.of(new CompanyPermissionRolePolicyRef(
+                        CompanyRole.ADMIN,
+                        List.of(CompanyPermissionActions.READ),
+                        List.of(),
+                        true)),
+                99L,
+                false))
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     private ApplicationCompanyPermissionServiceImpl service() {
@@ -183,5 +225,9 @@ class ApplicationCompanyPermissionServiceImplTest {
         policy.setId(new ApplicationCompanyPermissionPolicyId(10L, role, action));
         policy.setEnabled(enabled);
         return policy;
+    }
+
+    private List<String> sorted(java.util.Set<String> actions) {
+        return actions.stream().sorted().toList();
     }
 }

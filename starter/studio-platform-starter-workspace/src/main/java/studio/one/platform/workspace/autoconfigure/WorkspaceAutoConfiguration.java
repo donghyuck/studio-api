@@ -28,6 +28,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
@@ -92,15 +93,18 @@ public class WorkspaceAutoConfiguration {
             WorkspaceMemberJpaRepository memberRepository,
             ObjectProvider<WorkspacePermissionContributor> contributors,
             ObjectProvider<ApplicationCompanyMemberService> companyMemberServiceProvider,
+            ObjectProvider<ApplicationCompanyPermissionService> companyPermissionServiceProvider,
             WorkspaceProperties properties,
             WorkspaceSettings settings) {
         ApplicationCompanyMemberService companyMemberService = null;
+        ApplicationCompanyPermissionService companyPermissionService = null;
         if (properties.getPermission().isCompanyOwnerOverrideEnabled()) {
             companyMemberService = companyMemberServiceProvider.getIfAvailable();
             if (companyMemberService == null) {
                 throw new IllegalStateException(
                         "studio.workspace.permission.company-owner-override-enabled requires ApplicationCompanyMemberService");
             }
+            companyPermissionService = companyPermissionServiceProvider.getIfAvailable();
         }
         return new DefaultWorkspacePermissionService(
                 workspaceRepository,
@@ -108,7 +112,8 @@ public class WorkspaceAutoConfiguration {
                 memberRepository,
                 contributors.orderedStream().toList(),
                 settings,
-                companyMemberService);
+                companyMemberService,
+                companyPermissionService);
     }
 
     @Bean

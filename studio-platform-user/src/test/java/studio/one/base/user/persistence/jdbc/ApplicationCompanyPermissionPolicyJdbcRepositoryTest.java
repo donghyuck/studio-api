@@ -2,9 +2,13 @@ package studio.one.base.user.persistence.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.sql.SQLException;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.datasource.init.ScriptUtils;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -22,11 +26,12 @@ class ApplicationCompanyPermissionPolicyJdbcRepositoryTest {
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     private NamedParameterJdbcTemplate template;
+    private DriverManagerDataSource dataSource;
     private ApplicationCompanyPermissionPolicyJdbcRepository repository;
 
     @BeforeEach
-    void setUp() {
-        DriverManagerDataSource dataSource = new DriverManagerDataSource(
+    void setUp() throws SQLException {
+        dataSource = new DriverManagerDataSource(
                 postgres.getJdbcUrl(),
                 postgres.getUsername(),
                 postgres.getPassword());
@@ -60,19 +65,15 @@ class ApplicationCompanyPermissionPolicyJdbcRepositoryTest {
         return policy;
     }
 
-    private void recreateSchema() {
+    private void recreateSchema() throws SQLException {
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY_PERMISSION_POLICY");
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_COMPANY_PERMISSION_POLICY (
-                    COMPANY_ID bigint not null,
-                    ROLE varchar(30) not null,
-                    ACTION_NAME varchar(100) not null,
-                    ENABLED boolean not null default true,
-                    CREATED_AT timestamptz not null default now(),
-                    UPDATED_AT timestamptz,
-                    UPDATED_BY bigint,
-                    primary key (COMPANY_ID, ROLE, ACTION_NAME)
-                )
-                """);
+        template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY");
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_COMPANY (COMPANY_ID bigint primary key)");
+        try (var connection = dataSource.getConnection()) {
+            ScriptUtils.executeSqlScript(
+                    connection,
+                    new ClassPathResource("schema/user/postgres/V304__create_company_permission_policy.sql"));
+        }
+        template.getJdbcTemplate().execute("insert into TB_APPLICATION_COMPANY (COMPANY_ID) values (10)");
     }
 }
