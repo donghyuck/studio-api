@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #435 대응으로 Company 멤버 키 발급과 인증 사용자 가입 요청/승인/거절 API를 추가했다. 멤버 키는 생성 응답에서만 평문으로 반환하고 저장소에는 SHA-256 hash만 보존하며, email-only 비로그인 요청은 계정 소유권을 검증할 수 없어 노출하지 않는다. `POST /api/self/company-join-requests`, `POST /api/mgmt/companies/{companyId}/member-keys`, `GET/approve/reject /api/mgmt/companies/{companyId}/member-join-requests` 흐름을 제공한다. Company 목록 조회는 `features:company/admin` 권한으로 제한하고, 마지막 `OWNER` 강등/삭제는 거부한다.
 - 이슈 #433 대응으로 Company 목록/단건 조회가 DTO 변환 시 lazy `properties` 접근으로 500이 발생하지 않도록 `ApplicationCompanyService`에서 properties를 transaction 안에서 초기화한다.
 - 이슈 #425 대응으로 Workspace 활성화 API `POST /api/workspaces/{workspaceId}/activate`, `POST /api/mgmt/workspaces/{workspaceId}/activate`를 추가하고, archive/activate 요청 body에 `cascade` 정책을 문서화했다. 활성 descendant가 있는 workspace archive는 `cascade=true`가 필요하며, archived ancestor 아래 child 단독 활성화는 거부한다.
 - Company → Workspace → Wiki 단계별 작업 리뷰 보완으로 Company 관리 API에 tenant 객체 권한 검사를 추가하고, workspace company scope 적용 시 `ApplicationCompanyService` 기반 company 존재 검증과 `V1303__add_workspace_company_fk.sql`을 추가했다. V1302 schema가 적용된 환경은 `studio.features.workspace.company-scope-enforced=true` 설정 없이는 기동하지 않도록 보강했다. Company 객체 권한 검사가 필요한 endpoint는 `IdentityService`로 actor를 해석하지 못하면 fail-closed로 거부하며, workspace member keyword 검색은 `ApplicationUserService`를 우선 사용하고 없으면 기존 user table DB fallback을 유지한다.

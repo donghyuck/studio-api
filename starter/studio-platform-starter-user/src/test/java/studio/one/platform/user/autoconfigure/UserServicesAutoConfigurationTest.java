@@ -10,15 +10,22 @@ import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAut
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
+import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
+import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyPermissionService;
+import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
 import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.web.controller.CompanyJoinRequestMgmtApi;
 import studio.one.base.user.web.controller.CompanyMgmtController;
+import studio.one.base.user.web.controller.CompanyJoinRequestMgmtController;
+import studio.one.base.user.web.controller.CompanySelfJoinRequestApi;
+import studio.one.base.user.web.controller.CompanySelfJoinRequestController;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.service.I18n;
 
@@ -41,10 +48,15 @@ class UserServicesAutoConfigurationTest {
                         () -> stub(ApplicationCompanyRepository.class))
                 .withBean(ApplicationCompanyMemberRepository.class,
                         () -> stub(ApplicationCompanyMemberRepository.class))
+                .withBean(ApplicationCompanyMemberKeyRepository.class,
+                        () -> stub(ApplicationCompanyMemberKeyRepository.class))
+                .withBean(ApplicationCompanyJoinRequestRepository.class,
+                        () -> stub(ApplicationCompanyJoinRequestRepository.class))
                 .run(context -> {
                     assertThat(context).hasSingleBean(ApplicationCompanyService.class);
                     assertThat(context).hasSingleBean(ApplicationCompanyMemberService.class);
                     assertThat(context).hasSingleBean(ApplicationCompanyPermissionService.class);
+                    assertThat(context).hasSingleBean(ApplicationCompanyJoinRequestService.class);
                 });
     }
 
@@ -57,6 +69,10 @@ class UserServicesAutoConfigurationTest {
                         () -> stub(ApplicationCompanyRepository.class))
                 .withBean(ApplicationCompanyMemberRepository.class,
                         () -> stub(ApplicationCompanyMemberRepository.class))
+                .withBean(ApplicationCompanyMemberKeyRepository.class,
+                        () -> stub(ApplicationCompanyMemberKeyRepository.class))
+                .withBean(ApplicationCompanyJoinRequestRepository.class,
+                        () -> stub(ApplicationCompanyJoinRequestRepository.class))
                 .run(context -> assertThat(context.getBean(ApplicationCompanyService.class)).isSameAs(customService));
     }
 
@@ -68,10 +84,31 @@ class UserServicesAutoConfigurationTest {
                         () -> stub(ApplicationCompanyRepository.class))
                 .withBean(ApplicationCompanyMemberRepository.class,
                         () -> stub(ApplicationCompanyMemberRepository.class))
+                .withBean(ApplicationCompanyMemberKeyRepository.class,
+                        () -> stub(ApplicationCompanyMemberKeyRepository.class))
+                .withBean(ApplicationCompanyJoinRequestRepository.class,
+                        () -> stub(ApplicationCompanyJoinRequestRepository.class))
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(ApplicationCompanyService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyMemberService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyPermissionService.class);
+                    assertThat(context).doesNotHaveBean(ApplicationCompanyJoinRequestService.class);
+                });
+    }
+
+    @Test
+    void joinRequestServiceBacksOffWhenRequiredRepositoriesArePartial() {
+        contextRunner
+                .withBean(ApplicationCompanyRepository.class,
+                        () -> stub(ApplicationCompanyRepository.class))
+                .withBean(ApplicationCompanyMemberRepository.class,
+                        () -> stub(ApplicationCompanyMemberRepository.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ApplicationCompanyService.class);
+                    assertThat(context).hasSingleBean(ApplicationCompanyMemberService.class);
+                    assertThat(context).hasSingleBean(ApplicationCompanyPermissionService.class);
+                    assertThat(context).doesNotHaveBean(ApplicationCompanyJoinRequestService.class);
                 });
     }
 
@@ -85,6 +122,7 @@ class UserServicesAutoConfigurationTest {
                 .withBean(ApplicationCompanyService.class, () -> stub(ApplicationCompanyService.class))
                 .withBean(ApplicationCompanyMemberService.class, () -> stub(ApplicationCompanyMemberService.class))
                 .withBean(ApplicationCompanyPermissionService.class, () -> stub(ApplicationCompanyPermissionService.class))
+                .withBean(ApplicationCompanyJoinRequestService.class, () -> stub(ApplicationCompanyJoinRequestService.class))
                 .withBean(IdentityService.class, () -> stub(IdentityService.class))
                 .withPropertyValues(
                         "studio.features.user.web.enabled=true",
@@ -96,11 +134,13 @@ class UserServicesAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(CompanyMgmtController.class);
+                    assertThat(context).hasSingleBean(CompanyJoinRequestMgmtController.class);
+                    assertThat(context).doesNotHaveBean(CompanySelfJoinRequestController.class);
                 });
     }
 
     @Test
-    void registersCompanyEndpointWithoutIdentityServiceForLegacyFeatureLevelAccess() {
+    void registersCompanyEndpointWithoutJoinRequestServiceForLegacyFeatureLevelAccess() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(
                         ConfigurationPropertiesAutoConfiguration.class,
@@ -119,6 +159,82 @@ class UserServicesAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(CompanyMgmtController.class);
+                    assertThat(context).doesNotHaveBean(CompanyJoinRequestMgmtController.class);
+                    assertThat(context).doesNotHaveBean(CompanySelfJoinRequestController.class);
+                });
+    }
+
+    @Test
+    void joinRequestMgmtEndpointRequiresIdentityService() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        UserEndpointsAutoConfiguration.class))
+                .withBean(I18n.class, () -> (code, args, locale) -> code)
+                .withBean(ApplicationCompanyService.class, () -> stub(ApplicationCompanyService.class))
+                .withBean(ApplicationCompanyMemberService.class, () -> stub(ApplicationCompanyMemberService.class))
+                .withBean(ApplicationCompanyPermissionService.class, () -> stub(ApplicationCompanyPermissionService.class))
+                .withBean(ApplicationCompanyJoinRequestService.class, () -> stub(ApplicationCompanyJoinRequestService.class))
+                .withPropertyValues(
+                        "studio.features.user.web.enabled=true",
+                        "studio.features.user.web.endpoints.group.enabled=false",
+                        "studio.features.user.web.endpoints.user.enabled=false",
+                        "studio.features.user.web.endpoints.public.enabled=false",
+                        "studio.features.user.web.endpoints.role.enabled=false",
+                        "studio.features.user.web.self.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(CompanyMgmtController.class);
+                    assertThat(context).doesNotHaveBean(CompanyJoinRequestMgmtController.class);
+                });
+    }
+
+    @Test
+    void registersSelfJoinRequestEndpointOnlyWhenIdentityServiceAndSelfEndpointEnabled() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        UserEndpointsAutoConfiguration.class))
+                .withBean(I18n.class, () -> (code, args, locale) -> code)
+                .withBean(ApplicationCompanyJoinRequestService.class, () -> stub(ApplicationCompanyJoinRequestService.class))
+                .withBean(IdentityService.class, () -> stub(IdentityService.class))
+                .withPropertyValues(
+                        "studio.features.user.web.enabled=true",
+                        "studio.features.user.web.endpoints.group.enabled=false",
+                        "studio.features.user.web.endpoints.user.enabled=false",
+                        "studio.features.user.web.endpoints.public.enabled=false",
+                        "studio.features.user.web.endpoints.role.enabled=false",
+                        "studio.features.user.web.endpoints.company.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(CompanySelfJoinRequestController.class);
+                });
+    }
+
+    @Test
+    void joinRequestEndpointsBackOffWhenApiContractBeansExist() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        UserEndpointsAutoConfiguration.class))
+                .withBean(I18n.class, () -> (code, args, locale) -> code)
+                .withBean(ApplicationCompanyService.class, () -> stub(ApplicationCompanyService.class))
+                .withBean(ApplicationCompanyMemberService.class, () -> stub(ApplicationCompanyMemberService.class))
+                .withBean(ApplicationCompanyPermissionService.class, () -> stub(ApplicationCompanyPermissionService.class))
+                .withBean(ApplicationCompanyJoinRequestService.class, () -> stub(ApplicationCompanyJoinRequestService.class))
+                .withBean(IdentityService.class, () -> stub(IdentityService.class))
+                .withBean(CompanyJoinRequestMgmtApi.class, () -> stub(CompanyJoinRequestMgmtApi.class))
+                .withBean(CompanySelfJoinRequestApi.class, () -> stub(CompanySelfJoinRequestApi.class))
+                .withPropertyValues(
+                        "studio.features.user.web.enabled=true",
+                        "studio.features.user.web.endpoints.group.enabled=false",
+                        "studio.features.user.web.endpoints.user.enabled=false",
+                        "studio.features.user.web.endpoints.public.enabled=false",
+                        "studio.features.user.web.endpoints.role.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(CompanyJoinRequestMgmtController.class);
+                    assertThat(context).doesNotHaveBean(CompanySelfJoinRequestController.class);
                 });
     }
 

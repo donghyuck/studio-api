@@ -109,6 +109,7 @@ studio:
 ## 6) 자동 구성되는 주요 빈
 - `ApplicationUserService`, `ApplicationGroupService`, `ApplicationRoleService`, `ApplicationCompanyService`
 - `ApplicationCompanyMemberService`, `ApplicationCompanyPermissionService`
+- `ApplicationCompanyJoinRequestService`
 - `UserMutator` (기본 `ApplicationUserMutator`)
 - `UserCacheEvictListener` (CacheManager가 있을 때)
 
@@ -143,12 +144,33 @@ studio:
 - `/api/mgmt/roles`
 - `/api/mgmt/companies`
 - `/api/self`
+- `/api/self/company-join-requests`
 
 Company endpoint는 `features:company/*` 권한을 먼저 확인하고, 단일 Company 조회/수정,
 member 조회/변경, permission 조회에는 Company 객체 권한을 추가로 적용한다.
 이 객체 권한 검사는 `IdentityService`가 principal을 userId로 해석할 수 있어야 하며,
-해석할 수 없으면 fail-closed로 거부한다. Company 목록 조회는 기존 호환성을 위해
-endpoint-level 권한만 사용한다.
+해석할 수 없으면 fail-closed로 거부한다. Company 목록 조회는 교차 tenant 메타데이터
+노출을 막기 위해 `features:company/admin` 권한만 허용한다.
+
+Company join request API는 멤버 키 기반 가입 요청 흐름을 제공한다.
+
+| Method | Path | 권한 |
+|---|---|---|
+| `POST` | `/api/mgmt/companies/{companyId}/member-keys` | `features:company/write` + `company.member.manage` |
+| `GET` | `/api/mgmt/companies/{companyId}/member-join-requests` | `features:company/write` + `company.member.manage` |
+| `POST` | `/api/mgmt/companies/{companyId}/member-join-requests/{requestId}/approve` | `features:company/write` + `company.member.manage` |
+| `POST` | `/api/mgmt/companies/{companyId}/member-join-requests/{requestId}/reject` | `features:company/write` + `company.member.manage` |
+| `POST` | `/api/self/company-join-requests` | 인증 사용자 가입 요청 경로 |
+
+멤버 키는 생성 응답에서만 평문으로 반환하고 DB에는 `SHA-256` hash만 저장한다.
+Company member 관리자는 자신의 Company role보다 높은 role의 멤버 키를 발급할 수 없고, 플랫폼 관리자는 관리용 endpoint에서 이 제한을 우회할 수 있다.
+Company member role 변경/삭제는 마지막 `OWNER`를 제거하지 못하도록 거부한다.
+가입 요청은 인증 사용자 경로인 `/api/self/company-join-requests`에서 생성한다.
+email만 받는 비로그인 가입 요청은 소유권 증명 없이 기존 계정에 안전하게 연결할 수 없으므로 이번 범위에서 노출하지 않는다.
+만료되었거나 사용 횟수를 초과한 키는 가입 요청을 만들 수 없고, `maxUses`는 승인 시점에 차감된다.
+`maxUses` 한도 계산은 승인 완료 건과 대기 중인 요청을 함께 반영해 과도한 대기 요청을 제한한다.
+승인/거절된 요청은 중복 처리되지 않는다.
+`/api/self/company-join-requests`와 관리 API는 인증/권한 검사를 유지한다.
 
 기본 사용자 관리 API에는 `DELETE /api/mgmt/users/{id}`가 포함된다. 이 엔드포인트는
 `features:user` admin 권한을 요구하며, 성공 시 `204 No Content`를 반환한다.
@@ -184,6 +206,9 @@ studio:
 - Company member/permission 기반은 `V302__extend_company_and_create_company_members.sql`에서 추가된다.
   `TB_APPLICATION_COMPANY.STATUS`, `ARCHIVED_AT`, `ARCHIVED_BY`와
   `TB_APPLICATION_COMPANY_MEMBERS`를 생성한다.
+- Company 멤버 키와 가입 요청 기반은 `V303__create_company_join_request_tables.sql`에서 추가된다.
+  `TB_APPLICATION_COMPANY_MEMBER_KEY`는 평문 키가 아니라 hash만 저장하고,
+  `TB_APPLICATION_COMPANY_JOIN_REQUEST`는 요청/승인/거절 actor와 일시를 보존한다.
 - PostgreSQL에서는 그룹 멤버 summary 검색의 `username`/`name`/`email` 부분 검색을 위해
   `schema/user/postgres/V301__optimize_group_member_summary_search.sql`가 `pg_trgm` 확장과
   `lower(...)` GIN trigram index를 추가한다. 운영 DB의 Flyway 계정은 `CREATE EXTENSION IF NOT EXISTS pg_trgm`

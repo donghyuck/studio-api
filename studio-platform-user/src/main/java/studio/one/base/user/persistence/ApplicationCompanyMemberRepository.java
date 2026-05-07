@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.entity.ApplicationCompanyMember;
 import studio.one.base.user.domain.entity.ApplicationCompanyMemberId;
+import studio.one.base.user.company.model.CompanyRole;
 import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationCompanyMemberRepository {
@@ -21,6 +22,8 @@ public interface ApplicationCompanyMemberRepository {
     Optional<ApplicationCompanyMember> findById(ApplicationCompanyMemberId id);
 
     boolean existsById(ApplicationCompanyMemberId id);
+
+    long countByCompanyIdAndRole(Long companyId, CompanyRole role);
 
     ApplicationCompanyMember save(ApplicationCompanyMember member);
 

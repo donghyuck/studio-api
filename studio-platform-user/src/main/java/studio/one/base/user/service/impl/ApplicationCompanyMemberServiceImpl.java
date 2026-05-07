@@ -5,6 +5,8 @@ import java.util.Objects;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +16,7 @@ import studio.one.base.user.company.model.CompanyRole;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.domain.entity.ApplicationCompanyMember;
 import studio.one.base.user.domain.entity.ApplicationCompanyMemberId;
+import studio.one.base.user.exception.CompanyJoinRequestException;
 import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
@@ -28,35 +31,46 @@ public class ApplicationCompanyMemberServiceImpl implements ApplicationCompanyMe
     private final ApplicationCompanyMemberRepository memberRepository;
 
     @Override
-    public CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
+    public CompanyMemberRef addMember(Long companyId, Long userId, CompanyRole role, Long actorUserId, boolean bypassRoleLimit) {
         validateMemberKey(companyId, userId);
         CompanyRole resolvedRole = role == null ? CompanyRole.MEMBER : role;
+        assertAssignableRole(companyId, actorUserId, resolvedRole, bypassRoleLimit);
         ApplicationCompany company = company(companyId);
         ApplicationCompanyMemberId id = new ApplicationCompanyMemberId(companyId, userId);
-        ApplicationCompanyMember member = memberRepository.findById(id).orElseGet(() -> {
-            ApplicationCompanyMember created = new ApplicationCompanyMember();
-            created.setId(id);
-            created.setCompany(company);
-            created.setJoinedBy(actorUserId);
-            return created;
-        });
+        if (memberRepository.existsById(id)) {
+            throw CompanyJoinRequestException.alreadyMember(companyId, userId);
+        }
+        ApplicationCompanyMember member = new ApplicationCompanyMember();
+        member.setId(id);
+        member.setCompany(company);
+        member.setJoinedBy(actorUserId);
         member.setRole(resolvedRole);
         member.setUpdatedBy(actorUserId);
-        return memberRepository.save(member).toRef();
+        try {
+            return memberRepository.save(member).toRef();
+        } catch (DataIntegrityViolationException e) {
+            throw CompanyJoinRequestException.alreadyMember(companyId, userId);
+        }
     }
 
     @Override
-    public CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId) {
+    public CompanyMemberRef changeRole(Long companyId, Long userId, CompanyRole role, Long actorUserId, boolean bypassRoleLimit) {
         Objects.requireNonNull(role, "role");
+        assertAssignableRole(companyId, actorUserId, role, bypassRoleLimit);
         ApplicationCompanyMember member = member(companyId, userId);
+        assertCanManageTarget(companyId, actorUserId, member.getRole(), bypassRoleLimit);
+        assertOwnerRemains(companyId, member.getRole(), role);
         member.setRole(role);
         member.setUpdatedBy(actorUserId);
         return memberRepository.save(member).toRef();
     }
 
     @Override
-    public void removeMember(Long companyId, Long userId, Long actorUserId) {
+    public void removeMember(Long companyId, Long userId, Long actorUserId, boolean bypassRoleLimit) {
         validateMemberKey(companyId, userId);
+        ApplicationCompanyMember member = member(companyId, userId);
+        assertCanManageTarget(companyId, actorUserId, member.getRole(), bypassRoleLimit);
+        assertOwnerRemains(companyId, member.getRole(), null);
         memberRepository.deleteById(new ApplicationCompanyMemberId(companyId, userId));
     }
 
@@ -112,6 +126,35 @@ public class ApplicationCompanyMemberServiceImpl implements ApplicationCompanyMe
         validateMemberKey(companyId, userId);
         return memberRepository.findById(new ApplicationCompanyMemberId(companyId, userId))
                 .orElseThrow(() -> new NotFoundException("CompanyMember", companyId + ":" + userId));
+    }
+
+    private void assertAssignableRole(Long companyId, Long actorUserId, CompanyRole requestedRole, boolean bypassRoleLimit) {
+        if (bypassRoleLimit) {
+            return;
+        }
+        CompanyRole actorRole = getCompanyRole(companyId, actorUserId);
+        if (actorRole == null || requestedRole.rank() > actorRole.rank()) {
+            throw new AccessDeniedException("Cannot assign company role " + requestedRole);
+        }
+    }
+
+    private void assertCanManageTarget(Long companyId, Long actorUserId, CompanyRole targetRole, boolean bypassRoleLimit) {
+        if (bypassRoleLimit) {
+            return;
+        }
+        CompanyRole actorRole = getCompanyRole(companyId, actorUserId);
+        if (actorRole == null || targetRole.rank() > actorRole.rank()) {
+            throw new AccessDeniedException("Cannot manage company member role " + targetRole);
+        }
+    }
+
+    private void assertOwnerRemains(Long companyId, CompanyRole currentRole, CompanyRole nextRole) {
+        if (currentRole != CompanyRole.OWNER || nextRole == CompanyRole.OWNER) {
+            return;
+        }
+        if (memberRepository.countByCompanyIdAndRole(companyId, CompanyRole.OWNER) <= 1) {
+            throw new AccessDeniedException("Cannot remove the last company owner");
+        }
     }
 
     private void validateMemberKey(Long companyId, Long userId) {
