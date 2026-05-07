@@ -48,8 +48,10 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
     @Override
     @Transactional(readOnly = true)
     public ApplicationCompany get(Long companyId) {
-        return companyRepo.findById(companyId)
+        ApplicationCompany company = companyRepo.findById(companyId)
                 .orElseThrow(() -> new NotFoundException("Company", companyId));
+        initializeProperties(company);
+        return company;
     }
 
     @Override
@@ -107,7 +109,9 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
     @Override
     @Transactional(readOnly = true)
     public Page<ApplicationCompany> search(String q, Pageable pageable) {
-        return companyRepo.search(q, pageable);
+        Page<ApplicationCompany> page = companyRepo.search(q, pageable);
+        page.forEach(this::initializeProperties);
+        return page;
     }
 
     @Override
@@ -125,5 +129,11 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
         Objects.requireNonNull(name, "property name");
         c.getProperties().remove(name);
         companyRepo.save(c);
+    }
+
+    private void initializeProperties(ApplicationCompany company) {
+        if (company != null && company.getProperties() != null) {
+            company.getProperties().size();
+        }
     }
 }
