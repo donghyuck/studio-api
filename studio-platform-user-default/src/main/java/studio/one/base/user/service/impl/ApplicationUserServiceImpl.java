@@ -114,6 +114,20 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return userRepo.search(keyword, pageable);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public Page<ApplicationUser> findAllByCompanyId(Long companyId, Pageable pageable) {
+        requirePositiveCompanyId(companyId);
+        return userRepo.findUsersByCompanyId(companyId, pageable);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public Page<ApplicationUser> findByCompanyIdAndNameOrUsernameOrEmail(Long companyId, String keyword, Pageable pageable) {
+        requirePositiveCompanyId(companyId);
+        return userRepo.searchByCompanyId(companyId, keyword, pageable);
+    }
+
     @Cacheable(cacheNames = CacheNames.User.BY_USER_ID, key = "#userId", unless = "#result == null")
     @Transactional(propagation = Propagation.SUPPORTS)
     public ApplicationUser get(Long userId) {
@@ -124,6 +138,12 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
     @Transactional(propagation = Propagation.SUPPORTS)
     public Optional<ApplicationUser> findEnabledById(Long userId) {
         return userRepo.findEnabledById(userId);
+    }
+
+    private void requirePositiveCompanyId(Long companyId) {
+        if (companyId == null || companyId <= 0) {
+            throw new IllegalArgumentException("companyId must be positive");
+        }
     }
 
     @Cacheable(cacheNames = CacheNames.User.BY_USERNAME, key = "#username", unless = "#result == null")

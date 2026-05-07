@@ -39,6 +39,14 @@ public interface ApplicationUserRepository {
 
     List<ApplicationUser> findUsersByGroupId(Long groupId);
 
+    default Page<ApplicationUser> findUsersByCompanyId(Long companyId, Pageable pageable) {
+        throw new UnsupportedOperationException("Company-scoped user listing is not supported");
+    }
+
+    default Page<ApplicationUser> searchByCompanyId(Long companyId, String keyword, Pageable pageable) {
+        throw new UnsupportedOperationException("Company-scoped user search is not supported");
+    }
+
     Page<ApplicationUser> search(String keyword, Pageable pageable);
 
     List<ApplicationGroup> findGroupsByUserId(Long userId);

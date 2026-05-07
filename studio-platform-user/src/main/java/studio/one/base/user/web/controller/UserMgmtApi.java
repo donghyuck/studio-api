@@ -35,14 +35,39 @@ public interface UserMgmtApi {
             @RequestParam(value = "q", required = false) Optional<String> q,
             Pageable pageable);
 
+    default ResponseEntity<ApiResponse<Page<UserDto>>> list(
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+            UserDetails principal,
+            Pageable pageable) {
+        return list(q, pageable);
+    }
+
     ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(
             @RequestParam(value = "q", required = false) Optional<String> q,
             Pageable pageable);
+
+    default ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+            UserDetails principal,
+            Pageable pageable) {
+        return listBasic(q, pageable);
+    }
 
     ResponseEntity<ApiResponse<Page<UserDto>>> find(
             @RequestParam(value = "q", required = false) Optional<String> q,
             @RequestParam(value = "requireQuery", required = false, defaultValue = "true") boolean requireQuery,
             Pageable pageable);
+
+    default ResponseEntity<ApiResponse<Page<UserDto>>> find(
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+            @RequestParam(value = "requireQuery", required = false, defaultValue = "true") boolean requireQuery,
+            UserDetails principal,
+            Pageable pageable) {
+        return find(q, requireQuery, pageable);
+    }
 
     ResponseEntity<ApiResponse<UserDto>> get(Long id);
 

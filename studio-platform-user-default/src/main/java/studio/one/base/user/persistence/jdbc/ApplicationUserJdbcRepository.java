@@ -34,9 +34,30 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
             Map.entry("firstName", "FIRST_NAME"),
             Map.entry("lastName", "LAST_NAME"),
             Map.entry("email", "EMAIL"),
+            Map.entry("enabled", "USER_ENABLED"),
+            Map.entry("external", "USER_EXTERNAL"),
             Map.entry("creationDate", "CREATION_DATE"),
             Map.entry("modifiedDate", "MODIFIED_DATE"),
-            Map.entry("status", "STATUS"));
+            Map.entry("status", "STATUS"),
+            Map.entry("failedAttempts", "FAILED_ATTEMPTS"),
+            Map.entry("lastFailedAt", "LAST_FAILED_AT"),
+            Map.entry("accountLockedUntil", "ACCOUNT_LOCKED_UNTIL"));
+
+    private static final Map<String, String> USER_ALIAS_SORT_COLUMNS = Map.ofEntries(
+            Map.entry("userId", "u.USER_ID"),
+            Map.entry("username", "u.USERNAME"),
+            Map.entry("name", "u.NAME"),
+            Map.entry("firstName", "u.FIRST_NAME"),
+            Map.entry("lastName", "u.LAST_NAME"),
+            Map.entry("email", "u.EMAIL"),
+            Map.entry("enabled", "u.USER_ENABLED"),
+            Map.entry("external", "u.USER_EXTERNAL"),
+            Map.entry("creationDate", "u.CREATION_DATE"),
+            Map.entry("modifiedDate", "u.MODIFIED_DATE"),
+            Map.entry("status", "u.STATUS"),
+            Map.entry("failedAttempts", "u.FAILED_ATTEMPTS"),
+            Map.entry("lastFailedAt", "u.LAST_FAILED_AT"),
+            Map.entry("accountLockedUntil", "u.ACCOUNT_LOCKED_UNTIL"));
 
     private static final RowMapper<ApplicationUser> USER_ROW_MAPPER = JdbcUserMapper::mapBasicUser;
 
@@ -215,6 +236,58 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
         List<ApplicationUser> users = namedTemplate.query(sql, Map.of("groupId", groupId), USER_ROW_MAPPER);
         loadProperties(users);
         return users;
+    }
+
+    @Override
+    public Page<ApplicationUser> findUsersByCompanyId(Long companyId, Pageable pageable) {
+        Map<String, Object> params = Map.of("companyId", companyId);
+        String select = """
+                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
+                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
+                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
+                  from TB_APPLICATION_USER u
+                  join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID
+                 where cm.COMPANY_ID = :companyId
+                """;
+        String count = """
+                select count(*)
+                  from TB_APPLICATION_COMPANY_MEMBERS cm
+                  join TB_APPLICATION_USER u on u.USER_ID = cm.USER_ID
+                 where cm.COMPANY_ID = :companyId
+                """;
+        Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_ALIAS_SORT_COLUMNS);
+        loadProperties(page.getContent());
+        return page;
+    }
+
+    @Override
+    public Page<ApplicationUser> searchByCompanyId(Long companyId, String keyword, Pageable pageable) {
+        Map<String, Object> params = Map.of("companyId", companyId, "q", normalize(keyword));
+        String select = """
+                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
+                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
+                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
+                  from TB_APPLICATION_USER u
+                  join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID
+                 where cm.COMPANY_ID = :companyId
+                   and (:q = '' or
+                       lower(u.USERNAME) like :q or
+                       lower(u.NAME) like :q or
+                       lower(u.EMAIL) like :q)
+                """;
+        String count = """
+                select count(*)
+                  from TB_APPLICATION_USER u
+                  join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID
+                 where cm.COMPANY_ID = :companyId
+                   and (:q = '' or
+                       lower(u.USERNAME) like :q or
+                       lower(u.NAME) like :q or
+                       lower(u.EMAIL) like :q)
+                """;
+        Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_ALIAS_SORT_COLUMNS);
+        loadProperties(page.getContent());
+        return page;
     }
 
     @Override

@@ -26,6 +26,12 @@ import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
 public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         implements ApplicationGroupMembershipRepository {
 
+    private static final Map<String, String> MEMBERSHIP_SORT_COLUMNS = Map.of(
+            "groupId", "GROUP_ID",
+            "userId", "USER_ID",
+            "joinedAt", "JOINED_AT",
+            "joinedBy", "JOINED_BY");
+
     private static final RowMapper<ApplicationGroupMembership> MEMBERSHIP_ROW_MAPPER = (rs, rowNum) -> {
         ApplicationGroupMembership membership = new ApplicationGroupMembership();
         ApplicationGroupMembershipId id = new ApplicationGroupMembershipId(rs.getLong("GROUP_ID"), rs.getLong("USER_ID"));
@@ -56,7 +62,7 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
     public Page<ApplicationGroupMembership> findAll(Pageable pageable) {
         String select = "select GROUP_ID, USER_ID, JOINED_AT, JOINED_BY from TB_APPLICATION_GROUP_MEMBERS";
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS";
-        return queryPage(select, count, Map.of(), pageable, MEMBERSHIP_ROW_MAPPER, "GROUP_ID", Map.of());
+        return queryPage(select, count, Map.of(), pageable, MEMBERSHIP_ROW_MAPPER, "GROUP_ID", MEMBERSHIP_SORT_COLUMNS);
     }
 
     @Override
@@ -68,7 +74,7 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
                  where GROUP_ID = :groupId
                 """;
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
-        return queryPage(select, count, params, pageable, MEMBERSHIP_ROW_MAPPER, "USER_ID", Map.of());
+        return queryPage(select, count, params, pageable, MEMBERSHIP_ROW_MAPPER, "USER_ID", MEMBERSHIP_SORT_COLUMNS);
     }
 
     @Override
@@ -81,7 +87,7 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
                 """;
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
         return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "USER_ID",
-                Map.of());
+                MEMBERSHIP_SORT_COLUMNS);
     }
 
     @Override
@@ -118,7 +124,7 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
                  where USER_ID = :userId
                 """;
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where USER_ID = :userId";
-        return queryPage(select, count, params, pageable, MEMBERSHIP_ROW_MAPPER, "GROUP_ID", Map.of());
+        return queryPage(select, count, params, pageable, MEMBERSHIP_ROW_MAPPER, "GROUP_ID", MEMBERSHIP_SORT_COLUMNS);
     }
 
     @Override
