@@ -208,9 +208,6 @@ public class CompanyMgmtController {
             @AuthenticationPrincipal UserDetails principal) {
         boolean platformAdmin = isPlatformAdmin();
         Long actorUserId = actorUserId(principal);
-        if (platformAdmin) {
-            companyService.get(companyId);
-        }
         try {
             return ResponseEntity.ok(ApiResponse.ok(toDto(permissionService.updatePolicy(
                     companyId,
