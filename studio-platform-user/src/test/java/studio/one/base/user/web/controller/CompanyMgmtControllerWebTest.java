@@ -6,12 +6,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -20,16 +24,36 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
+import org.springframework.http.MediaType;
+import org.springframework.core.MethodParameter;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.bind.support.WebDataBinderFactory;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.method.support.ModelAndViewContainer;
 
 import studio.one.base.user.company.model.CompanyStatus;
+import studio.one.base.user.company.permission.CompanyPermissionActions;
 import studio.one.base.user.domain.entity.ApplicationCompany;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserRef;
 
 class CompanyMgmtControllerWebTest {
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     void listBindsEmptyQueryPagingSortAndSerializesProperties() throws Exception {
@@ -84,17 +108,119 @@ class CompanyMgmtControllerWebTest {
                 .isEqualTo(PageRequest.of(0, 15, Sort.by(Sort.Order.desc("companyId"))));
     }
 
+    @Test
+    void updatePermissionPolicyRejectsMissingActions() throws Exception {
+        MockMvc mvc = mockMvc(mock(ApplicationCompanyService.class));
+
+        mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":[{"role":"ADMIN","override":true}]}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updatePermissionPolicyRejectsBlankActions() throws Exception {
+        MockMvc mvc = mockMvc(mock(ApplicationCompanyService.class));
+
+        mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":[{"role":"ADMIN","actions":[" "],"override":true}]}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updatePermissionPolicyRejectsMissingOverride() throws Exception {
+        MockMvc mvc = mockMvc(mock(ApplicationCompanyService.class));
+
+        mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":[{"role":"ADMIN","actions":["company.read"]}]}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void updatePermissionPolicyMapsServiceValidationToBadRequest() throws Exception {
+        ApplicationCompanyPermissionService permissionService = mock(ApplicationCompanyPermissionService.class);
+        when(permissionService.updatePolicy(eq(10L), any(), eq(99L), eq(false)))
+                .thenThrow(new IllegalArgumentException("duplicate role: ADMIN"));
+        MockMvc mvc = mockMvc(mock(ApplicationCompanyService.class), permissionService, identityService());
+        var principal = User.withUsername("actor").password("n/a").authorities("ROLE_USER").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_USER"))));
+
+        mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
+                        .principal(() -> "actor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":[
+                                  {"role":"ADMIN","actions":["company.read"],"override":true},
+                                  {"role":"ADMIN","actions":["company.read"],"override":true}
+                                ]}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void platformAdminUpdatePermissionPolicyUsesServiceValidationForInvalidCompanyId() throws Exception {
+        ApplicationCompanyService companyService = mock(ApplicationCompanyService.class);
+        ApplicationCompanyPermissionService permissionService = mock(ApplicationCompanyPermissionService.class);
+        when(permissionService.updatePolicy(eq(0L), any(), eq(99L), eq(true)))
+                .thenThrow(new IllegalArgumentException("companyId must be positive"));
+        MockMvc mvc = mockMvc(companyService, permissionService, identityService());
+        var principal = User.withUsername("actor").password("n/a").authorities("ROLE_ADMIN").build();
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken(
+                principal,
+                "n/a",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))));
+
+        mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 0L)
+                        .principal(() -> "actor")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"roles":[{"role":"ADMIN","actions":["company.read"],"override":true}]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        org.mockito.Mockito.verifyNoInteractions(companyService);
+    }
+
     private MockMvc mockMvc(ApplicationCompanyService companyService) {
+        return mockMvc(companyService, mock(ApplicationCompanyPermissionService.class), new EmptyObjectProvider<>());
+    }
+
+    private MockMvc mockMvc(
+            ApplicationCompanyService companyService,
+            ApplicationCompanyPermissionService permissionService,
+            ObjectProvider<IdentityService> identityServiceProvider) {
         CompanyMgmtController controller = new CompanyMgmtController(
                 companyService,
                 mock(ApplicationCompanyMemberService.class),
-                mock(ApplicationCompanyPermissionService.class),
-                new EmptyObjectProvider<>(),
+                permissionService,
+                identityServiceProvider,
                 new EmptyObjectProvider<>());
+        LocalValidatorFactoryBean validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
         return MockMvcBuilders.standaloneSetup(controller)
-                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
+                .setCustomArgumentResolvers(
+                        new PageableHandlerMethodArgumentResolver(),
+                        new TestPrincipalArgumentResolver())
+                .setValidator(validator)
                 .addPlaceholderValue("studio.features.user.web.base-path", "/api/mgmt")
                 .build();
+    }
+
+    private ObjectProvider<IdentityService> identityService() {
+        IdentityService identityService = mock(IdentityService.class);
+        when(identityService.findByUsername("actor")).thenReturn(Optional.of(new UserRef(99L, "actor", Set.of())));
+        return new SingletonObjectProvider<>(identityService);
     }
 
     private ApplicationCompany company(Long companyId, String name, String displayName, Map<String, String> properties) {
@@ -126,6 +252,45 @@ class CompanyMgmtControllerWebTest {
         @Override
         public T getObject() {
             return null;
+        }
+    }
+
+    private record SingletonObjectProvider<T>(T value) implements ObjectProvider<T> {
+        @Override
+        public T getObject(Object... args) {
+            return value;
+        }
+
+        @Override
+        public T getIfAvailable() {
+            return value;
+        }
+
+        @Override
+        public T getIfUnique() {
+            return value;
+        }
+
+        @Override
+        public T getObject() {
+            return value;
+        }
+    }
+
+    private static class TestPrincipalArgumentResolver implements HandlerMethodArgumentResolver {
+        @Override
+        public boolean supportsParameter(MethodParameter parameter) {
+            return UserDetails.class.isAssignableFrom(parameter.getParameterType());
+        }
+
+        @Override
+        public Object resolveArgument(
+                MethodParameter parameter,
+                ModelAndViewContainer mavContainer,
+                NativeWebRequest webRequest,
+                WebDataBinderFactory binderFactory) {
+            var authentication = SecurityContextHolder.getContext().getAuthentication();
+            return authentication == null ? null : authentication.getPrincipal();
         }
     }
 }

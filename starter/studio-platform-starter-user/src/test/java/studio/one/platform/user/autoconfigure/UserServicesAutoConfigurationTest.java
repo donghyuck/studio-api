@@ -12,6 +12,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
 import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
 import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
+import studio.one.base.user.persistence.ApplicationCompanyPermissionPolicyRepository;
 import studio.one.base.user.persistence.ApplicationCompanyRepository;
 import studio.one.base.user.persistence.ApplicationRoleRepository;
 import studio.one.base.user.service.ApplicationCompanyMemberService;
@@ -52,6 +53,8 @@ class UserServicesAutoConfigurationTest {
                         () -> stub(ApplicationCompanyMemberKeyRepository.class))
                 .withBean(ApplicationCompanyJoinRequestRepository.class,
                         () -> stub(ApplicationCompanyJoinRequestRepository.class))
+                .withBean(ApplicationCompanyPermissionPolicyRepository.class,
+                        () -> stub(ApplicationCompanyPermissionPolicyRepository.class))
                 .run(context -> {
                     assertThat(context).hasSingleBean(ApplicationCompanyService.class);
                     assertThat(context).hasSingleBean(ApplicationCompanyMemberService.class);
@@ -73,6 +76,8 @@ class UserServicesAutoConfigurationTest {
                         () -> stub(ApplicationCompanyMemberKeyRepository.class))
                 .withBean(ApplicationCompanyJoinRequestRepository.class,
                         () -> stub(ApplicationCompanyJoinRequestRepository.class))
+                .withBean(ApplicationCompanyPermissionPolicyRepository.class,
+                        () -> stub(ApplicationCompanyPermissionPolicyRepository.class))
                 .run(context -> assertThat(context.getBean(ApplicationCompanyService.class)).isSameAs(customService));
     }
 
@@ -88,6 +93,8 @@ class UserServicesAutoConfigurationTest {
                         () -> stub(ApplicationCompanyMemberKeyRepository.class))
                 .withBean(ApplicationCompanyJoinRequestRepository.class,
                         () -> stub(ApplicationCompanyJoinRequestRepository.class))
+                .withBean(ApplicationCompanyPermissionPolicyRepository.class,
+                        () -> stub(ApplicationCompanyPermissionPolicyRepository.class))
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(ApplicationCompanyService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyMemberService.class);
@@ -107,7 +114,7 @@ class UserServicesAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(ApplicationCompanyService.class);
                     assertThat(context).hasSingleBean(ApplicationCompanyMemberService.class);
-                    assertThat(context).hasSingleBean(ApplicationCompanyPermissionService.class);
+                    assertThat(context).doesNotHaveBean(ApplicationCompanyPermissionService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyJoinRequestService.class);
                 });
     }

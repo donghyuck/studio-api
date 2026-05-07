@@ -2,6 +2,8 @@ package studio.one.base.user.service;
 
 import java.util.List;
 
+import studio.one.base.user.company.model.CompanyPermissionPolicyRef;
+import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
 import studio.one.platform.constant.ServiceNames;
 
 public interface ApplicationCompanyPermissionService {
@@ -13,4 +15,12 @@ public interface ApplicationCompanyPermissionService {
     void assertGranted(Long companyId, Long userId, String action);
 
     List<String> getGrantedActions(Long companyId, Long userId);
+
+    CompanyPermissionPolicyRef getPolicy(Long companyId);
+
+    CompanyPermissionPolicyRef updatePolicy(
+            Long companyId,
+            List<CompanyPermissionRolePolicyRef> roles,
+            Long actorUserId,
+            boolean platformAdmin);
 }

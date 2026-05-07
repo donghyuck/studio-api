@@ -125,19 +125,7 @@ public class CompanyJoinRequestMgmtController implements CompanyJoinRequestMgmtA
                 .orElse("ROLE_ADMIN");
         return authentication.getAuthorities().stream()
                 .map(org.springframework.security.core.GrantedAuthority::getAuthority)
-                .anyMatch(authority -> isAdminAuthority(authority, configuredAdminRole));
-    }
-
-    private boolean isAdminAuthority(String authority, String configuredAdminRole) {
-        if (authority == null) {
-            return false;
-        }
-        return authority.equals(configuredAdminRole)
-                || stripRolePrefix(authority).equals(stripRolePrefix(configuredAdminRole));
-    }
-
-    private String stripRolePrefix(String authority) {
-        return authority != null && authority.startsWith("ROLE_") ? authority.substring(5) : authority;
+                .anyMatch(configuredAdminRole::equals);
     }
 
     private Long actorUserId(UserDetails principal) {

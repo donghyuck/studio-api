@@ -152,6 +152,18 @@ member 조회/변경, permission 조회에는 Company 객체 권한을 추가로
 해석할 수 없으면 fail-closed로 거부한다. Company 목록 조회는 교차 tenant 메타데이터
 노출을 막기 위해 `features:company/admin` 권한만 허용한다.
 
+Company permission policy API는 기본 role/action mapping 위에 Company별 override를 저장한다.
+
+| Method | Path | 권한 |
+|---|---|---|
+| `GET` | `/api/mgmt/companies/{companyId}/permissions/policy` | `features:company/read` + `company.permission.read` |
+| `PUT` | `/api/mgmt/companies/{companyId}/permissions/policy` | `features:company/write` + `company.permission.manage` |
+
+정책 응답은 role별 `actions`, `defaultActions`, `override`를 포함한다.
+저장 요청은 role별 `actions`와 `override`를 명시해야 하며, `override=true` role만 저장하고 `override=false` role은 기본 mapping을 계속 사용한다.
+특정 role override가 없으면 기본 mapping을 반환하며, 저장된 policy는 `permissions/me`와 service-level 권한 판정에 반영된다.
+정책 수정은 Company `OWNER` 또는 platform admin만 수행할 수 있다. 알 수 없는 action, blank action, 중복 role 요청은 `400 Bad Request`로 거부된다.
+
 Company join request API는 멤버 키 기반 가입 요청 흐름을 제공한다.
 
 | Method | Path | 권한 |
@@ -207,6 +219,7 @@ studio:
   `TB_APPLICATION_COMPANY.STATUS`, `ARCHIVED_AT`, `ARCHIVED_BY`와
   `TB_APPLICATION_COMPANY_MEMBERS`를 생성한다.
 - Company 멤버 키와 가입 요청 기반은 `V303__create_company_join_request_tables.sql`에서 추가된다.
+- Company permission policy 저장소는 `V304__create_company_permission_policy.sql`에서 추가된다.
   `TB_APPLICATION_COMPANY_MEMBER_KEY`는 평문 키가 아니라 hash만 저장하고,
   `TB_APPLICATION_COMPANY_JOIN_REQUEST`는 요청/승인/거절 actor와 일시를 보존한다.
 - PostgreSQL에서는 그룹 멤버 summary 검색의 `username`/`name`/`email` 부분 검색을 위해

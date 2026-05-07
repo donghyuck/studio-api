@@ -137,7 +137,7 @@ class CompanyJoinRequestMgmtControllerTest {
     }
 
     @Test
-    void prefixedAuthorityBypassesWhenConfiguredPlatformAdminRoleIsBare() {
+    void prefixedAuthorityDoesNotBypassWhenConfiguredPlatformAdminRoleIsBare() {
         controller = new CompanyJoinRequestMgmtController(
                 permissionService,
                 joinRequestService,
@@ -153,7 +153,7 @@ class CompanyJoinRequestMgmtControllerTest {
 
         controller.memberJoinRequests(COMPANY_ID, null, principal, PageRequest.of(0, 15));
 
-        org.mockito.Mockito.verifyNoInteractions(permissionService);
+        verify(permissionService).assertGranted(COMPANY_ID, ACTOR_ID, CompanyPermissionActions.MEMBER_MANAGE);
     }
 
     @Test

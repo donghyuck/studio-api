@@ -23,6 +23,11 @@ public class JpaEntityNames {
         public static final class JoinRequest {
             public static final String ENTITY = "ApplicationCompanyJoinRequest";
         }
+
+        @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
+        public static final class PermissionPolicy {
+            public static final String ENTITY = "ApplicationCompanyPermissionPolicy";
+        }
     }
 
     @NoArgsConstructor(access = lombok.AccessLevel.PRIVATE)
