@@ -29,6 +29,8 @@ Command:
   :studio-platform-security:build \
   :starter:studio-platform-starter:build \
   :starter:studio-platform-starter-ai:build \
+  :starter:studio-platform-starter-mybatis:build \
+  :starter:studio-platform-starter-objecttype:build \
   :studio-application-modules:mail-service:build \
   :studio-application-modules:template-service:build \
   :studio-platform-workspace-default:build \
