@@ -9,10 +9,10 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 class MailFeaturePropertiesTest {
 
     @Test
-    void globalMyBatisFallsBackToDirectJdbcWhenFeaturePersistenceIsUnset() {
+    void globalMyBatisIsNotRewrittenForUnmigratedFeature() {
         MailFeatureProperties properties = new MailFeatureProperties();
 
-        assertEquals(PersistenceProperties.Type.jdbc,
+        assertEquals(PersistenceProperties.Type.mybatis,
                 properties.resolvePersistence(PersistenceProperties.Type.mybatis));
     }
 

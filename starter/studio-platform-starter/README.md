@@ -30,7 +30,9 @@ studio:
 ```
 
 전역 `mybatis`는 모든 활성 feature가 MyBatis 구현을 제공할 때만 기본값으로 사용한다. 아직 직접 JDBC
-호환 경로만 제공하는 feature는 해당 feature의 `persistence=jdbc` 설정을 명시한다.
+호환 경로만 제공하는 feature는 해당 feature의 `persistence=jdbc` 설정을 명시한다. 예를 들어 mail/template
+starter를 함께 켜는 mixed app은 `studio.features.mail.persistence=jdbc`,
+`studio.features.template.persistence=jdbc`를 별도로 둔다.
 
 ## 3) 설정
 하위 스타터에서 공통으로 사용하는 `studio.persistence.*` 속성을 전역 기본값으로 사용한다.

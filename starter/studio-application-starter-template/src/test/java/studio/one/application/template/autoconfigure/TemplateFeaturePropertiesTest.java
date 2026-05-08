@@ -9,10 +9,10 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 class TemplateFeaturePropertiesTest {
 
     @Test
-    void globalMyBatisFallsBackToDirectJdbcWhenFeaturePersistenceIsUnset() {
+    void globalMyBatisIsNotRewrittenForUnmigratedFeature() {
         TemplateFeatureProperties properties = new TemplateFeatureProperties();
 
-        assertEquals(PersistenceProperties.Type.jdbc,
+        assertEquals(PersistenceProperties.Type.mybatis,
                 properties.resolvePersistence(PersistenceProperties.Type.mybatis));
     }
 
