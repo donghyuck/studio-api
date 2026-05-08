@@ -73,7 +73,7 @@ studio:
   - `ObjectRebindService`
 - 구현(`studio-platform-objecttype`)
   - `CachedObjectTypeRegistry`
-  - `JdbcObjectTypeRegistry` / `JpaObjectTypeRegistry`
+  - `JdbcObjectTypeRegistry` / `JpaObjectTypeRegistry` / `MyBatisObjectTypeRegistry`
   - `DefaultObjectTypeAdminService` / `DefaultObjectTypeRuntimeService`
 
 ## 사용 예시
@@ -117,6 +117,10 @@ studio:
         ttl-seconds: 300
         max-size: 1000
 ```
+
+DB 모드의 영속성 구현은 스타터 설정으로 `jpa`, `mybatis`, `jdbc`를 선택한다.
+`mybatis`는 `classpath*:mybatis/**/*.xml` mapper XML을 사용하며 `starter:studio-platform-starter-mybatis`와 함께 동작한다.
+`jdbc`는 기존 직접 JDBC 호환 경로이고 외부 sqlset mapper 주입은 사용하지 않는다.
 
 ## YAML 구조
 ```yaml

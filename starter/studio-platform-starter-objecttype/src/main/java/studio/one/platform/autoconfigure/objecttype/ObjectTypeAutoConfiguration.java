@@ -34,6 +34,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import jakarta.persistence.EntityManagerFactory;
 
+import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import lombok.RequiredArgsConstructor;
@@ -61,6 +62,10 @@ import studio.one.platform.objecttype.db.jpa.repo.ObjectTypeJpaRepository;
 import studio.one.platform.objecttype.db.jpa.repo.ObjectTypePolicyJpaRepository;
 import studio.one.platform.objecttype.db.jpa.service.JpaObjectPolicyResolver;
 import studio.one.platform.objecttype.db.jpa.service.JpaObjectTypeRegistry;
+import studio.one.platform.objecttype.db.mybatis.MyBatisObjectPolicyResolver;
+import studio.one.platform.objecttype.db.mybatis.MyBatisObjectTypeRegistry;
+import studio.one.platform.objecttype.db.mybatis.ObjectTypeMapper;
+import studio.one.platform.objecttype.db.mybatis.ObjectTypeMyBatisStore;
 import studio.one.platform.objecttype.cache.CachedObjectPolicyResolver;
 import studio.one.platform.objecttype.cache.CachedObjectTypeRegistry;
 import studio.one.platform.objecttype.cache.CachedObjectRebindService;
@@ -262,6 +267,109 @@ public class ObjectTypeAutoConfiguration {
         }
 
         @Bean(name = ObjectTypeAdminService.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public ObjectTypeAdminService objectTypeAdminService(ObjectTypeStore store) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(DefaultObjectTypeAdminService.class, true), LogUtils.red(State.CREATED.toString())));
+            return new DefaultObjectTypeAdminService(store);
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "db")
+    @ConditionalOnObjectTypePersistence(PersistenceProperties.Type.mybatis)
+    @ConditionalOnMissingBean(SqlSessionTemplate.class)
+    static class ObjectTypeMyBatisMissingInfrastructureConfig {
+
+        private static final String MESSAGE = "ObjectType persistence=mybatis requires MyBatis infrastructure. "
+                + "Add starter:studio-platform-starter-mybatis and a DataSource, or choose jpa/jdbc persistence.";
+
+        @Bean
+        @ConditionalOnMissingBean(ObjectTypeRegistry.class)
+        public ObjectTypeRegistry objectTypeRegistry() {
+            throw new IllegalStateException(MESSAGE);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(ObjectPolicyResolver.class)
+        public ObjectPolicyResolver objectPolicyResolver() {
+            throw new IllegalStateException(MESSAGE);
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "studio.objecttype", name = "mode", havingValue = "db")
+    @ConditionalOnClass({ PersistenceProperties.class, SqlSessionTemplate.class, ObjectTypeMapper.class })
+    @ConditionalOnBean(SqlSessionTemplate.class)
+    @ConditionalOnObjectTypePersistence(PersistenceProperties.Type.mybatis)
+    @Slf4j
+    @RequiredArgsConstructor
+    static class ObjectTypeMyBatisConfig {
+
+        private final ObjectProvider<I18n> i18nProvider;
+
+        @Bean
+        @ConditionalOnMissingBean
+        public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate) {
+            assertMappedStatement(sqlSessionTemplate, "selectByType");
+            assertMappedStatement(sqlSessionTemplate, "selectByCode");
+            assertMappedStatement(sqlSessionTemplate, "search");
+            assertMappedStatement(sqlSessionTemplate, "count");
+            assertMappedStatement(sqlSessionTemplate, "upsertType");
+            assertMappedStatement(sqlSessionTemplate, "patchType");
+            assertMappedStatement(sqlSessionTemplate, "selectPolicyByType");
+            assertMappedStatement(sqlSessionTemplate, "upsertPolicy");
+            assertMappedStatement(sqlSessionTemplate, "delete");
+            return sqlSessionTemplate.getMapper(ObjectTypeMapper.class);
+        }
+
+        private void assertMappedStatement(SqlSessionTemplate sqlSessionTemplate, String statementId) {
+            String mappedStatementId = ObjectTypeMapper.class.getName() + "." + statementId;
+            if (!sqlSessionTemplate.getConfiguration().hasStatement(mappedStatementId, false)) {
+                throw new IllegalStateException("Missing ObjectType MyBatis mapped statement: " + mappedStatementId
+                        + ". Include classpath*:mybatis/**/*.xml or the objecttype mapper XML.");
+            }
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        public ObjectTypeMyBatisStore objectTypeMyBatisStore(ObjectTypeMapper mapper) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(ObjectTypeMyBatisStore.class, true), LogUtils.red(State.CREATED.toString())));
+            return new ObjectTypeMyBatisStore(mapper);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        public MyBatisObjectTypeRegistry objectTypeRegistry(ObjectTypeMyBatisStore store) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(MyBatisObjectTypeRegistry.class, true), LogUtils.red(State.CREATED.toString())));
+            return new MyBatisObjectTypeRegistry(store);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        public MyBatisObjectPolicyResolver objectPolicyResolver(ObjectTypeMyBatisStore store) {
+            I18n i18n = I18nUtils.resolve(i18nProvider);
+            log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
+                    ObjectTypeAutoConfiguration.FEATURE_NAME,
+                    LogUtils.blue(MyBatisObjectPolicyResolver.class, true), LogUtils.red(State.CREATED.toString())));
+            return new MyBatisObjectPolicyResolver(store);
+        }
+
+        @Bean(ObjectTypeStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public ObjectTypeStore objectTypeStore(ObjectTypeMyBatisStore store) {
+            return store;
+        }
+
+        @Bean(ObjectTypeAdminService.SERVICE_NAME)
         @ConditionalOnMissingBean
         public ObjectTypeAdminService objectTypeAdminService(ObjectTypeStore store) {
             I18n i18n = I18nUtils.resolve(i18nProvider);

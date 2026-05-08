@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="studio.one.platform.objecttype.db.mybatis.ObjectTypeMapper">
+
+  <resultMap id="ObjectTypeRowMap" type="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+    <id property="objectType" column="objectType"/>
+    <result property="code" column="code"/>
+    <result property="name" column="name"/>
+    <result property="domain" column="domain"/>
+    <result property="status" column="status"/>
+    <result property="description" column="description"/>
+    <result property="createdBy" column="createdBy"/>
+    <result property="createdById" column="createdById"/>
+    <result property="createdAt" column="createdAt"/>
+    <result property="updatedBy" column="updatedBy"/>
+    <result property="updatedById" column="updatedById"/>
+    <result property="updatedAt" column="updatedAt"/>
+  </resultMap>
+
+  <resultMap id="ObjectTypePolicyRowMap" type="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+    <id property="objectType" column="objectType"/>
+    <result property="maxFileMb" column="maxFileMb"/>
+    <result property="allowedExt" column="allowedExt"/>
+    <result property="allowedMime" column="allowedMime"/>
+    <result property="policyJson" column="policyJson"/>
+    <result property="createdBy" column="createdBy"/>
+    <result property="createdById" column="createdById"/>
+    <result property="createdAt" column="createdAt"/>
+    <result property="updatedBy" column="updatedBy"/>
+    <result property="updatedById" column="updatedById"/>
+    <result property="updatedAt" column="updatedAt"/>
+  </resultMap>
+
+  <sql id="typeColumns">
+    OBJECT_TYPE AS objectType,
+    CODE AS code,
+    NAME AS name,
+    DOMAIN AS domain,
+    STATUS AS status,
+    DESCRIPTION AS description,
+    CREATED_BY AS createdBy,
+    CREATED_BY_ID AS createdById,
+    CREATED_AT AS createdAt,
+    UPDATED_BY AS updatedBy,
+    UPDATED_BY_ID AS updatedById,
+    UPDATED_AT AS updatedAt
+  </sql>
+
+  <sql id="searchWhere">
+    <where>
+      <if test="domain != null and domain != ''">
+        AND DOMAIN = #{domain}
+      </if>
+      <if test="status != null and status != ''">
+        AND STATUS = #{status}
+      </if>
+      <if test="q != null and q != ''">
+        AND (lower(CODE) LIKE #{q} OR lower(NAME) LIKE #{q})
+      </if>
+    </where>
+  </sql>
+
+  <select id="selectByType" resultMap="ObjectTypeRowMap">
+    SELECT
+    <include refid="typeColumns"/>
+    FROM tb_application_object_type
+    WHERE OBJECT_TYPE = #{objectType}
+  </select>
+
+  <select id="selectByCode" resultMap="ObjectTypeRowMap">
+    SELECT
+    <include refid="typeColumns"/>
+    FROM tb_application_object_type
+    WHERE CODE = #{code}
+  </select>
+
+  <select id="search" resultMap="ObjectTypeRowMap">
+    SELECT
+    <include refid="typeColumns"/>
+    FROM tb_application_object_type
+    <include refid="searchWhere"/>
+    ORDER BY OBJECT_TYPE ASC
+    <if test="limit != null and offset != null">
+      LIMIT #{limit} OFFSET #{offset}
+    </if>
+  </select>
+
+  <select id="count" resultType="long">
+    SELECT count(*)
+    FROM tb_application_object_type
+    <include refid="searchWhere"/>
+  </select>
+
+  <insert id="upsertType" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+    INSERT INTO tb_application_object_type (
+      OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{code}, #{name}, #{domain}, #{status}, #{description},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, NOW()),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, NOW())
+    )
+    ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
+      CODE = EXCLUDED.CODE,
+      NAME = EXCLUDED.NAME,
+      DOMAIN = EXCLUDED.DOMAIN,
+      STATUS = EXCLUDED.STATUS,
+      DESCRIPTION = EXCLUDED.DESCRIPTION,
+      UPDATED_BY = EXCLUDED.UPDATED_BY,
+      UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
+      UPDATED_AT = EXCLUDED.UPDATED_AT
+  </insert>
+
+  <insert id="upsertType" databaseId="h2" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+    MERGE INTO tb_application_object_type (
+      OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) KEY (OBJECT_TYPE) VALUES (
+      #{objectType}, #{code}, #{name}, #{domain}, #{status}, #{description},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="patchType">
+    UPDATE tb_application_object_type
+    <set>
+      <if test="patch.code != null and patch.code != ''">
+        CODE = #{patch.code},
+      </if>
+      <if test="patch.name != null and patch.name != ''">
+        NAME = #{patch.name},
+      </if>
+      <if test="patch.domain != null and patch.domain != ''">
+        DOMAIN = #{patch.domain},
+      </if>
+      <if test="patch.status != null and patch.status != ''">
+        STATUS = #{patch.status},
+      </if>
+      <if test="patch.description != null">
+        DESCRIPTION = #{patch.description},
+      </if>
+      UPDATED_BY = #{patch.updatedBy},
+      UPDATED_BY_ID = #{patch.updatedById},
+      UPDATED_AT = #{updatedAt}
+    </set>
+    WHERE OBJECT_TYPE = #{objectType}
+  </update>
+
+  <select id="selectPolicyByType" resultMap="ObjectTypePolicyRowMap">
+    SELECT
+      OBJECT_TYPE AS objectType,
+      MAX_FILE_MB AS maxFileMb,
+      ALLOWED_EXT AS allowedExt,
+      ALLOWED_MIME AS allowedMime,
+      POLICY_JSON AS policyJson,
+      CREATED_BY AS createdBy,
+      CREATED_BY_ID AS createdById,
+      CREATED_AT AS createdAt,
+      UPDATED_BY AS updatedBy,
+      UPDATED_BY_ID AS updatedById,
+      UPDATED_AT AS updatedAt
+    FROM tb_application_object_type_policy
+    WHERE OBJECT_TYPE = #{objectType}
+  </select>
+
+  <insert id="upsertPolicy" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+    INSERT INTO tb_application_object_type_policy (
+      OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{maxFileMb}, #{allowedExt}, #{allowedMime}, #{policyJson},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, NOW()),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, NOW())
+    )
+    ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
+      MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,
+      ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,
+      ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,
+      POLICY_JSON = EXCLUDED.POLICY_JSON,
+      UPDATED_BY = EXCLUDED.UPDATED_BY,
+      UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
+      UPDATED_AT = EXCLUDED.UPDATED_AT
+  </insert>
+
+  <insert id="upsertPolicy" databaseId="h2" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+    MERGE INTO tb_application_object_type_policy (
+      OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) KEY (OBJECT_TYPE) VALUES (
+      #{objectType}, #{maxFileMb}, #{allowedExt}, #{allowedMime}, #{policyJson},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <delete id="delete">
+    DELETE FROM tb_application_object_type
+    WHERE OBJECT_TYPE = #{objectType}
+  </delete>
+</mapper>

@@ -98,7 +98,6 @@ These production classes use `@SqlStatement` and must be converted to MyBatis ma
 | Area | File | Count |
 | --- | --- | ---: |
 | AI vector store | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapterV2.java` | 10 |
-| Object type | `studio-platform-objecttype/src/main/java/studio/one/platform/objecttype/db/jdbc/ObjectTypeJdbcRepository.java` | 7 |
 | Security audit | `studio-platform-security/src/main/java/studio/one/base/security/audit/persistence/jdbc/LoginFailureLogJdbcRepository.java` | 6 |
 | Account lock | `studio-platform-security/src/main/java/studio/one/base/security/authentication/lock/persistence/jdbc/AccountLockJdbcRepository.java` | 6 |
 | Refresh token | `studio-platform-security/src/main/java/studio/one/base/security/jwt/refresh/persistence/jdbc/RefreshTokenJdbcRepositoryV2.java` | 3 |
@@ -113,12 +112,17 @@ These production classes use `@SqlStatement` and must be converted to MyBatis ma
 The current production sqlset resources are:
 
 - `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml`
-- `studio-platform-objecttype/src/main/resources/sql/objecttype-sqlset.xml`
 - `studio-platform-security/src/main/resources/sql/security-sqlset.xml`
 - `studio-application-modules/mail-service/src/main/resources/sql/mail-sqlset.xml`
 - `studio-application-modules/template-service/src/main/resources/sql/template-sqlset.xml`
 
 These should move to MyBatis mapper XML under `classpath*:mybatis/**/*.xml` and should not remain as production `sql/*-sqlset.xml` resources after conversion.
+
+Converted in Phase 4:
+
+- Object type SQL injection was removed from `ObjectTypeJdbcRepository`.
+  The migrated MyBatis path is `studio-platform-objecttype/src/main/resources/mybatis/objecttype/ObjectTypeMapper.xml`,
+  while the legacy direct JDBC store remains as a compatibility implementation without SqlQuery.
 
 ## Test Coverage Tied to Sqlset Resources
 
