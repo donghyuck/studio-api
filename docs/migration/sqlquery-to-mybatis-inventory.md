@@ -31,6 +31,9 @@ Command:
   :starter:studio-platform-starter-ai:build \
   :starter:studio-platform-starter-mybatis:build \
   :starter:studio-platform-starter-objecttype:build \
+  :starter:studio-platform-starter-security:build \
+  :starter:studio-application-starter-mail:build \
+  :starter:studio-application-starter-template:build \
   :studio-application-modules:mail-service:build \
   :studio-application-modules:template-service:build \
   :studio-platform-workspace-default:build \

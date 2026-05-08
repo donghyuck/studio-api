@@ -31,8 +31,8 @@ dependencies {
 - 파일/오브젝트 스토리지를 쓰는 모듈은 경로와 자격 증명을 먼저 확인한다.
 - provider API key, model, base-url 같은 외부 SDK 값은 가능하면 `spring.*`를 단일 소스로 사용한다.
 - `studio.features.<module>.*`에는 enable/persistence/web만 두고, 세부 정책과 storage/routing/rag는 `studio.<module>.*`에 둔다.
-- persistence resolver는 MyBatis-aware 경로에서 `studio.features.<module>.persistence`를 전역 `studio.persistence.type`보다 우선하도록 제공된다. 값은 `jpa`, `mybatis`, `jdbc`를 지원하며, resolver를 사용하는 경로에서 `jdbc`는 deprecated alias로 `mybatis`에 normalize된다.
-- 아직 직접 JDBC 구현만 제공하는 feature는 해당 starter의 feature-scoped 설정을 따른다. MyBatis 구현이 추가된 feature는 `studio.features.<module>.persistence=mybatis`로 opt-in한다.
+- persistence resolver는 MyBatis-aware 경로에서 `studio.features.<module>.persistence`를 전역 `studio.persistence.type`보다 우선하도록 제공된다. 값은 `jpa`, `mybatis`, `jdbc`를 지원하지만, feature 조건은 각 starter가 실제 제공하는 구현만 활성화한다.
+- 아직 직접 JDBC 구현만 제공하는 feature는 해당 starter의 feature-scoped 설정을 따른다. MyBatis 구현이 추가된 feature는 `studio.features.<module>.persistence=mybatis`로 opt-in하고, 직접 JDBC 호환 경로가 필요한 feature는 `jdbc`로 고정한다.
 - SQL mapper는 MyBatis convention을 사용한다. XML mapper 리소스는 `classpath*:mybatis/**/*.xml`로 로드한다.
 
 ## 포함 starter

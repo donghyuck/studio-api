@@ -23,4 +23,8 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.freemarker:freemarker:$freemarkerVersion")
+
+    testImplementation(project(":studio-platform-autoconfigure"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-starter-validation")
 }

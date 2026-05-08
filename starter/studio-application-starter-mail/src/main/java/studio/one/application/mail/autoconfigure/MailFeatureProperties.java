@@ -22,6 +22,12 @@ public class MailFeatureProperties extends FeatureToggle {
 
     public studio.one.platform.autoconfigure.PersistenceProperties.Type resolvePersistence(
             studio.one.platform.autoconfigure.PersistenceProperties.Type globalDefault) {
+        if (getPersistence() != null) {
+            return getPersistence();
+        }
+        if (globalDefault == studio.one.platform.autoconfigure.PersistenceProperties.Type.mybatis) {
+            return studio.one.platform.autoconfigure.PersistenceProperties.Type.jdbc;
+        }
         return super.resolvePersistence(globalDefault);
     }
 

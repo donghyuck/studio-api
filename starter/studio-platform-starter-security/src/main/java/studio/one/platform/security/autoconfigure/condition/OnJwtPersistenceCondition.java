@@ -32,6 +32,9 @@ class OnJwtPersistenceCondition extends SpringBootCondition {
             return configured;
         }
         Type global = parse(env.getProperty(PropertyKeys.Persistence.PREFIX + ".type"));
+        if (global == Type.mybatis) {
+            return Type.jdbc;
+        }
         return global != null ? global : Type.jpa;
     }
 
