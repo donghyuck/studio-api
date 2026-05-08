@@ -74,10 +74,30 @@ studio:
   보안 관련 예외
 
 ## 스키마 (PostgreSQL)
-다음 스키마 파일이 포함되어 있다.
-- `studio-platform-security/src/main/resources/schema/security/{db}/V400__create_security_tables.sql`
+다음 PostgreSQL 스키마 파일이 포함되어 있다.
+- `studio-platform-security/src/main/resources/schema/security/postgres/V400__create_security_tables.sql`
 
 Flyway 버전 범위는 `docs/flyway-versioning.md`의 security 범위(V400-V499)를 따른다.
+
+JWT refresh token, password reset token, 로그인 실패 감사 JDBC 구현은 현재 PostgreSQL 문법(`returning`, `inet`, `::inet`)을 사용한다.
+starter는 해당 JDBC 저장소 bean 생성 시 DB 제품명이 PostgreSQL이 아니면 fail-fast로 기동을 중단한다.
+계정 잠금 JDBC 구현은 portable SQL만 사용하므로 PostgreSQL guard를 적용하지 않는다.
+로그인 실패 감사 JPA 기본 엔티티와 schema는 PostgreSQL `inet` 기준이므로 non-PostgreSQL 환경은 DB별 schema와 repository override가 필요하다.
+
+로그인 실패 감사 IP는 기본적으로 socket `remoteAddr`를 사용한다. `X-Forwarded-For` 같은 헤더 기반
+IP 캡처는 신뢰된 proxy가 헤더를 재작성하는 환경에서만 starter의 `capture-ip-header`와
+`trusted-proxy-cidrs` 설정으로 명시적으로 활성화한다.
+`capture-ip-header`는 단일 IP literal 또는 `X-Forwarded-For`처럼 comma-separated IP 목록을 담는
+헤더만 지원하며, comma-separated 목록은 오른쪽에서 왼쪽으로 읽어 첫 번째 비신뢰 hop을 클라이언트 IP로
+판정한다. RFC 7239 `Forwarded` 헤더 문법은 해석하지 않는다.
+starter는 `capture-ip-header`가 설정된 경우 `SecurityFilterChain`의 username/password 인증 필터에도
+동일한 `ClientRequestDetails` source를 적용한다. 이미 custom `AuthenticationDetailsSource`가 설정된
+인증 필터는 덮어쓰지 않는다.
+감사 로그 저장 실패는 인증 실패 응답을 500으로 바꾸지 않으며,
+`LoginFailureAuditFailureMonitor`로 실패 카운터와 마지막 오류 타입을 관측할 수 있다.
+비동기 감사 executor가 포화되면 인증 경로를 막지 않기 위해 짧은 bounded wait 후에도 queue 여유가 없는
+감사 작업은 버리며, `LoginFailureAuditFailureMonitor`의 rejected/dropped execution 카운터로 포화와 drop을 관측한다.
+계정 잠금 처리는 별도 synchronous listener에서 먼저 실행되어 감사 executor 포화와 분리된다.
 
 ## ERD (개념)
 ```text
@@ -215,7 +235,7 @@ public class SecurityFilterConfig {
 
 ### 4) 스키마 준비
 JWT/리프레시/비밀번호 재설정 토큰 저장을 사용하면 아래 스키마가 필요하다.
-- `studio-platform-security/src/main/resources/schema/security/{db}/V400__create_security_tables.sql`
+- `studio-platform-security/src/main/resources/schema/security/postgres/V400__create_security_tables.sql`
 
 ## 참고
 - 사용자 테이블은 `studio-platform-user` 모듈의 `TB_APPLICATION_USER`를 사용한다.

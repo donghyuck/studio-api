@@ -14,12 +14,37 @@ import org.springframework.jdbc.support.KeyHolder;
 
 import studio.one.base.security.jwt.reset.domain.PasswordResetToken;
 import studio.one.base.security.jwt.reset.persistence.PasswordResetTokenRepository;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 /**
- * JDBC implementation backed by sqlset-stored statements.
+ * JDBC implementation backed by local SQL statements.
  */
 public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRepository {
+
+    private static final String INSERT_SQL = """
+            insert into TB_APPLICATION_PASSWORD_RESET_TOKEN
+                (USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT)
+            values
+                (:userId, :token, :expiresAt, :used, :createdAt)
+            returning ID
+            """;
+
+    private static final String UPDATE_SQL = """
+            update TB_APPLICATION_PASSWORD_RESET_TOKEN
+               set USER_ID = :userId,
+                   TOKEN = :token,
+                   EXPIRES_AT = :expiresAt,
+                   USED = :used
+             where ID = :id
+            """;
+
+    private static final String FIND_ACTIVE_BY_USER_ID_SQL = """
+            select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
+              from TB_APPLICATION_PASSWORD_RESET_TOKEN
+             where USER_ID = :userId
+               and USED = false
+             order by CREATED_AT desc
+             limit 1
+            """;
 
     private static final RowMapper<PasswordResetToken> ROW_MAPPER = (rs, rowNum) -> PasswordResetToken.builder()
             .id(rs.getLong("ID"))
@@ -29,15 +54,6 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
             .used(rs.getBoolean("USED"))
             .createdAt(rs.getTimestamp("CREATED_AT").toInstant())
             .build();
-
-    @SqlStatement("security.passwordResetTokenInsert")
-    private String insertSql;
-
-    @SqlStatement("security.passwordResetTokenUpdate")
-    private String updateSql;
-
-    @SqlStatement("security.passwordResetTokenFindActiveByUserId")
-    private String findActiveByUserIdSql;
 
     private final NamedParameterJdbcTemplate template;
 
@@ -55,7 +71,7 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
 
     @Override
     public Optional<PasswordResetToken> findActiveByUserId(Long userId) {
-        return template.query(findActiveByUserIdSql, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
+        return template.query(FIND_ACTIVE_BY_USER_ID_SQL, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
     }
 
     private PasswordResetToken insert(PasswordResetToken token) {
@@ -68,7 +84,7 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
                 .addValue("used", token.isUsed())
                 .addValue("createdAt", Timestamp.from(now));
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        template.update(insertSql, params, keyHolder, new String[] { "ID" });
+        template.update(INSERT_SQL, params, keyHolder, new String[] { "ID" });
         Number key = keyHolder.getKey();
         if (key != null) {
             token.setId(key.longValue());
@@ -77,14 +93,13 @@ public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRep
     }
 
     private PasswordResetToken update(PasswordResetToken token) {
-        String sql = updateSql;
         Map<String, Object> params = new HashMap<>();
         params.put("userId", token.getUserId());
         params.put("token", token.getToken());
         params.put("expiresAt", Timestamp.from(token.getExpiresAt()));
         params.put("used", token.isUsed());
         params.put("id", token.getId());
-        template.update(sql, params);
+        template.update(UPDATE_SQL, params);
         return token;
     }
 }

@@ -150,6 +150,7 @@ public class AccountPasswordResetAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(PasswordResetTokenRepository.class)
         PasswordResetTokenRepository passwordResetTokenJdbcRepository(NamedParameterJdbcTemplate template) {
+            SecurityJdbcDatabaseSupport.requirePostgreSQL(template, "password reset token");
             return new PasswordResetTokenJdbcRepositoryV2(template);
         }
     }

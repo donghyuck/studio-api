@@ -73,6 +73,27 @@ studio:
         persistence: jpa     # jpa | jdbc (선택, 전역 설정 상속)
 ```
 
+JWT refresh token, password reset token, 로그인 실패 감사 `jdbc` 영속성은 현재 PostgreSQL 전용 SQL(`returning`, `inet`, `::inet`)을 사용한다.
+starter는 해당 `jdbc` 저장소 bean 생성 시 DB 제품명이 PostgreSQL이 아니면 fail-fast로 기동을 중단한다.
+계정 잠금 `jdbc` 구현은 portable SQL만 사용하므로 PostgreSQL guard를 적용하지 않는다.
+로그인 실패 감사 JPA 기본 엔티티와 schema는 PostgreSQL `inet` 기준이므로 non-PostgreSQL 환경은 DB별 schema와 repository override가 필요하다.
+
+로그인 실패 감사의 클라이언트 IP는 기본적으로 `HttpServletRequest#getRemoteAddr()`에서 가져온다.
+신뢰된 reverse proxy가 헤더를 재작성하는 환경에서만
+`studio.security.audit.login-failure.capture-ip-header=X-Forwarded-For`와
+`studio.security.audit.login-failure.trusted-proxy-cidrs`를 함께 설정한다.
+`capture-ip-header` 값은 단일 IP literal 또는 `X-Forwarded-For`처럼 comma-separated IP 목록을 담는
+헤더만 지원하며, comma-separated 목록은 오른쪽에서 왼쪽으로 읽어 첫 번째 비신뢰 hop을 클라이언트 IP로
+판정한다. RFC 7239 `Forwarded` 헤더 문법은 해석하지 않는다.
+해당 설정이 있으면 starter가 `SecurityFilterChain`의 username/password 인증 필터에도 동일한
+`ClientRequestDetails` source를 적용한다. 이미 custom `AuthenticationDetailsSource`가 설정된
+인증 필터는 덮어쓰지 않는다.
+감사 로그 저장 실패는 인증 실패 응답을 500으로 바꾸지 않으며,
+`LoginFailureAuditFailureMonitor` bean의 실패 카운터와 마지막 오류 타입으로 관측할 수 있다.
+비동기 감사 executor 포화 시 인증 경로를 막지 않기 위해 짧은 bounded wait 후에도 queue 여유가 없는
+감사 작업은 버리며, rejected/dropped execution 카운터로 포화와 drop을 관측한다.
+계정 잠금 처리는 별도 synchronous listener에서 먼저 실행되어 감사 executor 포화와 분리된다.
+
 ### 계정 잠금 설정
 ```yaml
 studio:
@@ -106,7 +127,6 @@ studio:
       audit:
         login-failure:
           enabled: true
-          async: true          # 비동기 감사 로그 기록 (기본값: true)
           retention-days: 90   # 로그 보존 기간(일). 미설정 시 자동 삭제 안 함
           web:
             enabled: true

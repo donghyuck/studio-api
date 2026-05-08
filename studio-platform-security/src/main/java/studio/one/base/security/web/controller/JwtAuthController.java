@@ -21,12 +21,15 @@
 
 package studio.one.base.security.web.controller;
 
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -39,9 +42,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.audit.ClientRequestDetails;
+import studio.one.base.security.audit.ClientRequestDetailsAuthenticationDetailsSource;
 import studio.one.base.security.jwt.JwtTokenProvider;
 import studio.one.base.security.jwt.refresh.RefreshTokenStore;
 import studio.one.base.security.userdetails.ApplicationUserDetails;
@@ -67,7 +70,6 @@ import studio.one.platform.web.dto.ApiResponse;
  */
 
 @RestController
-@RequiredArgsConstructor
 @RequestMapping("${" + PropertyKeys.Security.Jwt.Endpoints.BASE_PATH + ":/api/auth}")
 @Slf4j
 public class JwtAuthController  extends AbstractTokenController {
@@ -78,6 +80,73 @@ public class JwtAuthController  extends AbstractTokenController {
         private final JwtTokenProvider jwtTokenProvider;
         private final ObjectProvider<RefreshTokenStore> store;
         private final I18n i18n;
+        private final ClientRequestDetailsAuthenticationDetailsSource authenticationDetailsSource;
+
+        public JwtAuthController(
+                        AuthenticationManager authenticationManager,
+                        UserDetailsService userDetailsService,
+                        PasswordEncoder passwordEncoder,
+                        JwtTokenProvider jwtTokenProvider,
+                        ObjectProvider<RefreshTokenStore> store,
+                        I18n i18n) {
+                this(authenticationManager, userDetailsService, passwordEncoder, jwtTokenProvider, store, i18n,
+                                new ClientRequestDetailsAuthenticationDetailsSource());
+        }
+
+        @Autowired
+        public JwtAuthController(
+                        AuthenticationManager authenticationManager,
+                        UserDetailsService userDetailsService,
+                        PasswordEncoder passwordEncoder,
+                        JwtTokenProvider jwtTokenProvider,
+                        ObjectProvider<RefreshTokenStore> store,
+                        I18n i18n,
+                        ObjectProvider<ClientRequestDetailsAuthenticationDetailsSource> authenticationDetailsSource) {
+                this(authenticationManager, userDetailsService, passwordEncoder, jwtTokenProvider, store, i18n,
+                                resolveAuthenticationDetailsSource(authenticationDetailsSource));
+        }
+
+        public JwtAuthController(
+                        AuthenticationManager authenticationManager,
+                        UserDetailsService userDetailsService,
+                        PasswordEncoder passwordEncoder,
+                        JwtTokenProvider jwtTokenProvider,
+                        ObjectProvider<RefreshTokenStore> store,
+                        I18n i18n,
+                        String captureIpHeader,
+                        List<String> trustedProxyCidrs) {
+                this(authenticationManager, userDetailsService, passwordEncoder, jwtTokenProvider, store, i18n,
+                                new ClientRequestDetailsAuthenticationDetailsSource(captureIpHeader,
+                                                trustedProxyCidrs));
+        }
+
+        public JwtAuthController(
+                        AuthenticationManager authenticationManager,
+                        UserDetailsService userDetailsService,
+                        PasswordEncoder passwordEncoder,
+                        JwtTokenProvider jwtTokenProvider,
+                        ObjectProvider<RefreshTokenStore> store,
+                        I18n i18n,
+                        ClientRequestDetailsAuthenticationDetailsSource authenticationDetailsSource) {
+                this.authenticationManager = authenticationManager;
+                this.userDetailsService = userDetailsService;
+                this.passwordEncoder = passwordEncoder;
+                this.jwtTokenProvider = jwtTokenProvider;
+                this.store = store;
+                this.i18n = i18n;
+                this.authenticationDetailsSource = authenticationDetailsSource == null
+                                ? new ClientRequestDetailsAuthenticationDetailsSource()
+                                : authenticationDetailsSource;
+        }
+
+        private static ClientRequestDetailsAuthenticationDetailsSource resolveAuthenticationDetailsSource(
+                        ObjectProvider<ClientRequestDetailsAuthenticationDetailsSource> provider) {
+                if (provider == null) {
+                        return new ClientRequestDetailsAuthenticationDetailsSource();
+                }
+                ClientRequestDetailsAuthenticationDetailsSource source = provider.getIfAvailable();
+                return source == null ? new ClientRequestDetailsAuthenticationDetailsSource() : source;
+        }
 
         @PostMapping("/login")
         @Message("success.security.auth.login")
@@ -86,7 +155,7 @@ public class JwtAuthController  extends AbstractTokenController {
                         HttpServletResponse response) {
 
                 var token = new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword());
-                token.setDetails(ClientRequestDetails.from(http));
+                token.setDetails(authenticationDetailsSource.buildDetails(http));
                 http.setAttribute("login.username", request.getUsername());
                 
                 // UserDetails details = userDetailsService.loadUserByUsername(request.getUsername());

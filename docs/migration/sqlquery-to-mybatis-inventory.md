@@ -98,10 +98,6 @@ These production classes use `@SqlStatement` and must be converted to MyBatis ma
 | Area | File | Count |
 | --- | --- | ---: |
 | AI vector store | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapterV2.java` | 10 |
-| Security audit | `studio-platform-security/src/main/java/studio/one/base/security/audit/persistence/jdbc/LoginFailureLogJdbcRepository.java` | 6 |
-| Account lock | `studio-platform-security/src/main/java/studio/one/base/security/authentication/lock/persistence/jdbc/AccountLockJdbcRepository.java` | 6 |
-| Refresh token | `studio-platform-security/src/main/java/studio/one/base/security/jwt/refresh/persistence/jdbc/RefreshTokenJdbcRepositoryV2.java` | 3 |
-| Password reset token | `studio-platform-security/src/main/java/studio/one/base/security/jwt/reset/persistence/jdbc/PasswordResetTokenJdbcRepositoryV2.java` | 3 |
 | Mail attachment | `studio-application-modules/mail-service/src/main/java/studio/one/application/mail/service/impl/JdbcMailAttachmentService.java` | 3 |
 | Mail message | `studio-application-modules/mail-service/src/main/java/studio/one/application/mail/service/impl/JdbcMailMessageService.java` | 10 |
 | Mail sync log | `studio-application-modules/mail-service/src/main/java/studio/one/application/mail/service/impl/JdbcMailSyncLogService.java` | 6 |
@@ -112,7 +108,6 @@ These production classes use `@SqlStatement` and must be converted to MyBatis ma
 The current production sqlset resources are:
 
 - `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml`
-- `studio-platform-security/src/main/resources/sql/security-sqlset.xml`
 - `studio-application-modules/mail-service/src/main/resources/sql/mail-sqlset.xml`
 - `studio-application-modules/template-service/src/main/resources/sql/template-sqlset.xml`
 
@@ -123,6 +118,10 @@ Converted in Phase 4:
 - Object type SQL injection was removed from `ObjectTypeJdbcRepository`.
   The migrated MyBatis path is `studio-platform-objecttype/src/main/resources/mybatis/objecttype/ObjectTypeMapper.xml`,
   while the legacy direct JDBC store remains as a compatibility implementation without SqlQuery.
+- Security JDBC repositories now own their SQL locally without `@SqlStatement`, and
+  `studio-platform-security/src/main/resources/sql/security-sqlset.xml` was removed.
+  PostgreSQL fail-fast guards are limited to JDBC paths that still use PostgreSQL-only SQL/types;
+  account-lock JDBC remains portable and is not guarded.
 
 ## Test Coverage Tied to Sqlset Resources
 
