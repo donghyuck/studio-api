@@ -42,6 +42,10 @@ studio:
         base-path: /api/mgmt/templates
 ```
 
+템플릿 스타터는 현재 `jpa`와 `jdbc` 구현만 제공한다. 애플리케이션 전역 기본값을
+`studio.persistence.type=mybatis`로 두는 mixed persistence 앱에서는
+`studio.features.template.persistence=jdbc` 또는 `jpa`를 명시해야 한다.
+
 ### FreeMarker 렌더링 연동
 
 Spring의 `FreeMarkerConfig` 빈 또는 `freemarker.template.Configuration` 빈이 컨텍스트에 있으면

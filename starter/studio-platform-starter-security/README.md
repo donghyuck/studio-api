@@ -191,5 +191,8 @@ studio:
   (`studio.features.security.fail-if-missing=false`로 우회 가능하나 권장하지 않는다).
 - 리프레시 토큰, 계정 잠금 기록의 영속성 타입은 기능별 `persistence` 속성으로 개별 지정하거나,
   전역 `studio.persistence.type` 값을 상속한다.
+- 보안 스타터의 리프레시 토큰, 계정 잠금, 로그인 실패 감사, 비밀번호 재설정 저장소는 현재 `jpa`와
+  `jdbc` 구현을 제공한다. 전역 `studio.persistence.type=mybatis`는 이 저장소들에 대해 직접 JDBC 호환
+  branch로 해석되며, JPA를 원하면 각 기능의 `persistence=jpa`를 명시한다.
 - SHA-256 비밀번호 알고리즘은 보안상 허용되지 않으며, 설정 시 기동 오류가 발생한다.
 - 기능을 완전히 끄려면 `studio.features.security.enabled=false`로 설정한다.
