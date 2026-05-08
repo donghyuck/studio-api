@@ -2,23 +2,23 @@ package studio.one.platform.ai.adapters.vector;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-
-import javax.xml.parsers.DocumentBuilderFactory;
-
+import javax.sql.DataSource;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mybatis.spring.SqlSessionFactoryBean;
+import org.mybatis.spring.SqlSessionTemplate;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-import org.w3c.dom.Element;
-
+import studio.one.platform.ai.adapters.vector.mybatis.PgVectorMapper;
+import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
@@ -31,13 +31,15 @@ class PgVectorStoreAdapterV2PostgresTest {
             DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
 
     private PgVectorStoreAdapterV2 adapter;
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() throws Exception {
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(new DriverManagerDataSource(
+        DataSource dataSource = new DriverManagerDataSource(
                 POSTGRES.getJdbcUrl(),
                 POSTGRES.getUsername(),
-                POSTGRES.getPassword()));
+                POSTGRES.getPassword());
+        jdbcTemplate = new JdbcTemplate(dataSource);
         jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS vector");
         jdbcTemplate.execute("DROP TABLE IF EXISTS tb_ai_document_chunk");
         jdbcTemplate.execute("""
@@ -52,13 +54,13 @@ class PgVectorStoreAdapterV2PostgresTest {
                     CONSTRAINT uq_test_chunk UNIQUE (object_type, object_id, chunk_index)
                 )
                 """);
-        adapter = new PgVectorStoreAdapterV2(jdbcTemplate);
-        setField("upsertSql", sql("upsertChunk"));
-        setField("searchByObjectSql", sql("searchByObject"));
-        setField("hybridSearchByObjectSql", sql("hybridSearchByObject"));
+        PgVectorMapper mapper = mapper(dataSource);
+        adapter = new PgVectorStoreAdapterV2(mapper, dataSource);
         adapter.upsert(List.of(
-                document("chunk-1", "attachment", "6", 0, "java backend", List.of(0.1, 0.2)),
-                document("chunk-2", "forums-post-attachment", "7", 0, "spring api", List.of(0.2, 0.3))));
+                document("chunk-1", "attachment", "6", 0, "java backend", List.of(0.1, 0.2),
+                        Map.of("topic", "backend", "embeddingInputType", "TEXT")),
+                document("chunk-2", "forums-post-attachment", "7", 0, "spring api", List.of(0.2, 0.3),
+                        Map.of("topic", "api", "embeddingInputType", "TABLE_TEXT"))));
     }
 
     @Test
@@ -88,40 +90,58 @@ class PgVectorStoreAdapterV2PostgresTest {
                 .isEqualTo("chunk-1");
     }
 
+    @Test
+    void searchAppliesMetadataEqualsAndInCriteriaThroughMyBatis() {
+        MetadataFilter filter = MetadataFilter.of(
+                Map.of("topic", "backend"),
+                Map.of("embeddingInputType", List.of("TEXT")),
+                Map.of());
+
+        List<VectorSearchResult> results = adapter.search(new VectorSearchRequest(List.of(0.1, 0.2), 10, filter));
+
+        assertThat(results).singleElement()
+                .extracting(result -> result.document().id())
+                .isEqualTo("chunk-1");
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void legacyJdbcConstructorUsesSqlQueryFreeFallbackMapper() {
+        PgVectorStoreAdapterV2 jdbcAdapter = new PgVectorStoreAdapterV2(jdbcTemplate);
+
+        List<VectorSearchResult> results = jdbcAdapter.searchByObject(
+                "attachment",
+                null,
+                new VectorSearchRequest(List.of(0.1, 0.2), 10));
+
+        assertThat(results).singleElement()
+                .extracting(result -> result.document().id())
+                .isEqualTo("chunk-1");
+    }
+
+    private static PgVectorMapper mapper(DataSource dataSource) throws Exception {
+        SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
+        factoryBean.setDataSource(dataSource);
+        factoryBean.setMapperLocations(new PathMatchingResourcePatternResolver()
+                .getResources("classpath*:mybatis/ai/PgVectorMapper.xml"));
+        SqlSessionFactory factory = factoryBean.getObject();
+        return new SqlSessionTemplate(factory).getMapper(PgVectorMapper.class);
+    }
+
     private static VectorDocument document(
             String id,
             String objectType,
             String objectId,
             int chunkIndex,
             String text,
-            List<Double> embedding) {
-        return new VectorDocument(id, text, Map.of(
-                "objectType", objectType,
-                "objectId", objectId,
-                "chunkIndex", chunkIndex,
-                "chunkId", id), embedding);
-    }
-
-    private void setField(String fieldName, Object value) throws Exception {
-        Field field = PgVectorStoreAdapterV2.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(adapter, value);
-    }
-
-    private static String sql(String id) throws Exception {
-        try (var input = PgVectorStoreAdapterV2PostgresTest.class.getClassLoader()
-                .getResourceAsStream("sql/ai-sqlset.xml")) {
-            var document = DocumentBuilderFactory.newInstance()
-                    .newDocumentBuilder()
-                    .parse(new java.io.ByteArrayInputStream(Objects.requireNonNull(input).readAllBytes()));
-            var nodes = document.getElementsByTagName("sql-query");
-            for (int i = 0; i < nodes.getLength(); i++) {
-                Element element = (Element) nodes.item(i);
-                if (id.equals(element.getAttribute("id"))) {
-                    return element.getTextContent().trim();
-                }
-            }
-        }
-        throw new IllegalArgumentException("SQL not found: " + id);
+            List<Double> embedding,
+            Map<String, Object> extraMetadata) {
+        Map<String, Object> metadata = new java.util.LinkedHashMap<>();
+        metadata.put("objectType", objectType);
+        metadata.put("objectId", objectId);
+        metadata.put("chunkIndex", chunkIndex);
+        metadata.put("chunkId", id);
+        metadata.putAll(extraMetadata);
+        return new VectorDocument(id, text, metadata, embedding);
     }
 }

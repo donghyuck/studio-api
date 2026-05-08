@@ -93,19 +93,19 @@ shim until SqlQuery removal.
 
 ## Production SqlStatement Consumers
 
-These production classes still use `@SqlStatement` and must be converted to MyBatis mapper methods or equivalent MyBatis-backed adapters:
+There are no remaining production `@SqlStatement` consumers after the AI vector conversion.
 
 | Area | File | Count |
 | --- | --- | ---: |
-| AI vector store | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapterV2.java` | 10 |
+| none | n/a | 0 |
 
 ## Sqlset Resources
 
-The current production sqlset resources are:
+There are no remaining production `sql/*-sqlset.xml` resources after the AI vector conversion.
 
-- `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml`
+The AI vector SQL moved to:
 
-These should move to MyBatis mapper XML under `classpath*:mybatis/**/*.xml` and should not remain as production `sql/*-sqlset.xml` resources after conversion.
+- `starter/studio-platform-starter-ai/src/main/resources/mybatis/ai/PgVectorMapper.xml`
 
 Converted in Phase 4:
 
@@ -121,13 +121,16 @@ Converted in Phase 4:
   `studio-application-modules/template-service/src/main/resources/sql/template-sqlset.xml` were removed.
   Converted classes: `JdbcMailAttachmentService`, `JdbcMailMessageService`, `JdbcMailSyncLogService`, and
   `TemplateJdbcRepository`.
+- AI vector store now prefers `PgVectorMapper` and `mybatis/ai/PgVectorMapper.xml`.
+  `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml` was removed. A SQLQuery-free direct JDBC fallback remains
+  for existing `starter-ai` consumers that have `JdbcTemplate` but either have not added the MyBatis starter yet or
+  have MyBatis configured without loading the AI `PgVectorMapper.xml` resource.
 
 ## Test Coverage Tied to Sqlset Resources
 
-The following tests load `sql/ai-sqlset.xml` directly and must either move with the MyBatis mapper resource or be
-replaced with equivalent mapper contract coverage:
+The previous tests that loaded `sql/ai-sqlset.xml` directly were replaced with equivalent MyBatis mapper coverage:
 
-- `studio-platform-ai/src/test/java/studio/one/platform/ai/core/vector/VectorSqlSetContractTest.java`
+- `starter/studio-platform-starter-ai/src/test/java/studio/one/platform/ai/adapters/vector/mybatis/PgVectorMapperXmlContractTest.java`
 - `starter/studio-platform-starter-ai/src/test/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapterV2PostgresTest.java`
 
 ## Documentation References
