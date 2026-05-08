@@ -13,7 +13,11 @@ public class PersistenceProperties {
 
     private final Type type;
 
-    public enum Type { jpa, mybatis, jdbc } 
+    public enum Type {
+        jpa,
+        mybatis,
+        jdbc
+    }
     
     public PersistenceProperties(@DefaultValue("jpa") Type type) {
         this.type = type;

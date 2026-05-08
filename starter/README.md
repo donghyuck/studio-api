@@ -31,6 +31,8 @@ dependencies {
 - 파일/오브젝트 스토리지를 쓰는 모듈은 경로와 자격 증명을 먼저 확인한다.
 - provider API key, model, base-url 같은 외부 SDK 값은 가능하면 `spring.*`를 단일 소스로 사용한다.
 - `studio.features.<module>.*`에는 enable/persistence/web만 두고, 세부 정책과 storage/routing/rag는 `studio.<module>.*`에 둔다.
+- persistence resolver는 신규/전환된 MyBatis-aware 경로에서 `studio.features.<module>.persistence`를 전역 `studio.persistence.type`보다 우선하도록 제공된다. 기존 직접 JDBC 구현이 남아 있는 starter는 각 feature가 MyBatis로 전환될 때까지 raw `jdbc` 조건을 유지한다.
+- 전환 완료 전에는 전역 `studio.persistence.type=mybatis`를 legacy starter 전체에 적용하지 않는다. MyBatis 구현이 추가된 feature부터 `studio.features.<module>.persistence=mybatis`로 opt-in한다.
 - MyBatis 전환 기간에 `studio-platform-starter`와 `studio-platform-starter-mybatis`를 함께 쓰면 기존 SqlQuery 자동 구성도 남아 있다. MyBatis만 사용할 때는 `studio.persistence.jdbc.sql-query.enabled=false`를 명시한다.
 
 ## 포함 starter

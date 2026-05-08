@@ -1,4 +1,5 @@
 studio.one.platform.autoconfigure.features.i18n.I18nAutoConfiguration
+studio.one.platform.autoconfigure.persistence.PersistenceResolverAutoConfiguration
 studio.one.platform.autoconfigure.persistence.jdbc.JdbcAutoConfiguration
 studio.one.platform.autoconfigure.persistence.jdbc.sqlquery.SqlQueryMapperAutoConfiguration
 studio.one.platform.autoconfigure.persistence.jpa.JpaAuditingAutoConfiguration
