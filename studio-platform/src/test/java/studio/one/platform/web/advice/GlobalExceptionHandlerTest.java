@@ -5,10 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.service.I18n;
 
@@ -39,5 +41,19 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getStatusCode().value()).isEqualTo(415);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(415);
+    }
+
+    @Test
+    void preservesResponseStatusExceptionStatus() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/test");
+
+        var response = handler.handleResponseStatus(
+                new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "Company-scoped user listing is not supported"),
+                request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(501);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(501);
+        assertThat(response.getBody().getDetail()).isEqualTo("Company-scoped user listing is not supported");
     }
 }

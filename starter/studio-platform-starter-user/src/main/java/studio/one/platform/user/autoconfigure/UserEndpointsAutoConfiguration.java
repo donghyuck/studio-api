@@ -148,14 +148,20 @@ public class UserEndpointsAutoConfiguration {
             ApplicationUserService svc,
             ApplicationUserMapper mapper,
             ApplicationRoleMapper roleMapper,
-            ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider) {
+            ObjectProvider<PasswordPolicyService> passwordPolicyServiceProvider,
+            ObjectProvider<ApplicationCompanyPermissionService> companyPermissionServiceProvider,
+            ObjectProvider<IdentityService> identityServiceProvider,
+            ObjectProvider<Environment> environmentProvider) {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED, UserServicesAutoConfiguration.FEATURE_NAME,
                 LogUtils.blue(ApplicationUserService.class, true),
                 LogUtils.blue(UserMgmtController.class, true),
                 webProperties.normalizedBasePath() + "/users",
                 LogUtils.blue("ACL-managed")));
         return new UserMgmtController(svc, mapper, roleMapper,
-                passwordPolicyServiceProvider.getIfAvailable(() -> new PasswordPolicyValidator(null, i18n)));
+                passwordPolicyServiceProvider.getIfAvailable(() -> new PasswordPolicyValidator(null, i18n)),
+                companyPermissionServiceProvider,
+                identityServiceProvider,
+                environmentProvider);
     }
 
     @Bean

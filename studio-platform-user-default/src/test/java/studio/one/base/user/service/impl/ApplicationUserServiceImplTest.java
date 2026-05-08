@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import studio.one.base.user.domain.entity.ApplicationUser;
@@ -121,6 +122,32 @@ class ApplicationUserServiceImplTest {
         assertEquals("{bcrypt}next-hash", user.getPassword());
         verify(passwordPolicyService).validate("NextPassword123!");
         verify(userRepo).save(user);
+    }
+
+    @Test
+    void findAllByCompanyIdDelegatesToRepository() {
+        Pageable pageable = Pageable.unpaged();
+
+        service().findAllByCompanyId(20L, pageable);
+
+        verify(userRepo).findUsersByCompanyId(20L, pageable);
+    }
+
+    @Test
+    void findByCompanyIdAndKeywordDelegatesToRepository() {
+        Pageable pageable = Pageable.unpaged();
+
+        service().findByCompanyIdAndNameOrUsernameOrEmail(20L, "kim", pageable);
+
+        verify(userRepo).searchByCompanyId(20L, "kim", pageable);
+    }
+
+    @Test
+    void findAllByCompanyIdRejectsInvalidCompanyId() {
+        assertThrows(IllegalArgumentException.class,
+                () -> service().findAllByCompanyId(0L, Pageable.unpaged()));
+
+        verify(userRepo, never()).findUsersByCompanyId(any(), any());
     }
 
     // ---------- property tests ----------

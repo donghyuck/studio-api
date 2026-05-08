@@ -2,7 +2,6 @@ package studio.one.base.user.persistence.jdbc;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
@@ -133,17 +132,10 @@ abstract class BaseJdbcRepository {
     }
 
     private Optional<String> resolveColumn(String property, Map<String, String> mapping) {
-        if (mapping != null && mapping.containsKey(property)) {
-            return Optional.of(mapping.get(property));
-        }
-        if (property == null || property.isBlank()) {
+        if (mapping == null || property == null || property.isBlank()) {
             return Optional.empty();
         }
-        String snake = property
-                .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
-                .replace('-', '_')
-                .toUpperCase(Locale.ROOT);
-        return Optional.of(snake);
+        return Optional.ofNullable(mapping.get(property));
     }
 
     protected <T> Optional<T> queryOptional(String sql, Map<String, ?> params, RowMapper<T> mapper) {

@@ -80,6 +80,7 @@ Password policy is defined by configuration and enforced on:
 - **Self password change**: `PUT /api/self/password`
 - **Admin reset**: `POST /api/mgmt/users/{id}/password`
 - **Admin delete**: `DELETE /api/mgmt/users/{id}` removes the user through the configured `ApplicationUserService` implementation.
+- **Admin list Company filter**: `GET /api/mgmt/users?companyId={companyId}&q={keyword}` limits the user list to Company members before applying the keyword search.
 
 ### Policy Config (YAML)
 ```yaml

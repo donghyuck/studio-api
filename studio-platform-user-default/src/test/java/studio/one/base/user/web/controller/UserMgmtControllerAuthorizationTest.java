@@ -15,14 +15,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.server.ResponseStatusException;
 
+import studio.one.base.user.company.permission.CompanyPermissionActions;
 import studio.one.base.user.domain.model.Role;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.service.PasswordPolicyService;
@@ -31,6 +39,8 @@ import studio.one.base.user.web.dto.RoleDto;
 import studio.one.base.user.web.dto.UpdateRolesRequest;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.UserRef;
 
 @ExtendWith(MockitoExtension.class)
 class UserMgmtControllerAuthorizationTest {
@@ -46,6 +56,21 @@ class UserMgmtControllerAuthorizationTest {
 
     @Mock
     private PasswordPolicyService passwordPolicyService;
+
+    @Mock
+    private ObjectProvider<ApplicationCompanyPermissionService> companyPermissionServiceProvider;
+
+    @Mock
+    private ApplicationCompanyPermissionService companyPermissionService;
+
+    @Mock
+    private ObjectProvider<IdentityService> identityServiceProvider;
+
+    @Mock
+    private IdentityService identityService;
+
+    @Mock
+    private ObjectProvider<Environment> environmentProvider;
 
     @Test
     void passwordResetRejectsMissingActor() {
@@ -69,11 +94,134 @@ class UserMgmtControllerAuthorizationTest {
     void findReturnsEmptyPageWithoutServiceCallWhenQueryRequired() {
         UserMgmtController controller = controller();
 
-        Page<?> result = controller.find(Optional.empty(), true, Pageable.unpaged()).getBody().getData();
+        Page<?> result = controller.find(Optional.empty(), Optional.empty(), true, null, Pageable.unpaged()).getBody().getData();
 
         assertEquals(0, result.getTotalElements());
         verify(userService, never()).findAll(any());
         verify(userService, never()).findByNameOrUsernameOrEmail(any(), any());
+    }
+
+    @Test
+    void listDelegatesCompanyAndKeywordFilter() {
+        UserMgmtController controller = controller();
+        Pageable pageable = Pageable.unpaged();
+        UserDetails actor = User.withUsername("manager").password("n/a").authorities("ROLE_USER").build();
+        when(companyPermissionServiceProvider.getIfAvailable()).thenReturn(companyPermissionService);
+        when(identityServiceProvider.getIfAvailable()).thenReturn(identityService);
+        when(identityService.findByUsername("manager")).thenReturn(Optional.of(new UserRef(99L, "manager", java.util.Set.of())));
+        when(userService.findByCompanyIdAndNameOrUsernameOrEmail(20L, "kim", pageable))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        controller.list(Optional.of(" kim "), Optional.of(20L), actor, pageable);
+
+        verify(companyPermissionService).assertGranted(20L, 99L, CompanyPermissionActions.MEMBER_READ);
+        verify(userService).findByCompanyIdAndNameOrUsernameOrEmail(20L, "kim", pageable);
+        verify(userService, never()).findByNameOrUsernameOrEmail(any(), any());
+        verify(userService, never()).findAll(any());
+    }
+
+    @Test
+    void findAllowsCompanyFilterWhenQueryIsRequired() {
+        UserMgmtController controller = controller();
+        Pageable pageable = Pageable.unpaged();
+        UserDetails actor = User.withUsername("manager").password("n/a").authorities("ROLE_USER").build();
+        when(companyPermissionServiceProvider.getIfAvailable()).thenReturn(companyPermissionService);
+        when(identityServiceProvider.getIfAvailable()).thenReturn(identityService);
+        when(identityService.findByUsername("manager")).thenReturn(Optional.of(new UserRef(99L, "manager", java.util.Set.of())));
+        when(userService.findAllByCompanyId(20L, pageable)).thenReturn(new PageImpl<>(List.of()));
+
+        controller.find(Optional.empty(), Optional.of(20L), true, actor, pageable);
+
+        verify(userService).findAllByCompanyId(20L, pageable);
+    }
+
+    @Test
+    void companyFilterMapsUnsupportedServiceCapabilityToNotImplemented() {
+        UserMgmtController controller = controller();
+        Pageable pageable = Pageable.unpaged();
+        UserDetails actor = User.withUsername("manager").password("n/a").authorities("ROLE_USER").build();
+        when(companyPermissionServiceProvider.getIfAvailable()).thenReturn(companyPermissionService);
+        when(identityServiceProvider.getIfAvailable()).thenReturn(identityService);
+        when(identityService.findByUsername("manager")).thenReturn(Optional.of(new UserRef(99L, "manager", java.util.Set.of())));
+        when(userService.findAllByCompanyId(20L, pageable)).thenThrow(new UnsupportedOperationException("not supported"));
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.list(Optional.empty(), Optional.of(20L), actor, pageable));
+
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+    }
+
+    @Test
+    void companyFilterWithoutPermissionServiceReturnsNotImplemented() {
+        UserMgmtController controller = controller();
+        UserDetails actor = User.withUsername("manager").password("n/a").authorities("ROLE_USER").build();
+        when(companyPermissionServiceProvider.getIfAvailable()).thenReturn(null);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.list(Optional.empty(), Optional.of(20L), actor, Pageable.unpaged()));
+
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+        verify(userService, never()).findAllByCompanyId(any(), any());
+    }
+
+    @Test
+    void companyFilterWithoutIdentityServiceReturnsNotImplemented() {
+        UserMgmtController controller = controller();
+        UserDetails actor = User.withUsername("manager").password("n/a").authorities("ROLE_USER").build();
+        when(companyPermissionServiceProvider.getIfAvailable()).thenReturn(companyPermissionService);
+        when(identityServiceProvider.getIfAvailable()).thenReturn(null);
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.list(Optional.empty(), Optional.of(20L), actor, Pageable.unpaged()));
+
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+        verify(userService, never()).findAllByCompanyId(any(), any());
+    }
+
+    @Test
+    void companyFilterWithoutResolvedActorReturnsUnauthorized() {
+        UserMgmtController controller = controller();
+        UserDetails actor = User.withUsername("manager").password("n/a").authorities("ROLE_USER").build();
+        when(companyPermissionServiceProvider.getIfAvailable()).thenReturn(companyPermissionService);
+        when(identityServiceProvider.getIfAvailable()).thenReturn(identityService);
+        when(identityService.findByUsername("manager")).thenReturn(Optional.empty());
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.list(Optional.empty(), Optional.of(20L), actor, Pageable.unpaged()));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        verify(userService, never()).findAllByCompanyId(any(), any());
+    }
+
+    @Test
+    void companyFilterRejectsInvalidCompanyIdAsBadRequest() {
+        UserMgmtController controller = controller();
+
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> controller.list(Optional.empty(), Optional.of(0L), null, Pageable.unpaged()));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        verify(userService, never()).findAllByCompanyId(any(), any());
+    }
+
+    @Test
+    void companyFilterPlatformAdminBypassesCompanyPermissionCheck() {
+        UserMgmtController controller = controller();
+        Pageable pageable = Pageable.unpaged();
+        UserDetails actor = User.withUsername("admin").password("n/a").authorities("ROLE_ADMIN").build();
+        SecurityContextHolder.getContext().setAuthentication(
+                new TestingAuthenticationToken(actor, "n/a", "ROLE_ADMIN"));
+        when(environmentProvider.getIfAvailable()).thenReturn(null);
+        when(userService.findAllByCompanyId(20L, pageable)).thenReturn(new PageImpl<>(List.of()));
+
+        try {
+            controller.list(Optional.empty(), Optional.of(20L), actor, pageable);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+
+        verify(companyPermissionServiceProvider, never()).getIfAvailable();
+        verify(userService).findAllByCompanyId(20L, pageable);
     }
 
     @Test
@@ -110,7 +258,14 @@ class UserMgmtControllerAuthorizationTest {
     }
 
     private UserMgmtController controller() {
-        return new UserMgmtController(userService, userMapper, roleMapper, passwordPolicyService);
+        return new UserMgmtController(
+                userService,
+                userMapper,
+                roleMapper,
+                passwordPolicyService,
+                companyPermissionServiceProvider,
+                identityServiceProvider,
+                environmentProvider);
     }
 
     private ChangePasswordRequest changePasswordRequest(String newPassword) {

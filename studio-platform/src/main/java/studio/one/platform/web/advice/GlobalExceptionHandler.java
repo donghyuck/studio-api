@@ -18,6 +18,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
 import lombok.RequiredArgsConstructor;
@@ -265,6 +266,25 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
                 .detail(ex.getMessage())
                 .build();
         log.debug("HTTP 4xx: {}", ex.toString());
+        return withContentType(status, body);
+    }
+
+    /**
+     * Handles framework-level exceptions that already carry the intended HTTP
+     * status.
+     *
+     * @param ex  the exception
+     * @param req the current HTTP request
+     * @return a {@code ResponseEntity} with the problem details
+     */
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ProblemDetails> handleResponseStatus(ResponseStatusException ex, HttpServletRequest req) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        ProblemDetails body = baseProblem(status, req)
+                .type("urn:error:http-status")
+                .detail(ex.getReason() == null ? status.getReasonPhrase() : ex.getReason())
+                .build();
+        logByStatus(status, ex, "http-status");
         return withContentType(status, body);
     }
 

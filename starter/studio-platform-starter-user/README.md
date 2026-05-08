@@ -146,6 +146,15 @@ studio:
 - `/api/self`
 - `/api/self/company-join-requests`
 
+기본 `UserMgmtController`의 `GET /api/mgmt/users`는 `q`, `companyId`, pagination, sort를 함께 지원한다.
+`companyId`를 지정하면 `TB_APPLICATION_COMPANY_MEMBERS` 기준으로 해당 Company 멤버 사용자만 반환하고,
+`q`가 함께 있으면 그 Company 범위 안에서 `username`, `name`, `email`을 검색한다.
+Company 필터 조회는 platform admin이 아니면 대상 Company의 `company.member.read` 권한을 요구한다.
+존재하지 않거나 접근할 수 없는 Company는 기존 Company permission 흐름에 따라 거부/오류 처리되며, `companyId <= 0`은 `400 Bad Request`로 거부된다.
+Company 권한/identity service가 없는 커스텀 구성에서는 기본 컨트롤러가 `501 Not Implemented`로 응답한다.
+`GET /api/mgmt/users/basic`과 `/api/mgmt/users/find`도 같은 `companyId` 필터를 사용할 수 있다.
+커스텀 `UserMgmtApi` 컨트롤러를 제공하는 애플리케이션은 이 `companyId` 필터 동작을 직접 구현해야 한다.
+
 Company endpoint는 `features:company/*` 권한을 먼저 확인하고, 단일 Company 조회/수정,
 member 조회/변경, permission 조회에는 Company 객체 권한을 추가로 적용한다.
 이 객체 권한 검사는 `IdentityService`가 principal을 userId로 해석할 수 있어야 하며,

@@ -25,6 +25,19 @@ import studio.one.base.user.persistence.ApplicationUserRoleRepository;
 @Repository(ApplicationUserRoleRepository.SERVICE_NAME)
 public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implements ApplicationUserRoleRepository {
 
+    private static final Map<String, String> USER_ROLE_SORT_COLUMNS = Map.of(
+            "userId", "USER_ID",
+            "roleId", "ROLE_ID",
+            "assignedAt", "ASSIGNED_AT",
+            "assignedBy", "ASSIGNED_BY");
+
+    private static final Map<String, String> ROLE_SORT_COLUMNS = Map.of(
+            "roleId", "r.ROLE_ID",
+            "name", "r.NAME",
+            "description", "r.DESCRIPTION",
+            "creationDate", "r.CREATION_DATE",
+            "modifiedDate", "r.MODIFIED_DATE");
+
     private static final RowMapper<ApplicationUserRole> USER_ROLE_ROW_MAPPER = (rs, rowNum) -> {
         ApplicationUserRole userRole = new ApplicationUserRole();
         ApplicationUserRoleId id = new ApplicationUserRoleId(rs.getLong("USER_ID"), rs.getLong("ROLE_ID"));
@@ -75,7 +88,7 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                  where USER_ID = :userId
                 """;
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where USER_ID = :userId";
-        return queryPage(select, count, params, pageable, USER_ROLE_ROW_MAPPER, "USER_ID", Map.of());
+        return queryPage(select, count, params, pageable, USER_ROLE_ROW_MAPPER, "USER_ID", USER_ROLE_SORT_COLUMNS);
     }
 
     @Override
@@ -97,7 +110,7 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                  where ROLE_ID = :roleId
                 """;
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where ROLE_ID = :roleId";
-        return queryPage(select, count, params, pageable, USER_ROLE_ROW_MAPPER, "USER_ID", Map.of());
+        return queryPage(select, count, params, pageable, USER_ROLE_ROW_MAPPER, "USER_ID", USER_ROLE_SORT_COLUMNS);
     }
 
     @Override
@@ -158,9 +171,7 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
                  where ur.USER_ID = :userId
                 """;
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where USER_ID = :userId";
-        return queryPage(select, count, params, pageable, ROLE_ROW_MAPPER, "r.ROLE_ID", Map.of(
-                "roleId", "r.ROLE_ID",
-                "name", "r.NAME"));
+        return queryPage(select, count, params, pageable, ROLE_ROW_MAPPER, "r.ROLE_ID", ROLE_SORT_COLUMNS);
     }
 
     @Override

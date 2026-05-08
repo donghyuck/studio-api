@@ -62,6 +62,14 @@ public interface ApplicationUserService<T extends User, R extends Role> {
 
     Page<T> findByNameOrUsernameOrEmail(String keyword, Pageable pageable);
 
+    default Page<T> findAllByCompanyId(Long companyId, Pageable pageable) {
+        throw new UnsupportedOperationException("Company-scoped user listing is not supported");
+    }
+
+    default Page<T> findByCompanyIdAndNameOrUsernameOrEmail(Long companyId, String keyword, Pageable pageable) {
+        throw new UnsupportedOperationException("Company-scoped user search is not supported");
+    }
+
     User get(Long userId);
 
     Optional<T> findByUsername(String username);

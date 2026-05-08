@@ -54,6 +54,51 @@ public interface ApplicationUserJpaRepository extends JpaRepository<ApplicationU
                     "where gm.group.groupId = :groupId")
     List<ApplicationUser> findUsersByGroupId(@Param("groupId") Long groupId);
 
+    @Override
+    @Query(
+        value = "select u " +
+                "from ApplicationUser u " +
+                "where exists (" +
+                "   select 1 from ApplicationCompanyMember cm " +
+                "   where cm.id.userId = u.userId and cm.id.companyId = :companyId" +
+                ")",
+        countQuery = "select count(u) " +
+                "from ApplicationUser u " +
+                "where exists (" +
+                "   select 1 from ApplicationCompanyMember cm " +
+                "   where cm.id.userId = u.userId and cm.id.companyId = :companyId" +
+                ")"
+    )
+    Page<ApplicationUser> findUsersByCompanyId(@Param("companyId") Long companyId, Pageable pageable);
+
+    @Override
+    @Query(
+        value = "select u " +
+                "from ApplicationUser u " +
+                "where exists (" +
+                "   select 1 from ApplicationCompanyMember cm " +
+                "   where cm.id.userId = u.userId and cm.id.companyId = :companyId" +
+                ") and " +
+                "      (:q is null or :q = '' or " +
+                "       lower(u.username) like lower(concat('%', :q, '%')) or " +
+                "       lower(u.name) like lower(concat('%', :q, '%')) or " +
+                "       lower(u.email) like lower(concat('%', :q, '%')))",
+        countQuery = "select count(u) " +
+                "from ApplicationUser u " +
+                "where exists (" +
+                "   select 1 from ApplicationCompanyMember cm " +
+                "   where cm.id.userId = u.userId and cm.id.companyId = :companyId" +
+                ") and " +
+                "      (:q is null or :q = '' or " +
+                "       lower(u.username) like lower(concat('%', :q, '%')) or " +
+                "       lower(u.name) like lower(concat('%', :q, '%')) or " +
+                "       lower(u.email) like lower(concat('%', :q, '%')))"
+    )
+    Page<ApplicationUser> searchByCompanyId(
+            @Param("companyId") Long companyId,
+            @Param("q") String q,
+            Pageable pageable);
+
     // --- 사용자 검색 (엔터티 Page) ---
     @Override
     @Query(value = "select u from ApplicationUser u " +

@@ -15,15 +15,20 @@ import java.util.stream.Collectors;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.core.env.Environment;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,12 +39,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.company.permission.CompanyPermissionActions;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
+import studio.one.base.user.service.ApplicationCompanyPermissionService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.base.user.service.BatchResult;
 import studio.one.base.user.service.PasswordPolicyService;
@@ -58,6 +66,7 @@ import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.base.user.web.util.RequestParamUtils;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.identity.IdentityService;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
@@ -86,6 +95,9 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
         private final ApplicationUserMapper userMapper;
         private final ApplicationRoleMapper roleMapper;
         private final PasswordPolicyService passwordPolicyService;
+        private final ObjectProvider<ApplicationCompanyPermissionService> companyPermissionServiceProvider;
+        private final ObjectProvider<IdentityService> identityServiceProvider;
+        private final ObjectProvider<Environment> environmentProvider;
 
         @PostMapping
         @PreAuthorize("@endpointAuthz.can('features:user','admin')")
@@ -103,11 +115,13 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
         @Override
         public ResponseEntity<ApiResponse<Page<UserDto>>> list(
                         @RequestParam(value = "q", required = false) Optional<String> q,
+                        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+                        @AuthenticationPrincipal UserDetails principal,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
 
-                Page<User> page = RequestParamUtils.normalizeQuery(q)
-                                .map(value -> userService.findByNameOrUsernameOrEmail(value, pageable))
-                                .orElseGet(() -> userService.findAll(pageable));
+                Optional<Long> normalizedCompanyId = normalizeCompanyId(companyId);
+                assertCompanyMemberReadable(normalizedCompanyId, principal);
+                Page<User> page = findUsers(q, normalizedCompanyId, pageable);
                 Page<UserDto> dtoPage = page.map(userMapper::toDto);
                 return ok(ApiResponse.ok(dtoPage));
         }
@@ -117,10 +131,12 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
         @Override
         public ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(
                         @RequestParam(value = "q", required = false) Optional<String> q,
+                        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
+                        @AuthenticationPrincipal UserDetails principal,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
-                Page<User> page = RequestParamUtils.normalizeQuery(q)
-                                .map(value -> userService.findByNameOrUsernameOrEmail(value, pageable))
-                                .orElseGet(() -> userService.findAll(pageable));
+                Optional<Long> normalizedCompanyId = normalizeCompanyId(companyId);
+                assertCompanyMemberReadable(normalizedCompanyId, principal);
+                Page<User> page = findUsers(q, normalizedCompanyId, pageable);
                 Page<UserBasicDto> dtoPage = page.map(userMapper::toBasicDto);
                 return ok(ApiResponse.ok(dtoPage));
         }
@@ -130,21 +146,112 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
         @Override
         public ResponseEntity<ApiResponse<Page<UserDto>>> find(
                         @RequestParam(value = "q", required = false) Optional<String> q,
+                        @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
                         @RequestParam(value = "requireQuery", required = false, defaultValue = "true") boolean requireQuery,
+                        @AuthenticationPrincipal UserDetails principal,
                         @PageableDefault(size = 15, sort = "userId", direction = Sort.Direction.DESC) Pageable pageable) {
 
                 Optional<String> keyword = RequestParamUtils.normalizeQuery(q);
-                if (keyword.isEmpty() && requireQuery)
+                Optional<Long> normalizedCompanyId = normalizeCompanyId(companyId);
+                if (keyword.isEmpty() && normalizedCompanyId.isEmpty() && requireQuery)
                         return ok(ApiResponse.ok(Page.empty(pageable)));
-                Page<User> page;
-                if (keyword.isEmpty()) {
-                        page = userService.findAll(pageable);
-                } else {
-                        page = userService.findByNameOrUsernameOrEmail(keyword.get(), pageable);
-                }
+                assertCompanyMemberReadable(normalizedCompanyId, principal);
+                Page<User> page = findUsers(keyword, normalizedCompanyId, pageable);
                 Page<UserDto> dtoPage = page.map(userMapper::toDto);
 
                 return ok(ApiResponse.ok(dtoPage));
+        }
+
+        @Override
+        public ResponseEntity<ApiResponse<Page<UserDto>>> list(Optional<String> q, Pageable pageable) {
+                return list(q, Optional.empty(), null, pageable);
+        }
+
+        @Override
+        public ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(Optional<String> q, Pageable pageable) {
+                return listBasic(q, Optional.empty(), null, pageable);
+        }
+
+        @Override
+        public ResponseEntity<ApiResponse<Page<UserDto>>> find(Optional<String> q, boolean requireQuery, Pageable pageable) {
+                return find(q, Optional.empty(), requireQuery, null, pageable);
+        }
+
+        private Page<User> findUsers(Optional<String> q, Optional<Long> companyId, Pageable pageable) {
+                Optional<String> keyword = RequestParamUtils.normalizeQuery(q);
+                Optional<Long> normalizedCompanyId = normalizeCompanyId(companyId);
+                if (normalizedCompanyId.isPresent()) {
+                        Long resolvedCompanyId = normalizedCompanyId.get();
+                        try {
+                                return keyword
+                                                .map(value -> userService.findByCompanyIdAndNameOrUsernameOrEmail(
+                                                                resolvedCompanyId, value, pageable))
+                                                .orElseGet(() -> userService.findAllByCompanyId(resolvedCompanyId, pageable));
+                        } catch (UnsupportedOperationException ex) {
+                                throw new ResponseStatusException(
+                                                HttpStatus.NOT_IMPLEMENTED,
+                                                "Company-scoped user listing is not supported",
+                                                ex);
+                        }
+                }
+                return keyword
+                                .map(value -> userService.findByNameOrUsernameOrEmail(value, pageable))
+                                .orElseGet(() -> userService.findAll(pageable));
+        }
+
+        private Optional<Long> normalizeCompanyId(Optional<Long> companyId) {
+                if (companyId == null || companyId.isEmpty()) {
+                        return Optional.empty();
+                }
+                Long value = companyId.get();
+                if (value == null || value <= 0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "companyId must be positive");
+                }
+                return Optional.of(value);
+        }
+
+        private void assertCompanyMemberReadable(Optional<Long> companyId, UserDetails principal) {
+                if (companyId.isEmpty() || isPlatformAdmin()) {
+                        return;
+                }
+                ApplicationCompanyPermissionService permissionService = companyPermissionServiceProvider.getIfAvailable();
+                if (permissionService == null) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.NOT_IMPLEMENTED,
+                                        "Company-scoped user listing is not supported");
+                }
+                permissionService.assertGranted(companyId.get(), actorUserId(principal), CompanyPermissionActions.MEMBER_READ);
+        }
+
+        private boolean isPlatformAdmin() {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication == null || authentication.getAuthorities() == null) {
+                        return false;
+                }
+                String configuredAdminRole = Optional.ofNullable(environmentProvider.getIfAvailable())
+                                .map(environment -> environment.getProperty(PropertyKeys.Security.Acl.PREFIX + ".admin-role"))
+                                .filter(role -> !role.isBlank())
+                                .orElse("ROLE_ADMIN");
+                return authentication.getAuthorities().stream()
+                                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                                .anyMatch(configuredAdminRole::equals);
+        }
+
+        private Long actorUserId(UserDetails principal) {
+                if (principal == null) {
+                        throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user");
+                }
+                IdentityService identityService = identityServiceProvider.getIfAvailable();
+                if (identityService == null) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.NOT_IMPLEMENTED,
+                                        "Company-scoped user listing is not supported");
+                }
+                Optional<studio.one.platform.identity.UserRef> user = identityService.findByUsername(principal.getUsername());
+                return user.map(studio.one.platform.identity.UserRef::userId)
+                                .orElseThrow(() -> new ResponseStatusException(
+                                                HttpStatus.UNAUTHORIZED,
+                                                "No authenticated user"));
         }
 
         @GetMapping("/{id}")
