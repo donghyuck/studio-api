@@ -85,6 +85,12 @@ This helper must be moved to a non-SqlQuery package or replaced by a template-lo
 `studio.one.platform.data.sqlquery.*` implementation can be removed. It is not a MyBatis mapper conversion
 target, but it is in scope for de-coupling.
 
+Status: moved to `studio.one.platform.data.freemarker.StaticModels` during Phase 4 preparation. This removes
+the non-SQL `StaticModels` dependency from `template-service`; broader starter/runtime references to the SqlQuery
+implementation remain in scope for later phases. The legacy
+`studio.one.platform.data.sqlquery.factory.impl.StaticModels` wrapper remains as a source/binary compatibility
+shim until SqlQuery removal.
+
 ## Production SqlStatement Consumers
 
 These production classes use `@SqlStatement` and must be converted to MyBatis mapper methods or equivalent MyBatis-backed adapters:

@@ -89,11 +89,11 @@ public class SqlQueryFactoryImpl implements SqlQueryFactory {
 			for (Map.Entry<String, String> entry : staticModels.entrySet()) {
 				String key = entry.getKey();
 				String value = entry.getValue();
-				StaticModels.getStaticModels().put(key, value);
+				studio.one.platform.data.freemarker.StaticModels.getStaticModels().put(key, value);
 			}
 		}
 		log.info("Set staticModels : {}, {}", staticModels != null && staticModels.size() > 0,
-				StaticModels.getStaticModels());
+				studio.one.platform.data.freemarker.StaticModels.getStaticModels());
 	}
 
 	public void initialize() {

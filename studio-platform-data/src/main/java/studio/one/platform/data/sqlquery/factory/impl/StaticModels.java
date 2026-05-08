@@ -20,36 +20,21 @@
 
 package studio.one.platform.data.sqlquery.factory.impl;
 
-import java.util.HashMap;
 import java.util.Map;
 
 import freemarker.ext.beans.BeansWrapper;
-import freemarker.template.TemplateHashModel;
-import freemarker.template.TemplateModelException;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
+/**
+ * @deprecated Use {@link studio.one.platform.data.freemarker.StaticModels}.
+ */
+@Deprecated(forRemoval = false)
 public class StaticModels {
-	
-	private StaticModels() {
-	}
-
-	private static final Map<String, String> models = new HashMap<>();
 
 	protected static Map<String, String> getStaticModels() {
-		return models;
+		return studio.one.platform.data.freemarker.StaticModels.getStaticModels();
 	}  
 	
 	public static void populateStatics(BeansWrapper wrapper , Map<String, Object> model) {  
-		TemplateHashModel staticHashModels = wrapper.getStaticModels();
-		try {
-			for ( Map.Entry<String, String> entry : models.entrySet()) {
-				String key = entry.getKey();
-				String value = entry.getValue();
-				model.put(key,	staticHashModels.get(value));
-			}		
-		} catch (TemplateModelException e) {
-			log.error(e.getMessage(), e);
-		} 
+		studio.one.platform.data.freemarker.StaticModels.populateStatics(wrapper, model);
 	} 
 }

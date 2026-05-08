@@ -37,7 +37,7 @@ import freemarker.template.TemplateException;
 import freemarker.template.TemplateHashModel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.platform.data.sqlquery.factory.impl.StaticModels;
+import studio.one.platform.data.freemarker.StaticModels;
 
 @Slf4j
 @RequiredArgsConstructor
