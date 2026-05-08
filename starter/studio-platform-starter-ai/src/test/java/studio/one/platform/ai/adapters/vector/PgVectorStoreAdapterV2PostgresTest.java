@@ -106,7 +106,7 @@ class PgVectorStoreAdapterV2PostgresTest {
 
     @Test
     @SuppressWarnings("deprecation")
-    void legacyJdbcConstructorUsesSqlQueryFreeFallbackMapper() {
+    void legacyJdbcConstructorUsesDirectJdbcFallbackMapper() {
         PgVectorStoreAdapterV2 jdbcAdapter = new PgVectorStoreAdapterV2(jdbcTemplate);
 
         List<VectorSearchResult> results = jdbcAdapter.searchByObject(

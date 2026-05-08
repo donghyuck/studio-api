@@ -32,19 +32,5 @@ mybatis:
     - classpath*:mybatis/**/*.xml
 ```
 
-`persistence=jdbc` alias 처리와 기존 SqlQuery 구현 전환은 후속 phase에서 진행한다.
-
-## Legacy SqlQuery Coexistence
-
-`starter:studio-platform-starter`는 아직 기존 SqlQuery 자동 구성을 포함한다. 전환 기간에 base starter와
-MyBatis starter를 함께 사용하는 애플리케이션은 두 mapper 체계가 동시에 기동할 수 있다.
-
-MyBatis만 사용하려면 후속 phase에서 legacy 경로가 제거되기 전까지 다음 설정으로 SqlQuery를 끈다.
-
-```yaml
-studio:
-  persistence:
-    jdbc:
-      sql-query:
-        enabled: false
-```
+`persistence=jdbc` alias는 legacy 직접 JDBC 구현 호환용으로만 유지한다. SQL mapper는 MyBatis
+convention을 사용하고, XML mapper는 `classpath*:mybatis/**/*.xml`에서 로드한다.

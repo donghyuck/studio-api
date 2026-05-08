@@ -53,12 +53,6 @@ public class ServiceNames {
 
     public static final String JDBC_TEMPLATE = PREFIX + ":data:jdbc-template";
     public static final String NAMED_JDBC_TEMPLATE = PREFIX + ":data:named-jdbc-template";
-    public static final String SQL_QUERY = PREFIX + ":data:sql-query";
-    public static final String SQL_QUERY_CONFIGURATION = SQL_QUERY + ":configuration";
-    public static final String SQL_QUERY_FACTORY = SQL_QUERY + ":factory";
-    public static final String SQL_QUERY_CLIENT = SQL_QUERY + ":client";
-    public static final String SQL_QUERY_DEPLOY= SQL_QUERY + ":deploy";
-
 
 
     public static final String I18N_MESSAGE_SOURCE = I18N + ":message-source";

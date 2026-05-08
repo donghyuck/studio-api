@@ -43,35 +43,29 @@ Result: `BUILD SUCCESSFUL`.
 `gradle.properties` currently contains:
 
 ```properties
-mybatisSpringVersion=2.1.2
-mybatisVersion=3.5.16
+mybatisVersion=3.5.19
+mybatisSpringBootStarterVersion=3.0.5
 ```
 
-For Spring Boot 3.5 / Java 17, the migration should introduce the latest `3.0.x` line of
-`org.mybatis.spring.boot:mybatis-spring-boot-starter`. As of 2026-05-08, that patch version is `3.0.5`.
-The migration should also stop using the legacy `mybatisSpringVersion` path.
+For Spring Boot 3.5 / Java 17, the migration uses the `3.0.x` line of
+`org.mybatis.spring.boot:mybatis-spring-boot-starter`. The legacy `mybatisSpringVersion` property was removed.
 
 ## SqlQuery Runtime and Auto-Configuration
 
-The core SqlQuery implementation is under:
+The custom SqlQuery implementation was removed in Phase 6:
 
 - `studio-platform-data/src/main/java/studio/one/platform/data/sqlquery`
 
-There are currently 60 Java source files in the SqlQuery implementation and its starter auto-configuration wrappers.
-
-Starter integration is currently split across canonical and deprecated typo packages:
+The starter integration was also removed from both the canonical and deprecated typo packages:
 
 - `starter/studio-platform-starter/src/main/java/studio/one/platform/autoconfigure/persistence/jdbc/sqlquery`
 - `starter/studio-platform-starter/src/main/java/studio/one/platform/autoconfigure/perisitence/jdbc/sqlquery`
 
-`JdbcAutoConfiguration` also creates `SqlQueryFactory` and loads `classpath*:sql/*-sqlset.xml` by default.
-`SqlQueryMapperAutoConfiguration` is also imported as starter auto-configuration and registers the annotation
-injection/proxy layer:
+`JdbcAutoConfiguration` now registers only `JdbcTemplate` and `NamedParameterJdbcTemplate`.
+It no longer creates `SqlQueryFactory`, scans `classpath*:sql/*-sqlset.xml`, or imports
+`SqlQueryMapperAutoConfiguration`.
 
-- `SqlStatementBeanPostProcessor` for `@SqlStatement`, `@SqlBoundStatement`, and `@SqlMappedStatement`
-- `@EnableSqlMappers` / `SqlMapperRegistrar` scanning for `@SqlMapper`
-
-Both auto-configuration paths must be retired or made non-production before the SqlQuery migration is complete.
+Status: production runtime and starter auto-configuration removal complete.
 
 ## Non-SQL SqlQuery Package Dependencies
 
@@ -85,11 +79,8 @@ This helper must be moved to a non-SqlQuery package or replaced by a template-lo
 `studio.one.platform.data.sqlquery.*` implementation can be removed. It is not a MyBatis mapper conversion
 target, but it is in scope for de-coupling.
 
-Status: moved to `studio.one.platform.data.freemarker.StaticModels` during Phase 4 preparation. This removes
-the non-SQL `StaticModels` dependency from `template-service`; broader starter/runtime references to the SqlQuery
-implementation remain in scope for later phases. The legacy
-`studio.one.platform.data.sqlquery.factory.impl.StaticModels` wrapper remains as a source/binary compatibility
-shim until SqlQuery removal.
+Status: moved to `studio.one.platform.data.freemarker.StaticModels` during Phase 4 preparation. The legacy
+`studio.one.platform.data.sqlquery.factory.impl.StaticModels` wrapper was removed with the SqlQuery runtime.
 
 ## Production SqlStatement Consumers
 
@@ -122,7 +113,7 @@ Converted in Phase 4:
   Converted classes: `JdbcMailAttachmentService`, `JdbcMailMessageService`, `JdbcMailSyncLogService`, and
   `TemplateJdbcRepository`.
 - AI vector store now prefers `PgVectorMapper` and `mybatis/ai/PgVectorMapper.xml`.
-  `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml` was removed. A SQLQuery-free direct JDBC fallback remains
+  `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml` was removed. A direct JDBC fallback remains
   for existing `starter-ai` consumers that have `JdbcTemplate` but either have not added the MyBatis starter yet or
   have MyBatis configured without loading the AI `PgVectorMapper.xml` resource.
 
@@ -135,15 +126,14 @@ The previous tests that loaded `sql/ai-sqlset.xml` directly were replaced with e
 
 ## Documentation References
 
-The following documentation currently presents SqlQuery as a supported SQL mapper and must be rewritten or marked historical:
+Documentation cleanup status:
 
-- `studio-platform-data/README.md`
-- `studio-platform-data/JDBC_DEVELOPMENT_GUIDE.md`
-- `studio-platform-data/docs/adr/0001-sql-mapper-xml.md`
-- `studio-application-modules/mail-service/README.md`
-- `studio-application-modules/template-service/README.md`
+- `studio-platform-data/README.md` now documents JDBC utilities and points SQL mapper usage to MyBatis.
+- `studio-platform-data/JDBC_DEVELOPMENT_GUIDE.md` was removed.
+- `studio-platform-data/docs/adr/0001-sql-mapper-xml.md` is retained only as a deprecated historical ADR.
+- Starter docs now document MyBatis as the SQL mapper convention and no longer expose a `sql-query.enabled` switch.
 
-The broader configuration docs and starter docs should be updated after the final conversion so `mybatis` is the standard SQL mapper wording and `jdbc` is documented only where it remains an actual direct JDBC implementation or a deprecated alias.
+`jdbc` wording remains only where the implementation is an actual direct JDBC path or a compatibility alias.
 
 ## Out of Scope for This Migration
 

@@ -113,10 +113,9 @@ Flyway range는 `workspace` `1300-1399`입니다.
 
 ## MyBatis migration note
 
-현재 production 구현은 JPA 기본 구현입니다. SqlQuery 전환 작업 중 `src/test/resources/mybatis/workspace`
-아래에 MyBatis mapper XML convention smoke test를 추가해 `classpath*:mybatis/**/*.xml` 로딩과 mapper
-scan 동작을 검증합니다. 실제 workspace read model/permission query의 MyBatis 구현 전환은 후속 phase에서
-진행합니다.
+현재 production 구현은 JPA 기본 구현입니다. `src/test/resources/mybatis/workspace` 아래의 smoke test로
+`classpath*:mybatis/**/*.xml` 로딩과 mapper scan 동작을 검증합니다. 실제 workspace read model/permission
+query의 MyBatis 구현 전환은 후속 phase에서 진행합니다.
 
 ## 검증
 ```bash

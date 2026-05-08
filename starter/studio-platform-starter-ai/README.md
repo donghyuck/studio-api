@@ -8,7 +8,7 @@ AI 서비스(채팅, 임베딩, 벡터 스토어, RAG 파이프라인)를 자동
 JdbcTemplate이 컨텍스트에 있으면 pgvector 기반 `VectorStorePort`도 자동으로 생성된다.
 MyBatis `SqlSessionTemplate`과 `PgVectorMapper.xml`이 로드되어 있으면 MyBatis mapper 경로를 우선 사용한다.
 MyBatis가 없거나 애플리케이션의 custom `mybatis.mapper-locations` 설정 때문에 AI mapper XML이 로드되지 않으면
-기존 JDBC-only 호환 경로를 사용한다. 두 경로 모두 legacy `SqlQuery`/`sqlset` 주입은 사용하지 않는다.
+기존 JDBC-only 호환 경로를 사용한다. 두 경로 모두 외부 SQL mapper 주입에 의존하지 않는다.
 `studio-platform-ai`는 공통 계약만 제공하고, Spring AI adapter와 기본 RAG 구현은 이 스타터가 제공한다.
 `starter:studio-platform-starter-chunking`이 있으면 `RagPipelineService`는 `ChunkingOrchestrator`를 우선 사용하고,
 없으면 기존 `TextChunker` fallback을 사용한다.

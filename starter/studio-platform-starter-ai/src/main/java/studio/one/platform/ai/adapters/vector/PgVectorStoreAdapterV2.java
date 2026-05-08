@@ -43,7 +43,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
      * @deprecated since 2026-05-08. Prefer the MyBatis-backed
      * {@link #PgVectorStoreAdapterV2(PgVectorMapper, DataSource)} constructor.
      * This constructor remains as a JDBC-only compatibility path and does not use
-     * legacy SqlQuery/sqlset injection.
+     * external SQL mapper injection.
      */
     @Deprecated(forRemoval = false)
     public PgVectorStoreAdapterV2(JdbcTemplate jdbcTemplate) {

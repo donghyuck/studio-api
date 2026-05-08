@@ -81,7 +81,7 @@ dependencies {
 - 첨부/아바타/템플릿/메일 같은 기능 모듈은 각 application starter를 추가
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - 독립 썸네일 생성이 필요하면 `:starter:studio-platform-thumbnail-starter`를 추가한다. attachment starter는 이 스타터를 포함한다.
-- MyBatis 전환 기간에 기본 platform starter와 MyBatis starter를 함께 쓰면 기존 SqlQuery 자동 구성도 기동할 수 있다. MyBatis만 사용할 때는 `studio.persistence.jdbc.sql-query.enabled=false`를 명시한다.
+- XML SQL mapper는 MyBatis convention으로 통일한다. mapper XML은 `classpath*:mybatis/**/*.xml` 경로를 사용한다.
 
 대표 조합 예시:
 
