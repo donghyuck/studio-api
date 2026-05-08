@@ -1,0 +1,33 @@
+{
+  "properties": [
+    {
+      "name": "studio.mybatis.mapper-locations",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Default mapper XML resource locations applied when mybatis.mapper-locations is not set.",
+      "defaultValue": [
+        "classpath*:mybatis/**/*.xml"
+      ]
+    },
+    {
+      "name": "studio.mybatis.type-aliases-package",
+      "type": "java.lang.String",
+      "description": "Default MyBatis type aliases package applied when mybatis.type-aliases-package is not set."
+    },
+    {
+      "name": "studio.mybatis.type-handlers-package",
+      "type": "java.lang.String",
+      "description": "Default MyBatis type handlers package applied when mybatis.type-handlers-package is not set."
+    },
+    {
+      "name": "studio.mybatis.map-underscore-to-camel-case",
+      "type": "java.lang.Boolean",
+      "description": "Apply MyBatis mapUnderscoreToCamelCase convention.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.mybatis.database-id-aliases",
+      "type": "java.util.Map<java.lang.String,java.lang.String>",
+      "description": "Database product name to MyBatis databaseId aliases used by the default VendorDatabaseIdProvider."
+    }
+  ]
+}

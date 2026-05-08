@@ -10,6 +10,7 @@
 - objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - workspace 기반 Wiki page/revision API가 필요하면 `:starter:studio-application-starter-wiki`
+- MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
 - WebSocket/STOMP 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - image/PDF 썸네일 생성 SPI가 필요하면 `:starter:studio-platform-thumbnail-starter`
@@ -30,6 +31,7 @@ dependencies {
 - 파일/오브젝트 스토리지를 쓰는 모듈은 경로와 자격 증명을 먼저 확인한다.
 - provider API key, model, base-url 같은 외부 SDK 값은 가능하면 `spring.*`를 단일 소스로 사용한다.
 - `studio.features.<module>.*`에는 enable/persistence/web만 두고, 세부 정책과 storage/routing/rag는 `studio.<module>.*`에 둔다.
+- MyBatis 전환 기간에 `studio-platform-starter`와 `studio-platform-starter-mybatis`를 함께 쓰면 기존 SqlQuery 자동 구성도 남아 있다. MyBatis만 사용할 때는 `studio.persistence.jdbc.sql-query.enabled=false`를 명시한다.
 
 ## 포함 starter
 - `studio-platform-starter`: 코어 플랫폼 자동 구성, 공통 유틸, 기본 프로퍼티 바인딩
@@ -38,6 +40,7 @@ dependencies {
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
 - `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성
 - `studio-platform-starter-workspace`: workspace tree/member/permission JPA 기본 구현과 API 자동 구성
+- `studio-platform-starter-mybatis`: MyBatis Boot starter와 `classpath*:mybatis/**/*.xml` mapper convention 자동 구성
 - `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
 - `studio-platform-starter-chunking`: RAG indexing용 fixed-size/recursive chunking 자동 구성
 - `studio-platform-thumbnail-starter`: image/PDF 썸네일 generation service 자동 구성
