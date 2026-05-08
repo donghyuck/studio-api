@@ -24,30 +24,50 @@ import studio.one.application.mail.domain.model.DefaultMailSyncLog;
 import studio.one.application.mail.domain.model.MailSyncLog;
 import studio.one.application.mail.service.MailSyncLogService;
 import studio.one.platform.data.jdbc.PagingJdbcTemplate;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.exception.NotFoundException;
 
 @Transactional
 @Service(MailSyncLogService.SERVICE_NAME)
 public class JdbcMailSyncLogService implements MailSyncLogService {
 
-    @SqlStatement("data.mail.syncLogInsert")
-    private String insertSql;
+    private static final String INSERT_SQL = """
+            insert into TB_APPLICATION_MAIL_SYNC_LOG
+                (STARTED_AT, STATUS, TRIGGERED_BY)
+            values
+                (:startedAt, :status, :triggeredBy)
+            returning LOG_ID
+            """;
 
-    @SqlStatement("data.mail.syncLogUpdate")
-    private String updateSql;
+    private static final String UPDATE_SQL = """
+            update TB_APPLICATION_MAIL_SYNC_LOG
+               set FINISHED_AT = :finishedAt,
+                   PROCESSED = :processed,
+                   SUCCEEDED = :succeeded,
+                   FAILED = :failed,
+                   STATUS = :status,
+                   MESSAGE = :message
+             where LOG_ID = :logId
+            """;
 
-    @SqlStatement("data.mail.syncLogRecent")
-    private String recentSql;
+    private static final String RECENT_SQL = """
+            select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
+              from TB_APPLICATION_MAIL_SYNC_LOG
+             order by STARTED_AT desc
+             limit :limit
+            """;
 
-    @SqlStatement("data.mail.syncLogCountAll")
-    private String countSql;
+    private static final String COUNT_SQL = "select count(*) from TB_APPLICATION_MAIL_SYNC_LOG";
 
-    @SqlStatement("data.mail.syncLogFindPage")
-    private String findPageSql;
+    private static final String FIND_PAGE_SQL = """
+            select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
+              from TB_APPLICATION_MAIL_SYNC_LOG
+            """;
 
-    @SqlStatement("data.mail.syncLogFindById")
-    private String findByIdSql;
+    private static final String FIND_BY_ID_SQL = """
+            select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
+              from TB_APPLICATION_MAIL_SYNC_LOG
+             where LOG_ID = :logId
+            """;
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
             Map.entry("logId", "LOG_ID"),
@@ -91,7 +111,7 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
                 .addValue("status", "running")
                 .addValue("triggeredBy", triggeredBy);
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(insertSql, params, keyHolder, new String[] { "LOG_ID" });
+        jdbcTemplate.update(INSERT_SQL, params, keyHolder, new String[] { "LOG_ID" });
         Number key = keyHolder.getKey();
         DefaultMailSyncLog log = new DefaultMailSyncLog();
         log.setLogId(key != null ? key.longValue() : 0);
@@ -112,14 +132,14 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
                 .addValue("failed", failed)
                 .addValue("status", status)
                 .addValue("message", message);
-        jdbcTemplate.update(updateSql, params);
+        jdbcTemplate.update(UPDATE_SQL, params);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MailSyncLog> recent(int limit) {
         Map<String, Object> params = Map.of("limit", limit <= 0 ? 50 : limit);
-        return jdbcTemplate.query(recentSql, params, ROW_MAPPER)
+        return jdbcTemplate.query(RECENT_SQL, params, ROW_MAPPER)
                 .stream()
                 .limit(limit <= 0 ? 50 : limit)
                 .collect(Collectors.toList());
@@ -134,16 +154,16 @@ public class JdbcMailSyncLogService implements MailSyncLogService {
         Sort sortToUse = pageable.getSort().isSorted()
                 ? pageable.getSort()
                 : Sort.by(Sort.Order.desc("logId"));
-        String orderedQuery = findPageSql + buildOrderByClause(sortToUse, "logId", SORT_COLUMNS);
+        String orderedQuery = FIND_PAGE_SQL + buildOrderByClause(sortToUse, "logId", SORT_COLUMNS);
         List<MailSyncLog> content = pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER);
-        long total = jdbcTemplate.queryForObject(countSql, Map.of(), Long.class);
+        long total = jdbcTemplate.queryForObject(COUNT_SQL, Map.of(), Long.class);
         return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
     }
 
     @Override
     @Transactional(readOnly = true)
     public MailSyncLog get(long logId) {
-        MailSyncLog log = jdbcTemplate.query(findByIdSql, Map.of("logId", logId), ROW_MAPPER)
+        MailSyncLog log = jdbcTemplate.query(FIND_BY_ID_SQL, Map.of("logId", logId), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> NotFoundException.of("mailSyncLog", logId));

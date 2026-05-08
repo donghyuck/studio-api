@@ -15,20 +15,28 @@ import org.springframework.transaction.annotation.Transactional;
 import studio.one.application.mail.domain.model.DefaultMailAttachment;
 import studio.one.application.mail.domain.model.MailAttachment;
 import studio.one.application.mail.service.MailAttachmentService;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Transactional
 @Service(MailAttachmentService.SERVICE_NAME)
 public class JdbcMailAttachmentService implements MailAttachmentService {
 
-    @SqlStatement("data.mail.insertAttachment")
-    private String insertAttachmentSql;
+    private static final String DELETE_ATTACHMENTS_BY_MAIL_SQL = """
+            delete from TB_APPLICATION_MAIL_ATTACHMENT
+             where MAIL_ID = :mailId
+            """;
 
-    @SqlStatement("data.mail.deleteAttachmentsByMail")
-    private String deleteAttachmentsByMailSql;
+    private static final String INSERT_ATTACHMENT_SQL = """
+            insert into TB_APPLICATION_MAIL_ATTACHMENT
+                (MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT)
+            values
+                (:mailId, :filename, :contentType, :size, :content, :createdAt, :updatedAt)
+            """;
 
-    @SqlStatement("data.mail.findAttachmentsByMail")
-    private String findAttachmentsByMailSql;
+    private static final String FIND_ATTACHMENTS_BY_MAIL_SQL = """
+            select ATTACHMENT_ID, MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_MAIL_ATTACHMENT
+             where MAIL_ID = :mailId
+            """;
 
     private static final RowMapper<MailAttachment> ROW_MAPPER = (rs, rowNum) -> {
         DefaultMailAttachment attachment = new DefaultMailAttachment();
@@ -53,7 +61,7 @@ public class JdbcMailAttachmentService implements MailAttachmentService {
 
     @Override
     public void replaceAttachments(long mailId, List<MailAttachment> attachments) {
-        jdbcTemplate.update(deleteAttachmentsByMailSql, Map.of("mailId", mailId));
+        jdbcTemplate.update(DELETE_ATTACHMENTS_BY_MAIL_SQL, Map.of("mailId", mailId));
         if (attachments == null || attachments.isEmpty()) {
             return;
         }
@@ -68,13 +76,13 @@ public class JdbcMailAttachmentService implements MailAttachmentService {
                         .addValue("createdAt", toTimestamp(att.getCreatedAt(), now))
                         .addValue("updatedAt", Timestamp.from(now)))
                 .toList();
-        jdbcTemplate.batchUpdate(insertAttachmentSql, batch.toArray(new MapSqlParameterSource[0]));
+        jdbcTemplate.batchUpdate(INSERT_ATTACHMENT_SQL, batch.toArray(new MapSqlParameterSource[0]));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<MailAttachment> findByMailId(long mailId) {
-        return jdbcTemplate.query(findAttachmentsByMailSql, Map.of("mailId", mailId), ROW_MAPPER);
+        return jdbcTemplate.query(FIND_ATTACHMENTS_BY_MAIL_SQL, Map.of("mailId", mailId), ROW_MAPPER);
     }
 
     private Timestamp toTimestamp(Instant value, Instant defaultInstant) {

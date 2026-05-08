@@ -41,7 +41,7 @@ studio:
 ## 개발 시 참고
 - 생성 시 기본 `createdBy/updatedBy` 는 0으로 세팅되며, 필요하면 서비스 사용 전에 채워 넣는다.
 - 렌더링은 FreeMarker 2.3.32를 사용하며, 본문/제목이 null 이면 null 반환한다.
-- JDBC 구현은 `src/main/resources/sql/template-sqlset.xml` 에 정의된 SQL을 사용하고, 프로퍼티는 별도 테이블에 저장한다.
+- JDBC 구현은 클래스 내부 SQL 상수를 사용하고, 프로퍼티는 별도 테이블에 저장한다. 더 이상 `sql/*-sqlset.xml` 리소스에 의존하지 않는다.
 - JPA 사용 시 `@EnableJpaRepositories` + 엔티티 스캔이 starter에 포함되어 있으며, 데이터소스와 전역 JPA 설정이 선행돼야 한다.
 
 ## 빠른 시작

@@ -30,40 +30,76 @@ import studio.one.application.template.domain.model.DefaultTemplate;
 import studio.one.application.template.domain.model.Template;
 import studio.one.application.template.persistence.TemplatePersistenceRepository;
 import studio.one.platform.data.jdbc.PagingJdbcTemplate;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Repository
 public class TemplateJdbcRepository implements TemplatePersistenceRepository {
 
-    @SqlStatement("data.template.insert")
-    private String insertSql;
+    private static final String INSERT_SQL = """
+            insert into TB_APPLICATION_TEMPLATE
+                (OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT)
+            values
+                (:objectType, :objectId, :name, :displayName, :description, :subject, :body, :createdBy, :updatedBy, :createdAt, :updatedAt)
+            returning TEMPLATE_ID
+            """;
 
-    @SqlStatement("data.template.update")
-    private String updateSql;
+    private static final String UPDATE_SQL = """
+            update TB_APPLICATION_TEMPLATE
+               set OBJECT_TYPE  = :objectType,
+                   OBJECT_ID    = :objectId,
+                   NAME         = :name,
+                   DISPLAY_NAME = :displayName,
+                   DESCRIPTION  = :description,
+                   SUBJECT      = :subject,
+                   BODY         = :body,
+                   UPDATED_BY   = :updatedBy,
+                   UPDATED_AT   = :updatedAt
+             where TEMPLATE_ID = :templateId
+            """;
 
-    @SqlStatement("data.template.findById")
-    private String findByIdSql;
+    private static final String FIND_BY_ID_SQL = """
+            select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
+                   SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_TEMPLATE
+             where TEMPLATE_ID = :templateId
+            """;
 
-    @SqlStatement("data.template.findByName")
-    private String findByNameSql;
+    private static final String FIND_BY_NAME_SQL = """
+            select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
+                   SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_TEMPLATE
+             where NAME = :name
+            """;
 
-    @SqlStatement("data.template.delete")
-    private String deleteSql;
+    private static final String DELETE_SQL = """
+            delete from TB_APPLICATION_TEMPLATE
+             where TEMPLATE_ID = :templateId
+            """;
 
-    @SqlStatement("data.template.deleteProperties")
-    private String deletePropertiesSql;
+    private static final String DELETE_PROPERTIES_SQL = """
+            delete from TB_APPLICATION_TEMPLATE_PROPERTY
+             where TEMPLATE_ID = :templateId
+            """;
 
-    @SqlStatement("data.template.insertProperty")
-    private String insertPropertySql;
+    private static final String INSERT_PROPERTY_SQL = """
+            insert into TB_APPLICATION_TEMPLATE_PROPERTY
+                (TEMPLATE_ID, PROPERTY_NAME, PROPERTY_VALUE)
+            values
+                (:templateId, :name, :value)
+            """;
 
-    @SqlStatement("data.template.findProperties")
-    private String findPropertiesSql;
+    private static final String FIND_PROPERTIES_SQL = """
+            select PROPERTY_NAME, PROPERTY_VALUE
+              from TB_APPLICATION_TEMPLATE_PROPERTY
+             where TEMPLATE_ID = :templateId
+            """;
 
-    @SqlStatement("data.template.countAll")
-    private String countAllSql;
+    private static final String COUNT_ALL_SQL = "select count(*) from TB_APPLICATION_TEMPLATE";
 
-    @SqlStatement("data.template.findPage")
-    private String findPageSql;
+    private static final String FIND_PAGE_SQL = """
+            select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
+                   SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_TEMPLATE
+            """;
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
             Map.entry("templateId", "TEMPLATE_ID"),
@@ -108,7 +144,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
 
     @Override
     public Optional<Template> findByName(String name) {
-        Template template = jdbcTemplate.query(findByNameSql, Map.of("name", name), ROW_MAPPER)
+        Template template = jdbcTemplate.query(FIND_BY_NAME_SQL, Map.of("name", name), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -120,7 +156,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
 
     @Override
     public Optional<Template> findByNameAndCreatedBy(String name, long createdBy) {
-        String sql = findByNameSql + " and CREATED_BY = :createdBy";
+        String sql = FIND_BY_NAME_SQL + " and CREATED_BY = :createdBy";
         Template template = jdbcTemplate.query(sql, Map.of("name", name, "createdBy", createdBy), ROW_MAPPER)
                 .stream()
                 .findFirst()
@@ -133,7 +169,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
 
     @Override
     public Optional<Template> findById(long templateId) {
-        Template template = jdbcTemplate.query(findByIdSql, Map.of("templateId", templateId), ROW_MAPPER)
+        Template template = jdbcTemplate.query(FIND_BY_ID_SQL, Map.of("templateId", templateId), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -145,7 +181,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
 
     @Override
     public Optional<Template> findByIdAndCreatedBy(long templateId, long createdBy) {
-        String sql = findByIdSql + " and CREATED_BY = :createdBy";
+        String sql = FIND_BY_ID_SQL + " and CREATED_BY = :createdBy";
         Template template = jdbcTemplate.query(sql, Map.of("templateId", templateId, "createdBy", createdBy), ROW_MAPPER)
                 .stream()
                 .findFirst()
@@ -167,8 +203,8 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
     @Override
     public void deleteById(long templateId) {
         Map<String, Object> params = Map.of("templateId", templateId);
-        jdbcTemplate.update(deletePropertiesSql, params);
-        jdbcTemplate.update(deleteSql, params);
+        jdbcTemplate.update(DELETE_PROPERTIES_SQL, params);
+        jdbcTemplate.update(DELETE_SQL, params);
     }
 
     @Override
@@ -201,7 +237,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
         boolean hasQuery = StringUtils.hasText(query);
         Set<String> resolvedFields = resolveFields(fields);
         String whereClause = buildWhereClause(resolvedFields, hasQuery, createdBy);
-        String orderedQuery = findPageSql + whereClause + buildOrderByClause(sortToUse, "templateId", SORT_COLUMNS);
+        String orderedQuery = FIND_PAGE_SQL + whereClause + buildOrderByClause(sortToUse, "templateId", SORT_COLUMNS);
         Object[] args = buildKeywordArgs(query, resolvedFields);
         List<Template> content;
         if (pagingJdbcTemplate != null) {
@@ -215,8 +251,8 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
                     : jdbcTemplate.getJdbcTemplate().query(paged, ROW_MAPPER);
         }
         long total = hasQuery
-                ? jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, args, Long.class)
-                : jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, Long.class);
+                ? jdbcTemplate.getJdbcTemplate().queryForObject(COUNT_ALL_SQL + whereClause, args, Long.class)
+                : jdbcTemplate.getJdbcTemplate().queryForObject(COUNT_ALL_SQL + whereClause, Long.class);
         return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
     }
 
@@ -235,7 +271,7 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
                 .addValue("createdAt", Timestamp.from(now))
                 .addValue("updatedAt", Timestamp.from(template.getUpdatedAt() == null ? now : template.getUpdatedAt()));
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(insertSql, params, keyHolder, new String[] { "TEMPLATE_ID" });
+        jdbcTemplate.update(INSERT_SQL, params, keyHolder, new String[] { "TEMPLATE_ID" });
         Number key = keyHolder.getKey();
         if (key != null) {
             template.setTemplateId(key.longValue());
@@ -257,13 +293,13 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
                 .addValue("body", template.getBody())
                 .addValue("updatedBy", template.getUpdatedBy())
                 .addValue("updatedAt", Timestamp.from(now));
-        jdbcTemplate.update(updateSql, params);
+        jdbcTemplate.update(UPDATE_SQL, params);
         saveProperties(template.getTemplateId(), template.getProperties());
         return template;
     }
 
     private void saveProperties(long templateId, Map<String, String> properties) {
-        jdbcTemplate.update(deletePropertiesSql, Map.of("templateId", templateId));
+        jdbcTemplate.update(DELETE_PROPERTIES_SQL, Map.of("templateId", templateId));
         if (properties == null || properties.isEmpty()) {
             return;
         }
@@ -273,11 +309,11 @@ public class TemplateJdbcRepository implements TemplatePersistenceRepository {
                         .addValue("name", entry.getKey())
                         .addValue("value", entry.getValue()))
                 .toArray(MapSqlParameterSource[]::new);
-        jdbcTemplate.batchUpdate(insertPropertySql, batch);
+        jdbcTemplate.batchUpdate(INSERT_PROPERTY_SQL, batch);
     }
 
     private Map<String, String> loadProperties(long templateId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(findPropertiesSql, Map.of("templateId", templateId));
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(FIND_PROPERTIES_SQL, Map.of("templateId", templateId));
         Map<String, String> props = new HashMap<>();
         for (Map<String, Object> row : rows) {
             Object name = row.get("PROPERTY_NAME");

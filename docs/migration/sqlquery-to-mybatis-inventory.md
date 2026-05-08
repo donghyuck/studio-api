@@ -93,23 +93,17 @@ shim until SqlQuery removal.
 
 ## Production SqlStatement Consumers
 
-These production classes use `@SqlStatement` and must be converted to MyBatis mapper methods or equivalent MyBatis-backed adapters:
+These production classes still use `@SqlStatement` and must be converted to MyBatis mapper methods or equivalent MyBatis-backed adapters:
 
 | Area | File | Count |
 | --- | --- | ---: |
 | AI vector store | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/adapters/vector/PgVectorStoreAdapterV2.java` | 10 |
-| Mail attachment | `studio-application-modules/mail-service/src/main/java/studio/one/application/mail/service/impl/JdbcMailAttachmentService.java` | 3 |
-| Mail message | `studio-application-modules/mail-service/src/main/java/studio/one/application/mail/service/impl/JdbcMailMessageService.java` | 10 |
-| Mail sync log | `studio-application-modules/mail-service/src/main/java/studio/one/application/mail/service/impl/JdbcMailSyncLogService.java` | 6 |
-| Template | `studio-application-modules/template-service/src/main/java/studio/one/application/template/persistence/jdbc/TemplateJdbcRepository.java` | 10 |
 
 ## Sqlset Resources
 
 The current production sqlset resources are:
 
 - `studio-platform-ai/src/main/resources/sql/ai-sqlset.xml`
-- `studio-application-modules/mail-service/src/main/resources/sql/mail-sqlset.xml`
-- `studio-application-modules/template-service/src/main/resources/sql/template-sqlset.xml`
 
 These should move to MyBatis mapper XML under `classpath*:mybatis/**/*.xml` and should not remain as production `sql/*-sqlset.xml` resources after conversion.
 
@@ -122,6 +116,11 @@ Converted in Phase 4:
   `studio-platform-security/src/main/resources/sql/security-sqlset.xml` was removed.
   PostgreSQL fail-fast guards are limited to JDBC paths that still use PostgreSQL-only SQL/types;
   account-lock JDBC remains portable and is not guarded.
+- Mail and template JDBC compatibility implementations now own their SQL locally without `@SqlStatement`, and
+  `studio-application-modules/mail-service/src/main/resources/sql/mail-sqlset.xml` plus
+  `studio-application-modules/template-service/src/main/resources/sql/template-sqlset.xml` were removed.
+  Converted classes: `JdbcMailAttachmentService`, `JdbcMailMessageService`, `JdbcMailSyncLogService`, and
+  `TemplateJdbcRepository`.
 
 ## Test Coverage Tied to Sqlset Resources
 
