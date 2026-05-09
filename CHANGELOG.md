@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### 변경됨
-- 이슈 #442 대응으로 `POST /api/ai/chat/rag`의 LLM 전달 context를 예산 기반으로 packing하도록 보강했다. 큰 chunk는 deterministic excerpt preview로 압축하고, `ragReferences`는 실제 prompt에 포함된 packed content와 `documentId`/`chunkId`/object scope metadata를 기준으로 반환하며, opt-in diagnostics에는 포함/압축/제외 count와 budget 정보만 노출한다.
+- 이슈 #442 대응으로 `POST /api/ai/chat/rag`의 LLM 전달 context를 예산 기반으로 packing하도록 보강했다. 큰 chunk는 deterministic excerpt preview로 압축하고, 외부 provider prompt에는 요청 단위 인덱스와 packed preview만 전달하며, `ragReferences`는 citation용 allowlist field만 기본 반환한다. packed content와 diagnostics는 opt-in debug 조건에서만 노출한다.
 - 이슈 #444 대응으로 `studio-platform-objecttype` 구현 패키지를 `domain/application/infrastructure/web` 구조로 재정리했다. 이 변경은 의도적인 breaking rename이며 기존 `studio.one.platform.objecttype.service`, `db`, `cache`, `yaml`, `web.dto` 패키지 wrapper를 제공하지 않는다. 직접 import하는 소비자는 `application.usecase`, `application.command`, `application.result`, `domain.port`, `infrastructure.persistence`, `infrastructure.cache`, `infrastructure.yaml`, `web.dto.request`, `web.dto.response` 기준으로 import를 갱신해야 한다. REST endpoint, JSON DTO shape, DB schema, MyBatis SQL 동작은 변경하지 않았다.
 - 이슈 #441 대응으로 custom SqlQuery/sqlset mapper 런타임과 starter 자동구성을 제거하고 SQL mapper 표준을 MyBatis convention으로 전환했다. `JdbcAutoConfiguration`은 `JdbcTemplate`/`NamedParameterJdbcTemplate`만 등록하며, mapper XML은 `starter:studio-platform-starter-mybatis`의 `classpath*:mybatis/**/*.xml` 경로를 사용한다.
 - 이슈 #438 대응으로 관리용 회원 목록 API `GET /api/mgmt/users`에 `companyId` 필터를 추가했다. `companyId`와 `q`를 함께 사용하면 Company 멤버 범위 안에서 `username`/`name`/`email` 검색을 수행하며, platform admin이 아닌 호출자는 대상 Company의 `company.member.read` 권한이 필요하고 pagination/sort는 기존 사용자 목록과 동일하게 적용된다. JDBC pagination 정렬은 allowlist에 없는 sort 필드를 SQL에 반영하지 않고 기본 정렬로 대체하도록 보강했다.

@@ -29,6 +29,7 @@ public class RagContextBuilder {
     static final String KEY_CHUNK_ID = "chunkId";
     private static final String KEY_DOCUMENT_ID = "documentId";
     private static final String TRUNCATION_MARKER = "\n...[truncated]...\n";
+    private static final int MIN_FITTED_CONTENT_CHARS = 16;
 
     private final int maxChunks;
     private final int maxChars;
@@ -131,11 +132,13 @@ public class RagContextBuilder {
         for (int i = 0; i < count; i++) {
             RagSearchResult original = results.get(i);
             ExpansionAttempt attempt = expandResultWithDiagnostics(original, expansionCandidates);
-            PackedChunk chunk = packChunk(i + 1, attempt.result());
+            int promptIndex = usedResults.size() + 1;
+            PackedChunk chunk = packChunk(promptIndex, attempt.result());
             if (!appendWithinLimit(sb, chunk.text())) {
                 contextLimitHit = true;
                 if (!attempt.expanded()) {
-                    Optional<PackedChunk> fitted = packChunkToRemainingBudget(i + 1, original, maxChars - sb.length());
+                    Optional<PackedChunk> fitted = packChunkToRemainingBudget(
+                            promptIndex, original, maxChars - sb.length());
                     if (fitted.isPresent() && appendWithinLimit(sb, fitted.get().text())) {
                         usedResults.add(fitted.get().result());
                         if (fitted.get().compressed()) {
@@ -148,9 +151,10 @@ public class RagContextBuilder {
                     fallbackReason = "context_limit";
                     continue;
                 }
-                PackedChunk fallbackChunk = packChunk(i + 1, original);
+                PackedChunk fallbackChunk = packChunk(promptIndex, original);
                 if (!appendWithinLimit(sb, fallbackChunk.text())) {
-                    Optional<PackedChunk> fitted = packChunkToRemainingBudget(i + 1, original, maxChars - sb.length());
+                    Optional<PackedChunk> fitted = packChunkToRemainingBudget(
+                            promptIndex, original, maxChars - sb.length());
                     if (fitted.isEmpty() || !appendWithinLimit(sb, fitted.get().text())) {
                         skippedHitCount++;
                         fallbackReason = "context_limit";
@@ -239,7 +243,7 @@ public class RagContextBuilder {
                 new RagSearchResult(result.documentId(), "", result.metadata(), result.score()), false)
                 .length();
         int contentBudget = remainingChars - overhead;
-        if (contentBudget <= 0) {
+        if (contentBudget < MIN_FITTED_CONTENT_CHARS) {
             return Optional.empty();
         }
         String packedContent = excerpt(result.content(), Math.min(maxChunkChars, contentBudget));
@@ -261,26 +265,9 @@ public class RagContextBuilder {
 
     private String formatChunk(int index, RagSearchResult result, boolean includeMetadata) {
         StringBuilder sb = new StringBuilder();
-        sb.append("[").append(index).append("] docId=").append(result.documentId());
-        if (includeMetadata) {
-            Map<String, Object> metadata = result.metadata();
-            appendHeaderField(sb, "chunkId", firstText(metadata, KEY_CHUNK_ID));
-            appendHeaderField(sb, "objectType", text(metadata.get(ChunkMetadata.KEY_OBJECT_TYPE)));
-            appendHeaderField(sb, "objectId", text(metadata.get(ChunkMetadata.KEY_OBJECT_ID)));
-            appendHeaderField(sb, "section",
-                    firstText(metadata, ChunkMetadata.KEY_SECTION, ChunkMetadata.KEY_HEADING_PATH));
-        }
-        if (includeScores) {
-            sb.append(" score=").append(String.format("%.3f", result.score()));
-        }
+        sb.append("[").append(index).append("]");
         sb.append("\n").append(result.content()).append("\n\n");
         return sb.toString();
-    }
-
-    private void appendHeaderField(StringBuilder sb, String key, String value) {
-        if (hasText(value)) {
-            sb.append(" ").append(key).append("=").append(value);
-        }
     }
 
     private String excerpt(String content, int limit) {

@@ -642,12 +642,9 @@ class ChatControllerTest {
                 .containsEntry("chunkId", "chunk-1")
                 .containsEntry("chunkOrder", 7)
                 .containsEntry("score", 0.9d)
-                .containsEntry("content", "file text")
                 .containsEntry("page", 3)
-                .containsEntry("pageNumber", 3)
-                .containsEntry("sourceRef", "page[3]");
-        assertThat((Map<String, Object>) references.get(0).get("metadata"))
-                .containsEntry("sourceName", "sample.pdf");
+                .containsEntry("pageNumber", 3);
+        assertThat(references.get(0)).doesNotContainKeys("content", "metadata", "sourceRef");
     }
 
     @Test
@@ -747,9 +744,7 @@ class ChatControllerTest {
         verify(ragPipelineService).listByObject("attachment", "123", 12);
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .contains("previous\nseed\nnext")
-                .contains("docId=chunk-2")
-                .contains("score=0.900");
+                .contains("previous\nseed\nnext");
     }
 
     @Test
@@ -954,8 +949,8 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         String context = chatCaptor.getValue().messages().get(0).content();
-        assertThat(context).contains("doc-1", "doc-2");
-        assertThat(context).doesNotContain("doc-3");
+        assertThat(context).contains("first", "second");
+        assertThat(context).doesNotContain("third");
     }
 
     @Test
@@ -987,7 +982,6 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .contains("docId=doc-1")
                 .contains("[truncated]")
                 .doesNotContain("0123456789".repeat(20));
     }
@@ -1037,12 +1031,9 @@ class ChatControllerTest {
         verify(defaultChatPort).chat(chatCaptor.capture());
         String promptContext = chatCaptor.getValue().messages().get(0).content();
         assertThat(promptContext)
-                .contains("docId=doc-1")
-                .contains("chunkId=chunk-1")
-                .contains("objectType=attachment")
-                .contains("objectId=123")
                 .contains("[truncated]")
-                .doesNotContain(rawContent);
+                .doesNotContain(rawContent)
+                .doesNotContain("doc-1", "chunk-1", "attachment", "123", "score=");
 
         List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
         assertThat(references).hasSize(1);
@@ -1090,7 +1081,6 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .contains("docId=doc-1")
                 .doesNotContain("score=");
     }
 

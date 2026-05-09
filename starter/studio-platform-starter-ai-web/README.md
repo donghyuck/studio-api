@@ -541,13 +541,14 @@ RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않
 `ChunkContextExpander`가 없거나 `objectType`/`objectId` 또는 `chunkId` metadata가 부족하면 기존처럼
 retrieval hit content만 사용한다. 확장 후에도 아래 `max-chunks`, `max-chars`, `include-scores`
 설정은 그대로 적용된다.
-LLM에 전달되는 context에는 `documentId`, `chunkId`, `objectType`, `objectId`, `section`, score와 packed preview만
-포함하며, 원문 전체나 로컬 파일 링크는 공유하지 않는다.
+LLM에 전달되는 context에는 요청 단위 인덱스와 packed preview만 포함하며, `documentId`, `chunkId`,
+`objectType`, `objectId`, 로컬 파일 링크, vector 원본 metadata는 외부 provider prompt에 공유하지 않는다.
 
 RAG Chat 응답은 실제 답변 생성 프롬프트에 포함된 근거를 `metadata.ragReferences` 배열로 반환한다.
 순서는 system context의 `[1]`, `[2]` 순서와 같으며, context expansion 또는 fallback이 적용된 경우에도
-최종 프롬프트에 들어간 packed content를 기준으로 한다. 클라이언트는 별도 management search를 다시 호출하지 않고
-이 값으로 출처 UI를 구성할 수 있다.
+최종 프롬프트 순서를 따른다. 일반 응답의 reference는 citation 표시용 allowlist field만 포함하며,
+packed content는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때만 포함한다.
+클라이언트는 별도 management search를 다시 호출하지 않고 이 값으로 출처 UI를 구성할 수 있다.
 
 ```json
 {
@@ -560,14 +561,8 @@ RAG Chat 응답은 실제 답변 생성 프롬프트에 포함된 근거를 `met
         "chunkId": "chunk-1",
         "chunkOrder": 0,
         "score": 0.91,
-        "content": "프롬프트에 포함된 근거 본문",
         "page": 3,
-        "pageNumber": 3,
-        "sourceRef": "page[3]",
-        "metadata": {
-          "objectType": "attachment",
-          "objectId": "3"
-        }
+        "pageNumber": 3
       }
     ]
   }
@@ -575,8 +570,8 @@ RAG Chat 응답은 실제 답변 생성 프롬프트에 포함된 근거를 `met
 ```
 
 `sourceName`은 `sourceName`, `title`, `filename`, `fileName`, `name` metadata 순서로 선택한다.
-위치 정보는 metadata에 있으면 `page`/`pageNumber`, `slide`/`slideNumber`, `sourceRef`,
-`section`, `heading`으로 함께 내려간다.
+위치 정보는 metadata에 있으면 `page`/`pageNumber`, `slide`/`slideNumber`, `section`, `heading`으로 함께 내려간다.
+raw metadata map과 `sourceRef`는 응답하지 않는다.
 
 ```yaml
 studio:
