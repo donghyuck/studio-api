@@ -188,7 +188,7 @@ application modules
 ### Application modules
 | 모듈 | 내부 프로젝트 의존성 |
 |---|---|
-| `:studio-application-modules:attachment-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-objecttype`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `api :studio-platform-storage`, `api :studio-platform-thumbnail` |
+| `:studio-application-modules:attachment-service` | `compileOnly :studio-platform`, `api :studio-platform-objecttype`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `api :studio-platform-storage`, `api :studio-platform-thumbnail` |
 | `:studio-application-modules:avatar-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-identity` |
 | `:studio-application-modules:content-embedding-pipeline` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `compileOnly :studio-platform-chunking`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-security`, `compileOnly :studio-platform-ai`, `compileOnly :starter:studio-platform-starter-chunking`, `compileOnly :studio-application-modules:attachment-service` |
 | `:studio-application-modules:mail-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-data` |
