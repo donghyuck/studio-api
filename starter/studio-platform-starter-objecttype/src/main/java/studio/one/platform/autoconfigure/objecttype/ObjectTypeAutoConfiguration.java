@@ -315,8 +315,8 @@ public class ObjectTypeAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate, DataSource dataSource) {
-            assertSupportedDatabase(sqlSessionTemplate, dataSource);
+        public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate) {
+            assertSupportedDatabase(sqlSessionTemplate);
             assertMappedStatement(sqlSessionTemplate, "selectByType");
             assertMappedStatement(sqlSessionTemplate, "selectByCode");
             assertMappedStatement(sqlSessionTemplate, "search");
@@ -329,7 +329,11 @@ public class ObjectTypeAutoConfiguration {
             return sqlSessionTemplate.getMapper(ObjectTypeMapper.class);
         }
 
-        private void assertSupportedDatabase(SqlSessionTemplate sqlSessionTemplate, DataSource dataSource) {
+        private void assertSupportedDatabase(SqlSessionTemplate sqlSessionTemplate) {
+            DataSource dataSource = sqlSessionTemplate.getSqlSessionFactory()
+                    .getConfiguration()
+                    .getEnvironment()
+                    .getDataSource();
             String productName = JdbcDatabaseSupport.databaseProductName(dataSource, "ObjectType MyBatis persistence");
             String databaseId = sqlSessionTemplate.getConfiguration().getDatabaseId();
             String normalizedProduct = productName == null ? "" : productName.toLowerCase(Locale.ROOT);

@@ -2,7 +2,9 @@ package studio.one.platform.mybatis.autoconfigure;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.ibatis.mapping.DatabaseIdProvider;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -56,11 +58,9 @@ public class StudioMyBatisAutoConfiguration {
             Environment environment,
             ResourceLoader resourceLoader) {
         return factory -> {
-            if (!hasProperty(environment, "mybatis.mapper-locations")) {
-                Resource[] mapperLocations = resolveMapperLocations(properties, resourceLoader);
-                if (mapperLocations.length > 0) {
-                    factory.setMapperLocations(mapperLocations);
-                }
+            Resource[] mapperLocations = resolveMapperLocations(properties, environment, resourceLoader);
+            if (mapperLocations.length > 0) {
+                factory.setMapperLocations(mapperLocations);
             }
             if (!hasProperty(environment, "mybatis.type-aliases-package")
                     && StringUtils.hasText(properties.getTypeAliasesPackage())) {
@@ -73,25 +73,55 @@ public class StudioMyBatisAutoConfiguration {
         };
     }
 
-    private static Resource[] resolveMapperLocations(StudioMyBatisProperties properties, ResourceLoader resourceLoader) {
+    private static Resource[] resolveMapperLocations(StudioMyBatisProperties properties, Environment environment,
+            ResourceLoader resourceLoader) {
         ResourcePatternResolver resolver = ResourcePatternResolver.class.isInstance(resourceLoader)
                 ? ResourcePatternResolver.class.cast(resourceLoader)
                 : new PathMatchingResourcePatternResolver(resourceLoader);
-        List<Resource> resources = new ArrayList<>();
+        Map<String, Resource> resources = new LinkedHashMap<>();
+        List<String> standardMapperLocations = standardMapperLocations(environment);
+        for (String location : standardMapperLocations) {
+            addResources(resolver, resources, location);
+        }
         List<String> mapperLocations = properties.getMapperLocations() == null ? List.of() : properties.getMapperLocations();
         for (String location : mapperLocations) {
-            if (!StringUtils.hasText(location)) {
-                continue;
-            }
-            try {
-                for (Resource resource : resolver.getResources(location)) {
-                    resources.add(resource);
-                }
-            } catch (IOException ex) {
-                throw new IllegalStateException("Failed to resolve MyBatis mapper location: " + location, ex);
-            }
+            addResources(resolver, resources, location);
         }
-        return resources.toArray(Resource[]::new);
+        return resources.values().toArray(Resource[]::new);
+    }
+
+    private static List<String> standardMapperLocations(Environment environment) {
+        Binder binder = Binder.get(environment);
+        List<String> locations = new ArrayList<>();
+        binder.bind("mybatis.mapper-locations", Bindable.listOf(String.class)).ifBound(locations::addAll);
+        binder.bind("mybatis.mapper-locations", String.class)
+                .ifBound(value -> {
+                    if (StringUtils.hasText(value)) {
+                        locations.addAll(StringUtils.commaDelimitedListToSet(value));
+                    }
+                });
+        return locations;
+    }
+
+    private static void addResources(ResourcePatternResolver resolver, Map<String, Resource> resources, String location) {
+        if (!StringUtils.hasText(location)) {
+            return;
+        }
+        try {
+            for (Resource resource : resolver.getResources(location)) {
+                resources.putIfAbsent(resourceKey(resource), resource);
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to resolve MyBatis mapper location: " + location, ex);
+        }
+    }
+
+    private static String resourceKey(Resource resource) throws IOException {
+        try {
+            return resource.getURL().toExternalForm();
+        } catch (IOException ex) {
+            return resource.getDescription();
+        }
     }
 
     private static boolean hasProperty(Environment environment, String name) {

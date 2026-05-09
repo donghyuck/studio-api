@@ -17,6 +17,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     val freemarkerVersion: String = project.findProperty("freemarkerVersion") as String? ?: "2.3.34"
     implementation(project(":studio-platform-autoconfigure"))
+    implementation(project(":studio-platform-data"))
     implementation("org.springframework:spring-jdbc")
     compileOnly(project(":starter:studio-platform-starter"))
     api(project(":studio-application-modules:template-service"))

@@ -46,7 +46,7 @@ studio:
 
 템플릿 스타터는 현재 `jpa`와 `jdbc` 구현만 제공한다. 애플리케이션 전역 기본값을
 `studio.persistence.type=mybatis`로 두는 mixed persistence 앱에서는 template의 MyBatis 전용
-저장소가 없으므로 직접 JDBC 호환 경로를 사용한다. 이 스타터는 `spring-jdbc`를 포함하지만,
+저장소가 없으므로 직접 JDBC 호환 경로를 사용한다. 이 스타터는 `spring-jdbc`와 `studio-platform-data`를 포함하지만,
 애플리케이션은 JDBC 경로에서 사용할 `DataSource`를 제공해야 한다. 직접 JDBC 경로는 PostgreSQL 전용 SQL을
 사용하므로 PostgreSQL이 아닌 DB에서는 기동 시 fail-fast 된다. JPA를 사용하려면
 `studio.features.template.persistence=jpa`를 명시한다.

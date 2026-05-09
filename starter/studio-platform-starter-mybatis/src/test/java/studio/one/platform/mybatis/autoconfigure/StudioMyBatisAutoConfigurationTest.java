@@ -13,6 +13,7 @@ import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAut
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import studio.one.platform.mybatis.autoconfigure.fixture.ExtraMapper;
 import studio.one.platform.mybatis.autoconfigure.fixture.TestMapper;
 import studio.one.platform.data.mybatis.StudioMyBatisProperties;
 
@@ -51,12 +52,13 @@ class StudioMyBatisAutoConfigurationTest {
     }
 
     @Test
-    void keepsStandardMyBatisMapperLocationsHigherPriority() {
+    void mergesStandardMyBatisMapperLocationsWithStudioConvention() {
         contextRunner
-                .withPropertyValues("mybatis.mapper-locations=classpath*:standard-mybatis/**/*.xml")
+                .withPropertyValues("mybatis.mapper-locations=classpath*:standard-extra-mybatis/**/*.xml")
                 .run(context -> {
                     assertThat(context).hasNotFailed();
-                    assertThat(context.getBean(TestMapper.class).selectOne()).isEqualTo(3);
+                    assertThat(context.getBean(TestMapper.class).selectOne()).isEqualTo(1);
+                    assertThat(context.getBean(ExtraMapper.class).selectExtra()).isEqualTo(4);
                 });
     }
 

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.SqlSessionTemplate;
+import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackage;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -13,6 +14,7 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import studio.one.platform.mybatis.autoconfigure.StudioMyBatisAutoConfiguration;
@@ -154,7 +156,7 @@ class ObjectTypeMyBatisAutoConfigurationTest {
     @Test
     void failsFastWhenObjectTypeMapperXmlIsMissing() {
         contextRunner
-                .withPropertyValues("mybatis.mapper-locations=classpath*:missing-objecttype-mapper/**/*.xml")
+                .withPropertyValues("studio.mybatis.mapper-locations=classpath*:missing-objecttype-mapper/**/*.xml")
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
@@ -198,6 +200,21 @@ class ObjectTypeMyBatisAutoConfigurationTest {
                             .hasMessageContaining("MySQL")
                             .hasMessageContaining("foo")
                             .hasMessageContaining("Expected MyBatis databaseId 'mysql'");
+                });
+    }
+
+    @Test
+    void validatesDatabaseIdAgainstMyBatisDataSource() {
+        contextRunner
+                .withPropertyValues("studio.mybatis.database-id-aliases.MySQL=foo")
+                .withBean(javax.sql.DataSource.class, () -> dataSourceWithProductName("PostgreSQL"))
+                .withUserConfiguration(MySqlSqlSessionTemplateConfig.class)
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("database product and MyBatis databaseId are incompatible")
+                            .hasMessageContaining("MySQL")
+                            .hasMessageContaining("foo");
                 });
     }
 
@@ -286,6 +303,24 @@ class ObjectTypeMyBatisAutoConfigurationTest {
 
         @Bean("customSqlSessionTemplate")
         SqlSessionTemplate customSqlSessionTemplate(SqlSessionFactory sqlSessionFactory) {
+            return new SqlSessionTemplate(sqlSessionFactory);
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class MySqlSqlSessionTemplateConfig {
+
+        @Bean
+        SqlSessionFactory sqlSessionFactory(ResourceLoader resourceLoader) throws Exception {
+            SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
+            factoryBean.setDataSource(new ObjectTypeMyBatisAutoConfigurationTest().dataSourceWithProductName("MySQL"));
+            factoryBean.setDatabaseIdProvider(dataSource -> "foo");
+            factoryBean.setMapperLocations(resourceLoader.getResource("classpath:mybatis/objecttype/ObjectTypeMapper.xml"));
+            return factoryBean.getObject();
+        }
+
+        @Bean
+        SqlSessionTemplate sqlSessionTemplate(SqlSessionFactory sqlSessionFactory) {
             return new SqlSessionTemplate(sqlSessionFactory);
         }
     }
