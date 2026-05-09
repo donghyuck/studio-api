@@ -45,6 +45,17 @@ class SecurityPersistenceConditionTest {
                 });
     }
 
+    @Test
+    void invalidSecurityPersistenceFailsFast() {
+        contextRunner
+                .withPropertyValues("studio.security.jwt.persistence=mybtais")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasStackTraceContaining("studio.security.jwt.persistence")
+                        .hasStackTraceContaining("jpa, mybatis, jdbc"));
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class SecurityPersistenceConfig {
 

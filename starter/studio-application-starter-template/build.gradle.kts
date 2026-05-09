@@ -25,6 +25,13 @@ dependencies {
     compileOnly("org.freemarker:freemarker:$freemarkerVersion")
 
     testImplementation(project(":studio-platform-autoconfigure"))
+    testImplementation(project(":studio-platform-data"))
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.springframework.boot:spring-boot-starter-freemarker")
+    testImplementation("org.springframework:spring-webmvc")
+    testImplementation("org.springframework:spring-jdbc")
+    testImplementation("org.springframework:spring-test")
+    testImplementation("jakarta.servlet:jakarta.servlet-api")
     testImplementation("org.springframework.boot:spring-boot-starter-validation")
 }

@@ -2,7 +2,9 @@ package studio.one.platform.user.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Proxy;
+import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -61,6 +63,20 @@ class UserServicesAutoConfigurationTest {
                     assertThat(context).hasSingleBean(ApplicationCompanyPermissionService.class);
                     assertThat(context).hasSingleBean(ApplicationCompanyJoinRequestService.class);
                 });
+    }
+
+    @Test
+    void autoConfigurationImportsIncludeUserServices() throws Exception {
+        String imports = new String(
+                Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(
+                        "META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports"))
+                        .readAllBytes(),
+                StandardCharsets.UTF_8);
+
+        assertThat(imports)
+                .contains("studio.one.platform.user.autoconfigure.UserEntityAutoConfiguration")
+                .contains("studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration")
+                .contains("studio.one.platform.user.autoconfigure.UserEndpointsAutoConfiguration");
     }
 
     @Test

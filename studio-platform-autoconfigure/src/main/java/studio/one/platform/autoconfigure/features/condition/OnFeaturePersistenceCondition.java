@@ -36,11 +36,12 @@ class OnFeaturePersistenceCondition extends SpringBootCondition {
     }
 
     private Type resolve(Environment env, String feature, boolean mybatisAsJdbc) {
-        Type configured = parse(env.getProperty(featurePropertyKey(feature)));
+        String featureKey = featurePropertyKey(feature);
+        Type configured = parse(env.getProperty(featureKey), featureKey);
         if (configured != null) {
             return normalize(configured, mybatisAsJdbc);
         }
-        Type global = parse(env.getProperty(PropertyKeys.Persistence.TYPE));
+        Type global = parse(env.getProperty(PropertyKeys.Persistence.TYPE), PropertyKeys.Persistence.TYPE);
         return global != null ? normalize(global, mybatisAsJdbc) : Type.jpa;
     }
 
@@ -55,14 +56,15 @@ class OnFeaturePersistenceCondition extends SpringBootCondition {
         return PropertyKeys.Features.PREFIX + "." + feature + ".persistence";
     }
 
-    private Type parse(String raw) {
+    private Type parse(String raw, String propertyName) {
         if (!StringUtils.hasText(raw)) {
             return null;
         }
         try {
             return Type.valueOf(raw.trim().toLowerCase());
-        } catch (IllegalArgumentException ignored) {
-            return null;
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported persistence type '" + raw + "' for "
+                    + propertyName + ". Supported values are: jpa, mybatis, jdbc.", ex);
         }
     }
 }

@@ -27,11 +27,13 @@ class OnJwtPersistenceCondition extends SpringBootCondition {
     }
 
     private Type resolveType(Environment env) {
-        Type configured = parse(env.getProperty(PropertyKeys.Security.Jwt.PREFIX + ".persistence"));
+        String featureKey = PropertyKeys.Security.Jwt.PREFIX + ".persistence";
+        Type configured = parse(env.getProperty(featureKey), featureKey);
         if (configured != null) {
             return normalize(configured);
         }
-        Type global = parse(env.getProperty(PropertyKeys.Persistence.PREFIX + ".type"));
+        Type global = parse(env.getProperty(PropertyKeys.Persistence.PREFIX + ".type"),
+                PropertyKeys.Persistence.PREFIX + ".type");
         return global != null ? normalize(global) : Type.jpa;
     }
 
@@ -39,14 +41,15 @@ class OnJwtPersistenceCondition extends SpringBootCondition {
         return type == Type.mybatis ? Type.jdbc : type;
     }
 
-    private Type parse(String raw) {
+    private Type parse(String raw, String propertyName) {
         if (!StringUtils.hasText(raw)) {
             return null;
         }
         try {
             return Type.valueOf(raw.trim().toLowerCase());
-        } catch (IllegalArgumentException ignored) {
-            return null;
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported persistence type '" + raw + "' for "
+                    + propertyName + ". Supported values are: jpa, mybatis, jdbc.", ex);
         }
     }
 }

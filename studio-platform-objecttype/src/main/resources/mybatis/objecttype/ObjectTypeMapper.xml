@@ -126,6 +126,48 @@
     )
   </insert>
 
+  <insert id="upsertType" databaseId="mysql" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+    INSERT INTO tb_application_object_type (
+      OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{code}, #{name}, #{domain}, #{status}, #{description},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+    ON DUPLICATE KEY UPDATE
+      CODE = VALUES(CODE),
+      NAME = VALUES(NAME),
+      DOMAIN = VALUES(DOMAIN),
+      STATUS = VALUES(STATUS),
+      DESCRIPTION = VALUES(DESCRIPTION),
+      UPDATED_BY = VALUES(UPDATED_BY),
+      UPDATED_BY_ID = VALUES(UPDATED_BY_ID),
+      UPDATED_AT = VALUES(UPDATED_AT)
+  </insert>
+
+  <insert id="upsertType" databaseId="mariadb" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+    INSERT INTO tb_application_object_type (
+      OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{code}, #{name}, #{domain}, #{status}, #{description},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+    ON DUPLICATE KEY UPDATE
+      CODE = VALUES(CODE),
+      NAME = VALUES(NAME),
+      DOMAIN = VALUES(DOMAIN),
+      STATUS = VALUES(STATUS),
+      DESCRIPTION = VALUES(DESCRIPTION),
+      UPDATED_BY = VALUES(UPDATED_BY),
+      UPDATED_BY_ID = VALUES(UPDATED_BY_ID),
+      UPDATED_AT = VALUES(UPDATED_AT)
+  </insert>
+
   <update id="patchType">
     UPDATE tb_application_object_type
     <set>
@@ -198,6 +240,46 @@
       #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
       #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
     )
+  </insert>
+
+  <insert id="upsertPolicy" databaseId="mysql" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+    INSERT INTO tb_application_object_type_policy (
+      OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{maxFileMb}, #{allowedExt}, #{allowedMime}, #{policyJson},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+    ON DUPLICATE KEY UPDATE
+      MAX_FILE_MB = VALUES(MAX_FILE_MB),
+      ALLOWED_EXT = VALUES(ALLOWED_EXT),
+      ALLOWED_MIME = VALUES(ALLOWED_MIME),
+      POLICY_JSON = VALUES(POLICY_JSON),
+      UPDATED_BY = VALUES(UPDATED_BY),
+      UPDATED_BY_ID = VALUES(UPDATED_BY_ID),
+      UPDATED_AT = VALUES(UPDATED_AT)
+  </insert>
+
+  <insert id="upsertPolicy" databaseId="mariadb" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+    INSERT INTO tb_application_object_type_policy (
+      OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
+      CREATED_BY, CREATED_BY_ID, CREATED_AT,
+      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+    ) VALUES (
+      #{objectType}, #{maxFileMb}, #{allowedExt}, #{allowedMime}, #{policyJson},
+      #{createdBy}, #{createdById}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedById}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+    ON DUPLICATE KEY UPDATE
+      MAX_FILE_MB = VALUES(MAX_FILE_MB),
+      ALLOWED_EXT = VALUES(ALLOWED_EXT),
+      ALLOWED_MIME = VALUES(ALLOWED_MIME),
+      POLICY_JSON = VALUES(POLICY_JSON),
+      UPDATED_BY = VALUES(UPDATED_BY),
+      UPDATED_BY_ID = VALUES(UPDATED_BY_ID),
+      UPDATED_AT = VALUES(UPDATED_AT)
   </insert>
 
   <delete id="delete">

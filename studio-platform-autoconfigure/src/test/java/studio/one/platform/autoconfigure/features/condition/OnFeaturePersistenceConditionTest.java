@@ -40,6 +40,17 @@ class OnFeaturePersistenceConditionTest {
                 .run(context -> assertThat(context).hasBean("legacyJdbc"));
     }
 
+    @Test
+    void invalidFeaturePersistenceFailsFast() {
+        contextRunner
+                .withPropertyValues("studio.features.legacy.persistence=mybtais")
+                .run(context -> assertThat(context)
+                        .hasFailed()
+                        .getFailure()
+                        .hasStackTraceContaining("studio.features.legacy.persistence")
+                        .hasStackTraceContaining("jpa, mybatis, jdbc"));
+    }
+
     @Configuration(proxyBeanMethods = false)
     static class TestConfig {
 
