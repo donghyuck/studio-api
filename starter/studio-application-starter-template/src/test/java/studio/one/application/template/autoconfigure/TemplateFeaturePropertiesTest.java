@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Proxy;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.application.template.persistence.TemplatePersistenceRepository;
@@ -47,7 +50,7 @@ class TemplateFeaturePropertiesTest {
 
         TemplatesServiceImpl service = configuration.templatesService(template, persistence,
                 provider(new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class))),
-                provider(new TemplateJdbcRepository(jdbcTemplate())),
+                provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
                 new FreemarkerTemplateBuilder(null, null));
 
         assertThat(ReflectionTestUtils.getField(service, "templateRepository"))
@@ -64,11 +67,22 @@ class TemplateFeaturePropertiesTest {
 
         TemplatesServiceImpl service = configuration.templatesService(template, persistence,
                 provider(jpa),
-                provider(new TemplateJdbcRepository(jdbcTemplate())),
+                provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
                 new FreemarkerTemplateBuilder(null, null));
 
         assertThat((TemplatePersistenceRepository) ReflectionTestUtils.getField(service, "templateRepository"))
                 .isSameAs(jpa);
+    }
+
+    @Test
+    void jdbcRepositoryFailsFastForUnsupportedDatabase() {
+        TemplateAutoConfiguration configuration = new TemplateAutoConfiguration();
+
+        assertThat(org.assertj.core.api.Assertions.catchThrowable(
+                () -> configuration.templateJdbcRepository(jdbcTemplate("MySQL"))))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("template")
+                .hasMessageContaining("PostgreSQL only");
     }
 
     @SuppressWarnings("unchecked")
@@ -114,8 +128,49 @@ class TemplateFeaturePropertiesTest {
         };
     }
 
-    private static NamedParameterJdbcTemplate jdbcTemplate() {
-        return new NamedParameterJdbcTemplate(
-                new JdbcTemplate(new DriverManagerDataSource("jdbc:unused", "sa", "")));
+    private static NamedParameterJdbcTemplate jdbcTemplate(String productName) {
+        return new NamedParameterJdbcTemplate(new JdbcTemplate(dataSource(productName)));
+    }
+
+    private static DataSource dataSource(String productName) {
+        return (DataSource) Proxy.newProxyInstance(
+                DataSource.class.getClassLoader(),
+                new Class<?>[] { DataSource.class },
+                (proxy, method, args) -> {
+                    if ("getConnection".equals(method.getName())) {
+                        return connection(productName);
+                    }
+                    if ("toString".equals(method.getName())) {
+                        return "DataSourceStub";
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    private static Connection connection(String productName) {
+        return (Connection) Proxy.newProxyInstance(
+                Connection.class.getClassLoader(),
+                new Class<?>[] { Connection.class },
+                (proxy, method, args) -> {
+                    if ("getMetaData".equals(method.getName())) {
+                        return databaseMetaData(productName);
+                    }
+                    if ("close".equals(method.getName())) {
+                        return null;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    private static DatabaseMetaData databaseMetaData(String productName) {
+        return (DatabaseMetaData) Proxy.newProxyInstance(
+                DatabaseMetaData.class.getClassLoader(),
+                new Class<?>[] { DatabaseMetaData.class },
+                (proxy, method, args) -> {
+                    if ("getDatabaseProductName".equals(method.getName())) {
+                        return productName;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
     }
 }

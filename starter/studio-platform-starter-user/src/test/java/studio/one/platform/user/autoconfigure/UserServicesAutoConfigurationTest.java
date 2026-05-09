@@ -24,6 +24,8 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.web.controller.CompanyJoinRequestMgmtApi;
 import studio.one.base.user.web.controller.CompanyMgmtController;
 import studio.one.base.user.web.controller.CompanyJoinRequestMgmtController;
@@ -117,6 +119,35 @@ class UserServicesAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(ApplicationCompanyPermissionService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyJoinRequestService.class);
                 });
+    }
+
+    @Test
+    void doesNotRegisterDefaultHelperBeansWhenDefaultUserImplementationDisabled() {
+        contextRunner
+                .withPropertyValues("studio.features.user.use-default=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(UserMutator.class);
+                    assertThat(context).doesNotHaveBean(PasswordPolicyService.class);
+                });
+    }
+
+    @Test
+    void passwordPolicyValidatorBacksOffForCustomPasswordPolicyService() {
+        PasswordPolicyService customPolicy = new PasswordPolicyService() {
+            @Override
+            public studio.one.base.user.web.dto.PasswordPolicyDto getPolicy() {
+                return studio.one.base.user.web.dto.PasswordPolicyDto.builder().build();
+            }
+
+            @Override
+            public void validate(String password) {
+            }
+        };
+
+        contextRunner
+                .withBean(PasswordPolicyService.class, () -> customPolicy)
+                .run(context -> assertThat(context.getBeansOfType(PasswordPolicyService.class))
+                        .containsOnlyKeys("passwordPolicyService"));
     }
 
     @Test

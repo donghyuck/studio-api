@@ -21,14 +21,11 @@
 
 package studio.one.platform.security.autoconfigure;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Locale;
-
 import javax.sql.DataSource;
 
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
-import org.springframework.jdbc.datasource.DataSourceUtils;
+
+import studio.one.platform.autoconfigure.jdbc.JdbcDatabaseSupport;
 
 final class SecurityJdbcDatabaseSupport {
 
@@ -36,36 +33,10 @@ final class SecurityJdbcDatabaseSupport {
     }
 
     static void requirePostgreSQL(NamedParameterJdbcTemplate template, String featureName) {
-        DataSource dataSource = template.getJdbcTemplate().getDataSource();
-        if (dataSource == null) {
-            throw new IllegalStateException(
-                    "Security JDBC persistence for " + featureName + " requires a DataSource.");
-        }
-        requirePostgreSQL(dataSource, featureName, "Security JDBC persistence");
+        JdbcDatabaseSupport.requirePostgreSQL(template, "Security " + featureName);
     }
 
     static void requirePostgreSQL(DataSource dataSource, String featureName) {
-        requirePostgreSQL(dataSource, featureName, "Security persistence");
-    }
-
-    private static void requirePostgreSQL(DataSource dataSource, String featureName, String persistenceName) {
-        Connection connection = DataSourceUtils.getConnection(dataSource);
-        try {
-            String productName = connection.getMetaData().getDatabaseProductName();
-            if (!isPostgreSQL(productName)) {
-                throw new IllegalStateException(persistenceName + " for " + featureName
-                        + " supports PostgreSQL only. Detected database: " + productName
-                        + ". Provide a database-specific implementation before enabling this feature.");
-            }
-        } catch (SQLException ex) {
-            throw new IllegalStateException(
-                    "Failed to inspect database product for security JDBC persistence: " + featureName, ex);
-        } finally {
-            DataSourceUtils.releaseConnection(connection, dataSource);
-        }
-    }
-
-    private static boolean isPostgreSQL(String productName) {
-        return productName != null && productName.toLowerCase(Locale.ROOT).contains("postgresql");
+        JdbcDatabaseSupport.requirePostgreSQL(dataSource, "Security " + featureName);
     }
 }

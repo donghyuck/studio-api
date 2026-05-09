@@ -48,6 +48,7 @@ import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.service.impl.TemplatesServiceImpl;
 import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
+import studio.one.platform.autoconfigure.jdbc.JdbcDatabaseSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.template.autoconfigure.condition.ConditionalOnTemplatePersistence;
 
@@ -93,6 +94,7 @@ public class TemplateAutoConfiguration {
     @ConditionalOnMissingBean(TemplateJdbcRepository.class)
     @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jdbc)
     public TemplateJdbcRepository templateJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+        JdbcDatabaseSupport.requirePostgreSQL(jdbcTemplate, "template");
         return new TemplateJdbcRepository(jdbcTemplate);
     }
 

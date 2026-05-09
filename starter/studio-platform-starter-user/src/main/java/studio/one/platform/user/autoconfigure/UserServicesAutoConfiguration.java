@@ -93,6 +93,7 @@ public class UserServicesAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean(UserMutator.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public UserMutator<?> userMutator() {
                 return new ApplicationUserMutator();
         }
@@ -126,7 +127,8 @@ public class UserServicesAutoConfiguration {
         }
 
         @Bean
-        @ConditionalOnMissingBean
+        @ConditionalOnMissingBean(PasswordPolicyService.class)
+        @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public PasswordPolicyValidator passwordPolicyValidator(
                         ObjectProvider<studio.one.base.user.config.PasswordPolicyProperties> propertiesProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -175,6 +177,7 @@ public class UserServicesAutoConfiguration {
         @Bean(name = ApplicationCompanyService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationCompanyService.class)
         @ConditionalOnClass({ ApplicationCompanyRepository.class })
+        @ConditionalOnBean(ApplicationCompanyRepository.class)
         @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public ApplicationCompanyService applicationCompanyService(
                         ApplicationCompanyRepository companyRepo,
@@ -189,6 +192,7 @@ public class UserServicesAutoConfiguration {
         @Bean(name = ApplicationCompanyMemberService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationCompanyMemberService.class)
         @ConditionalOnClass({ ApplicationCompanyMemberRepository.class })
+        @ConditionalOnBean({ ApplicationCompanyRepository.class, ApplicationCompanyMemberRepository.class })
         @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public ApplicationCompanyMemberService applicationCompanyMemberService(
                         ApplicationCompanyRepository companyRepo,
