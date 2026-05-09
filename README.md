@@ -218,6 +218,10 @@ application modules
 | `:starter:studio-application-starter-template` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:template-service` |
 | `:starter:studio-application-starter-wiki` | `api :studio-platform-autoconfigure`, `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-application-modules:wiki-service` |
 
+`studio-platform-starter-objecttype`는 objectType 구현 모듈을 전이 노출하지만, 기반 계약과 data helper는
+`compileOnly`로 참조한다. 애플리케이션에서는 기존과 같이 `:starter:studio-platform-starter`를 함께 추가해
+`:studio-platform`, `:studio-platform-data`, 공통 autoconfigure 계약을 제공해야 한다.
+
 ## 사용 요약
 - 스타터를 통해 필요한 기능만 활성화한다.
 - 세부 웹/API 규칙은 `studio-platform/WEB_API_DEVELOPMENT_GUIDE.md`를 따른다.

@@ -157,12 +157,16 @@ studio:
 ## 6) 참고 사항
 - `studio-platform-objecttype` 모듈이 도메인 모델, 레지스트리, 정책 리졸버 구현을 제공하며,
   이 스타터는 해당 모듈을 `api` 의존성으로 전이 노출한다.
+- 이 스타터는 기반 계약인 `studio-platform`, `studio-platform-data`, autoconfigure 관련 타입을
+  `compileOnly`로 참조하므로 애플리케이션에는 `starter:studio-platform-starter`를 함께 추가해야 한다.
 - `studio-platform-objecttype` 구현 패키지는 `domain/application/infrastructure/web` 구조로 정리되었고,
   이전 `studio.one.platform.objecttype.service`, `db`, `cache`, `yaml`, `web.dto` 패키지 wrapper는
   제공하지 않는다. 직접 import하는 코드는 `application.usecase`, `application.command`,
   `application.result`, `domain.port`, `infrastructure.persistence`, `infrastructure.cache`,
   `infrastructure.yaml`, `web.dto.request`, `web.dto.response` 기준으로 갱신해야 한다.
   REST endpoint와 JSON 응답 shape는 변경되지 않았다.
+- MyBatis mapper XML을 복사하거나 커스터마이징한 경우 XML namespace와 row type FQCN도
+  `infrastructure.persistence.mybatis` 및 `infrastructure.persistence.model` 기준으로 갱신해야 한다.
 - YAML 모드에서는 애플리케이션 기동 시 YAML 파일을 읽어 메모리에 적재한다.
   파일이 없으면 기동에 실패하므로 리소스 경로를 정확히 설정해야 한다.
 - DB 모드에서 JPA를 사용할 경우 `ObjectTypeEntity` 엔터티 클래스를 포함한 JPA 스캔이
