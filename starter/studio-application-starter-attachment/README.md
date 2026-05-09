@@ -59,7 +59,7 @@ studio:
         self-base: /api/me/attachments
   attachment:
     storage:
-      type: filesystem            # filesystem | database
+      type: filesystem            # filesystem | database | objectstorage
       base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
       ensure-dirs: true           # 시작 시 디렉터리 자동 생성
       cache-enabled: false        # database 타입 사용 시 로컬 파일 캐시 on/off

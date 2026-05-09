@@ -1,5 +1,5 @@
 # Attachment Service
-첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 `studio.thumbnail.*`로 제어한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 유지된다.
+첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 `studio.thumbnail.*`로 제어한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`, `studio.features.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 유지된다.
 
 ## 구성 요소
 - **AttachmentService / AttachmentServiceImpl**: 생성, 조회, 목록/검색, 삭제, 스트림 로딩을 담당. ID 단위 캐시(`attachments.byId`) 사용.
@@ -26,7 +26,7 @@ studio:
         self-base: /api/me/attachments
   attachment:
     storage:
-      type: filesystem            # filesystem | database
+      type: filesystem            # filesystem | database | objectstorage
       base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
       ensure-dirs: true           # 시작 시 디렉터리 생성
       cache-enabled: false        # database 사용 시 로컬 캐시 on/off
@@ -66,6 +66,7 @@ studio:
 - `persistence`가 `jpa` 면 `AttachmentJpaRepository` + `JpaFileStore`(database 선택 시) 사용, `jdbc` 면 `JdbcAttachmentRepository` + `JdbcFileStore`.
 - `attachment.storage.type=filesystem` → `LocalFileStore`에 바이너리 저장.
 - `attachment.storage.type=database` → 선택한 persistence 저장소에 바이너리를 넣고, `cache-enabled=true` 시 `LocalFileStore`로 읽기 캐시.
+- `attachment.storage.type=objectstorage` → `ObjectStorageRegistry` 기반 object storage에 저장. objectstorage starter와 provider별 AWS/OCI starter가 필요하다.
 - `ThumbnailGenerationService`가 있으면 image 썸네일을 생성한다. PDF/PPTX/DOCX/HWP/HWPX 썸네일은 각 `studio.thumbnail.renderers.<format>.enabled=true`로 명시 opt-in 했을 때만 생성한다. PDF는 PDFBox, PPTX는 POI, DOCX/HWP/HWPX는 textract `FileContentExtractionService`가 필요하다. 저장된 썸네일이 없으면 `/thumbnail`은 `X-Thumbnail-Status: pending` 헤더와 함께 placeholder 이미지를 즉시 반환하고, starter가 등록한 `attachmentThumbnailExecutor`에서 실제 생성을 수행한 뒤 저장한다. 직접 `ThumbnailServiceImpl`를 생성하는 테스트/커스텀 구성에서 요청 스레드 생성을 피하려면 executor를 받는 생성자를 사용한다. 지원 renderer가 없거나 변환할 수 없는 문서는 bounded TTL 실패 상태를 memoize하고 이후 `X-Thumbnail-Status: unavailable` 204를 반환한다. DOCX/HWP/HWPX preview는 textract parser 표면을 사용하므로 필요한 경우에만 켜고, `studio.textract.max-extract-size`는 압축 입력 크기 제한으로 보수적으로 설정한다. DOCX parser는 압축 해제 work에 별도 entry/total budget을 적용한다.
 - 운영 환경에서는 `studio.attachment.storage.base-dir`와 `studio.attachment.thumbnail.base-dir`를 애플리케이션 전용 private 경로로 명시한다. 기본 tmp 경로는 로컬 개발 편의용이다.
 - `web.enabled=true` 시 `AttachmentMgmtController`/`AttachmentController`/`MeAttachmentController`가 등록되며 `base-path`/`mgmt-base-path`/`self-base` 로 경로가 결정된다.
