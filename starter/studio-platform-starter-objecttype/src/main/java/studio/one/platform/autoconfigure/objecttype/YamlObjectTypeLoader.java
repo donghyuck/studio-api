@@ -1,5 +1,6 @@
 package studio.one.platform.autoconfigure.objecttype;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
@@ -17,8 +18,8 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import studio.one.platform.objecttype.model.ObjectPolicy;
 import studio.one.platform.objecttype.model.ObjectTypeMetadata;
-import studio.one.platform.objecttype.yaml.YamlObjectPolicy;
-import studio.one.platform.objecttype.yaml.YamlObjectTypeMetadata;
+import studio.one.platform.objecttype.infrastructure.yaml.YamlObjectPolicy;
+import studio.one.platform.objecttype.infrastructure.yaml.YamlObjectTypeMetadata;
 
 public class YamlObjectTypeLoader {
 
@@ -103,9 +104,8 @@ public class YamlObjectTypeLoader {
                     Collections.unmodifiableMap(byType),
                     Collections.unmodifiableMap(byKey),
                     Collections.unmodifiableMap(policies));
-        } catch (Exception ex) {
-            log.warn("Failed to load objecttype YAML: {}", location, ex);
-            return empty();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to read objecttype YAML: " + location, ex);
         }
     }
 
@@ -123,7 +123,7 @@ public class YamlObjectTypeLoader {
                 try {
                     return Integer.parseInt(s.trim());
                 } catch (NumberFormatException ignored) {
-                    return null;
+                    continue;
                 }
             }
         }

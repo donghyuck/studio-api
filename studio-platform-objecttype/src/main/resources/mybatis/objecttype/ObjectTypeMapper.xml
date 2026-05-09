@@ -2,9 +2,9 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="studio.one.platform.objecttype.db.mybatis.ObjectTypeMapper">
+<mapper namespace="studio.one.platform.objecttype.infrastructure.persistence.mybatis.ObjectTypeMapper">
 
-  <resultMap id="ObjectTypeRowMap" type="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+  <resultMap id="ObjectTypeRowMap" type="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow">
     <id property="objectType" column="objectType"/>
     <result property="code" column="code"/>
     <result property="name" column="name"/>
@@ -19,7 +19,7 @@
     <result property="updatedAt" column="updatedAt"/>
   </resultMap>
 
-  <resultMap id="ObjectTypePolicyRowMap" type="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+  <resultMap id="ObjectTypePolicyRowMap" type="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow">
     <id property="objectType" column="objectType"/>
     <result property="maxFileMb" column="maxFileMb"/>
     <result property="allowedExt" column="allowedExt"/>
@@ -93,7 +93,7 @@
     <include refid="searchWhere"/>
   </select>
 
-  <insert id="upsertType" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+  <insert id="upsertType" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow">
     INSERT INTO tb_application_object_type (
       OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -114,7 +114,7 @@
       UPDATED_AT = EXCLUDED.UPDATED_AT
   </insert>
 
-  <insert id="upsertType" databaseId="h2" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+  <insert id="upsertType" databaseId="h2" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow">
     MERGE INTO tb_application_object_type (
       OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -126,7 +126,7 @@
     )
   </insert>
 
-  <insert id="upsertType" databaseId="mysql" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+  <insert id="upsertType" databaseId="mysql" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow">
     INSERT INTO tb_application_object_type (
       OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -147,7 +147,7 @@
       UPDATED_AT = VALUES(UPDATED_AT)
   </insert>
 
-  <insert id="upsertType" databaseId="mariadb" parameterType="studio.one.platform.objecttype.db.model.ObjectTypeRow">
+  <insert id="upsertType" databaseId="mariadb" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow">
     INSERT INTO tb_application_object_type (
       OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -210,7 +210,7 @@
     WHERE OBJECT_TYPE = #{objectType}
   </select>
 
-  <insert id="upsertPolicy" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+  <insert id="upsertPolicy" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow">
     INSERT INTO tb_application_object_type_policy (
       OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -230,7 +230,7 @@
       UPDATED_AT = EXCLUDED.UPDATED_AT
   </insert>
 
-  <insert id="upsertPolicy" databaseId="h2" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+  <insert id="upsertPolicy" databaseId="h2" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow">
     MERGE INTO tb_application_object_type_policy (
       OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -242,7 +242,7 @@
     )
   </insert>
 
-  <insert id="upsertPolicy" databaseId="mysql" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+  <insert id="upsertPolicy" databaseId="mysql" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow">
     INSERT INTO tb_application_object_type_policy (
       OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,
@@ -262,7 +262,7 @@
       UPDATED_AT = VALUES(UPDATED_AT)
   </insert>
 
-  <insert id="upsertPolicy" databaseId="mariadb" parameterType="studio.one.platform.objecttype.db.model.ObjectTypePolicyRow">
+  <insert id="upsertPolicy" databaseId="mariadb" parameterType="studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow">
     INSERT INTO tb_application_object_type_policy (
       OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
       CREATED_BY, CREATED_BY_ID, CREATED_AT,

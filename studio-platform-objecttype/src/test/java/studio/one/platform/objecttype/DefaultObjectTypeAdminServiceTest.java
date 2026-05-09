@@ -12,12 +12,12 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.exception.PlatformRuntimeException;
-import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.model.ObjectTypeRow;
-import studio.one.platform.objecttype.error.ObjectTypeErrorCodes;
-import studio.one.platform.objecttype.service.DefaultObjectTypeAdminService;
-import studio.one.platform.objecttype.service.ObjectTypeEffectivePolicyView;
+import studio.one.platform.objecttype.domain.port.ObjectTypeStore;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow;
+import studio.one.platform.objecttype.domain.error.ObjectTypeErrorCodes;
+import studio.one.platform.objecttype.application.service.DefaultObjectTypeAdminService;
+import studio.one.platform.objecttype.application.result.ObjectTypeEffectivePolicyView;
 
 class DefaultObjectTypeAdminServiceTest {
 

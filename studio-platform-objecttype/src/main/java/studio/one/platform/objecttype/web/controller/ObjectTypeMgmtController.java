@@ -18,17 +18,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.objecttype.lifecycle.ObjectRebindService;
-import studio.one.platform.objecttype.service.ObjectTypeAdminService;
-import studio.one.platform.objecttype.service.ObjectTypePatchCommand;
-import studio.one.platform.objecttype.service.ObjectTypePolicyUpsertCommand;
-import studio.one.platform.objecttype.service.ObjectTypeUpsertCommand;
-import studio.one.platform.objecttype.service.ObjectTypeView;
-import studio.one.platform.objecttype.web.dto.ObjectTypeDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypeEffectivePolicyDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypePatchRequest;
-import studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypePolicyUpsertRequest;
-import studio.one.platform.objecttype.web.dto.ObjectTypeUpsertRequest;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
+import studio.one.platform.objecttype.application.command.ObjectTypePatchCommand;
+import studio.one.platform.objecttype.application.command.ObjectTypePolicyUpsertCommand;
+import studio.one.platform.objecttype.application.command.ObjectTypeUpsertCommand;
+import studio.one.platform.objecttype.application.result.ObjectTypeView;
+import studio.one.platform.objecttype.web.dto.response.ObjectTypeDto;
+import studio.one.platform.objecttype.web.dto.response.ObjectTypeEffectivePolicyDto;
+import studio.one.platform.objecttype.web.dto.request.ObjectTypePatchRequest;
+import studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto;
+import studio.one.platform.objecttype.web.dto.request.ObjectTypePolicyUpsertRequest;
+import studio.one.platform.objecttype.web.dto.request.ObjectTypeUpsertRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -127,7 +127,7 @@ public class ObjectTypeMgmtController {
                 .build();
     }
 
-    private ObjectTypePolicyDto toDto(studio.one.platform.objecttype.service.ObjectTypePolicyView view) {
+    private ObjectTypePolicyDto toDto(studio.one.platform.objecttype.application.result.ObjectTypePolicyView view) {
         if (view == null) {
             return null;
         }
@@ -147,7 +147,7 @@ public class ObjectTypeMgmtController {
     }
 
     private ObjectTypeEffectivePolicyDto toDto(
-            studio.one.platform.objecttype.service.ObjectTypeEffectivePolicyView view) {
+            studio.one.platform.objecttype.application.result.ObjectTypeEffectivePolicyView view) {
         return ObjectTypeEffectivePolicyDto.builder()
                 .objectType(view.objectType())
                 .maxFileMb(view.maxFileMb())

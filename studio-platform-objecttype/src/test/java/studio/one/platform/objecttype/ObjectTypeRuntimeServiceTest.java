@@ -10,15 +10,15 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.exception.PlatformRuntimeException;
-import studio.one.platform.objecttype.error.ObjectTypeErrorCodes;
+import studio.one.platform.objecttype.domain.error.ObjectTypeErrorCodes;
 import studio.one.platform.objecttype.model.ObjectPolicy;
 import studio.one.platform.objecttype.model.ObjectTypeMetadata;
 import studio.one.platform.objecttype.policy.ObjectPolicyResolver;
 import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
-import studio.one.platform.objecttype.service.DefaultObjectTypeRuntimeService;
-import studio.one.platform.objecttype.service.ValidateUploadCommand;
-import studio.one.platform.objecttype.yaml.YamlObjectPolicy;
-import studio.one.platform.objecttype.yaml.YamlObjectTypeMetadata;
+import studio.one.platform.objecttype.application.service.DefaultObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
+import studio.one.platform.objecttype.infrastructure.yaml.YamlObjectPolicy;
+import studio.one.platform.objecttype.infrastructure.yaml.YamlObjectTypeMetadata;
 
 public class ObjectTypeRuntimeServiceTest {
 

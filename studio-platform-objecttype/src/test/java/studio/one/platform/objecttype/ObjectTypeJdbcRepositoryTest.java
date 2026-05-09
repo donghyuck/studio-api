@@ -17,9 +17,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import studio.one.platform.objecttype.db.jdbc.ObjectTypeJdbcRepository;
-import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.model.ObjectTypeRow;
+import studio.one.platform.objecttype.infrastructure.persistence.jdbc.ObjectTypeJdbcRepository;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow;
 
 public class ObjectTypeJdbcRepositoryTest {
 

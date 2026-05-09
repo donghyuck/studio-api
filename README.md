@@ -74,7 +74,7 @@ dependencies {
 - 공통 웹/데이터/JPA 기반은 `:starter:studio-platform-starter`
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`와 `:studio-platform-user-default`
-- objectType 정책/검증이 필요하면 `:starter:studio-platform-starter-objecttype`
+- objectType 정책/검증이 필요하면 `:starter:studio-platform-starter`와 `:starter:studio-platform-starter-objecttype`
 - MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - STOMP/WebSocket 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
@@ -93,6 +93,8 @@ implementation(project(":starter:studio-platform-starter-user"))
 implementation(project(":studio-platform-user-default"))
 
 // 첨부 + AI 임베딩 앱
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-objecttype"))
 implementation(project(":starter:studio-application-starter-attachment"))
 implementation(project(":studio-application-modules:content-embedding-pipeline"))
 implementation(project(":starter:studio-platform-starter-chunking"))
@@ -157,6 +159,70 @@ starter
 application modules
   → platform modules
 ```
+
+## 모듈별 프로젝트 의존성
+아래 표는 각 모듈의 `build.gradle.kts`에 선언된 내부 `project(...)` 의존성 기준이다.
+`testImplementation` 같은 테스트 전용 의존성은 제외했다.
+
+### Platform modules
+| 모듈 | 내부 프로젝트 의존성 |
+|---|---|
+| `:studio-platform` | - |
+| `:studio-platform-autoconfigure` | `implementation :studio-platform` |
+| `:studio-platform-ai` | `implementation :studio-platform` |
+| `:studio-platform-chunking` | - |
+| `:studio-platform-data` | `api :studio-platform-textract`, `implementation :studio-platform` |
+| `:studio-platform-identity` | - |
+| `:studio-platform-objecttype` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data` |
+| `:studio-platform-realtime` | `compileOnly :studio-platform`, `compileOnly :studio-platform-security` |
+| `:studio-platform-security` | `compileOnly :studio-platform`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-user-default`, `compileOnly :studio-platform-data` |
+| `:studio-platform-security-acl` | `implementation :studio-platform` |
+| `:studio-platform-storage` | `compileOnly :studio-platform` |
+| `:studio-platform-textract` | `api :studio-platform` |
+| `:studio-platform-thumbnail` | `api :studio-platform` |
+| `:studio-platform-user` | `compileOnly :studio-platform`, `compileOnly :studio-platform-identity` |
+| `:studio-platform-user-default` | `compileOnly :studio-platform`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-identity` |
+| `:studio-platform-workspace` | `api :studio-platform` |
+| `:studio-platform-workspace-default` | `api :studio-platform`, `api :studio-platform-workspace`, `api :studio-platform-identity`, `implementation :studio-platform-user` |
+
+### Application modules
+| 모듈 | 내부 프로젝트 의존성 |
+|---|---|
+| `:studio-application-modules:attachment-service` | `compileOnly :studio-platform`, `api :studio-platform-objecttype`, `api :studio-platform-identity`, `compileOnly :studio-platform-data`, `api :studio-platform-textract`, `api :studio-platform-storage`, `api :studio-platform-thumbnail` |
+| `:studio-application-modules:avatar-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-identity` |
+| `:studio-application-modules:content-embedding-pipeline` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `compileOnly :studio-platform-chunking`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-security`, `compileOnly :studio-platform-ai`, `compileOnly :starter:studio-platform-starter-chunking`, `compileOnly :studio-application-modules:attachment-service` |
+| `:studio-application-modules:mail-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-data` |
+| `:studio-application-modules:template-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-security` |
+| `:studio-application-modules:wiki-service` | `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace` |
+
+### Starter modules
+| 모듈 | 내부 프로젝트 의존성 |
+|---|---|
+| `:starter:studio-platform-starter` | `api :studio-platform`, `api :studio-platform-data`, `api :starter:studio-platform-textract-starter`, `api :starter:studio-platform-thumbnail-starter`, `api :studio-platform-autoconfigure` |
+| `:starter:studio-platform-textract-starter` | `api :studio-platform`, `api :studio-platform-textract`, `api :studio-platform-autoconfigure` |
+| `:starter:studio-platform-thumbnail-starter` | `api :studio-platform`, `api :studio-platform-thumbnail`, `api :studio-platform-autoconfigure`, `compileOnly :studio-platform-textract` |
+| `:starter:studio-platform-starter-ai` | `implementation :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-platform-ai`, `api :studio-platform-chunking` |
+| `:starter:studio-platform-starter-ai-web` | `api :starter:studio-platform-starter-ai`, `implementation :studio-platform` |
+| `:starter:studio-platform-starter-chunking` | `api :studio-platform-chunking`, `compileOnly :studio-platform-textract`, `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter` |
+| `:starter:studio-platform-starter-jasypt` | `compileOnly :starter:studio-platform-starter` |
+| `:starter:studio-platform-starter-objectstorage` | `compileOnly :studio-platform-user`, `compileOnly :studio-platform-autoconfigure`, `implementation :studio-platform-storage`, `compileOnly :starter:studio-platform-starter` |
+| `:starter:studio-platform-starter-objectstorage-aws` | - |
+| `:starter:studio-platform-starter-objectstorage-oci` | - |
+| `:starter:studio-platform-starter-objecttype` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `api :studio-platform-objecttype` |
+| `:starter:studio-platform-starter-realtime` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `compileOnly :studio-platform-security`, `api :studio-platform-realtime` |
+| `:starter:studio-platform-starter-security` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-identity`, `compileOnly :starter:studio-platform-starter`, `compileOnly :studio-platform-user`, `api :studio-platform-security` |
+| `:starter:studio-platform-starter-security-acl` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-platform-security-acl` |
+| `:starter:studio-platform-starter-user` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :studio-platform-identity`, `compileOnly :starter:studio-platform-starter`, `api :studio-platform-user`, `compileOnly :studio-platform-user-default` |
+| `:starter:studio-platform-starter-workspace` | `api :studio-platform-autoconfigure`, `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-platform-workspace-default`, `implementation :studio-platform-user` |
+| `:starter:studio-application-starter-attachment` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :starter:studio-platform-thumbnail-starter`, `api :studio-platform-identity`, `api :studio-platform-textract`, `compileOnly :studio-platform-objecttype`, `api :studio-application-modules:attachment-service` |
+| `:starter:studio-application-starter-avatar` | `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:avatar-service` |
+| `:starter:studio-application-starter-mail` | `implementation :studio-platform`, `compileOnly :studio-platform-realtime`, `implementation :studio-platform-autoconfigure`, `implementation :starter:studio-platform-starter`, `api :studio-application-modules:mail-service` |
+| `:starter:studio-application-starter-template` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:template-service` |
+| `:starter:studio-application-starter-wiki` | `api :studio-platform-autoconfigure`, `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-application-modules:wiki-service` |
+
+`studio-platform-starter-objecttype`는 objectType 구현 모듈을 전이 노출하지만, 기반 계약과 data helper는
+`compileOnly`로 참조한다. 애플리케이션에서는 기존과 같이 `:starter:studio-platform-starter`를 함께 추가해
+`:studio-platform`, `:studio-platform-data`, 공통 autoconfigure 계약을 제공해야 한다.
 
 ## 사용 요약
 - 스타터를 통해 필요한 기능만 활성화한다.

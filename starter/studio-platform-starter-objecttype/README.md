@@ -1,7 +1,7 @@
 # studio-platform-starter-objecttype
 
 ObjectType 레지스트리와 정책을 자동 구성하는 스타터이다.
-YAML 파일 또는 데이터베이스(JPA/JDBC) 두 가지 모드로 ObjectType 정보를 로딩·캐싱하며,
+YAML 파일 또는 데이터베이스(JPA/MyBatis/JDBC) 모드로 ObjectType 정보를 로딩·캐싱하며,
 ObjectType 조회 REST 엔드포인트와 관리 REST 엔드포인트를 선택적으로 노출한다.
 핵심 구현은 `studio-platform-objecttype` 모듈에 있으며, 이 스타터는 그 위에
 자동 구성(autoconfigure) 레이어를 더한다.
@@ -18,6 +18,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // DB 모드 JDBC 사용 시
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    // DB 모드 MyBatis 사용 시
+    implementation(project(":starter:studio-platform-starter-mybatis"))
     // REST API 노출 시
     implementation("org.springframework.boot:spring-boot-starter-web")
 }
@@ -67,20 +69,19 @@ studio:
 
 YAML 파일 예시 (`classpath:objecttype.yml`):
 ```yaml
-objectTypes:
+objecttypes:
   - type: 1001
     key: document
     name: 문서
     description: 문서 도메인 오브젝트
+    policy:
+      key: document-policy
+      maxFileMb: 10
+      allowedExt: "pdf,docx"
+      allowedMime: "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   - type: 1002
     key: image
     name: 이미지
-policies:
-  - objectType: 1001
-    maxSize: 10485760
-    allowedExtensions:
-      - pdf
-      - docx
 ```
 
 ### DB 모드 설정
@@ -117,7 +118,8 @@ studio:
     objecttype:
       web:
         enabled: true
-        base-path: /api/mgmt
+        base-path: /api/object-types
+        mgmt-base-path: /api/mgmt/object-types
 ```
 
 ## 4) 자동 구성되는 주요 빈
@@ -147,18 +149,34 @@ studio:
 
 | 컨트롤러 | 조건 | 역할 |
 |---|---|---|
-| `ObjectTypeController` | `ObjectTypeRuntimeService` 빈 존재 시 | ObjectType 목록 조회, 타입 기반 정책 조회 |
+| `ObjectTypeController` | `ObjectTypeRuntimeService` 빈 존재 시 | ObjectType 정의 조회, 업로드 검증 |
 | `ObjectTypeMgmtController` | `ObjectTypeAdminService` 빈 존재 시 (DB 모드) | ObjectType 생성·수정·삭제 관리 API |
 
-- `ObjectTypeController` — 공개 조회 엔드포인트 (YAML·DB 모드 모두 활성화 가능)
-- `ObjectTypeMgmtController` — 관리 엔드포인트 (DB 모드에서 `ObjectTypeAdminService` 빈이 있을 때만 등록됨)
+- `ObjectTypeController` — 런타임 엔드포인트 (기본 `/api/object-types`)
+- `GET /api/object-types/{objectType}/definition`
+- `POST /api/object-types/{objectType}/validate-upload`
+- `ObjectTypeMgmtController` — 관리 엔드포인트 (기본 `/api/mgmt/object-types`, DB 모드에서 `ObjectTypeAdminService` 빈이 있을 때만 등록됨)
 - `GET /api/mgmt/object-types/{objectType}/policy/effective` — 저장 정책이 없을 때도 클라이언트 안내용 적용 정책을 반환한다. 저장 정책이면 `source=stored`, 내부 기본 정책이면 `source=default`다. 기본 정책 응답은 `maxFileMb=null`, `allowedExt=null`, `allowedMime=null`, `policyJson=null`이며 ObjectType별 추가 제한 없음으로 해석한다. Spring multipart 제한이나 attachment 서비스 공통 제한은 별도로 적용될 수 있다.
 
 ## 6) 참고 사항
 - `studio-platform-objecttype` 모듈이 도메인 모델, 레지스트리, 정책 리졸버 구현을 제공하며,
   이 스타터는 해당 모듈을 `api` 의존성으로 전이 노출한다.
+- 이 스타터는 기반 계약인 `studio-platform`, `studio-platform-data`, autoconfigure 관련 타입을
+  `compileOnly`로 참조하므로 애플리케이션에는 `starter:studio-platform-starter`를 함께 추가해야 한다.
+- `studio-platform-objecttype` 구현 패키지는 `domain/application/infrastructure/web` 구조로 정리되었고,
+  이전 `studio.one.platform.objecttype.service`, `model`, `error`, `db`, `cache`, `yaml`, `web.dto` 패키지 wrapper는
+  제공하지 않는다. 직접 import하는 코드는 `application.usecase`, `application.command`,
+  `application.result`, `application.service`, `domain.model`, `domain.error`, `domain.port`,
+  `infrastructure.persistence`, `infrastructure.cache`, `infrastructure.yaml`, `web.dto.request`,
+  `web.dto.response` 기준으로 갱신해야 한다. 전체 mapping은 `studio-platform-objecttype/README.md`의
+  패키지 구조 및 마이그레이션 표를 따른다.
+  REST endpoint와 JSON 응답 shape는 변경되지 않았다.
+- MyBatis mapper XML을 복사하거나 커스터마이징한 경우 XML namespace와 row type FQCN도
+  `infrastructure.persistence.mybatis` 및 `infrastructure.persistence.model` 기준으로 갱신해야 한다.
 - YAML 모드에서는 애플리케이션 기동 시 YAML 파일을 읽어 메모리에 적재한다.
-  파일이 없으면 기동에 실패하므로 리소스 경로를 정확히 설정해야 한다.
+  파일이 없거나 `objecttypes` 목록이 없으면 경고 로그를 남기고 빈 레지스트리로 기동한다.
+  YAML 파싱 또는 읽기 오류는 기동 실패로 처리한다.
+  운영 환경에서는 리소스 경로와 로딩 결과를 별도 smoke check로 확인해야 한다.
 - DB 모드에서 JPA를 사용할 경우 `ObjectTypeEntity` 엔터티 클래스를 포함한 JPA 스캔이
   자동으로 구성된다 (`@EntityScan`, `@EnableJpaRepositories`).
 - 레지스트리·정책 캐시는 기본적으로 활성화되어 있다(TTL 300초, 최대 1000건).

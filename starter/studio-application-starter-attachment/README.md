@@ -3,13 +3,16 @@
 첨부파일 서비스(파일 메타데이터 + 바이너리 스토리지)를 자동으로 구성하는 스타터이다.
 `studio-application-modules:attachment-service` 모듈의 서비스/리포지토리/스토리지 빈을 등록하고,
 선택적으로 REST 엔드포인트를 노출한다.
-feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, attachment storage/runtime 통합 설정은 `studio.attachment.*`를 사용한다. 썸네일 생성 기본값은 독립 platform thumbnail 서비스의 `studio.thumbnail.*`를 사용한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 남는다.
+feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, attachment storage/runtime 통합 설정은 `studio.attachment.*`를 사용한다. 썸네일 생성 기본값은 독립 platform thumbnail 서비스의 `studio.thumbnail.*`를 사용한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`, `studio.features.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 남는다.
 
 ## 1) 의존성 추가
 
 ```kotlin
 dependencies {
+    implementation(project(":starter:studio-platform-starter"))
     implementation(project(":starter:studio-application-starter-attachment"))
+    // objectType 기반 업로드 정책 검증을 활성화할 때
+    implementation(project(":starter:studio-platform-starter-objecttype"))
     // REST 엔드포인트를 사용할 때
     implementation("org.springframework.boot:spring-boot-starter-web")
     // JPA 영속성 사용 시
@@ -20,8 +23,15 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml")
     // DOCX/HWP/HWPX preview 썸네일을 사용할 때만
     implementation(project(":starter:studio-platform-textract-starter"))
+    // objectstorage 저장소를 사용할 때
+    implementation(project(":starter:studio-platform-starter-objectstorage"))
+    // provider에 따라 AWS 또는 OCI starter 추가
+    implementation(project(":starter:studio-platform-starter-objectstorage-aws"))
 }
 ```
+
+첨부 서비스 artifact는 objectType API를 전이 의존성으로 포함한다. 다만 실제 용량/확장자/MIME 업로드 정책 검증은
+`ObjectTypeRuntimeService` 빈이 있을 때만 수행하므로, 검증을 활성화하려면 objectType starter를 함께 추가한다.
 
 ## 2) 기능 활성화
 
@@ -49,7 +59,7 @@ studio:
         self-base: /api/me/attachments
   attachment:
     storage:
-      type: filesystem            # filesystem | database
+      type: filesystem            # filesystem | database | objectstorage
       base-dir: ""                # 비우면 repository 홈 또는 tmp/attachments 사용
       ensure-dirs: true           # 시작 시 디렉터리 자동 생성
       cache-enabled: false        # database 타입 사용 시 로컬 파일 캐시 on/off
@@ -90,6 +100,7 @@ studio:
 |------|------|
 | `filesystem` | 로컬 파일시스템에 바이너리 저장 (`LocalFileStore`). `base-dir` 경로가 기준이다. |
 | `database` | 선택한 persistence(JPA → `JpaFileStore`, JDBC → `JdbcFileStore`)에 바이너리 저장. `cache-enabled=true` 시 로컬 캐시(`CachedFileStore`) 사용. |
+| `objectstorage` | `ObjectStorageRegistry` 기반 object storage에 바이너리 저장. `starter:studio-platform-starter-objectstorage`와 provider별 AWS/OCI starter가 필요하다. |
 
 ## 4) 자동 구성되는 주요 빈
 
@@ -122,7 +133,7 @@ studio:
 | `GET` | `/{attachmentId}/text` | 텍스트 추출 (`FileContentExtractionService` 필요) | `features:attachment/read` |
 | `GET` | `/{attachmentId}/download` | 스트리밍 다운로드 | `features:attachment/download` |
 | `POST` | `/{attachmentId}/download-url` | application signed download URL 발급 | `features:attachment/download` |
-| `GET` | `/` | 페이지 목록 (`objectType`, `objectId`, `keyword` 선택) | — |
+| `GET` | `/` | 페이지 목록 (`objectType`, `objectId`, `keyword` 선택) | `features:attachment/read` |
 | `GET` | `/objects/{objectType}/{objectId}` | 객체별 전체 목록 | `features:attachment/read` |
 | `DELETE` | `/{attachmentId}` | 메타데이터 및 바이너리 삭제 | `features:attachment/delete` |
 

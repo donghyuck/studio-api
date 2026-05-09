@@ -20,10 +20,10 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly(project(":studio-platform")) 
-    compileOnly(project(":studio-platform-objecttype"))
-    compileOnly(project(":studio-platform-identity"))
+    api(project(":studio-platform-objecttype"))
+    api(project(":studio-platform-identity"))
     compileOnly(project(":studio-platform-data")) 
-    compileOnly(project(":studio-platform-textract"))
+    api(project(":studio-platform-textract"))
     api(project(":studio-platform-storage"))
     api(project(":studio-platform-thumbnail"))
 

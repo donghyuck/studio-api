@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import javax.sql.DataSource;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,9 +19,13 @@ import org.springframework.boot.autoconfigure.validation.ValidationAutoConfigura
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentPersistence;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
@@ -34,6 +40,7 @@ import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAudit
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.storage.FileStorage;
+import studio.one.application.attachment.storage.JdbcFileStore;
 import studio.one.application.attachment.storage.LocalFileStore;
 import studio.one.application.attachment.storage.ObjectStorageFileStore;
 import studio.one.application.attachment.thumbnail.LocalThumbnailStore;
@@ -41,6 +48,7 @@ import studio.one.application.attachment.thumbnail.ThumbnailKey;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.attachment.thumbnail.ThumbnailStorage;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
 import studio.one.platform.storage.service.CloudObjectStorage;
@@ -230,6 +238,40 @@ class AttachmentAutoConfigurationTest {
     }
 
     @Test
+    void databaseFileStorageUsesAttachmentPersistenceOverride() {
+        contextRunner
+                .withBean(NamedParameterJdbcTemplate.class, () -> new NamedParameterJdbcTemplate(dataSource()))
+                .withPropertyValues(
+                        "studio.persistence.type=jpa",
+                        "studio.features.attachment.persistence=jdbc",
+                        "studio.attachment.storage.type=database",
+                        "studio.attachment.storage.cache-enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context.getBean(FileStorage.class)).isInstanceOf(JdbcFileStore.class);
+                });
+    }
+
+    @Test
+    void attachmentPersistenceTreatsMybatisAsJdbcUntilDedicatedMybatisStoreExists() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ValidationAutoConfiguration.class,
+                        ThumbnailAutoConfiguration.class,
+                        AttachmentAutoConfiguration.class))
+                .withUserConfiguration(AttachmentPersistenceProbeConfig.class)
+                .withBean(AttachmentRepository.class, AttachmentAutoConfigurationTest::attachmentRepository)
+                .withPropertyValues(
+                        "studio.features.attachment.enabled=true",
+                        "studio.persistence.type=mybatis")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasBean("attachmentJdbcPersistenceProbe");
+                    assertThat(context).doesNotHaveBean("attachmentJpaPersistenceProbe");
+                });
+    }
+
+    @Test
     void createsDownloadUrlIssueAuditQueryServiceWhenAuditRepositoryExists() {
         contextRunner
                 .withBean(
@@ -281,6 +323,23 @@ class AttachmentAutoConfigurationTest {
                     }
                     if ("name".equals(method.getName())) {
                         return name;
+                    }
+                    return null;
+                });
+    }
+
+    private static DataSource dataSource() {
+        return (DataSource) Proxy.newProxyInstance(
+                DataSource.class.getClassLoader(),
+                new Class<?>[] { DataSource.class },
+                (proxy, method, args) -> {
+                    if (method.getDeclaringClass() == Object.class) {
+                        return switch (method.getName()) {
+                            case "toString" -> "DataSourceStub";
+                            case "hashCode" -> System.identityHashCode(proxy);
+                            case "equals" -> proxy == args[0];
+                            default -> null;
+                        };
                     }
                     return null;
                 });
@@ -406,6 +465,22 @@ class AttachmentAutoConfigurationTest {
 
         @Override
         public void deleteAll(int objectType, long attachmentId) {
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class AttachmentPersistenceProbeConfig {
+
+        @Bean
+        @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jdbc)
+        Object attachmentJdbcPersistenceProbe() {
+            return new Object();
+        }
+
+        @Bean
+        @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jpa)
+        Object attachmentJpaPersistenceProbe() {
+            return new Object();
         }
     }
 }

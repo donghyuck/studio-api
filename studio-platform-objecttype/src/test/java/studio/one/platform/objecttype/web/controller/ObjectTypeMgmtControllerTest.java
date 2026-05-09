@@ -14,15 +14,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
 import studio.one.platform.objecttype.lifecycle.ObjectRebindService;
-import studio.one.platform.objecttype.service.ObjectTypeAdminService;
-import studio.one.platform.objecttype.service.ObjectTypeEffectivePolicyView;
-import studio.one.platform.objecttype.service.ObjectTypePolicyUpsertCommand;
-import studio.one.platform.objecttype.service.ObjectTypeUpsertCommand;
-import studio.one.platform.objecttype.service.ObjectTypeView;
-import studio.one.platform.objecttype.service.ObjectTypePolicyView;
-import studio.one.platform.objecttype.web.dto.ObjectTypeEffectivePolicyDto;
-import studio.one.platform.objecttype.web.dto.ObjectTypePolicyUpsertRequest;
-import studio.one.platform.objecttype.web.dto.ObjectTypeUpsertRequest;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
+import studio.one.platform.objecttype.application.result.ObjectTypeEffectivePolicyView;
+import studio.one.platform.objecttype.application.command.ObjectTypePolicyUpsertCommand;
+import studio.one.platform.objecttype.application.command.ObjectTypeUpsertCommand;
+import studio.one.platform.objecttype.application.result.ObjectTypeView;
+import studio.one.platform.objecttype.application.result.ObjectTypePolicyView;
+import studio.one.platform.objecttype.web.dto.response.ObjectTypeEffectivePolicyDto;
+import studio.one.platform.objecttype.web.dto.request.ObjectTypePolicyUpsertRequest;
+import studio.one.platform.objecttype.web.dto.request.ObjectTypeUpsertRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 class ObjectTypeMgmtControllerTest {
@@ -40,7 +40,7 @@ class ObjectTypeMgmtControllerTest {
                         new ObjectTypeView(1001, "attachment", "Attachment", "media", "active", "desc",
                                 "system", 1L, createdAt, "system", 1L, updatedAt));
 
-        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.ObjectTypeDto>> response =
+        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.response.ObjectTypeDto>> response =
                 controller.create(new ObjectTypeUpsertRequest(1001, "attachment", "Attachment", "media",
                         "active", "desc", "system", 1L, "system", 1L));
 
@@ -63,7 +63,7 @@ class ObjectTypeMgmtControllerTest {
                 .thenReturn(new ObjectTypePolicyView(1001, 12, "png", "image/png", "{\"x\":1}",
                         "system", 1L, createdAt, "system", 1L, updatedAt));
 
-        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto>> response =
+        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto>> response =
                 controller.upsertPolicy(1001, new ObjectTypePolicyUpsertRequest(12, "png", "image/png",
                         "{\"x\":1}", "system", 1L, "system", 1L));
 
@@ -126,7 +126,7 @@ class ObjectTypeMgmtControllerTest {
                 new ObjectTypeView(1001, "attachment", "Attachment", "media", "active", null,
                         "system", 1L, now, "system", 1L, now)));
 
-        ResponseEntity<ApiResponse<List<studio.one.platform.objecttype.web.dto.ObjectTypeDto>>> response =
+        ResponseEntity<ApiResponse<List<studio.one.platform.objecttype.web.dto.response.ObjectTypeDto>>> response =
                 controller.list(null, null, null);
 
         assertEquals(1, response.getBody().getData().size());

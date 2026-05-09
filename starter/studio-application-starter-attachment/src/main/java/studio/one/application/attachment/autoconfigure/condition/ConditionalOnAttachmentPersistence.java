@@ -49,7 +49,7 @@ import studio.one.platform.autoconfigure.features.condition.ConditionalOnFeature
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@ConditionalOnFeaturePersistence(feature = "attachment")
+@ConditionalOnFeaturePersistence(feature = "attachment", mybatisAsJdbc = true)
 public @interface ConditionalOnAttachmentPersistence {
 
     @AliasFor(annotation = ConditionalOnFeaturePersistence.class, attribute = "value")

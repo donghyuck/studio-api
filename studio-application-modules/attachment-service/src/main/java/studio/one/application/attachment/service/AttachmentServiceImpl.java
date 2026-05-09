@@ -35,8 +35,8 @@ import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.service.ValidateUploadCommand;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
 
 @RequiredArgsConstructor
 @Transactional
