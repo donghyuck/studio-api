@@ -17,6 +17,7 @@ import studio.one.aplication.security.auth.password.impl.MailServiceImpl;
 import studio.one.aplication.security.web.controller.PasswordResetController;
 import studio.one.base.security.jwt.reset.persistence.PasswordResetTokenRepository;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.platform.service.I18n;
 
 class AccountPasswordResetAutoConfigurationTest {
 
@@ -100,6 +101,22 @@ class AccountPasswordResetAutoConfigurationTest {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(MailService.class);
                     assertThat(context.getBean(MailService.class)).isSameAs(customMailService);
+                    assertThat(context).hasSingleBean(PasswordResetService.class);
+                });
+    }
+
+    @Test
+    void explicitJpaPasswordResetDoesNotFailOnlyBecauseGlobalPersistenceIsMyBatis() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.persistence.type=mybatis",
+                        "studio.security.auth.password-reset.persistence=jpa")
+                .withBean(I18n.class, () -> (code, args, locale) -> code)
+                .withBean(MailService.class, () -> (to, token) -> {
+                })
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(PasswordResetTokenRepository.class);
                     assertThat(context).hasSingleBean(PasswordResetService.class);
                 });
     }
