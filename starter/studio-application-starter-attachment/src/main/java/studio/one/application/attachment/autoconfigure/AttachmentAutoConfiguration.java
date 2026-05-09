@@ -133,6 +133,7 @@ public class AttachmentAutoConfiguration {
     @Primary
     @ConditionalOnMissingBean(FileStorage.class)
     FileStorage attachmentFileStorage(
+            AttachmentFeatureProperties featureProperties,
             AttachmentProperties properties,
             Environment environment,
             ObjectProvider<Repository> repositoryProvider,
@@ -150,7 +151,7 @@ public class AttachmentAutoConfiguration {
                     repositoryProvider.getIfAvailable(),
                     dataRepositoryProvider,
                     templateProvider,
-                    persistenceProperties,
+                    resolveAttachmentPersistence(featureProperties, persistenceProperties),
                     i18n);
         }
 
@@ -212,6 +213,7 @@ public class AttachmentAutoConfiguration {
     @ConditionalOnMissingBean(name = "attachmentDatabaseStorageBackend")
     AttachmentStorageBackend attachmentJpaDatabaseStorageBackend(
             AttachmentProperties properties,
+            AttachmentFeatureProperties featureProperties,
             Environment environment,
             ObjectProvider<Repository> repositoryProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
@@ -226,7 +228,7 @@ public class AttachmentAutoConfiguration {
                         repositoryProvider.getIfAvailable(),
                         dataRepositoryProvider,
                         templateProvider,
-                        persistenceProperties,
+                        resolveAttachmentPersistence(featureProperties, persistenceProperties),
                         I18nUtils.resolve(i18nProvider)));
     }
 
@@ -236,6 +238,7 @@ public class AttachmentAutoConfiguration {
     @ConditionalOnMissingBean(name = "attachmentDatabaseStorageBackend")
     AttachmentStorageBackend attachmentJdbcDatabaseStorageBackend(
             AttachmentProperties properties,
+            AttachmentFeatureProperties featureProperties,
             Environment environment,
             ObjectProvider<Repository> repositoryProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
@@ -250,7 +253,7 @@ public class AttachmentAutoConfiguration {
                         repositoryProvider.getIfAvailable(),
                         dataRepositoryProvider,
                         templateProvider,
-                        persistenceProperties,
+                        resolveAttachmentPersistence(featureProperties, persistenceProperties),
                         I18nUtils.resolve(i18nProvider)));
     }
 
@@ -381,10 +384,10 @@ public class AttachmentAutoConfiguration {
             Repository repository,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
-            PersistenceProperties persistenceProperties,
+            PersistenceProperties.Type persistenceType,
             I18n i18n) {
         FileStorage dbStore;
-        if (persistenceProperties.getType() == PersistenceProperties.Type.jpa) {
+        if (persistenceType == PersistenceProperties.Type.jpa) {
             AttachmentDataJpaRepository repo = dataRepositoryProvider.getIfAvailable();
             if (repo == null) {
                 throw new IllegalStateException("AttachmentDataJpaRepository is required for database storage (JPA)");
@@ -414,6 +417,12 @@ public class AttachmentAutoConfiguration {
         log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                 LogUtils.blue(CachedFileStore.class, true), LogUtils.red(State.CREATED.toString())));
         return new CachedFileStore(dbStore, cache);
+    }
+
+    private static PersistenceProperties.Type resolveAttachmentPersistence(
+            AttachmentFeatureProperties featureProperties,
+            PersistenceProperties persistenceProperties) {
+        return featureProperties.resolvePersistence(persistenceProperties.getType());
     }
 
     private FileStorage createObjectStorageFileStore(
