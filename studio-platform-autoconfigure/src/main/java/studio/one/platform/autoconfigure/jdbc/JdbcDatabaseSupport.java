@@ -23,23 +23,39 @@ public final class JdbcDatabaseSupport {
     }
 
     public static void requirePostgreSQL(DataSource dataSource, String featureName) {
+        requireDatabaseProduct(dataSource, featureName + " JDBC persistence", "PostgreSQL");
+    }
+
+    public static void requireDatabaseProduct(DataSource dataSource, String featureName, String... supportedProducts) {
+        String productName = databaseProductName(dataSource, featureName);
+        if (!isSupported(productName, supportedProducts)) {
+            throw new IllegalStateException(featureName + " supports " + String.join(", ", supportedProducts)
+                    + " only. Detected database: " + productName
+                    + ". Provide a database-specific implementation before enabling this feature.");
+        }
+    }
+
+    private static String databaseProductName(DataSource dataSource, String featureName) {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try {
-            String productName = connection.getMetaData().getDatabaseProductName();
-            if (!isPostgreSQL(productName)) {
-                throw new IllegalStateException(featureName
-                        + " JDBC persistence supports PostgreSQL only. Detected database: " + productName
-                        + ". Provide a database-specific implementation before enabling this feature.");
-            }
+            return connection.getMetaData().getDatabaseProductName();
         } catch (SQLException ex) {
-            throw new IllegalStateException("Failed to inspect database product for JDBC persistence: " + featureName,
-                    ex);
+            throw new IllegalStateException("Failed to inspect database product for " + featureName, ex);
         } finally {
             DataSourceUtils.releaseConnection(connection, dataSource);
         }
     }
 
-    private static boolean isPostgreSQL(String productName) {
-        return productName != null && productName.toLowerCase(Locale.ROOT).contains("postgresql");
+    private static boolean isSupported(String productName, String... supportedProducts) {
+        if (productName == null) {
+            return false;
+        }
+        String normalized = productName.toLowerCase(Locale.ROOT);
+        for (String supportedProduct : supportedProducts) {
+            if (supportedProduct != null && normalized.contains(supportedProduct.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
     }
 }

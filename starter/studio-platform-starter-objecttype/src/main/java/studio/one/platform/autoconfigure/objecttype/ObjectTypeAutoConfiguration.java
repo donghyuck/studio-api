@@ -71,8 +71,10 @@ import studio.one.platform.objecttype.cache.CachedObjectTypeRegistry;
 import studio.one.platform.objecttype.cache.CachedObjectRebindService;
 import studio.one.platform.objecttype.cache.CacheInvalidatable;
 import java.time.Duration;
+import javax.sql.DataSource;
 
 import studio.one.platform.component.State;
+import studio.one.platform.autoconfigure.jdbc.JdbcDatabaseSupport;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -312,8 +314,9 @@ public class ObjectTypeAutoConfiguration {
 
         @Bean
         @ConditionalOnMissingBean
-        public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate) {
-            assertSupportedDatabaseId(sqlSessionTemplate);
+        public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate, DataSource dataSource) {
+            JdbcDatabaseSupport.requireDatabaseProduct(dataSource, "ObjectType MyBatis persistence",
+                    "PostgreSQL", "H2", "MySQL", "MariaDB");
             assertMappedStatement(sqlSessionTemplate, "selectByType");
             assertMappedStatement(sqlSessionTemplate, "selectByCode");
             assertMappedStatement(sqlSessionTemplate, "search");
@@ -324,20 +327,6 @@ public class ObjectTypeAutoConfiguration {
             assertMappedStatement(sqlSessionTemplate, "upsertPolicy");
             assertMappedStatement(sqlSessionTemplate, "delete");
             return sqlSessionTemplate.getMapper(ObjectTypeMapper.class);
-        }
-
-        private void assertSupportedDatabaseId(SqlSessionTemplate sqlSessionTemplate) {
-            String databaseId = sqlSessionTemplate.getConfiguration().getDatabaseId();
-            if (databaseId == null
-                    || databaseId.equals("postgresql")
-                    || databaseId.equals("h2")
-                    || databaseId.equals("mysql")
-                    || databaseId.equals("mariadb")) {
-                return;
-            }
-            throw new IllegalStateException("ObjectType persistence=mybatis supports PostgreSQL, H2, MySQL, "
-                    + "and MariaDB only. Detected databaseId: " + databaseId
-                    + ". Provide database-specific mapper statements before enabling this feature.");
         }
 
         private void assertMappedStatement(SqlSessionTemplate sqlSessionTemplate, String statementId) {

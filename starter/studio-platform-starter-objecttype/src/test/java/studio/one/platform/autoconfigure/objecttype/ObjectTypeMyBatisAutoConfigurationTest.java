@@ -165,12 +165,66 @@ class ObjectTypeMyBatisAutoConfigurationTest {
     @Test
     void failsFastWhenDatabaseIdIsUnsupported() {
         contextRunner
-                .withPropertyValues("studio.mybatis.database-id-aliases.H2=oracle")
+                .withPropertyValues("spring.datasource.url=jdbc:h2:mem:objecttype-unsupported;DB_CLOSE_DELAY=-1")
+                .withBean(javax.sql.DataSource.class, () -> dataSourceWithProductName("Oracle"))
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
-                            .hasMessageContaining("ObjectType persistence=mybatis supports PostgreSQL, H2, MySQL, and MariaDB only")
-                            .hasMessageContaining("oracle");
+                            .hasMessageContaining("ObjectType MyBatis persistence supports PostgreSQL, H2, MySQL, MariaDB only")
+                            .hasMessageContaining("Oracle");
+                });
+    }
+
+    @Test
+    void supportsPostgreSQLWhenDatabaseIdAliasIsCustomized() {
+        contextRunner
+                .withPropertyValues("studio.mybatis.database-id-aliases.H2=pg")
+                .withBean(javax.sql.DataSource.class, () -> dataSourceWithProductName("PostgreSQL"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(ObjectTypeMapper.class);
+                });
+    }
+
+    private javax.sql.DataSource dataSourceWithProductName(String productName) {
+        return (javax.sql.DataSource) java.lang.reflect.Proxy.newProxyInstance(
+                javax.sql.DataSource.class.getClassLoader(),
+                new Class<?>[] { javax.sql.DataSource.class },
+                (proxy, method, args) -> {
+                    if ("getConnection".equals(method.getName())) {
+                        return connection(productName);
+                    }
+                    if ("toString".equals(method.getName())) {
+                        return "DataSourceStub";
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    private java.sql.Connection connection(String productName) {
+        return (java.sql.Connection) java.lang.reflect.Proxy.newProxyInstance(
+                java.sql.Connection.class.getClassLoader(),
+                new Class<?>[] { java.sql.Connection.class },
+                (proxy, method, args) -> {
+                    if ("getMetaData".equals(method.getName())) {
+                        return databaseMetaData(productName);
+                    }
+                    if ("close".equals(method.getName())) {
+                        return null;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    private java.sql.DatabaseMetaData databaseMetaData(String productName) {
+        return (java.sql.DatabaseMetaData) java.lang.reflect.Proxy.newProxyInstance(
+                java.sql.DatabaseMetaData.class.getClassLoader(),
+                new Class<?>[] { java.sql.DatabaseMetaData.class },
+                (proxy, method, args) -> {
+                    if ("getDatabaseProductName".equals(method.getName())) {
+                        return productName;
+                    }
+                    throw new UnsupportedOperationException(method.getName());
                 });
     }
 
