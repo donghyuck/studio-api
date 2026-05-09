@@ -177,7 +177,8 @@ objecttypes:
 
 Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V299)를 따른다.
 - TTL이 `0` 또는 음수면 캐시를 우회하고 원본 구현을 그대로 호출한다.
-- `ObjectRebindService.rebind()` 호출 시 캐시가 무효화되도록 연결되어 있다. YAML 모드의 rebind는 source reload가 아니라 같은 in-memory snapshot 위의 cache evict로 동작한다.
+- DB 모드의 관리 API `POST /api/mgmt/object-types/reload`는 `ObjectRebindService.rebind()`로 캐시를 무효화한다.
+- YAML 모드는 관리 API가 등록되지 않으며, `ObjectRebindService`도 source reload가 아니라 같은 in-memory snapshot 위의 cache evict로 동작한다. YAML 파일 변경 반영은 프로세스 재시작이 필요하다.
 
 ## 관리자(관리자용 API) 가이드
 관리자 API는 ObjectType/Policy를 등록/수정하기 위한 엔드포인트다.

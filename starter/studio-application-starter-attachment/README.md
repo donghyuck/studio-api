@@ -11,7 +11,7 @@ feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, at
 dependencies {
     implementation(project(":starter:studio-platform-starter"))
     implementation(project(":starter:studio-application-starter-attachment"))
-    // objectType 기반 업로드 정책 검증을 사용할 때
+    // objectType 기반 업로드 정책 검증을 활성화할 때
     implementation(project(":starter:studio-platform-starter-objecttype"))
     // REST 엔드포인트를 사용할 때
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -26,8 +26,8 @@ dependencies {
 }
 ```
 
-첨부 서비스는 `ObjectTypeRuntimeService` 빈이 있으면 업로드 정책을 검증하고, 없으면 해당 검증을 생략한다.
-objectType 기반 용량/확장자/MIME 검증이 필요할 때만 objectType starter를 함께 추가한다.
+첨부 서비스 artifact는 objectType API를 전이 의존성으로 포함한다. 다만 실제 용량/확장자/MIME 업로드 정책 검증은
+`ObjectTypeRuntimeService` 빈이 있을 때만 수행하므로, 검증을 활성화하려면 objectType starter를 함께 추가한다.
 
 ## 2) 기능 활성화
 
