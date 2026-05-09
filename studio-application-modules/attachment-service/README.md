@@ -79,7 +79,7 @@ studio:
 - `GET /{attachmentId}/text`: 텍스트 추출. `FileContentExtractionService` 빈이 있을 때만 200, 없으면 501. 권한 `features:attachment/read`.
 - `GET /{attachmentId}/download`: 스트리밍 다운로드. 권한 `features:attachment/download`.
 - `POST /{attachmentId}/download-url`: 짧은 수명의 application signed download URL 발급. 권한 `features:attachment/download`.
-- `GET /` : 페이지 목록. `objectType`, `objectId`, `keyword` 선택. (컨트롤러 상 별도 PreAuthorize 없음)
+- `GET /` : 페이지 목록. `objectType`, `objectId`, `keyword` 선택. 권한 `features:attachment/read`.
 - `GET /objects/{objectType}/{objectId}`: 객체별 전체 목록. 권한 `features:attachment/read`.
 - `DELETE /{attachmentId}`: 메타데이터 및 바이너리 삭제. 권한 `features:attachment/delete`.
 

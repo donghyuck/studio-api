@@ -128,7 +128,7 @@ studio:
 | `GET` | `/{attachmentId}/text` | 텍스트 추출 (`FileContentExtractionService` 필요) | `features:attachment/read` |
 | `GET` | `/{attachmentId}/download` | 스트리밍 다운로드 | `features:attachment/download` |
 | `POST` | `/{attachmentId}/download-url` | application signed download URL 발급 | `features:attachment/download` |
-| `GET` | `/` | 페이지 목록 (`objectType`, `objectId`, `keyword` 선택) | — |
+| `GET` | `/` | 페이지 목록 (`objectType`, `objectId`, `keyword` 선택) | `features:attachment/read` |
 | `GET` | `/objects/{objectType}/{objectId}` | 객체별 전체 목록 | `features:attachment/read` |
 | `DELETE` | `/{attachmentId}` | 메타데이터 및 바이너리 삭제 | `features:attachment/delete` |
 

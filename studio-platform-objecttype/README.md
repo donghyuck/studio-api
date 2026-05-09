@@ -365,6 +365,7 @@ ObjectTypePolicyDto:
 `starter/studio-platform-starter-objecttype`이 담당한다.
 
 ```kotlin
+implementation(project(":starter:studio-platform-starter"))
 implementation(project(":starter:studio-platform-starter-objecttype"))
 ```
 
