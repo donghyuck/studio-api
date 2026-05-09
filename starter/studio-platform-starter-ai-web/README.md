@@ -539,7 +539,7 @@ RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않
 별도 core `ContextAssembler` 계약은 만들지 않고, `ChunkContextExpander` bean이 있으면 object-scoped
 검색 결과의 chunk metadata를 기준으로 parent/neighbor/table 주변 문맥을 선택적으로 확장한다.
 `ChunkContextExpander`가 없거나 `objectType`/`objectId` 또는 `chunkId` metadata가 부족하면 기존처럼
-retrieval hit content만 사용한다. 확장 후에도 아래 `max-chunks`, `max-chars`, `include-scores`
+retrieval hit content만 사용한다. 확장 후에도 아래 `max-chunks`, `max-chars`, `max-chunk-chars`
 설정은 그대로 적용된다.
 LLM에 전달되는 context에는 요청 단위 인덱스와 packed preview만 포함하며, `documentId`, `chunkId`,
 `objectType`, `objectId`, 로컬 파일 링크, vector 원본 metadata는 외부 provider prompt에 공유하지 않는다.
@@ -599,7 +599,7 @@ studio:
 | `studio.ai.endpoints.rag.context.max-chunks` | `8` | chat system context에 포함할 최대 RAG chunk 수 |
 | `studio.ai.endpoints.rag.context.max-chars` | `12000` | header 포함 chat system context 최대 문자 수 |
 | `studio.ai.endpoints.rag.context.max-chunk-chars` | `2000` | 개별 chunk가 이 값을 넘으면 LLM 전달 전 deterministic excerpt preview로 압축 |
-| `studio.ai.endpoints.rag.context.include-scores` | `true` | context에 retrieval score를 포함할지 여부 |
+| `studio.ai.endpoints.rag.context.include-scores` | `true` | 하위 호환 설정. 외부 LLM prompt에는 score를 포함하지 않으며, citation reference에는 score를 allowlist field로 제공 |
 | `studio.ai.endpoints.rag.context.expansion.enabled` | `true` | `ChunkContextExpander` 기반 주변 문맥 확장 사용 여부 |
 | `studio.ai.endpoints.rag.context.expansion.candidate-multiplier` | `4` | object-scoped 검색 시 effective `topK` 대비 후보 chunk 조회 배수. 런타임 최대 20으로 제한 |
 | `studio.ai.endpoints.rag.context.expansion.max-candidates` | `100` | context expansion 후보 chunk 조회 limit 상한. 런타임 최대 500으로 제한 |

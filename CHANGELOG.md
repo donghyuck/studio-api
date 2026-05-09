@@ -107,7 +107,7 @@
 
 ### 변경됨
 - 이슈 #290 대응으로 `starter-ai-web`의 `RagContextBuilder`가 optional `ChunkContextExpander`를 사용해 object-scoped RAG 검색 결과의 parent/neighbor/table 문맥을 확장할 수 있도록 했다.
-- RAG chat context 확장 후에도 기존 `max-chunks`, `max-chars`, `include-scores` 제한을 유지하고, expander 또는 metadata가 없으면 기존 retrieval hit content 조립 경로를 유지한다.
+- RAG chat context 확장 후에도 기존 `max-chunks`, `max-chars` 제한을 유지하고, expander 또는 metadata가 없으면 기존 retrieval hit content 조립 경로를 유지한다.
 - 이슈 #299/#300 대응으로 `starter-ai` README에 legacy RAG chunk 설정 migration guide를 추가했다.
 - `studio.ai.pipeline.chunk-size`와 `studio.ai.pipeline.chunk-overlap`는 deprecated `TextChunker` fallback 전용 설정으로 표시하고, 기존 binding 호환성 테스트를 보강했다.
 - 이슈 #297 대응으로 `starter-ai`의 기본 `TextChunker` bean 생성을 `ChunkingOrchestrator`가 없을 때의 legacy fallback으로 제한했다.
@@ -201,7 +201,7 @@
 - 첨부 RAG 인덱싱 metadata에 `filename`, `sourceType=attachment`, `indexedAt`을 `putIfAbsent`로 추가해 클라이언트/운영 추적 정보를 보강했다.
 - 이슈 #202 대응으로 `RagPipelineService`의 hybrid 검색 weight, 최소 relevance score, keyword/semantic fallback 사용 여부를 `studio.ai.pipeline.retrieval.*` 설정으로 조정할 수 있도록 했다.
 - query 없는 object-scope RAG 조회가 과도한 chunk를 반환하지 않도록 `studio.ai.pipeline.object-scope.default-list-limit`, `max-list-limit` 설정과 service layer clamp를 추가했다.
-- `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수와 score 포함 여부를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
+- `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
 - hybrid search weight는 합계가 0보다 커야 하며, context 문자 수 한도 초과 시 chunk를 중간 절단하지 않고 제외하도록 명확히 했다.
 - Issue #203의 RAG 품질 개선 Phase 2 범위로 live LLM 호출 없이 동작하는 deterministic RAG smoke fixture를 추가했다.
 - 한국어 정책형 fixture와 첨부 요약형 fixture를 추가해 한국어 질의가 기대 chunk로 매핑되는지, object scope 검색이 다른 첨부 chunk를 반환하지 않는지, `listByObject`가 chunk 순서를 보존하는지 검증한다.
