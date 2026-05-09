@@ -166,8 +166,7 @@ objecttypes:
       maxFileMb: 50
       allowedExt: "jpg,png,webp,pdf"
       allowedMime: "image/*,application/pdf"
-      policyJson:
-        customFlag: true
+      policyJson: "{\"customFlag\":true}"
 ```
 
 ## 캐시/리바인드
@@ -187,7 +186,7 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 objecttype 범위(V200-V2
 기본적으로 보호(인증/인가)는 외부에서 처리한다.
 
 ### 엔드포인트
-- `GET    /api/mgmt/object-types` (domain/status/q, paging optional)
+- `GET    /api/mgmt/object-types` (domain/status/q, unpaged List)
 - `GET    /api/mgmt/object-types/{objectType}`
 - `POST   /api/mgmt/object-types`
 - `PUT    /api/mgmt/object-types/{objectType}` (upsert)

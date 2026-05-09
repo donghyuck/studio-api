@@ -170,7 +170,8 @@ studio:
 - MyBatis mapper XML을 복사하거나 커스터마이징한 경우 XML namespace와 row type FQCN도
   `infrastructure.persistence.mybatis` 및 `infrastructure.persistence.model` 기준으로 갱신해야 한다.
 - YAML 모드에서는 애플리케이션 기동 시 YAML 파일을 읽어 메모리에 적재한다.
-  파일이 없으면 기동에 실패하므로 리소스 경로를 정확히 설정해야 한다.
+  파일이 없거나 `objecttypes` 목록이 없으면 경고 로그를 남기고 빈 레지스트리로 기동한다.
+  운영 환경에서는 리소스 경로와 로딩 결과를 별도 smoke check로 확인해야 한다.
 - DB 모드에서 JPA를 사용할 경우 `ObjectTypeEntity` 엔터티 클래스를 포함한 JPA 스캔이
   자동으로 구성된다 (`@EntityScan`, `@EnableJpaRepositories`).
 - 레지스트리·정책 캐시는 기본적으로 활성화되어 있다(TTL 300초, 최대 1000건).
