@@ -1,7 +1,7 @@
 # studio-platform-starter-objecttype
 
 ObjectType 레지스트리와 정책을 자동 구성하는 스타터이다.
-YAML 파일 또는 데이터베이스(JPA/JDBC) 두 가지 모드로 ObjectType 정보를 로딩·캐싱하며,
+YAML 파일 또는 데이터베이스(JPA/MyBatis/JDBC) 모드로 ObjectType 정보를 로딩·캐싱하며,
 ObjectType 조회 REST 엔드포인트와 관리 REST 엔드포인트를 선택적으로 노출한다.
 핵심 구현은 `studio-platform-objecttype` 모듈에 있으며, 이 스타터는 그 위에
 자동 구성(autoconfigure) 레이어를 더한다.
@@ -18,6 +18,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // DB 모드 JDBC 사용 시
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+    // DB 모드 MyBatis 사용 시
+    implementation(project(":starter:studio-platform-starter-mybatis"))
     // REST API 노출 시
     implementation("org.springframework.boot:spring-boot-starter-web")
 }
@@ -162,15 +164,18 @@ studio:
 - 이 스타터는 기반 계약인 `studio-platform`, `studio-platform-data`, autoconfigure 관련 타입을
   `compileOnly`로 참조하므로 애플리케이션에는 `starter:studio-platform-starter`를 함께 추가해야 한다.
 - `studio-platform-objecttype` 구현 패키지는 `domain/application/infrastructure/web` 구조로 정리되었고,
-  이전 `studio.one.platform.objecttype.service`, `db`, `cache`, `yaml`, `web.dto` 패키지 wrapper는
+  이전 `studio.one.platform.objecttype.service`, `model`, `error`, `db`, `cache`, `yaml`, `web.dto` 패키지 wrapper는
   제공하지 않는다. 직접 import하는 코드는 `application.usecase`, `application.command`,
-  `application.result`, `domain.port`, `infrastructure.persistence`, `infrastructure.cache`,
-  `infrastructure.yaml`, `web.dto.request`, `web.dto.response` 기준으로 갱신해야 한다.
+  `application.result`, `application.service`, `domain.model`, `domain.error`, `domain.port`,
+  `infrastructure.persistence`, `infrastructure.cache`, `infrastructure.yaml`, `web.dto.request`,
+  `web.dto.response` 기준으로 갱신해야 한다. 전체 mapping은 `studio-platform-objecttype/README.md`의
+  패키지 구조 및 마이그레이션 표를 따른다.
   REST endpoint와 JSON 응답 shape는 변경되지 않았다.
 - MyBatis mapper XML을 복사하거나 커스터마이징한 경우 XML namespace와 row type FQCN도
   `infrastructure.persistence.mybatis` 및 `infrastructure.persistence.model` 기준으로 갱신해야 한다.
 - YAML 모드에서는 애플리케이션 기동 시 YAML 파일을 읽어 메모리에 적재한다.
   파일이 없거나 `objecttypes` 목록이 없으면 경고 로그를 남기고 빈 레지스트리로 기동한다.
+  YAML 파싱 또는 읽기 오류는 기동 실패로 처리한다.
   운영 환경에서는 리소스 경로와 로딩 결과를 별도 smoke check로 확인해야 한다.
 - DB 모드에서 JPA를 사용할 경우 `ObjectTypeEntity` 엔터티 클래스를 포함한 JPA 스캔이
   자동으로 구성된다 (`@EntityScan`, `@EnableJpaRepositories`).

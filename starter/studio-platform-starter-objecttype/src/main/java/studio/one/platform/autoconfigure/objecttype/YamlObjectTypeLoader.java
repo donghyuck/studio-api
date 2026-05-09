@@ -1,5 +1,6 @@
 package studio.one.platform.autoconfigure.objecttype;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
 import java.util.HashMap;
@@ -103,9 +104,8 @@ public class YamlObjectTypeLoader {
                     Collections.unmodifiableMap(byType),
                     Collections.unmodifiableMap(byKey),
                     Collections.unmodifiableMap(policies));
-        } catch (Exception ex) {
-            log.warn("Failed to load objecttype YAML: {}", location, ex);
-            return empty();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to read objecttype YAML: " + location, ex);
         }
     }
 
