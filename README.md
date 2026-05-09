@@ -74,7 +74,7 @@ dependencies {
 - 공통 웹/데이터/JPA 기반은 `:starter:studio-platform-starter`
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`와 `:studio-platform-user-default`
-- objectType 정책/검증이 필요하면 `:starter:studio-platform-starter-objecttype`
+- objectType 정책/검증이 필요하면 `:starter:studio-platform-starter`와 `:starter:studio-platform-starter-objecttype`
 - MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - STOMP/WebSocket 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
