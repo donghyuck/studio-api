@@ -109,7 +109,7 @@ studio:
 ## 사용 예시
 ```java
 ObjectTypeRegistry registry = ...;
-ObjectTypeMetadata meta = registry.getByType(1001);
+ObjectTypeMetadata meta = registry.findByType(1001).orElseThrow();
 
 AuthorizationRouter router = ...;
 PermissionEvaluator evaluator = router.route(meta);
