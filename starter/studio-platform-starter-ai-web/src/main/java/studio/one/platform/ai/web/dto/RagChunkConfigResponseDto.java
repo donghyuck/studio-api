@@ -30,6 +30,7 @@ public record RagChunkConfigResponseDto(
     public record RagContextConfigDto(
             int maxChunks,
             int maxChars,
+            int maxChunkChars,
             boolean includeScores,
             RagContextExpansionConfigDto expansion) {
     }

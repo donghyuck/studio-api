@@ -1,5 +1,9 @@
 package studio.one.platform.ai.service.pipeline;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.resilience4j.retry.Retry;
@@ -11,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.chunk.TextChunk;
 import studio.one.platform.ai.core.chunk.TextChunker;
@@ -1240,6 +1245,44 @@ class RagPipelineServiceTest {
             assertThat(diagnostics.beforeMinScoreCount()).isEqualTo(2);
             assertThat(diagnostics.afterMinScoreCount()).isEqualTo(2);
         });
+    }
+
+    @Test
+    void diagnosticsResultLoggingDoesNotIncludeDocumentContent() {
+        ragPipelineService = DefaultRagPipelineService.create(embeddingPort, vectorStorePort, textChunker, cache, retry,
+                keywordExtractor,
+                null,
+                new RagPipelineOptions(0.2d, 0.8d, 0.4d, true, true, 20, 100),
+                new RagPipelineDiagnosticsOptions(true, true, 120));
+        RagSearchRequest request = new RagSearchRequest("hello", 1);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), eq(0.2d), eq(0.8d)))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-1", "private body snippet must not be logged", Map.of(), List.of()),
+                        0.9)));
+
+        Logger logger = (Logger) LoggerFactory.getLogger(DefaultRagPipelineService.class);
+        Level previousLevel = logger.getLevel();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.DEBUG);
+        try {
+            ragPipelineService.search(request);
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(previousLevel);
+        }
+
+        assertThat(appender.list)
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message)
+                        .contains("docId=doc-1")
+                        .contains("score=0.900"))
+                .noneSatisfy(message -> assertThat(message)
+                        .contains("private body snippet")
+                        .contains("snippet="));
     }
 
     @Test

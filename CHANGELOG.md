@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #442 대응으로 `POST /api/ai/chat/rag`의 LLM 전달 context를 예산 기반으로 packing하도록 보강했다. 큰 chunk는 deterministic excerpt preview로 압축하고, 외부 provider prompt에는 요청 단위 인덱스와 packed preview만 전달하며, `ragReferences`는 citation용 allowlist field만 기본 반환한다. packed content와 diagnostics는 opt-in debug 조건에서만 노출한다.
 - 이슈 #444 대응으로 `studio-platform-objecttype` 구현 패키지를 `domain/application/infrastructure/web` 구조로 재정리했다. 이 변경은 의도적인 breaking rename이며 기존 `studio.one.platform.objecttype.service`, `db`, `cache`, `yaml`, `web.dto` 패키지 wrapper를 제공하지 않는다. 직접 import하는 소비자는 `application.usecase`, `application.command`, `application.result`, `domain.port`, `infrastructure.persistence`, `infrastructure.cache`, `infrastructure.yaml`, `web.dto.request`, `web.dto.response` 기준으로 import를 갱신해야 한다. REST endpoint, JSON DTO shape, DB schema, MyBatis SQL 동작은 변경하지 않았다.
 - 이슈 #441 대응으로 custom SqlQuery/sqlset mapper 런타임과 starter 자동구성을 제거하고 SQL mapper 표준을 MyBatis convention으로 전환했다. `JdbcAutoConfiguration`은 `JdbcTemplate`/`NamedParameterJdbcTemplate`만 등록하며, mapper XML은 `starter:studio-platform-starter-mybatis`의 `classpath*:mybatis/**/*.xml` 경로를 사용한다.
 - 이슈 #438 대응으로 관리용 회원 목록 API `GET /api/mgmt/users`에 `companyId` 필터를 추가했다. `companyId`와 `q`를 함께 사용하면 Company 멤버 범위 안에서 `username`/`name`/`email` 검색을 수행하며, platform admin이 아닌 호출자는 대상 Company의 `company.member.read` 권한이 필요하고 pagination/sort는 기존 사용자 목록과 동일하게 적용된다. JDBC pagination 정렬은 allowlist에 없는 sort 필드를 SQL에 반영하지 않고 기본 정렬로 대체하도록 보강했다.
@@ -106,7 +107,7 @@
 
 ### 변경됨
 - 이슈 #290 대응으로 `starter-ai-web`의 `RagContextBuilder`가 optional `ChunkContextExpander`를 사용해 object-scoped RAG 검색 결과의 parent/neighbor/table 문맥을 확장할 수 있도록 했다.
-- RAG chat context 확장 후에도 기존 `max-chunks`, `max-chars`, `include-scores` 제한을 유지하고, expander 또는 metadata가 없으면 기존 retrieval hit content 조립 경로를 유지한다.
+- RAG chat context 확장 후에도 기존 `max-chunks`, `max-chars` 제한을 유지하고, expander 또는 metadata가 없으면 기존 retrieval hit content 조립 경로를 유지한다.
 - 이슈 #299/#300 대응으로 `starter-ai` README에 legacy RAG chunk 설정 migration guide를 추가했다.
 - `studio.ai.pipeline.chunk-size`와 `studio.ai.pipeline.chunk-overlap`는 deprecated `TextChunker` fallback 전용 설정으로 표시하고, 기존 binding 호환성 테스트를 보강했다.
 - 이슈 #297 대응으로 `starter-ai`의 기본 `TextChunker` bean 생성을 `ChunkingOrchestrator`가 없을 때의 legacy fallback으로 제한했다.
@@ -200,7 +201,7 @@
 - 첨부 RAG 인덱싱 metadata에 `filename`, `sourceType=attachment`, `indexedAt`을 `putIfAbsent`로 추가해 클라이언트/운영 추적 정보를 보강했다.
 - 이슈 #202 대응으로 `RagPipelineService`의 hybrid 검색 weight, 최소 relevance score, keyword/semantic fallback 사용 여부를 `studio.ai.pipeline.retrieval.*` 설정으로 조정할 수 있도록 했다.
 - query 없는 object-scope RAG 조회가 과도한 chunk를 반환하지 않도록 `studio.ai.pipeline.object-scope.default-list-limit`, `max-list-limit` 설정과 service layer clamp를 추가했다.
-- `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수와 score 포함 여부를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
+- `POST /api/ai/chat/rag`가 system context에 포함하는 RAG chunk 수/문자 수를 `studio.ai.endpoints.rag.context.*` 설정으로 제한하도록 했다.
 - hybrid search weight는 합계가 0보다 커야 하며, context 문자 수 한도 초과 시 chunk를 중간 절단하지 않고 제외하도록 명확히 했다.
 - Issue #203의 RAG 품질 개선 Phase 2 범위로 live LLM 호출 없이 동작하는 deterministic RAG smoke fixture를 추가했다.
 - 한국어 정책형 fixture와 첨부 요약형 fixture를 추가해 한국어 질의가 기대 chunk로 매핑되는지, object scope 검색이 다른 첨부 chunk를 반환하지 않는지, `listByObject`가 chunk 순서를 보존하는지 검증한다.

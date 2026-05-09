@@ -28,9 +28,10 @@ public class RagContextBuilder {
     private static final String HEADER = "다음 문서 내용을 참고해 답변하세요:\n";
     static final String KEY_CHUNK_ID = "chunkId";
     private static final String KEY_DOCUMENT_ID = "documentId";
-
+    private static final String TRUNCATION_MARKER = "\n...[truncated]...\n";
     private final int maxChunks;
     private final int maxChars;
+    private final int maxChunkChars;
     private final boolean includeScores;
     private final AiWebRagProperties.ExpansionProperties expansion;
     private final List<ChunkContextExpander> contextExpanders;
@@ -42,13 +43,14 @@ public class RagContextBuilder {
     public RagContextBuilder(AiWebRagProperties properties, List<ChunkContextExpander> contextExpanders) {
         this(properties.getContext().getMaxChunks(),
                 properties.getContext().getMaxChars(),
+                properties.getContext().getMaxChunkChars(),
                 properties.getContext().isIncludeScores(),
                 properties.getContext().getExpansion(),
                 contextExpanders);
     }
 
     public RagContextBuilder(int maxChunks, int maxChars, boolean includeScores) {
-        this(maxChunks, maxChars, includeScores, new AiWebRagProperties.ExpansionProperties(), List.of());
+        this(maxChunks, maxChars, 2_000, includeScores, new AiWebRagProperties.ExpansionProperties(), List.of());
     }
 
     public RagContextBuilder(
@@ -56,7 +58,8 @@ public class RagContextBuilder {
             int maxChars,
             boolean includeScores,
             List<ChunkContextExpander> contextExpanders) {
-        this(maxChunks, maxChars, includeScores, new AiWebRagProperties.ExpansionProperties(), contextExpanders);
+        this(maxChunks, maxChars, 2_000, includeScores, new AiWebRagProperties.ExpansionProperties(),
+                contextExpanders);
     }
 
     public RagContextBuilder(
@@ -65,8 +68,19 @@ public class RagContextBuilder {
             boolean includeScores,
             AiWebRagProperties.ExpansionProperties expansion,
             List<ChunkContextExpander> contextExpanders) {
+        this(maxChunks, maxChars, 2_000, includeScores, expansion, contextExpanders);
+    }
+
+    public RagContextBuilder(
+            int maxChunks,
+            int maxChars,
+            int maxChunkChars,
+            boolean includeScores,
+            AiWebRagProperties.ExpansionProperties expansion,
+            List<ChunkContextExpander> contextExpanders) {
         this.maxChunks = Math.max(0, maxChunks);
         this.maxChars = Math.max(0, maxChars);
+        this.maxChunkChars = Math.max(1, maxChunkChars);
         this.includeScores = includeScores;
         this.expansion = expansion == null ? new AiWebRagProperties.ExpansionProperties() : expansion;
         this.contextExpanders = contextExpanders == null ? List.of()
@@ -95,16 +109,20 @@ public class RagContextBuilder {
         boolean expansionSupported = supportsExpansion();
         if (results == null || results.isEmpty() || maxChunks == 0 || maxChars == 0) {
             return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
-                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, "no_context"));
+                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, 0, 0, 0,
+                    maxChunks, maxChars, 0, "no_context"));
         }
         StringBuilder sb = new StringBuilder(HEADER);
         if (sb.length() > maxChars) {
             return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
-                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, "context_limit"));
+                    expansionSupported, false, null, 0, 0, candidateCount, resultCount, 0, 0, resultCount,
+                    maxChunks, maxChars, 0, "context_limit"));
         }
         int count = Math.min(maxChunks, results.size());
         int expandedHitCount = 0;
         int fallbackHitCount = 0;
+        int compressedHitCount = 0;
+        int skippedHitCount = Math.max(0, resultCount - count);
         String strategy = null;
         String fallbackReason = expansionSupported ? null : "disabled";
         boolean contextLimitHit = false;
@@ -112,19 +130,44 @@ public class RagContextBuilder {
         for (int i = 0; i < count; i++) {
             RagSearchResult original = results.get(i);
             ExpansionAttempt attempt = expandResultWithDiagnostics(original, expansionCandidates);
-            String chunk = formatChunk(i + 1, attempt.result());
-            if (!appendWithinLimit(sb, chunk)) {
+            int promptIndex = usedResults.size() + 1;
+            PackedChunk chunk = packChunk(promptIndex, attempt.result());
+            if (!appendWithinLimit(sb, chunk.text())) {
                 contextLimitHit = true;
                 if (!attempt.expanded()) {
+                    Optional<PackedChunk> fitted = packChunkToRemainingBudget(
+                            promptIndex, original, maxChars - sb.length());
+                    if (fitted.isPresent() && appendWithinLimit(sb, fitted.get().text())) {
+                        usedResults.add(fitted.get().result());
+                        if (fitted.get().compressed()) {
+                            compressedHitCount++;
+                        }
+                        fallbackReason = "context_limit";
+                        continue;
+                    }
+                    skippedHitCount++;
                     fallbackReason = "context_limit";
-                    break;
+                    continue;
                 }
-                String fallbackChunk = formatChunk(i + 1, original);
-                if (!appendWithinLimit(sb, fallbackChunk)) {
-                    fallbackReason = "context_limit";
-                    break;
+                PackedChunk fallbackChunk = packChunk(promptIndex, original);
+                if (!appendWithinLimit(sb, fallbackChunk.text())) {
+                    Optional<PackedChunk> fitted = packChunkToRemainingBudget(
+                            promptIndex, original, maxChars - sb.length());
+                    if (fitted.isEmpty() || !appendWithinLimit(sb, fitted.get().text())) {
+                        skippedHitCount++;
+                        fallbackReason = "context_limit";
+                        continue;
+                    }
+                    usedResults.add(fitted.get().result());
+                    if (fitted.get().compressed()) {
+                        compressedHitCount++;
+                    }
+                } else {
+                    usedResults.add(fallbackChunk.result());
+                    if (fallbackChunk.compressed()) {
+                        compressedHitCount++;
+                    }
                 }
-                usedResults.add(original);
                 fallbackHitCount++;
                 fallbackReason = "context_limit";
                 if (strategy == null) {
@@ -132,7 +175,10 @@ public class RagContextBuilder {
                 }
                 continue;
             }
-            usedResults.add(attempt.result());
+            usedResults.add(chunk.result());
+            if (chunk.compressed()) {
+                compressedHitCount++;
+            }
             if (attempt.expanded()) {
                 expandedHitCount++;
                 if (strategy == null) {
@@ -149,6 +195,7 @@ public class RagContextBuilder {
         if (HEADER.trim().equals(context)) {
             return new BuildResult(NO_CONTEXT_MESSAGE, new Diagnostics(
                     expansionSupported, false, strategy, 0, fallbackHitCount, candidateCount, resultCount,
+                    0, compressedHitCount, skippedHitCount, maxChunks, maxChars, 0,
                     contextLimitHit ? "context_limit" : "no_context"));
         }
         return new BuildResult(context, new Diagnostics(
@@ -159,6 +206,12 @@ public class RagContextBuilder {
                 fallbackHitCount,
                 candidateCount,
                 resultCount,
+                usedResults.size(),
+                compressedHitCount,
+                skippedHitCount,
+                maxChunks,
+                maxChars,
+                context.length(),
                 fallbackReason),
                 usedResults);
     }
@@ -171,14 +224,61 @@ public class RagContextBuilder {
         return true;
     }
 
-    private String formatChunk(int index, RagSearchResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("[").append(index).append("] docId=").append(result.documentId());
-        if (includeScores) {
-            sb.append(" score=").append(String.format("%.3f", result.score()));
+    private PackedChunk packChunk(int index, RagSearchResult result) {
+        String packedContent = excerpt(result.content(), maxChunkChars);
+        boolean compressed = !packedContent.equals(result.content());
+        RagSearchResult packedResult = compressed
+                ? new RagSearchResult(result.documentId(), packedContent, result.metadata(), result.score())
+                : result;
+        return new PackedChunk(formatChunk(index, packedResult), packedResult, compressed);
+    }
+
+    private Optional<PackedChunk> packChunkToRemainingBudget(int index, RagSearchResult result, int remainingChars) {
+        if (remainingChars <= 0) {
+            return Optional.empty();
         }
+        int overhead = formatChunk(index,
+                new RagSearchResult(result.documentId(), "", result.metadata(), result.score()), false)
+                .length();
+        int contentBudget = remainingChars - overhead;
+        if (contentBudget <= 0) {
+            return Optional.empty();
+        }
+        String packedContent = excerpt(result.content(), Math.min(maxChunkChars, contentBudget));
+        RagSearchResult packedResult = new RagSearchResult(
+                result.documentId(),
+                packedContent,
+                result.metadata(),
+                result.score());
+        String packedText = formatChunk(index, packedResult, false);
+        if (packedText.length() > remainingChars) {
+            return Optional.empty();
+        }
+        return Optional.of(new PackedChunk(packedText, packedResult, !packedContent.equals(result.content())));
+    }
+
+    private String formatChunk(int index, RagSearchResult result) {
+        return formatChunk(index, result, true);
+    }
+
+    private String formatChunk(int index, RagSearchResult result, boolean includeMetadata) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[").append(index).append("]");
         sb.append("\n").append(result.content()).append("\n\n");
         return sb.toString();
+    }
+
+    private String excerpt(String content, int limit) {
+        if (content == null || content.length() <= limit) {
+            return content == null ? "" : content;
+        }
+        if (limit <= TRUNCATION_MARKER.length() + 2) {
+            return content.substring(0, limit);
+        }
+        int bodyBudget = limit - TRUNCATION_MARKER.length();
+        int head = Math.max(1, (int) Math.ceil(bodyBudget * 0.67d));
+        int tail = Math.max(1, bodyBudget - head);
+        return content.substring(0, head) + TRUNCATION_MARKER + content.substring(content.length() - tail);
     }
 
     private ExpansionAttempt expandResultWithDiagnostics(RagSearchResult result, List<RagSearchResult> expansionCandidates) {
@@ -363,6 +463,12 @@ public class RagContextBuilder {
             int fallbackHitCount,
             int candidateCount,
             int resultCount,
+            int includedCount,
+            int compressedHitCount,
+            int skippedHitCount,
+            int maxChunks,
+            int maxChars,
+            int contextCharCount,
             String fallbackReason) {
 
         public Map<String, Object> toMetadata() {
@@ -374,6 +480,12 @@ public class RagContextBuilder {
             metadata.put("fallbackHitCount", fallbackHitCount);
             metadata.put("candidateCount", candidateCount);
             metadata.put("resultCount", resultCount);
+            metadata.put("includedCount", includedCount);
+            metadata.put("compressedHitCount", compressedHitCount);
+            metadata.put("skippedHitCount", skippedHitCount);
+            metadata.put("maxChunks", maxChunks);
+            metadata.put("maxChars", maxChars);
+            metadata.put("contextCharCount", contextCharCount);
             put(metadata, "fallbackReason", fallbackReason);
             return Map.copyOf(metadata);
         }
@@ -390,5 +502,11 @@ public class RagContextBuilder {
             boolean expanded,
             String strategy,
             String fallbackReason) {
+    }
+
+    private record PackedChunk(
+            String text,
+            RagSearchResult result,
+            boolean compressed) {
     }
 }

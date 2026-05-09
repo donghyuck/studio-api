@@ -443,7 +443,7 @@ public class ChatController {
         appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
         boolean exposeDiagnostics = shouldExposeDiagnostics(request);
         Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
-        extraMetadata.put("ragReferences", ragReferences(contextResult.usedResults()));
+        extraMetadata.put("ragReferences", ragReferences(contextResult.usedResults(), exposeDiagnostics));
         if (exposeDiagnostics && contextResult.diagnostics() != null) {
             extraMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
         }
@@ -693,18 +693,18 @@ public class ChatController {
         return new ChatResponseDto(messages, response.model(), metadata);
     }
 
-    private List<Map<String, Object>> ragReferences(List<RagSearchResult> results) {
+    private List<Map<String, Object>> ragReferences(List<RagSearchResult> results, boolean includePackedContent) {
         if (results == null || results.isEmpty()) {
             return List.of();
         }
         List<Map<String, Object>> references = new ArrayList<>(results.size());
         for (int i = 0; i < results.size(); i++) {
-            references.add(ragReference(i + 1, results.get(i)));
+            references.add(ragReference(i + 1, results.get(i), includePackedContent));
         }
         return List.copyOf(references);
     }
 
-    private Map<String, Object> ragReference(int index, RagSearchResult result) {
+    private Map<String, Object> ragReference(int index, RagSearchResult result, boolean includePackedContent) {
         Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
         Map<String, Object> reference = new LinkedHashMap<>();
         reference.put("index", index);
@@ -722,7 +722,9 @@ public class ChatController {
         put(reference, "chunkId", chunkId == null ? documentId : chunkId);
         put(reference, "chunkOrder", firstInteger(metadata, "chunkOrder", VectorRecord.KEY_CHUNK_INDEX));
         put(reference, "score", result.score());
-        put(reference, "content", result.content());
+        if (includePackedContent) {
+            put(reference, "content", result.content());
+        }
         Integer page = firstInteger(metadata, VectorRecord.KEY_PAGE, "page", "pageNumber");
         if (page != null) {
             reference.put("page", page);
@@ -733,12 +735,8 @@ public class ChatController {
             reference.put("slide", slide);
             reference.put("slideNumber", slide);
         }
-        put(reference, "sourceRef", firstText(metadata, VectorRecord.KEY_SOURCE_REF, "sourceRef", "sourceRefs"));
         put(reference, "section", firstText(metadata, "section", VectorRecord.KEY_HEADING_PATH, "headingPath"));
         put(reference, "heading", firstText(metadata, "heading", VectorRecord.KEY_HEADING_PATH, "headingPath"));
-        if (!metadata.isEmpty()) {
-            reference.put("metadata", metadata);
-        }
         return Map.copyOf(reference);
     }
 

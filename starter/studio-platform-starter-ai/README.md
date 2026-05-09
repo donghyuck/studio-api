@@ -424,8 +424,8 @@ studio:
 | `studio.ai.rag.object-scope.default-list-limit` | `20` | query 없는 object-scope list 기본 limit |
 | `studio.ai.rag.object-scope.max-list-limit` | `200` | object-scope list 최대 limit |
 | `studio.ai.rag.diagnostics.enabled` | `false` | RAG 검색 fallback 전략과 결과 카운트 수집 여부 |
-| `studio.ai.rag.diagnostics.log-results` | `false` | diagnostics 활성화 시 bounded result snippet debug log 출력 여부 |
-| `studio.ai.rag.diagnostics.max-snippet-chars` | `120` | result snippet debug log 최대 문자 수 |
+| `studio.ai.rag.diagnostics.log-results` | `false` | diagnostics 활성화 시 result id/score debug log 출력 여부. chunk 본문/snippet은 로그에 남기지 않음 |
+| `studio.ai.rag.diagnostics.max-snippet-chars` | `120` | 하위 호환 설정. 보안상 result snippet logging에는 사용하지 않음 |
 
 `vector-weight`와 `lexical-weight`는 각각 0 이상이어야 하며 두 값의 합은 0보다 커야 한다.
 검색 API에서 요청 `topK`/`minScore`가 있으면 요청값이 우선하고, 없으면 위 설정값을 사용한다.
@@ -434,6 +434,7 @@ fallback 전략 선택은 서버 설정 `min-relevance-score` 기준의 raw retr
 client `minScore`는 최종 반환/context 후보 cutoff로만 적용한다.
 diagnostics metadata에는 chunk 본문을 포함하지 않고 strategy, 결과 수, requested/effective threshold,
 weight, object scope, topK, minScore 적용 전후 count만 기록한다.
+`log-results=true`여도 debug log에는 result id/score만 남기며 chunk 본문, snippet, embedding vector는 기록하지 않는다.
 `keywords.scope=document`는 기존 동작과 동일하게 문서 단위 `keywords`/`keywordsText`만 기록한다.
 `chunk` 또는 `both`를 사용하면 chunk metadata에 `chunkKeywords`/`chunkKeywordsText`를 추가한다.
 호출자가 제공한 `RagIndexRequest.keywords`는 document-level keyword로만 사용되며, `keywords.scope=chunk`에서는 저장되지 않는다.

@@ -642,12 +642,9 @@ class ChatControllerTest {
                 .containsEntry("chunkId", "chunk-1")
                 .containsEntry("chunkOrder", 7)
                 .containsEntry("score", 0.9d)
-                .containsEntry("content", "file text")
                 .containsEntry("page", 3)
-                .containsEntry("pageNumber", 3)
-                .containsEntry("sourceRef", "page[3]");
-        assertThat((Map<String, Object>) references.get(0).get("metadata"))
-                .containsEntry("sourceName", "sample.pdf");
+                .containsEntry("pageNumber", 3);
+        assertThat(references.get(0)).doesNotContainKeys("content", "metadata", "sourceRef");
     }
 
     @Test
@@ -747,9 +744,7 @@ class ChatControllerTest {
         verify(ragPipelineService).listByObject("attachment", "123", 12);
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .contains("previous\nseed\nnext")
-                .contains("docId=chunk-2")
-                .contains("score=0.900");
+                .contains("previous\nseed\nnext");
     }
 
     @Test
@@ -954,8 +949,8 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         String context = chatCaptor.getValue().messages().get(0).content();
-        assertThat(context).contains("doc-1", "doc-2");
-        assertThat(context).doesNotContain("doc-3");
+        assertThat(context).contains("first", "second");
+        assertThat(context).doesNotContain("third");
     }
 
     @Test
@@ -987,7 +982,78 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+                .contains("[truncated]")
+                .doesNotContain("0123456789".repeat(20));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragChatUsesPackedPreviewForPromptAndReferences() {
+        controller = new ChatController(providerRegistry, ragPipelineService,
+                new RagContextBuilder(
+                        8,
+                        12_000,
+                        24,
+                        true,
+                        new AiWebRagProperties.ExpansionProperties(),
+                        List.of()),
+                true);
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        String rawContent = "A".repeat(80) + "B".repeat(80);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "doc-1",
+                        rawContent,
+                        Map.of(
+                                "sourceName", "large.pdf",
+                                RagContextBuilder.KEY_CHUNK_ID, "chunk-1",
+                                ChunkMetadata.KEY_OBJECT_TYPE, "attachment",
+                                ChunkMetadata.KEY_OBJECT_ID, "123"),
+                        0.9d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123",
+                true)).getBody().getData();
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        String promptContext = chatCaptor.getValue().messages().get(0).content();
+        assertThat(promptContext)
+                .contains("[truncated]")
+                .doesNotContain(rawContent)
+                .doesNotContain("doc-1", "chunk-1", "attachment", "123", "score=");
+
+        List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
+        assertThat(references).hasSize(1);
+        assertThat(references.get(0))
+                .containsEntry("documentId", "doc-1")
+                .containsEntry("sourceName", "large.pdf")
+                .containsEntry("chunkId", "chunk-1");
+        assertThat((String) references.get(0).get("content"))
+                .contains("[truncated]")
+                .doesNotContain(rawContent);
+
+        Map<String, Object> contextDiagnostics = (Map<String, Object>) response.metadata()
+                .get("ragContextDiagnostics");
+        assertThat(contextDiagnostics)
+                .containsEntry("includedCount", 1)
+                .containsEntry("compressedHitCount", 1)
+                .containsEntry("skippedHitCount", 0)
+                .containsEntry("maxChars", 12_000)
+                .doesNotContainKeys("content", "snippet", "text", "chunk");
+        assertThat(contextDiagnostics.values()).doesNotContain(rawContent);
     }
 
     @Test
@@ -1015,7 +1081,6 @@ class ChatControllerTest {
 
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
-                .contains("docId=doc-1")
                 .doesNotContain("score=");
     }
 

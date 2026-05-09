@@ -143,6 +143,7 @@ public class RagChunkPreviewController {
                 new RagChunkConfigResponseDto.RagContextConfigDto(
                         context.getMaxChunks(),
                         context.getMaxChars(),
+                        context.getMaxChunkChars(),
                         context.isIncludeScores(),
                         new RagChunkConfigResponseDto.RagContextExpansionConfigDto(
                                 expansion.isEnabled(),

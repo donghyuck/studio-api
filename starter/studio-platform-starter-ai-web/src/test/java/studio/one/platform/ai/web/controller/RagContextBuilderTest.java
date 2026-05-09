@@ -24,8 +24,6 @@ class RagContextBuilderTest {
         String context = builder.build(List.of(result("chunk-1", "seed", metadata("chunk-1"))));
 
         assertThat(context)
-                .contains("docId=chunk-1")
-                .contains("score=0.900")
                 .contains("seed");
     }
 
@@ -41,8 +39,6 @@ class RagContextBuilderTest {
                         result("chunk-3", "next", metadata("chunk-3", "chunk-2", null, 2))));
 
         assertThat(context)
-                .contains("docId=chunk-2")
-                .contains("score=0.900")
                 .contains("previous\nseed\nnext");
     }
 
@@ -125,7 +121,6 @@ class RagContextBuilderTest {
                                 metadata("chunk-3", "chunk-2", null, 2))));
 
         assertThat(result.context())
-                .contains("docId=chunk-2")
                 .contains("seed")
                 .doesNotContain("previous text that makes the expanded content too long")
                 .doesNotContain("next text that makes the expanded content too long");
@@ -154,8 +149,8 @@ class RagContextBuilderTest {
                         result("chunk-4", "tail", metadata("chunk-4", "chunk-3", null, 3))));
 
         assertThat(result.context())
-                .contains("[1] docId=chunk-2")
-                .contains("[2] docId=chunk-4");
+                .contains("[1]")
+                .contains("[2]");
         assertThat(result.usedResults())
                 .extracting(RagSearchResult::content)
                 .containsExactly("previous\nseed\nnext\ntail", "previous\nseed\nnext\ntail");
@@ -163,7 +158,7 @@ class RagContextBuilderTest {
 
     @Test
     void reportsContextLimitWhenOriginalChunkAlsoExceedsCharacterBudget() {
-        RagContextBuilder builder = new RagContextBuilder(8, 50, true, TestWindowChunkContextExpander.asList());
+        RagContextBuilder builder = new RagContextBuilder(8, 80, true, TestWindowChunkContextExpander.asList());
 
         RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
                 List.of(result("chunk-2", "seed text that is too long for the remaining context budget",
@@ -174,10 +169,118 @@ class RagContextBuilderTest {
                                 metadata("chunk-2", "chunk-1", "chunk-3", 1)),
                         result("chunk-3", "next", metadata("chunk-3", "chunk-2", null, 2))));
 
-        assertThat(result.context()).isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+        assertThat(result.context())
+                .doesNotContain("참고할 문서가 없습니다");
+        assertThat(result.usedResults()).hasSize(1);
+        assertThat(result.usedResults().get(0).content())
+                .isNotEqualTo("seed text that is too long for the remaining context budget");
         assertThat(result.diagnostics().toMetadata())
                 .containsEntry("resultCount", 1)
+                .containsEntry("includedCount", 1)
+                .containsEntry("compressedHitCount", 1)
                 .containsEntry("fallbackReason", "context_limit");
+    }
+
+    @Test
+    void packsShortPreviewWhenOnlySmallContentBudgetRemains() {
+        RagContextBuilder builder = new RagContextBuilder(8, 40, 100, true,
+                new AiWebRagProperties.ExpansionProperties(), List.of());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(result("chunk-1", "12345678901234567890", metadata("chunk-1"))),
+                List.of());
+
+        assertThat(result.context())
+                .doesNotContain("참고할 문서가 없습니다")
+                .contains("[1]")
+                .hasSizeLessThanOrEqualTo(40);
+        assertThat(result.usedResults()).hasSize(1);
+        assertThat(result.usedResults().get(0).content())
+                .isEqualTo("1234567890123");
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("includedCount", 1)
+                .containsEntry("compressedHitCount", 1);
+    }
+
+    @Test
+    void compressesLargeChunksBeforePackingContext() {
+        RagContextBuilder builder = new RagContextBuilder(
+                8,
+                12_000,
+                24,
+                true,
+                new AiWebRagProperties.ExpansionProperties(),
+                List.of());
+        String longContent = "A".repeat(80) + "B".repeat(80);
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(result("chunk-1", longContent, metadata("chunk-1"))),
+                List.of());
+
+        assertThat(result.context())
+                .contains("[1]")
+                .contains("[truncated]")
+                .doesNotContain(longContent);
+        assertThat(result.usedResults()).hasSize(1);
+        assertThat(result.usedResults().get(0).content()).hasSizeLessThan(longContent.length());
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("includedCount", 1)
+                .containsEntry("compressedHitCount", 1)
+                .containsEntry("skippedHitCount", 0)
+                .containsEntry("maxChunks", 8)
+                .containsEntry("maxChars", 12_000);
+    }
+
+    @Test
+    void skipsChunksThatCannotFitAfterCompression() {
+        RagContextBuilder builder = new RagContextBuilder(
+                8,
+                24,
+                2_000,
+                true,
+                new AiWebRagProperties.ExpansionProperties(),
+                List.of());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(result("chunk-1", "body", metadata("chunk-1"))),
+                List.of());
+
+        assertThat(result.context()).isEqualTo("참고할 문서가 없습니다. 일반적으로 답변하세요.");
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("includedCount", 0)
+                .containsEntry("skippedHitCount", 1)
+                .containsEntry("fallbackReason", "context_limit");
+    }
+
+    @Test
+    void keepsSequentialPromptBlocksWhenMiddleChunkIsCompressed() {
+        RagContextBuilder builder = new RagContextBuilder(
+                8,
+                50,
+                2_000,
+                true,
+                new AiWebRagProperties.ExpansionProperties(),
+                List.of());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(
+                        result("chunk-1", "first", metadata("chunk-1")),
+                        result("chunk-2", "middle chunk cannot fit after first", metadata("chunk-2")),
+                        result("chunk-3", "tail", metadata("chunk-3"))),
+                List.of());
+
+        assertThat(result.context())
+                .contains("[1]\nfirst")
+                .contains("[2]\nmiddle chunk")
+                .doesNotContain("[3]")
+                .doesNotContain("tail")
+                .doesNotContain("middle chunk cannot fit after first");
+        assertThat(result.usedResults())
+                .extracting(RagSearchResult::documentId)
+                .containsExactly("chunk-1", "chunk-2");
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("includedCount", 2)
+                .containsEntry("skippedHitCount", 1);
     }
 
     private RagSearchResult result(String chunkId, String content, Map<String, Object> metadata) {

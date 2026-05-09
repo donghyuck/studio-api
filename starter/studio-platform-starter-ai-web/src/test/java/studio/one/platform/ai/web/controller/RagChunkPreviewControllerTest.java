@@ -192,6 +192,7 @@ class RagChunkPreviewControllerTest {
         assertThat(data.chunking().registeredChunkers()).containsExactly("TestChunker");
         assertThat(data.legacyFallback().chunkSize()).isEqualTo(500);
         assertThat(data.legacyFallback().chunkOverlap()).isEqualTo(50);
+        assertThat(data.ragContext().maxChunkChars()).isEqualTo(2_000);
         assertThat(data.ragContext().expansion().maxCandidates()).isEqualTo(100);
         assertThat(data.limits().maxInputChars()).isEqualTo(200_000);
         assertThat(data.limits().maxPreviewChunks()).isEqualTo(500);
