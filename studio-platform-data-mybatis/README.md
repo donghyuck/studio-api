@@ -27,8 +27,9 @@ studio:
       Microsoft SQL Server: sqlserver
 ```
 
-`studio.mybatis.*`는 Studio convention 기본값이다. MyBatis starter의 표준 `mybatis.*` 설정을 직접
-지정하면 해당 설정을 우선한다.
+`studio.mybatis.mapper-locations`는 Studio starter가 제공하는 mapper XML이 누락되지 않도록 표준
+`mybatis.mapper-locations`와 병합된다. type alias/type handler package는 MyBatis starter의 표준
+`mybatis.*` 설정을 직접 지정하면 해당 설정을 우선한다.
 
 `database-id-aliases`는 기본 map에 설정값이 merge된다. 같은 product name을 지정하면 alias가
 덮어써지고, 새 product name은 추가된다.

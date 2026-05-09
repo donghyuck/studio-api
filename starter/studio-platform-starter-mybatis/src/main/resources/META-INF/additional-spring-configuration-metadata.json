@@ -3,7 +3,7 @@
     {
       "name": "studio.mybatis.mapper-locations",
       "type": "java.util.List<java.lang.String>",
-      "description": "Default mapper XML resource locations applied when mybatis.mapper-locations is not set.",
+      "description": "Studio mapper XML resource locations merged with standard mybatis.mapper-locations.",
       "defaultValue": [
         "classpath*:mybatis/**/*.xml"
       ]

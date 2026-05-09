@@ -27,10 +27,13 @@ studio:
     map-underscore-to-camel-case: true
 
 mybatis:
-  # 표준 MyBatis Boot 설정을 직접 지정하면 studio.mybatis 기본값보다 우선한다.
+  # 표준 MyBatis Boot 설정을 직접 지정해도 studio.mybatis mapper-locations와 병합된다.
   mapper-locations:
-    - classpath*:mybatis/**/*.xml
+    - classpath*:custom-mybatis/**/*.xml
 ```
 
 `persistence=jdbc` alias는 legacy 직접 JDBC 구현 호환용으로만 유지한다. SQL mapper는 MyBatis
 convention을 사용하고, XML mapper는 `classpath*:mybatis/**/*.xml`에서 로드한다.
+`mybatis.mapper-locations`를 직접 지정해도 Studio starter가 제공하는 mapper XML이 누락되지 않도록
+`studio.mybatis.mapper-locations`와 병합된다. type alias/type handler package는 표준
+`mybatis.*` 설정이 있으면 해당 설정을 우선한다.
