@@ -7,7 +7,7 @@
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`
 - ACL이 필요하면 `:starter:studio-platform-starter-security-acl`
-- objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter-objecttype`
+- objectType 레지스트리/정책이 필요하면 `:starter:studio-platform-starter`와 `:starter:studio-platform-starter-objecttype`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - workspace 기반 Wiki page/revision API가 필요하면 `:starter:studio-application-starter-wiki`
 - MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
@@ -40,7 +40,7 @@ dependencies {
 - `studio-platform-starter-security`: Spring Security 기본 구성과 인증/인가 훅
 - `studio-platform-starter-security-acl`: ACL 엔티티/리포지토리 스캔과 ACL 연동
 - `studio-platform-starter-user`: 사용자 도메인 서비스와 기본 REST 구성
-- `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성
+- `studio-platform-starter-objecttype`: objectType 레지스트리/정책/런타임 검증 자동 구성. 기반 계약과 data helper는 `studio-platform-starter`가 제공한다.
 - `studio-platform-starter-workspace`: workspace tree/member/permission JPA 기본 구현과 API 자동 구성
 - `studio-platform-starter-mybatis`: MyBatis Boot starter와 `classpath*:mybatis/**/*.xml` mapper convention 자동 구성
 - `studio-platform-starter-realtime`: WebSocket/STOMP 엔드포인트와 Redis Pub/Sub 연동 자동 구성
