@@ -13,13 +13,13 @@ import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
-import studio.one.platform.objecttype.service.ObjectTypeDefinition;
-import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.service.ObjectTypeView;
-import studio.one.platform.objecttype.service.ObjectTypePolicyView;
-import studio.one.platform.objecttype.service.ValidateUploadCommand;
-import studio.one.platform.objecttype.service.ValidateUploadResult;
-import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.result.ObjectTypeView;
+import studio.one.platform.objecttype.application.result.ObjectTypePolicyView;
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
+import studio.one.platform.objecttype.application.result.ValidateUploadResult;
+import studio.one.platform.objecttype.web.dto.request.ValidateUploadRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 class ObjectTypeControllerTest {
@@ -37,7 +37,7 @@ class ObjectTypeControllerTest {
                 new ObjectTypePolicyView(1001, 12, "png", "image/png", "{\"x\":1}",
                         "system", 1L, createdAt, "system", 1L, updatedAt)));
 
-        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.ObjectTypeDefinitionDto>> response =
+        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.response.ObjectTypeDefinitionDto>> response =
                 controller.definition(1001);
 
         assertEquals(1001, response.getBody().getData().getType().getObjectType());
@@ -55,7 +55,7 @@ class ObjectTypeControllerTest {
         when(runtimeService.validateUpload(eq(1200), eq(new ValidateUploadCommand("photo.png", "image/png", 1024L))))
                 .thenReturn(new ValidateUploadResult(true, null));
 
-        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.ValidateUploadResponse>> response =
+        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.response.ValidateUploadResponse>> response =
                 controller.validateUpload(1200, request);
 
         assertTrue(response.getBody().getData().isAllowed());

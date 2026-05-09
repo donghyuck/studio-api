@@ -15,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
-import studio.one.platform.objecttype.db.model.ObjectTypeRow;
-import studio.one.platform.objecttype.db.mybatis.ObjectTypeMapper;
-import studio.one.platform.objecttype.db.mybatis.ObjectTypeMyBatisStore;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow;
+import studio.one.platform.objecttype.infrastructure.persistence.mybatis.ObjectTypeMapper;
+import studio.one.platform.objecttype.infrastructure.persistence.mybatis.ObjectTypeMyBatisStore;
 
 class ObjectTypeMyBatisStoreTest {
 

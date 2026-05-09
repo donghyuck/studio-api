@@ -18,14 +18,14 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import studio.one.platform.mybatis.autoconfigure.StudioMyBatisAutoConfiguration;
-import studio.one.platform.objecttype.db.ObjectTypeStore;
-import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
-import studio.one.platform.objecttype.db.model.ObjectTypeRow;
-import studio.one.platform.objecttype.db.mybatis.ObjectTypeMapper;
-import studio.one.platform.objecttype.db.mybatis.ObjectTypeMyBatisStore;
+import studio.one.platform.objecttype.domain.port.ObjectTypeStore;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypePolicyRow;
+import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTypeRow;
+import studio.one.platform.objecttype.infrastructure.persistence.mybatis.ObjectTypeMapper;
+import studio.one.platform.objecttype.infrastructure.persistence.mybatis.ObjectTypeMyBatisStore;
 import studio.one.platform.objecttype.policy.ObjectPolicyResolver;
 import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
-import studio.one.platform.objecttype.service.ObjectTypeAdminService;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
 
 class ObjectTypeMyBatisAutoConfigurationTest {
 

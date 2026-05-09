@@ -93,7 +93,7 @@ import studio.one.platform.component.State;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
 import studio.one.platform.storage.service.ObjectStorageRegistry;

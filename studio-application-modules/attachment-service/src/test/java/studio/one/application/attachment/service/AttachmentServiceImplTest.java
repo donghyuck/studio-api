@@ -33,7 +33,7 @@ import studio.one.application.attachment.storage.FileStorageSaveResult;
 import studio.one.application.attachment.storage.FileStorageSaveResultCapable;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 
 @ExtendWith(MockitoExtension.class)
 class AttachmentServiceImplTest {

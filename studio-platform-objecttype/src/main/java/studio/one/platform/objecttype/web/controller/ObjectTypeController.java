@@ -13,14 +13,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.platform.objecttype.service.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.service.ObjectTypeDefinition;
-import studio.one.platform.objecttype.service.ObjectTypeView;
-import studio.one.platform.objecttype.service.ValidateUploadCommand;
-import studio.one.platform.objecttype.service.ValidateUploadResult;
-import studio.one.platform.objecttype.web.dto.ObjectTypeDefinitionDto;
-import studio.one.platform.objecttype.web.dto.ValidateUploadRequest;
-import studio.one.platform.objecttype.web.dto.ValidateUploadResponse;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.result.ObjectTypeView;
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
+import studio.one.platform.objecttype.application.result.ValidateUploadResult;
+import studio.one.platform.objecttype.web.dto.response.ObjectTypeDefinitionDto;
+import studio.one.platform.objecttype.web.dto.request.ValidateUploadRequest;
+import studio.one.platform.objecttype.web.dto.response.ValidateUploadResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -51,8 +51,8 @@ public class ObjectTypeController {
                 .build();
     }
 
-    private studio.one.platform.objecttype.web.dto.ObjectTypeDto toDto(ObjectTypeView view) {
-        return studio.one.platform.objecttype.web.dto.ObjectTypeDto.builder()
+    private studio.one.platform.objecttype.web.dto.response.ObjectTypeDto toDto(ObjectTypeView view) {
+        return studio.one.platform.objecttype.web.dto.response.ObjectTypeDto.builder()
                 .objectType(view.objectType())
                 .code(view.code())
                 .name(view.name())
@@ -68,12 +68,12 @@ public class ObjectTypeController {
                 .build();
     }
 
-    private studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto toDto(
-            studio.one.platform.objecttype.service.ObjectTypePolicyView view) {
+    private studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto toDto(
+            studio.one.platform.objecttype.application.result.ObjectTypePolicyView view) {
         if (view == null) {
             return null;
         }
-        return studio.one.platform.objecttype.web.dto.ObjectTypePolicyDto.builder()
+        return studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto.builder()
                 .objectType(view.objectType())
                 .maxFileMb(view.maxFileMb())
                 .allowedExt(view.allowedExt())

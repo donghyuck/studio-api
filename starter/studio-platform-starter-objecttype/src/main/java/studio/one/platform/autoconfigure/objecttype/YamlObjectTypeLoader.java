@@ -17,8 +17,8 @@ import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import studio.one.platform.objecttype.model.ObjectPolicy;
 import studio.one.platform.objecttype.model.ObjectTypeMetadata;
-import studio.one.platform.objecttype.yaml.YamlObjectPolicy;
-import studio.one.platform.objecttype.yaml.YamlObjectTypeMetadata;
+import studio.one.platform.objecttype.infrastructure.yaml.YamlObjectPolicy;
+import studio.one.platform.objecttype.infrastructure.yaml.YamlObjectTypeMetadata;
 
 public class YamlObjectTypeLoader {
 
