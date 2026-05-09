@@ -155,6 +155,15 @@ public class TemplateAutoConfiguration {
     }
 
     @Configuration
+    @ConditionalOnClass(name = {
+            "jakarta.validation.Valid",
+            "org.springframework.security.access.prepost.PreAuthorize",
+            "org.springframework.security.authentication.AuthenticationCredentialsNotFoundException",
+            "org.springframework.security.core.userdetails.UserDetails",
+            "org.springframework.web.bind.annotation.RestController",
+            "studio.one.platform.identity.PrincipalResolver",
+            "studio.one.platform.web.dto.ApiResponse"
+    })
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".template.web", name = "enabled", havingValue = "true", matchIfMissing = true )
     @Import(TemplateMgmtController.class)
     static class TemplateWebConfig {

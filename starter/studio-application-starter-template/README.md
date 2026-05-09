@@ -10,7 +10,10 @@
 dependencies {
     implementation(project(":starter:studio-application-starter-template"))
     // REST 엔드포인트를 사용할 때
+    implementation(project(":starter:studio-platform-starter"))
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
     // JPA 영속성 사용 시
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     // JDBC 영속성 또는 MyBatis 전역 설정의 JDBC 호환 경로 사용 시
@@ -77,6 +80,8 @@ spring:
 
 - JPA 사용 시 `EntityManagerFactory`가 필요하다.
 - JDBC 사용 시 `NamedParameterJdbcTemplate` 빈이 필요하다.
+- REST 엔드포인트는 Spring Web, Spring Security, Bean Validation, `studio-platform-starter`의 identity/API 응답 타입이
+  클래스패스에 있을 때만 등록된다. API 없이 서비스만 사용하려면 `studio.features.template.web.enabled=false`로 둔다.
 
 ## 5) REST 엔드포인트
 

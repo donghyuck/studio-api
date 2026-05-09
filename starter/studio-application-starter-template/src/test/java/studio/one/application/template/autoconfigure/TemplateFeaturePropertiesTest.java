@@ -11,6 +11,10 @@ import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfigurations;
+import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
+import org.springframework.boot.test.context.FilteredClassLoader;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -19,8 +23,10 @@ import studio.one.application.template.persistence.TemplatePersistenceRepository
 import studio.one.application.template.persistence.jdbc.TemplateJdbcRepository;
 import studio.one.application.template.persistence.jpa.repo.TemplateJpaPersistenceRepository;
 import studio.one.application.template.persistence.jpa.repo.TemplateJpaRepository;
+import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.service.impl.FreemarkerTemplateBuilder;
 import studio.one.application.template.service.impl.TemplatesServiceImpl;
+import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 
 class TemplateFeaturePropertiesTest {
@@ -83,6 +89,26 @@ class TemplateFeaturePropertiesTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("template")
                 .hasMessageContaining("PostgreSQL only");
+    }
+
+    @Test
+    void webConfigBacksOffWhenSecurityWebClassesAreMissing() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        TemplateAutoConfiguration.class))
+                .withClassLoader(new FilteredClassLoader(
+                        "org.springframework.security.authentication",
+                        "org.springframework.security.access.prepost"))
+                .withPropertyValues("studio.features.template.enabled=true")
+                .withBean(TemplatesService.class, () -> stub(TemplatesService.class))
+                .withBean(FreemarkerTemplateBuilder.class, () -> new FreemarkerTemplateBuilder(null, null))
+                .withBean(TemplateJpaPersistenceRepository.class,
+                        () -> new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class)))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(TemplateMgmtController.class);
+                });
     }
 
     @SuppressWarnings("unchecked")
