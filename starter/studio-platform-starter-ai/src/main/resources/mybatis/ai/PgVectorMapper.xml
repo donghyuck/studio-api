@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="studio.one.platform.ai.adapters.vector.mybatis.PgVectorMapper">
+
+  <resultMap id="PgVectorSearchRowMap" type="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchRow">
+    <id property="id" column="id"/>
+    <result property="objectId" column="object_id"/>
+    <result property="text" column="text"/>
+    <result property="metadata" column="metadata"/>
+    <result property="distance" column="distance"/>
+  </resultMap>
+
+  <sql id="metadataConditions">
+    <if test="metadataObjectType != null">
+      AND object_type = #{metadataObjectType,jdbcType=VARCHAR}
+    </if>
+    <if test="metadataObjectId != null">
+      AND object_id = #{metadataObjectId,jdbcType=VARCHAR}
+    </if>
+    <if test="equalsCriteria != null and equalsCriteria.size > 0">
+      <foreach collection="equalsCriteria" item="criterion">
+        AND (metadata ->> #{criterion.key,jdbcType=VARCHAR}) = #{criterion.value,jdbcType=VARCHAR}
+      </foreach>
+    </if>
+    <if test="inCriteria != null and inCriteria.size > 0">
+      <foreach collection="inCriteria" item="criterion">
+        AND (metadata ->> #{criterion.key,jdbcType=VARCHAR}) IN
+        <foreach collection="criterion.values" item="value" open="(" separator="," close=")">
+          #{value,jdbcType=VARCHAR}
+        </foreach>
+      </foreach>
+    </if>
+  </sql>
+
+  <sql id="metadataWhere">
+    <where>
+      <include refid="metadataConditions"/>
+    </where>
+  </sql>
+
+  <insert id="upsertChunk" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorChunkParameter">
+    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
+    VALUES (
+      #{objectType,jdbcType=VARCHAR},
+      #{objectId,jdbcType=VARCHAR},
+      #{chunkIndex},
+      #{text,jdbcType=VARCHAR},
+      CAST(#{metadata,jdbcType=VARCHAR} AS jsonb),
+      #{embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}
+    )
+    ON CONFLICT (object_type, object_id, chunk_index)
+    DO UPDATE SET
+      text = EXCLUDED.text,
+      metadata = EXCLUDED.metadata,
+      embedding = EXCLUDED.embedding
+  </insert>
+
+  <select id="search" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"
+          resultMap="PgVectorSearchRowMap">
+    SELECT id, object_id, text, metadata,
+           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance
+    FROM tb_ai_document_chunk
+    <include refid="metadataWhere"/>
+    ORDER BY embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler} ASC
+    LIMIT #{limit}
+  </select>
+
+  <delete id="deleteByObject">
+    DELETE FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+  </delete>
+
+  <select id="searchByObject" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"
+          resultMap="PgVectorSearchRowMap">
+    SELECT id, object_id, text, metadata,
+           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance
+    FROM tb_ai_document_chunk
+    WHERE (CAST(#{objectType,jdbcType=VARCHAR} AS varchar) IS NULL OR object_type = CAST(#{objectType,jdbcType=VARCHAR} AS varchar))
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+    <include refid="metadataConditions"/>
+    ORDER BY embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler} ASC
+    LIMIT #{limit}
+  </select>
+
+  <select id="hybridSearch" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorHybridSearchParameter"
+          resultMap="PgVectorSearchRowMap">
+    SELECT id, object_id, text, metadata,
+           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance,
+           ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})) AS bm25,
+           ((embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) * #{vectorWeight})
+             - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})), 0) * #{lexicalWeight}) AS hybrid
+    FROM tb_ai_document_chunk
+    <include refid="metadataWhere"/>
+    ORDER BY hybrid ASC
+    LIMIT #{limit}
+  </select>
+
+  <select id="hybridSearchByObject" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorHybridSearchParameter"
+          resultMap="PgVectorSearchRowMap">
+    SELECT id, object_id, text, metadata,
+           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance,
+           ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})) AS bm25,
+           ((embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) * #{vectorWeight})
+             - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})), 0) * #{lexicalWeight}) AS hybrid
+    FROM tb_ai_document_chunk
+    WHERE (CAST(#{objectType,jdbcType=VARCHAR} AS varchar) IS NULL OR object_type = CAST(#{objectType,jdbcType=VARCHAR} AS varchar))
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+    <include refid="metadataConditions"/>
+    ORDER BY hybrid ASC
+    LIMIT #{limit}
+  </select>
+
+  <select id="exists" resultType="int">
+    SELECT COUNT(*)
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+  </select>
+
+  <select id="listByObject" resultMap="PgVectorSearchRowMap">
+    SELECT object_id, text, metadata
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+    ORDER BY chunk_index
+    LIMIT #{limit}
+  </select>
+
+  <select id="listByObjectPage" resultMap="PgVectorSearchRowMap">
+    SELECT object_id, text, metadata
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+    ORDER BY chunk_index
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="metadataByObject" resultType="string">
+    SELECT metadata
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+    ORDER BY chunk_index
+    LIMIT 1
+  </select>
+</mapper>

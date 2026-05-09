@@ -21,6 +21,7 @@ dependencies {
     api(project(":studio-platform-ai"))
     api(project(":studio-platform-chunking"))
     compileOnly("org.springframework:spring-jdbc")
+    compileOnly("org.mybatis.spring.boot:mybatis-spring-boot-starter:${property("mybatisSpringBootStarterVersion")}")
 
     // Provider libraries: compileOnly so they do NOT become transitive dependencies.
     // Consumers must declare the provider library they need explicitly.
@@ -44,6 +45,8 @@ dependencies {
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.springframework:spring-jdbc")
+    testImplementation(project(":starter:studio-platform-starter-mybatis"))
+    testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:${property("mybatisSpringBootStarterVersion")}")
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("com.h2database:h2")

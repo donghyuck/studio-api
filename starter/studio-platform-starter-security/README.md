@@ -23,14 +23,13 @@ dependencies {
 ```
 
 ## 2) 기능 활성화
-Security 자동 구성 전체는 `studio.features.security.enabled=true` 일 때만 활성화된다.
+Security 자동 구성 전체는 `studio.security.enabled=true` 일 때만 활성화된다.
 개별 기능(JWT, 계정 잠금, 로그인 감사 등)은 각자의 `enabled` 속성으로 제어한다.
 
 ```yaml
 studio:
-  features:
-    security:
-      enabled: true
+  security:
+    enabled: true
 ```
 
 ## 3) 설정
@@ -38,47 +37,66 @@ studio:
 ### 전역 보안 설정
 ```yaml
 studio:
-  features:
-    security:
-      enabled: true
-      default-role: ROLE_USER
-      password-encoder:
-        algorithm: BCRYPT    # BCRYPT | PBKDF2 | CUSTOM
-        bcrypt-strength: 10
+  security:
+    enabled: true
+    default-role: ROLE_USER
+    password-encoder:
+      algorithm: BCRYPT    # BCRYPT | PBKDF2 | CUSTOM
+      bcrypt-strength: 10
 ```
 
 ### JWT 설정
 ```yaml
 studio:
-  features:
-    security:
-      jwt:
-        enabled: true
-        secret: your-very-long-secret-key-min-256-bits
-        issuer: studio-api
-        access-ttl: PT15M    # 15분 (ISO 8601 duration)
-        refresh-ttl: PT7D    # 7일
-        header: Authorization
-        prefix: Bearer
-        cookie-secure: true
-        cookie-same-site: Strict
-        refresh-cookie-name: refresh_token
-        cookie-path: /api/auth
-        endpoints:
-          login-enabled: true
-          refresh-enabled: true
-          base-path: /api/auth
-        permit:
-          - /api/auth/**
-        persistence: jpa     # jpa | jdbc (선택, 전역 설정 상속)
+  security:
+    jwt:
+      enabled: true
+      secret: your-very-long-secret-key-min-256-bits
+      issuer: studio-api
+      access-ttl: PT15M    # 15분 (ISO 8601 duration)
+      refresh-ttl: PT7D    # 7일
+      header: Authorization
+      prefix: Bearer
+      cookie-secure: true
+      cookie-same-site: Strict
+      refresh-cookie-name: refresh_token
+      cookie-path: /api/auth
+      endpoints:
+        login-enabled: true
+        refresh-enabled: true
+        base-path: /api/auth
+      permit:
+        - /api/auth/**
+      persistence: jpa     # jpa | jdbc (선택, 전역 설정 상속)
 ```
+
+JWT refresh token, password reset token, 로그인 실패 감사 `jdbc` 영속성은 현재 PostgreSQL 전용 SQL(`returning`, `inet`, `::inet`)을 사용한다.
+starter는 해당 `jdbc` 저장소 bean 생성 시 DB 제품명이 PostgreSQL이 아니면 fail-fast로 기동을 중단한다.
+계정 잠금 `jdbc` 구현은 portable SQL만 사용하므로 PostgreSQL guard를 적용하지 않는다.
+로그인 실패 감사 JPA 기본 엔티티와 schema는 PostgreSQL `inet` 기준이므로 non-PostgreSQL 환경은 DB별 schema와 repository override가 필요하다.
+
+로그인 실패 감사의 클라이언트 IP는 기본적으로 `HttpServletRequest#getRemoteAddr()`에서 가져온다.
+신뢰된 reverse proxy가 헤더를 재작성하는 환경에서만
+`studio.security.audit.login-failure.capture-ip-header=X-Forwarded-For`와
+`studio.security.audit.login-failure.trusted-proxy-cidrs`를 함께 설정한다.
+`capture-ip-header` 값은 단일 IP literal 또는 `X-Forwarded-For`처럼 comma-separated IP 목록을 담는
+헤더만 지원하며, comma-separated 목록은 오른쪽에서 왼쪽으로 읽어 첫 번째 비신뢰 hop을 클라이언트 IP로
+판정한다. RFC 7239 `Forwarded` 헤더 문법은 해석하지 않는다.
+해당 설정이 있으면 starter가 `SecurityFilterChain`의 username/password 인증 필터에도 동일한
+`ClientRequestDetails` source를 적용한다. 이미 custom `AuthenticationDetailsSource`가 설정된
+인증 필터는 덮어쓰지 않는다.
+감사 로그 저장 실패는 인증 실패 응답을 500으로 바꾸지 않으며,
+`LoginFailureAuditFailureMonitor` bean의 실패 카운터와 마지막 오류 타입으로 관측할 수 있다.
+비동기 감사 executor 포화 시 인증 경로를 막지 않기 위해 짧은 bounded wait 후에도 queue 여유가 없는
+감사 작업은 버리며, rejected/dropped execution 카운터로 포화와 drop을 관측한다.
+계정 잠금 처리는 별도 synchronous listener에서 먼저 실행되어 감사 executor 포화와 분리된다.
 
 ### 계정 잠금 설정
 ```yaml
 studio:
-  features:
-    security:
-      account-lock:
+  security:
+    auth:
+      lock:
         enabled: true
         max-attempts: 5
         window: PT10M        # 실패 집계 기간 (0이면 무제한 누적)
@@ -90,8 +108,8 @@ studio:
 ### 비밀번호 재설정 설정
 ```yaml
 studio:
-  features:
-    security:
+  security:
+    auth:
       password-reset:
         enabled: true
         reset-password-url: https://example.com/reset-password
@@ -101,40 +119,37 @@ studio:
 ### 로그인 감사(Audit) 설정
 ```yaml
 studio:
-  features:
-    security:
-      audit:
-        login-failure:
+  security:
+    audit:
+      login-failure:
+        enabled: true
+        retention-days: 90   # 로그 보존 기간(일). 미설정 시 자동 삭제 안 함
+        web:
           enabled: true
-          async: true          # 비동기 감사 로그 기록 (기본값: true)
-          retention-days: 90   # 로그 보존 기간(일). 미설정 시 자동 삭제 안 함
-          web:
-            enabled: true
-            base-path: /api/mgmt
-          persistence: jpa
+          base-path: /api/mgmt
+        persistence: jpa
 ```
 
 ### CORS 설정
 ```yaml
 studio:
-  features:
-    security:
-      cors:
-        enabled: true
-        allowed-origins:
-          - https://app.example.com
-        allowed-origin-patterns: []
-        allowed-methods:
-          - GET
-          - POST
-          - PUT
-          - DELETE
-          - OPTIONS
-        allowed-headers:
-          - "*"
-        exposed-headers: []
-        allow-credentials: true
-        max-age: 3600
+  security:
+    cors:
+      enabled: true
+      allowed-origins:
+        - https://app.example.com
+      allowed-origin-patterns: []
+      allowed-methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+      allowed-headers:
+        - "*"
+      exposed-headers: []
+      allow-credentials: true
+      max-age: 3600
 ```
 
 ## 4) 자동 구성되는 주요 빈
@@ -168,8 +183,11 @@ studio:
 - `studio-platform-security` 모듈이 핵심 구현(JWT, 계정 잠금, 감사 도메인 모델)을 제공하며,
   이 스타터는 해당 모듈을 `api` 의존성으로 전이 노출한다.
 - JWT `secret`이 설정되지 않으면 `JwtSecretPresenceGuard`가 기동 실패를 일으킨다
-  (`studio.features.security.fail-if-missing=false`로 우회 가능하나 권장하지 않는다).
+  (`studio.security.fail-if-missing=false`로 우회 가능하나 권장하지 않는다).
 - 리프레시 토큰, 계정 잠금 기록의 영속성 타입은 기능별 `persistence` 속성으로 개별 지정하거나,
   전역 `studio.persistence.type` 값을 상속한다.
+- 보안 스타터의 리프레시 토큰, 계정 잠금, 로그인 실패 감사, 비밀번호 재설정 저장소는 현재 `jpa`와
+  `jdbc` 구현을 제공한다. 전역 `studio.persistence.type=mybatis`는 이 저장소들에 대해 직접 JDBC 호환
+  branch로 해석되며, JPA를 원하면 각 기능의 `persistence=jpa`를 명시한다.
 - SHA-256 비밀번호 알고리즘은 보안상 허용되지 않으며, 설정 시 기동 오류가 발생한다.
-- 기능을 완전히 끄려면 `studio.features.security.enabled=false`로 설정한다.
+- 기능을 완전히 끄려면 `studio.security.enabled=false`로 설정한다.

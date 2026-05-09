@@ -1,5 +1,8 @@
 package studio.one.platform.security.autoconfigure;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -37,8 +40,11 @@ public class AuditProperties {
         @PositiveOrZero
         private Integer retentionDays = 180;
 
-        /** 프록시 환경에서 클라이언트 IP를 뽑을 헤더 (null이면 사용 안 함) */
-        private String captureIpHeader = "X-Forwarded-For";
+        /** 신뢰된 프록시 환경에서 IP literal 또는 X-Forwarded-For 형식 값을 뽑을 헤더 (null이면 사용 안 함) */
+        private String captureIpHeader;
+
+        /** captureIpHeader를 신뢰할 프록시 CIDR 목록 */
+        private List<String> trustedProxyCidrs = new ArrayList<>();
 
         /** User-Agent 저장 여부 */
         private boolean captureUserAgent = true;

@@ -30,42 +30,87 @@ import studio.one.application.mail.domain.model.DefaultMailMessage;
 import studio.one.application.mail.domain.model.MailMessage;
 import studio.one.application.mail.service.MailMessageService;
 import studio.one.platform.data.jdbc.PagingJdbcTemplate;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.exception.NotFoundException;
 
 @Transactional
 @Service( MailMessageService.SERVICE_NAME)
 public class JdbcMailMessageService implements MailMessageService {
 
-    @SqlStatement("data.mail.insert")
-    private String insertSql;
+    private static final String INSERT_SQL = """
+            insert into TB_APPLICATION_MAIL_MESSAGE
+                (FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+                 SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT)
+            values
+                (:folder, :uid, :messageId, :subject, :fromAddress, :toAddress, :ccAddress, :bccAddress,
+                 :sentAt, :receivedAt, :flags, :body, :createdAt, :updatedAt)
+            returning MAIL_ID
+            """;
 
-    @SqlStatement("data.mail.update")
-    private String updateSql;
+    private static final String UPDATE_SQL = """
+            update TB_APPLICATION_MAIL_MESSAGE
+               set FOLDER       = :folder,
+                   UID          = :uid,
+                   MESSAGE_ID   = :messageId,
+                   SUBJECT      = :subject,
+                   FROM_ADDRESS = :fromAddress,
+                   TO_ADDRESS   = :toAddress,
+                   CC_ADDRESS   = :ccAddress,
+                   BCC_ADDRESS  = :bccAddress,
+                   SENT_AT      = :sentAt,
+                   RECEIVED_AT  = :receivedAt,
+                   FLAGS        = :flags,
+                   BODY         = :body,
+                   UPDATED_AT   = :updatedAt
+             where MAIL_ID      = :mailId
+            """;
 
-    @SqlStatement("data.mail.findByUid")
-    private String findByUidSql;
+    private static final String FIND_BY_UID_SQL = """
+            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_MAIL_MESSAGE
+             where FOLDER = :folder
+               and UID = :uid
+            """;
 
-    @SqlStatement("data.mail.findByMessageId")
-    private String findByMessageIdSql;
+    private static final String FIND_BY_MESSAGE_ID_SQL = """
+            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_MAIL_MESSAGE
+             where MESSAGE_ID = :messageId
+            """;
 
-    @SqlStatement("data.mail.findById")
-    private String findByIdSql;
+    private static final String FIND_BY_ID_SQL = """
+            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_MAIL_MESSAGE
+             where MAIL_ID = :mailId
+            """;
 
-    @SqlStatement("data.mail.countAll")
-    private String countAllSql;
+    private static final String COUNT_ALL_SQL = "select count(*) from TB_APPLICATION_MAIL_MESSAGE";
 
-    @SqlStatement("data.mail.findPage")
-    private String findPageSql;
+    private static final String FIND_PAGE_SQL = """
+            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
+                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
+              from TB_APPLICATION_MAIL_MESSAGE
+            """;
 
-    @SqlStatement("data.mail.deleteProperties")
-    private String deletePropertiesSql;
+    private static final String DELETE_PROPERTIES_SQL = """
+            delete from TB_APPLICATION_MAIL_PROPERTY
+             where MAIL_ID = :mailId
+            """;
 
-    @SqlStatement("data.mail.insertProperty")
-    private String insertPropertySql;
+    private static final String INSERT_PROPERTY_SQL = """
+            insert into TB_APPLICATION_MAIL_PROPERTY
+                (MAIL_ID, PROPERTY_NAME, PROPERTY_VALUE)
+            values
+                (:mailId, :name, :value)
+            """;
 
-    @SqlStatement("data.mail.findProperties")
-    private String findPropertiesSql;
+    private static final String FIND_PROPERTIES_SQL = """
+            select PROPERTY_NAME, PROPERTY_VALUE
+              from TB_APPLICATION_MAIL_PROPERTY
+             where MAIL_ID = :mailId
+            """;
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
             Map.entry("mailId", "MAIL_ID"),
@@ -119,7 +164,7 @@ public class JdbcMailMessageService implements MailMessageService {
     @Override
     @Transactional(readOnly = true)
     public MailMessage get(long mailId) {
-        MailMessage message = jdbcTemplate.query(findByIdSql, Map.of("mailId", mailId), ROW_MAPPER)
+        MailMessage message = jdbcTemplate.query(FIND_BY_ID_SQL, Map.of("mailId", mailId), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> NotFoundException.of("mail", mailId));
@@ -130,7 +175,7 @@ public class JdbcMailMessageService implements MailMessageService {
     @Override
     @Transactional(readOnly = true)
     public Optional<MailMessage> findByFolderAndUid(String folder, long uid) {
-        MailMessage message = jdbcTemplate.query(findByUidSql, Map.of("folder", folder, "uid", uid), ROW_MAPPER)
+        MailMessage message = jdbcTemplate.query(FIND_BY_UID_SQL, Map.of("folder", folder, "uid", uid), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -143,7 +188,7 @@ public class JdbcMailMessageService implements MailMessageService {
     @Override
     @Transactional(readOnly = true)
     public Optional<MailMessage> findByMessageId(String messageId) {
-        MailMessage message = jdbcTemplate.query(findByMessageIdSql, Map.of("messageId", messageId), ROW_MAPPER)
+        MailMessage message = jdbcTemplate.query(FIND_BY_MESSAGE_ID_SQL, Map.of("messageId", messageId), ROW_MAPPER)
                 .stream()
                 .findFirst()
                 .orElse(null);
@@ -179,14 +224,14 @@ public class JdbcMailMessageService implements MailMessageService {
         boolean hasQuery = StringUtils.hasText(query);
         Set<String> resolvedFields = resolveFields(fields);
         String whereClause = hasQuery ? buildWhereClause(resolvedFields) : "";
-        String orderedQuery = findPageSql + whereClause + buildOrderByClause(sortToUse, "mailId", SORT_COLUMNS);
+        String orderedQuery = FIND_PAGE_SQL + whereClause + buildOrderByClause(sortToUse, "mailId", SORT_COLUMNS);
         Object[] args = buildKeywordArgs(query, resolvedFields);
         List<MailMessage> content = hasQuery
                 ? pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER, args)
                 : pagingJdbcTemplate.queryPage(orderedQuery, offset, pageSize, ROW_MAPPER);
         long total = hasQuery
-                ? jdbcTemplate.getJdbcTemplate().queryForObject(countAllSql + whereClause, args, Long.class)
-                : jdbcTemplate.queryForObject(countAllSql, Map.of(), Long.class);
+                ? jdbcTemplate.getJdbcTemplate().queryForObject(COUNT_ALL_SQL + whereClause, args, Long.class)
+                : jdbcTemplate.queryForObject(COUNT_ALL_SQL, Map.of(), Long.class);
         return new PageImpl<>(content, PageRequest.of(pageIndex, pageSize, sortToUse), total);
     }
 
@@ -252,7 +297,7 @@ public class JdbcMailMessageService implements MailMessageService {
                 .addValue("createdAt", Timestamp.from(now))
                 .addValue("updatedAt", Timestamp.from(message.getUpdatedAt() == null ? now : message.getUpdatedAt()));
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        jdbcTemplate.update(insertSql, params, keyHolder, new String[] { "MAIL_ID" });
+        jdbcTemplate.update(INSERT_SQL, params, keyHolder, new String[] { "MAIL_ID" });
         Number key = keyHolder.getKey();
         if (key != null) {
             message.setMailId(key.longValue());
@@ -278,13 +323,13 @@ public class JdbcMailMessageService implements MailMessageService {
                 .addValue("flags", message.getFlags())
                 .addValue("body", message.getBody())
                 .addValue("updatedAt", Timestamp.from(now));
-        jdbcTemplate.update(updateSql, params);
+        jdbcTemplate.update(UPDATE_SQL, params);
         saveProperties(message.getMailId(), message.getProperties());
         return message;
     }
 
     private void saveProperties(long mailId, Map<String, String> properties) {
-        jdbcTemplate.update(deletePropertiesSql, Map.of("mailId", mailId));
+        jdbcTemplate.update(DELETE_PROPERTIES_SQL, Map.of("mailId", mailId));
         if (properties == null || properties.isEmpty()) {
             return;
         }
@@ -294,11 +339,11 @@ public class JdbcMailMessageService implements MailMessageService {
                         .addValue("name", entry.getKey())
                         .addValue("value", entry.getValue()))
                 .toArray(MapSqlParameterSource[]::new);
-        jdbcTemplate.batchUpdate(insertPropertySql, batch);
+        jdbcTemplate.batchUpdate(INSERT_PROPERTY_SQL, batch);
     }
 
     private Map<String, String> loadProperties(long mailId) {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(findPropertiesSql, Map.of("mailId", mailId));
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(FIND_PROPERTIES_SQL, Map.of("mailId", mailId));
         Map<String, String> props = new HashMap<>();
         for (Map<String, Object> row : rows) {
             Object name = row.get("PROPERTY_NAME");

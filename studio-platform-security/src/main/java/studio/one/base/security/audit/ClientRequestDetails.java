@@ -22,6 +22,8 @@
 
 package studio.one.base.security.audit;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,24 +48,66 @@ import lombok.Value;
 @Value
 public class ClientRequestDetails {
   String remoteIp;     // 최종 판단한 클라이언트 IP
-  String forwardedFor; // 원본 X-Forwarded-For 헤더
+  String forwardedFor; // 원본 클라이언트 IP 헤더
   String userAgent;    // User-Agent
   String sessionId;    // 있을 수도, 없을 수도
 
   public static ClientRequestDetails from(HttpServletRequest req) {
-    String xff = Optional.ofNullable(req.getHeader("X-Forwarded-For")).orElse(null);
-    String ip = extractIp(req, xff);
+    return from(req, null);
+  }
+
+  public static ClientRequestDetails from(HttpServletRequest req, String captureIpHeader) {
+    return from(req, captureIpHeader, List.of());
+  }
+
+  public static ClientRequestDetails from(HttpServletRequest req, String captureIpHeader,
+      Collection<String> trustedProxyCidrs) {
+    String xff = (captureIpHeader != null && !captureIpHeader.isBlank())
+        ? Optional.ofNullable(req.getHeader(captureIpHeader)).orElse(null)
+        : null;
+    String ip = extractIp(req, xff, trustedProxyCidrs);
     String ua = Optional.ofNullable(req.getHeader("User-Agent")).orElse("");
     return new ClientRequestDetails(ip, xff, ua, req.getRequestedSessionId());
   }
 
-  private static String extractIp(HttpServletRequest req, String xff) {
-    String cand = (xff != null && !xff.isBlank())
-        ? xff.split(",")[0].trim()
-        : req.getRemoteAddr();
+  private static String extractIp(HttpServletRequest req, String xff, Collection<String> trustedProxyCidrs) {
+    String remoteIp = normalizeRemoteAddress(req.getRemoteAddr());
+    String headerIp = IpAddressLiterals.isInAnyCidr(remoteIp, trustedProxyCidrs)
+        ? clientIpFromForwardedChainOrNull(xff, trustedProxyCidrs)
+        : null;
+    if (headerIp != null) {
+      return headerIp;
+    }
+    return remoteIp;
+  }
+
+  private static String clientIpFromForwardedChainOrNull(String xff, Collection<String> trustedProxyCidrs) {
+    if (xff == null || xff.isBlank()) {
+      return null;
+    }
+    String[] chain = xff.split(",");
+    String firstValid = null;
+    for (int index = chain.length - 1; index >= 0; index--) {
+      String normalized = IpAddressLiterals.normalizeOrNull(chain[index].trim());
+      if (normalized == null) {
+        return null;
+      }
+      firstValid = normalized;
+      if (!IpAddressLiterals.isInAnyCidr(normalized, trustedProxyCidrs)) {
+        return normalized;
+      }
+    }
+    return firstValid;
+  }
+
+  private static String normalizeRemoteAddress(String remoteAddr) {
+    if (remoteAddr == null) {
+      return null;
+    }
+    String cand = remoteAddr;
     // "127.0.0.1:54321" 같은 형태 방지
     int colon = cand.indexOf(':');
-    if (colon > 0 && cand.contains(".")) cand = cand.substring(0, colon);
-    return cand;
+    if (colon > 0 && cand.indexOf(':', colon + 1) < 0 && cand.contains(".")) cand = cand.substring(0, colon);
+    return IpAddressLiterals.normalizeOrNull(cand);
   }
 }

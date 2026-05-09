@@ -89,7 +89,7 @@ studio:
   objecttype:
     mode: db
   persistence:
-    type: jpa   # jpa | jdbc
+    type: jpa   # jpa | mybatis | jdbc
   features:
     objecttype:
       enabled: true
@@ -102,8 +102,13 @@ DB 모드에서는 `studio.persistence.type` 전역 설정을 따른다.
 studio:
   features:
     objecttype:
-      persistence: jdbc   # 이 기능만 jdbc 사용
+      persistence: mybatis   # 이 기능만 MyBatis 사용
 ```
+
+`mybatis`를 사용할 때는 `starter:studio-platform-starter-mybatis`가 함께 필요하다.
+ObjectType MyBatis mapper는 PostgreSQL, H2, MySQL, MariaDB를 지원하며, 그 외 `databaseId`
+에서는 기동 시 fail-fast 된다.
+`jdbc`는 기존 직접 JDBC 경로를 유지하는 호환 옵션이며, 외부 sqlset mapper 주입은 사용하지 않는다.
 
 ### REST 엔드포인트 설정
 ```yaml
@@ -126,6 +131,9 @@ studio:
 | `ObjectTypeRegistry` (`JpaObjectTypeRegistry`) | DB/JPA | JPA 기반 레지스트리 |
 | `ObjectPolicyResolver` (`JpaObjectPolicyResolver`) | DB/JPA | JPA 기반 정책 리졸버 |
 | `ObjectTypeStore` (`JpaObjectTypeStore`) | DB/JPA | JPA 기반 저장소 |
+| `ObjectTypeRegistry` (`MyBatisObjectTypeRegistry`) | DB/MyBatis | MyBatis 기반 레지스트리 |
+| `ObjectPolicyResolver` (`MyBatisObjectPolicyResolver`) | DB/MyBatis | MyBatis 기반 정책 리졸버 |
+| `ObjectTypeStore` (`ObjectTypeMyBatisStore`) | DB/MyBatis | MyBatis 기반 저장소 |
 | `ObjectTypeRegistry` (`JdbcObjectTypeRegistry`) | DB/JDBC | JDBC 기반 레지스트리 |
 | `ObjectPolicyResolver` (`JdbcObjectPolicyResolver`) | DB/JDBC | JDBC 기반 정책 리졸버 |
 | `ObjectTypeAdminService` | DB | ObjectType 생성·수정·삭제 서비스 |

@@ -65,15 +65,6 @@ public class AccountPasswordResetAutoConfiguration {
             PersistenceProperties persistenceProperties) {
         I18n i18n = I18nUtils.resolve(i18nProvider);
         return () -> {
-            var globalPersistence = persistenceProperties.getType();
-            var resetPersistence = properties.resolvePersistence(globalPersistence);
-            if (resetPersistence == PersistenceProperties.Type.jpa
-                    && globalPersistence != PersistenceProperties.Type.jpa) {
-                throw new IllegalStateException("""
-                        Password reset persistence is set to JPA but studio.persistence.type=%s.
-                        Enable JPA persistence or change security.auth.password-reset.persistence to jdbc."""
-                        .formatted(globalPersistence));
-            }
             boolean isJdbc = repository instanceof PasswordResetTokenJdbcRepositoryV2;
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                     LogUtils.blue(PasswordResetTokenRepository.class, true), LogUtils.red(State.CREATED.toString())));
@@ -150,6 +141,7 @@ public class AccountPasswordResetAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(PasswordResetTokenRepository.class)
         PasswordResetTokenRepository passwordResetTokenJdbcRepository(NamedParameterJdbcTemplate template) {
+            SecurityJdbcDatabaseSupport.requirePostgreSQL(template, "password reset token");
             return new PasswordResetTokenJdbcRepositoryV2(template);
         }
     }

@@ -16,11 +16,24 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 dependencies {
     val freemarkerVersion: String = project.findProperty("freemarkerVersion") as String? ?: "2.3.34"
-    compileOnly(project(":studio-platform-autoconfigure"))
+    implementation(project(":studio-platform-autoconfigure"))
+    implementation(project(":studio-platform-data"))
+    implementation("org.springframework:spring-jdbc")
     compileOnly(project(":starter:studio-platform-starter"))
     api(project(":studio-application-modules:template-service"))
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.freemarker:freemarker:$freemarkerVersion")
+
+    testImplementation(project(":studio-platform-autoconfigure"))
+    testImplementation(project(":studio-platform-data"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-starter-data-jpa")
+    testImplementation("org.springframework.boot:spring-boot-starter-freemarker")
+    testImplementation("org.springframework:spring-webmvc")
+    testImplementation("org.springframework:spring-jdbc")
+    testImplementation("org.springframework:spring-test")
+    testImplementation("jakarta.servlet:jakarta.servlet-api")
+    testImplementation("org.springframework.boot:spring-boot-starter-validation")
 }

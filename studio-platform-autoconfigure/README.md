@@ -9,7 +9,8 @@
 ## 설계
 - `CompositeAuditorAware`: security / header / fixed 전략을 순서대로 시도하는 합성 감사자
 - `JpaAuditingProperties`: 감사 활성화, 클럭 타임존, 감사자 전략(security|header|fixed|composite) 설정
-- `PersistenceProperties`: 플랫폼 전역 영속성 타입(`jpa` | `mybatis` | `jdbc`) 선택
+- `PersistenceProperties`: 플랫폼 전역 영속성 타입(`jpa` | `mybatis` | `jdbc`) 선택. `jdbc`는 기존 직접 JDBC 구현을 위한 2.x 호환 값이다.
+- `PersistenceTypeResolver`: 신규/전환된 MyBatis-aware 경로에서 사용할 normalize helper다. `studio.features.<feature>.persistence`를 우선하고, 없으면 `studio.persistence.type`을 사용한다. 이 resolver를 쓰는 경로에서 `jdbc`는 deprecated alias로 `mybatis`에 normalize된다.
 - `FeaturesProperties`: 피처 플래그(enabled, failIfMissing, persistence) 및 동적 `others` 맵 관리
 - `ConditionalOnProperties`: 여러 프로퍼티 조건을 AND로 결합하는 커스텀 `@Conditional` 어노테이션
 - `ConditionalOnClassPresence` / `ConditionalOnMissingClass`: 클래스 존재 여부 기반 커스텀 조건
@@ -20,6 +21,7 @@
 |---|---|---|
 | `JpaAuditingProperties` | `autoconfigure` | `studio.persistence.jpa.auditing.*` 바인딩 |
 | `PersistenceProperties` | `autoconfigure` | `studio.persistence.type` 바인딩 |
+| `StudioPersistenceType` / `PersistenceTypeResolver` | `autoconfigure.persistence` | jpa/mybatis/jdbc alias 해석과 normalize |
 | `FeaturesProperties` | `autoconfigure` | `studio.features.*` 바인딩 |
 | `CompositeAuditorAware` | `persistence.jpa.auditor` | security→header→fixed 순 감사자 합성 |
 | `ConditionalOnProperties` | `condition` | 복수 프로퍼티 AND 조건 어노테이션 |
@@ -57,6 +59,16 @@ studio:
         attrs:
           custom-key: custom-value
 ```
+
+기존 직접 JDBC 구현이 남아 있는 starter 조건부 등록은 raw `jdbc` 값을 사용한다. `PersistenceTypeResolver`는
+이 resolver를 명시적으로 주입해 사용하는 MyBatis-aware 경로에서만 deprecated `jdbc` alias를 `mybatis`로
+normalize한다. `@ConditionalOnFeaturePersistence` 기반 starter 조건은 해당 feature의 실제 지원 구현에 맞춰
+`jpa`, `mybatis`, `jdbc` 값을 직접 비교한다. 아직 MyBatis 전용 저장소가 없는 legacy feature는
+`mybatisAsJdbc=true` 조건을 명시해 전역 또는 feature-scoped `mybatis` 값을 직접 JDBC 호환 경로로 받을 수 있다.
+
+전환이 완료되지 않은 feature가 함께 켜진 애플리케이션에서는 각 starter의 지원 범위를 확인한다.
+MyBatis 구현이 추가된 feature는 `studio.features.<feature>.persistence=mybatis`를 명시할 수 있고,
+legacy feature는 해당 starter가 `mybatisAsJdbc` fallback을 제공하는 경우 직접 JDBC 호환 경로로 동작한다.
 
 ## `@ConditionalOnProperties` 사용 예시
 ```java

@@ -111,6 +111,12 @@ Flyway range는 `workspace` `1300-1399`입니다.
 - `src/main/resources/schema/workspace/mariadb/V1301__add_workspace_company_scope.sql`
 - `src/main/resources/schema/workspace/mariadb/V1302__enforce_workspace_company_scope.sql`
 
+## MyBatis migration note
+
+현재 production 구현은 JPA 기본 구현입니다. `src/test/resources/mybatis/workspace` 아래의 smoke test로
+`classpath*:mybatis/**/*.xml` 로딩과 mapper scan 동작을 검증합니다. 실제 workspace read model/permission
+query의 MyBatis 구현 전환은 후속 phase에서 진행합니다.
+
 ## 검증
 ```bash
 ./gradlew :studio-platform-workspace-default:build

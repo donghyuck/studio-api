@@ -22,22 +22,17 @@
 
 package studio.one.base.security.audit;
 
-import java.time.Instant;
+import java.util.concurrent.Executor;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationListener;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
 import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
-import studio.one.platform.constant.ServiceNames;
 
 /**
  *
@@ -54,70 +49,90 @@ import studio.one.platform.constant.ServiceNames;
  */
 
 
-@RequiredArgsConstructor
 @Slf4j
+@Order(Ordered.LOWEST_PRECEDENCE)
 public class LoginFailureEventListener
-    implements ApplicationListener<AuthenticationFailureBadCredentialsEvent> {
+    implements ApplicationListener<AuthenticationFailureBadCredentialsEvent>, Ordered {
 
-  private final ObjectProvider<AccountLockService> lockSvc;
-  private final ObjectProvider<LoginFailureLogRepository> logRepo;
+  private final LoginFailureLogRepository logRepo;
+  private final LoginFailureAuditFailureMonitor failureMonitor;
+  private final Executor executor;
+  private final TransactionOperations transactionOperations;
 
-  @Async(ServiceNames.SECURITY_AUDIT_LOGIN_FAILURE_EXECUTOR)
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public LoginFailureEventListener(LoginFailureLogRepository logRepo) {
+    this(logRepo, new LoginFailureAuditFailureMonitor());
+  }
+
+  public LoginFailureEventListener(
+      LoginFailureLogRepository logRepo,
+      LoginFailureAuditFailureMonitor failureMonitor) {
+    this(logRepo, failureMonitor, Runnable::run, null);
+  }
+
+  public LoginFailureEventListener(
+      LoginFailureLogRepository logRepo,
+      LoginFailureAuditFailureMonitor failureMonitor,
+      Executor executor,
+      TransactionOperations transactionOperations) {
+    this.logRepo = logRepo;
+    this.failureMonitor = failureMonitor;
+    this.executor = executor == null ? Runnable::run : executor;
+    this.transactionOperations = transactionOperations;
+  }
+
   @Override
   public void onApplicationEvent(AuthenticationFailureBadCredentialsEvent event) {
-    final Instant now = Instant.now();
-
-    String username = null;
-    String remoteIp = null;
-    String userAgent = null;
-
+    LoginFailureAuditEventData auditEvent = LoginFailureAuditEventDataExtractor.extract(event);
     try {
-      if (event.getAuthentication() != null) {
-        username = event.getAuthentication().getName();
-        Object details = event.getAuthentication().getDetails();
-        if (details instanceof ClientRequestDetails) {
-          ClientRequestDetails crd = (ClientRequestDetails) details;
-          remoteIp = crd.getRemoteIp();
-          userAgent = crd.getUserAgent();
-        } else if (details instanceof WebAuthenticationDetails) {
-          remoteIp = ((WebAuthenticationDetails) details).getRemoteAddress();
-        }
-      }
-    } catch (Exception ex) {
-      log.debug("Failed to extract client details: {}", ex.toString(), ex);
-    }
-
-    // 람다에서 캡처할 값들을 final 로 확정
-    final String uname = username;
-    final String rip = remoteIp;
-    final String ua = userAgent;
-    final String fType = (event.getException() != null) ? event.getException().getClass().getSimpleName() : null;
-    final String fMsg = (event.getException() != null) ? event.getException().getMessage() : null;
-    final Instant occAt = now;
-
-    // 1) 감사 로그 (엔트리를 먼저 만들고, 람다에는 entry만 넘김)
-    try {
-      final LoginFailureLog entry = LoginFailureLog.builder()
-          .username(uname)
-          .remoteIp(rip)
-          .userAgent(ua)
-          .failureType(fType)
-          .message(fMsg)
-          .occurredAt(occAt)
-          .build();
-
-      logRepo.ifAvailable(repo -> repo.save(entry));
-    } catch (Exception ex) {
-      log.warn("Login failure audit log write failed (ignored). username={}, reason={}", uname, ex.toString());
-    }
-
-    // 2) 계정 잠금 (final 값만 캡처)
-    try {
-      lockSvc.ifAvailable(s -> s.onFailedLogin(uname));
-    } catch (Exception ex) {
-      log.warn("Account lock update failed (ignored). username={}, reason={}", uname, ex.toString());
+      executor.execute(() -> saveAuditLogWithTransaction(auditEvent));
+    } catch (RuntimeException ex) {
+      failureMonitor.recordRejectedExecution();
+      failureMonitor.recordDroppedExecution();
     }
   }
 
+  private void saveAuditLogWithTransaction(LoginFailureAuditEventData auditEvent) {
+    if (transactionOperations == null) {
+      saveAuditLog(auditEvent);
+      return;
+    }
+    try {
+      transactionOperations.executeWithoutResult(status -> saveAuditLog(auditEvent));
+    } catch (Exception ex) {
+      failureMonitor.record(ex);
+      if (failureMonitor.shouldLogFailureSummary()) {
+        log.warn("Login failure audit transaction failed. username={}, failures={}, reason={}",
+            auditEvent.username(), failureMonitor.getFailureCount(), ex.toString());
+      }
+    }
+  }
+
+  private void saveAuditLog(LoginFailureAuditEventData auditEvent) {
+    try {
+      final LoginFailureLog entry = LoginFailureLog.builder()
+          .username(auditEvent.username())
+          .remoteIp(auditEvent.remoteIp())
+          .userAgent(auditEvent.userAgent())
+          .failureType(auditEvent.failureType())
+          .message(auditEvent.message())
+          .occurredAt(auditEvent.occurredAt())
+          .build();
+
+      logRepo.save(entry);
+    } catch (Exception ex) {
+      failureMonitor.record(ex);
+      if (failureMonitor.shouldLogStackTrace()) {
+        log.error("Login failure audit log write failed. username={}, failures={}, reason={}",
+            auditEvent.username(), failureMonitor.getFailureCount(), ex.toString(), ex);
+      } else if (failureMonitor.shouldLogFailureSummary()) {
+        log.warn("Login failure audit log write failed. username={}, failures={}, reason={}",
+            auditEvent.username(), failureMonitor.getFailureCount(), ex.toString());
+      }
+    }
+  }
+
+  @Override
+  public int getOrder() {
+    return Ordered.LOWEST_PRECEDENCE;
+  }
 }

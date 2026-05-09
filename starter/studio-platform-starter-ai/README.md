@@ -6,6 +6,9 @@ AI 서비스(채팅, 임베딩, 벡터 스토어, RAG 파이프라인)를 자동
 동시에 등록하고, 기본 `ChatPort` / `EmbeddingPort` 빈을 노출한다. 기본 chat provider와 embedding provider는
 같은 provider를 쓰거나 별도 provider로 분리할 수 있다.
 JdbcTemplate이 컨텍스트에 있으면 pgvector 기반 `VectorStorePort`도 자동으로 생성된다.
+MyBatis `SqlSessionTemplate`과 `PgVectorMapper.xml`이 로드되어 있으면 MyBatis mapper 경로를 우선 사용한다.
+MyBatis가 없거나 애플리케이션의 custom `mybatis.mapper-locations` 설정 때문에 AI mapper XML이 로드되지 않으면
+기존 JDBC-only 호환 경로를 사용한다. 두 경로 모두 외부 SQL mapper 주입에 의존하지 않는다.
 `studio-platform-ai`는 공통 계약만 제공하고, Spring AI adapter와 기본 RAG 구현은 이 스타터가 제공한다.
 `starter:studio-platform-starter-chunking`이 있으면 `RagPipelineService`는 `ChunkingOrchestrator`를 우선 사용하고,
 없으면 기존 `TextChunker` fallback을 사용한다.
@@ -38,6 +41,9 @@ dependencies {
 
     // 벡터 스토어를 사용할 경우 (pgvector)
     implementation("org.springframework.boot:spring-boot-starter-jdbc")
+
+    // 권장: pgvector SQL mapper를 MyBatis 경로로 실행
+    implementation(project(":starter:studio-platform-starter-mybatis"))
 
     // RAG indexing chunking 전략
     implementation(project(":starter:studio-platform-starter-chunking"))
@@ -222,7 +228,7 @@ studio:
 | `AiProviderRegistry` | 등록된 모든 프로바이더의 ChatPort / EmbeddingPort 를 보관하는 레지스트리 |
 | `ChatPort` (기본) | `studio.ai.routing.default-chat-provider`에 해당하는 채팅 포트 |
 | `EmbeddingPort` (기본) | `studio.ai.routing.default-embedding-provider`에 해당하는 임베딩 포트 |
-| `VectorStorePort` | JdbcTemplate이 있을 때 pgvector 기반 벡터 스토어 자동 생성 |
+| `VectorStorePort` | `JdbcTemplate`이 있을 때 pgvector 기반 벡터 스토어 자동 생성. MyBatis mapper가 있으면 우선 사용하고 없으면 JDBC 호환 경로 사용 |
 | `RagPipelineService` | RAG 인덱싱/검색 facade 계약. 기본 구현은 `DefaultRagPipelineService` |
 | `RagIndexJobRepository` | RAG 색인 작업 상태/로그 저장소. 기본 구현은 단일 인스턴스용 in-memory repository |
 | `RagIndexJobService` | RAG 색인 작업 생성/조회/취소/재시도와 progress listener 연결 |
@@ -488,4 +494,6 @@ studio:
   각 프로바이더 `studio.ai.providers.<id>.*` 하위에 둔다. provider registry용 metadata만 `studio.ai.providers.<id>.*`에 남기고,
   provider SDK 값은 가능하면 `spring.ai.*`를 우선한다.
 - 벡터 스토어는 PostgreSQL + pgvector 확장을 사용하며, `JdbcTemplate` 빈이 없으면 생성되지 않는다.
+  MyBatis `SqlSessionTemplate`과 `classpath*:mybatis/**/*.xml` mapper가 있으면 `PgVectorMapper.xml`을 통해 실행한다.
+  MyBatis가 없거나 `PgVectorMapper.xml`이 로드되지 않았으면 SQLQuery-free JDBC 호환 경로를 사용한다.
 - Caffeine 캐시와 Resilience4j Retry가 내장되어 있어 LLM 호출에 재시도 및 캐싱이 적용된다.

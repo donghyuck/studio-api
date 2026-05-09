@@ -8,30 +8,50 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.security.authentication.lock.persistence.AccountLockRepository;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Repository
 public class AccountLockJdbcRepository implements AccountLockRepository {
 
+    private static final String BUMP_FAILED_ATTEMPTS_SQL = """
+            update TB_APPLICATION_USER
+               set FAILED_ATTEMPTS = FAILED_ATTEMPTS + 1,
+                   LAST_FAILED_AT = :now
+             where USERNAME = :username
+            """;
+
+    private static final String LOCK_UNTIL_SQL = """
+            update TB_APPLICATION_USER
+               set ACCOUNT_LOCKED_UNTIL = :until
+             where USERNAME = :username
+            """;
+
+    private static final String RESET_LOCK_STATE_SQL = """
+            update TB_APPLICATION_USER
+               set FAILED_ATTEMPTS = 0,
+                   LAST_FAILED_AT = null,
+                   ACCOUNT_LOCKED_UNTIL = null
+             where USERNAME = :username
+            """;
+
+    private static final String FIND_FAILED_ATTEMPTS_SQL = """
+            select FAILED_ATTEMPTS
+              from TB_APPLICATION_USER
+             where USERNAME = :username
+            """;
+
+    private static final String FIND_LAST_FAILED_AT_SQL = """
+            select LAST_FAILED_AT
+              from TB_APPLICATION_USER
+             where USERNAME = :username
+            """;
+
+    private static final String FIND_ACCOUNT_LOCKED_UNTIL_SQL = """
+            select ACCOUNT_LOCKED_UNTIL
+              from TB_APPLICATION_USER
+             where USERNAME = :username
+            """;
+
     private final NamedParameterJdbcTemplate template;
-
-    @SqlStatement("security.accountLockBumpFailedAttempts")
-    private String bumpFailedAttemptsSql;
-
-    @SqlStatement("security.accountLockLockUntil")
-    private String lockUntilSql;
-
-    @SqlStatement("security.accountLockResetLockState")
-    private String resetLockStateSql;
-
-    @SqlStatement("security.accountLockFindFailedAttempts")
-    private String findFailedAttemptsSql;
-
-    @SqlStatement("security.accountLockFindLastFailedAt")
-    private String findLastFailedAtSql;
-
-    @SqlStatement("security.accountLockFindAccountLockedUntil")
-    private String findAccountLockedUntilSql;
 
     public AccountLockJdbcRepository(NamedParameterJdbcTemplate template) {
         this.template = template;
@@ -39,7 +59,7 @@ public class AccountLockJdbcRepository implements AccountLockRepository {
 
     @Override
     public int bumpFailedAttempts(String username, Instant now) {
-        return template.update(bumpFailedAttemptsSql, Map.of(
+        return template.update(BUMP_FAILED_ATTEMPTS_SQL, Map.of(
                 "now", Timestamp.from(now),
                 "username", username));
     }
@@ -47,18 +67,18 @@ public class AccountLockJdbcRepository implements AccountLockRepository {
     @Override
     public int lockUntil(String username, Instant until) {
         Timestamp ts = until == null ? null : Timestamp.from(until);
-        return template.update(lockUntilSql, Map.of("until", ts, "username", username));
+        return template.update(LOCK_UNTIL_SQL, Map.of("until", ts, "username", username));
     }
 
     @Override
     public int resetLockState(String username) {
-        return template.update(resetLockStateSql, Map.of("username", username));
+        return template.update(RESET_LOCK_STATE_SQL, Map.of("username", username));
     }
 
     @Override
     public Integer findFailedAttempts(String username) {
         try {
-            return template.queryForObject(findFailedAttemptsSql, Map.of("username", username), Integer.class);
+            return template.queryForObject(FIND_FAILED_ATTEMPTS_SQL, Map.of("username", username), Integer.class);
         } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
             return null;
         }
@@ -67,7 +87,7 @@ public class AccountLockJdbcRepository implements AccountLockRepository {
     @Override
     public Instant findLastFailedAt(String username) {
         try {
-            Timestamp ts = template.queryForObject(findLastFailedAtSql, Map.of("username", username), Timestamp.class);
+            Timestamp ts = template.queryForObject(FIND_LAST_FAILED_AT_SQL, Map.of("username", username), Timestamp.class);
             return ts == null ? null : ts.toInstant();
         } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
             return null;
@@ -77,7 +97,7 @@ public class AccountLockJdbcRepository implements AccountLockRepository {
     @Override
     public Instant findAccountLockedUntil(String username) {
         try {
-            Timestamp ts = template.queryForObject(findAccountLockedUntilSql, Map.of("username", username), Timestamp.class);
+            Timestamp ts = template.queryForObject(FIND_ACCOUNT_LOCKED_UNTIL_SQL, Map.of("username", username), Timestamp.class);
             return ts == null ? null : ts.toInstant();
         } catch (org.springframework.dao.EmptyResultDataAccessException ex) {
             return null;

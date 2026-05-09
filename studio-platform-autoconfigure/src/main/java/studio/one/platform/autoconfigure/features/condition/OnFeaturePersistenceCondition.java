@@ -25,8 +25,9 @@ class OnFeaturePersistenceCondition extends SpringBootCondition {
         if (!StringUtils.hasText(feature)) {
             return ConditionOutcome.noMatch("Missing feature name for @ConditionalOnFeaturePersistence");
         }
+        boolean mybatisAsJdbc = Boolean.TRUE.equals(attributes.get("mybatisAsJdbc"));
         Type expected = (Type) attributes.get("value");
-        Type actual = resolve(context.getEnvironment(), feature.trim());
+        Type actual = resolve(context.getEnvironment(), feature.trim(), mybatisAsJdbc);
         if (actual == expected) {
             return ConditionOutcome.match("Feature persistence matched " + feature + ": " + expected);
         }
@@ -34,27 +35,36 @@ class OnFeaturePersistenceCondition extends SpringBootCondition {
                 "Feature persistence for " + feature + " was " + actual + ", expected " + expected);
     }
 
-    private Type resolve(Environment env, String feature) {
-        Type configured = parse(env.getProperty(featurePropertyKey(feature)));
+    private Type resolve(Environment env, String feature, boolean mybatisAsJdbc) {
+        String featureKey = featurePropertyKey(feature);
+        Type configured = parse(env.getProperty(featureKey), featureKey);
         if (configured != null) {
-            return configured;
+            return normalize(configured, mybatisAsJdbc);
         }
-        Type global = parse(env.getProperty(PropertyKeys.Persistence.TYPE));
-        return global != null ? global : Type.jpa;
+        Type global = parse(env.getProperty(PropertyKeys.Persistence.TYPE), PropertyKeys.Persistence.TYPE);
+        return global != null ? normalize(global, mybatisAsJdbc) : Type.jpa;
+    }
+
+    private Type normalize(Type type, boolean mybatisAsJdbc) {
+        if (mybatisAsJdbc && type == Type.mybatis) {
+            return Type.jdbc;
+        }
+        return type;
     }
 
     private String featurePropertyKey(String feature) {
         return PropertyKeys.Features.PREFIX + "." + feature + ".persistence";
     }
 
-    private Type parse(String raw) {
+    private Type parse(String raw, String propertyName) {
         if (!StringUtils.hasText(raw)) {
             return null;
         }
         try {
             return Type.valueOf(raw.trim().toLowerCase());
-        } catch (IllegalArgumentException ignored) {
-            return null;
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Unsupported persistence type '" + raw + "' for "
+                    + propertyName + ". Supported values are: jpa, mybatis, jdbc.", ex);
         }
     }
 }

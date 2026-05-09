@@ -2,7 +2,9 @@ package studio.one.platform.user.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Proxy;
+import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -22,6 +24,8 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationGroupService;
 import studio.one.base.user.service.ApplicationRoleService;
 import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.service.UserMutator;
 import studio.one.base.user.web.controller.CompanyJoinRequestMgmtApi;
 import studio.one.base.user.web.controller.CompanyMgmtController;
 import studio.one.base.user.web.controller.CompanyJoinRequestMgmtController;
@@ -64,6 +68,20 @@ class UserServicesAutoConfigurationTest {
     }
 
     @Test
+    void autoConfigurationImportsIncludeUserServices() throws Exception {
+        String imports = new String(
+                Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(
+                        "META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports"))
+                        .readAllBytes(),
+                StandardCharsets.UTF_8);
+
+        assertThat(imports)
+                .contains("studio.one.platform.user.autoconfigure.UserEntityAutoConfiguration")
+                .contains("studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration")
+                .contains("studio.one.platform.user.autoconfigure.UserEndpointsAutoConfiguration");
+    }
+
+    @Test
     void backsOffWhenCompanyServiceBeanAlreadyExists() {
         ApplicationCompanyService customService = stub(ApplicationCompanyService.class);
         contextRunner
@@ -101,6 +119,35 @@ class UserServicesAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(ApplicationCompanyPermissionService.class);
                     assertThat(context).doesNotHaveBean(ApplicationCompanyJoinRequestService.class);
                 });
+    }
+
+    @Test
+    void doesNotRegisterDefaultHelperBeansWhenDefaultUserImplementationDisabled() {
+        contextRunner
+                .withPropertyValues("studio.features.user.use-default=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(UserMutator.class);
+                    assertThat(context).doesNotHaveBean(PasswordPolicyService.class);
+                });
+    }
+
+    @Test
+    void passwordPolicyValidatorBacksOffForCustomPasswordPolicyService() {
+        PasswordPolicyService customPolicy = new PasswordPolicyService() {
+            @Override
+            public studio.one.base.user.web.dto.PasswordPolicyDto getPolicy() {
+                return studio.one.base.user.web.dto.PasswordPolicyDto.builder().build();
+            }
+
+            @Override
+            public void validate(String password) {
+            }
+        };
+
+        contextRunner
+                .withBean(PasswordPolicyService.class, () -> customPolicy)
+                .run(context -> assertThat(context.getBeansOfType(PasswordPolicyService.class))
+                        .containsOnlyKeys("passwordPolicyService"));
     }
 
     @Test

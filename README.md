@@ -36,6 +36,7 @@ studio-platform-chunking/        # RAG indexing용 chunking 계약
 studio-platform-thumbnail/       # image/PDF 썸네일 생성 SPI
 studio-platform-autoconfigure/   # 공통 자동 구성
 studio-platform-data/            # 데이터 액세스 공통
+studio-platform-data-mybatis/    # MyBatis mapper convention 공통
 studio-platform-identity/        # 인증/식별 추상화(계약)
 studio-platform-security(+acl)/  # 보안 + ACL
 studio-platform-realtime/        # 실시간 기능(웹소켓 등) 공통
@@ -50,7 +51,7 @@ studio-platform-workspace-default/ # Workspace JPA 기본 구현
 - `studio-platform`: 공통 웹/예외/도메인 계약
 - `studio-platform-security`, `studio-platform-security-acl`: 인증/인가, JWT, ACL
 - `studio-platform-user`, `studio-platform-user-default`: 사용자 계약과 기본 구현
-- `studio-platform-data`, `studio-platform-objecttype`, `studio-platform-realtime`, `studio-platform-workspace`: 데이터, objectType, 실시간 기능, workspace 공통
+- `studio-platform-data`, `studio-platform-data-mybatis`, `studio-platform-objecttype`, `studio-platform-realtime`, `studio-platform-workspace`: 데이터, MyBatis convention, objectType, 실시간 기능, workspace 공통
 - `studio-platform-ai`, `studio-platform-chunking`, `studio-platform-thumbnail`, `studio-platform-storage`, `studio-platform-identity`: AI/RAG 계약, chunking 계약, 썸네일 생성, 저장소, 식별 공통
 - `studio-application-modules/*`: attachment, avatar, embedding pipeline, template, mail
 
@@ -74,11 +75,13 @@ dependencies {
 - 인증/인가가 필요하면 `:starter:studio-platform-starter-security`
 - 사용자 기본 구현까지 필요하면 `:starter:studio-platform-starter-user`와 `:studio-platform-user-default`
 - objectType 정책/검증이 필요하면 `:starter:studio-platform-starter-objecttype`
+- MyBatis mapper convention이 필요하면 `:starter:studio-platform-starter-mybatis`
 - workspace tree/member/permission API가 필요하면 `:starter:studio-platform-starter-workspace`
 - STOMP/WebSocket 실시간 알림이 필요하면 `:starter:studio-platform-starter-realtime`
 - 첨부/아바타/템플릿/메일 같은 기능 모듈은 각 application starter를 추가
 - RAG indexing용 chunking 전략이 필요하면 `:starter:studio-platform-starter-chunking`
 - 독립 썸네일 생성이 필요하면 `:starter:studio-platform-thumbnail-starter`를 추가한다. attachment starter는 이 스타터를 포함한다.
+- XML SQL mapper는 MyBatis convention으로 통일한다. mapper XML은 `classpath*:mybatis/**/*.xml` 경로를 사용한다.
 
 대표 조합 예시:
 

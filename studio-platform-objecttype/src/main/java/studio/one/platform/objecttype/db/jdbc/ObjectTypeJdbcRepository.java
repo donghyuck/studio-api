@@ -14,12 +14,99 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.util.StringUtils;
 
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 import studio.one.platform.objecttype.db.ObjectTypeStore;
 import studio.one.platform.objecttype.db.model.ObjectTypePolicyRow;
 import studio.one.platform.objecttype.db.model.ObjectTypeRow;
 
 public class ObjectTypeJdbcRepository implements ObjectTypeStore {
+
+    private static final String SELECT_TYPE_COLUMNS = """
+            SELECT
+              OBJECT_TYPE AS objectType,
+              CODE AS code,
+              NAME AS name,
+              DOMAIN AS domain,
+              STATUS AS status,
+              DESCRIPTION AS description,
+              CREATED_BY AS createdBy,
+              CREATED_BY_ID AS createdById,
+              CREATED_AT AS createdAt,
+              UPDATED_BY AS updatedBy,
+              UPDATED_BY_ID AS updatedById,
+              UPDATED_AT AS updatedAt
+            FROM tb_application_object_type
+            """;
+
+    private static final String SELECT_BY_TYPE_SQL = SELECT_TYPE_COLUMNS
+            + "WHERE OBJECT_TYPE = :objectType";
+
+    private static final String SELECT_BY_CODE_SQL = SELECT_TYPE_COLUMNS
+            + "WHERE CODE = :code";
+
+    private static final String SEARCH_BASE_SQL = SELECT_TYPE_COLUMNS;
+
+    private static final String COUNT_BASE_SQL = """
+            SELECT count(*)
+            FROM tb_application_object_type
+            """;
+
+    private static final String SELECT_POLICY_BY_TYPE_SQL = """
+            SELECT
+              OBJECT_TYPE AS objectType,
+              MAX_FILE_MB AS maxFileMb,
+              ALLOWED_EXT AS allowedExt,
+              ALLOWED_MIME AS allowedMime,
+              POLICY_JSON AS policyJson,
+              CREATED_BY AS createdBy,
+              CREATED_BY_ID AS createdById,
+              CREATED_AT AS createdAt,
+              UPDATED_BY AS updatedBy,
+              UPDATED_BY_ID AS updatedById,
+              UPDATED_AT AS updatedAt
+            FROM tb_application_object_type_policy
+            WHERE OBJECT_TYPE = :objectType
+            """;
+
+    private static final String UPSERT_TYPE_SQL = """
+            INSERT INTO tb_application_object_type (
+              OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
+              CREATED_BY, CREATED_BY_ID, CREATED_AT,
+              UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+            ) VALUES (
+              :objectType, :code, :name, :domain, :status, :description,
+              :createdBy, :createdById, COALESCE(:createdAt, NOW()),
+              :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
+            )
+            ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
+              CODE = EXCLUDED.CODE,
+              NAME = EXCLUDED.NAME,
+              DOMAIN = EXCLUDED.DOMAIN,
+              STATUS = EXCLUDED.STATUS,
+              DESCRIPTION = EXCLUDED.DESCRIPTION,
+              UPDATED_BY = EXCLUDED.UPDATED_BY,
+              UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
+              UPDATED_AT = EXCLUDED.UPDATED_AT
+            """;
+
+    private static final String UPSERT_POLICY_SQL = """
+            INSERT INTO tb_application_object_type_policy (
+              OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
+              CREATED_BY, CREATED_BY_ID, CREATED_AT,
+              UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
+            ) VALUES (
+              :objectType, :maxFileMb, :allowedExt, :allowedMime, :policyJson,
+              :createdBy, :createdById, COALESCE(:createdAt, NOW()),
+              :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
+            )
+            ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
+              MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,
+              ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,
+              ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,
+              POLICY_JSON = EXCLUDED.POLICY_JSON,
+              UPDATED_BY = EXCLUDED.UPDATED_BY,
+              UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
+              UPDATED_AT = EXCLUDED.UPDATED_AT
+            """;
 
     private static final RowMapper<ObjectTypeRow> OBJECT_TYPE_ROW_MAPPER = (rs, rowNum) -> {
         ObjectTypeRow row = new ObjectTypeRow();
@@ -59,27 +146,6 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
         return row;
     };
 
-    @SqlStatement("objecttype.selectByType")
-    private String selectByTypeSql;
-
-    @SqlStatement("objecttype.selectByCode")
-    private String selectByCodeSql;
-
-    @SqlStatement("objecttype.selectPolicyByType")
-    private String selectPolicyByTypeSql;
-
-    @SqlStatement("objecttype.searchBase")
-    private String searchBaseSql;
-
-    @SqlStatement("objecttype.countBase")
-    private String countBaseSql;
-
-    @SqlStatement("objecttype.upsertType")
-    private String upsertTypeSql;
-
-    @SqlStatement("objecttype.upsertPolicy")
-    private String upsertPolicySql;
-
     private final NamedParameterJdbcTemplate template;
 
     public ObjectTypeJdbcRepository(NamedParameterJdbcTemplate template) {
@@ -88,21 +154,21 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
 
     @Override
     public Optional<ObjectTypeRow> findByType(int objectType) {
-        return template.query(selectByTypeSql, Map.of("objectType", objectType), OBJECT_TYPE_ROW_MAPPER)
+        return template.query(SELECT_BY_TYPE_SQL, Map.of("objectType", objectType), OBJECT_TYPE_ROW_MAPPER)
                 .stream()
                 .findFirst();
     }
 
     @Override
     public Optional<ObjectTypeRow> findByCode(String code) {
-        return template.query(selectByCodeSql, Map.of("code", code), OBJECT_TYPE_ROW_MAPPER)
+        return template.query(SELECT_BY_CODE_SQL, Map.of("code", code), OBJECT_TYPE_ROW_MAPPER)
                 .stream()
                 .findFirst();
     }
 
     @Override
     public Optional<ObjectTypePolicyRow> findPolicy(int objectType) {
-        return template.query(selectPolicyByTypeSql, Map.of("objectType", objectType), POLICY_ROW_MAPPER)
+        return template.query(SELECT_POLICY_BY_TYPE_SQL, Map.of("objectType", objectType), POLICY_ROW_MAPPER)
                 .stream()
                 .findFirst();
     }
@@ -113,16 +179,16 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
         Map<String, Object> params = new HashMap<>();
         String where = buildWhere(domain, status, q, params);
         if (page.isUnpaged()) {
-            String dataSql = searchBaseSql + where + " order by object_type asc";
+            String dataSql = SEARCH_BASE_SQL + where + " order by object_type asc";
             List<ObjectTypeRow> rows = template.query(dataSql, params, OBJECT_TYPE_ROW_MAPPER);
             return new PageImpl<>(rows, page, rows.size());
         }
-        String countSql = countBaseSql + where;
+        String countSql = COUNT_BASE_SQL + where;
         long total = template.queryForObject(countSql, params, Long.class);
         if (total == 0) {
             return Page.empty(page);
         }
-        String dataSql = searchBaseSql + where + " order by object_type asc";
+        String dataSql = SEARCH_BASE_SQL + where + " order by object_type asc";
         if (page.isPaged()) {
             params.put("limit", page.getPageSize());
             params.put("offset", page.getOffset());
@@ -134,8 +200,8 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
 
     @Override
     public ObjectTypeRow upsert(ObjectTypeRow row) {
-        Map<String, Object> params = typeParams(row, true);
-        template.update(upsertTypeSql, params);
+        Map<String, Object> params = typeParams(row);
+        template.update(UPSERT_TYPE_SQL, params);
         return findByType(row.getObjectType()).orElse(row);
     }
 
@@ -184,8 +250,8 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
 
     @Override
     public ObjectTypePolicyRow upsertPolicy(ObjectTypePolicyRow row) {
-        Map<String, Object> params = policyParams(row, true);
-        template.update(upsertPolicySql, params);
+        Map<String, Object> params = policyParams(row);
+        template.update(UPSERT_POLICY_SQL, params);
         return findPolicy(row.getObjectType()).orElse(row);
     }
 
@@ -213,7 +279,7 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
         return where.toString();
     }
 
-    private Map<String, Object> typeParams(ObjectTypeRow row, boolean includeCreate) {
+    private Map<String, Object> typeParams(ObjectTypeRow row) {
         Map<String, Object> params = new HashMap<>();
         params.put("objectType", row.getObjectType());
         params.put("code", row.getCode());
@@ -230,7 +296,7 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
         return params;
     }
 
-    private Map<String, Object> policyParams(ObjectTypePolicyRow row, boolean includeCreate) {
+    private Map<String, Object> policyParams(ObjectTypePolicyRow row) {
         Map<String, Object> params = new HashMap<>();
         params.put("objectType", row.getObjectType());
         params.put("maxFileMb", row.getMaxFileMb());

@@ -48,6 +48,7 @@ import studio.one.application.template.service.TemplatesService;
 import studio.one.application.template.service.impl.TemplatesServiceImpl;
 import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
+import studio.one.platform.autoconfigure.jdbc.JdbcDatabaseSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.template.autoconfigure.condition.ConditionalOnTemplatePersistence;
 
@@ -93,6 +94,7 @@ public class TemplateAutoConfiguration {
     @ConditionalOnMissingBean(TemplateJdbcRepository.class)
     @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jdbc)
     public TemplateJdbcRepository templateJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+        JdbcDatabaseSupport.requirePostgreSQL(jdbcTemplate, "template");
         return new TemplateJdbcRepository(jdbcTemplate);
     }
 
@@ -105,7 +107,7 @@ public class TemplateAutoConfiguration {
             ObjectProvider<TemplateJdbcRepository> jdbcProvider,
             FreemarkerTemplateBuilder templateBuilder) {
 
-        PersistenceProperties.Type type = templateFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        PersistenceProperties.Type type = resolveTemplatePersistence(templateFeatureProperties, persistenceProperties);
         if (type == PersistenceProperties.Type.jpa) {
             TemplateJpaPersistenceRepository jpa = jpaProvider.getIfAvailable();
             if (jpa == null) {
@@ -153,9 +155,27 @@ public class TemplateAutoConfiguration {
     }
 
     @Configuration
+    @ConditionalOnClass(name = {
+            "jakarta.validation.Valid",
+            "org.springframework.data.domain.Pageable",
+            "org.springframework.data.web.PageableDefault",
+            "org.springframework.security.access.prepost.PreAuthorize",
+            "org.springframework.security.authentication.AuthenticationCredentialsNotFoundException",
+            "org.springframework.security.core.userdetails.UserDetails",
+            "org.springframework.web.bind.annotation.RestController",
+            "studio.one.platform.identity.PrincipalResolver",
+            "studio.one.platform.web.dto.ApiResponse"
+    })
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".template.web", name = "enabled", havingValue = "true", matchIfMissing = true )
     @Import(TemplateMgmtController.class)
     static class TemplateWebConfig {
         
+    }
+
+    private static PersistenceProperties.Type resolveTemplatePersistence(
+            TemplateFeatureProperties templateFeatureProperties,
+            PersistenceProperties persistenceProperties) {
+        PersistenceProperties.Type type = templateFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        return type == PersistenceProperties.Type.mybatis ? PersistenceProperties.Type.jdbc : type;
     }
 }

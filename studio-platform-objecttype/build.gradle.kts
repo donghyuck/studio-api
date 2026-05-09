@@ -23,6 +23,8 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
+    compileOnly("org.mybatis:mybatis:${property("mybatisVersion")}")
+    api("org.springframework.data:spring-data-commons")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
@@ -32,5 +34,5 @@ dependencies {
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-data"))
     testImplementation("org.springframework:spring-web")
-    testImplementation("org.springframework.data:spring-data-commons")
+    testImplementation("org.mybatis:mybatis:${property("mybatisVersion")}")
 }

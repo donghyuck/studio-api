@@ -31,6 +31,7 @@ dependencies {
     testImplementation(project(":studio-platform-workspace"))
     testImplementation(project(":studio-platform-identity"))
     testImplementation(project(":studio-platform-user"))
+    testImplementation(project(":starter:studio-platform-starter-mybatis"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")

@@ -7,6 +7,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import org.hibernate.annotations.CreationTimestamp;
@@ -19,6 +21,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import studio.one.base.security.audit.IpAddressLiterals;
+import studio.one.base.security.audit.LoginFailureAuditFields;
  
 @Entity
 @Table(name = "tb_login_failure_log")
@@ -52,5 +56,15 @@ public class LoginFailureLog {
   @CreationTimestamp // Hibernate가 insert 시각 자동 세팅
   @Column(name = "occurred_at", nullable = false, updatable = false, columnDefinition = "timestamptz")
   private Instant occurredAt;
+
+  @PrePersist
+  @PreUpdate
+  public void sanitizeForPersistence() {
+    username = LoginFailureAuditFields.username(username);
+    remoteIp = IpAddressLiterals.normalizeOrNull(remoteIp);
+    userAgent = LoginFailureAuditFields.userAgent(userAgent);
+    failureType = LoginFailureAuditFields.failureType(failureType);
+    message = LoginFailureAuditFields.message(message);
+  }
 
 }

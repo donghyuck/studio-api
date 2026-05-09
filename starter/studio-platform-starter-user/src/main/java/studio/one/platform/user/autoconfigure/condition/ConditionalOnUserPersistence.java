@@ -18,7 +18,7 @@ import studio.one.platform.autoconfigure.features.condition.ConditionalOnFeature
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@ConditionalOnFeaturePersistence(feature = "user")
+@ConditionalOnFeaturePersistence(feature = "user", mybatisAsJdbc = true)
 public @interface ConditionalOnUserPersistence {
     @AliasFor(annotation = ConditionalOnFeaturePersistence.class, attribute = "value")
     PersistenceProperties.Type value();

@@ -27,6 +27,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.security.audit.ClientRequestDetailsAuthenticationDetailsSource;
 import studio.one.base.security.authentication.lock.service.AccountLockService;
 import studio.one.base.security.jwt.JwtTokenProvider;
 import studio.one.base.security.jwt.refresh.HashedRefreshTokenStore;
@@ -48,7 +49,7 @@ import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
-@EnableConfigurationProperties({ SecurityProperties.class, PersistenceProperties.class })
+@EnableConfigurationProperties({ SecurityProperties.class, AuditProperties.class, PersistenceProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false)
 @AutoConfigureAfter(SecurityAutoConfiguration.class)
 @RequiredArgsConstructor
@@ -113,6 +114,16 @@ public class JwtAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean
+    ClientRequestDetailsAuthenticationDetailsSource clientRequestDetailsAuthenticationDetailsSource(
+            AuditProperties auditProperties) {
+        var loginFailure = auditProperties.getLoginFailure();
+        return new ClientRequestDetailsAuthenticationDetailsSource(
+                loginFailure.getCaptureIpHeader(),
+                loginFailure.getTrustedProxyCidrs());
+    }
+
+    @Bean
     @ConditionalOnProperty(prefix = PropertyKeys.Security.Jwt.Endpoints.PREFIX, name = "login-enabled", havingValue = "true")
     public JwtAuthController jwtLoginEndpoint(
             JwtTokenProvider jwtTokenProvider,
@@ -121,6 +132,7 @@ public class JwtAutoConfiguration {
             UserDetailsService userDetailsService,
             ObjectProvider<AccountLockService> accountLockService,
             ObjectProvider<RefreshTokenStore> storeProvider,
+            ClientRequestDetailsAuthenticationDetailsSource authenticationDetailsSource,
             ObjectProvider<I18n> i18nProvider) {
 
         I18n i18n = I18nUtils.resolve(i18nProvider);
@@ -129,8 +141,8 @@ public class JwtAutoConfiguration {
                 LogUtils.blue("Jwt"),
                 LogUtils.blue(JwtAuthController.class, true),
                 props.getEndpoints().getBasePath(), getModeString(props)));
-        return new JwtAuthController(authenticationManager, userDetailsService, passwordEncoder, jwtTokenProvider, storeProvider,
-                I18nUtils.resolve(i18nProvider));
+        return new JwtAuthController(authenticationManager, userDetailsService, passwordEncoder, jwtTokenProvider,
+                storeProvider, I18nUtils.resolve(i18nProvider), authenticationDetailsSource);
     }
 
     @Bean
@@ -160,7 +172,7 @@ public class JwtAutoConfiguration {
             String entityKey = PropertyKeys.Security.Jwt.PREFIX + ".entity-packages";
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EntityScan.PREPARING, FEATURE_NAME, entityKey,
                     String.join(", ", DEFAULT_JPA_ENTITY_PACKAGES)));
-            return EntityScanRegistrarSupport.entityScanRegistrar(entityKey + ".entity-packages",
+            return EntityScanRegistrarSupport.entityScanRegistrar(entityKey,
                     DEFAULT_JPA_ENTITY_PACKAGES);
         }
     }
@@ -181,6 +193,7 @@ public class JwtAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean(RefreshTokenRepository.class)
         RefreshTokenRepository refreshTokenJdbcRepository(NamedParameterJdbcTemplate template) {
+            SecurityJdbcDatabaseSupport.requirePostgreSQL(template, "jwt refresh token");
             return new RefreshTokenJdbcRepositoryV2(template);
         }
 

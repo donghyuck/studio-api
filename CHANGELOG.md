@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #441 대응으로 custom SqlQuery/sqlset mapper 런타임과 starter 자동구성을 제거하고 SQL mapper 표준을 MyBatis convention으로 전환했다. `JdbcAutoConfiguration`은 `JdbcTemplate`/`NamedParameterJdbcTemplate`만 등록하며, mapper XML은 `starter:studio-platform-starter-mybatis`의 `classpath*:mybatis/**/*.xml` 경로를 사용한다.
 - 이슈 #438 대응으로 관리용 회원 목록 API `GET /api/mgmt/users`에 `companyId` 필터를 추가했다. `companyId`와 `q`를 함께 사용하면 Company 멤버 범위 안에서 `username`/`name`/`email` 검색을 수행하며, platform admin이 아닌 호출자는 대상 Company의 `company.member.read` 권한이 필요하고 pagination/sort는 기존 사용자 목록과 동일하게 적용된다. JDBC pagination 정렬은 allowlist에 없는 sort 필드를 SQL에 반영하지 않고 기본 정렬로 대체하도록 보강했다.
 - 이슈 #436 대응으로 Company별 권한 정책 관리 API `GET/PUT /api/mgmt/companies/{companyId}/permissions/policy`를 추가했다. 정책은 role별 action override를 저장하고, 정책이 없거나 `override=false`이면 기존 `CompanyPermissionActions.actionsFor(role)` 기본 mapping으로 fallback한다. 저장된 정책은 `permissions/me`와 service-level 권한 판정에 반영되며, 정책 수정은 Company `OWNER` 또는 platform admin으로 제한하고 `V304__create_company_permission_policy.sql` migration을 제공한다.
 - 이슈 #435 대응으로 Company 멤버 키 발급과 인증 사용자 가입 요청/승인/거절 API를 추가했다. 멤버 키는 생성 응답에서만 평문으로 반환하고 저장소에는 SHA-256 hash만 보존하며, email-only 비로그인 요청은 계정 소유권을 검증할 수 없어 노출하지 않는다. `POST /api/self/company-join-requests`, `POST /api/mgmt/companies/{companyId}/member-keys`, `GET/approve/reject /api/mgmt/companies/{companyId}/member-join-requests` 흐름을 제공한다. Company 목록 조회는 `features:company/admin` 권한으로 제한하고, 마지막 `OWNER` 강등/삭제는 거부한다.

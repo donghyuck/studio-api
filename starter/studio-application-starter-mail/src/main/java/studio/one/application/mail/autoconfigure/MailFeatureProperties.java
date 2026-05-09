@@ -20,11 +20,6 @@ public class MailFeatureProperties extends FeatureToggle {
 
     private Web web = new Web();
 
-    public studio.one.platform.autoconfigure.PersistenceProperties.Type resolvePersistence(
-            studio.one.platform.autoconfigure.PersistenceProperties.Type globalDefault) {
-        return super.resolvePersistence(globalDefault);
-    }
-
     @Getter
     @Setter
     @NoArgsConstructor

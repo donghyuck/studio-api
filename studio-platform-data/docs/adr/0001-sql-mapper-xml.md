@@ -1,7 +1,7 @@
 # ADR 0001: SQL Statement Registry via XML SqlSet
 
 ## 상태
-승인
+폐기됨
 
 ## 맥락
 다수의 JDBC 기반 모듈에서 SQL 텍스트와 바인딩/페이징 로직이 중복되고,
@@ -15,6 +15,8 @@ SQL을 `classpath:/sql` 아래 XML(SqlSet)로 정의하고 `SqlQueryFactoryImpl`
 - SQL 변경을 코드 수정 없이 반영 가능(리소스 변경 배포 기준).
 - 페이징/바인딩 로직의 일관성을 확보한다.
 - JDBC 기반 모듈의 구현 비용을 크게 줄인다.
+- 2026-05-08 기준 이 커스텀 mapper 런타임은 제거되었고 신규 SQL mapper 표준은 MyBatis convention이다.
 
 ## 참고
-- `JDBC_DEVELOPMENT_GUIDE.md`
+- `studio-platform-data-mybatis/README.md`
+- `starter/studio-platform-starter-mybatis/README.md`

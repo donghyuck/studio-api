@@ -30,15 +30,19 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.format.annotation.DateTimeFormat.ISO;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.security.audit.IpAddressLiterals;
+import studio.one.base.security.audit.LoginFailureAuditFields;
 import studio.one.base.security.audit.service.LoginFailQuery;
 import studio.one.base.security.audit.service.LoginFailureQueryService;
 import studio.one.base.security.web.dto.LoginFailureLogDto;
@@ -82,14 +86,40 @@ public class LoginFailureLogController {
         if (truncated != null){
             truncated = to.truncatedTo(ChronoUnit.DAYS).plusDays(1);
         }  
+        String validatedIpEquals = validateIpEquals(ipEquals);
         var q = LoginFailQuery.builder()
                 .from(from).to(truncated)
-                .usernameLike(usernameLike)
-                .ipEquals(ipEquals)
-                .failureType(failureType)
+                .usernameLike(sanitizeUsernameLike(usernameLike))
+                .ipEquals(validatedIpEquals)
+                .failureType(sanitizeFailureType(failureType))
                 .build();
 
         return ok(ApiResponse.ok(service.find(q, pageable).map(mapper::toDto)));
+    }
+
+    private String validateIpEquals(String ipEquals) {
+        if (ipEquals == null || ipEquals.isBlank()) {
+            return null;
+        }
+        String normalized = IpAddressLiterals.normalizeOrNull(ipEquals);
+        if (normalized != null) {
+            return normalized;
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid ipEquals");
+    }
+
+    private String sanitizeUsernameLike(String usernameLike) {
+        if (usernameLike == null) {
+            return null;
+        }
+        return LoginFailureAuditFields.username(usernameLike);
+    }
+
+    private String sanitizeFailureType(String failureType) {
+        if (failureType == null) {
+            return null;
+        }
+        return LoginFailureAuditFields.failureType(failureType);
     }
 
 }

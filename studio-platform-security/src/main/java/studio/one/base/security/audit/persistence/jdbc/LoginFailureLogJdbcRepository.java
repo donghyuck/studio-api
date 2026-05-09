@@ -16,13 +16,54 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
 
+import studio.one.base.security.audit.IpAddressLiterals;
 import studio.one.base.security.audit.domain.entity.LoginFailureLog;
 import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
 import studio.one.base.security.audit.service.LoginFailQuery;
-import studio.one.platform.data.sqlquery.annotation.SqlStatement;
 
 @Repository
 public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository {
+
+    private static final String INSERT_SQL = """
+            insert into TB_LOGIN_FAILURE_LOG
+                (USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT)
+            values
+                (:username, :remote_ip::inet, :user_agent, :failure_type, :message, :occurred_at)
+            returning ID
+            """;
+
+    private static final String UPDATE_SQL = """
+            update TB_LOGIN_FAILURE_LOG
+               set USERNAME = :username,
+                   REMOTE_IP = :remote_ip::inet,
+                   USER_AGENT = :user_agent,
+                   FAILURE_TYPE = :failure_type,
+                   MESSAGE = :message,
+                   OCCURRED_AT = :occurred_at
+             where ID = :id
+            """;
+
+    private static final String DELETE_OLDER_THAN_SQL = """
+            delete from TB_LOGIN_FAILURE_LOG
+             where OCCURRED_AT < :cutoff
+            """;
+
+    private static final String COUNT_BY_USERNAME_SINCE_SQL = """
+            select count(*)
+              from TB_LOGIN_FAILURE_LOG
+             where USERNAME = :username
+               and OCCURRED_AT >= :since
+            """;
+
+    private static final String COUNT_SEARCH_BASE_SQL = """
+            select count(*)
+              from TB_LOGIN_FAILURE_LOG
+            """;
+
+    private static final String SEARCH_BASE_SQL = """
+            select ID, USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT
+              from TB_LOGIN_FAILURE_LOG
+            """;
 
     private static final RowMapper<LoginFailureLog> ROW_MAPPER = (rs, rowNum) -> LoginFailureLog.builder()
             .id(rs.getLong("id"))
@@ -35,24 +76,6 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
             .build();
 
     private final NamedParameterJdbcTemplate template;
-
-    @SqlStatement("security.loginFailureLogInsert")
-    private String insertSql;
-
-    @SqlStatement("security.loginFailureLogUpdate")
-    private String updateSql;
-
-    @SqlStatement("security.loginFailureLogDeleteOlderThan")
-    private String deleteOlderThanSql;
-
-    @SqlStatement("security.loginFailureLogCountByUsernameSince")
-    private String countByUsernameSinceSql;
-
-    @SqlStatement("security.loginFailureLogCountSearchBase")
-    private String countSearchBaseSql;
-
-    @SqlStatement("security.loginFailureLogSearchBase")
-    private String searchBaseSql;
 
     public LoginFailureLogJdbcRepository(NamedParameterJdbcTemplate template) {
         this.template = template;
@@ -68,12 +91,12 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
 
     @Override
     public long deleteOlderThan(Instant cutoff) {
-        return template.update(deleteOlderThanSql, Map.of("cutoff", Timestamp.from(cutoff)));
+        return template.update(DELETE_OLDER_THAN_SQL, Map.of("cutoff", Timestamp.from(cutoff)));
     }
 
     @Override
     public long countByUsernameSince(String username, Instant since) {
-        Long count = template.queryForObject(countByUsernameSinceSql, Map.of(
+        Long count = template.queryForObject(COUNT_BY_USERNAME_SINCE_SQL, Map.of(
                 "username", username,
                 "since", Timestamp.from(since)), Long.class);
         return count == null ? 0L : count;
@@ -83,7 +106,7 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
     public Page<LoginFailureLog> search(LoginFailQuery query, Pageable pageable) {
         Map<String, Object> params = new HashMap<>();
         String where = buildWhereClause(query, params);
-        String countSql = countSearchBaseSql + where;
+        String countSql = COUNT_SEARCH_BASE_SQL + where;
         long total = template.queryForObject(countSql, params, Long.class);
         if (total == 0) {
             return Page.empty(pageable);
@@ -93,7 +116,7 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
             params.put("limit", pageable.getPageSize());
             params.put("offset", pageable.getOffset());
         }
-        String dataSql = searchBaseSql + where + order;
+        String dataSql = SEARCH_BASE_SQL + where + order;
         if (!pageable.isUnpaged()) {
             dataSql += " limit :limit offset :offset";
         }
@@ -103,6 +126,8 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
 
     private LoginFailureLog insert(LoginFailureLog log) {
         Instant occurred = Objects.requireNonNullElseGet(log.getOccurredAt(), Instant::now);
+        log.setOccurredAt(occurred);
+        log.sanitizeForPersistence();
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("username", log.getUsername())
                 .addValue("remote_ip", log.getRemoteIp())
@@ -111,16 +136,16 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
                 .addValue("message", log.getMessage())
                 .addValue("occurred_at", Timestamp.from(occurred));
         KeyHolder keyHolder = new GeneratedKeyHolder();
-        template.update(insertSql, params, keyHolder, new String[] { "id" });
+        template.update(INSERT_SQL, params, keyHolder, new String[] { "id" });
         Number key = keyHolder.getKey();
         if (key != null) {
             log.setId(key.longValue());
         }
-        log.setOccurredAt(occurred);
         return log;
     }
 
     private LoginFailureLog update(LoginFailureLog log) {
+        log.sanitizeForPersistence();
         Map<String, Object> params = new HashMap<>();
         params.put("username", log.getUsername());
         params.put("remote_ip", log.getRemoteIp());
@@ -129,7 +154,7 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
         params.put("message", log.getMessage());
         params.put("occurred_at", Timestamp.from(log.getOccurredAt()));
         params.put("id", log.getId());
-        template.update(updateSql, params);
+        template.update(UPDATE_SQL, params);
         return log;
     }
 
@@ -143,8 +168,12 @@ public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository 
             params.put("usernameLike", "%" + query.getUsernameLike().toLowerCase() + "%");
         }
         if (query.getIpEquals() != null && !query.getIpEquals().isBlank()) {
-            where.append(" and remote_ip = :remoteIp");
-            params.put("remoteIp", query.getIpEquals());
+            String remoteIp = IpAddressLiterals.normalizeOrNull(query.getIpEquals());
+            if (remoteIp == null) {
+                throw new IllegalArgumentException("Invalid ipEquals");
+            }
+            where.append(" and remote_ip = :remoteIp::inet");
+            params.put("remoteIp", remoteIp);
         }
         if (query.getFailureType() != null && !query.getFailureType().isBlank()) {
             where.append(" and failure_type = :failureType");

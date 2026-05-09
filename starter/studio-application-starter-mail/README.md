@@ -1,6 +1,8 @@
 # Studio Application Starter - Mail Service
 
-IMAP 기반 메일 동기화 모듈(`studio-application-modules/mail-service`)을 자동 구성하는 스타터다. 전역 `studio.persistence.type` 또는 `studio.features.mail.persistence` 값에 따라 JPA/JDBC 구현을 선택하고, IMAP runtime 설정은 `studio.mail.imap.*`에서 읽는다. `studio.features.mail.imap.*`는 migration window 동안만 fallback으로 유지한다.
+IMAP 기반 메일 동기화 모듈(`studio-application-modules/mail-service`)을 자동 구성하는 스타터다.
+`studio.features.mail.persistence` 또는 전역 `studio.persistence.type` 값에 따라 JPA/JDBC 구현을 선택하고,
+IMAP runtime 설정은 `studio.mail.imap.*`에서 읽는다. `studio.features.mail.imap.*`는 migration window 동안만 fallback으로 유지한다.
 
 ## 제공 기능
 - `MailMessageService` / `MailAttachmentService` / `MailSyncService` / `MailSyncLogService` 자동 빈 등록 (JPA/JDBC 선택)
@@ -33,6 +35,12 @@ studio:
       max-body-bytes: 1048576
       delete-after-fetch: false      # true 시 동기화 후 서버에서 메일 삭제(READ_WRITE 모드)
 ```
+
+메일 스타터는 현재 `jpa`와 `jdbc` 구현만 제공한다. 애플리케이션 전역 기본값을
+`studio.persistence.type=mybatis`로 두는 mixed persistence 앱에서는 mail의 MyBatis 전용
+저장소가 없으므로 직접 JDBC 호환 경로를 사용한다. 이 직접 JDBC 경로는 PostgreSQL 전용 SQL을
+사용하므로 PostgreSQL이 아닌 DB에서는 기동 시 fail-fast 된다. JPA를 사용하려면
+`studio.features.mail.persistence=jpa`를 명시한다.
 
 IMAP 계정/서버 설정은 `studio.mail.imap.*`를 기본으로 두고, 기존 `studio.features.mail.imap.*`는 transition fallback으로만 사용한다.
 
