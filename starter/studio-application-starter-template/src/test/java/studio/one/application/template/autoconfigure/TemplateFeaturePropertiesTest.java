@@ -9,7 +9,7 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 class TemplateFeaturePropertiesTest {
 
     @Test
-    void globalMyBatisIsNotRewrittenForUnmigratedFeature() {
+    void featurePropertyResolverLeavesGlobalMyBatisRaw() {
         TemplateFeatureProperties properties = new TemplateFeatureProperties();
 
         assertEquals(PersistenceProperties.Type.mybatis,
@@ -17,7 +17,7 @@ class TemplateFeaturePropertiesTest {
     }
 
     @Test
-    void explicitFeaturePersistenceIsNotRewritten() {
+    void featurePropertyResolverLeavesExplicitMyBatisRaw() {
         TemplateFeatureProperties properties = new TemplateFeatureProperties();
         properties.setPersistence(PersistenceProperties.Type.mybatis);
 

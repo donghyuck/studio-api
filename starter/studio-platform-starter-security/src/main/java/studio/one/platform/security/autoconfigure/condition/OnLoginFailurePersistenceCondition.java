@@ -30,13 +30,14 @@ class OnLoginFailurePersistenceCondition extends SpringBootCondition {
     private Type resolve(Environment env) {
         Type configured = parse(env.getProperty(PropertyKeys.Security.Audit.LOGIN_FAILURE + ".persistence"));
         if (configured != null) {
-            return configured;
+            return normalize(configured);
         }
         Type global = parse(env.getProperty(PropertyKeys.Persistence.PREFIX + ".type"));
-        if (global == Type.mybatis) {
-            return Type.jdbc;
-        }
-        return global != null ? global : Type.jpa;
+        return global != null ? normalize(global) : Type.jpa;
+    }
+
+    private Type normalize(Type type) {
+        return type == Type.mybatis ? Type.jdbc : type;
     }
 
     private Type parse(String raw) {

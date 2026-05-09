@@ -73,7 +73,7 @@ public class MailAutoConfiguration {
             ObjectProvider<MailMessageRepository> jpaRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> jdbcProvider) {
 
-        PersistenceProperties.Type type = mailFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        PersistenceProperties.Type type = resolveMailPersistence(mailFeatureProperties, persistenceProperties);
         if (type == PersistenceProperties.Type.jpa) {
             MailMessageRepository repo = jpaRepositoryProvider.getIfAvailable();
             if (repo == null) {
@@ -100,7 +100,7 @@ public class MailAutoConfiguration {
             ObjectProvider<MailAttachmentRepository> jpaRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> jdbcProvider) {
 
-        PersistenceProperties.Type type = mailFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        PersistenceProperties.Type type = resolveMailPersistence(mailFeatureProperties, persistenceProperties);
         if (type == PersistenceProperties.Type.jpa) {
             MailAttachmentRepository repo = jpaRepositoryProvider.getIfAvailable();
             if (repo == null) {
@@ -128,7 +128,7 @@ public class MailAutoConfiguration {
             ObjectProvider<MailSyncLogRepository> jpaRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> jdbcProvider) {
 
-        PersistenceProperties.Type type = mailFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        PersistenceProperties.Type type = resolveMailPersistence(mailFeatureProperties, persistenceProperties);
         if (type == PersistenceProperties.Type.jpa) {
             MailSyncLogRepository repo = jpaRepositoryProvider.getIfAvailable();
             if (repo == null) {
@@ -187,6 +187,13 @@ public class MailAutoConfiguration {
     @Import(MailSseController.class)
     static class MailWebSseConfig {
 
+    }
+
+    private static PersistenceProperties.Type resolveMailPersistence(
+            MailFeatureProperties mailFeatureProperties,
+            PersistenceProperties persistenceProperties) {
+        PersistenceProperties.Type type = mailFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        return type == PersistenceProperties.Type.mybatis ? PersistenceProperties.Type.jdbc : type;
     }
 
     static class MailSseCondition implements Condition {

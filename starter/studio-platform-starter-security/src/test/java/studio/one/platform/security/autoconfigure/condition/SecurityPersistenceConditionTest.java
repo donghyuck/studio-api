@@ -28,7 +28,7 @@ class SecurityPersistenceConditionTest {
     }
 
     @Test
-    void explicitMyBatisOverrideDoesNotPretendToBeSupported() {
+    void explicitMyBatisOverrideFallsBackToDirectJdbcBranches() {
         contextRunner
                 .withPropertyValues(
                         "studio.persistence.type=jpa",
@@ -37,10 +37,10 @@ class SecurityPersistenceConditionTest {
                         "studio.security.audit.login-failure.persistence=mybatis",
                         "studio.security.auth.password-reset.persistence=mybatis")
                 .run(context -> {
-                    assertThat(context).doesNotHaveBean("jwtJdbc");
-                    assertThat(context).doesNotHaveBean("accountLockJdbc");
-                    assertThat(context).doesNotHaveBean("loginFailureJdbc");
-                    assertThat(context).doesNotHaveBean("passwordResetJdbc");
+                    assertThat(context).hasBean("jwtJdbc");
+                    assertThat(context).hasBean("accountLockJdbc");
+                    assertThat(context).hasBean("loginFailureJdbc");
+                    assertThat(context).hasBean("passwordResetJdbc");
                     assertThat(context).doesNotHaveBean("jwtJpa");
                 });
     }

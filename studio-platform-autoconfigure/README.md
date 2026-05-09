@@ -63,11 +63,12 @@ studio:
 기존 직접 JDBC 구현이 남아 있는 starter 조건부 등록은 raw `jdbc` 값을 사용한다. `PersistenceTypeResolver`는
 이 resolver를 명시적으로 주입해 사용하는 MyBatis-aware 경로에서만 deprecated `jdbc` alias를 `mybatis`로
 normalize한다. `@ConditionalOnFeaturePersistence` 기반 starter 조건은 해당 feature의 실제 지원 구현에 맞춰
-`jpa`, `mybatis`, `jdbc` 값을 직접 비교한다.
+`jpa`, `mybatis`, `jdbc` 값을 직접 비교한다. 아직 MyBatis 전용 저장소가 없는 legacy feature는
+`mybatisAsJdbc=true` 조건을 명시해 전역 또는 feature-scoped `mybatis` 값을 직접 JDBC 호환 경로로 받을 수 있다.
 
-전환이 완료되지 않은 feature가 함께 켜진 애플리케이션에서는 전역 `studio.persistence.type=mybatis`를
-무조건 적용하지 않는다. MyBatis 구현이 추가된 feature는 `studio.features.<feature>.persistence=mybatis`를
-명시하고, 직접 JDBC 호환 경로를 써야 하는 feature는 `studio.features.<feature>.persistence=jdbc`를 유지한다.
+전환이 완료되지 않은 feature가 함께 켜진 애플리케이션에서는 각 starter의 지원 범위를 확인한다.
+MyBatis 구현이 추가된 feature는 `studio.features.<feature>.persistence=mybatis`를 명시할 수 있고,
+legacy feature는 해당 starter가 `mybatisAsJdbc` fallback을 제공하는 경우 직접 JDBC 호환 경로로 동작한다.
 
 ## `@ConditionalOnProperties` 사용 예시
 ```java

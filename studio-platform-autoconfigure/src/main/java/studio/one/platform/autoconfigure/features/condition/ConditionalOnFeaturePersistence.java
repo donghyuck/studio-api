@@ -31,4 +31,10 @@ public @interface ConditionalOnFeaturePersistence {
      * Expected persistence type.
      */
     PersistenceProperties.Type value() default PersistenceProperties.Type.jpa;
+
+    /**
+     * Treats MyBatis as the legacy direct JDBC branch for features that have not
+     * migrated to MyBatis-specific repositories yet.
+     */
+    boolean mybatisAsJdbc() default false;
 }

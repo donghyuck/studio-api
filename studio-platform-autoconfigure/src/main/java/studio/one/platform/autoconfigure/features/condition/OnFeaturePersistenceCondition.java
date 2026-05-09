@@ -25,8 +25,9 @@ class OnFeaturePersistenceCondition extends SpringBootCondition {
         if (!StringUtils.hasText(feature)) {
             return ConditionOutcome.noMatch("Missing feature name for @ConditionalOnFeaturePersistence");
         }
+        boolean mybatisAsJdbc = Boolean.TRUE.equals(attributes.get("mybatisAsJdbc"));
         Type expected = (Type) attributes.get("value");
-        Type actual = resolve(context.getEnvironment(), feature.trim());
+        Type actual = resolve(context.getEnvironment(), feature.trim(), mybatisAsJdbc);
         if (actual == expected) {
             return ConditionOutcome.match("Feature persistence matched " + feature + ": " + expected);
         }
@@ -34,13 +35,20 @@ class OnFeaturePersistenceCondition extends SpringBootCondition {
                 "Feature persistence for " + feature + " was " + actual + ", expected " + expected);
     }
 
-    private Type resolve(Environment env, String feature) {
+    private Type resolve(Environment env, String feature, boolean mybatisAsJdbc) {
         Type configured = parse(env.getProperty(featurePropertyKey(feature)));
         if (configured != null) {
-            return configured;
+            return normalize(configured, mybatisAsJdbc);
         }
         Type global = parse(env.getProperty(PropertyKeys.Persistence.TYPE));
-        return global != null ? global : Type.jpa;
+        return global != null ? normalize(global, mybatisAsJdbc) : Type.jpa;
+    }
+
+    private Type normalize(Type type, boolean mybatisAsJdbc) {
+        if (mybatisAsJdbc && type == Type.mybatis) {
+            return Type.jdbc;
+        }
+        return type;
     }
 
     private String featurePropertyKey(String feature) {

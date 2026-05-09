@@ -9,7 +9,7 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 class MailFeaturePropertiesTest {
 
     @Test
-    void globalMyBatisIsNotRewrittenForUnmigratedFeature() {
+    void featurePropertyResolverLeavesGlobalMyBatisRaw() {
         MailFeatureProperties properties = new MailFeatureProperties();
 
         assertEquals(PersistenceProperties.Type.mybatis,
@@ -17,7 +17,7 @@ class MailFeaturePropertiesTest {
     }
 
     @Test
-    void explicitFeaturePersistenceIsNotRewritten() {
+    void featurePropertyResolverLeavesExplicitMyBatisRaw() {
         MailFeatureProperties properties = new MailFeatureProperties();
         properties.setPersistence(PersistenceProperties.Type.mybatis);
 

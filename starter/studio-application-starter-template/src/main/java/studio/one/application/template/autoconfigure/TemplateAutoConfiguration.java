@@ -105,7 +105,7 @@ public class TemplateAutoConfiguration {
             ObjectProvider<TemplateJdbcRepository> jdbcProvider,
             FreemarkerTemplateBuilder templateBuilder) {
 
-        PersistenceProperties.Type type = templateFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        PersistenceProperties.Type type = resolveTemplatePersistence(templateFeatureProperties, persistenceProperties);
         if (type == PersistenceProperties.Type.jpa) {
             TemplateJpaPersistenceRepository jpa = jpaProvider.getIfAvailable();
             if (jpa == null) {
@@ -157,5 +157,12 @@ public class TemplateAutoConfiguration {
     @Import(TemplateMgmtController.class)
     static class TemplateWebConfig {
         
+    }
+
+    private static PersistenceProperties.Type resolveTemplatePersistence(
+            TemplateFeatureProperties templateFeatureProperties,
+            PersistenceProperties persistenceProperties) {
+        PersistenceProperties.Type type = templateFeatureProperties.resolvePersistence(persistenceProperties.getType());
+        return type == PersistenceProperties.Type.mybatis ? PersistenceProperties.Type.jdbc : type;
     }
 }

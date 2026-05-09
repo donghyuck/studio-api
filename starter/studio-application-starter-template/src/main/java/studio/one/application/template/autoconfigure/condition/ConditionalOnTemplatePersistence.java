@@ -17,7 +17,7 @@ import studio.one.platform.autoconfigure.features.condition.ConditionalOnFeature
 @Target({ ElementType.TYPE, ElementType.METHOD })
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@ConditionalOnFeaturePersistence(feature = "template")
+@ConditionalOnFeaturePersistence(feature = "template", mybatisAsJdbc = true)
 public @interface ConditionalOnTemplatePersistence {
 
     @AliasFor(annotation = ConditionalOnFeaturePersistence.class, attribute = "value")
