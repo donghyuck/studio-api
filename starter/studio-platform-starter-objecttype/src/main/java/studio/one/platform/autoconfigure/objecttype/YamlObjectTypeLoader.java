@@ -123,7 +123,7 @@ public class YamlObjectTypeLoader {
                 try {
                     return Integer.parseInt(s.trim());
                 } catch (NumberFormatException ignored) {
-                    return null;
+                    continue;
                 }
             }
         }
