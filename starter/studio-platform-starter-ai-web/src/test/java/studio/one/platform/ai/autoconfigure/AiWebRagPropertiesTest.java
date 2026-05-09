@@ -17,6 +17,7 @@ class AiWebRagPropertiesTest {
     void shouldExposeContextExpansionAndDiagnosticsDefaults() {
         AiWebRagProperties properties = new AiWebRagProperties();
 
+        assertThat(properties.getContext().getMaxChunkChars()).isEqualTo(2_000);
         assertThat(properties.getContext().getExpansion().isEnabled()).isTrue();
         assertThat(properties.getContext().getExpansion().getCandidateMultiplier()).isEqualTo(4);
         assertThat(properties.getContext().getExpansion().getMaxCandidates()).isEqualTo(100);
@@ -33,6 +34,7 @@ class AiWebRagPropertiesTest {
     void shouldBindContextExpansionAndDiagnosticsOverrides() {
         StandardEnvironment environment = new StandardEnvironment();
         environment.getPropertySources().addFirst(new MapPropertySource("test", Map.ofEntries(
+                Map.entry("studio.ai.endpoints.rag.context.max-chunk-chars", "1200"),
                 Map.entry("studio.ai.endpoints.rag.context.expansion.enabled", "false"),
                 Map.entry("studio.ai.endpoints.rag.context.expansion.candidate-multiplier", "6"),
                 Map.entry("studio.ai.endpoints.rag.context.expansion.max-candidates", "30"),
@@ -48,6 +50,7 @@ class AiWebRagPropertiesTest {
                 .bind("studio.ai.endpoints.rag", Bindable.of(AiWebRagProperties.class))
                 .orElseThrow(() -> new AssertionError("AiWebRagProperties binding failed"));
 
+        assertThat(properties.getContext().getMaxChunkChars()).isEqualTo(1200);
         assertThat(properties.getContext().getExpansion().isEnabled()).isFalse();
         assertThat(properties.getContext().getExpansion().getCandidateMultiplier()).isEqualTo(6);
         assertThat(properties.getContext().getExpansion().getMaxCandidates()).isEqualTo(30);

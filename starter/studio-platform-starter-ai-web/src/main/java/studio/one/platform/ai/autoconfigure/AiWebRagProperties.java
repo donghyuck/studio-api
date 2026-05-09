@@ -26,6 +26,7 @@ public class AiWebRagProperties {
     public static class ContextProperties {
         private int maxChunks = 8;
         private int maxChars = 12_000;
+        private int maxChunkChars = 2_000;
         private boolean includeScores = true;
         private final ExpansionProperties expansion = new ExpansionProperties();
 
@@ -43,6 +44,14 @@ public class AiWebRagProperties {
 
         public void setMaxChars(int maxChars) {
             this.maxChars = maxChars;
+        }
+
+        public int getMaxChunkChars() {
+            return maxChunkChars;
+        }
+
+        public void setMaxChunkChars(int maxChunkChars) {
+            this.maxChunkChars = Math.max(1, maxChunkChars);
         }
 
         public boolean isIncludeScores() {
