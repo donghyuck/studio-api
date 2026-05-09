@@ -188,7 +188,7 @@ application modules
 ### Application modules
 | 모듈 | 내부 프로젝트 의존성 |
 |---|---|
-| `:studio-application-modules:attachment-service` | `compileOnly :studio-platform`, `api :studio-platform-objecttype`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `api :studio-platform-storage`, `api :studio-platform-thumbnail` |
+| `:studio-application-modules:attachment-service` | `compileOnly :studio-platform`, `api :studio-platform-objecttype`, `api :studio-platform-identity`, `compileOnly :studio-platform-data`, `api :studio-platform-textract`, `api :studio-platform-storage`, `api :studio-platform-thumbnail` |
 | `:studio-application-modules:avatar-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-identity` |
 | `:studio-application-modules:content-embedding-pipeline` | `compileOnly :studio-platform`, `compileOnly :studio-platform-data`, `compileOnly :studio-platform-textract`, `compileOnly :studio-platform-chunking`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-security`, `compileOnly :studio-platform-ai`, `compileOnly :starter:studio-platform-starter-chunking`, `compileOnly :studio-application-modules:attachment-service` |
 | `:studio-application-modules:mail-service` | `compileOnly :studio-platform`, `compileOnly :studio-platform-user`, `compileOnly :studio-platform-data` |
@@ -214,7 +214,7 @@ application modules
 | `:starter:studio-platform-starter-security-acl` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-platform-security-acl` |
 | `:starter:studio-platform-starter-user` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :studio-platform-identity`, `compileOnly :starter:studio-platform-starter`, `api :studio-platform-user`, `compileOnly :studio-platform-user-default` |
 | `:starter:studio-platform-starter-workspace` | `api :studio-platform-autoconfigure`, `api :studio-platform`, `api :studio-platform-identity`, `api :studio-platform-workspace`, `api :studio-platform-workspace-default`, `implementation :studio-platform-user` |
-| `:starter:studio-application-starter-attachment` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :starter:studio-platform-thumbnail-starter`, `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-objecttype`, `api :studio-application-modules:attachment-service` |
+| `:starter:studio-application-starter-attachment` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :starter:studio-platform-thumbnail-starter`, `api :studio-platform-identity`, `api :studio-platform-textract`, `compileOnly :studio-platform-objecttype`, `api :studio-application-modules:attachment-service` |
 | `:starter:studio-application-starter-avatar` | `compileOnly :studio-platform-identity`, `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:avatar-service` |
 | `:starter:studio-application-starter-mail` | `implementation :studio-platform`, `compileOnly :studio-platform-realtime`, `implementation :studio-platform-autoconfigure`, `implementation :starter:studio-platform-starter`, `api :studio-application-modules:mail-service` |
 | `:starter:studio-application-starter-template` | `compileOnly :studio-platform-autoconfigure`, `compileOnly :starter:studio-platform-starter`, `api :studio-application-modules:template-service` |

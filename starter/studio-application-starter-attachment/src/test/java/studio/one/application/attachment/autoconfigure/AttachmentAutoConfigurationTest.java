@@ -19,10 +19,13 @@ import org.springframework.boot.autoconfigure.validation.ValidationAutoConfigura
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import studio.one.application.attachment.autoconfigure.condition.ConditionalOnAttachmentPersistence;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.entity.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
@@ -45,6 +48,7 @@ import studio.one.application.attachment.thumbnail.ThumbnailKey;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.attachment.thumbnail.ThumbnailStorage;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
+import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
 import studio.one.platform.storage.service.CloudObjectStorage;
@@ -249,6 +253,25 @@ class AttachmentAutoConfigurationTest {
     }
 
     @Test
+    void attachmentPersistenceTreatsMybatisAsJdbcUntilDedicatedMybatisStoreExists() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ValidationAutoConfiguration.class,
+                        ThumbnailAutoConfiguration.class,
+                        AttachmentAutoConfiguration.class))
+                .withUserConfiguration(AttachmentPersistenceProbeConfig.class)
+                .withBean(AttachmentRepository.class, AttachmentAutoConfigurationTest::attachmentRepository)
+                .withPropertyValues(
+                        "studio.features.attachment.enabled=true",
+                        "studio.persistence.type=mybatis")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasBean("attachmentJdbcPersistenceProbe");
+                    assertThat(context).doesNotHaveBean("attachmentJpaPersistenceProbe");
+                });
+    }
+
+    @Test
     void createsDownloadUrlIssueAuditQueryServiceWhenAuditRepositoryExists() {
         contextRunner
                 .withBean(
@@ -442,6 +465,22 @@ class AttachmentAutoConfigurationTest {
 
         @Override
         public void deleteAll(int objectType, long attachmentId) {
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    static class AttachmentPersistenceProbeConfig {
+
+        @Bean
+        @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jdbc)
+        Object attachmentJdbcPersistenceProbe() {
+            return new Object();
+        }
+
+        @Bean
+        @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jpa)
+        Object attachmentJpaPersistenceProbe() {
+            return new Object();
         }
     }
 }
