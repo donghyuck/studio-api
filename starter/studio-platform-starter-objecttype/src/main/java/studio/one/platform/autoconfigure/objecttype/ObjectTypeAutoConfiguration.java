@@ -71,6 +71,7 @@ import studio.one.platform.objecttype.cache.CachedObjectTypeRegistry;
 import studio.one.platform.objecttype.cache.CachedObjectRebindService;
 import studio.one.platform.objecttype.cache.CacheInvalidatable;
 import java.time.Duration;
+import java.util.Locale;
 import javax.sql.DataSource;
 
 import studio.one.platform.component.State;
@@ -315,8 +316,7 @@ public class ObjectTypeAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean
         public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate, DataSource dataSource) {
-            JdbcDatabaseSupport.requireDatabaseProduct(dataSource, "ObjectType MyBatis persistence",
-                    "PostgreSQL", "H2", "MySQL", "MariaDB");
+            assertSupportedDatabase(sqlSessionTemplate, dataSource);
             assertMappedStatement(sqlSessionTemplate, "selectByType");
             assertMappedStatement(sqlSessionTemplate, "selectByCode");
             assertMappedStatement(sqlSessionTemplate, "search");
@@ -327,6 +327,59 @@ public class ObjectTypeAutoConfiguration {
             assertMappedStatement(sqlSessionTemplate, "upsertPolicy");
             assertMappedStatement(sqlSessionTemplate, "delete");
             return sqlSessionTemplate.getMapper(ObjectTypeMapper.class);
+        }
+
+        private void assertSupportedDatabase(SqlSessionTemplate sqlSessionTemplate, DataSource dataSource) {
+            String productName = JdbcDatabaseSupport.databaseProductName(dataSource, "ObjectType MyBatis persistence");
+            String databaseId = sqlSessionTemplate.getConfiguration().getDatabaseId();
+            String normalizedProduct = productName == null ? "" : productName.toLowerCase(Locale.ROOT);
+
+            if (normalizedProduct.contains("postgresql")) {
+                if (isVendorDatabaseId(databaseId, "h2", "mysql", "mariadb")) {
+                    throw unsupportedDatabaseId(productName, databaseId,
+                            "PostgreSQL products must not resolve to h2/mysql/mariadb ObjectType statements.");
+                }
+                return;
+            }
+            if (normalizedProduct.contains("h2")) {
+                requireDatabaseId(productName, databaseId, "h2");
+                return;
+            }
+            if (normalizedProduct.contains("mariadb")) {
+                requireDatabaseId(productName, databaseId, "mariadb");
+                return;
+            }
+            if (normalizedProduct.contains("mysql")) {
+                requireDatabaseId(productName, databaseId, "mysql");
+                return;
+            }
+
+            throw new IllegalStateException("ObjectType MyBatis persistence supports PostgreSQL, H2, MySQL, MariaDB only"
+                    + ". Detected database: " + productName
+                    + ". Provide database-specific mapper statements before enabling this feature.");
+        }
+
+        private void requireDatabaseId(String productName, String databaseId, String expectedDatabaseId) {
+            if (!expectedDatabaseId.equals(databaseId)) {
+                throw unsupportedDatabaseId(productName, databaseId,
+                        "Expected MyBatis databaseId '" + expectedDatabaseId + "'.");
+            }
+        }
+
+        private boolean isVendorDatabaseId(String databaseId, String... vendorDatabaseIds) {
+            for (String vendorDatabaseId : vendorDatabaseIds) {
+                if (vendorDatabaseId.equals(databaseId)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private IllegalStateException unsupportedDatabaseId(String productName, String databaseId, String detail) {
+            return new IllegalStateException("ObjectType MyBatis persistence database product and MyBatis databaseId "
+                    + "are incompatible. Detected database: " + productName
+                    + ", databaseId: " + databaseId + ". " + detail
+                    + " Align studio.mybatis.database-id-aliases with the actual database product.");
         }
 
         private void assertMappedStatement(SqlSessionTemplate sqlSessionTemplate, String statementId) {

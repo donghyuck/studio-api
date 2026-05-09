@@ -35,7 +35,7 @@ public final class JdbcDatabaseSupport {
         }
     }
 
-    private static String databaseProductName(DataSource dataSource, String featureName) {
+    public static String databaseProductName(DataSource dataSource, String featureName) {
         Connection connection = DataSourceUtils.getConnection(dataSource);
         try {
             return connection.getMetaData().getDatabaseProductName();

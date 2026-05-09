@@ -178,11 +178,26 @@ class ObjectTypeMyBatisAutoConfigurationTest {
     @Test
     void supportsPostgreSQLWhenDatabaseIdAliasIsCustomized() {
         contextRunner
-                .withPropertyValues("studio.mybatis.database-id-aliases.H2=pg")
+                .withPropertyValues("studio.mybatis.database-id-aliases.PostgreSQL=pg")
                 .withBean(javax.sql.DataSource.class, () -> dataSourceWithProductName("PostgreSQL"))
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(ObjectTypeMapper.class);
+                });
+    }
+
+    @Test
+    void failsFastWhenSupportedProductUsesIncompatibleDatabaseIdAlias() {
+        contextRunner
+                .withPropertyValues("studio.mybatis.database-id-aliases.MySQL=foo")
+                .withBean(javax.sql.DataSource.class, () -> dataSourceWithProductName("MySQL"))
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("database product and MyBatis databaseId are incompatible")
+                            .hasMessageContaining("MySQL")
+                            .hasMessageContaining("foo")
+                            .hasMessageContaining("Expected MyBatis databaseId 'mysql'");
                 });
     }
 
