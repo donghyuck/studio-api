@@ -182,6 +182,27 @@ class RagContextBuilderTest {
     }
 
     @Test
+    void packsShortPreviewWhenOnlySmallContentBudgetRemains() {
+        RagContextBuilder builder = new RagContextBuilder(8, 40, 100, true,
+                new AiWebRagProperties.ExpansionProperties(), List.of());
+
+        RagContextBuilder.BuildResult result = builder.buildWithDiagnostics(
+                List.of(result("chunk-1", "12345678901234567890", metadata("chunk-1"))),
+                List.of());
+
+        assertThat(result.context())
+                .doesNotContain("참고할 문서가 없습니다")
+                .contains("[1]")
+                .hasSizeLessThanOrEqualTo(40);
+        assertThat(result.usedResults()).hasSize(1);
+        assertThat(result.usedResults().get(0).content())
+                .isEqualTo("1234567890123");
+        assertThat(result.diagnostics().toMetadata())
+                .containsEntry("includedCount", 1)
+                .containsEntry("compressedHitCount", 1);
+    }
+
+    @Test
     void compressesLargeChunksBeforePackingContext() {
         RagContextBuilder builder = new RagContextBuilder(
                 8,
@@ -232,7 +253,7 @@ class RagContextBuilderTest {
     }
 
     @Test
-    void renumbersPromptBlocksAfterSkippedChunks() {
+    void keepsSequentialPromptBlocksWhenMiddleChunkIsCompressed() {
         RagContextBuilder builder = new RagContextBuilder(
                 8,
                 50,
@@ -250,12 +271,13 @@ class RagContextBuilderTest {
 
         assertThat(result.context())
                 .contains("[1]\nfirst")
-                .contains("[2]\ntail")
+                .contains("[2]\nmiddle chunk")
                 .doesNotContain("[3]")
+                .doesNotContain("tail")
                 .doesNotContain("middle chunk cannot fit after first");
         assertThat(result.usedResults())
                 .extracting(RagSearchResult::documentId)
-                .containsExactly("chunk-1", "chunk-3");
+                .containsExactly("chunk-1", "chunk-2");
         assertThat(result.diagnostics().toMetadata())
                 .containsEntry("includedCount", 2)
                 .containsEntry("skippedHitCount", 1);

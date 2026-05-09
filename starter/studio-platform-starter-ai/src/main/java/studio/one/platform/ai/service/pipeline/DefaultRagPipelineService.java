@@ -845,23 +845,13 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 diagnostics.objectId(),
                 diagnostics.topK());
         results.stream().limit(diagnostics.topK()).forEach(result ->
-                log.debug("RAG diagnostic hit docId={}, score={}, snippet={}",
+                log.debug("RAG diagnostic hit docId={}, score={}",
                         result.document().id(),
-                        String.format("%.3f", result.score()),
-                        truncate(result.document().content(), diagnosticsOptions.maxSnippetChars())));
+                        String.format("%.3f", result.score())));
     }
 
     private int safeSize(List<VectorSearchResult> results) {
         return results == null ? 0 : results.size();
     }
 
-    private String truncate(String content, int maxLen) {
-        if (content == null || maxLen == 0) {
-            return "";
-        }
-        if (content.length() <= maxLen) {
-            return content;
-        }
-        return content.substring(0, maxLen);
-    }
 }

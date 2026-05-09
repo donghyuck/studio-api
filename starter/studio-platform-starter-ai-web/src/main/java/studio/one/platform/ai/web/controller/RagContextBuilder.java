@@ -29,8 +29,6 @@ public class RagContextBuilder {
     static final String KEY_CHUNK_ID = "chunkId";
     private static final String KEY_DOCUMENT_ID = "documentId";
     private static final String TRUNCATION_MARKER = "\n...[truncated]...\n";
-    private static final int MIN_FITTED_CONTENT_CHARS = 16;
-
     private final int maxChunks;
     private final int maxChars;
     private final int maxChunkChars;
@@ -243,7 +241,7 @@ public class RagContextBuilder {
                 new RagSearchResult(result.documentId(), "", result.metadata(), result.score()), false)
                 .length();
         int contentBudget = remainingChars - overhead;
-        if (contentBudget < MIN_FITTED_CONTENT_CHARS) {
+        if (contentBudget <= 0) {
             return Optional.empty();
         }
         String packedContent = excerpt(result.content(), Math.min(maxChunkChars, contentBudget));

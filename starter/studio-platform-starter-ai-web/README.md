@@ -612,7 +612,7 @@ studio:
 `studio.ai.rag.diagnostics.enabled=true`가 켜진 경우 검색 fallback strategy를 기록하고,
 클라이언트 요청의 `debug=true`와 서버 `allow-client-debug=true`가 모두 만족될 때만 응답 metadata에
 `ragDiagnostics`를 추가한다. diagnostics metadata에는 chunk 본문이나 snippet을 포함하지 않는다.
-result snippet 로그는 `studio.ai.rag.diagnostics.log-results=true`일 때만 debug level로 제한 길이만 출력한다.
+`studio.ai.rag.diagnostics.log-results=true`여도 debug log에는 result id/score만 남기며 chunk 본문이나 snippet은 출력하지 않는다.
 
 이슈 #305부터 같은 opt-in 조건에서 RAG context expansion diagnostics도
 `ChatResponseDto.metadata.ragContextDiagnostics`로 노출한다. 이 값은 확장 지원 여부, 적용 여부, 전략,
