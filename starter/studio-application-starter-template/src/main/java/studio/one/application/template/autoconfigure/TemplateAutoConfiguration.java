@@ -157,6 +157,8 @@ public class TemplateAutoConfiguration {
     @Configuration
     @ConditionalOnClass(name = {
             "jakarta.validation.Valid",
+            "org.springframework.data.domain.Pageable",
+            "org.springframework.data.web.PageableDefault",
             "org.springframework.security.access.prepost.PreAuthorize",
             "org.springframework.security.authentication.AuthenticationCredentialsNotFoundException",
             "org.springframework.security.core.userdetails.UserDetails",

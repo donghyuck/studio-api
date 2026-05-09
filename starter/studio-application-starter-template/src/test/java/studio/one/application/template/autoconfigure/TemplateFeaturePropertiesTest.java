@@ -111,6 +111,26 @@ class TemplateFeaturePropertiesTest {
                 });
     }
 
+    @Test
+    void webConfigBacksOffWhenSpringDataWebClassesAreMissing() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ConfigurationPropertiesAutoConfiguration.class,
+                        TemplateAutoConfiguration.class))
+                .withClassLoader(new FilteredClassLoader(
+                        "org.springframework.data.domain",
+                        "org.springframework.data.web"))
+                .withPropertyValues("studio.features.template.enabled=true")
+                .withBean(TemplatesService.class, () -> stub(TemplatesService.class))
+                .withBean(FreemarkerTemplateBuilder.class, () -> new FreemarkerTemplateBuilder(null, null))
+                .withBean(TemplateJpaPersistenceRepository.class,
+                        () -> new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class)))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(TemplateMgmtController.class);
+                });
+    }
+
     @SuppressWarnings("unchecked")
     private static <T> T stub(Class<T> type) {
         return (T) Proxy.newProxyInstance(
