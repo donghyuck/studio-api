@@ -106,6 +106,8 @@ studio:
 ```
 
 `mybatis`를 사용할 때는 `starter:studio-platform-starter-mybatis`가 함께 필요하다.
+ObjectType MyBatis mapper는 PostgreSQL, H2, MySQL, MariaDB를 지원하며, 그 외 `databaseId`
+에서는 기동 시 fail-fast 된다.
 `jdbc`는 기존 직접 JDBC 경로를 유지하는 호환 옵션이며, 외부 sqlset mapper 주입은 사용하지 않는다.
 
 ### REST 엔드포인트 설정

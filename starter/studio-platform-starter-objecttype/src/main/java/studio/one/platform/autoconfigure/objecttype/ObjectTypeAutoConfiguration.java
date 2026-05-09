@@ -313,6 +313,7 @@ public class ObjectTypeAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean
         public ObjectTypeMapper objectTypeMapper(SqlSessionTemplate sqlSessionTemplate) {
+            assertSupportedDatabaseId(sqlSessionTemplate);
             assertMappedStatement(sqlSessionTemplate, "selectByType");
             assertMappedStatement(sqlSessionTemplate, "selectByCode");
             assertMappedStatement(sqlSessionTemplate, "search");
@@ -323,6 +324,20 @@ public class ObjectTypeAutoConfiguration {
             assertMappedStatement(sqlSessionTemplate, "upsertPolicy");
             assertMappedStatement(sqlSessionTemplate, "delete");
             return sqlSessionTemplate.getMapper(ObjectTypeMapper.class);
+        }
+
+        private void assertSupportedDatabaseId(SqlSessionTemplate sqlSessionTemplate) {
+            String databaseId = sqlSessionTemplate.getConfiguration().getDatabaseId();
+            if (databaseId == null
+                    || databaseId.equals("postgresql")
+                    || databaseId.equals("h2")
+                    || databaseId.equals("mysql")
+                    || databaseId.equals("mariadb")) {
+                return;
+            }
+            throw new IllegalStateException("ObjectType persistence=mybatis supports PostgreSQL, H2, MySQL, "
+                    + "and MariaDB only. Detected databaseId: " + databaseId
+                    + ". Provide database-specific mapper statements before enabling this feature.");
         }
 
         private void assertMappedStatement(SqlSessionTemplate sqlSessionTemplate, String statementId) {

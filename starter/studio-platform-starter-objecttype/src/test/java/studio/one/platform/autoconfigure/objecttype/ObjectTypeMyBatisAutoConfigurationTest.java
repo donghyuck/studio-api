@@ -162,6 +162,18 @@ class ObjectTypeMyBatisAutoConfigurationTest {
                 });
     }
 
+    @Test
+    void failsFastWhenDatabaseIdIsUnsupported() {
+        contextRunner
+                .withPropertyValues("studio.mybatis.database-id-aliases.H2=oracle")
+                .run(context -> {
+                    assertThat(context).hasFailed();
+                    assertThat(context.getStartupFailure())
+                            .hasMessageContaining("ObjectType persistence=mybatis supports PostgreSQL, H2, MySQL, and MariaDB only")
+                            .hasMessageContaining("oracle");
+                });
+    }
+
     private void createSchema(JdbcTemplate jdbcTemplate) {
         jdbcTemplate.execute("""
                 CREATE TABLE tb_application_object_type (
