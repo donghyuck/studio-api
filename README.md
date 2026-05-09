@@ -93,6 +93,8 @@ implementation(project(":starter:studio-platform-starter-user"))
 implementation(project(":studio-platform-user-default"))
 
 // 첨부 + AI 임베딩 앱
+implementation(project(":starter:studio-platform-starter"))
+implementation(project(":starter:studio-platform-starter-objecttype"))
 implementation(project(":starter:studio-application-starter-attachment"))
 implementation(project(":studio-application-modules:content-embedding-pipeline"))
 implementation(project(":starter:studio-platform-starter-chunking"))

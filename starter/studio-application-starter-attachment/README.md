@@ -9,6 +9,8 @@ feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, at
 
 ```kotlin
 dependencies {
+    implementation(project(":starter:studio-platform-starter"))
+    implementation(project(":starter:studio-platform-starter-objecttype"))
     implementation(project(":starter:studio-application-starter-attachment"))
     // REST 엔드포인트를 사용할 때
     implementation("org.springframework.boot:spring-boot-starter-web")
@@ -22,6 +24,9 @@ dependencies {
     implementation(project(":starter:studio-platform-textract-starter"))
 }
 ```
+
+첨부 업로드 검증은 `ObjectTypeRuntimeService`를 사용한다. 따라서 attachment starter만 단독으로 추가하지 말고,
+기반 starter와 objectType starter를 함께 추가해야 한다.
 
 ## 2) 기능 활성화
 
