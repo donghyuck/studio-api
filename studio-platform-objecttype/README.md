@@ -269,11 +269,11 @@ ObjectPolicy policy = resolver.resolve(meta).orElse(null);
 
 ### 런타임 검증(업로드 등)
 ```java
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
-import studio.one.platform.objecttype.web.dto.request.ValidateUploadRequest;
 
 ObjectTypeRuntimeService runtime = ...;
-runtime.validateUpload(2001, new ValidateUploadRequest("a.png", "image/png", 1024L));
+runtime.validateUpload(2001, new ValidateUploadCommand("a.png", "image/png", 1024L));
 ```
 
 ## Vue 클라이언트 가이드
