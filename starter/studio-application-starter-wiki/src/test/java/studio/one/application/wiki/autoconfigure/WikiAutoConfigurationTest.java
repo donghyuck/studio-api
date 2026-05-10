@@ -9,12 +9,12 @@ import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import studio.one.application.wiki.permission.WikiPermissionActions;
-import studio.one.application.wiki.service.WikiPageService;
+import studio.one.application.wiki.domain.model.WikiPermissionActions;
+import studio.one.application.wiki.application.usecase.WikiPageService;
 import studio.one.application.wiki.web.controller.WikiController;
 import studio.one.application.wiki.web.controller.WikiMgmtController;
 import studio.one.platform.workspace.autoconfigure.WorkspaceAutoConfiguration;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 
 class WikiAutoConfigurationTest {
 

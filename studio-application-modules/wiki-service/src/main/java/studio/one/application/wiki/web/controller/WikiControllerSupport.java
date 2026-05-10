@@ -5,20 +5,20 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 
-import studio.one.application.wiki.service.WikiPageArchiveCommand;
-import studio.one.application.wiki.service.WikiPageRevertCommand;
-import studio.one.application.wiki.service.WikiPageService;
-import studio.one.application.wiki.service.WikiPageWriteCommand;
-import studio.one.application.wiki.web.dto.WikiArchiveRequest;
-import studio.one.application.wiki.web.dto.WikiPageDto;
-import studio.one.application.wiki.web.dto.WikiPageSummaryDto;
-import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
-import studio.one.application.wiki.web.dto.WikiRevertRequest;
-import studio.one.application.wiki.web.dto.WikiRevisionDto;
-import studio.one.application.wiki.web.dto.WikiRevisionSummaryDto;
+import studio.one.application.wiki.application.command.WikiPageArchiveCommand;
+import studio.one.application.wiki.application.command.WikiPageRevertCommand;
+import studio.one.application.wiki.application.usecase.WikiPageService;
+import studio.one.application.wiki.application.command.WikiPageWriteCommand;
+import studio.one.application.wiki.web.dto.request.WikiArchiveRequest;
+import studio.one.application.wiki.web.dto.response.WikiPageDto;
+import studio.one.application.wiki.web.dto.response.WikiPageSummaryDto;
+import studio.one.application.wiki.web.dto.request.WikiPageWriteRequest;
+import studio.one.application.wiki.web.dto.request.WikiRevertRequest;
+import studio.one.application.wiki.web.dto.response.WikiRevisionDto;
+import studio.one.application.wiki.web.dto.response.WikiRevisionSummaryDto;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.workspace.service.WorkspaceAccessContext;
+import studio.one.platform.workspace.application.command.WorkspaceAccessContext;
 
 abstract class WikiControllerSupport {
 

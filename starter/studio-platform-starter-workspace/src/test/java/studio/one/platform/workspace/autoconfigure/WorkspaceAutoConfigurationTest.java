@@ -21,11 +21,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.base.user.service.ApplicationCompanyMemberService;
 import studio.one.base.user.service.ApplicationCompanyService;
-import studio.one.platform.workspace.service.WorkspaceMemberService;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
-import studio.one.platform.workspace.service.WorkspaceTreeService;
-import studio.one.platform.workspace.service.impl.DefaultWorkspacePermissionService;
-import studio.one.platform.workspace.service.impl.WorkspaceSettings;
+import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
+import studio.one.platform.workspace.application.service.DefaultWorkspacePermissionService;
+import studio.one.platform.workspace.application.service.WorkspaceSettings;
 import studio.one.platform.workspace.web.controller.WorkspaceController;
 import studio.one.platform.workspace.web.controller.WorkspaceMgmtController;
 

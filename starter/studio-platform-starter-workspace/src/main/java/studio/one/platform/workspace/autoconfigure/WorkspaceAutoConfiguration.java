@@ -33,18 +33,18 @@ import studio.one.base.user.service.ApplicationCompanyService;
 import studio.one.base.user.service.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.workspace.permission.WorkspacePermissionContributor;
-import studio.one.platform.workspace.persistence.jpa.WorkspaceClosureJpaRepository;
-import studio.one.platform.workspace.persistence.jpa.WorkspaceEntity;
-import studio.one.platform.workspace.persistence.jpa.WorkspaceJpaRepository;
-import studio.one.platform.workspace.persistence.jpa.WorkspaceMemberJpaRepository;
-import studio.one.platform.workspace.service.WorkspaceMemberService;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
-import studio.one.platform.workspace.service.WorkspaceTreeService;
-import studio.one.platform.workspace.service.impl.DefaultWorkspaceMemberService;
-import studio.one.platform.workspace.service.impl.DefaultWorkspacePermissionService;
-import studio.one.platform.workspace.service.impl.DefaultWorkspaceTreeService;
-import studio.one.platform.workspace.service.impl.WorkspaceSettings;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionContributor;
+import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceClosureJpaRepository;
+import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceEntity;
+import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceJpaRepository;
+import studio.one.platform.workspace.infrastructure.persistence.jpa.WorkspaceMemberJpaRepository;
+import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
+import studio.one.platform.workspace.application.service.DefaultWorkspaceMemberService;
+import studio.one.platform.workspace.application.service.DefaultWorkspacePermissionService;
+import studio.one.platform.workspace.application.service.DefaultWorkspaceTreeService;
+import studio.one.platform.workspace.application.service.WorkspaceSettings;
 
 @AutoConfiguration
 @EnableConfigurationProperties({

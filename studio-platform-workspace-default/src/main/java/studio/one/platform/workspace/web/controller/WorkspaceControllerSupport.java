@@ -10,31 +10,31 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.workspace.model.WorkspaceMemberRef;
-import studio.one.platform.workspace.model.WorkspaceRef;
-import studio.one.platform.workspace.model.WorkspaceRole;
-import studio.one.platform.workspace.model.WorkspaceTreeNode;
-import studio.one.platform.workspace.exception.WorkspaceUnsupportedOperationException;
-import studio.one.platform.workspace.permission.WorkspacePermissionActions;
-import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
-import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
-import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
-import studio.one.platform.workspace.service.CreateWorkspaceCommand;
-import studio.one.platform.workspace.service.UpdateWorkspaceCommand;
-import studio.one.platform.workspace.service.WorkspaceAccessContext;
-import studio.one.platform.workspace.service.WorkspaceListQuery;
-import studio.one.platform.workspace.service.WorkspaceMemberCommand;
-import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
-import studio.one.platform.workspace.service.WorkspaceMemberService;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
-import studio.one.platform.workspace.service.WorkspaceTreeService;
-import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
-import studio.one.platform.workspace.web.dto.WorkspacePermissionSummaryDto;
-import studio.one.platform.workspace.web.dto.WorkspaceUpdateRequest;
+import studio.one.platform.workspace.domain.model.WorkspaceMemberRef;
+import studio.one.platform.workspace.domain.model.WorkspaceRef;
+import studio.one.platform.workspace.domain.model.WorkspaceRole;
+import studio.one.platform.workspace.domain.model.WorkspaceTreeNode;
+import studio.one.platform.workspace.application.error.WorkspaceUnsupportedOperationException;
+import studio.one.platform.workspace.domain.model.WorkspacePermissionActions;
+import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
+import studio.one.platform.workspace.application.command.ChangeWorkspaceParentCommand;
+import studio.one.platform.workspace.application.command.CreateRootWorkspaceCommand;
+import studio.one.platform.workspace.application.command.CreateWorkspaceCommand;
+import studio.one.platform.workspace.application.command.UpdateWorkspaceCommand;
+import studio.one.platform.workspace.application.command.WorkspaceAccessContext;
+import studio.one.platform.workspace.application.command.WorkspaceListQuery;
+import studio.one.platform.workspace.application.command.WorkspaceMemberCommand;
+import studio.one.platform.workspace.application.command.WorkspaceMemberListQuery;
+import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.request.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceArchiveRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceCreateRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceMemberRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceParentChangeRequest;
+import studio.one.platform.workspace.web.dto.response.WorkspacePermissionSummaryDto;
+import studio.one.platform.workspace.web.dto.request.WorkspaceUpdateRequest;
 
 abstract class WorkspaceControllerSupport {
 
