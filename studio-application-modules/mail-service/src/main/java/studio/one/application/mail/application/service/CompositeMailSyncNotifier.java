@@ -4,7 +4,7 @@ import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.application.usecase.MailSyncNotifier;
-import studio.one.application.mail.web.dto.response.MailSyncLogDto;
+import studio.one.application.mail.domain.model.MailSyncLog;
 
 @Slf4j
 public class CompositeMailSyncNotifier implements MailSyncNotifier {
@@ -16,10 +16,10 @@ public class CompositeMailSyncNotifier implements MailSyncNotifier {
     }
 
     @Override
-    public void notifyLog(MailSyncLogDto dto) {
+    public void notifyLog(MailSyncLog syncLog) {
         for (MailSyncNotifier notifier : notifiers) {
             try {
-                notifier.notifyLog(dto);
+                notifier.notifyLog(syncLog);
             } catch (Exception ex) {
                 log.debug("Mail sync notifier {} failed: {}", notifier.getClass().getName(), ex.getMessage());
             }

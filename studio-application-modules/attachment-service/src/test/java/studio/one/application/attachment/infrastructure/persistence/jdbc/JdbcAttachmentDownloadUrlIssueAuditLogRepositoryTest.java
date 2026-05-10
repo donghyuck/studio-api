@@ -20,7 +20,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.application.command.AttachmentDownloadUrlIssueAuditLogQuery;
 

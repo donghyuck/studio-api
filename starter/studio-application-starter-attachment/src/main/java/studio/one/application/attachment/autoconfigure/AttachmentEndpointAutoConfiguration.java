@@ -37,7 +37,7 @@ import studio.one.application.attachment.application.usecase.AttachmentDownloadA
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.application.usecase.AttachmentService;
-import studio.one.application.attachment.infrastructure.thumbnail.ThumbnailService;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.application.attachment.web.controller.AttachmentController;
 import studio.one.application.attachment.web.controller.MeAttachmentController;
 import studio.one.application.attachment.web.controller.AttachmentUrlIssueRequestDetailsResolver;

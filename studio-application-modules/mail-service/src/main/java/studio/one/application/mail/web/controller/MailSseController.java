@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.application.mail.application.service.SseMailSyncNotifier;
 import studio.one.platform.constant.PropertyKeys;
 
 @RestController

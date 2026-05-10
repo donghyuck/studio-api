@@ -1,4 +1,4 @@
-package studio.one.application.attachment.infrastructure.thumbnail;
+package studio.one.application.attachment.application.result;
 
 public class ThumbnailData {
     private final byte[] bytes;

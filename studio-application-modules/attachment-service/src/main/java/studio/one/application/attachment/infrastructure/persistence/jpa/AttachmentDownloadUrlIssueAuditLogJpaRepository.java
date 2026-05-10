@@ -10,7 +10,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.port.AttachmentDownloadUrlIssueAuditLogRepository;
 import studio.one.application.attachment.application.command.AttachmentDownloadUrlIssueAuditLogQuery;
 

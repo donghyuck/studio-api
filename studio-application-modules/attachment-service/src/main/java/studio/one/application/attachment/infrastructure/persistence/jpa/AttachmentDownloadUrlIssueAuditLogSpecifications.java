@@ -11,7 +11,7 @@ import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.application.command.AttachmentDownloadUrlIssueAuditLogQuery;
 
 final class AttachmentDownloadUrlIssueAuditLogSpecifications {

@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.error.AttachmentDownloadTokenInvalidException;
 import studio.one.application.attachment.application.error.AttachmentDownloadUrlUnavailableException;

@@ -11,16 +11,15 @@
 - **ObjectType 정책 검증(옵션)**: `ObjectTypeRuntimeService` 빈이 존재하면 업로드 시 정책(용량/확장자/MIME)을 검증한다. 빈이 없으면 검증을 생략한다.
 
 ## 패키지 구조
-- `domain.model`: attachment domain view와 audit count 모델.
+- `domain.model`: attachment domain view, persistence-backed attachment/audit 모델, audit count 모델.
 - `domain.port`: attachment metadata와 audit log 저장소 port.
 - `application.command`: audit/query command.
-- `application.result`: signed download, audit, owner access 결과 타입.
-- `application.usecase`: `AttachmentService`, download URL, audit query service 계약.
+- `application.result`: signed download, audit, owner access, thumbnail 결과 타입.
+- `application.usecase`: `AttachmentService`, download URL, audit query service, thumbnail service 계약.
 - `application.service`: service 구현체와 token/objectType helper.
 - `application.error`: attachment 예외 타입.
-- `infrastructure.persistence.model`: JPA/JDBC 저장 모델.
 - `infrastructure.persistence.jpa`, `infrastructure.persistence.jdbc`: 저장 기술별 repository 구현.
-- `infrastructure.storage`, `infrastructure.thumbnail`: 파일 저장소와 thumbnail 저장/생성 adapter.
+- `infrastructure.storage`, `infrastructure.thumbnail`: 파일 저장소와 thumbnail 저장/생성 adapter 구현.
 - `web.controller`, `web.dto.request`, `web.dto.response`: HTTP endpoint와 request/response DTO.
 
 이 구조는 breaking rename이다. 기존 `studio.one.application.attachment.service`, `persistence`, `storage`, `thumbnail`, `exception` 및 공통 `studio.one.application.web.*` wrapper는 제공하지 않는다.

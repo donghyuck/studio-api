@@ -26,13 +26,13 @@ import org.springframework.beans.factory.ObjectProvider;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.domain.port.AttachmentRepository;
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
 import studio.one.application.attachment.infrastructure.storage.AttachmentFileStorageResolver;
 import studio.one.application.attachment.infrastructure.storage.AttachmentStorageMetadata;
 import studio.one.application.attachment.infrastructure.storage.FileStorage;
 import studio.one.application.attachment.infrastructure.storage.FileStorageSaveResult;
 import studio.one.application.attachment.infrastructure.storage.FileStorageSaveResultCapable;
-import studio.one.application.attachment.infrastructure.thumbnail.ThumbnailService;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;

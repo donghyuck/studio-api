@@ -16,8 +16,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachmentData;
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.ApplicationAttachmentData;
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentDataJpaRepository;
 
 @ExtendWith(MockitoExtension.class)

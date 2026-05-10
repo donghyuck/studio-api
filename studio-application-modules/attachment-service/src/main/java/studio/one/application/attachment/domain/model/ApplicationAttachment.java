@@ -1,4 +1,4 @@
-package studio.one.application.attachment.infrastructure.persistence.model;
+package studio.one.application.attachment.domain.model;
 
 import java.io.InputStream;
 import java.util.Date;

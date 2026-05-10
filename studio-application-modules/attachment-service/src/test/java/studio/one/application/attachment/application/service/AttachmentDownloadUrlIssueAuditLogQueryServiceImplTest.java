@@ -19,7 +19,7 @@ import studio.one.application.attachment.application.command.AttachmentDownloadU
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlIssueAuditLogQueryService;
 import studio.one.application.attachment.domain.port.AttachmentDownloadUrlIssueAuditLogRepository;
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 
 @ExtendWith(MockitoExtension.class)
 class AttachmentDownloadUrlIssueAuditLogQueryServiceImplTest {

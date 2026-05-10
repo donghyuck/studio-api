@@ -24,7 +24,7 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.stereotype.Repository;
 
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
 import studio.one.application.attachment.domain.port.AttachmentRepository;
 
 @Repository

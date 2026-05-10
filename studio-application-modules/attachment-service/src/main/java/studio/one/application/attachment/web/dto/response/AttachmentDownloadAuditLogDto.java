@@ -2,7 +2,7 @@ package studio.one.application.attachment.web.dto.response;
 
 import java.time.Instant;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog;
 
 public record AttachmentDownloadAuditLogDto(
         Long downloadLogId,

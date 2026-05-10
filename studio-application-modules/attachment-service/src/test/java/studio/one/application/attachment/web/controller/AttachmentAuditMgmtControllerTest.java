@@ -22,11 +22,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.prepost.PreAuthorize;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogQuery;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.application.result.AttachmentDownloadAuditResult;
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.application.command.AttachmentDownloadUrlIssueAuditLogQuery;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlIssueAuditLogQueryService;

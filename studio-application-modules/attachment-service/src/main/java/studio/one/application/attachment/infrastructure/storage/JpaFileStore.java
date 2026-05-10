@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import javax.sql.rowset.serial.SerialBlob;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachmentData;
+import studio.one.application.attachment.domain.model.ApplicationAttachmentData;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentDataJpaRepository;
 

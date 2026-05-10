@@ -11,7 +11,7 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
 
 class LocalFileStoreTest {
 

@@ -13,12 +13,12 @@ IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다.
 
 ## 패키지 구조
 - `application.usecase`: mail message/attachment/sync/log service와 notifier 계약.
-- `application.service`: JPA/JDBC service 구현, IMAP sync 구현, SSE/composite notifier.
+- `application.service`: JPA/JDBC service 구현, IMAP sync 구현, composite notifier.
 - `infrastructure.config`: IMAP runtime 설정 모델.
 - `infrastructure.persistence.jpa`: JPA entity와 Spring Data repository.
-- `web.controller`, `web.dto.response`: HTTP/SSE endpoint와 response DTO.
+- `web.controller`, `web.dto.response`: HTTP/SSE endpoint, SSE notifier adapter와 response DTO.
 
-이 구조는 breaking rename이다. 기존 `studio.one.application.mail.service`, `config`, `domain.entity`, `persistence.repository`, `web.dto` wrapper는 제공하지 않는다. 단, mail starter 내부의 STOMP notifier helper는 starter 전용 패키지에 남는다.
+이 구조는 breaking rename이다. 기존 `studio.one.application.mail.service`, `config`, `domain.entity`, `persistence.repository`, `web.dto` wrapper는 제공하지 않는다. 단, mail starter 내부의 STOMP notifier helper는 `studio.one.application.mail.autoconfigure.service` starter 전용 패키지에 둔다.
 
 ## 설정 예시
 ```yaml

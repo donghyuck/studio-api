@@ -46,6 +46,7 @@ import studio.one.application.template.infrastructure.persistence.jpa.TemplateJp
 import studio.one.application.template.application.service.FreemarkerTemplateBuilder;
 import studio.one.application.template.application.usecase.TemplatesService;
 import studio.one.application.template.application.service.TemplatesServiceImpl;
+import studio.one.application.template.domain.port.TemplatePersistenceRepository;
 import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.autoconfigure.jdbc.JdbcDatabaseSupport;
@@ -83,17 +84,17 @@ public class TemplateAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(TemplateJpaPersistenceRepository.class)
+    @ConditionalOnMissingBean(TemplatePersistenceRepository.class)
     @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jpa)
-    public TemplateJpaPersistenceRepository templateJpaPersistenceRepository(
+    public TemplatePersistenceRepository templateJpaPersistenceRepository(
             TemplateJpaRepository templateRepository) {
         return new TemplateJpaPersistenceRepository(templateRepository);
     }
 
     @Bean
-    @ConditionalOnMissingBean(TemplateJdbcRepository.class)
+    @ConditionalOnMissingBean(TemplatePersistenceRepository.class)
     @ConditionalOnTemplatePersistence(PersistenceProperties.Type.jdbc)
-    public TemplateJdbcRepository templateJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate) {
+    public TemplatePersistenceRepository templateJdbcRepository(NamedParameterJdbcTemplate jdbcTemplate) {
         JdbcDatabaseSupport.requirePostgreSQL(jdbcTemplate, "template");
         return new TemplateJdbcRepository(jdbcTemplate);
     }
@@ -103,26 +104,21 @@ public class TemplateAutoConfiguration {
     public TemplatesServiceImpl templatesService(
             TemplateFeatureProperties templateFeatureProperties,
             PersistenceProperties persistenceProperties,
-            ObjectProvider<TemplateJpaPersistenceRepository> jpaProvider,
-            ObjectProvider<TemplateJdbcRepository> jdbcProvider,
+            ObjectProvider<TemplatePersistenceRepository> repositoryProvider,
             FreemarkerTemplateBuilder templateBuilder) {
 
         PersistenceProperties.Type type = resolveTemplatePersistence(templateFeatureProperties, persistenceProperties);
-        if (type == PersistenceProperties.Type.jpa) {
-            TemplateJpaPersistenceRepository jpa = jpaProvider.getIfAvailable();
-            if (jpa == null) {
-                throw new IllegalStateException("JPA persistence selected but TemplateJpaPersistenceRepository is not available");
-            }
-            return new TemplatesServiceImpl(jpa, templateBuilder);
+        TemplatePersistenceRepository repository = repositoryProvider.getIfAvailable();
+        if (repository == null) {
+            throw new IllegalStateException("Persistence repository is not available for template service: " + type);
         }
-        if (type == PersistenceProperties.Type.jdbc) {
-            TemplateJdbcRepository jdbc = jdbcProvider.getIfAvailable();
-            if (jdbc == null) {
-                throw new IllegalStateException("JDBC persistence selected but TemplateJdbcRepository is not available");
-            }
-            return new TemplatesServiceImpl(jdbc, templateBuilder);
+        if (type == PersistenceProperties.Type.jpa && repository instanceof TemplateJdbcRepository) {
+            throw new IllegalStateException("JPA persistence selected but TemplateJpaPersistenceRepository is not available");
         }
-        throw new IllegalStateException("Unsupported persistence type for template service: " + type);
+        if (type == PersistenceProperties.Type.jdbc && repository instanceof TemplateJpaPersistenceRepository) {
+            throw new IllegalStateException("JDBC persistence selected but TemplateJdbcRepository is not available");
+        }
+        return new TemplatesServiceImpl(repository, templateBuilder);
     }
 
     @Bean

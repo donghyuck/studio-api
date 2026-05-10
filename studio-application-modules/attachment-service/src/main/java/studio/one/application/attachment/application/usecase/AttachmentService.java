@@ -23,8 +23,6 @@ package studio.one.application.attachment.application.usecase;
 
 import studio.one.application.attachment.application.command.*;
 import studio.one.application.attachment.application.result.*;
-import studio.one.application.attachment.application.service.AttachmentDownloadTokenCodec;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;

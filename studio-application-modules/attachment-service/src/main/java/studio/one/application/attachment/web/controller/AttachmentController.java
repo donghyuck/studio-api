@@ -45,8 +45,8 @@ import studio.one.application.attachment.application.usecase.AttachmentDownloadU
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.application.usecase.AttachmentService;
-import studio.one.application.attachment.infrastructure.thumbnail.ThumbnailData;
-import studio.one.application.attachment.infrastructure.thumbnail.ThumbnailService;
+import studio.one.application.attachment.application.result.ThumbnailData;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.application.attachment.web.dto.response.AttachmentDownloadUrlDto;
 import studio.one.application.attachment.web.dto.request.AttachmentDownloadUrlIssueRequestDto;
 import studio.one.application.attachment.web.dto.response.AttachmentDto;

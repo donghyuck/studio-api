@@ -11,6 +11,8 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
+import studio.one.application.attachment.application.result.ThumbnailData;
+
 final class ThumbnailPlaceholder {
 
     private ThumbnailPlaceholder() {

@@ -1,6 +1,7 @@
 package studio.one.application.template.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Proxy;
@@ -55,7 +56,6 @@ class TemplateFeaturePropertiesTest {
         PersistenceProperties persistence = new PersistenceProperties(PersistenceProperties.Type.mybatis);
 
         TemplatesServiceImpl service = configuration.templatesService(template, persistence,
-                provider(new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class))),
                 provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
                 new FreemarkerTemplateBuilder(null, null));
 
@@ -73,11 +73,38 @@ class TemplateFeaturePropertiesTest {
 
         TemplatesServiceImpl service = configuration.templatesService(template, persistence,
                 provider(jpa),
-                provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
                 new FreemarkerTemplateBuilder(null, null));
 
         assertThat((TemplatePersistenceRepository) ReflectionTestUtils.getField(service, "templateRepository"))
                 .isSameAs(jpa);
+    }
+
+    @Test
+    void explicitJpaFailsFastWhenOnlyJdbcRepositoryIsAvailable() {
+        TemplateAutoConfiguration configuration = new TemplateAutoConfiguration();
+        TemplateFeatureProperties template = new TemplateFeatureProperties();
+        template.setPersistence(PersistenceProperties.Type.jpa);
+        PersistenceProperties persistence = new PersistenceProperties(PersistenceProperties.Type.jdbc);
+
+        assertThatThrownBy(() -> configuration.templatesService(template, persistence,
+                provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
+                new FreemarkerTemplateBuilder(null, null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TemplateJpaPersistenceRepository");
+    }
+
+    @Test
+    void explicitJdbcFailsFastWhenOnlyJpaRepositoryIsAvailable() {
+        TemplateAutoConfiguration configuration = new TemplateAutoConfiguration();
+        TemplateFeatureProperties template = new TemplateFeatureProperties();
+        template.setPersistence(PersistenceProperties.Type.jdbc);
+        PersistenceProperties persistence = new PersistenceProperties(PersistenceProperties.Type.jpa);
+
+        assertThatThrownBy(() -> configuration.templatesService(template, persistence,
+                provider(new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class))),
+                new FreemarkerTemplateBuilder(null, null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TemplateJdbcRepository");
     }
 
     @Test

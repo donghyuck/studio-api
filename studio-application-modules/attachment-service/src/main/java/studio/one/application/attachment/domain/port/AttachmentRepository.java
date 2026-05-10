@@ -1,9 +1,9 @@
 package studio.one.application.attachment.domain.port;
 
 import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount;
-import studio.one.application.attachment.infrastructure.persistence.model.*;
+import studio.one.application.attachment.domain.model.*;
 
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import java.util.List;
 import java.util.Optional;

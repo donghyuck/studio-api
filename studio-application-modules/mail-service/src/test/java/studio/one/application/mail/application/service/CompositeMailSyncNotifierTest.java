@@ -9,7 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import studio.one.application.mail.application.usecase.MailSyncNotifier;
-import studio.one.application.mail.web.dto.response.MailSyncLogDto;
+import studio.one.application.mail.domain.model.MailSyncLog;
 
 class CompositeMailSyncNotifierTest {
 
@@ -20,18 +20,18 @@ class CompositeMailSyncNotifierTest {
         };
         MailSyncNotifier succeeding = mock(MailSyncNotifier.class);
         CompositeMailSyncNotifier notifier = new CompositeMailSyncNotifier(List.of(failing, succeeding));
-        MailSyncLogDto dto = MailSyncLogDto.builder().logId(1L).status("SUCCEEDED").build();
+        MailSyncLog log = mock(MailSyncLog.class);
 
-        assertThatCode(() -> notifier.notifyLog(dto)).doesNotThrowAnyException();
+        assertThatCode(() -> notifier.notifyLog(log)).doesNotThrowAnyException();
 
-        verify(succeeding).notifyLog(dto);
+        verify(succeeding).notifyLog(log);
     }
 
     @Test
     void notifyLogAllowsEmptyNotifierList() {
         CompositeMailSyncNotifier notifier = new CompositeMailSyncNotifier(List.of());
-        MailSyncLogDto dto = MailSyncLogDto.builder().logId(1L).status("SUCCEEDED").build();
+        MailSyncLog log = mock(MailSyncLog.class);
 
-        assertThatCode(() -> notifier.notifyLog(dto)).doesNotThrowAnyException();
+        assertThatCode(() -> notifier.notifyLog(log)).doesNotThrowAnyException();
     }
 }

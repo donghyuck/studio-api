@@ -1,4 +1,4 @@
-package studio.one.application.mail.application.service;
+package studio.one.application.mail.web.controller;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -8,6 +8,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.application.usecase.MailSyncNotifier;
+import studio.one.application.mail.domain.model.MailSyncLog;
 import studio.one.application.mail.web.dto.response.MailSyncLogDto;
 
 @Slf4j
@@ -31,7 +32,8 @@ public class SseMailSyncNotifier implements MailSyncNotifier {
     }
 
     @Override
-    public void notifyLog(MailSyncLogDto dto) {
+    public void notifyLog(MailSyncLog syncLog) {
+        MailSyncLogDto dto = MailSyncLogDto.from(syncLog);
         List<SseEmitter> dead = new ArrayList<>();
 
         emitters.forEach(emitter -> {

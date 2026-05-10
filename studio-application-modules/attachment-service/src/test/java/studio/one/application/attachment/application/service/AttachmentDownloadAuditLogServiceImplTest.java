@@ -26,8 +26,8 @@ import studio.one.application.attachment.application.result.AttachmentDownloadAu
 import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.domain.port.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.domain.port.AttachmentDownloadUrlIssueAuditLogRepository;
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadAuditLog;
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 
 class AttachmentDownloadAuditLogServiceImplTest {
 

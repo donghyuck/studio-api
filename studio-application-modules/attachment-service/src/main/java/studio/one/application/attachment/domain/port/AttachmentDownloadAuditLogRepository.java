@@ -1,7 +1,7 @@
 package studio.one.application.attachment.domain.port;
 
 import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount;
-import studio.one.application.attachment.infrastructure.persistence.model.*;
+import studio.one.application.attachment.domain.model.*;
 
 import java.util.Collection;
 import java.util.List;
@@ -9,7 +9,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogQuery;
 
 public interface AttachmentDownloadAuditLogRepository {

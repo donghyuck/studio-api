@@ -15,8 +15,10 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.application.result.ThumbnailData;
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
+import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.platform.thumbnail.ThumbnailGenerationOptions;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.ThumbnailGenerationException;

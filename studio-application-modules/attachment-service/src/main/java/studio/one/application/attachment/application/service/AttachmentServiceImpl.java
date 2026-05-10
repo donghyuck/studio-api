@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.error.AttachmentNotFoundException;
 import studio.one.application.attachment.domain.port.AttachmentRepository;
@@ -35,7 +35,7 @@ import studio.one.application.attachment.infrastructure.storage.AttachmentFileSt
 import studio.one.application.attachment.infrastructure.storage.FileStorage;
 import studio.one.application.attachment.infrastructure.storage.FileStorageSaveResult;
 import studio.one.application.attachment.infrastructure.storage.FileStorageSaveResultCapable;
-import studio.one.application.attachment.infrastructure.thumbnail.ThumbnailService;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;

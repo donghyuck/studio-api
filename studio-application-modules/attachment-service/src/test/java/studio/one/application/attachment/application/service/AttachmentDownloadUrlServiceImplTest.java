@@ -33,7 +33,7 @@ import studio.one.application.attachment.application.result.AttachmentDownloadUr
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlIssueActor;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.domain.port.AttachmentDownloadUrlIssueAuditLogRepository;
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadUrlIssueAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog;
 
 class AttachmentDownloadUrlServiceImplTest {
 

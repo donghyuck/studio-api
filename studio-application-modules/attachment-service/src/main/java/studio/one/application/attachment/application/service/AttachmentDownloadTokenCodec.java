@@ -24,7 +24,7 @@ import org.springframework.util.StringUtils;
 
 import studio.one.application.attachment.application.error.AttachmentDownloadTokenInvalidException;
 
-public final class AttachmentDownloadTokenCodec {
+final class AttachmentDownloadTokenCodec {
 
     static final String PURPOSE = "attachment-download";
 
@@ -141,7 +141,7 @@ public final class AttachmentDownloadTokenCodec {
         }
     }
 
-    public static String tokenHashForAudit(String token) {
+    static String tokenHashForAudit(String token) {
         if (!StringUtils.hasText(token) || token.length() > TOKEN_MAX_LENGTH) {
             return null;
         }

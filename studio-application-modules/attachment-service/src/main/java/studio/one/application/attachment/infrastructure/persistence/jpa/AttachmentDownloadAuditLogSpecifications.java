@@ -10,7 +10,7 @@ import jakarta.persistence.criteria.Root;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogQuery;
 
 final class AttachmentDownloadAuditLogSpecifications {

@@ -20,7 +20,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.application.attachment.infrastructure.persistence.model.AttachmentDownloadAuditLog;
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog;
 import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount;
 import studio.one.application.attachment.domain.port.AttachmentDownloadAuditLogRepository;
 import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogQuery;
