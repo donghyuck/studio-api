@@ -22,8 +22,8 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.application.template.domain.model.DefaultTemplate;
 import studio.one.application.template.domain.model.Template;
-import studio.one.application.template.service.TemplatesService;
-import studio.one.application.template.web.dto.TemplateDto;
+import studio.one.application.template.application.usecase.TemplatesService;
+import studio.one.application.template.web.dto.response.TemplateDto;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;

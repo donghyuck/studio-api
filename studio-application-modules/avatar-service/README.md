@@ -22,6 +22,17 @@
 | 메타데이터 리포지토리 | `AvatarImageJpaRepository` / `AvatarImageJdbcRepository` | `TB_APPLICATION_AVATAR_IMAGE` 테이블 접근 |
 | 바이너리 리포지토리 | `AvatarImageDataJpaRepository` / `AvatarImageDataJdbcRepository` | `TB_APPLICATION_AVATAR_IMAGE_DATA` 테이블 접근 |
 
+## 패키지 구조
+- `domain.model`: `AvatarImage`, `AvatarImageData`.
+- `domain.port`: avatar metadata/data repository port.
+- `application.usecase`: `AvatarImageService` 계약.
+- `application.service`: service 구현과 filesystem replica decorator.
+- `infrastructure.persistence.jpa`, `infrastructure.persistence.jdbc`: 저장 기술별 구현.
+- `infrastructure.replica`: 로컬 파일 replica store.
+- `web.controller`, `web.dto.request`, `web.dto.response`: HTTP endpoint와 DTO.
+
+이 구조는 breaking rename이다. 기존 `studio.one.application.avatar.service`, `persistence`, `replica`, `domain.entity` 및 공통 `studio.one.application.web.*` wrapper는 제공하지 않는다.
+
 ### 레플리카 캐시 동작
 
 - **읽기**: 캐시 파일이 있으면 파일에서 반환, 없으면 DB에서 읽어 캐시 생성 후 반환.

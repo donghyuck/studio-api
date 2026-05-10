@@ -1,0 +1,250 @@
+package studio.one.application.avatar.application.service;
+
+import static studio.one.platform.mediaio.util.BytesUtil.count;
+import static studio.one.platform.mediaio.util.BytesUtil.readAll;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import studio.one.application.avatar.domain.model.AvatarImage;
+import studio.one.application.avatar.domain.model.AvatarImageData;
+import studio.one.application.avatar.domain.port.AvatarImageDataRepository;
+import studio.one.application.avatar.domain.port.AvatarImageRepository;
+import studio.one.application.avatar.application.usecase.AvatarImageService;
+import studio.one.platform.identity.IdentityService;
+import studio.one.platform.mediaio.ImageSource;
+
+@Slf4j
+@RequiredArgsConstructor
+@Transactional
+public class AvatarImageServiceImpl implements AvatarImageService {
+
+    private final AvatarImageRepository imageRepo;
+    private final AvatarImageDataRepository dataRepo;
+    private final ObjectProvider<IdentityService> identityServiceProvider;
+
+    /* ---------- Query ---------- */
+    @Override
+    @Transactional(readOnly = true)
+    public List<AvatarImage> findAllByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
+        return imageRepo.findByUserIdOrderByCreationDateDesc(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
+        return imageRepo.countByUserId(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AvatarImage> findById(Long id) {
+        return imageRepo.findById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AvatarImage> findPrimaryByUserId(Long userId) {
+        if (userId == null || userId <= 0) {
+            throw new IllegalArgumentException("userId must not be null");
+        }
+        return imageRepo.findFirstByUserIdAndPrimaryImageTrueOrderByCreationDateDesc(userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<AvatarImage> findPrimaryByUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return Optional.empty();
+        }
+        IdentityService identityService = identityServiceProvider.getIfAvailable();
+        if (identityService == null) {
+            return Optional.empty();
+        }
+        return identityService.findByUsername(username.trim())
+                .map(user -> user.userId())
+                .flatMap(imageRepo::findFirstByUserIdAndPrimaryImageTrueOrderByCreationDateDesc);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<InputStream> openDataStream(AvatarImage image) throws IOException {
+        AvatarImage e = requireEntity(image.getId());
+        AvatarImageData data = e.getData();
+        if (data == null || data.getData() == null)
+            return Optional.empty();
+        return Optional.of(new java.io.ByteArrayInputStream(data.getData()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<InputStream> openThumbnailStream(AvatarImage image, ThumbnailOptions options) throws IOException {
+
+        return Optional.empty();
+    }
+
+    /* ---------- Command ---------- */
+
+    @Override
+    public AvatarImage upload(AvatarImage metaLike, ImageSource source) throws IOException {
+        Objects.requireNonNull(metaLike, "meta");
+        Objects.requireNonNull(source, "source");
+
+        // 메타 구성
+        AvatarImage meta = new AvatarImage();
+        meta.setUserId(metaLike.getUserId());
+        meta.setPrimaryImage(Boolean.TRUE.equals(metaLike.isPrimaryImage()));
+        meta.setFileName(nvl(metaLike.getFileName(), source.fileName()));
+        meta.setContentType(nvl(metaLike.getContentType(), source.contentType()));
+
+        long size = source.size();
+        if (size < 0)
+            size = count(source.openStream()); // ✅ 공통 유틸
+        meta.setFileSize(size >= 0 ? size : null);
+
+        AvatarImage saved = imageRepo.save(meta);
+
+        // 바이너리 저장(@MapsId)
+        byte[] bytes = readAll(source.openStream()); // ✅ 공통 유틸
+        AvatarImageData blob = new AvatarImageData();
+        blob.setAvatarImage(saved);
+        blob.setId(saved.getId());
+        blob.setData(bytes);
+        saved.setData(blob);
+
+        // 대표 유일성 보장
+        if (Boolean.TRUE.equals(saved.isPrimaryImage())) {
+            unsetOthersPrimary(saved.getUserId(), saved.getId());
+        }
+
+        dataRepo.save(blob);
+        return imageRepo.save(saved);
+    }
+
+    @Override
+    public AvatarImage replaceData(AvatarImage imageMeta, ImageSource source) throws IOException {
+        Objects.requireNonNull(imageMeta, "imageMeta");
+        Objects.requireNonNull(source, "source");
+
+        AvatarImage entity = requireEntity(imageMeta.getId());
+
+        byte[] bytes = readAll(source.openStream()); // ✅ 공통 유틸
+        AvatarImageData data = entity.getData();
+        if (data == null) {
+            data = new AvatarImageData();
+            data.setAvatarImage(entity);
+            data.setId(entity.getId());
+            entity.setData(data);
+        }
+        data.setData(bytes);
+
+        // 메타 갱신
+        if (source.fileName() != null && !source.fileName().isBlank())
+            entity.setFileName(source.fileName());
+        if (source.contentType() != null && !source.contentType().isBlank())
+            entity.setContentType(source.contentType());
+        if (source.size() >= 0)
+            entity.setFileSize(source.size());
+
+        dataRepo.save(data);
+        return imageRepo.save(entity);
+    }
+
+    @Override
+    public AvatarImage updateMetadata(AvatarImage imageMeta, String fileName, Boolean primaryImage) {
+        Objects.requireNonNull(imageMeta, "imageMeta");
+
+        AvatarImage entity = requireEntity(imageMeta.getId());
+        if (StringUtils.isNotBlank(fileName)) {
+            entity.setFileName(fileName);
+        }
+
+        if (primaryImage != null) {
+            if (Boolean.TRUE.equals(primaryImage)) {
+                if (!Boolean.TRUE.equals(entity.isPrimaryImage())) {
+                    entity.setPrimaryImage(true);
+                    unsetOthersPrimary(entity.getUserId(), entity.getId());
+                }
+            } else if (Boolean.TRUE.equals(entity.isPrimaryImage())) {
+                entity.setPrimaryImage(false);
+                imageRepo.save(entity);
+                var altOpt = imageRepo.findByUserIdOrderByCreationDateDesc(entity.getUserId()).stream()
+                        .filter(it -> !it.getId().equals(entity.getId()))
+                        .findFirst();
+                if (altOpt.isPresent()) {
+                    AvatarImage alt = altOpt.get();
+                    alt.setPrimaryImage(true);
+                    imageRepo.save(alt);
+                } else {
+                    entity.setPrimaryImage(true);
+                }
+            }
+        }
+
+        return imageRepo.save(entity);
+    }
+
+    @Override
+    public void setPrimary(AvatarImage imageMeta) {
+        AvatarImage e = requireEntity(imageMeta.getId());
+        if (!Boolean.TRUE.equals(e.isPrimaryImage())) {
+            e.setPrimaryImage(true);
+            unsetOthersPrimary(e.getUserId(), e.getId());
+            imageRepo.save(e);
+        }
+    }
+
+    @Override
+    public void remove(AvatarImage imageMeta) {
+        AvatarImage e = requireEntity(imageMeta.getId());
+        boolean wasPrimary = Boolean.TRUE.equals(e.isPrimaryImage());
+        Long userId = e.getUserId();
+
+        imageRepo.delete(e);
+
+        if (wasPrimary) {
+            imageRepo.findByUserIdOrderByCreationDateDesc(userId).stream().findFirst().ifPresent(latest -> {
+                latest.setPrimaryImage(true);
+                imageRepo.save(latest);
+            });
+        }
+    }
+
+    /* ---------- Helpers ---------- */
+
+    private AvatarImage requireEntity(Long id) {
+        return imageRepo.findById(id).orElseThrow(() -> new IllegalArgumentException("Avatar not found: " + id));
+    }
+
+    private void unsetOthersPrimary(Long userId, Long keepId) {
+        var all = imageRepo.findByUserIdOrderByCreationDateDesc(userId);
+        boolean changed = false;
+        for (AvatarImage it : all) {
+            if (!it.getId().equals(keepId) && Boolean.TRUE.equals(it.isPrimaryImage())) {
+                it.setPrimaryImage(false);
+                changed = true;
+            }
+        }
+        if (changed)
+            imageRepo.saveAll(all);
+    }
+
+    private static String nvl(String a, String b) {
+        return (a != null && !a.isBlank()) ? a : ((b != null && !b.isBlank()) ? b : null);
+    }
+}

@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;

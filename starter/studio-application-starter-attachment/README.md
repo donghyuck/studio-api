@@ -33,6 +33,10 @@ dependencies {
 첨부 서비스 artifact는 objectType API를 전이 의존성으로 포함한다. 다만 실제 용량/확장자/MIME 업로드 정책 검증은
 `ObjectTypeRuntimeService` 빈이 있을 때만 수행하므로, 검증을 활성화하려면 objectType starter를 함께 추가한다.
 
+### 패키지 import 기준
+
+attachment 모듈은 `domain/application/infrastructure/web` 구조를 사용한다. 애플리케이션 코드가 직접 타입을 import할 때는 `AttachmentService`는 `studio.one.application.attachment.application.usecase`, 구현체는 `application.service`, 저장소/스토리지는 `infrastructure.*`, DTO는 `web.dto.request` 또는 `web.dto.response` 기준으로 사용한다. 기존 `studio.one.application.attachment.service`, `persistence`, `storage`, `thumbnail`, `exception` 패키지는 제공하지 않는다.
+
 ## 2) 기능 활성화
 
 ```yaml

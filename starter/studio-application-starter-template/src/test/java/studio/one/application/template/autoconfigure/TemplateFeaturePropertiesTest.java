@@ -19,13 +19,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import studio.one.application.template.persistence.TemplatePersistenceRepository;
-import studio.one.application.template.persistence.jdbc.TemplateJdbcRepository;
-import studio.one.application.template.persistence.jpa.repo.TemplateJpaPersistenceRepository;
-import studio.one.application.template.persistence.jpa.repo.TemplateJpaRepository;
-import studio.one.application.template.service.TemplatesService;
-import studio.one.application.template.service.impl.FreemarkerTemplateBuilder;
-import studio.one.application.template.service.impl.TemplatesServiceImpl;
+import studio.one.application.template.domain.port.TemplatePersistenceRepository;
+import studio.one.application.template.infrastructure.persistence.jdbc.TemplateJdbcRepository;
+import studio.one.application.template.infrastructure.persistence.jpa.TemplateJpaPersistenceRepository;
+import studio.one.application.template.infrastructure.persistence.jpa.TemplateJpaRepository;
+import studio.one.application.template.application.usecase.TemplatesService;
+import studio.one.application.template.application.service.FreemarkerTemplateBuilder;
+import studio.one.application.template.application.service.TemplatesServiceImpl;
 import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 

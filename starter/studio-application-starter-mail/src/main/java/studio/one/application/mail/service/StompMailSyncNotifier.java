@@ -3,8 +3,9 @@ package studio.one.application.mail.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.autoconfigure.MailFeatureProperties;
+import studio.one.application.mail.application.usecase.MailSyncNotifier;
 import studio.one.application.mail.realtime.MailSyncLogPayload;
-import studio.one.application.mail.web.dto.MailSyncLogDto; 
+import studio.one.application.mail.web.dto.response.MailSyncLogDto;
 @Slf4j
 @RequiredArgsConstructor
 public class StompMailSyncNotifier implements MailSyncNotifier {

@@ -1,0 +1,392 @@
+package studio.one.application.attachment.application.service;
+
+import studio.one.application.attachment.application.command.*;
+import studio.one.application.attachment.application.result.*;
+import studio.one.application.attachment.application.usecase.*;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.annotation.Transactional;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import studio.one.application.attachment.infrastructure.persistence.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.application.error.AttachmentNotFoundException;
+import studio.one.application.attachment.domain.port.AttachmentRepository;
+import studio.one.application.attachment.infrastructure.storage.AttachmentFileStorageResolver;
+import studio.one.application.attachment.infrastructure.storage.FileStorage;
+import studio.one.application.attachment.infrastructure.storage.FileStorageSaveResult;
+import studio.one.application.attachment.infrastructure.storage.FileStorageSaveResultCapable;
+import studio.one.application.attachment.infrastructure.thumbnail.ThumbnailService;
+import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.identity.ApplicationPrincipal;
+import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
+
+@RequiredArgsConstructor
+@Transactional
+@Slf4j
+public class AttachmentServiceImpl implements AttachmentService {
+
+    private static final String CACHE_BY_ID = "attachments.byId";
+    private static final long MAX_BUFFER_BYTES = 50L * 1024 * 1024;
+
+    private final AttachmentRepository attachmentRepository;
+    private final FileStorage fileStorage;
+    private final ObjectProvider<AttachmentFileStorageResolver> fileStorageResolverProvider;
+    private final ObjectProvider<PrincipalResolver> principalResolverProvider;
+    private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
+    private final ObjectProvider<AttachmentObjectTypeResolver> objectTypeResolverProvider;
+    private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
+
+    @Override
+    @Cacheable(cacheNames = CACHE_BY_ID, key = "#attachmentId", unless = "#result == null")
+    public Attachment getAttachmentById(long attachmentId) throws NotFoundException {
+        return attachmentRepository.findById(attachmentId)
+                .orElseThrow(() -> AttachmentNotFoundException.byId(attachmentId));
+    }
+
+    @Override
+    public List<Attachment> getAttachments(int objectType, long objectId) {
+        return attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId).stream().map(e -> (Attachment) e)
+                .toList();
+    }
+
+    @Override
+    public List<Attachment> getAttachments(String objectTypeKey, long objectId) {
+        return getAttachments(resolveObjectTypeKey(objectTypeKey), objectId);
+    }
+
+    @Override
+    public List<Attachment> getAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy) {
+        return attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy).stream()
+                .map(e -> (Attachment) e)
+                .toList();
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(Pageable pageable) {
+        Page page = attachmentRepository.findAll(pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    public Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable) {
+        Page page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(String objectTypeKey, long objectId, Pageable pageable) {
+        return findAttachments(resolveObjectTypeKey(objectTypeKey), objectId, pageable);
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByCreator(long createdBy, Pageable pageable) {
+        Page page = attachmentRepository.findByCreatedBy(createdBy, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByCreator(long createdBy, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findAttachmentsByCreator(createdBy, pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository.findByCreatedByAndNameContainingIgnoreCase(
+                createdBy, keyword, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByObjectAndCreator(
+            int objectType, long objectId, long createdBy, Pageable pageable) {
+        Page page = attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy,
+                pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachmentsByObjectAndCreator(
+            int objectType, long objectId, long createdBy, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findAttachmentsByObjectAndCreator(objectType, objectId, createdBy, pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository
+                .findByObjectTypeAndObjectIdAndCreatedByAndNameContainingIgnoreCase(
+                        objectType, objectId, createdBy, keyword, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return Page.empty(pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository.findByNameContainingIgnoreCase(keyword, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(int objectType, long objectId, String keyword, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            return findAttachments(objectType, objectId, pageable);
+        }
+        Page<ApplicationAttachment> page = attachmentRepository
+                .findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(objectType, objectId, keyword, pageable);
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(String objectTypeKey, long objectId, String keyword, Pageable pageable) {
+        return findAttachments(resolveObjectTypeKey(objectTypeKey), objectId, keyword, pageable);
+    }
+
+    @Override
+    public Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file) {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            long size = file.length();
+            validateInputSize(size);
+            return createAttachment(objectType, objectId, name, contentType, inputStream, (int) size);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType, File file) {
+        return createAttachment(resolveObjectTypeKey(objectTypeKey), objectId, name, contentType, file);
+    }
+
+    @Override
+    public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
+            InputStream inputStream) {
+        Path bufferedInput = null;
+        try {
+            bufferedInput = Files.createTempFile("attachment-upload-", ".bin");
+            int size = bufferToTempFile(inputStream, bufferedInput);
+            return createAttachment(objectType, objectId, name, contentType, bufferedInput.toFile(), size);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        } finally {
+            deleteQuietly(bufferedInput);
+        }
+    }
+
+    @Override
+    public Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
+            InputStream inputStream) {
+        return createAttachment(resolveObjectTypeKey(objectTypeKey), objectId, name, contentType, inputStream);
+    }
+
+    @Override
+    public Attachment createAttachment(int objectType, long objectId, String name, String contentType,
+            InputStream inputStream,
+            int size) {
+        validateInputSize(size);
+
+        validateObjectTypePolicy(objectType, name, contentType, size);
+        
+        ApplicationAttachment attachment = new ApplicationAttachment();
+        attachment.setObjectType(objectType);
+        attachment.setObjectId(objectId);
+        attachment.setName(name);
+        attachment.setContentType(contentType);
+        attachment.setSize(size);
+        attachment.setCreatedAt(Instant.now());
+
+        PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
+        if (resolver != null) {
+            ApplicationPrincipal principal = resolver.currentOrNull();
+            if (principal != null && principal.getUserId() != null) {
+                attachment.setCreatedBy(principal.getUserId());
+            }
+        }
+        FileStorage storage = resolveForWrite();
+        ApplicationAttachment savedAttachment = toEntity(attachmentRepository.save(attachment));
+        try {
+            FileStorageSaveResult saveResult = saveToStorage(storage, savedAttachment, inputStream);
+            if (!saveResult.properties().isEmpty()) {
+                mergeProperties(savedAttachment, saveResult.properties());
+                savedAttachment = toEntity(attachmentRepository.save(savedAttachment));
+            }
+            return savedAttachment;
+        } catch (RuntimeException e) {
+            cleanupAfterStorageFailure(savedAttachment, e);
+            throw e;
+        } finally {
+            closeQuietly(inputStream);
+        }
+    }
+
+    @Override
+    public Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
+            InputStream inputStream, int size) {
+        return createAttachment(resolveObjectTypeKey(objectTypeKey), objectId, name, contentType, inputStream, size);
+    }
+
+    @Override
+    @CachePut(cacheNames = CACHE_BY_ID, key = "#attachment.attachmentId")
+    public Attachment saveAttachment(Attachment attachment) {
+        return attachmentRepository.save(toEntity(attachment));
+    }
+
+    @Override
+    @Caching(evict = {
+            @CacheEvict(cacheNames = CACHE_BY_ID, key = "#attachment.attachmentId")
+    })
+    public void removeAttachment(Attachment attachment) {
+        resolveForRead(attachment).delete(attachment);
+        ThumbnailService thumbnailService = thumbnailServiceProvider.getIfAvailable();
+        if (thumbnailService != null) {
+            thumbnailService.deleteAll(attachment);
+        }
+        attachmentRepository.delete(toEntity(attachment));
+    }
+
+    @Override
+    public InputStream getInputStream(Attachment attachment) throws IOException {
+        return resolveForRead(attachment).load(attachment);
+    }
+
+    private ApplicationAttachment toEntity(Attachment attachment) {
+        if (attachment instanceof ApplicationAttachment attach) {
+            return attach;
+        }
+        ApplicationAttachment entity = new ApplicationAttachment();
+        entity.setAttachmentId(attachment.getAttachmentId());
+        entity.setObjectType(attachment.getObjectType());
+        entity.setObjectId(attachment.getObjectId());
+        entity.setName(attachment.getName());
+        entity.setContentType(attachment.getContentType());
+        entity.setSize(attachment.getSize());
+        entity.setCreatedBy(attachment.getCreatedBy());
+        entity.setCreatedAt(attachment.getCreatedAt());
+        entity.setProperties(attachment.getProperties());
+        return entity;
+    }
+
+    private void validateObjectTypePolicy(int objectType, String fileName, String contentType, int sizeBytes) {
+        ObjectTypeRuntimeService runtimeService = objectTypeRuntimeServiceProvider.getIfAvailable();
+        if (runtimeService == null) {
+            return;
+        }
+        ValidateUploadCommand request = new ValidateUploadCommand(fileName, contentType, (long) sizeBytes);
+        runtimeService.validateUpload(objectType, request);
+    }
+
+    private int resolveObjectTypeKey(String objectTypeKey) {
+        AttachmentObjectTypeResolver resolver = objectTypeResolverProvider.getIfAvailable();
+        if (resolver != null) {
+            return resolver.resolveRequired(objectTypeKey);
+        }
+        return new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider).resolveRequired(objectTypeKey);
+    }
+
+    private Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file, int size) {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            return createAttachment(objectType, objectId, name, contentType, inputStream, size);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(e.getMessage(), e);
+        }
+    }
+
+    private int bufferToTempFile(InputStream inputStream, Path bufferedInput) throws IOException {
+        try (InputStream in = inputStream; var out = Files.newOutputStream(bufferedInput)) {
+            byte[] buffer = new byte[8192];
+            long copied = 0L;
+            int read;
+            while ((read = in.read(buffer)) != -1) {
+                copied += read;
+                validateInputSize(copied);
+                out.write(buffer, 0, read);
+            }
+            return (int) copied;
+        }
+    }
+
+    private void cleanupAfterStorageFailure(Attachment savedAttachment, RuntimeException original) {
+        try {
+            resolveForRead(savedAttachment).delete(savedAttachment);
+        } catch (RuntimeException cleanupException) {
+            log.warn("Attachment storage cleanup failed for id={} ({})",
+                    savedAttachment.getAttachmentId(), cleanupException.getClass().getSimpleName());
+            log.debug("Attachment storage cleanup failure details", cleanupException);
+            original.addSuppressed(cleanupException);
+        }
+    }
+
+    private void deleteQuietly(Path bufferedInput) {
+        if (bufferedInput == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(bufferedInput);
+        } catch (IOException ex) {
+            log.debug("Failed to delete buffered upload temp file {}: {}", bufferedInput, ex.getMessage());
+        }
+    }
+
+    private void closeQuietly(InputStream inputStream) {
+        if (inputStream == null) {
+            return;
+        }
+        try {
+            inputStream.close();
+        } catch (IOException ex) {
+            log.warn("Failed to close attachment input stream cleanly: {}", ex.getMessage());
+        }
+    }
+
+    private void validateInputSize(long sizeBytes) {
+        if (sizeBytes < 0 || sizeBytes > MAX_BUFFER_BYTES || sizeBytes > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("File size exceeds supported limit");
+        }
+    }
+
+    private FileStorage resolveForWrite() {
+        AttachmentFileStorageResolver resolver = fileStorageResolverProvider.getIfAvailable();
+        return resolver == null ? fileStorage : resolver.resolveForWrite();
+    }
+
+    private FileStorage resolveForRead(Attachment attachment) {
+        AttachmentFileStorageResolver resolver = fileStorageResolverProvider.getIfAvailable();
+        return resolver == null ? fileStorage : resolver.resolveForRead(attachment);
+    }
+
+    private FileStorageSaveResult saveToStorage(
+            FileStorage storage,
+            Attachment attachment,
+            InputStream inputStream) {
+        if (storage instanceof FileStorageSaveResultCapable capable) {
+            return capable.saveWithResult(attachment, inputStream);
+        }
+        return FileStorageSaveResult.of(storage.save(attachment, inputStream));
+    }
+
+    private void mergeProperties(ApplicationAttachment attachment, Map<String, String> properties) {
+        Map<String, String> merged = new HashMap<>();
+        if (attachment.getProperties() != null) {
+            merged.putAll(attachment.getProperties());
+        }
+        merged.putAll(properties);
+        attachment.setProperties(merged);
+    }
+}

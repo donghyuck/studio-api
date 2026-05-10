@@ -10,7 +10,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 

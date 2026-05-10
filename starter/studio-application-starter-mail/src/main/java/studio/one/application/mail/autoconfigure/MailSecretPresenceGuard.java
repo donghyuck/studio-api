@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.application.mail.config.ImapProperties;
+import studio.one.application.mail.infrastructure.config.ImapProperties;
 import studio.one.platform.constant.PropertyKeys;
 
 @AutoConfiguration

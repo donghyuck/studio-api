@@ -1,6 +1,6 @@
 package studio.one.application.mail.realtime;
 
-import studio.one.application.mail.web.dto.MailSyncLogDto;
+import studio.one.application.mail.web.dto.response.MailSyncLogDto;
 
 import studio.one.platform.realtime.stomp.domain.model.RealtimePayload;
 

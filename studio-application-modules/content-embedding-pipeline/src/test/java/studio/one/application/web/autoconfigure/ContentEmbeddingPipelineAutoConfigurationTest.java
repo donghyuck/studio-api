@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;

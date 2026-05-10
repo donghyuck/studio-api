@@ -8,6 +8,15 @@
 - **TemplateEntity/DefaultTemplate**: 템플릿 도메인 모델. `properties` 맵으로 임의 속성 저장.
 - **FreemarkerTemplateBuilder**: 서블릿 컨텍스트/정적 모델을 포함해 FreeMarker 템플릿 처리 유틸리티.
 
+## 패키지 구조
+- `domain.port`: template persistence repository port.
+- `application.usecase`: `TemplatesService` 계약.
+- `application.service`: service 구현과 FreeMarker builder.
+- `infrastructure.persistence.jpa`, `infrastructure.persistence.jdbc`: 저장 기술별 구현.
+- `web.controller`, `web.dto.response`: HTTP endpoint와 response DTO.
+
+이 구조는 breaking rename이다. 기존 `studio.one.application.template.service`, `persistence`, `persistence.jpa.*`, `web.dto` wrapper는 제공하지 않는다.
+
 ## 자동구성 및 프로퍼티
 `studio.features.template.*` 로 활성화 및 웹 노출을 제어한다.
 

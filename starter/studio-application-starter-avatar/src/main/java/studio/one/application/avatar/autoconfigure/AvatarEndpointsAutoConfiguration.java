@@ -9,10 +9,10 @@ import org.springframework.context.annotation.Configuration;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.application.avatar.service.AvatarImageService;
-import studio.one.application.web.controller.AvatarController;
-import studio.one.application.web.controller.MeAvatarController;
-import studio.one.application.web.controller.PublicAvatarController;
+import studio.one.application.avatar.application.usecase.AvatarImageService;
+import studio.one.application.avatar.web.controller.AvatarController;
+import studio.one.application.avatar.web.controller.MeAvatarController;
+import studio.one.application.avatar.web.controller.PublicAvatarController;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
