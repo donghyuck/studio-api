@@ -8,8 +8,11 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAction;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
 
 final class AttachmentAccessSupport {
 
@@ -49,12 +52,59 @@ final class AttachmentAccessSupport {
     }
 
     static void requireAttachmentAccess(Attachment attachment, ApplicationPrincipal principal) {
+        requireAttachmentAccess(attachment, principal, null, AttachmentOwnerAccessAction.READ);
+    }
+
+    static void requireAttachmentAccess(
+            Attachment attachment,
+            ApplicationPrincipal principal,
+            ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+            AttachmentOwnerAccessAction action) {
         if (isAdmin(principal)) {
+            return;
+        }
+        if (isWellKnownDomainAttachmentType(attachment.getObjectType())) {
+            requireOwnerAccess(
+                    attachment.getObjectType(),
+                    attachment.getObjectId(),
+                    principal,
+                    ownerAccessAuthorizers,
+                    action);
             return;
         }
         long userId = requireUserId(principal);
         if (!Objects.equals(attachment.getCreatedBy(), userId)) {
             throw new AccessDeniedException("Forbidden attachment access");
         }
+    }
+
+    static void requireOwnerAccess(
+            int objectType,
+            long objectId,
+            ApplicationPrincipal principal,
+            ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+            AttachmentOwnerAccessAction action) {
+        if (isAdmin(principal)) {
+            return;
+        }
+        if (!isWellKnownDomainAttachmentType(objectType)) {
+            return;
+        }
+        if (ownerAccessAuthorizers == null) {
+            throw new AccessDeniedException("Forbidden attachment access");
+        }
+        boolean allowed = ownerAccessAuthorizers.orderedStream()
+                .filter(authorizer -> authorizer.supports(objectType))
+                .anyMatch(authorizer -> authorizer.canAccess(objectType, objectId, principal, action));
+        if (!allowed) {
+            throw new AccessDeniedException("Forbidden attachment access");
+        }
+    }
+
+    static boolean isWellKnownDomainAttachmentType(int objectType) {
+        return objectType == WellKnownAttachmentObjectTypes.POST_ATTACHMENT
+                || objectType == WellKnownAttachmentObjectTypes.MAIL_ATTACHMENT
+                || objectType == WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT
+                || objectType == WellKnownAttachmentObjectTypes.WIKI_ATTACHMENT;
     }
 }

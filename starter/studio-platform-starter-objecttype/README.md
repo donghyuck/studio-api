@@ -150,13 +150,18 @@ studio:
 | 컨트롤러 | 조건 | 역할 |
 |---|---|---|
 | `ObjectTypeController` | `ObjectTypeRuntimeService` 빈 존재 시 | ObjectType 정의 조회, 업로드 검증 |
+| `ObjectTypeKeyController` | `ObjectTypeKeyRuntimeService` 빈 존재 시 | key 기반 ObjectType 정의 조회, 업로드 검증 |
 | `ObjectTypeMgmtController` | `ObjectTypeAdminService` 빈 존재 시 (DB 모드) | ObjectType 생성·수정·삭제 관리 API |
 
 - `ObjectTypeController` — 런타임 엔드포인트 (기본 `/api/object-types`)
 - `GET /api/object-types/{objectType}/definition`
 - `POST /api/object-types/{objectType}/validate-upload`
+- `ObjectTypeKeyController` — key 기반 런타임 엔드포인트 (기본 `/api/object-types`, 지원 빈이 있을 때만 등록)
 - `GET /api/object-types/keys/{key}/definition`
 - `POST /api/object-types/keys/{key}/validate-upload`
+- 런타임 엔드포인트는 well-known attachment 정책과 도메인 정보를 노출할 수 있으므로 `features:objecttype/read` 권한을 요구한다.
+- 관리 엔드포인트의 조회 API는 `features:objecttype/read`, 생성/수정/삭제/reload API는 `features:objecttype/manage` 권한을 요구한다. 관리 API의 audit actor는 요청 body가 아니라 현재 `ApplicationPrincipal`에서 산출한다.
+- 이 스타터는 `endpointAuthz` 빈이 있을 때만 ObjectType web controller를 등록한다. `studio.features.objecttype.web.enabled=true`를 사용할 때는 security starter와 method security 구성을 함께 활성화한다.
 - `ObjectTypeMgmtController` — 관리 엔드포인트 (기본 `/api/mgmt/object-types`, DB 모드에서 `ObjectTypeAdminService` 빈이 있을 때만 등록됨)
 - `GET /api/mgmt/object-types/{objectType}/policy/effective` — 저장 정책이 없을 때도 클라이언트 안내용 적용 정책을 반환한다. 저장 정책이면 `source=stored`, 내부 기본 정책이면 `source=default`다. 기본 정책 응답은 `maxFileMb=null`, `allowedExt=null`, `allowedMime=null`, `policyJson=null`이며 ObjectType별 추가 제한 없음으로 해석한다. Spring multipart 제한이나 attachment 서비스 공통 제한은 별도로 적용될 수 있다.
 

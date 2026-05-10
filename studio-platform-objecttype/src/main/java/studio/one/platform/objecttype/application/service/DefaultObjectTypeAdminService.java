@@ -54,6 +54,8 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         ObjectTypeValidation.validateStatus(request.status());
         String normalizedStatus = ObjectTypeValidation.normalizeStatus(request.status());
         checkCodeConflict(request.objectType(), request.code());
+        Optional<ObjectTypeRow> existing = store.findByType(request.objectType());
+        Instant now = Instant.now();
         ObjectTypeRow row = new ObjectTypeRow();
         row.setObjectType(request.objectType());
         row.setCode(request.code());
@@ -61,12 +63,12 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         row.setDomain(request.domain());
         row.setStatus(normalizedStatus);
         row.setDescription(request.description());
-        row.setCreatedBy(request.createdBy());
-        row.setCreatedById(request.createdById());
-        row.setCreatedAt(Instant.now());
+        row.setCreatedBy(existing.map(ObjectTypeRow::getCreatedBy).orElse(request.createdBy()));
+        row.setCreatedById(existing.map(ObjectTypeRow::getCreatedById).orElse(request.createdById()));
+        row.setCreatedAt(existing.map(ObjectTypeRow::getCreatedAt).orElse(now));
         row.setUpdatedBy(request.updatedBy());
         row.setUpdatedById(request.updatedById());
-        row.setUpdatedAt(Instant.now());
+        row.setUpdatedAt(now);
         ObjectTypeRow saved = store.upsert(row);
         return toView(saved);
     }
@@ -118,18 +120,20 @@ public class DefaultObjectTypeAdminService implements ObjectTypeAdminService {
         if (request.maxFileMb() != null && request.maxFileMb() < 0) {
             throw PlatformRuntimeException.of(ObjectTypeErrorCodes.VALIDATION_ERROR, "maxFileMb");
         }
+        Optional<ObjectTypePolicyRow> existing = store.findPolicy(objectType);
+        Instant now = Instant.now();
         ObjectTypePolicyRow row = new ObjectTypePolicyRow();
         row.setObjectType(objectType);
         row.setMaxFileMb(request.maxFileMb());
         row.setAllowedExt(ObjectTypeValidation.normalizeExt(request.allowedExt()));
         row.setAllowedMime(ObjectTypeValidation.normalizeMime(request.allowedMime()));
         row.setPolicyJson(request.policyJson());
-        row.setCreatedBy(request.createdBy());
-        row.setCreatedById(request.createdById());
-        row.setCreatedAt(Instant.now());
+        row.setCreatedBy(existing.map(ObjectTypePolicyRow::getCreatedBy).orElse(request.createdBy()));
+        row.setCreatedById(existing.map(ObjectTypePolicyRow::getCreatedById).orElse(request.createdById()));
+        row.setCreatedAt(existing.map(ObjectTypePolicyRow::getCreatedAt).orElse(now));
         row.setUpdatedBy(request.updatedBy());
         row.setUpdatedById(request.updatedById());
-        row.setUpdatedAt(Instant.now());
+        row.setUpdatedAt(now);
         ObjectTypePolicyRow saved = store.upsertPolicy(row);
         return toPolicyView(saved);
     }

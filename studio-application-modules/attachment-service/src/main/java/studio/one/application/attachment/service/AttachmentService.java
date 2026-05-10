@@ -38,7 +38,9 @@ public interface AttachmentService {
 
 	List<Attachment> getAttachments(int objectType, long objectId);
 
-	List<Attachment> getAttachments(String objectTypeKey, long objectId);
+	default List<Attachment> getAttachments(String objectTypeKey, long objectId) {
+		throw new UnsupportedOperationException("Attachment objectType key lookup is not supported");
+	}
 
 	List<Attachment> getAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy);
 
@@ -46,7 +48,9 @@ public interface AttachmentService {
 
 	Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable);
 
-	Page<Attachment> findAttachments(String objectTypeKey, long objectId, Pageable pageable);
+	default Page<Attachment> findAttachments(String objectTypeKey, long objectId, Pageable pageable) {
+		throw new UnsupportedOperationException("Attachment objectType key lookup is not supported");
+	}
 
 	Page<Attachment> findAttachmentsByCreator(long createdBy, Pageable pageable);
 
@@ -67,21 +71,30 @@ public interface AttachmentService {
 	 */
 	Page<Attachment> findAttachments(int objectType, long objectId, String keyword, Pageable pageable);
 
-	Page<Attachment> findAttachments(String objectTypeKey, long objectId, String keyword, Pageable pageable);
+	default Page<Attachment> findAttachments(String objectTypeKey, long objectId, String keyword, Pageable pageable) {
+		throw new UnsupportedOperationException("Attachment objectType key lookup is not supported");
+	}
 	
 
 	Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file);
 
-	Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType, File file);
+	default Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType, File file) {
+		throw new UnsupportedOperationException("Attachment objectType key lookup is not supported");
+	}
 
 	Attachment createAttachment(int objectType, long objectId, String name, String contentType, InputStream inputStream);
 
-	Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType, InputStream inputStream);
+	default Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
+			InputStream inputStream) {
+		throw new UnsupportedOperationException("Attachment objectType key lookup is not supported");
+	}
 
 	Attachment createAttachment(int objectType, long objectId, String name, String contentType, InputStream inputStream, int size);
 
-	Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
-			InputStream inputStream, int size);
+	default Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
+			InputStream inputStream, int size) {
+		throw new UnsupportedOperationException("Attachment objectType key lookup is not supported");
+	}
 
 	Attachment saveAttachment(Attachment attachment);
 

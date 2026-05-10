@@ -2,6 +2,8 @@ INSERT IGNORE INTO tb_application_object_type (
     object_type, code, name, domain, status, description,
     created_by, created_by_id, updated_by, updated_by_id
 ) VALUES
+    (2001, 'attachment', 'Attachment', 'attachment', 'active', 'Default attachment object type',
+     'system', 0, 'system', 0),
     (2101, 'post-attachment', 'Post Attachment', 'post', 'active', 'Well-known attachment type for post files',
      'system', 0, 'system', 0),
     (2102, 'mail-attachment', 'Mail Attachment', 'mail', 'active', 'Well-known attachment type for mail message files',
@@ -14,8 +16,19 @@ INSERT IGNORE INTO tb_application_object_type (
 INSERT IGNORE INTO tb_application_object_type_policy (
     object_type, max_file_mb, allowed_ext, allowed_mime, policy_json,
     created_by, created_by_id, updated_by, updated_by_id
-) VALUES
-    (2101, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-    (2102, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-    (2103, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-    (2104, 50, NULL, NULL, NULL, 'system', 0, 'system', 0);
+)
+SELECT seed.object_type, seed.max_file_mb, seed.allowed_ext, seed.allowed_mime, seed.policy_json,
+       seed.created_by, seed.created_by_id, seed.updated_by, seed.updated_by_id
+FROM (
+    SELECT 2001 AS object_type, 50 AS max_file_mb, NULL AS allowed_ext, NULL AS allowed_mime, NULL AS policy_json,
+           'system' AS created_by, 0 AS created_by_id, 'system' AS updated_by, 0 AS updated_by_id
+    UNION ALL SELECT 2101, 50, NULL, NULL, NULL, 'system', 0, 'system', 0
+    UNION ALL SELECT 2102, 50, NULL, NULL, NULL, 'system', 0, 'system', 0
+    UNION ALL SELECT 2103, 50, NULL, NULL, NULL, 'system', 0, 'system', 0
+    UNION ALL SELECT 2104, 50, NULL, NULL, NULL, 'system', 0, 'system', 0
+) seed
+WHERE EXISTS (
+    SELECT 1
+    FROM tb_application_object_type t
+    WHERE t.object_type = seed.object_type
+);

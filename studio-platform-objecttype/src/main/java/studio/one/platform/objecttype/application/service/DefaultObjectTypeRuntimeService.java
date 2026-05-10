@@ -9,6 +9,7 @@ import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
 import studio.one.platform.objecttype.application.result.ObjectTypePolicyView;
 import studio.one.platform.objecttype.application.result.ObjectTypeView;
 import studio.one.platform.objecttype.application.result.ValidateUploadResult;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.objecttype.domain.error.ObjectTypeErrorCodes;
 import studio.one.platform.objecttype.model.ObjectPolicy;
@@ -17,7 +18,7 @@ import studio.one.platform.objecttype.domain.model.ObjectTypeStatus;
 import studio.one.platform.objecttype.policy.ObjectPolicyResolver;
 import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
 
-public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService {
+public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService, ObjectTypeKeyRuntimeService {
 
     private final ObjectTypeRegistry registry;
     private final ObjectPolicyResolver policyResolver;

@@ -7,6 +7,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Set;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -17,9 +20,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockMultipartFile;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAction;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
+import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
 import studio.one.platform.textract.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -35,12 +43,23 @@ class MeAttachmentControllerTest {
     @Mock
     private ObjectProvider<FileContentExtractionService> textExtractionProvider;
 
+    @Mock
+    private ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
+
+    @Mock
+    private ObjectProvider<PrincipalResolver> principalResolverProvider;
+
+    @Mock
+    private PrincipalResolver principalResolver;
+
     @Test
     void getReturnsForbiddenWhenOwnerMismatch() throws Exception {
         MeAttachmentController controller = new MeAttachmentController(
                 attachmentService,
                 identityServiceProvider,
-                textExtractionProvider);
+                textExtractionProvider,
+                ownerAccessAuthorizers,
+                principalResolverProvider);
         Attachment attachment = mock(Attachment.class);
 
         when(attachmentService.getAttachmentById(44L)).thenReturn(attachment);
@@ -56,7 +75,9 @@ class MeAttachmentControllerTest {
         MeAttachmentController controller = new MeAttachmentController(
                 attachmentService,
                 identityServiceProvider,
-                textExtractionProvider);
+                textExtractionProvider,
+                ownerAccessAuthorizers,
+                principalResolverProvider);
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "/tmp/report.txt",
@@ -82,5 +103,60 @@ class MeAttachmentControllerTest {
                 eq("application/octet-stream"),
                 any(),
                 eq(4));
+    }
+
+    @Test
+    void wellKnownAttachmentUsesResolvedPrincipalForOwnerAuthorizer() throws Exception {
+        MeAttachmentController controller = new MeAttachmentController(
+                attachmentService,
+                identityServiceProvider,
+                textExtractionProvider,
+                ownerAccessAuthorizers,
+                principalResolverProvider);
+        Attachment attachment = mock(Attachment.class);
+        AttachmentOwnerAccessAuthorizer authorizer = mock(AttachmentOwnerAccessAuthorizer.class);
+        ApplicationPrincipal principal = principal(7L, "alice", "WORKSPACE_MEMBER");
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal);
+        when(ownerAccessAuthorizers.orderedStream()).thenReturn(Stream.of(authorizer));
+        when(authorizer.supports(WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT)).thenReturn(true);
+        when(authorizer.canAccess(
+                WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT,
+                20L,
+                principal,
+                AttachmentOwnerAccessAction.READ)).thenReturn(true);
+        when(attachmentService.getAttachmentById(44L)).thenReturn(attachment);
+        when(attachment.getCreatedBy()).thenReturn(7L);
+        when(attachment.getObjectType()).thenReturn(WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT);
+        when(attachment.getObjectId()).thenReturn(20L);
+
+        ResponseEntity<ApiResponse<AttachmentDto>> response = controller.get(44L, 7L);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(authorizer).canAccess(
+                WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT,
+                20L,
+                principal,
+                AttachmentOwnerAccessAction.READ);
+    }
+
+    private ApplicationPrincipal principal(Long userId, String username, String role) {
+        return new ApplicationPrincipal() {
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+
+            @Override
+            public String getUsername() {
+                return username;
+            }
+
+            @Override
+            public Set<String> getRoles() {
+                return Set.of(role);
+            }
+        };
     }
 }

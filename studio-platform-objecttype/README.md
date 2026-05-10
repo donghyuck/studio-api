@@ -294,13 +294,21 @@ runtime.validateUpload(2001, new ValidateUploadCommand("a.png", "image/png", 102
 | `wiki-attachment` | `2104` | wikiPageId |
 
 ```java
-int objectType = runtime.objectTypeByKey("workspace-attachment");
-runtime.validateUploadByKey("workspace-attachment",
+ObjectTypeKeyRuntimeService keyRuntime = ...;
+int objectType = keyRuntime.objectTypeByKey("workspace-attachment");
+keyRuntime.validateUploadByKey("workspace-attachment",
         new ValidateUploadCommand("a.pdf", "application/pdf", 1024L));
 ```
 
 알 수 없는 key는 `attachment` 타입으로 fallback하지 않고 `UNKNOWN_OBJECT_TYPE` 오류로 처리한다.
-YAML 모드는 기본 `objecttype.yml`에 위 타입을 포함하며, DB 모드는 `V201` seed migration으로 등록한다.
+YAML 모드는 기본 `objecttype.yml`에 위 타입과 50MB 기본 정책을 포함하며, DB 모드는 `V201` seed migration으로
+generic `attachment`와 도메인 전용 첨부 타입을 함께 등록한다. runtime endpoint(`/api/object-types/...`)는
+attachment 도메인 정책 노출을 막기 위해 `features:objecttype/read` 권한을 요구한다.
+관리 endpoint(`/api/mgmt/object-types/...`)는 조회에 `features:objecttype/read`, 변경과 reload에
+`features:objecttype/manage` 권한을 요구하며, 생성/수정 audit actor는 요청 body가 아니라 현재
+`ApplicationPrincipal` 기준으로 기록한다.
+starter는 `endpointAuthz` 빈이 있을 때만 objecttype web controller를 등록하므로, web 기능을 켤 때는
+security starter와 method security 구성을 함께 활성화해야 한다.
 
 ## Vue 클라이언트 가이드
 Vue에서는 axios/fetch로 관리자 API를 호출한다. 날짜는 ISO-8601 `OffsetDateTime`으로 내려온다.

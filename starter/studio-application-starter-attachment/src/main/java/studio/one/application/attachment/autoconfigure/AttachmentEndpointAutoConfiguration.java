@@ -33,11 +33,13 @@ import org.springframework.context.annotation.Lazy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
+import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.application.web.controller.AttachmentController;
+import studio.one.application.web.controller.MeAttachmentController;
 import studio.one.application.web.controller.AttachmentUrlIssueRequestDetailsResolver;
 
 import studio.one.platform.autoconfigure.I18nKeys;
@@ -90,7 +92,8 @@ public class AttachmentEndpointAutoConfiguration {
                         AttachmentDownloadAuditLogService downloadAuditLogService,
                         AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver,
                         ObjectProvider<ThumbnailService> thumbnailServiceProvider,
-                        ObjectProvider<PrincipalResolver> principalResolverProvider) {
+                        ObjectProvider<PrincipalResolver> principalResolverProvider,
+                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers) {
 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                                 AttachmentAutoConfiguration.FEATURE_NAME,
@@ -104,6 +107,24 @@ public class AttachmentEndpointAutoConfiguration {
                                 downloadAuditLogService,
                                 requestDetailsResolver,
                                 thumbnailServiceProvider,
+                                principalResolverProvider,
+                                ownerAccessAuthorizers);
+        }
+
+        @Bean
+        @Lazy
+        @ConditionalOnMissingBean(MeAttachmentController.class)
+        MeAttachmentController meAttachmentController(
+                        AttachmentService attachmentService,
+                        ObjectProvider<studio.one.platform.identity.IdentityService> identityServiceProvider,
+                        ObjectProvider<studio.one.platform.textract.service.FileContentExtractionService> textExtractionProvider,
+                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+                        ObjectProvider<PrincipalResolver> principalResolverProvider) {
+                return new MeAttachmentController(
+                                attachmentService,
+                                identityServiceProvider,
+                                textExtractionProvider,
+                                ownerAccessAuthorizers,
                                 principalResolverProvider);
         }
 

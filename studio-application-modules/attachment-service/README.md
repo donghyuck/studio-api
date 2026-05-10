@@ -137,6 +137,7 @@ curl -X POST "/api/mgmt/attachments" \
 
 ## ME REST API (기본 base-path: `/api/me/attachments`)
 - 모든 엔드포인트는 `isAuthenticated()`가 필요하며, 본인 소유 첨부파일만 접근 가능.
+- `@AuthenticationPrincipal.userId`가 있는 로컬 사용자 전용 API다. 서비스 계정이나 로컬 userId가 없는 principal은 서비스용 `/api/attachments` 경로에서 도메인 authorizer를 통해 처리한다.
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수.
 - `GET /{attachmentId}`: 메타데이터 조회.
 - `GET /{attachmentId}/text`: 텍스트 추출. `FileContentExtractionService` 빈이 있을 때만 200, 없으면 501.
@@ -164,6 +165,10 @@ curl -X POST "/api/mgmt/attachments" \
 
 도메인별 REST API를 만들 때는 클라이언트가 `objectType`을 보내지 않게 하고, 예를 들어 Workspace 파일은
 `workspace-attachment + workspaceId`, Wiki page 파일은 `wiki-attachment + pageId`로 attachment service를 호출한다.
+`post-attachment`, `mail-attachment`, `workspace-attachment`, `wiki-attachment` 같은 도메인 소유 타입은 공통 attachment
+REST API에서도 `AttachmentOwnerAccessAuthorizer`를 통해 원본 도메인 권한을 확인한다. 지원하는 authorizer가 없으면
+fail-closed로 접근을 거부하므로, 도메인 전용 첨부 API를 추가할 때는 해당 도메인의 read/upload/download/delete 권한을
+이 SPI로 연결해야 한다. 기존 generic `attachment` 타입은 하위 호환을 위해 업로더/관리자 기준 접근 제어를 유지한다.
 
 ### 예시 (YAML)
 ```yaml

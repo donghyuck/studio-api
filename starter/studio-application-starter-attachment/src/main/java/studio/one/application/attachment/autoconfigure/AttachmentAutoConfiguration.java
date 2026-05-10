@@ -299,6 +299,7 @@ public class AttachmentAutoConfiguration {
             ObjectProvider<AttachmentFileStorageResolver> fileStorageResolverProvider,
             ObjectProvider<PrincipalResolver> principalResolverProvider,
             ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
+            ObjectProvider<AttachmentObjectTypeResolver> objectTypeResolverProvider,
             ObjectProvider<ThumbnailService> thumbnailServiceProvider,
             ObjectProvider<I18n> i18nProvider) {
 
@@ -309,7 +310,7 @@ public class AttachmentAutoConfiguration {
         log.info("{} service ready with repository: {}", AttachmentService.class.getSimpleName(),
                 LogUtils.green(attachmentRepository instanceof JdbcAttachmentRepository ? "JDBC" : "JPA"));
         return new AttachmentServiceImpl(attachmentRepository, fileStorage, fileStorageResolverProvider, principalResolverProvider,
-                objectTypeRuntimeServiceProvider, thumbnailServiceProvider);
+                objectTypeRuntimeServiceProvider, objectTypeResolverProvider, thumbnailServiceProvider);
     }
 
     @Bean

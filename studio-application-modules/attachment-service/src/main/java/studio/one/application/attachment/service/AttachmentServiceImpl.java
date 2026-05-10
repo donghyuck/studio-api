@@ -51,6 +51,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     private final ObjectProvider<AttachmentFileStorageResolver> fileStorageResolverProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
+    private final ObjectProvider<AttachmentObjectTypeResolver> objectTypeResolverProvider;
     private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
 
     @Override
@@ -288,6 +289,10 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     private int resolveObjectTypeKey(String objectTypeKey) {
+        AttachmentObjectTypeResolver resolver = objectTypeResolverProvider.getIfAvailable();
+        if (resolver != null) {
+            return resolver.resolveRequired(objectTypeKey);
+        }
         return new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider).resolveRequired(objectTypeKey);
     }
 

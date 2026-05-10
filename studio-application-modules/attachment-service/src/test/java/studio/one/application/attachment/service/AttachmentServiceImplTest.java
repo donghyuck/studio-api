@@ -34,6 +34,7 @@ import studio.one.application.attachment.storage.FileStorageSaveResult;
 import studio.one.application.attachment.storage.FileStorageSaveResultCapable;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +54,9 @@ class AttachmentServiceImplTest {
 
     @Mock
     private ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
+
+    @Mock
+    private ObjectProvider<AttachmentObjectTypeResolver> objectTypeResolverProvider;
 
     @Mock
     private ObjectProvider<ThumbnailService> thumbnailServiceProvider;
@@ -161,7 +165,7 @@ class AttachmentServiceImplTest {
     @Test
     void createAttachmentByObjectTypeKeyResolvesWellKnownType() {
         AttachmentServiceImpl service = service();
-        ObjectTypeRuntimeService runtimeService = org.mockito.Mockito.mock(ObjectTypeRuntimeService.class);
+        ObjectTypeKeyRuntimeService runtimeService = org.mockito.Mockito.mock(ObjectTypeKeyRuntimeService.class);
         when(objectTypeRuntimeServiceProvider.getIfAvailable()).thenReturn(runtimeService);
         when(runtimeService.objectTypeByKey("workspace-attachment")).thenReturn(2103);
         when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
@@ -204,6 +208,7 @@ class AttachmentServiceImplTest {
                 fileStorageResolverProvider,
                 principalResolverProvider,
                 objectTypeRuntimeServiceProvider,
+                objectTypeResolverProvider,
                 thumbnailServiceProvider);
         RuntimeException metadataFailure = new RuntimeException("metadata failed");
         AtomicInteger saves = new AtomicInteger();
@@ -238,6 +243,7 @@ class AttachmentServiceImplTest {
                 fileStorageResolverProvider,
                 principalResolverProvider,
                 objectTypeRuntimeServiceProvider,
+                objectTypeResolverProvider,
                 thumbnailServiceProvider);
     }
 

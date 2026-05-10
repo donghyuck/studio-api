@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
 import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.objecttype.application.result.ObjectTypeView;
 import studio.one.platform.objecttype.application.result.ObjectTypePolicyView;
@@ -65,10 +66,10 @@ class ObjectTypeControllerTest {
 
     @Test
     void definitionByKeyDelegatesToRuntimeService() {
-        ObjectTypeRuntimeService runtimeService = mock(ObjectTypeRuntimeService.class);
-        ObjectTypeController controller = new ObjectTypeController(runtimeService);
+        ObjectTypeKeyRuntimeService keyRuntimeService = mock(ObjectTypeKeyRuntimeService.class);
+        ObjectTypeKeyController controller = new ObjectTypeKeyController(keyRuntimeService);
 
-        when(runtimeService.definitionByKey("workspace-attachment")).thenReturn(new ObjectTypeDefinition(
+        when(keyRuntimeService.definitionByKey("workspace-attachment")).thenReturn(new ObjectTypeDefinition(
                 new ObjectTypeView(2103, "workspace-attachment", "Workspace Attachment", "workspace", "active", null,
                         null, 0L, null, null, 0L, null),
                 null));
@@ -78,16 +79,16 @@ class ObjectTypeControllerTest {
 
         assertEquals(2103, response.getBody().getData().getType().getObjectType());
         assertEquals("workspace-attachment", response.getBody().getData().getType().getCode());
-        verify(runtimeService).definitionByKey(eq("workspace-attachment"));
+        verify(keyRuntimeService).definitionByKey(eq("workspace-attachment"));
     }
 
     @Test
     void validateUploadByKeyDelegatesToRuntimeService() {
-        ObjectTypeRuntimeService runtimeService = mock(ObjectTypeRuntimeService.class);
-        ObjectTypeController controller = new ObjectTypeController(runtimeService);
+        ObjectTypeKeyRuntimeService keyRuntimeService = mock(ObjectTypeKeyRuntimeService.class);
+        ObjectTypeKeyController controller = new ObjectTypeKeyController(keyRuntimeService);
         ValidateUploadRequest request = new ValidateUploadRequest("photo.png", "image/png", 1024L);
 
-        when(runtimeService.validateUploadByKey(
+        when(keyRuntimeService.validateUploadByKey(
                 eq("workspace-attachment"),
                 eq(new ValidateUploadCommand("photo.png", "image/png", 1024L))))
                 .thenReturn(new ValidateUploadResult(true, null));
@@ -96,7 +97,7 @@ class ObjectTypeControllerTest {
                 controller.validateUploadByKey("workspace-attachment", request);
 
         assertTrue(response.getBody().getData().isAllowed());
-        verify(runtimeService).validateUploadByKey(
+        verify(keyRuntimeService).validateUploadByKey(
                 eq("workspace-attachment"),
                 eq(new ValidateUploadCommand("photo.png", "image/png", 1024L)));
     }
