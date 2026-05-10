@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
 import studio.one.platform.workspace.application.error.WorkspaceConflictException;
 import studio.one.platform.workspace.application.error.WorkspaceNotFoundException;
 import studio.one.platform.workspace.application.error.WorkspaceValidationException;

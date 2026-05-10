@@ -28,10 +28,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.acl.policy.AclPolicySeeder;
-import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
-import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
-import studio.one.base.security.acl.policy.AclPolicySynchronizationServiceImpl;
+import studio.one.base.security.acl.application.policy.AclPolicySeeder;
+import studio.one.base.security.acl.application.policy.AclPolicyRefreshPublisher;
+import studio.one.base.security.acl.application.policy.AclPolicySynchronizationService;
+import studio.one.base.security.acl.application.policy.AclPolicySynchronizationServiceImpl;
 import studio.one.base.security.acl.web.controller.AclSyncController;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;

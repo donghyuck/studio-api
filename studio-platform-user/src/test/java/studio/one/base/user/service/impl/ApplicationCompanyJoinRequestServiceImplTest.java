@@ -1,4 +1,4 @@
-package studio.one.base.user.service.impl;
+package studio.one.base.user.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,18 +18,18 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import studio.one.base.user.company.model.CompanyJoinRequestStatus;
-import studio.one.base.user.company.model.CompanyMemberKeyStatus;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.company.model.CompanyStatus;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.domain.entity.ApplicationCompanyJoinRequest;
-import studio.one.base.user.domain.entity.ApplicationCompanyMemberKey;
-import studio.one.base.user.exception.CompanyJoinRequestException;
-import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
-import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
-import studio.one.base.user.persistence.ApplicationCompanyRepository;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
+import studio.one.base.user.domain.model.company.CompanyMemberKeyStatus;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.company.CompanyStatus;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.domain.model.ApplicationCompanyJoinRequest;
+import studio.one.base.user.domain.model.ApplicationCompanyMemberKey;
+import studio.one.base.user.domain.error.CompanyJoinRequestException;
+import studio.one.base.user.domain.port.ApplicationCompanyJoinRequestRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyMemberKeyRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyRepository;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationCompanyJoinRequestServiceImplTest {

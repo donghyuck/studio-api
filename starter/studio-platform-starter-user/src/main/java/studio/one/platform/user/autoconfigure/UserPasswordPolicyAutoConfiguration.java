@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.config.PasswordPolicyProperties;
+import studio.one.base.user.application.config.PasswordPolicyProperties;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 
 @AutoConfiguration

@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.pdf;
+package studio.one.platform.textract.infrastructure.extractor.pdf;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -8,9 +8,9 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.extractor.FileParseException;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.error.FileParseException;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class PdfExtractionEngineSelectorTest {
 

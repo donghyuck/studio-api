@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.impl;
+package studio.one.platform.textract.infrastructure.extractor.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,11 +22,11 @@ import org.apache.poi.xslf.usermodel.XSLFSlide;
 import org.apache.poi.xslf.usermodel.XSLFTextBox;
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ExtractedImage;
-import studio.one.platform.textract.model.ParseWarningSeverity;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ExtractedImage;
+import studio.one.platform.textract.domain.model.ParseWarningSeverity;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class PptxFileParserTest {
 

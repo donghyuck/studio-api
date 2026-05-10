@@ -19,7 +19,7 @@
  *
  */
 
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -50,7 +50,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-import studio.one.base.user.constant.JpaEntityNames;
+import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
 import studio.one.base.user.domain.model.Role;
 
 @Entity(name = JpaEntityNames.Role.ENTITY)

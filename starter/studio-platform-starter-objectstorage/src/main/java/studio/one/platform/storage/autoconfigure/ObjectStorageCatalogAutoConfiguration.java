@@ -10,9 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
-import studio.one.platform.storage.service.ProviderCatalog;
-import studio.one.platform.storage.service.impl.ProviderCatalogImpl;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
+import studio.one.platform.storage.application.result.ProviderCatalog;
+import studio.one.platform.storage.infrastructure.storage.ProviderCatalogImpl;
 import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration

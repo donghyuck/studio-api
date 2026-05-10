@@ -46,18 +46,18 @@ import org.springframework.security.acls.model.MutableAclService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.acl.persistence.AclClassRepository;
-import studio.one.base.security.acl.persistence.AclEntryRepository;
-import studio.one.base.security.acl.persistence.AclObjectIdentityRepository;
-import studio.one.base.security.acl.persistence.AclSidRepository;
-import studio.one.base.security.acl.policy.AclPermissionMapper;
-import studio.one.base.security.acl.policy.AclResourceMapper;
-import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
-import studio.one.base.security.acl.policy.DatabaseAclDomainPolicyContributor;
-import studio.one.base.security.acl.policy.DefaultAclPermissionMapper;
-import studio.one.base.security.acl.policy.SimpleAclResourceMapper;
-import studio.one.base.security.acl.service.DefaultAclPermissionService;
-import studio.one.base.security.acl.service.RepositoryAclPermissionService;
+import studio.one.base.security.acl.domain.port.AclClassRepository;
+import studio.one.base.security.acl.domain.port.AclEntryRepository;
+import studio.one.base.security.acl.domain.port.AclObjectIdentityRepository;
+import studio.one.base.security.acl.domain.port.AclSidRepository;
+import studio.one.base.security.acl.application.policy.AclPermissionMapper;
+import studio.one.base.security.acl.application.policy.AclResourceMapper;
+import studio.one.base.security.acl.application.policy.AclPolicyRefreshPublisher;
+import studio.one.base.security.acl.application.policy.DatabaseAclDomainPolicyContributor;
+import studio.one.base.security.acl.application.policy.DefaultAclPermissionMapper;
+import studio.one.base.security.acl.application.policy.SimpleAclResourceMapper;
+import studio.one.base.security.acl.application.service.DefaultAclPermissionService;
+import studio.one.base.security.acl.application.service.RepositoryAclPermissionService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
@@ -380,9 +380,9 @@ public class SecurityAclDatabaseAutoConfiguration {
 
                 @Bean
                 @ConditionalOnBean(org.springframework.security.acls.model.AclCache.class)
-                public studio.one.base.security.acl.policy.AclCacheInvalidationListener aclCacheInvalidationListener(
+                public studio.one.base.security.acl.application.policy.AclCacheInvalidationListener aclCacheInvalidationListener(
                                 ObjectProvider<org.springframework.security.acls.model.AclCache> aclCacheProvider) {
-                        return new studio.one.base.security.acl.policy.AclCacheInvalidationListener(aclCacheProvider);
+                        return new studio.one.base.security.acl.application.policy.AclCacheInvalidationListener(aclCacheProvider);
                 }
         }
 

@@ -81,7 +81,7 @@ public class ChunkingAutoConfiguration {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(name = "studio.one.platform.textract.model.ParsedFile")
+    @ConditionalOnClass(name = "studio.one.platform.textract.domain.model.ParsedFile")
     static class TextractAdapterConfiguration {
 
         @Bean

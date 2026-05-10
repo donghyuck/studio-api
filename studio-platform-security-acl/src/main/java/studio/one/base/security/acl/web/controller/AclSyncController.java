@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.acl.policy.AclPolicyDescriptor;
-import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
+import studio.one.base.security.acl.application.policy.AclPolicyDescriptor;
+import studio.one.base.security.acl.application.policy.AclPolicySynchronizationService;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**

@@ -33,7 +33,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.exception.JwtTokenException;
+import studio.one.base.security.domain.error.JwtTokenException;
 import studio.one.base.security.handler.AuthenticationErrorHandler;
 
 /**

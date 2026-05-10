@@ -9,7 +9,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.persistence.ApplicationUserRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersistence;

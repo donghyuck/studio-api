@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.impl;
+package studio.one.platform.textract.infrastructure.extractor.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,10 +9,10 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ExtractedImage;
-import studio.one.platform.textract.model.ParseWarning;
-import studio.one.platform.textract.model.ParsedBlock;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ExtractedImage;
+import studio.one.platform.textract.domain.model.ParseWarning;
+import studio.one.platform.textract.domain.model.ParsedBlock;
 
 class ImageFileParserTest {
 

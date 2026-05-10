@@ -28,7 +28,7 @@ import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
 @ExtendWith(MockitoExtension.class)

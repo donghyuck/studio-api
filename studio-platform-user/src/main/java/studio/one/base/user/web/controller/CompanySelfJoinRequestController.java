@@ -16,10 +16,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.user.company.model.CompanyJoinRequestRef;
-import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
-import studio.one.base.user.web.dto.CompanyJoinRequestDto;
-import studio.one.base.user.web.dto.CompanySelfJoinRequestCreateRequest;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestRef;
+import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
+import studio.one.base.user.web.dto.response.CompanyJoinRequestDto;
+import studio.one.base.user.web.dto.request.CompanySelfJoinRequestCreateRequest;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
 import studio.one.platform.web.dto.ApiResponse;

@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.pdf.pdfbox;
+package studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,10 +11,10 @@ import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.pdf.PdfExtractionEngineSelector;
-import studio.one.platform.textract.extractor.pdf.PdfExtractionOptions;
-import studio.one.platform.textract.extractor.pdf.PdfExtractionRequest;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineSelector;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class PdfBoxExtractionEngineTest {
 

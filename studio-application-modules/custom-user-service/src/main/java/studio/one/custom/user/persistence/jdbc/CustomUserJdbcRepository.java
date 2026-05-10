@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import studio.one.base.user.domain.model.UserIdOnly;
-import studio.one.base.user.persistence.ApplicationUserRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
 import studio.one.custom.user.domain.entity.CustomUser;
 
 /**

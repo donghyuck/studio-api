@@ -1,4 +1,4 @@
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.time.Instant;
 
@@ -24,10 +24,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.base.user.company.model.CompanyMemberKeyRef;
-import studio.one.base.user.company.model.CompanyMemberKeyStatus;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.constant.JpaEntityNames;
+import studio.one.base.user.domain.model.company.CompanyMemberKeyRef;
+import studio.one.base.user.domain.model.company.CompanyMemberKeyStatus;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.MemberKey.ENTITY)
 @EntityListeners(AuditingEntityListener.class)

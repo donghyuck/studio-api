@@ -7,8 +7,8 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import studio.one.base.security.authentication.lock.persistence.AccountLockRepository;
-import studio.one.base.security.authentication.lock.persistence.jdbc.AccountLockJdbcRepository;
+import studio.one.base.security.authentication.lock.domain.port.AccountLockRepository;
+import studio.one.base.security.authentication.lock.infrastructure.persistence.jdbc.AccountLockJdbcRepository;
 
 class AccountLockAutoConfigurationTest {
 

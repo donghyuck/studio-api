@@ -1,4 +1,4 @@
-package studio.one.base.user.service.impl;
+package studio.one.base.user.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -20,13 +20,13 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import studio.one.base.user.domain.entity.ApplicationUser;
-import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
-import studio.one.base.user.persistence.ApplicationGroupRepository;
-import studio.one.base.user.persistence.ApplicationRoleRepository;
-import studio.one.base.user.persistence.ApplicationUserRepository;
-import studio.one.base.user.persistence.ApplicationUserRoleRepository;
-import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.domain.model.ApplicationUser;
+import studio.one.base.user.domain.port.ApplicationGroupMembershipRepository;
+import studio.one.base.user.domain.port.ApplicationGroupRepository;
+import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
+import studio.one.base.user.domain.port.ApplicationUserRoleRepository;
+import studio.one.base.user.application.usecase.PasswordPolicyService;
 import studio.one.platform.service.DomainEvents;
 import studio.one.platform.service.I18n;
 

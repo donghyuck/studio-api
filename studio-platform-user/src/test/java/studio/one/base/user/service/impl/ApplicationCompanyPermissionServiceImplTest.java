@@ -1,4 +1,4 @@
-package studio.one.base.user.service.impl;
+package studio.one.base.user.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,15 +15,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
-import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.domain.entity.ApplicationCompanyPermissionPolicy;
-import studio.one.base.user.domain.entity.ApplicationCompanyPermissionPolicyId;
-import studio.one.base.user.persistence.ApplicationCompanyPermissionPolicyRepository;
-import studio.one.base.user.persistence.ApplicationCompanyRepository;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
+import studio.one.base.user.domain.model.company.CompanyPermissionRolePolicyRef;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.domain.model.ApplicationCompanyPermissionPolicy;
+import studio.one.base.user.domain.model.ApplicationCompanyPermissionPolicyId;
+import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyRepository;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationCompanyPermissionServiceImplTest {

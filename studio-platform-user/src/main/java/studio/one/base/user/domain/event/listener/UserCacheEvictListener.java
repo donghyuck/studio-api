@@ -6,7 +6,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.user.constant.CacheNames;
+import studio.one.base.user.infrastructure.cache.CacheNames;
 import studio.one.base.user.domain.event.UserCacheEvictableEvent;
 
 @RequiredArgsConstructor

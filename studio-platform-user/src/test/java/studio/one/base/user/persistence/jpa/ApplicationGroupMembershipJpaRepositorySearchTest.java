@@ -1,4 +1,4 @@
-package studio.one.base.user.persistence.jpa;
+package studio.one.base.user.infrastructure.persistence.jpa;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -20,10 +20,10 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import studio.one.base.user.domain.entity.ApplicationGroup;
-import studio.one.base.user.domain.entity.ApplicationGroupMemberSummary;
-import studio.one.base.user.domain.entity.ApplicationGroupMembership;
-import studio.one.base.user.domain.entity.ApplicationUser;
+import studio.one.base.user.domain.model.ApplicationGroup;
+import studio.one.base.user.domain.model.ApplicationGroupMemberSummary;
+import studio.one.base.user.domain.model.ApplicationGroupMembership;
+import studio.one.base.user.domain.model.ApplicationUser;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

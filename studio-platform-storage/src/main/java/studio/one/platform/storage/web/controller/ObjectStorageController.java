@@ -53,15 +53,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
-import studio.one.platform.storage.service.BucketInfo;
-import studio.one.platform.storage.service.CloudObjectStorage;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
-import studio.one.platform.storage.service.ProviderCatalog;
-import studio.one.platform.storage.web.dto.ObjectInfoDto;
-import studio.one.platform.storage.web.dto.ObjectListItemDto;
-import studio.one.platform.storage.web.dto.ObjectListResponse;
-import studio.one.platform.storage.web.dto.PresignedUrlDto;
-import studio.one.platform.storage.web.dto.ProviderInfoDto;
+import studio.one.platform.storage.domain.model.BucketInfo;
+import studio.one.platform.storage.application.usecase.CloudObjectStorage;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
+import studio.one.platform.storage.application.result.ProviderCatalog;
+import studio.one.platform.storage.web.dto.response.ObjectInfoDto;
+import studio.one.platform.storage.web.dto.response.ObjectListItemDto;
+import studio.one.platform.storage.web.dto.response.ObjectListResponse;
+import studio.one.platform.storage.web.dto.response.PresignedUrlDto;
+import studio.one.platform.storage.web.dto.response.ProviderInfoDto;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**

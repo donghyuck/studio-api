@@ -14,16 +14,16 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import studio.one.base.user.web.dto.ChangePasswordRequest;
-import studio.one.base.user.web.dto.CreateUserRequest;
-import studio.one.base.user.web.dto.DisableUserRequest;
-import studio.one.base.user.web.dto.PasswordPolicyDto;
-import studio.one.base.user.web.dto.PropertyDto;
-import studio.one.base.user.web.dto.RoleDto;
-import studio.one.base.user.web.dto.UpdateRolesRequest;
-import studio.one.base.user.web.dto.UpdateUserRequest;
-import studio.one.base.user.web.dto.UserBasicDto;
-import studio.one.base.user.web.dto.UserDto;
+import studio.one.base.user.web.dto.request.ChangePasswordRequest;
+import studio.one.base.user.web.dto.request.CreateUserRequest;
+import studio.one.base.user.web.dto.request.DisableUserRequest;
+import studio.one.base.user.web.dto.response.PasswordPolicyDto;
+import studio.one.base.user.web.dto.response.PropertyDto;
+import studio.one.base.user.web.dto.response.RoleDto;
+import studio.one.base.user.web.dto.request.UpdateRolesRequest;
+import studio.one.base.user.web.dto.request.UpdateUserRequest;
+import studio.one.base.user.web.dto.response.UserBasicDto;
+import studio.one.base.user.web.dto.response.UserDto;
 import studio.one.platform.web.dto.ApiResponse;
 
 public interface UserMgmtApi {

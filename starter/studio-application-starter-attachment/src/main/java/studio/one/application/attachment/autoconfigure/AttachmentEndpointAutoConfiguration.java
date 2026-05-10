@@ -117,7 +117,7 @@ public class AttachmentEndpointAutoConfiguration {
         MeAttachmentController meAttachmentController(
                         AttachmentService attachmentService,
                         ObjectProvider<studio.one.platform.identity.IdentityService> identityServiceProvider,
-                        ObjectProvider<studio.one.platform.textract.service.FileContentExtractionService> textExtractionProvider,
+                        ObjectProvider<studio.one.platform.textract.application.usecase.FileContentExtractionService> textExtractionProvider,
                         ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
                         ObjectProvider<PrincipalResolver> principalResolverProvider) {
                 return new MeAttachmentController(

@@ -40,15 +40,15 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.acl.service.AclAdministrationService;
-import studio.one.base.security.acl.web.dto.AclClassDto;
-import studio.one.base.security.acl.web.dto.AclClassRequest;
-import studio.one.base.security.acl.web.dto.AclEntryDto;
-import studio.one.base.security.acl.web.dto.AclEntryRequest;
-import studio.one.base.security.acl.web.dto.AclObjectIdentityDto;
-import studio.one.base.security.acl.web.dto.AclObjectIdentityRequest;
-import studio.one.base.security.acl.web.dto.AclSidDto;
-import studio.one.base.security.acl.web.dto.AclSidRequest;
+import studio.one.base.security.acl.application.usecase.AclAdministrationService;
+import studio.one.base.security.acl.web.dto.response.AclClassDto;
+import studio.one.base.security.acl.web.dto.request.AclClassRequest;
+import studio.one.base.security.acl.web.dto.response.AclEntryDto;
+import studio.one.base.security.acl.web.dto.request.AclEntryRequest;
+import studio.one.base.security.acl.web.dto.response.AclObjectIdentityDto;
+import studio.one.base.security.acl.web.dto.request.AclObjectIdentityRequest;
+import studio.one.base.security.acl.web.dto.response.AclSidDto;
+import studio.one.base.security.acl.web.dto.request.AclSidRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**

@@ -12,12 +12,12 @@ import java.util.stream.Collectors;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ExtractedImage;
-import studio.one.platform.textract.model.ExtractedTable;
-import studio.one.platform.textract.model.ExtractedTableCell;
-import studio.one.platform.textract.model.ParsedBlock;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ExtractedImage;
+import studio.one.platform.textract.domain.model.ExtractedTable;
+import studio.one.platform.textract.domain.model.ExtractedTableCell;
+import studio.one.platform.textract.domain.model.ParsedBlock;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 public class TextractNormalizedDocumentAdapter {
 

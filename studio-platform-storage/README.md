@@ -5,6 +5,16 @@
 ## 요약
 여러 클라우드 공급자를 `CloudObjectStorage` 인터페이스로 통일해 애플리케이션 코드가 공급자에 의존하지 않도록 분리한다. 런타임 구현체(S3, OCI)는 스타터 모듈이 조건부로 등록한다.
 
+## Package Architecture
+
+- `domain.model`: bucket/object/storage type model
+- `domain.error`: object storage domain exception
+- `application.usecase`: `CloudObjectStorage`, registry 등 public contract
+- `application.result`: page/catalog result type
+- `infrastructure.storage`: S3/OCI 등 provider 구현
+- `web.controller`: object storage management HTTP adapter
+- `web.dto.request`, `web.dto.response`: request/response DTO
+
 ## 설계
 - `CloudObjectStorage`: 객체 업로드/다운로드/삭제/목록/Presigned URL의 공급자 중립 계약
 - `ObjectStorageRegistry`: 공급자 이름(name)을 키로 `CloudObjectStorage` 인스턴스를 관리하는 레지스트리

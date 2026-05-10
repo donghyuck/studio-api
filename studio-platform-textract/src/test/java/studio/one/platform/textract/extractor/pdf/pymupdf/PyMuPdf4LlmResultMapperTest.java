@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.pdf.pymupdf;
+package studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -8,12 +8,12 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.pdf.PdfExtractionEngineSelector;
-import studio.one.platform.textract.extractor.pdf.PdfExtractionOptions;
-import studio.one.platform.textract.extractor.pdf.PdfExtractionRequest;
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ExtractedImage;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineSelector;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ExtractedImage;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class PyMuPdf4LlmResultMapperTest {
 

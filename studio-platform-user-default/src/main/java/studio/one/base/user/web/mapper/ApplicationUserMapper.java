@@ -8,13 +8,13 @@ import org.mapstruct.Mapping;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
-import studio.one.base.user.domain.entity.ApplicationUser;
+import studio.one.base.user.domain.model.ApplicationUser;
 import studio.one.base.user.domain.model.User;
-import studio.one.base.user.web.dto.CreateUserRequest;
-import studio.one.base.user.web.dto.UpdateUserRequest;
-import studio.one.base.user.web.dto.UserBasicDto;
-import studio.one.base.user.web.dto.UserDto;
-import studio.one.base.user.web.dto.UserPublicDto;
+import studio.one.base.user.web.dto.request.CreateUserRequest;
+import studio.one.base.user.web.dto.request.UpdateUserRequest;
+import studio.one.base.user.web.dto.response.UserBasicDto;
+import studio.one.base.user.web.dto.response.UserDto;
+import studio.one.base.user.web.dto.response.UserPublicDto;
 
 @Mapper(componentModel = "spring", uses = {
         TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)

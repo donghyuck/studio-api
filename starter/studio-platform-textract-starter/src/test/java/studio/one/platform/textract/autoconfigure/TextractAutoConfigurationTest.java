@@ -17,9 +17,9 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
-import studio.one.platform.textract.extractor.FileParser;
-import studio.one.platform.textract.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileParser;
+import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @ExtendWith(OutputCaptureExtension.class)
 class TextractAutoConfigurationTest {

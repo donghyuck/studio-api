@@ -13,7 +13,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
-import studio.one.base.user.config.PasswordPolicyProperties;
+import studio.one.base.user.application.config.PasswordPolicyProperties;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 
 @ExtendWith(OutputCaptureExtension.class)

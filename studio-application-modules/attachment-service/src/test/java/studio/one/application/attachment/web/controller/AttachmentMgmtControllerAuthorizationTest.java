@@ -28,8 +28,8 @@ import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
-import studio.one.platform.textract.extractor.FileParseException;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.domain.error.FileParseException;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @ExtendWith(MockitoExtension.class)
 class AttachmentMgmtControllerAuthorizationTest {
@@ -152,7 +152,7 @@ class AttachmentMgmtControllerAuthorizationTest {
         AttachmentMgmtController controller = controller();
         Attachment attachment = mock(Attachment.class);
         FileContentExtractionService extractor = new FileContentExtractionService(
-                mock(studio.one.platform.textract.extractor.FileParserFactory.class), 4);
+                mock(studio.one.platform.textract.application.usecase.FileParserFactory.class), 4);
 
         when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
         when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));

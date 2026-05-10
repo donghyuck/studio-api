@@ -51,8 +51,8 @@ import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
-import studio.one.platform.storage.service.CloudObjectStorage;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
+import studio.one.platform.storage.application.usecase.CloudObjectStorage;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
 
 @ExtendWith(OutputCaptureExtension.class)
 class AttachmentAutoConfigurationTest {

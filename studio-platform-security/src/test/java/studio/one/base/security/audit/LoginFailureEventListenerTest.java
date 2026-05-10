@@ -22,9 +22,9 @@ import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionOperations;
 
-import studio.one.base.security.audit.domain.entity.LoginFailureLog;
-import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.audit.domain.model.LoginFailureLog;
+import studio.one.base.security.audit.domain.port.LoginFailureLogRepository;
+import studio.one.base.security.authentication.lock.application.usecase.AccountLockService;
 
 class LoginFailureEventListenerTest {
 

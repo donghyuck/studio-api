@@ -1,4 +1,4 @@
-package studio.one.platform.textract.service;
+package studio.one.platform.textract.application.usecase;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -15,10 +15,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 
-import studio.one.platform.textract.extractor.FileParseException;
-import studio.one.platform.textract.extractor.FileParser;
-import studio.one.platform.textract.extractor.FileParserFactory;
-import studio.one.platform.textract.extractor.FileSizeLimitExceededException;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileParser;
+import studio.one.platform.textract.application.usecase.FileParserFactory;
+import studio.one.platform.textract.domain.error.FileParseException;
+import studio.one.platform.textract.domain.error.FileSizeLimitExceededException;
 
 class FileContentExtractionServiceTest {
 

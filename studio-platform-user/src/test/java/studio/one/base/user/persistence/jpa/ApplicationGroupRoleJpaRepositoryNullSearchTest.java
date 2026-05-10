@@ -1,4 +1,4 @@
-package studio.one.base.user.persistence.jpa;
+package studio.one.base.user.infrastructure.persistence.jpa;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,13 +18,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import studio.one.base.user.domain.entity.ApplicationGroup;
-import studio.one.base.user.domain.entity.ApplicationGroupRole;
-import studio.one.base.user.domain.entity.ApplicationGroupRoleId;
-import studio.one.base.user.domain.entity.ApplicationGroupMembership;
-import studio.one.base.user.domain.entity.ApplicationGroupWithMemberCount;
-import studio.one.base.user.domain.entity.ApplicationRole;
-import studio.one.base.user.domain.entity.ApplicationUser;
+import studio.one.base.user.domain.model.ApplicationGroup;
+import studio.one.base.user.domain.model.ApplicationGroupRole;
+import studio.one.base.user.domain.model.ApplicationGroupRoleId;
+import studio.one.base.user.domain.model.ApplicationGroupMembership;
+import studio.one.base.user.domain.model.ApplicationGroupWithMemberCount;
+import studio.one.base.user.domain.model.ApplicationRole;
+import studio.one.base.user.domain.model.ApplicationUser;
 
 /**
  * Regression test: q=null 파라미터를 JPA 쿼리에 바인딩할 때 PostgreSQL이

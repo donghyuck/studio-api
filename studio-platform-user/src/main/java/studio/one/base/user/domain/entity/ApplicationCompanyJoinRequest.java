@@ -1,4 +1,4 @@
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.time.Instant;
 
@@ -21,10 +21,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.base.user.company.model.CompanyJoinRequestRef;
-import studio.one.base.user.company.model.CompanyJoinRequestStatus;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.constant.JpaEntityNames;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestRef;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.JoinRequest.ENTITY)
 @Table(name = "TB_APPLICATION_COMPANY_JOIN_REQUEST")

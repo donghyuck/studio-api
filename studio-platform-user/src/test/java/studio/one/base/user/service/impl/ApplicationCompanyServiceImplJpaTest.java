@@ -1,4 +1,4 @@
-package studio.one.base.user.service.impl;
+package studio.one.base.user.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -22,9 +22,9 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import jakarta.persistence.EntityManager;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.persistence.jpa.ApplicationCompanyJpaRepository;
-import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.infrastructure.persistence.jpa.ApplicationCompanyJpaRepository;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

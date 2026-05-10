@@ -1,4 +1,4 @@
-package studio.one.base.user.service.impl;
+package studio.one.base.user.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -12,13 +12,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.domain.entity.ApplicationCompanyMember;
-import studio.one.base.user.domain.entity.ApplicationCompanyMemberId;
-import studio.one.base.user.exception.CompanyJoinRequestException;
-import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
-import studio.one.base.user.persistence.ApplicationCompanyRepository;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.domain.model.ApplicationCompanyMember;
+import studio.one.base.user.domain.model.ApplicationCompanyMemberId;
+import studio.one.base.user.domain.error.CompanyJoinRequestException;
+import studio.one.base.user.domain.port.ApplicationCompanyMemberRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ApplicationCompanyMemberServiceImplTest {

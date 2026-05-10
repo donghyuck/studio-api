@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #453 대응으로 `studio-platform-user`, `studio-platform-user-default`, `studio-platform-security`, `studio-platform-security-acl`, `studio-platform-storage`, `studio-platform-textract` 패키지를 `domain/application/infrastructure/web` 구조로 재배치했다. 이 변경은 의도적인 breaking rename이며 기존 user/security/storage/textract의 `service`, `persistence`, `exception`, `model`, `extractor`, `web.dto` 계열 package wrapper를 제공하지 않는다. 관련 starter와 downstream import는 새 `application.usecase`, `domain.model`, `domain.port`, `infrastructure.*`, `web.dto.request`, `web.dto.response` 기준으로 갱신했으며 REST endpoint, JSON DTO shape, DB schema, migration version은 변경하지 않았다.
 - 이슈 #451 대응으로 `studio-application-modules:attachment-service`, `avatar-service`, `mail-service`, `template-service` 패키지를 `domain/application/infrastructure/web` 구조로 재배치했다. 이 변경은 의도적인 breaking rename이며 기존 attachment/avatar/mail/template의 `service`, `persistence`, `storage`, `thumbnail`, `config`, `replica`, `web.dto` 계열 package wrapper를 제공하지 않는다. `content-embedding-pipeline`과 관련 starter import는 새 `application.usecase`/`application.service`/`infrastructure.*`/`web.dto.*` 기준으로 갱신했으며 REST endpoint, JSON DTO shape, DB schema, migration version은 변경하지 않았다.
 - 이슈 #449 대응으로 `studio-platform-workspace`, `studio-platform-workspace-default`, `studio-application-modules:wiki-service` 패키지를 `domain/application/infrastructure/web` 구조로 재배치했다. 이 변경은 의도적인 breaking rename이며 기존 workspace/wiki `model`, `permission`, `service`, `exception`, `persistence.jpa`, `web.dto` 패키지 wrapper를 제공하지 않는다. `WorkspacePermissionContributor`는 application usecase extension contract로 분리하고, Spring `HttpStatus` 기반 error type은 `application.error`에 둔다. REST endpoint, JSON DTO shape, DB schema, migration version은 변경하지 않았다.
 - 이슈 #447 대응으로 `studio-platform-objecttype`에 `attachment`, `post-attachment`, `mail-attachment`, `workspace-attachment`, `wiki-attachment` well-known attachment objectType catalog와 50MB 기본 정책을 추가했다. `ObjectTypeRuntimeService`는 key 기반 definition/검증/타입 해석 API를 제공하며, attachment service는 `AttachmentObjectTypeResolver`와 key 기반 create/list helper를 통해 도메인 모듈이 숫자 `objectType`을 직접 알지 않아도 되도록 했다. 도메인 전용 첨부 타입은 `AttachmentOwnerAccessAuthorizer`가 원본 도메인 권한을 승인하지 않으면 공통 attachment REST API에서 fail-closed로 거부한다. ObjectType runtime/management endpoint에는 `features:objecttype/read`/`manage` 권한과 `endpointAuthz` 등록 조건을 적용하고, 관리 API audit actor는 요청 body 대신 현재 principal에서 산출하며 기존 생성자/생성시각을 보존한다.
@@ -132,7 +133,7 @@
 - `./gradlew :studio-platform-chunking:test`
 - `./gradlew :starter:studio-platform-starter-ai:test`
 - `./gradlew :studio-platform-ai:test :starter:studio-platform-starter-chunking:test`
-- `./gradlew :studio-platform-user:test --tests 'studio.one.base.user.persistence.jpa.ApplicationGroupMembershipJpaRepositorySearchTest' --tests 'studio.one.base.user.persistence.jdbc.ApplicationGroupMembershipJdbcRepositoryTest'`
+- `./gradlew :studio-platform-user:test --tests 'studio.one.base.user.infrastructure.persistence.jpa.ApplicationGroupMembershipJpaRepositorySearchTest' --tests 'studio.one.base.user.infrastructure.persistence.jdbc.ApplicationGroupMembershipJdbcRepositoryTest'`
 - `./gradlew :studio-platform-chunking:test :starter:studio-platform-starter-chunking:test`
 
 ## 2026-04-24
@@ -317,7 +318,7 @@
 
 ### 검증
 - `./gradlew :studio-platform-user:compileJava :studio-platform-user-default:compileJava :starter:studio-platform-starter-user:compileJava`
-- `./gradlew :studio-platform-user-default:test --tests 'studio.one.base.user.service.impl.ApplicationUserServiceImplTest'`
+- `./gradlew :studio-platform-user-default:test --tests 'studio.one.base.user.application.service.ApplicationUserServiceImplTest'`
 - `rg "User(Mgmt|Public|AuthPublic|Me)ControllerApi|User(Mgmt|Public|AuthPublic|Me)Api" studio-platform-user studio-platform-user-default starter/studio-platform-starter-user`
 
 ## 2026-03-31 (follow-up)

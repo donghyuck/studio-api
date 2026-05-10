@@ -1,4 +1,4 @@
-package studio.one.base.user.persistence.jdbc;
+package studio.one.base.user.infrastructure.persistence.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

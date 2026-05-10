@@ -74,8 +74,8 @@ class FileContentExtractionServiceTest {
     @Test
     void extractTextConvertsTextractExceptionToLegacyException() {
         FileContentExtractionService service = new FileContentExtractionService(
-                new studio.one.platform.textract.service.FileContentExtractionService(
-                        new studio.one.platform.textract.extractor.FileParserFactory(List.of(new FailingTextractParser())),
+                new studio.one.platform.textract.application.usecase.FileContentExtractionService(
+                        new studio.one.platform.textract.application.usecase.FileParserFactory(List.of(new FailingTextractParser())),
                         10));
 
         FileParseException exception = assertThrows(FileParseException.class,
@@ -86,8 +86,8 @@ class FileContentExtractionServiceTest {
     @Test
     void delegateOversizedInputPreservesPayloadTooLargeStatus() {
         FileContentExtractionService service = new FileContentExtractionService(
-                new studio.one.platform.textract.service.FileContentExtractionService(
-                        new studio.one.platform.textract.extractor.FileParserFactory(List.of(new FailingTextractParser())),
+                new studio.one.platform.textract.application.usecase.FileContentExtractionService(
+                        new studio.one.platform.textract.application.usecase.FileParserFactory(List.of(new FailingTextractParser())),
                         4));
 
         FileParseException exception = assertThrows(FileParseException.class,
@@ -113,7 +113,7 @@ class FileContentExtractionServiceTest {
         }
     }
 
-    private static final class FailingTextractParser implements studio.one.platform.textract.extractor.FileParser {
+    private static final class FailingTextractParser implements studio.one.platform.textract.application.usecase.FileParser {
         @Override
         public boolean supports(String contentType, String filename) {
             return true;
@@ -121,7 +121,7 @@ class FileContentExtractionServiceTest {
 
         @Override
         public String parse(byte[] bytes, String contentType, String filename) {
-            throw new studio.one.platform.textract.extractor.FileParseException("failed");
+            throw new studio.one.platform.textract.domain.error.FileParseException("failed");
         }
     }
 }

@@ -19,7 +19,7 @@
  *
  */
 
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -53,7 +53,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Builder.Default;
-import studio.one.base.user.constant.JpaEntityNames;
+import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
 import studio.one.base.user.domain.model.Group;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

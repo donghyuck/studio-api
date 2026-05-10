@@ -67,13 +67,13 @@ studio:
   features:
     user:
       entity-packages:
-        - studio.one.base.user.domain.entity
+        - studio.one.base.user.domain.model
       repository-packages:
-        - studio.one.base.user.persistence.jpa
+        - studio.one.base.user.infrastructure.persistence.jpa
       jdbc-repository-packages:
-        - studio.one.base.user.persistence.jdbc
+        - studio.one.base.user.infrastructure.persistence.jdbc
       component-packages:
-        - studio.one.base.user.service.impl
+        - studio.one.base.user.application.service
       exclude-entity-packages: []
       exclude-repository-packages: []
       exclude-jdbc-repository-packages: []
@@ -99,11 +99,11 @@ studio:
       component-packages:
         - com.example.user.service.impl
       exclude-entity-packages:
-        - studio.one.base.user.domain.entity
+        - studio.one.base.user.domain.model
       exclude-repository-packages:
-        - studio.one.base.user.persistence.jpa
+        - studio.one.base.user.infrastructure.persistence.jpa
       exclude-jdbc-repository-packages:
-        - studio.one.base.user.persistence.jdbc
+        - studio.one.base.user.infrastructure.persistence.jdbc
 ```
 
 ## 6) 자동 구성되는 주요 빈
@@ -218,6 +218,10 @@ studio:
 ```
 
 ## 8) 참고 사항
+- package architecture는 `studio-platform-user`와 `studio-platform-user-default`의
+  `domain/application/infrastructure/web` 구조를 따른다. 커스텀 구현을 연결할 때는 기존
+  `service`, `persistence`, `exception`, `web.dto` package가 아니라 새 `application.usecase`,
+  `domain.port`, `infrastructure.persistence.*`, `web.dto.request/response` package를 기준으로 import한다.
 - JPA 사용 시 `EntityManagerFactory`가 필요하다.
 - JDBC 모드에서는 `JdbcTemplate` 기반 리포지토리가 사용된다.
 - 기능을 끄려면 `studio.features.user.enabled=false`로 비활성화한다.

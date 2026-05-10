@@ -3,12 +3,12 @@ package studio.one.base.user.web.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import studio.one.base.user.web.dto.MeProfileDto;
-import studio.one.base.user.web.dto.MeProfilePatchRequest;
-import studio.one.base.user.web.dto.MeProfilePutRequest;
-import studio.one.base.user.web.dto.MePasswordChangeRequest;
+import studio.one.base.user.web.dto.response.MeProfileDto;
+import studio.one.base.user.web.dto.request.MeProfilePatchRequest;
+import studio.one.base.user.web.dto.request.MeProfilePutRequest;
+import studio.one.base.user.web.dto.request.MePasswordChangeRequest;
 import studio.one.platform.web.dto.ApiResponse;
-import studio.one.base.user.web.dto.PasswordPolicyDto;
+import studio.one.base.user.web.dto.response.PasswordPolicyDto;
 
 public interface UserMeApi {
 

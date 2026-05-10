@@ -36,15 +36,15 @@ import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
-import studio.one.platform.textract.model.ParsedFile;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.domain.model.ParsedFile;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @Component
 @ConditionalOnMissingBean(AttachmentStructuredRagIndexer.class)
 @ConditionalOnClass(name = {
         "studio.one.platform.chunking.core.ChunkingOrchestrator",
         "studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter",
-        "studio.one.platform.textract.model.ParsedFile"
+        "studio.one.platform.textract.domain.model.ParsedFile"
 })
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 

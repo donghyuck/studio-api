@@ -186,6 +186,10 @@ Content-Type: application/json
 
 ## 5) 참고 사항
 
+- `studio-platform-storage`는 `domain/application/infrastructure/web` 구조를 따른다. 직접 확장 시
+  기존 `service`, `exception`, `web.dto` package가 아니라 새 `application.usecase`,
+  `application.result`, `domain.model`, `domain.error`, `infrastructure.storage`,
+  `web.dto.request/response` package를 기준으로 import한다.
 - 프로바이더 라이브러리(`software.amazon.awssdk:s3`)가 classpath에 없는데 `type: s3` 프로바이더를
   활성화하면 경고 로그가 출력된다. 이 경우 `studio-platform-starter-objectstorage-aws`를 추가한다.
 - `ObjectStorageRegistry` 빈은 이름(`ObjectStorageRegistry.SERVICE_NAME`)으로 조건 관리되므로

@@ -1,4 +1,4 @@
-package studio.one.platform.storage.service.impl;
+package studio.one.platform.storage.infrastructure.storage;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -12,11 +12,11 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.storage.autoconfigure.StorageProperties;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
-import studio.one.platform.storage.service.ProviderCatalog;
-import studio.one.platform.storage.web.dto.ProviderInfoDto;
-import studio.one.platform.storage.web.dto.ProviderInfoDto.Capability;
-import studio.one.platform.storage.web.dto.ProviderInfoDto.Health;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
+import studio.one.platform.storage.application.result.ProviderCatalog;
+import studio.one.platform.storage.web.dto.response.ProviderInfoDto;
+import studio.one.platform.storage.web.dto.response.ProviderInfoDto.Capability;
+import studio.one.platform.storage.web.dto.response.ProviderInfoDto.Health;
 
 /**
  *

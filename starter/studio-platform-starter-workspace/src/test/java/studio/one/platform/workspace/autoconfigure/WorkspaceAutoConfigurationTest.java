@@ -19,8 +19,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
 import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;

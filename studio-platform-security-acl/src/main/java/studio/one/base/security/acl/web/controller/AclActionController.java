@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import studio.one.base.security.acl.policy.AclAction;
-import studio.one.base.security.acl.web.dto.AclActionMaskDto;
+import studio.one.base.security.acl.application.policy.AclAction;
+import studio.one.base.security.acl.web.dto.response.AclActionMaskDto;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**

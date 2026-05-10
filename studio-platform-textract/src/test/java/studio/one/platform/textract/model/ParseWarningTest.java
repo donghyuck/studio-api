@@ -1,4 +1,4 @@
-package studio.one.platform.textract.model;
+package studio.one.platform.textract.domain.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

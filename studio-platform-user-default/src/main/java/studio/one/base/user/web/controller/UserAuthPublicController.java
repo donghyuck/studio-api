@@ -6,8 +6,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.user.service.PasswordPolicyService;
-import studio.one.base.user.web.dto.PasswordPolicyDto;
+import studio.one.base.user.application.usecase.PasswordPolicyService;
+import studio.one.base.user.web.dto.response.PasswordPolicyDto;
 import studio.one.base.user.web.controller.AbstractPasswordPolicyControllerSupport;
 import studio.one.platform.web.dto.ApiResponse;
 

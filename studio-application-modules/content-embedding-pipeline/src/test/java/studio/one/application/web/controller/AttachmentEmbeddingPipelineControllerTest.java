@@ -65,9 +65,9 @@ import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.model.ParsedFile;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.model.ParsedFile;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 class AttachmentEmbeddingPipelineControllerTest {
 

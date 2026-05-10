@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor;
+package studio.one.platform.textract.application.usecase;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -7,7 +7,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.application.usecase.FileParser;
+import studio.one.platform.textract.application.usecase.FileParserFactory;
+import studio.one.platform.textract.application.usecase.StructuredFileParser;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class FileParserFactoryTest {
 

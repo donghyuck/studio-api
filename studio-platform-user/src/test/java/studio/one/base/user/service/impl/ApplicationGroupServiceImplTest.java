@@ -1,4 +1,4 @@
-package studio.one.base.user.service.impl;
+package studio.one.base.user.application.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,11 +17,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 
-import studio.one.base.user.domain.entity.ApplicationGroup;
-import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
-import studio.one.base.user.persistence.ApplicationGroupRepository;
-import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
-import studio.one.base.user.persistence.ApplicationRoleRepository;
+import studio.one.base.user.domain.model.ApplicationGroup;
+import studio.one.base.user.domain.port.ApplicationGroupMembershipRepository;
+import studio.one.base.user.domain.port.ApplicationGroupRepository;
+import studio.one.base.user.domain.port.ApplicationGroupRoleRepository;
+import studio.one.base.user.domain.port.ApplicationRoleRepository;
 import studio.one.platform.service.I18n;
 
 @ExtendWith(MockitoExtension.class)

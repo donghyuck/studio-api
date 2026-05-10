@@ -1,4 +1,4 @@
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.io.Serializable;
 

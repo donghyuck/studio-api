@@ -16,7 +16,7 @@ import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolve
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @AutoConfiguration
 @AutoConfigureAfter(name = "studio.one.application.attachment.autoconfigure.AttachmentAutoConfiguration")
@@ -59,7 +59,7 @@ public class ContentEmbeddingPipelineAutoConfiguration {
 @ConditionalOnClass(name = {
         "studio.one.platform.chunking.core.ChunkingOrchestrator",
         "studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter",
-        "studio.one.platform.textract.model.ParsedFile"
+        "studio.one.platform.textract.domain.model.ParsedFile"
 })
 class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
 

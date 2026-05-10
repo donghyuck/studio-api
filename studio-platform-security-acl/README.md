@@ -90,10 +90,20 @@ Flyway 버전 범위는 `docs/flyway-versioning.md`의 security-acl 범위(V500-
 ## 외부 모듈 사용
 외부 모듈은 인터페이스만 의존합니다.
 ```java
-import studio.one.platform.security.acl.AclPermissionService;
+import studio.one.base.security.acl.application.usecase.AclPermissionService;
 ```
 `DefaultAclPermissionService`에 직접 의존하지 않습니다.
 권한 목록 조회도 `AclPermissionService.listPermissions(...)`로 통일합니다.
+
+## Package Architecture
+
+- `domain.model`: ACL class, SID, object identity, entry domain model
+- `domain.port`: ACL repository port
+- `application.policy`: default policy definition/sync model
+- `application.usecase`: ACL administration/permission public contract
+- `application.service`: ACL permission 구현
+- `web.controller`: ACL management HTTP adapter
+- `web.dto.request`, `web.dto.response`: request/response DTO
 
 ## 구현 선택
 - `studio.security.acl.use-spring-acl=true` 이고 `MutableAclService` 빈이 있으면 Spring ACL 기반 구현(`DefaultAclPermissionService`)이 사용됩니다.

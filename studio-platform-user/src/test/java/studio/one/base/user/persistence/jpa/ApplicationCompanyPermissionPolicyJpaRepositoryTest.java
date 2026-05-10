@@ -1,4 +1,4 @@
-package studio.one.base.user.persistence.jpa;
+package studio.one.base.user.infrastructure.persistence.jpa;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -16,13 +16,13 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.company.model.CompanyStatus;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.domain.entity.ApplicationCompanyPermissionPolicy;
-import studio.one.base.user.domain.entity.ApplicationCompanyPermissionPolicyId;
-import studio.one.base.user.persistence.ApplicationCompanyPermissionPolicyRepository;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.company.CompanyStatus;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.domain.model.ApplicationCompanyPermissionPolicy;
+import studio.one.base.user.domain.model.ApplicationCompanyPermissionPolicyId;
+import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
 
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

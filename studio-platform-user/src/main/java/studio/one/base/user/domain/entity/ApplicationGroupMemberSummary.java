@@ -1,4 +1,4 @@
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 public interface ApplicationGroupMemberSummary {
 

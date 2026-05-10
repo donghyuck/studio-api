@@ -4,7 +4,7 @@ import java.time.Instant;
 
 import org.springframework.stereotype.Component;
 
-import studio.one.base.user.service.UserMutator;
+import studio.one.base.user.application.usecase.UserMutator;
 import studio.one.custom.user.domain.entity.CustomUser;
 
 /**

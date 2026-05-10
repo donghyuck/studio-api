@@ -1,4 +1,4 @@
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -19,7 +19,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.base.user.constant.JpaEntityNames;
+import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
 
 @Builder
 @Getter

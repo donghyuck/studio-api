@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.impl;
+package studio.one.platform.textract.infrastructure.extractor.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -18,12 +18,12 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.extractor.DocumentFormatDetector;
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ExtractedTable;
-import studio.one.platform.textract.model.ExtractedTableCell;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.application.service.DocumentFormatDetector;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ExtractedTable;
+import studio.one.platform.textract.domain.model.ExtractedTableCell;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class ExcelFileParserTest {
 

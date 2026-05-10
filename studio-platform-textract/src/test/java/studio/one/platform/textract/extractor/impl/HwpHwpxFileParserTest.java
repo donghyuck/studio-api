@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.impl;
+package studio.one.platform.textract.infrastructure.extractor.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -17,11 +17,11 @@ import org.apache.poi.poifs.filesystem.DirectoryEntry;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.extractor.FileParseException;
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ParseWarningSeverity;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.error.FileParseException;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ParseWarningSeverity;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class HwpHwpxFileParserTest {
 

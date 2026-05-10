@@ -18,9 +18,9 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.service.ApplicationGroupService;
-import studio.one.base.user.web.dto.AddMembersRequest;
-import studio.one.base.user.web.dto.GroupMemberSummaryDto;
+import studio.one.base.user.application.usecase.ApplicationGroupService;
+import studio.one.base.user.web.dto.request.AddMembersRequest;
+import studio.one.base.user.web.dto.response.GroupMemberSummaryDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.platform.identity.IdentityService;

@@ -16,8 +16,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.platform.storage.service.CloudObjectStorage;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
+import studio.one.platform.storage.application.usecase.CloudObjectStorage;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
 
 class ObjectStorageFileStoreTest {
 

@@ -1,4 +1,4 @@
-package studio.one.base.user.persistence.jdbc;
+package studio.one.base.user.infrastructure.persistence.jdbc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,14 +15,14 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import studio.one.base.user.company.model.CompanyJoinRequestStatus;
-import studio.one.base.user.company.model.CompanyMemberKeyStatus;
-import studio.one.base.user.company.model.CompanyMemberStatus;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.domain.entity.ApplicationCompanyJoinRequest;
-import studio.one.base.user.domain.entity.ApplicationCompanyMember;
-import studio.one.base.user.domain.entity.ApplicationCompanyMemberId;
-import studio.one.base.user.domain.entity.ApplicationCompanyMemberKey;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
+import studio.one.base.user.domain.model.company.CompanyMemberKeyStatus;
+import studio.one.base.user.domain.model.company.CompanyMemberStatus;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.ApplicationCompanyJoinRequest;
+import studio.one.base.user.domain.model.ApplicationCompanyMember;
+import studio.one.base.user.domain.model.ApplicationCompanyMemberId;
+import studio.one.base.user.domain.model.ApplicationCompanyMemberKey;
 
 @Testcontainers
 class ApplicationCompanyJoinRequestJdbcRepositoryTest {

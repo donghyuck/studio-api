@@ -9,19 +9,19 @@ import java.util.Objects;
 import studio.one.platform.text.extractor.FileParseException;
 import studio.one.platform.text.extractor.FileParser;
 import studio.one.platform.text.extractor.FileParserFactory;
-import studio.one.platform.textract.model.DocumentExtractionResult;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentExtractionResult;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 /**
  * @deprecated since 2026-04-20. Use
- *             {@link studio.one.platform.textract.service.FileContentExtractionService}.
+ *             {@link studio.one.platform.textract.application.usecase.FileContentExtractionService}.
  */
 @Deprecated(forRemoval = false)
 public class FileContentExtractionService {
 
     private final FileParserFactory parserFactory;
     private final int maxExtractBytes;
-    private final studio.one.platform.textract.service.FileContentExtractionService delegate;
+    private final studio.one.platform.textract.application.usecase.FileContentExtractionService delegate;
 
     public FileContentExtractionService(FileParserFactory parserFactory) {
         this(parserFactory, 10 * 1024 * 1024);
@@ -36,7 +36,7 @@ public class FileContentExtractionService {
         this.delegate = null;
     }
 
-    public FileContentExtractionService(studio.one.platform.textract.service.FileContentExtractionService delegate) {
+    public FileContentExtractionService(studio.one.platform.textract.application.usecase.FileContentExtractionService delegate) {
         this.parserFactory = null;
         this.maxExtractBytes = 0;
         this.delegate = Objects.requireNonNull(delegate, "delegate must not be null");
@@ -48,7 +48,7 @@ public class FileContentExtractionService {
         }
         try {
             return delegate.extractText(contentType, filename, file);
-        } catch (studio.one.platform.textract.extractor.FileParseException e) {
+        } catch (studio.one.platform.textract.domain.error.FileParseException e) {
             throw FileParseException.from(e);
         }
     }
@@ -59,7 +59,7 @@ public class FileContentExtractionService {
         }
         try {
             return delegate.extractText(contentType, filename, is);
-        } catch (studio.one.platform.textract.extractor.FileParseException e) {
+        } catch (studio.one.platform.textract.domain.error.FileParseException e) {
             throw FileParseException.from(e);
         }
     }
@@ -84,7 +84,7 @@ public class FileContentExtractionService {
         }
         try {
             return delegate.parseStructured(contentType, filename, file);
-        } catch (studio.one.platform.textract.extractor.FileParseException e) {
+        } catch (studio.one.platform.textract.domain.error.FileParseException e) {
             throw FileParseException.from(e);
         }
     }
@@ -109,7 +109,7 @@ public class FileContentExtractionService {
         }
         try {
             return delegate.parseStructured(contentType, filename, is);
-        } catch (studio.one.platform.textract.extractor.FileParseException e) {
+        } catch (studio.one.platform.textract.domain.error.FileParseException e) {
             throw FileParseException.from(e);
         }
     }
@@ -117,7 +117,7 @@ public class FileContentExtractionService {
     private void ensureWithinLimit(long size, String filename) {
         if (size > maxExtractBytes) {
             throw FileParseException.from(
-                    new studio.one.platform.textract.extractor.FileSizeLimitExceededException(
+                    new studio.one.platform.textract.domain.error.FileSizeLimitExceededException(
                             filename, size, maxExtractBytes));
         }
     }

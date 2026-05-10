@@ -19,11 +19,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import studio.one.base.user.company.model.CompanyJoinRequestRef;
-import studio.one.base.user.company.model.CompanyJoinRequestStatus;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
-import studio.one.base.user.web.dto.CompanySelfJoinRequestCreateRequest;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestRef;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
+import studio.one.base.user.web.dto.request.CompanySelfJoinRequestCreateRequest;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
 

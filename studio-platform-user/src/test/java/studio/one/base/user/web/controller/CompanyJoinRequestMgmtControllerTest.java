@@ -32,15 +32,15 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
-import studio.one.base.user.company.model.CompanyJoinRequestRef;
-import studio.one.base.user.company.model.CompanyJoinRequestStatus;
-import studio.one.base.user.company.model.CompanyMemberKeyRef;
-import studio.one.base.user.company.model.CompanyMemberKeyStatus;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.web.dto.CompanyMemberKeyCreateRequest;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestRef;
+import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
+import studio.one.base.user.domain.model.company.CompanyMemberKeyRef;
+import studio.one.base.user.domain.model.company.CompanyMemberKeyStatus;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.web.dto.request.CompanyMemberKeyCreateRequest;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
 

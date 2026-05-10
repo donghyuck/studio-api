@@ -1,4 +1,4 @@
-package studio.one.base.user.domain.entity;
+package studio.one.base.user.domain.model;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -29,8 +29,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import studio.one.base.user.company.model.CompanyStatus;
-import studio.one.base.user.constant.JpaEntityNames;
+import studio.one.base.user.domain.model.company.CompanyStatus;
+import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.ENTITY)
 @EntityListeners(AuditingEntityListener.class)

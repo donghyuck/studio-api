@@ -18,11 +18,11 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.lock.persistence.AccountLockRepository;
-import studio.one.base.security.authentication.lock.persistence.jdbc.AccountLockJdbcRepository;
-import studio.one.base.security.authentication.lock.persistence.jpa.AccountLockJpaRepository;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
-import studio.one.base.security.authentication.lock.service.AccountLockServiceImpl;
+import studio.one.base.security.authentication.lock.domain.port.AccountLockRepository;
+import studio.one.base.security.authentication.lock.infrastructure.persistence.jdbc.AccountLockJdbcRepository;
+import studio.one.base.security.authentication.lock.infrastructure.persistence.jpa.AccountLockJpaRepository;
+import studio.one.base.security.authentication.lock.application.usecase.AccountLockService;
+import studio.one.base.security.authentication.lock.application.service.AccountLockServiceImpl;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;

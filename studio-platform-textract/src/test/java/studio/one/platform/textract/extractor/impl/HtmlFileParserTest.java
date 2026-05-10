@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.impl;
+package studio.one.platform.textract.infrastructure.extractor.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.model.BlockType;
-import studio.one.platform.textract.model.ExtractedTable;
-import studio.one.platform.textract.model.ExtractedTableCell;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.model.BlockType;
+import studio.one.platform.textract.domain.model.ExtractedTable;
+import studio.one.platform.textract.domain.model.ExtractedTableCell;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class HtmlFileParserTest {
 

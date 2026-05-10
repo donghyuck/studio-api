@@ -1,4 +1,4 @@
-package studio.one.platform.textract.extractor.impl;
+package studio.one.platform.textract.infrastructure.extractor.impl;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -21,11 +21,11 @@ import java.util.zip.ZipOutputStream;
 import org.apache.poi.poifs.filesystem.POIFSFileSystem;
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.extractor.FileParseException;
-import studio.one.platform.textract.model.ParseWarningSeverity;
-import studio.one.platform.textract.model.ParsedBlock;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.domain.error.FileParseException;
+import studio.one.platform.textract.domain.model.ParseWarningSeverity;
+import studio.one.platform.textract.domain.model.ParsedBlock;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 class OperationalFailureMatrixTest {
 
