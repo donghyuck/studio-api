@@ -54,6 +54,13 @@ Flyway location에 `schema/wiki/{db}`를 추가해 `V1400__create_workspace_wiki
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE`
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE_REVISION`
 
+## Package structure
+자동구성 import는 Wiki 모듈의 새 패키지 구조를 기준으로 한다.
+
+- contract: `studio.one.application.wiki.application.usecase`, `studio.one.application.wiki.application.command`, `studio.one.application.wiki.application.error`, `studio.one.application.wiki.domain.*`
+- default implementation: `studio.one.application.wiki.application.service`, `studio.one.application.wiki.infrastructure.persistence.jpa`
+- web DTO: `studio.one.application.wiki.web.dto.request`, `studio.one.application.wiki.web.dto.response`
+
 ## 보안
 - raw markdown은 응답에 포함되지만, HTML은 서버에서 CommonMark 렌더링 후 Jsoup sanitize 결과인 `sanitizedHtml`로 함께 제공한다.
 - 클라이언트가 HTML을 렌더링할 때는 `sanitizedHtml`을 사용한다.

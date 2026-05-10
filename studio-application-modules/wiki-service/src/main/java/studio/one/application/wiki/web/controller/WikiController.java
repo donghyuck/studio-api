@@ -19,14 +19,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import studio.one.application.wiki.service.WikiPageService;
-import studio.one.application.wiki.web.dto.WikiArchiveRequest;
-import studio.one.application.wiki.web.dto.WikiPageDto;
-import studio.one.application.wiki.web.dto.WikiPageSummaryDto;
-import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
-import studio.one.application.wiki.web.dto.WikiRevertRequest;
-import studio.one.application.wiki.web.dto.WikiRevisionDto;
-import studio.one.application.wiki.web.dto.WikiRevisionSummaryDto;
+import studio.one.application.wiki.application.usecase.WikiPageService;
+import studio.one.application.wiki.web.dto.request.WikiArchiveRequest;
+import studio.one.application.wiki.web.dto.response.WikiPageDto;
+import studio.one.application.wiki.web.dto.response.WikiPageSummaryDto;
+import studio.one.application.wiki.web.dto.request.WikiPageWriteRequest;
+import studio.one.application.wiki.web.dto.request.WikiRevertRequest;
+import studio.one.application.wiki.web.dto.response.WikiRevisionDto;
+import studio.one.application.wiki.web.dto.response.WikiRevisionSummaryDto;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 

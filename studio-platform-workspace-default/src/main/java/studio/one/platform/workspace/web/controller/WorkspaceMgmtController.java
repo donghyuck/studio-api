@@ -25,22 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
-import studio.one.platform.workspace.model.WorkspaceMemberRef;
-import studio.one.platform.workspace.model.WorkspaceRef;
-import studio.one.platform.workspace.model.WorkspaceRole;
-import studio.one.platform.workspace.model.WorkspaceTreeNode;
-import studio.one.platform.workspace.permission.WorkspacePermissionDefinition;
-import studio.one.platform.workspace.service.WorkspaceListQuery;
-import studio.one.platform.workspace.service.WorkspaceMemberService;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
-import studio.one.platform.workspace.service.WorkspaceTreeService;
-import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceMemberRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
-import studio.one.platform.workspace.web.dto.WorkspacePermissionSummaryDto;
-import studio.one.platform.workspace.web.dto.WorkspaceUpdateRequest;
+import studio.one.platform.workspace.domain.model.WorkspaceMemberRef;
+import studio.one.platform.workspace.domain.model.WorkspaceRef;
+import studio.one.platform.workspace.domain.model.WorkspaceRole;
+import studio.one.platform.workspace.domain.model.WorkspaceTreeNode;
+import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
+import studio.one.platform.workspace.application.command.WorkspaceListQuery;
+import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.request.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceArchiveRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceCreateRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceMemberRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceParentChangeRequest;
+import studio.one.platform.workspace.web.dto.response.WorkspacePermissionSummaryDto;
+import studio.one.platform.workspace.web.dto.request.WorkspaceUpdateRequest;
 
 @RestController
 @RequestMapping("${studio.features.workspace.web.mgmt-base-path:/api/mgmt/workspaces}")

@@ -16,16 +16,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-import studio.one.application.wiki.persistence.jpa.WikiPageEntity;
-import studio.one.application.wiki.persistence.jpa.WikiPageJpaRepository;
-import studio.one.application.wiki.persistence.jpa.WikiPageRevisionJpaRepository;
-import studio.one.application.wiki.service.WikiPageService;
-import studio.one.application.wiki.service.WikiRenderService;
-import studio.one.application.wiki.service.impl.DefaultWikiPageService;
-import studio.one.application.wiki.service.impl.DefaultWikiRenderService;
+import studio.one.application.wiki.infrastructure.persistence.jpa.WikiPageEntity;
+import studio.one.application.wiki.infrastructure.persistence.jpa.WikiPageJpaRepository;
+import studio.one.application.wiki.infrastructure.persistence.jpa.WikiPageRevisionJpaRepository;
+import studio.one.application.wiki.application.usecase.WikiPageService;
+import studio.one.application.wiki.application.usecase.WikiRenderService;
+import studio.one.application.wiki.application.service.DefaultWikiPageService;
+import studio.one.application.wiki.application.service.DefaultWikiRenderService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 
 @AutoConfiguration(afterName = "studio.one.platform.workspace.autoconfigure.WorkspaceAutoConfiguration")
 @AutoConfigureAfter(name = "studio.one.platform.workspace.autoconfigure.WorkspaceAutoConfiguration")

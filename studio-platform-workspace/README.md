@@ -36,6 +36,15 @@ Workspace 공통 계약 모듈입니다. 트리형 workspace, member role, effec
 ## 구현 모듈
 기본 구현은 `studio-platform-workspace-default`에 있다. 이 계약 모듈은 JPA, web, Spring Boot auto-configuration을 직접 포함하지 않는다.
 
+## Package structure
+이 모듈은 `domain / application` 중심의 public contract 패키지를 사용한다. 이 변경은 breaking rename이며 기존
+`studio.one.platform.workspace.model`, `permission`, `service`, `exception` wrapper는 제공하지 않는다.
+
+- `domain.model`: `WorkspaceRef`, `WorkspaceRole`, `WorkspaceVisibility`, permission action/mapping 모델
+- `application.command`: create/update/member/query/access context command
+- `application.usecase`: `WorkspaceTreeService`, `WorkspaceMemberService`, `WorkspacePermissionService`, `WorkspacePermissionContributor`
+- `application.error`: workspace error code와 exception
+
 ## Company scope
 - root workspace는 `CreateRootWorkspaceCommand(companyId, ...)`로 company scope를 받을 수 있다.
 - 기존 `CreateWorkspaceCommand` 기반 root 생성은 legacy 호환 경로로 유지되며 `companyId=null` root를 생성한다.

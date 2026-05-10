@@ -8,7 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 
-import studio.one.application.wiki.service.WikiPageService;
+import studio.one.application.wiki.application.usecase.WikiPageService;
 import studio.one.application.wiki.web.controller.WikiController;
 import studio.one.application.wiki.web.controller.WikiMgmtController;
 import studio.one.platform.constant.PropertyKeys;

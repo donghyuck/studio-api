@@ -14,15 +14,15 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-import studio.one.application.wiki.model.WikiPage;
-import studio.one.application.wiki.service.WikiPageArchiveCommand;
-import studio.one.application.wiki.service.WikiPageService;
-import studio.one.application.wiki.service.WikiPageWriteCommand;
-import studio.one.application.wiki.web.dto.WikiArchiveRequest;
-import studio.one.application.wiki.web.dto.WikiPageWriteRequest;
+import studio.one.application.wiki.domain.model.WikiPage;
+import studio.one.application.wiki.application.command.WikiPageArchiveCommand;
+import studio.one.application.wiki.application.usecase.WikiPageService;
+import studio.one.application.wiki.application.command.WikiPageWriteCommand;
+import studio.one.application.wiki.web.dto.request.WikiArchiveRequest;
+import studio.one.application.wiki.web.dto.request.WikiPageWriteRequest;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.workspace.service.WorkspaceAccessContext;
+import studio.one.platform.workspace.application.command.WorkspaceAccessContext;
 
 class WikiControllerTest {
 

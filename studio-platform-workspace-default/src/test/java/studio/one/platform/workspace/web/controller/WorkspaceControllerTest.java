@@ -19,23 +19,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
-import studio.one.platform.workspace.model.WorkspaceRole;
-import studio.one.platform.workspace.model.WorkspaceRef;
-import studio.one.platform.workspace.model.WorkspaceVisibility;
-import studio.one.platform.workspace.exception.WorkspaceUnsupportedOperationException;
-import studio.one.platform.workspace.permission.WorkspacePermissionActions;
-import studio.one.platform.workspace.service.ChangeWorkspaceParentCommand;
-import studio.one.platform.workspace.service.CreateRootWorkspaceCommand;
-import studio.one.platform.workspace.service.WorkspaceAccessContext;
-import studio.one.platform.workspace.service.WorkspaceListQuery;
-import studio.one.platform.workspace.service.WorkspaceMemberService;
-import studio.one.platform.workspace.service.WorkspaceMemberListQuery;
-import studio.one.platform.workspace.service.WorkspacePermissionService;
-import studio.one.platform.workspace.service.WorkspaceTreeService;
-import studio.one.platform.workspace.web.dto.WorkspaceActivateRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceArchiveRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceCreateRequest;
-import studio.one.platform.workspace.web.dto.WorkspaceParentChangeRequest;
+import studio.one.platform.workspace.domain.model.WorkspaceRole;
+import studio.one.platform.workspace.domain.model.WorkspaceRef;
+import studio.one.platform.workspace.domain.model.WorkspaceVisibility;
+import studio.one.platform.workspace.application.error.WorkspaceUnsupportedOperationException;
+import studio.one.platform.workspace.domain.model.WorkspacePermissionActions;
+import studio.one.platform.workspace.application.command.ChangeWorkspaceParentCommand;
+import studio.one.platform.workspace.application.command.CreateRootWorkspaceCommand;
+import studio.one.platform.workspace.application.command.WorkspaceAccessContext;
+import studio.one.platform.workspace.application.command.WorkspaceListQuery;
+import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
+import studio.one.platform.workspace.application.command.WorkspaceMemberListQuery;
+import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
+import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
+import studio.one.platform.workspace.web.dto.request.WorkspaceActivateRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceArchiveRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceCreateRequest;
+import studio.one.platform.workspace.web.dto.request.WorkspaceParentChangeRequest;
 
 class WorkspaceControllerTest {
 
@@ -372,8 +372,8 @@ class WorkspaceControllerTest {
         return new WorkspaceRef(1L, null, 1L, "Acme", "acme", "acme", 0, WorkspaceVisibility.PRIVATE, false);
     }
 
-    private studio.one.platform.workspace.model.WorkspaceMemberRef member() {
-        return new studio.one.platform.workspace.model.WorkspaceMemberRef(1L, 10L, WorkspaceRole.OWNER, false);
+    private studio.one.platform.workspace.domain.model.WorkspaceMemberRef member() {
+        return new studio.one.platform.workspace.domain.model.WorkspaceMemberRef(1L, 10L, WorkspaceRole.OWNER, false);
     }
 
     @SuppressWarnings("unchecked")
