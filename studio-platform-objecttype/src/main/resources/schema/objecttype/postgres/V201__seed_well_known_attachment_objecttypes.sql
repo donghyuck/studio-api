@@ -22,11 +22,11 @@ SELECT seed.object_type, seed.max_file_mb, seed.allowed_ext, seed.allowed_mime, 
        seed.created_by, seed.created_by_id, seed.updated_by, seed.updated_by_id
 FROM (
     VALUES
-        (2001, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2101, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2102, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2103, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2104, 50, NULL, NULL, NULL, 'system', 0, 'system', 0)
+        (2001, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2101, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2102, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2103, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2104, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0)
 ) AS seed(object_type, max_file_mb, allowed_ext, allowed_mime, policy_json,
           created_by, created_by_id, updated_by, updated_by_id)
 WHERE EXISTS (
