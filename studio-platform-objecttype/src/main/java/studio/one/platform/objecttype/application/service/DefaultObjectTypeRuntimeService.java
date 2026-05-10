@@ -29,17 +29,36 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
 
     @Override
     public ObjectTypeDefinition definition(int objectType) {
-        ObjectTypeMetadata meta = registry.findByType(objectType)
-                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
-        requireActive(meta);
-        ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
-        return new ObjectTypeDefinition(toView(meta), toPolicyView(policy, objectType));
+        return definition(resolveByType(objectType));
+    }
+
+    @Override
+    public ObjectTypeDefinition definitionByKey(String key) {
+        return definition(resolveByKey(key));
+    }
+
+    @Override
+    public int objectTypeByKey(String key) {
+        return resolveByKey(key).getObjectType();
     }
 
     @Override
     public ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request) {
-        ObjectTypeMetadata meta = registry.findByType(objectType)
-                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
+        return validateUpload(resolveByType(objectType), request);
+    }
+
+    @Override
+    public ValidateUploadResult validateUploadByKey(String key, ValidateUploadCommand request) {
+        return validateUpload(resolveByKey(key), request);
+    }
+
+    private ObjectTypeDefinition definition(ObjectTypeMetadata meta) {
+        requireActive(meta);
+        ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
+        return new ObjectTypeDefinition(toView(meta), toPolicyView(policy, meta.getObjectType()));
+    }
+
+    private ValidateUploadResult validateUpload(ObjectTypeMetadata meta, ValidateUploadCommand request) {
         requireActive(meta);
         ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
         if (policy == null) {
@@ -68,6 +87,20 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
             }
         }
         return new ValidateUploadResult(true, null);
+    }
+
+    private ObjectTypeMetadata resolveByType(int objectType) {
+        return registry.findByType(objectType)
+                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
+    }
+
+    private ObjectTypeMetadata resolveByKey(String key) {
+        String normalized = key == null ? "" : key.trim();
+        if (normalized.isEmpty()) {
+            throw PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, key);
+        }
+        return registry.findByKey(normalized)
+                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, normalized));
     }
 
     private void requireActive(ObjectTypeMetadata meta) {

@@ -11,5 +11,11 @@ public interface ObjectTypeRuntimeService {
 
     ObjectTypeDefinition definition(int objectType);
 
+    ObjectTypeDefinition definitionByKey(String key);
+
+    int objectTypeByKey(String key);
+
     ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request);
+
+    ValidateUploadResult validateUploadByKey(String key, ValidateUploadCommand request);
 }

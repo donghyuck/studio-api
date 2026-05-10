@@ -36,11 +36,24 @@ public class ObjectTypeController {
         return ResponseEntity.ok(ApiResponse.ok(toDto(runtimeService.definition(objectType))));
     }
 
+    @GetMapping("/keys/{key}/definition")
+    public ResponseEntity<ApiResponse<ObjectTypeDefinitionDto>> definitionByKey(@PathVariable String key) {
+        return ResponseEntity.ok(ApiResponse.ok(toDto(runtimeService.definitionByKey(key))));
+    }
+
     @PostMapping("/{objectType}/validate-upload")
     public ResponseEntity<ApiResponse<ValidateUploadResponse>> validateUpload(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ValidateUploadRequest request) {
         ValidateUploadResult result = runtimeService.validateUpload(objectType, toCommand(request));
+        return ResponseEntity.ok(ApiResponse.ok(toDto(result)));
+    }
+
+    @PostMapping("/keys/{key}/validate-upload")
+    public ResponseEntity<ApiResponse<ValidateUploadResponse>> validateUploadByKey(
+            @PathVariable String key,
+            @Valid @RequestBody ValidateUploadRequest request) {
+        ValidateUploadResult result = runtimeService.validateUploadByKey(key, toCommand(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(result)));
     }
 

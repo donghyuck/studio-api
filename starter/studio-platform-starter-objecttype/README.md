@@ -155,6 +155,8 @@ studio:
 - `ObjectTypeController` — 런타임 엔드포인트 (기본 `/api/object-types`)
 - `GET /api/object-types/{objectType}/definition`
 - `POST /api/object-types/{objectType}/validate-upload`
+- `GET /api/object-types/keys/{key}/definition`
+- `POST /api/object-types/keys/{key}/validate-upload`
 - `ObjectTypeMgmtController` — 관리 엔드포인트 (기본 `/api/mgmt/object-types`, DB 모드에서 `ObjectTypeAdminService` 빈이 있을 때만 등록됨)
 - `GET /api/mgmt/object-types/{objectType}/policy/effective` — 저장 정책이 없을 때도 클라이언트 안내용 적용 정책을 반환한다. 저장 정책이면 `source=stored`, 내부 기본 정책이면 `source=default`다. 기본 정책 응답은 `maxFileMb=null`, `allowedExt=null`, `allowedMime=null`, `policyJson=null`이며 ObjectType별 추가 제한 없음으로 해석한다. Spring multipart 제한이나 attachment 서비스 공통 제한은 별도로 적용될 수 있다.
 

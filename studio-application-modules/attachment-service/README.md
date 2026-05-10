@@ -149,6 +149,21 @@ curl -X POST "/api/mgmt/attachments" \
 - objecttype 레지스트리에 첨부파일용 타입을 등록한다.
 - 업로드 시 `objectType` 값에 매핑된 정책(용량/확장자/MIME)이 검증된다.
 - 정책 변경은 관리자 API 또는 마이그레이션으로 수행하고, 변경 후 `rebind`/cache evict가 필요할 수 있다.
+- 도메인 모듈은 숫자 타입 대신 well-known key를 사용할 수 있다. `AttachmentObjectTypeResolver`와
+  `AttachmentService.createAttachment(String objectTypeKey, ...)`는 key를 numeric `objectType`으로 해석한다.
+  알 수 없는 key나 objecttype 기능 미구성 상태는 generic `attachment`로 fallback하지 않고 명확한 예외로 실패한다.
+
+### Well-known attachment key
+| Key | Reserved type | objectId 기준 |
+|---|---:|---|
+| `attachment` | `2001` | 기존 generic attachment |
+| `post-attachment` | `2101` | postId |
+| `mail-attachment` | `2102` | mailMessageId |
+| `workspace-attachment` | `2103` | workspaceId |
+| `wiki-attachment` | `2104` | wikiPageId |
+
+도메인별 REST API를 만들 때는 클라이언트가 `objectType`을 보내지 않게 하고, 예를 들어 Workspace 파일은
+`workspace-attachment + workspaceId`, Wiki page 파일은 `wiki-attachment + pageId`로 attachment service를 호출한다.
 
 ### 예시 (YAML)
 ```yaml

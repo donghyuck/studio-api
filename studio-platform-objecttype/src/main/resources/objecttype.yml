@@ -6,3 +6,39 @@ objecttypes:
     domain: attachment
     status: active
     description: Default attachment object type
+  - type: 2101
+    key: post-attachment
+    name: Post Attachment
+    domain: post
+    status: active
+    description: Well-known attachment type for post files
+    policy:
+      key: post-attachment-policy
+      maxFileMb: 50
+  - type: 2102
+    key: mail-attachment
+    name: Mail Attachment
+    domain: mail
+    status: active
+    description: Well-known attachment type for mail message files
+    policy:
+      key: mail-attachment-policy
+      maxFileMb: 50
+  - type: 2103
+    key: workspace-attachment
+    name: Workspace Attachment
+    domain: workspace
+    status: active
+    description: Well-known attachment type for workspace files
+    policy:
+      key: workspace-attachment-policy
+      maxFileMb: 50
+  - type: 2104
+    key: wiki-attachment
+    name: Wiki Attachment
+    domain: wiki
+    status: active
+    description: Well-known attachment type for wiki page files
+    policy:
+      key: wiki-attachment-policy
+      maxFileMb: 50

@@ -71,6 +71,7 @@ import studio.one.application.attachment.service.AttachmentDownloadUrlService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlServiceImpl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryService;
 import studio.one.application.attachment.service.AttachmentDownloadUrlIssueAuditLogQueryServiceImpl;
+import studio.one.application.attachment.service.AttachmentObjectTypeResolver;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.service.AttachmentServiceImpl;
 import studio.one.application.attachment.storage.AttachmentFileStorageResolver;
@@ -309,6 +310,13 @@ public class AttachmentAutoConfiguration {
                 LogUtils.green(attachmentRepository instanceof JdbcAttachmentRepository ? "JDBC" : "JPA"));
         return new AttachmentServiceImpl(attachmentRepository, fileStorage, fileStorageResolverProvider, principalResolverProvider,
                 objectTypeRuntimeServiceProvider, thumbnailServiceProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(AttachmentObjectTypeResolver.class)
+    AttachmentObjectTypeResolver attachmentObjectTypeResolver(
+            ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
+        return new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider);
     }
 
     @Bean

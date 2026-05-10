@@ -282,6 +282,26 @@ ObjectTypeRuntimeService runtime = ...;
 runtime.validateUpload(2001, new ValidateUploadCommand("a.png", "image/png", 1024L));
 ```
 
+### Well-known 첨부 objectType
+첨부파일 owner가 명확한 모듈은 숫자 `objectType` 대신 well-known key를 사용한다.
+
+| Key | Reserved type | objectId 기준 |
+|---|---:|---|
+| `attachment` | `2001` | 기존 generic attachment |
+| `post-attachment` | `2101` | postId |
+| `mail-attachment` | `2102` | mailMessageId |
+| `workspace-attachment` | `2103` | workspaceId |
+| `wiki-attachment` | `2104` | wikiPageId |
+
+```java
+int objectType = runtime.objectTypeByKey("workspace-attachment");
+runtime.validateUploadByKey("workspace-attachment",
+        new ValidateUploadCommand("a.pdf", "application/pdf", 1024L));
+```
+
+알 수 없는 key는 `attachment` 타입으로 fallback하지 않고 `UNKNOWN_OBJECT_TYPE` 오류로 처리한다.
+YAML 모드는 기본 `objecttype.yml`에 위 타입을 포함하며, DB 모드는 `V201` seed migration으로 등록한다.
+
 ## Vue 클라이언트 가이드
 Vue에서는 axios/fetch로 관리자 API를 호출한다. 날짜는 ISO-8601 `OffsetDateTime`으로 내려온다.
 

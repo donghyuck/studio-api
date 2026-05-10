@@ -67,6 +67,11 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     @Override
+    public List<Attachment> getAttachments(String objectTypeKey, long objectId) {
+        return getAttachments(resolveObjectTypeKey(objectTypeKey), objectId);
+    }
+
+    @Override
     public List<Attachment> getAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy) {
         return attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy).stream()
                 .map(e -> (Attachment) e)
@@ -82,6 +87,11 @@ public class AttachmentServiceImpl implements AttachmentService {
     public Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable) {
         Page page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
         return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+    }
+
+    @Override
+    public Page<Attachment> findAttachments(String objectTypeKey, long objectId, Pageable pageable) {
+        return findAttachments(resolveObjectTypeKey(objectTypeKey), objectId, pageable);
     }
 
     @Override
@@ -140,6 +150,11 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     @Override
+    public Page<Attachment> findAttachments(String objectTypeKey, long objectId, String keyword, Pageable pageable) {
+        return findAttachments(resolveObjectTypeKey(objectTypeKey), objectId, keyword, pageable);
+    }
+
+    @Override
     public Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file) {
         try (InputStream inputStream = new FileInputStream(file)) {
             long size = file.length();
@@ -148,6 +163,11 @@ public class AttachmentServiceImpl implements AttachmentService {
         } catch (IOException e) {
             throw new IllegalArgumentException(e.getMessage(), e);
         }
+    }
+
+    @Override
+    public Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType, File file) {
+        return createAttachment(resolveObjectTypeKey(objectTypeKey), objectId, name, contentType, file);
     }
 
     @Override
@@ -163,6 +183,12 @@ public class AttachmentServiceImpl implements AttachmentService {
         } finally {
             deleteQuietly(bufferedInput);
         }
+    }
+
+    @Override
+    public Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
+            InputStream inputStream) {
+        return createAttachment(resolveObjectTypeKey(objectTypeKey), objectId, name, contentType, inputStream);
     }
 
     @Override
@@ -203,6 +229,12 @@ public class AttachmentServiceImpl implements AttachmentService {
         } finally {
             closeQuietly(inputStream);
         }
+    }
+
+    @Override
+    public Attachment createAttachment(String objectTypeKey, long objectId, String name, String contentType,
+            InputStream inputStream, int size) {
+        return createAttachment(resolveObjectTypeKey(objectTypeKey), objectId, name, contentType, inputStream, size);
     }
 
     @Override
@@ -253,6 +285,10 @@ public class AttachmentServiceImpl implements AttachmentService {
         }
         ValidateUploadCommand request = new ValidateUploadCommand(fileName, contentType, (long) sizeBytes);
         runtimeService.validateUpload(objectType, request);
+    }
+
+    private int resolveObjectTypeKey(String objectTypeKey) {
+        return new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider).resolveRequired(objectTypeKey);
     }
 
     private Attachment createAttachment(int objectType, long objectId, String name, String contentType, File file, int size) {

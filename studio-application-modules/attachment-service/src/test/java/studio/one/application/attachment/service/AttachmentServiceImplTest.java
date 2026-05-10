@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -155,6 +156,43 @@ class AttachmentServiceImplTest {
 
         assertEquals(3L, saved.getSize());
         verify(fileStorage).save(any(Attachment.class), any(InputStream.class));
+    }
+
+    @Test
+    void createAttachmentByObjectTypeKeyResolvesWellKnownType() {
+        AttachmentServiceImpl service = service();
+        ObjectTypeRuntimeService runtimeService = org.mockito.Mockito.mock(ObjectTypeRuntimeService.class);
+        when(objectTypeRuntimeServiceProvider.getIfAvailable()).thenReturn(runtimeService);
+        when(runtimeService.objectTypeByKey("workspace-attachment")).thenReturn(2103);
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
+            ApplicationAttachment attachment = invocation.getArgument(0);
+            attachment.setAttachmentId(45L);
+            return attachment;
+        });
+
+        Attachment saved = service.createAttachment(
+                "workspace-attachment",
+                34L,
+                "report.pdf",
+                "application/pdf",
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3);
+
+        assertEquals(2103, saved.getObjectType());
+        assertEquals(34L, saved.getObjectId());
+        verify(runtimeService).objectTypeByKey(eq("workspace-attachment"));
+        verify(runtimeService).validateUpload(eq(2103), any());
+    }
+
+    @Test
+    void objectTypeResolverRequiresRuntimeService() {
+        when(objectTypeRuntimeServiceProvider.getIfAvailable()).thenReturn(null);
+        AttachmentObjectTypeResolver resolver = new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> resolver.resolveRequired("workspace-attachment"));
+
+        assertTrue(ex.getMessage().contains("ObjectTypeRuntimeService is required"));
     }
 
     @Test

@@ -62,4 +62,42 @@ class ObjectTypeControllerTest {
         assertNull(response.getBody().getData().getReason());
         verify(runtimeService).validateUpload(eq(1200), eq(new ValidateUploadCommand("photo.png", "image/png", 1024L)));
     }
+
+    @Test
+    void definitionByKeyDelegatesToRuntimeService() {
+        ObjectTypeRuntimeService runtimeService = mock(ObjectTypeRuntimeService.class);
+        ObjectTypeController controller = new ObjectTypeController(runtimeService);
+
+        when(runtimeService.definitionByKey("workspace-attachment")).thenReturn(new ObjectTypeDefinition(
+                new ObjectTypeView(2103, "workspace-attachment", "Workspace Attachment", "workspace", "active", null,
+                        null, 0L, null, null, 0L, null),
+                null));
+
+        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.response.ObjectTypeDefinitionDto>> response =
+                controller.definitionByKey("workspace-attachment");
+
+        assertEquals(2103, response.getBody().getData().getType().getObjectType());
+        assertEquals("workspace-attachment", response.getBody().getData().getType().getCode());
+        verify(runtimeService).definitionByKey(eq("workspace-attachment"));
+    }
+
+    @Test
+    void validateUploadByKeyDelegatesToRuntimeService() {
+        ObjectTypeRuntimeService runtimeService = mock(ObjectTypeRuntimeService.class);
+        ObjectTypeController controller = new ObjectTypeController(runtimeService);
+        ValidateUploadRequest request = new ValidateUploadRequest("photo.png", "image/png", 1024L);
+
+        when(runtimeService.validateUploadByKey(
+                eq("workspace-attachment"),
+                eq(new ValidateUploadCommand("photo.png", "image/png", 1024L))))
+                .thenReturn(new ValidateUploadResult(true, null));
+
+        ResponseEntity<ApiResponse<studio.one.platform.objecttype.web.dto.response.ValidateUploadResponse>> response =
+                controller.validateUploadByKey("workspace-attachment", request);
+
+        assertTrue(response.getBody().getData().isAllowed());
+        verify(runtimeService).validateUploadByKey(
+                eq("workspace-attachment"),
+                eq(new ValidateUploadCommand("photo.png", "image/png", 1024L)));
+    }
 }
