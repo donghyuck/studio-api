@@ -135,8 +135,8 @@ class UserServicesAutoConfigurationTest {
     void passwordPolicyValidatorBacksOffForCustomPasswordPolicyService() {
         PasswordPolicyService customPolicy = new PasswordPolicyService() {
             @Override
-            public studio.one.base.user.web.dto.response.PasswordPolicyDto getPolicy() {
-                return studio.one.base.user.web.dto.response.PasswordPolicyDto.builder().build();
+            public studio.one.base.user.application.result.PasswordPolicyResult getPolicy() {
+                return studio.one.base.user.application.result.PasswordPolicyResult.builder().build();
             }
 
             @Override

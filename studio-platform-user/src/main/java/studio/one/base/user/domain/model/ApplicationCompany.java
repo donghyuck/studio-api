@@ -30,7 +30,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import studio.one.base.user.domain.model.company.CompanyStatus;
-import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
+import studio.one.base.user.domain.support.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.ENTITY)
 @EntityListeners(AuditingEntityListener.class)

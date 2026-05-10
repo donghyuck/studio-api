@@ -264,12 +264,12 @@ this module's contracts stable.
 - `domain.error`: user/company domain error code와 exception
 - `domain.port`: repository/storage port contract
 - `application.command`: service write/query command
-- `application.result`: batch 처리 등 application result type
+- `application.result`: batch 처리, policy, summary 등 application result type
 - `application.usecase`: 외부 모듈과 starter가 의존하는 public service contract
 - `application.service`: 기본 validation/helper와 contract 구현
 - `application.config`: user application 설정 model
+- `domain.support`: entity/cache name처럼 여러 계층에서 공유하는 상수
 - `infrastructure.persistence.{jdbc,jpa}`: JDBC/JPA repository 구현
-- `infrastructure.cache`: cache name 등 기술 상세
 - `web.controller`: HTTP adapter
 - `web.dto.request`, `web.dto.response`: request/response DTO
 

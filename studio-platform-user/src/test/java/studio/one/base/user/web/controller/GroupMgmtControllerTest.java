@@ -16,6 +16,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
+import studio.one.base.user.application.result.GroupMemberSummaryResult;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.application.usecase.ApplicationGroupService;
@@ -50,10 +51,10 @@ class GroupMgmtControllerTest {
 
         when(groupService.getById(10L)).thenReturn(group);
         when(group.getGroupId()).thenReturn(10L);
-        when(groupService.getMemberSummaryDtos(eq(10L), eq("alice"), eq(pageable)))
+        when(groupService.getMemberSummaryResults(eq(10L), eq("alice"), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(
-                        GroupMemberSummaryDto.builder().userId(1L).username("alice").name("Alice Kim").enabled(true).build(),
-                        GroupMemberSummaryDto.builder().userId(2L).username("bob").name("Bob Lee").enabled(false).build()),
+                        GroupMemberSummaryResult.builder().userId(1L).username("alice").name("Alice Kim").enabled(true).build(),
+                        GroupMemberSummaryResult.builder().userId(2L).username("bob").name("Bob Lee").enabled(false).build()),
                         pageable,
                         2));
 
@@ -68,7 +69,7 @@ class GroupMgmtControllerTest {
         assertEquals("Alice Kim", first.getName());
         assertEquals(true, first.isEnabled());
 
-        verify(groupService).getMemberSummaryDtos(10L, "alice", pageable);
+        verify(groupService).getMemberSummaryResults(10L, "alice", pageable);
     }
 
     @Test
@@ -92,11 +93,11 @@ class GroupMgmtControllerTest {
 
         when(groupService.getById(10L)).thenReturn(group);
         when(group.getGroupId()).thenReturn(10L);
-        when(groupService.getMemberSummaryDtos(eq(10L), eq(null), eq(pageable)))
+        when(groupService.getMemberSummaryResults(eq(10L), eq(null), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         controller.memberSummaries(10L, Optional.of("   "), pageable);
 
-        verify(groupService).getMemberSummaryDtos(10L, null, pageable);
+        verify(groupService).getMemberSummaryResults(10L, null, pageable);
     }
 }

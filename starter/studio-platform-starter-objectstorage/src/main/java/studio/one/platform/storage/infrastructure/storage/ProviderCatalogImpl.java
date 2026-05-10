@@ -14,9 +14,9 @@ import lombok.RequiredArgsConstructor;
 import studio.one.platform.storage.autoconfigure.StorageProperties;
 import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
 import studio.one.platform.storage.application.result.ProviderCatalog;
-import studio.one.platform.storage.web.dto.response.ProviderInfoDto;
-import studio.one.platform.storage.web.dto.response.ProviderInfoDto.Capability;
-import studio.one.platform.storage.web.dto.response.ProviderInfoDto.Health;
+import studio.one.platform.storage.application.result.ProviderInfo;
+import studio.one.platform.storage.application.result.ProviderInfo.Capability;
+import studio.one.platform.storage.application.result.ProviderInfo.Health;
 
 /**
  *
@@ -39,7 +39,7 @@ public class ProviderCatalogImpl implements ProviderCatalog {
     private final StorageProperties props;  
 
     @Override
-    public List<ProviderInfoDto> list(boolean includeHealth) {
+    public List<ProviderInfo> list(boolean includeHealth) {
         var ids = new ArrayList<>(registry.ids());  
         Collections.sort(ids);
         var conf = materializeProviders(props);  
@@ -47,7 +47,7 @@ public class ProviderCatalogImpl implements ProviderCatalog {
             var bean = registry.get(id);
             var p = conf.get(id);  
             var kind = detectType(bean);
-            return ProviderInfoDto.builder()
+            return ProviderInfo.builder()
                     .name(id)
                     .type(kind)
                     .enabled(p != null && p.isEnabled())

@@ -27,7 +27,7 @@ import lombok.Setter;
 import studio.one.base.user.domain.model.company.CompanyMemberKeyRef;
 import studio.one.base.user.domain.model.company.CompanyMemberKeyStatus;
 import studio.one.base.user.domain.model.company.CompanyRole;
-import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
+import studio.one.base.user.domain.support.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.MemberKey.ENTITY)
 @EntityListeners(AuditingEntityListener.class)

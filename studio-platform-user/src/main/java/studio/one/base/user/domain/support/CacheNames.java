@@ -1,4 +1,4 @@
-package studio.one.base.user.infrastructure.cache;
+package studio.one.base.user.domain.support;
 
 import lombok.NoArgsConstructor;
 

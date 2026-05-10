@@ -24,7 +24,7 @@ import lombok.Setter;
 import studio.one.base.user.domain.model.company.CompanyJoinRequestRef;
 import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
 import studio.one.base.user.domain.model.company.CompanyRole;
-import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
+import studio.one.base.user.domain.support.JpaEntityNames;
 
 @Entity(name = JpaEntityNames.Company.JoinRequest.ENTITY)
 @Table(name = "TB_APPLICATION_COMPANY_JOIN_REQUEST")

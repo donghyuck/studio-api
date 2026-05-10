@@ -26,7 +26,7 @@ import lombok.Setter;
 import studio.one.base.user.domain.model.company.CompanyMemberRef;
 import studio.one.base.user.domain.model.company.CompanyMemberStatus;
 import studio.one.base.user.domain.model.company.CompanyRole;
-import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
+import studio.one.base.user.domain.support.JpaEntityNames;
 
 @Builder
 @Getter

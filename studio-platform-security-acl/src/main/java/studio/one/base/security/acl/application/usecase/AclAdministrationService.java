@@ -14,15 +14,15 @@ import studio.one.base.security.acl.domain.port.AclClassRepository;
 import studio.one.base.security.acl.domain.port.AclEntryRepository;
 import studio.one.base.security.acl.domain.port.AclObjectIdentityRepository;
 import studio.one.base.security.acl.domain.port.AclSidRepository;
-import studio.one.base.security.acl.web.dto.response.AclClassDto;
-import studio.one.base.security.acl.web.dto.request.AclClassRequest;
-import studio.one.base.security.acl.web.dto.response.AclEntryDto;
-import studio.one.base.security.acl.web.dto.request.AclEntryRequest;
-import studio.one.base.security.acl.web.dto.response.AclObjectIdentityDto;
-import studio.one.base.security.acl.web.dto.request.AclObjectIdentityRequest;
-import studio.one.base.security.acl.web.dto.response.AclSidDto;
-import studio.one.base.security.acl.web.dto.request.AclSidRequest;
+import studio.one.base.security.acl.application.command.AclClassCommand;
+import studio.one.base.security.acl.application.command.AclEntryCommand;
+import studio.one.base.security.acl.application.command.AclObjectIdentityCommand;
+import studio.one.base.security.acl.application.command.AclSidCommand;
 import studio.one.base.security.acl.application.policy.AclPolicyRefreshPublisher;
+import studio.one.base.security.acl.application.result.AclClassResult;
+import studio.one.base.security.acl.application.result.AclEntryResult;
+import studio.one.base.security.acl.application.result.AclObjectIdentityResult;
+import studio.one.base.security.acl.application.result.AclSidResult;
 import studio.one.platform.security.acl.AclMetricsRecorder;
 
 /**
@@ -40,13 +40,13 @@ public class AclAdministrationService {
     private final AclMetricsRecorder metricsRecorder;
     private final boolean auditEnabled;
 
-    public List<AclClassDto> listClasses() {
+    public List<AclClassResult> listClasses() {
         return classRepository.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
-    public AclClassDto createClass(AclClassRequest request) {
+    public AclClassResult createClass(AclClassCommand request) {
         AclClassEntity entity = new AclClassEntity();
         entity.setClassName(request.getClassName().trim());
         return toDto(classRepository.save(entity));
@@ -56,13 +56,13 @@ public class AclAdministrationService {
         classRepository.deleteById(id);
     }
 
-    public List<AclSidDto> listSids() {
+    public List<AclSidResult> listSids() {
         return sidRepository.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
-    public AclSidDto createSid(AclSidRequest request) {
+    public AclSidResult createSid(AclSidCommand request) {
         AclSidEntity entity = new AclSidEntity();
         entity.setSid(request.getSid().trim());
         entity.setPrincipal(request.isPrincipal());
@@ -73,13 +73,13 @@ public class AclAdministrationService {
         sidRepository.deleteById(id);
     }
 
-    public List<AclObjectIdentityDto> listObjectIdentities() {
+    public List<AclObjectIdentityResult> listObjectIdentities() {
         return objectIdentityRepository.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
-    public AclObjectIdentityDto createObjectIdentity(AclObjectIdentityRequest request) {
+    public AclObjectIdentityResult createObjectIdentity(AclObjectIdentityCommand request) {
         AclObjectIdentityEntity entity = new AclObjectIdentityEntity();
         AclClassEntity clazz = classRepository.findById(request.getClassId())
                 .orElseThrow(() -> new IllegalArgumentException("classId"));
@@ -101,13 +101,13 @@ public class AclAdministrationService {
         objectIdentityRepository.deleteById(id);
     }
 
-    public List<AclEntryDto> listEntries() {
+    public List<AclEntryResult> listEntries() {
         return entryRepository.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
-    public AclEntryDto createEntry(AclEntryRequest request) {
+    public AclEntryResult createEntry(AclEntryCommand request) {
         long started = System.nanoTime();
         AclEntryEntity entry = new AclEntryEntity();
         AclObjectIdentityEntity objectIdentity = objectIdentityRepository.findById(request.getObjectIdentityId())
@@ -121,7 +121,7 @@ public class AclAdministrationService {
         entry.setGranting(request.isGranting());
         entry.setAuditSuccess(request.isAuditSuccess());
         entry.setAuditFailure(request.isAuditFailure());
-        AclEntryDto dto = toDto(entryRepository.save(entry));
+        AclEntryResult dto = toDto(entryRepository.save(entry));
         refreshPublisher.publishAfterCommit();
         metricsRecorder.record("admin_entry_create", Duration.ofNanos(System.nanoTime() - started), 1);
         if (auditEnabled && log.isInfoEnabled()) {
@@ -141,37 +141,39 @@ public class AclAdministrationService {
         }
     }
 
-    private AclClassDto toDto(AclClassEntity entity) {
-        return new AclClassDto(entity.getId(), entity.getClassName());
+    private AclClassResult toDto(AclClassEntity entity) {
+        return AclClassResult.builder().id(entity.getId()).className(entity.getClassName()).build();
     }
 
-    private AclSidDto toDto(AclSidEntity entity) {
-        return new AclSidDto(entity.getId(), entity.isPrincipal(), entity.getSid());
+    private AclSidResult toDto(AclSidEntity entity) {
+        return AclSidResult.builder().id(entity.getId()).principal(entity.isPrincipal()).sid(entity.getSid()).build();
     }
 
-    private AclObjectIdentityDto toDto(AclObjectIdentityEntity entity) {
-        return new AclObjectIdentityDto(
-                entity.getId(),
-                entity.getAclClass().getId(),
-                entity.getAclClass().getClassName(),
-                entity.getObjectIdIdentity(),
-                (entity.getParent() != null) ? entity.getParent().getId() : null,
-                (entity.getOwnerSid() != null) ? entity.getOwnerSid().getId() : null,
-                entity.isEntriesInheriting());
+    private AclObjectIdentityResult toDto(AclObjectIdentityEntity entity) {
+        return AclObjectIdentityResult.builder()
+                .id(entity.getId())
+                .classId(entity.getAclClass().getId())
+                .className(entity.getAclClass().getClassName())
+                .objectIdentity(entity.getObjectIdIdentity())
+                .parentId((entity.getParent() != null) ? entity.getParent().getId() : null)
+                .ownerSidId((entity.getOwnerSid() != null) ? entity.getOwnerSid().getId() : null)
+                .entriesInheriting(entity.isEntriesInheriting())
+                .build();
     }
 
-    private AclEntryDto toDto(AclEntryEntity entity) {
-        return new AclEntryDto(
-                entity.getId(),
-                entity.getAclObjectIdentity().getId(),
-                entity.getAclObjectIdentity().getObjectIdIdentity(),
-                entity.getSid().getId(),
-                entity.getSid().getSid(),
-                entity.getAceOrder(),
-                entity.getMask(),
-                entity.isGranting(),
-                entity.isAuditSuccess(),
-                entity.isAuditFailure());
+    private AclEntryResult toDto(AclEntryEntity entity) {
+        return AclEntryResult.builder()
+                .id(entity.getId())
+                .objectIdentityId(entity.getAclObjectIdentity().getId())
+                .objectIdentity(entity.getAclObjectIdentity().getObjectIdIdentity())
+                .sidId(entity.getSid().getId())
+                .sid(entity.getSid().getSid())
+                .aceOrder(entity.getAceOrder())
+                .mask(entity.getMask())
+                .granting(entity.isGranting())
+                .auditSuccess(entity.isAuditSuccess())
+                .auditFailure(entity.isAuditFailure())
+                .build();
     }
 
     private int nextAceOrder(AclObjectIdentityEntity objectIdentity) {

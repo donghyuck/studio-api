@@ -3,9 +3,9 @@ package studio.one.base.user.application.service;
 import org.apache.commons.lang3.StringUtils;
 
 import studio.one.base.user.application.config.PasswordPolicyProperties;
+import studio.one.base.user.application.result.PasswordPolicyResult;
 import studio.one.base.user.domain.error.PasswordPolicyViolationException;
 import studio.one.base.user.application.usecase.PasswordPolicyService;
-import studio.one.base.user.web.dto.response.PasswordPolicyDto;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 
@@ -20,8 +20,8 @@ public class PasswordPolicyValidator implements PasswordPolicyService {
     }
 
     @Override
-    public PasswordPolicyDto getPolicy() {
-        return PasswordPolicyDto.builder()
+    public PasswordPolicyResult getPolicy() {
+        return PasswordPolicyResult.builder()
                 .minLength(properties.getMinLength())
                 .maxLength(properties.getMaxLength())
                 .requireUpper(properties.isRequireUpper())
@@ -33,7 +33,7 @@ public class PasswordPolicyValidator implements PasswordPolicyService {
                 .build();
     }
 
-    public PasswordPolicyDto toDto() {
+    public PasswordPolicyResult toDto() {
         return getPolicy();
     }
 

@@ -1,10 +1,10 @@
 package studio.one.base.user.application.usecase;
 
-import studio.one.base.user.web.dto.response.PasswordPolicyDto;
+import studio.one.base.user.application.result.PasswordPolicyResult;
 
 public interface PasswordPolicyService {
 
-    PasswordPolicyDto getPolicy();
+    PasswordPolicyResult getPolicy();
 
     void validate(String password);
 }

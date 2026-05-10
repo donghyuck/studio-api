@@ -53,7 +53,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
-import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
+import studio.one.base.user.domain.support.JpaEntityNames;
 import studio.one.base.user.domain.model.Status;
 import studio.one.base.user.domain.model.User;
 

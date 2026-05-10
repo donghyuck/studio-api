@@ -32,12 +32,12 @@ import java.util.function.Consumer;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import studio.one.base.user.application.command.MePasswordChangeCommand;
+import studio.one.base.user.application.command.MeProfilePatchCommand;
+import studio.one.base.user.application.command.MeProfilePutCommand;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
 import studio.one.platform.constant.ServiceNames;
-import studio.one.base.user.web.dto.request.MeProfilePatchRequest;
-import studio.one.base.user.web.dto.request.MeProfilePutRequest;
-import studio.one.base.user.web.dto.request.MePasswordChangeRequest;
 
 /**
  *
@@ -102,11 +102,11 @@ public interface ApplicationUserService<T extends User, R extends Role> {
             boolean notifyUser);
 
     // self profile update
-    T updateSelfByUsername(String username, MeProfilePatchRequest request);
+    T updateSelfByUsername(String username, MeProfilePatchCommand command);
 
-    T replaceSelfByUsername(String username, MeProfilePutRequest request);
+    T replaceSelfByUsername(String username, MeProfilePutCommand command);
 
-    T changeSelfPasswordByUsername(String username, MePasswordChangeRequest request);
+    T changeSelfPasswordByUsername(String username, MePasswordChangeCommand command);
 
     // paging & search
     Page<T> search(String q, Pageable pageable);

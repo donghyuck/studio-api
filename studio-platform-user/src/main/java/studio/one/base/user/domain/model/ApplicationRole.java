@@ -14,7 +14,7 @@
  *      See the License for the specific language governing permissions and
  *      limitations under the License.
  *
- *      @file ApplicationGroup.java
+ *      @file ApplicationRole.java
  *      @date 2025
  *
  */
@@ -23,102 +23,78 @@ package studio.one.base.user.domain.model;
 
 import java.time.Instant;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import jakarta.persistence.CascadeType;
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Builder.Default;
-import studio.one.base.user.infrastructure.persistence.jpa.JpaEntityNames;
-import studio.one.base.user.domain.model.Group;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.Singular;
+import lombok.ToString;
+import studio.one.base.user.domain.support.JpaEntityNames;
+import studio.one.base.user.domain.model.Role;
 
-@Entity(name = JpaEntityNames.Group.ENTITY)
+@Entity(name = JpaEntityNames.Role.ENTITY)
 @EntityListeners(AuditingEntityListener.class)
-@Table(name = "TB_APPLICATION_GROUP")
 @Getter
 @Setter
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@ToString(onlyExplicitlyIncluded = true)
+@Table(name = "TB_APPLICATION_ROLE")
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class ApplicationGroup implements Group {
+public class ApplicationRole implements Role {
 
-	@Id // tell persistence provider 'id' is primary key
-	@Column(name = "GROUP_ID", nullable = false)
+	@Id
+	@EqualsAndHashCode.Include
+	@ToString.Include
+	@Column(name = "ROLE_ID", nullable = false)
 	@GeneratedValue( // tell persistence provider that value of 'id' will be generated
 			strategy = GenerationType.IDENTITY // use RDBMS unique id generator
 	)
-	Long groupId;
+	private Long roleId;
 
 	@Column(name = "NAME", nullable = false, unique = true)
-	String name;
+	private String name;
 
-	@Column(name = "DESCRIPTION")
-	String description;
+	@Column(name = "DESCRIPTION", nullable = false)
+	private String description;
 
-	
 	@CreatedDate
 	@Column(name = "CREATION_DATE", updatable = false)
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-	Instant creationDate;
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+	private Instant creationDate;
 
 	@LastModifiedDate
 	@Column(name = "MODIFIED_DATE")
-	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-	Instant modifiedDate;
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", timezone = "UTC")
+	private Instant modifiedDate;
 
-	@ElementCollection(fetch = FetchType.EAGER)
-	@CollectionTable(name = "TB_APPLICATION_GROUP_PROPERTY", joinColumns = {
-			@JoinColumn(name = "GROUP_ID", referencedColumnName = "GROUP_ID") })
-	@MapKeyColumn(name = "PROPERTY_NAME")
-	@Column(name = "PROPERTY_VALUE")
-	@Singular
-	Map<String, String> properties;
-
-	@OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-	@Builder.Default
+	@OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
 	private Set<ApplicationGroupRole> groupRoles = new HashSet<>();
 
-	@OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
-	@Builder.Default
-	private Set<ApplicationGroupMembership> memberships = new HashSet<>();
-
-	@Transient @Default
-	private Long memberCount = 0L;
-
-	public ApplicationGroup(Long groupId, String name, String description, Long memberCount) {
-        this.groupId = groupId;
-        this.name = name;
-        this.description = description;
-        this.memberCount = memberCount == null ? 0L : memberCount.longValue();
-    }
+	@OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true)
+	@JsonIgnore
+	private Set<ApplicationUserRole> userRoles = new HashSet<>();
 
 	@PrePersist
 	void onCreate() {

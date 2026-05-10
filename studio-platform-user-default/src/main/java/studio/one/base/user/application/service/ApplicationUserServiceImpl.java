@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.infrastructure.cache.CacheNames;
+import studio.one.base.user.domain.support.CacheNames;
 import studio.one.base.user.domain.model.ApplicationGroup;
 import studio.one.base.user.domain.model.ApplicationGroupMembership;
 import studio.one.base.user.domain.model.ApplicationGroupMembershipId;
@@ -56,13 +56,13 @@ import studio.one.base.user.domain.port.ApplicationGroupRepository;
 import studio.one.base.user.domain.port.ApplicationRoleRepository;
 import studio.one.base.user.domain.port.ApplicationUserRepository;
 import studio.one.base.user.domain.port.ApplicationUserRoleRepository;
+import studio.one.base.user.application.command.MePasswordChangeCommand;
+import studio.one.base.user.application.command.MeProfilePatchCommand;
+import studio.one.base.user.application.command.MeProfilePutCommand;
 import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.base.user.application.result.BatchResult;
 import studio.one.base.user.application.usecase.PasswordPolicyService;
 import studio.one.base.user.application.usecase.UserMutator;
-import studio.one.base.user.web.dto.request.MeProfilePatchRequest;
-import studio.one.base.user.web.dto.request.MeProfilePutRequest;
-import studio.one.base.user.web.dto.request.MePasswordChangeRequest;
 import studio.one.platform.component.State;
 import studio.one.platform.exception.NotFoundException;
 import studio.one.platform.service.DomainEvents;
@@ -241,7 +241,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#result.userId", condition = "#result != null"),
             @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, key = "#username")
     })
-    public ApplicationUser updateSelfByUsername(String username, MeProfilePatchRequest request) {
+    public ApplicationUser updateSelfByUsername(String username, MeProfilePatchCommand request) {
         Objects.requireNonNull(request, "request");
         ApplicationUser u = userRepo.findByUsername(username)
                 .orElseThrow(() -> UserNotFoundException.of(username));
@@ -260,7 +260,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#result.userId", condition = "#result != null"),
             @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, key = "#username")
     })
-    public ApplicationUser replaceSelfByUsername(String username, MeProfilePutRequest request) {
+    public ApplicationUser replaceSelfByUsername(String username, MeProfilePutCommand request) {
         Objects.requireNonNull(request, "request");
         ApplicationUser u = userRepo.findByUsername(username)
                 .orElseThrow(() -> UserNotFoundException.of(username));
@@ -279,7 +279,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             @CacheEvict(cacheNames = CacheNames.User.BY_USER_ID, key = "#result.userId", condition = "#result != null"),
             @CacheEvict(cacheNames = CacheNames.User.BY_USERNAME, key = "#username")
     })
-    public ApplicationUser changeSelfPasswordByUsername(String username, MePasswordChangeRequest request) {
+    public ApplicationUser changeSelfPasswordByUsername(String username, MePasswordChangeCommand request) {
         Objects.requireNonNull(request, "request");
         ApplicationUser u = userRepo.findByUsername(username)
                 .orElseThrow(() -> UserNotFoundException.of(username));
@@ -306,7 +306,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         return saved;
     }
 
-    private void applyPatch(ApplicationUser u, MeProfilePatchRequest req) {
+    private void applyPatch(ApplicationUser u, MeProfilePatchCommand req) {
         if (req.getEmail() != null) {
             assertEmailAvailable(u, req.getEmail());
             u.setEmail(req.getEmail());
@@ -325,7 +325,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
             mergeSafeProperties(u, req.getProperties());
     }
 
-    private void applyPut(ApplicationUser u, MeProfilePutRequest req) {
+    private void applyPut(ApplicationUser u, MeProfilePutCommand req) {
         u.setName(req.getName());
         assertEmailAvailable(u, req.getEmail());
         u.setEmail(req.getEmail());
