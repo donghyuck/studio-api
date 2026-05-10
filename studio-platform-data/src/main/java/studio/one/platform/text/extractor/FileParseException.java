@@ -4,10 +4,10 @@ import studio.one.platform.error.ErrorType;
 
 /**
  * @deprecated since 2026-04-20. Use
- *             {@link studio.one.platform.textract.extractor.FileParseException}.
+ *             {@link studio.one.platform.textract.domain.error.FileParseException}.
  */
 @Deprecated(forRemoval = false)
-public class FileParseException extends studio.one.platform.textract.extractor.FileParseException {
+public class FileParseException extends studio.one.platform.textract.domain.error.FileParseException {
 
     private static final long serialVersionUID = 1L;
 
@@ -28,7 +28,7 @@ public class FileParseException extends studio.one.platform.textract.extractor.F
         return new FileParseException("error.text.file.parse", args);
     }
 
-    public static FileParseException from(studio.one.platform.textract.extractor.FileParseException exception) {
+    public static FileParseException from(studio.one.platform.textract.domain.error.FileParseException exception) {
         if (exception instanceof FileParseException legacy) {
             return legacy;
         }

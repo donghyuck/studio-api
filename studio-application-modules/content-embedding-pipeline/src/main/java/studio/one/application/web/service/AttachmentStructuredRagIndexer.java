@@ -7,7 +7,7 @@ import java.util.Optional;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 public interface AttachmentStructuredRagIndexer {
 

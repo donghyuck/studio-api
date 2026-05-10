@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import studio.one.platform.textract.model.ParsedFile;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.domain.model.ParsedFile;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 import studio.one.platform.thumbnail.ThumbnailFormats;
 import studio.one.platform.thumbnail.ThumbnailGenerationException;
 import studio.one.platform.thumbnail.ThumbnailImages;

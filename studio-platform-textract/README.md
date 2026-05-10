@@ -12,10 +12,10 @@
 
 ## 패키지
 
-- `studio.one.platform.textract.extractor`: parser 계약, 포맷 판별, dispatcher
-- `studio.one.platform.textract.extractor.impl`: 포맷별 parser 구현
-- `studio.one.platform.textract.model`: 구조화 추출 결과 모델
-- `studio.one.platform.textract.service`: 추출 서비스
+- `studio.one.platform.textract.application.usecase`: parser 계약, dispatcher, 추출 서비스
+- `studio.one.platform.textract.application.service`: 포맷 판별 등 application helper
+- `studio.one.platform.textract.infrastructure.extractor.impl`: 포맷별 parser 구현
+- `studio.one.platform.textract.domain.model`: 구조화 추출 결과 모델
 
 ## 사용법
 

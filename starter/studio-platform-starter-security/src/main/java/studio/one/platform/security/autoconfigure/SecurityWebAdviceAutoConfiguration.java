@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Bean;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.authentication.lock.application.usecase.AccountLockService;
 import studio.one.base.security.web.adivce.SecurityExceptionHandler;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;

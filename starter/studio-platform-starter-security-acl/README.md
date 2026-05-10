@@ -55,9 +55,9 @@ studio:
         - __domain__
         - __root__
       entity-packages:
-        - studio.one.base.security.acl.domain.entity
+        - studio.one.base.security.acl.domain.model
       repository-packages:
-        - studio.one.base.security.acl.persistence
+        - studio.one.base.security.acl.domain.port
 ```
 
 ### 정책 동기화 REST 엔드포인트 설정
@@ -115,6 +115,9 @@ JPA 엔터티·리포지토리는 `SecurityAclDatabaseAutoConfiguration.EntitySc
 ## 5) 참고 사항
 - `studio-platform-security-acl` 모듈이 ACL 도메인 모델, 리포지토리, 정책 서비스 구현을 제공하며,
   이 스타터는 해당 모듈을 `api` 의존성으로 전이 노출한다.
+- package architecture는 `domain/application/infrastructure/web` 구조를 따른다. 직접 확장 시
+  기존 `service`, `persistence`, `policy`, `web.dto` package가 아니라 새 `application.usecase`,
+  `application.policy`, `domain.port`, `web.dto.request/response` package를 기준으로 import한다.
 - 기본적으로 Spring Security `MutableAclService` 없이 직접 리포지토리를 통해 권한을 관리한다
   (`use-spring-acl: false`). Spring ACL 표준 방식이 필요할 때만 `use-spring-acl: true`로 변경한다.
 - SpEL을 통한 엔드포인트 권한 체크는 `@endpointAuthz.can('domain','component','action')` 형식을 사용한다.

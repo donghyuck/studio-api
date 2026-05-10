@@ -40,15 +40,23 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.acl.service.AclAdministrationService;
-import studio.one.base.security.acl.web.dto.AclClassDto;
-import studio.one.base.security.acl.web.dto.AclClassRequest;
-import studio.one.base.security.acl.web.dto.AclEntryDto;
-import studio.one.base.security.acl.web.dto.AclEntryRequest;
-import studio.one.base.security.acl.web.dto.AclObjectIdentityDto;
-import studio.one.base.security.acl.web.dto.AclObjectIdentityRequest;
-import studio.one.base.security.acl.web.dto.AclSidDto;
-import studio.one.base.security.acl.web.dto.AclSidRequest;
+import studio.one.base.security.acl.application.command.AclClassCommand;
+import studio.one.base.security.acl.application.command.AclEntryCommand;
+import studio.one.base.security.acl.application.command.AclObjectIdentityCommand;
+import studio.one.base.security.acl.application.command.AclSidCommand;
+import studio.one.base.security.acl.application.result.AclClassResult;
+import studio.one.base.security.acl.application.result.AclEntryResult;
+import studio.one.base.security.acl.application.result.AclObjectIdentityResult;
+import studio.one.base.security.acl.application.result.AclSidResult;
+import studio.one.base.security.acl.application.usecase.AclAdministrationService;
+import studio.one.base.security.acl.web.dto.response.AclClassDto;
+import studio.one.base.security.acl.web.dto.request.AclClassRequest;
+import studio.one.base.security.acl.web.dto.response.AclEntryDto;
+import studio.one.base.security.acl.web.dto.request.AclEntryRequest;
+import studio.one.base.security.acl.web.dto.response.AclObjectIdentityDto;
+import studio.one.base.security.acl.web.dto.request.AclObjectIdentityRequest;
+import studio.one.base.security.acl.web.dto.response.AclSidDto;
+import studio.one.base.security.acl.web.dto.request.AclSidRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
@@ -65,7 +73,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/classes")
     public ResponseEntity<ApiResponse<List<AclClassDto>>> classes() {
-        var list = administrationService.listClasses();
+        var list = administrationService.listClasses().stream().map(this::toDto).toList();
         return ok(ApiResponse.ok(list));
     }
 
@@ -73,8 +81,8 @@ public class AclAdminController {
     @PostMapping("/classes")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<AclClassDto>> createClass(@RequestBody @Valid AclClassRequest request) {
-        var created = administrationService.createClass(request);
-        return ok(ApiResponse.ok(created));
+        var created = administrationService.createClass(toCommand(request));
+        return ok(ApiResponse.ok(toDto(created)));
     }
 
     @PreAuthorize("@endpointAuthz.can('security:acl','delete')")
@@ -98,7 +106,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/sids")
     public ResponseEntity<ApiResponse<List<AclSidDto>>> sids() {
-        var list = administrationService.listSids();
+        var list = administrationService.listSids().stream().map(this::toDto).toList();
         return ok(ApiResponse.ok(list));
     }
 
@@ -106,8 +114,8 @@ public class AclAdminController {
     @PostMapping("/sids")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<AclSidDto>> createSid(@RequestBody @Valid AclSidRequest request) {
-        var created = administrationService.createSid(request);
-        return ok(ApiResponse.ok(created));
+        var created = administrationService.createSid(toCommand(request));
+        return ok(ApiResponse.ok(toDto(created)));
     }
 
     @PreAuthorize("@endpointAuthz.can('security:acl','admin')")
@@ -121,7 +129,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/objects")
     public ResponseEntity<ApiResponse<List<AclObjectIdentityDto>>> objectIdentities() {
-        var list = administrationService.listObjectIdentities();
+        var list = administrationService.listObjectIdentities().stream().map(this::toDto).toList();
         return ok(ApiResponse.ok(list));
     }
 
@@ -129,8 +137,8 @@ public class AclAdminController {
     @PostMapping("/objects")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<AclObjectIdentityDto>> createObjectIdentity(@RequestBody @Valid AclObjectIdentityRequest request) {
-        var created = administrationService.createObjectIdentity(request);
-        return ok(ApiResponse.ok(created));
+        var created = administrationService.createObjectIdentity(toCommand(request));
+        return ok(ApiResponse.ok(toDto(created)));
     }
 
     @PreAuthorize("@endpointAuthz.can('security:acl','delete')")
@@ -145,7 +153,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/entries")
     public ResponseEntity<ApiResponse<List<AclEntryDto>>>  entries() {
-        var list = administrationService.listEntries();
+        var list = administrationService.listEntries().stream().map(this::toDto).toList();
         return ok(ApiResponse.ok(list));
     }
 
@@ -153,8 +161,8 @@ public class AclAdminController {
     @PostMapping("/entries")
     @ResponseStatus(HttpStatus.CREATED)
     public ResponseEntity<ApiResponse<AclEntryDto>>   createEntry(@RequestBody @Valid AclEntryRequest request) {
-        var created = administrationService.createEntry(request);
-        return ok(ApiResponse.ok(created));
+        var created = administrationService.createEntry(toCommand(request));
+        return ok(ApiResponse.ok(toDto(created)));
     }
 
     @PreAuthorize("@endpointAuthz.can('security:acl','delete')")
@@ -163,5 +171,68 @@ public class AclAdminController {
     public ResponseEntity<ApiResponse<Void>> deleteEntry(@PathVariable("id") Long id) {
         administrationService.deleteEntry(id);
         return ok(ApiResponse.ok());
+    }
+
+    private AclClassCommand toCommand(AclClassRequest request) {
+        return AclClassCommand.builder().className(request.getClassName()).build();
+    }
+
+    private AclSidCommand toCommand(AclSidRequest request) {
+        return AclSidCommand.builder().principal(request.isPrincipal()).sid(request.getSid()).build();
+    }
+
+    private AclObjectIdentityCommand toCommand(AclObjectIdentityRequest request) {
+        return AclObjectIdentityCommand.builder()
+                .classId(request.getClassId())
+                .objectIdentity(request.getObjectIdentity())
+                .parentId(request.getParentId())
+                .ownerSidId(request.getOwnerSidId())
+                .entriesInheriting(request.isEntriesInheriting())
+                .build();
+    }
+
+    private AclEntryCommand toCommand(AclEntryRequest request) {
+        return AclEntryCommand.builder()
+                .objectIdentityId(request.getObjectIdentityId())
+                .sidId(request.getSidId())
+                .mask(request.getMask())
+                .aceOrder(request.getAceOrder())
+                .granting(request.isGranting())
+                .auditSuccess(request.isAuditSuccess())
+                .auditFailure(request.isAuditFailure())
+                .build();
+    }
+
+    private AclClassDto toDto(AclClassResult result) {
+        return new AclClassDto(result.getId(), result.getClassName());
+    }
+
+    private AclSidDto toDto(AclSidResult result) {
+        return new AclSidDto(result.getId(), result.isPrincipal(), result.getSid());
+    }
+
+    private AclObjectIdentityDto toDto(AclObjectIdentityResult result) {
+        return new AclObjectIdentityDto(
+                result.getId(),
+                result.getClassId(),
+                result.getClassName(),
+                result.getObjectIdentity(),
+                result.getParentId(),
+                result.getOwnerSidId(),
+                result.isEntriesInheriting());
+    }
+
+    private AclEntryDto toDto(AclEntryResult result) {
+        return new AclEntryDto(
+                result.getId(),
+                result.getObjectIdentityId(),
+                result.getObjectIdentity(),
+                result.getSidId(),
+                result.getSid(),
+                result.getAceOrder(),
+                result.getMask(),
+                result.isGranting(),
+                result.isAuditSuccess(),
+                result.isAuditFailure());
     }
 }

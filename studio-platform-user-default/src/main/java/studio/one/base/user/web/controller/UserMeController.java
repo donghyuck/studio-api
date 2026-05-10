@@ -23,16 +23,19 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.application.command.MePasswordChangeCommand;
+import studio.one.base.user.application.command.MeProfilePatchCommand;
+import studio.one.base.user.application.command.MeProfilePutCommand;
 import studio.one.base.user.domain.model.Role;
 import studio.one.base.user.domain.model.User;
-import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.service.PasswordPolicyService;
+import studio.one.base.user.application.usecase.ApplicationUserService;
+import studio.one.base.user.application.usecase.PasswordPolicyService;
 import studio.one.base.user.web.controller.AbstractPasswordPolicyControllerSupport;
-import studio.one.base.user.web.dto.MeProfileDto;
-import studio.one.base.user.web.dto.MeProfilePatchRequest;
-import studio.one.base.user.web.dto.MeProfilePutRequest;
-import studio.one.base.user.web.dto.MePasswordChangeRequest;
-import studio.one.base.user.web.dto.PasswordPolicyDto;
+import studio.one.base.user.web.dto.response.MeProfileDto;
+import studio.one.base.user.web.dto.request.MeProfilePatchRequest;
+import studio.one.base.user.web.dto.request.MeProfilePutRequest;
+import studio.one.base.user.web.dto.request.MePasswordChangeRequest;
+import studio.one.base.user.web.dto.response.PasswordPolicyDto;
 import studio.one.base.user.web.mapper.ApplicationUserMapper;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -65,7 +68,7 @@ public class UserMeController extends AbstractPasswordPolicyControllerSupport im
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody MeProfilePatchRequest request) {
         String username = requirePrincipal(principal);
-        User updated = userService.updateSelfByUsername(username, request);
+        User updated = userService.updateSelfByUsername(username, toCommand(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(updated, null)));
     }
 
@@ -76,7 +79,7 @@ public class UserMeController extends AbstractPasswordPolicyControllerSupport im
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody MeProfilePutRequest request) {
         String username = requirePrincipal(principal);
-        User updated = userService.replaceSelfByUsername(username, request);
+        User updated = userService.replaceSelfByUsername(username, toCommand(request));
         return ResponseEntity.ok(ApiResponse.ok(toDto(updated, null)));
     }
 
@@ -87,7 +90,7 @@ public class UserMeController extends AbstractPasswordPolicyControllerSupport im
             @AuthenticationPrincipal UserDetails principal,
             @Valid @RequestBody MePasswordChangeRequest request) {
         String username = requirePrincipal(principal);
-        userService.changeSelfPasswordByUsername(username, request);
+        userService.changeSelfPasswordByUsername(username, toCommand(request));
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
@@ -105,6 +108,37 @@ public class UserMeController extends AbstractPasswordPolicyControllerSupport im
             throw new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException(
                     "Unauthenticated");
         return principal.getUsername();
+    }
+
+    private MeProfilePatchCommand toCommand(MeProfilePatchRequest request) {
+        return MeProfilePatchCommand.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .emailVisible(request.getEmailVisible())
+                .nameVisible(request.getNameVisible())
+                .lastName(request.getLastName())
+                .firstName(request.getFirstName())
+                .properties(request.getProperties())
+                .build();
+    }
+
+    private MeProfilePutCommand toCommand(MeProfilePutRequest request) {
+        return MeProfilePutCommand.builder()
+                .name(request.getName())
+                .email(request.getEmail())
+                .emailVisible(request.getEmailVisible())
+                .nameVisible(request.getNameVisible())
+                .lastName(request.getLastName())
+                .firstName(request.getFirstName())
+                .properties(request.getProperties())
+                .build();
+    }
+
+    private MePasswordChangeCommand toCommand(MePasswordChangeRequest request) {
+        return MePasswordChangeCommand.builder()
+                .currentPassword(request.getCurrentPassword())
+                .newPassword(request.getNewPassword())
+                .build();
     }
 
     private MeProfileDto toDto(User u, Set<Role> roles) {

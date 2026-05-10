@@ -21,17 +21,17 @@ import studio.one.platform.constant.PropertyKeys;
 public class UserFeatureProperties extends FeatureToggle {
 
     // 기본 구현 모듈(studio-platform-user-default)의 JPA 리포지토리 패키지
-    public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jpa";
+    public static final String DEFAULT_REPOSITORY_PACKAGE = "studio.one.base.user.infrastructure.persistence.jpa";
 
     /** JDBC 구현 패키지 경로 (필요 시 repository-packages에 설정) */
     // 기본 구현 모듈(studio-platform-user-default)의 JDBC 리포지토리 패키지
-    public static final String JDBC_REPOSITORY_PACKAGE = "studio.one.base.user.persistence.jdbc";
+    public static final String JDBC_REPOSITORY_PACKAGE = "studio.one.base.user.infrastructure.persistence.jdbc";
 
     // 기본 구현 모듈(studio-platform-user-default)의 엔터티 패키지
-    public static final String DEFAULT_ENTITY_PACKAGE = "studio.one.base.user.domain.entity";
+    public static final String DEFAULT_ENTITY_PACKAGE = "studio.one.base.user.domain.model";
 
     // 기본 구현 모듈(studio-platform-user-default)의 서비스 구현 패키지
-    public static final String DEFAULT_COMPONENT_PACKAGE = "studio.one.base.user.service.impl";
+    public static final String DEFAULT_COMPONENT_PACKAGE = "studio.one.base.user.application.service";
 
     /** 멀티 EMF/Tx 환경 대비 기본 빈 이름 디폴트 */
     private String entityManagerFactory = "entityManagerFactory";

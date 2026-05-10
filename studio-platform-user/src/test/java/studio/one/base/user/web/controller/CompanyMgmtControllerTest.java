@@ -27,23 +27,23 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.User;
 
-import studio.one.base.user.company.model.CompanyMemberRef;
-import studio.one.base.user.company.model.CompanyMemberStatus;
-import studio.one.base.user.company.model.CompanyPermissionPolicyRef;
-import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.company.model.CompanyStatus;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.service.ApplicationCompanyService;
-import studio.one.base.user.web.dto.CompanyDto;
-import studio.one.base.user.web.dto.CompanyMemberRequest;
-import studio.one.base.user.web.dto.CompanyMemberRoleRequest;
-import studio.one.base.user.web.dto.CompanyPermissionPolicyUpdateRequest;
-import studio.one.base.user.web.dto.CompanyPermissionRolePolicyRequest;
-import studio.one.base.user.web.dto.CompanyUpdateRequest;
+import studio.one.base.user.domain.model.company.CompanyMemberRef;
+import studio.one.base.user.domain.model.company.CompanyMemberStatus;
+import studio.one.base.user.domain.model.company.CompanyPermissionPolicyRef;
+import studio.one.base.user.domain.model.company.CompanyPermissionRolePolicyRef;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.company.CompanyStatus;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
+import studio.one.base.user.web.dto.response.CompanyDto;
+import studio.one.base.user.web.dto.request.CompanyMemberRequest;
+import studio.one.base.user.web.dto.request.CompanyMemberRoleRequest;
+import studio.one.base.user.web.dto.request.CompanyPermissionPolicyUpdateRequest;
+import studio.one.base.user.web.dto.request.CompanyPermissionRolePolicyRequest;
+import studio.one.base.user.web.dto.request.CompanyUpdateRequest;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
 
@@ -364,7 +364,7 @@ class CompanyMgmtControllerTest {
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','read')");
         assertThat(preAuthorize("addMember", Long.class, CompanyMemberRequest.class, UserDetails.class))
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')");
-        assertThat(preAuthorize("changeRole", Long.class, Long.class, studio.one.base.user.web.dto.CompanyMemberRoleRequest.class, UserDetails.class))
+        assertThat(preAuthorize("changeRole", Long.class, Long.class, studio.one.base.user.web.dto.request.CompanyMemberRoleRequest.class, UserDetails.class))
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')");
         assertThat(preAuthorize("removeMember", Long.class, Long.class, UserDetails.class))
                 .isEqualTo("@endpointAuthz.can('features:company','admin') or @endpointAuthz.can('features:company','write')");

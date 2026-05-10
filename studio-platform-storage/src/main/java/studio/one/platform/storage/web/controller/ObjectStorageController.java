@@ -53,15 +53,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
-import studio.one.platform.storage.service.BucketInfo;
-import studio.one.platform.storage.service.CloudObjectStorage;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
-import studio.one.platform.storage.service.ProviderCatalog;
-import studio.one.platform.storage.web.dto.ObjectInfoDto;
-import studio.one.platform.storage.web.dto.ObjectListItemDto;
-import studio.one.platform.storage.web.dto.ObjectListResponse;
-import studio.one.platform.storage.web.dto.PresignedUrlDto;
-import studio.one.platform.storage.web.dto.ProviderInfoDto;
+import studio.one.platform.storage.domain.model.BucketInfo;
+import studio.one.platform.storage.application.usecase.CloudObjectStorage;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
+import studio.one.platform.storage.application.result.ProviderCatalog;
+import studio.one.platform.storage.application.result.ProviderInfo;
+import studio.one.platform.storage.web.dto.response.ObjectInfoDto;
+import studio.one.platform.storage.web.dto.response.ObjectListItemDto;
+import studio.one.platform.storage.web.dto.response.ObjectListResponse;
+import studio.one.platform.storage.web.dto.response.PresignedUrlDto;
+import studio.one.platform.storage.web.dto.response.ProviderInfoDto;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**
@@ -95,7 +96,28 @@ public class ObjectStorageController {
     public ResponseEntity<ApiResponse<List<ProviderInfoDto>>> listProviders(
             @RequestParam(defaultValue = "false") boolean health) {
         requireAdmin();
-        return ok(ApiResponse.ok(catalog.list(health)));
+        return ok(ApiResponse.ok(catalog.list(health).stream().map(this::toDto).toList()));
+    }
+
+    private ProviderInfoDto toDto(ProviderInfo info) {
+        return ProviderInfoDto.builder()
+                .name(info.getName())
+                .type(info.getType())
+                .enabled(info.isEnabled())
+                .status(info.getStatus())
+                .health(info.getHealth() == null ? null : ProviderInfoDto.Health.valueOf(info.getHealth().name()))
+                .region(info.getRegion())
+                .endpointMasked(info.getEndpointMasked())
+                .ociNamespace(info.getOciNamespace())
+                .ociCompartmentMasked(info.getOciCompartmentMasked())
+                .fsRootMasked(info.getFsRootMasked())
+                .s3PathStyle(info.getS3PathStyle())
+                .s3PresignerEnabled(info.getS3PresignerEnabled())
+                .capabilities(info.getCapabilities() == null ? null : info.getCapabilities().stream()
+                        .map(capability -> ProviderInfoDto.Capability.valueOf(capability.name()))
+                        .toList())
+                .labels(info.getLabels())
+                .build();
     }
 
     @GetMapping(value = {"/providers/{providerId}/buckets", "/providers/{providerId}/buckets/"})

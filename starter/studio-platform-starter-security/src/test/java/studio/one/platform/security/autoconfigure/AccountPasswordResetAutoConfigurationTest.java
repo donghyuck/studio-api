@@ -11,12 +11,12 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import studio.one.aplication.security.auth.password.MailService;
-import studio.one.aplication.security.auth.password.PasswordResetService;
-import studio.one.aplication.security.auth.password.impl.MailServiceImpl;
-import studio.one.aplication.security.web.controller.PasswordResetController;
-import studio.one.base.security.jwt.reset.persistence.PasswordResetTokenRepository;
-import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.security.application.usecase.password.MailService;
+import studio.one.base.security.application.usecase.password.PasswordResetService;
+import studio.one.base.security.application.service.password.MailServiceImpl;
+import studio.one.base.security.web.controller.PasswordResetController;
+import studio.one.base.security.jwt.reset.domain.port.PasswordResetTokenRepository;
+import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.platform.service.I18n;
 
 class AccountPasswordResetAutoConfigurationTest {

@@ -27,10 +27,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.service.ApplicationCompanyService;
-import studio.one.base.user.service.ApplicationUserService;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
+import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionContributor;

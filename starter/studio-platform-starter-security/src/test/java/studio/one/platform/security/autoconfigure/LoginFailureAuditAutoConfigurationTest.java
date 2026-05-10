@@ -32,9 +32,9 @@ import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 
 import studio.one.base.security.audit.ClientRequestDetailsAuthenticationDetailsSource;
 import studio.one.base.security.audit.LoginFailureAuditFailureMonitor;
-import studio.one.base.security.audit.persistence.jdbc.LoginFailureLogJdbcRepository;
-import studio.one.base.security.audit.persistence.jpa.LoginFailureLogJpaRepository;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.audit.infrastructure.persistence.jdbc.LoginFailureLogJdbcRepository;
+import studio.one.base.security.audit.infrastructure.persistence.jpa.LoginFailureLogJpaRepository;
+import studio.one.base.security.authentication.lock.application.usecase.AccountLockService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.service.I18n;
 

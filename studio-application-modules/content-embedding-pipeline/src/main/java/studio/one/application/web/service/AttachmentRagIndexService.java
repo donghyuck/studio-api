@@ -19,7 +19,7 @@ import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.exception.NotFoundException;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @Service
 @RequiredArgsConstructor

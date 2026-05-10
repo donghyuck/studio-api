@@ -13,10 +13,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.user.company.model.CompanyRole;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
+import studio.one.base.user.domain.model.company.CompanyRole;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
 import studio.one.platform.workspace.application.error.WorkspaceNotFoundException;
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
 import studio.one.platform.workspace.domain.model.WorkspaceVisibility;

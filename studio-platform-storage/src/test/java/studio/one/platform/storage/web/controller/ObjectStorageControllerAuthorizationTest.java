@@ -13,8 +13,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import studio.one.platform.service.I18n;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
-import studio.one.platform.storage.service.ProviderCatalog;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
+import studio.one.platform.storage.application.result.ProviderCatalog;
 
 class ObjectStorageControllerAuthorizationTest {
 

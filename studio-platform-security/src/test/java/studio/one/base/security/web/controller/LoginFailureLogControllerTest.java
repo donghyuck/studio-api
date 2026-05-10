@@ -15,8 +15,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
-import studio.one.base.security.audit.service.LoginFailQuery;
-import studio.one.base.security.audit.service.LoginFailureQueryService;
+import studio.one.base.security.audit.application.command.LoginFailQuery;
+import studio.one.base.security.audit.application.usecase.LoginFailureQueryService;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
 
 class LoginFailureLogControllerTest {

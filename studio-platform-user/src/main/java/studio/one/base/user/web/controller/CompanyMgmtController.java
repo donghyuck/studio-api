@@ -34,23 +34,23 @@ import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.company.model.CompanyMemberRef;
-import studio.one.base.user.company.model.CompanyPermissionPolicyRef;
-import studio.one.base.user.company.model.CompanyPermissionRolePolicyRef;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.service.ApplicationCompanyService;
-import studio.one.base.user.web.dto.CompanyDto;
-import studio.one.base.user.web.dto.CompanyMemberDto;
-import studio.one.base.user.web.dto.CompanyMemberRequest;
-import studio.one.base.user.web.dto.CompanyMemberRoleRequest;
-import studio.one.base.user.web.dto.CompanyPermissionPolicyDto;
-import studio.one.base.user.web.dto.CompanyPermissionPolicyUpdateRequest;
-import studio.one.base.user.web.dto.CompanyPermissionRolePolicyDto;
-import studio.one.base.user.web.dto.CompanyPermissionSummaryDto;
-import studio.one.base.user.web.dto.CompanyUpdateRequest;
+import studio.one.base.user.domain.model.company.CompanyMemberRef;
+import studio.one.base.user.domain.model.company.CompanyPermissionPolicyRef;
+import studio.one.base.user.domain.model.company.CompanyPermissionRolePolicyRef;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
+import studio.one.base.user.web.dto.response.CompanyDto;
+import studio.one.base.user.web.dto.response.CompanyMemberDto;
+import studio.one.base.user.web.dto.request.CompanyMemberRequest;
+import studio.one.base.user.web.dto.request.CompanyMemberRoleRequest;
+import studio.one.base.user.web.dto.response.CompanyPermissionPolicyDto;
+import studio.one.base.user.web.dto.request.CompanyPermissionPolicyUpdateRequest;
+import studio.one.base.user.web.dto.response.CompanyPermissionRolePolicyDto;
+import studio.one.base.user.web.dto.response.CompanyPermissionSummaryDto;
+import studio.one.base.user.web.dto.request.CompanyUpdateRequest;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.web.dto.ApiResponse;
@@ -188,7 +188,7 @@ public class CompanyMgmtController {
             @AuthenticationPrincipal UserDetails principal) {
         assertCompanyAction(companyId, principal, CompanyPermissionActions.PERMISSION_READ);
         companyService.get(companyId);
-        return ResponseEntity.ok(ApiResponse.ok(studio.one.base.user.company.permission.CompanyPermissionActions.definitions()));
+        return ResponseEntity.ok(ApiResponse.ok(studio.one.base.user.domain.model.company.CompanyPermissionActions.definitions()));
     }
 
     @GetMapping("/{companyId}/permissions/policy")

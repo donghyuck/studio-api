@@ -8,14 +8,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.Order;
 
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 import studio.one.platform.thumbnail.renderer.DocxThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.HwpThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.HwpxThumbnailRenderer;
 
 @AutoConfiguration(after = ThumbnailAutoConfiguration.class)
-@ConditionalOnClass(name = "studio.one.platform.textract.service.FileContentExtractionService")
-@ConditionalOnBean(type = "studio.one.platform.textract.service.FileContentExtractionService")
+@ConditionalOnClass(name = "studio.one.platform.textract.application.usecase.FileContentExtractionService")
+@ConditionalOnBean(type = "studio.one.platform.textract.application.usecase.FileContentExtractionService")
 public class ThumbnailTextractPreviewAutoConfiguration {
 
     @Bean

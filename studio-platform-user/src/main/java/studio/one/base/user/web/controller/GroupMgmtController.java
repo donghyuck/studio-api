@@ -57,16 +57,17 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.user.application.result.GroupMemberSummaryResult;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.service.ApplicationGroupService;
-import studio.one.base.user.service.BatchResult;
-import studio.one.base.user.web.dto.AddMembersRequest;
-import studio.one.base.user.web.dto.GroupMemberSummaryDto;
-import studio.one.base.user.web.dto.GroupDto;
-import studio.one.base.user.web.dto.PropertyDto;
-import studio.one.base.user.web.dto.RoleDto;
-import studio.one.base.user.web.dto.UpdateRolesRequest;
+import studio.one.base.user.application.usecase.ApplicationGroupService;
+import studio.one.base.user.application.result.BatchResult;
+import studio.one.base.user.web.dto.request.AddMembersRequest;
+import studio.one.base.user.web.dto.response.GroupMemberSummaryDto;
+import studio.one.base.user.web.dto.response.GroupDto;
+import studio.one.base.user.web.dto.response.PropertyDto;
+import studio.one.base.user.web.dto.response.RoleDto;
+import studio.one.base.user.web.dto.request.UpdateRolesRequest;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.util.RequestParamUtils;
@@ -220,7 +221,8 @@ public class GroupMgmtController implements GroupMgmtApi {
             @PageableDefault(size = 15, direction = Sort.Direction.DESC) Pageable pageable) {
         Group group = groupService.getById(id);
         String keyword = RequestParamUtils.normalizeQuery(q).orElse(null);
-        Page<GroupMemberSummaryDto> dtoPage = groupService.getMemberSummaryDtos(group.getGroupId(), keyword, pageable);
+        Page<GroupMemberSummaryDto> dtoPage = groupService.getMemberSummaryResults(group.getGroupId(), keyword, pageable)
+                .map(this::toDto);
         return ok(ApiResponse.ok(dtoPage));
     }
 
@@ -306,6 +308,15 @@ public class GroupMgmtController implements GroupMgmtApi {
 
     private UserDto toUserDto(UserRef userRef) {
         return new UserDto(userRef.userId(), userRef.username());
+    }
+
+    private GroupMemberSummaryDto toDto(GroupMemberSummaryResult summary) {
+        return GroupMemberSummaryDto.builder()
+                .userId(summary.getUserId())
+                .username(summary.getUsername())
+                .name(summary.getName())
+                .enabled(summary.isEnabled())
+                .build();
     }
 
     private static Set<String> parseFields(String raw) {

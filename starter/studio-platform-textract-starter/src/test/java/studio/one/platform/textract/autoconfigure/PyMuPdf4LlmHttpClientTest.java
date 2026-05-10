@@ -12,8 +12,8 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 
-import studio.one.platform.textract.extractor.pdf.PdfExtractionOptions;
-import studio.one.platform.textract.extractor.pdf.PdfExtractionRequest;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
 
 class PyMuPdf4LlmHttpClientTest {
 

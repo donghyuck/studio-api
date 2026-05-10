@@ -30,8 +30,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.acl.policy.AclPolicySeeder;
-import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
+import studio.one.base.security.acl.application.policy.AclPolicySeeder;
+import studio.one.base.security.acl.application.policy.AclPolicySynchronizationService;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.component.State;

@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Configuration;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.acl.policy.AclPolicySeeder;
+import studio.one.base.security.acl.application.policy.AclPolicySeeder;
 
 /**
  * Applies the configured default ACL policies by invoking {@link AclPolicySeeder}

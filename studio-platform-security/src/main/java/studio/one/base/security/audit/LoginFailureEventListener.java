@@ -31,8 +31,8 @@ import org.springframework.security.authentication.event.AuthenticationFailureBa
 import org.springframework.transaction.support.TransactionOperations;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.audit.domain.entity.LoginFailureLog;
-import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
+import studio.one.base.security.audit.domain.model.LoginFailureLog;
+import studio.one.base.security.audit.domain.port.LoginFailureLogRepository;
 
 /**
  *

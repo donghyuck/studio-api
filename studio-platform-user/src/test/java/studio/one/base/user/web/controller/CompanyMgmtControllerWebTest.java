@@ -39,12 +39,12 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-import studio.one.base.user.company.model.CompanyStatus;
-import studio.one.base.user.company.permission.CompanyPermissionActions;
-import studio.one.base.user.domain.entity.ApplicationCompany;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.service.ApplicationCompanyService;
+import studio.one.base.user.domain.model.company.CompanyStatus;
+import studio.one.base.user.domain.model.company.CompanyPermissionActions;
+import studio.one.base.user.domain.model.ApplicationCompany;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.UserRef;
 

@@ -21,14 +21,14 @@
 
 package studio.one.platform.text.extractor;
 
-import studio.one.platform.textract.model.DocumentExtractionResult;
-import studio.one.platform.textract.model.ParsedFile;
+import studio.one.platform.textract.domain.model.DocumentExtractionResult;
+import studio.one.platform.textract.domain.model.ParsedFile;
 
 /**
  * 문서에서 테스트를 추출하는 파서 인터페이스.
  *
  * @deprecated since 2026-04-20. Use
- *             {@link studio.one.platform.textract.extractor.FileParser}.
+ *             {@link studio.one.platform.textract.application.usecase.FileParser}.
  * 
  * @author donghyuck, son
  * @since 2025-11-27
@@ -44,7 +44,7 @@ import studio.one.platform.textract.model.ParsedFile;
  */
 
 @Deprecated(forRemoval = false)
-public interface FileParser extends studio.one.platform.textract.extractor.FileParser {
+public interface FileParser extends studio.one.platform.textract.application.usecase.FileParser {
 
     /**
      * 이 파서가 해당 파일을 지원하는지 여부.
@@ -67,7 +67,7 @@ public interface FileParser extends studio.one.platform.textract.extractor.FileP
             throws FileParseException {
         String text = parse(bytes, contentType, filename);
         return ParsedFile.textOnly(
-                studio.one.platform.textract.extractor.DocumentFormatDetector.detect(contentType, filename),
+                studio.one.platform.textract.application.service.DocumentFormatDetector.detect(contentType, filename),
                 text,
                 filename);
     }

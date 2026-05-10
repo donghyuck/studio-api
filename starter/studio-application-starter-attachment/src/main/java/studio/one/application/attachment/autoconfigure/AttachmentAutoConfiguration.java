@@ -97,7 +97,7 @@ import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.autoconfigure.ThumbnailAutoConfiguration;
 import studio.one.platform.util.I18nUtils;

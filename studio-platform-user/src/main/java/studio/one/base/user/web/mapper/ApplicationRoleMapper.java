@@ -10,9 +10,9 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
-import studio.one.base.user.domain.entity.ApplicationRole;
+import studio.one.base.user.domain.model.ApplicationRole;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.web.dto.response.RoleDto;
 
 @Mapper(componentModel = "spring", uses = {
         TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)

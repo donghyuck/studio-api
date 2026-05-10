@@ -21,36 +21,36 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.domain.event.listener.UserCacheEvictListener;
-import studio.one.base.user.persistence.ApplicationCompanyRepository;
-import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
-import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
-import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
-import studio.one.base.user.persistence.ApplicationCompanyPermissionPolicyRepository;
-import studio.one.base.user.persistence.ApplicationGroupMembershipRepository;
-import studio.one.base.user.persistence.ApplicationGroupRepository;
-import studio.one.base.user.persistence.ApplicationGroupRoleRepository;
-import studio.one.base.user.persistence.ApplicationRoleRepository;
-import studio.one.base.user.persistence.ApplicationUserRoleRepository;
-import studio.one.base.user.persistence.ApplicationUserRepository;
-import studio.one.base.user.service.ApplicationCompanyService;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
-import studio.one.base.user.service.ApplicationGroupService;
-import studio.one.base.user.service.ApplicationRoleService;
-import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.service.PasswordPolicyService;
-import studio.one.base.user.service.UserMutator;
-import studio.one.base.user.service.impl.ApplicationCompanyServiceImpl;
-import studio.one.base.user.service.impl.ApplicationCompanyMemberServiceImpl;
-import studio.one.base.user.service.impl.ApplicationCompanyPermissionServiceImpl;
-import studio.one.base.user.service.impl.ApplicationCompanyJoinRequestServiceImpl;
-import studio.one.base.user.service.impl.ApplicationGroupServiceImpl;
-import studio.one.base.user.service.impl.ApplicationRoleServiceImpl;
-import studio.one.base.user.service.impl.ApplicationUserMutator;
-import studio.one.base.user.service.impl.PasswordPolicyValidator;
-import studio.one.base.user.service.impl.ApplicationUserServiceImpl;
-import studio.one.base.user.config.PasswordPolicyProperties;
+import studio.one.base.user.domain.port.ApplicationCompanyRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyMemberRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyMemberKeyRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyJoinRequestRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
+import studio.one.base.user.domain.port.ApplicationGroupMembershipRepository;
+import studio.one.base.user.domain.port.ApplicationGroupRepository;
+import studio.one.base.user.domain.port.ApplicationGroupRoleRepository;
+import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
+import studio.one.base.user.application.usecase.ApplicationGroupService;
+import studio.one.base.user.application.usecase.ApplicationRoleService;
+import studio.one.base.user.application.usecase.ApplicationUserService;
+import studio.one.base.user.application.usecase.PasswordPolicyService;
+import studio.one.base.user.application.usecase.UserMutator;
+import studio.one.base.user.application.service.ApplicationCompanyServiceImpl;
+import studio.one.base.user.application.service.ApplicationCompanyMemberServiceImpl;
+import studio.one.base.user.application.service.ApplicationCompanyPermissionServiceImpl;
+import studio.one.base.user.application.service.ApplicationCompanyJoinRequestServiceImpl;
+import studio.one.base.user.application.service.ApplicationGroupServiceImpl;
+import studio.one.base.user.application.service.ApplicationRoleServiceImpl;
+import studio.one.base.user.application.service.ApplicationUserMutator;
+import studio.one.base.user.application.service.PasswordPolicyValidator;
+import studio.one.base.user.application.service.ApplicationUserServiceImpl;
+import studio.one.base.user.application.config.PasswordPolicyProperties;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
@@ -130,7 +130,7 @@ public class UserServicesAutoConfiguration {
         @ConditionalOnMissingBean(PasswordPolicyService.class)
         @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "use-default", havingValue = "true", matchIfMissing = true)
         public PasswordPolicyValidator passwordPolicyValidator(
-                        ObjectProvider<studio.one.base.user.config.PasswordPolicyProperties> propertiesProvider) {
+                        ObjectProvider<studio.one.base.user.application.config.PasswordPolicyProperties> propertiesProvider) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(PasswordPolicyValidator.class, true),

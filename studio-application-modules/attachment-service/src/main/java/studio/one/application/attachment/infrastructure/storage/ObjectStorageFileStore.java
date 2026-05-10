@@ -8,8 +8,8 @@ import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.platform.storage.service.CloudObjectStorage;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
+import studio.one.platform.storage.application.usecase.CloudObjectStorage;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
 
 @RequiredArgsConstructor
 public class ObjectStorageFileStore implements FileStorage, FileStorageSaveResultCapable {

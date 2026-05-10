@@ -52,7 +52,7 @@ import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.exception.JwtTokenException;
+import studio.one.base.security.domain.error.JwtTokenException;
 import studio.one.base.security.userdetails.ApplicationUserDetails;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.service.I18n;

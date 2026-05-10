@@ -28,7 +28,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 import lombok.Data;
-import studio.one.base.security.acl.policy.AclPolicyDescriptor;
+import studio.one.base.security.acl.application.policy.AclPolicyDescriptor;
 
 /**
  * Holds default ACL policies that should be seeded into the database on startup.

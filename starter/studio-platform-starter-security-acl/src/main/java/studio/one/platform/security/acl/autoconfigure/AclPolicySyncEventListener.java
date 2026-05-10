@@ -5,8 +5,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.base.security.acl.policy.AclPolicySyncEvent;
-import studio.one.base.security.acl.policy.AclPolicySynchronizationService;
+import studio.one.base.security.acl.application.policy.AclPolicySyncEvent;
+import studio.one.base.security.acl.application.policy.AclPolicySynchronizationService;
 import studio.one.platform.constant.PropertyKeys;
 
 /**

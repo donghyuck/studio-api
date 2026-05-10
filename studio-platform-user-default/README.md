@@ -98,3 +98,10 @@ implementation(project(":studio-platform-user-default"))
 
 스타터 상세 설정(패키지 스캔, 엔드포인트 토글, 영속성 타입)은
 `starter/studio-platform-starter-user/README.md`를 참고한다.
+
+## Package Architecture
+
+- `domain.model`: 기본 사용자 aggregate model
+- `domain.port`: 기본 사용자 repository port
+- `application.service`: 기본 사용자 usecase 구현
+- `infrastructure.persistence.{jdbc,jpa}`: JDBC/JPA 저장소 구현과 entity

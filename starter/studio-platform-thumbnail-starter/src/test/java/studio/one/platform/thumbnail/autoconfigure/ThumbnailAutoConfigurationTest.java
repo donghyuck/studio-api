@@ -20,11 +20,11 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
-import studio.one.platform.textract.extractor.DocumentFormat;
-import studio.one.platform.textract.extractor.FileParser;
-import studio.one.platform.textract.extractor.FileParserFactory;
-import studio.one.platform.textract.model.ParsedFile;
-import studio.one.platform.textract.service.FileContentExtractionService;
+import studio.one.platform.textract.domain.model.DocumentFormat;
+import studio.one.platform.textract.application.usecase.FileParser;
+import studio.one.platform.textract.application.usecase.FileParserFactory;
+import studio.one.platform.textract.domain.model.ParsedFile;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 import studio.one.platform.thumbnail.ThumbnailGenerationOptions;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.ThumbnailOptions;

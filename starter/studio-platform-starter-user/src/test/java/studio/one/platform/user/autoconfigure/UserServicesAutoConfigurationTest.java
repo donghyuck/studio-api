@@ -11,21 +11,21 @@ import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
-import studio.one.base.user.persistence.ApplicationCompanyMemberRepository;
-import studio.one.base.user.persistence.ApplicationCompanyMemberKeyRepository;
-import studio.one.base.user.persistence.ApplicationCompanyJoinRequestRepository;
-import studio.one.base.user.persistence.ApplicationCompanyPermissionPolicyRepository;
-import studio.one.base.user.persistence.ApplicationCompanyRepository;
-import studio.one.base.user.persistence.ApplicationRoleRepository;
-import studio.one.base.user.service.ApplicationCompanyMemberService;
-import studio.one.base.user.service.ApplicationCompanyPermissionService;
-import studio.one.base.user.service.ApplicationCompanyJoinRequestService;
-import studio.one.base.user.service.ApplicationCompanyService;
-import studio.one.base.user.service.ApplicationGroupService;
-import studio.one.base.user.service.ApplicationRoleService;
-import studio.one.base.user.service.ApplicationUserService;
-import studio.one.base.user.service.PasswordPolicyService;
-import studio.one.base.user.service.UserMutator;
+import studio.one.base.user.domain.port.ApplicationCompanyMemberRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyMemberKeyRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyJoinRequestRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
+import studio.one.base.user.domain.port.ApplicationCompanyRepository;
+import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
+import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
+import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
+import studio.one.base.user.application.usecase.ApplicationCompanyService;
+import studio.one.base.user.application.usecase.ApplicationGroupService;
+import studio.one.base.user.application.usecase.ApplicationRoleService;
+import studio.one.base.user.application.usecase.ApplicationUserService;
+import studio.one.base.user.application.usecase.PasswordPolicyService;
+import studio.one.base.user.application.usecase.UserMutator;
 import studio.one.base.user.web.controller.CompanyJoinRequestMgmtApi;
 import studio.one.base.user.web.controller.CompanyMgmtController;
 import studio.one.base.user.web.controller.CompanyJoinRequestMgmtController;
@@ -135,8 +135,8 @@ class UserServicesAutoConfigurationTest {
     void passwordPolicyValidatorBacksOffForCustomPasswordPolicyService() {
         PasswordPolicyService customPolicy = new PasswordPolicyService() {
             @Override
-            public studio.one.base.user.web.dto.PasswordPolicyDto getPolicy() {
-                return studio.one.base.user.web.dto.PasswordPolicyDto.builder().build();
+            public studio.one.base.user.application.result.PasswordPolicyResult getPolicy() {
+                return studio.one.base.user.application.result.PasswordPolicyResult.builder().build();
             }
 
             @Override

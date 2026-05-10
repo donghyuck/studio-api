@@ -27,9 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.acl.domain.entity.AclSidEntity;
-import studio.one.base.security.acl.persistence.AclEntryRepository;
-import studio.one.base.security.acl.persistence.AclSidRepository;
+import studio.one.base.security.acl.domain.model.AclSidEntity;
+import studio.one.base.security.acl.domain.port.AclEntryRepository;
+import studio.one.base.security.acl.domain.port.AclSidRepository;
 import studio.one.platform.security.event.RoleUpdatedEvent;
 /**
  * Synchronizes ACL SIDs when application roles change.

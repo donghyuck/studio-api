@@ -34,12 +34,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import studio.one.base.user.web.dto.AddMembersRequest;
-import studio.one.base.user.web.dto.GroupDto;
-import studio.one.base.user.web.dto.GroupMemberSummaryDto;
-import studio.one.base.user.web.dto.PropertyDto;
-import studio.one.base.user.web.dto.RoleDto;
-import studio.one.base.user.web.dto.UpdateRolesRequest;
+import studio.one.base.user.web.dto.request.AddMembersRequest;
+import studio.one.base.user.web.dto.response.GroupDto;
+import studio.one.base.user.web.dto.response.GroupMemberSummaryDto;
+import studio.one.base.user.web.dto.response.PropertyDto;
+import studio.one.base.user.web.dto.response.RoleDto;
+import studio.one.base.user.web.dto.request.UpdateRolesRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 /**

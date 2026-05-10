@@ -10,9 +10,9 @@ import org.mapstruct.MappingTarget;
 import org.mapstruct.NullValuePropertyMappingStrategy;
 import org.mapstruct.ReportingPolicy;
 
-import studio.one.base.user.domain.entity.ApplicationGroup;
+import studio.one.base.user.domain.model.ApplicationGroup;
 import studio.one.base.user.domain.model.Group;
-import studio.one.base.user.web.dto.GroupDto;
+import studio.one.base.user.web.dto.response.GroupDto;
 
 @Mapper(componentModel = "spring", uses = { TimeMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE, injectionStrategy = org.mapstruct.InjectionStrategy.CONSTRUCTOR)
 public interface ApplicationGroupMapper {

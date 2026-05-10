@@ -5,7 +5,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 
-import studio.one.platform.storage.service.ObjectStorageType;
+import studio.one.platform.storage.domain.model.ObjectStorageType;
 
 import lombok.extern.slf4j.Slf4j;
 

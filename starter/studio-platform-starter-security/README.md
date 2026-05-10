@@ -182,6 +182,9 @@ studio:
 ## 5) 참고 사항
 - `studio-platform-security` 모듈이 핵심 구현(JWT, 계정 잠금, 감사 도메인 모델)을 제공하며,
   이 스타터는 해당 모듈을 `api` 의존성으로 전이 노출한다.
+- package architecture는 `domain/application/infrastructure/web` 구조를 따른다. 직접 확장 시
+  기존 `service`, `persistence`, `exception`, `web.dto` package가 아니라 새 `application.usecase`,
+  `domain.port`, `infrastructure.persistence.*`, `web.dto.request/response` package를 기준으로 import한다.
 - JWT `secret`이 설정되지 않으면 `JwtSecretPresenceGuard`가 기동 실패를 일으킨다
   (`studio.security.fail-if-missing=false`로 우회 가능하나 권장하지 않는다).
 - 리프레시 토큰, 계정 잠금 기록의 영속성 타입은 기능별 `persistence` 속성으로 개별 지정하거나,

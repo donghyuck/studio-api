@@ -8,12 +8,12 @@ import org.springframework.context.annotation.Configuration;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.base.security.acl.domain.event.listener.RoleAclSidSyncListener;
-import studio.one.base.security.acl.persistence.AclClassRepository;
-import studio.one.base.security.acl.persistence.AclEntryRepository;
-import studio.one.base.security.acl.persistence.AclObjectIdentityRepository;
-import studio.one.base.security.acl.persistence.AclSidRepository;
-import studio.one.base.security.acl.policy.AclPolicyRefreshPublisher;
-import studio.one.base.security.acl.service.AclAdministrationService;
+import studio.one.base.security.acl.domain.port.AclClassRepository;
+import studio.one.base.security.acl.domain.port.AclEntryRepository;
+import studio.one.base.security.acl.domain.port.AclObjectIdentityRepository;
+import studio.one.base.security.acl.domain.port.AclSidRepository;
+import studio.one.base.security.acl.application.policy.AclPolicyRefreshPublisher;
+import studio.one.base.security.acl.application.usecase.AclAdministrationService;
 import studio.one.base.security.acl.web.controller.AclActionController;
 import studio.one.base.security.acl.web.controller.AclAdminController;
 import studio.one.platform.autoconfigure.I18nKeys;

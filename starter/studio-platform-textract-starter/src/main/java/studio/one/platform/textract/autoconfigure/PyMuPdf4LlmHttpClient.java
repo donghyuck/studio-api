@@ -14,10 +14,10 @@ import java.util.UUID;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import studio.one.platform.textract.extractor.FileParseException;
-import studio.one.platform.textract.extractor.pdf.PdfExtractionRequest;
-import studio.one.platform.textract.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
-import studio.one.platform.textract.extractor.pdf.pymupdf.PyMuPdf4LlmResponse;
+import studio.one.platform.textract.domain.error.FileParseException;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
+import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
+import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmResponse;
 
 class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
 

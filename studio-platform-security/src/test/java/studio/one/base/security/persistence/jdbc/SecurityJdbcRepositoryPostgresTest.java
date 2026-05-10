@@ -21,14 +21,14 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import studio.one.base.security.audit.domain.entity.LoginFailureLog;
-import studio.one.base.security.audit.persistence.jdbc.LoginFailureLogJdbcRepository;
-import studio.one.base.security.audit.service.LoginFailQuery;
-import studio.one.base.security.authentication.lock.persistence.jdbc.AccountLockJdbcRepository;
-import studio.one.base.security.jwt.refresh.domain.entity.RefreshToken;
-import studio.one.base.security.jwt.refresh.persistence.jdbc.RefreshTokenJdbcRepositoryV2;
-import studio.one.base.security.jwt.reset.domain.PasswordResetToken;
-import studio.one.base.security.jwt.reset.persistence.jdbc.PasswordResetTokenJdbcRepositoryV2;
+import studio.one.base.security.audit.domain.model.LoginFailureLog;
+import studio.one.base.security.audit.infrastructure.persistence.jdbc.LoginFailureLogJdbcRepository;
+import studio.one.base.security.audit.application.command.LoginFailQuery;
+import studio.one.base.security.authentication.lock.infrastructure.persistence.jdbc.AccountLockJdbcRepository;
+import studio.one.base.security.jwt.refresh.domain.model.RefreshToken;
+import studio.one.base.security.jwt.refresh.infrastructure.persistence.jdbc.RefreshTokenJdbcRepositoryV2;
+import studio.one.base.security.jwt.reset.domain.model.PasswordResetToken;
+import studio.one.base.security.jwt.reset.infrastructure.persistence.jdbc.PasswordResetTokenJdbcRepositoryV2;
 
 @Testcontainers
 class SecurityJdbcRepositoryPostgresTest {

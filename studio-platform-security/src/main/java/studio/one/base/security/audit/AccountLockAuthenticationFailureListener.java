@@ -7,7 +7,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.event.AuthenticationFailureBadCredentialsEvent;
 
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.authentication.lock.application.usecase.AccountLockService;
 
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @Slf4j

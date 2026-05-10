@@ -53,9 +53,9 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
-import studio.one.platform.storage.service.CloudObjectStorage;
-import studio.one.platform.storage.service.ObjectStorageRegistry;
-import studio.one.platform.storage.service.impl.S3ObjectStorage;
+import studio.one.platform.storage.application.usecase.CloudObjectStorage;
+import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
+import studio.one.platform.storage.infrastructure.storage.S3ObjectStorage;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 

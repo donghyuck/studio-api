@@ -45,13 +45,13 @@ import studio.one.base.security.audit.LoginFailureAuditFailureMonitor;
 import studio.one.base.security.audit.LoginFailureEventListener;
 import studio.one.base.security.audit.LoginFailureLogRetentionJob;
 import studio.one.base.security.audit.LoginSuccessEventListener;
-import studio.one.base.security.audit.domain.entity.LoginFailureLog;
-import studio.one.base.security.audit.persistence.LoginFailureLogRepository;
-import studio.one.base.security.audit.persistence.jdbc.LoginFailureLogJdbcRepository;
-import studio.one.base.security.audit.persistence.jpa.LoginFailureLogJpaRepository;
-import studio.one.base.security.audit.service.LoginFailureQueryService;
-import studio.one.base.security.audit.service.LoginFailureQueryServiceImpl;
-import studio.one.base.security.authentication.lock.service.AccountLockService;
+import studio.one.base.security.audit.domain.model.LoginFailureLog;
+import studio.one.base.security.audit.domain.port.LoginFailureLogRepository;
+import studio.one.base.security.audit.infrastructure.persistence.jdbc.LoginFailureLogJdbcRepository;
+import studio.one.base.security.audit.infrastructure.persistence.jpa.LoginFailureLogJpaRepository;
+import studio.one.base.security.audit.application.usecase.LoginFailureQueryService;
+import studio.one.base.security.audit.application.service.LoginFailureQueryServiceImpl;
+import studio.one.base.security.authentication.lock.application.usecase.AccountLockService;
 import studio.one.base.security.web.controller.LoginFailureLogController;
 import studio.one.base.security.web.mapper.LoginFailureLogMapper;
 import studio.one.base.security.web.mapper.LoginFailureLogMapperImpl;
@@ -91,7 +91,7 @@ public class LoginFailureAuditAutoConfiguration {
 
         private static final String DEFAULT_JPA_ENTITY_PACKAGE = LoginFailureLog.class.getPackageName();
 
-        private static final String DEFAULT_JPA_REPOSITORY_PACKAGE = "studio.one.base.security.audit.persistence.jpa";
+        private static final String DEFAULT_JPA_REPOSITORY_PACKAGE = "studio.one.base.security.audit.infrastructure.persistence.jpa";
 
         private static final String FEATURE_NAME = "Security - Login Failure Audit";
 

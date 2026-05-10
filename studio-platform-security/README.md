@@ -58,23 +58,35 @@ studio:
 - `docs/adr/0001-jwt-refresh-tokens.md`
 
 ## 구성 패키지
-- `studio.one.base.security.jwt`  
+- `studio.one.base.security.jwt`
   JWT 생성/검증, 필터, 설정 인터페이스
-- `studio.one.base.security.jwt.refresh`  
-  리프레시 토큰 도메인/저장소
-- `studio.one.base.security.jwt.reset`  
-  비밀번호 재설정 토큰 도메인/저장소
-- `studio.one.base.security.userdetails`  
+- `studio.one.base.security.jwt.refresh.domain.model/port`
+  리프레시 토큰 domain model과 repository port
+- `studio.one.base.security.jwt.refresh.infrastructure.persistence.{jdbc,jpa}`
+  리프레시 토큰 저장소 구현
+- `studio.one.base.security.jwt.reset.domain.model/port`
+  비밀번호 재설정 토큰 domain model과 repository port
+- `studio.one.base.security.jwt.reset.infrastructure.persistence.{jdbc,jpa}`
+  비밀번호 재설정 토큰 저장소 구현
+- `studio.one.base.security.userdetails`
   UserDetails/서비스
-- `studio.one.base.security.authentication.lock`  
-  계정 잠금 서비스/리포지토리
-- `studio.one.base.security.audit`  
-  로그인 실패 로그/조회 서비스/리스너
-- `studio.one.base.security.web`  
-  컨트롤러/DTO/매퍼
-- `studio.one.base.security.handler`  
+- `studio.one.base.security.authentication.lock.application.usecase/service`
+  계정 잠금 contract와 구현
+- `studio.one.base.security.authentication.lock.domain.port`
+  계정 잠금 repository port
+- `studio.one.base.security.authentication.lock.infrastructure.persistence.{jdbc,jpa}`
+  계정 잠금 저장소 구현
+- `studio.one.base.security.audit.domain.model/port`
+  로그인 실패 로그 model과 repository port
+- `studio.one.base.security.audit.application.command/usecase/service`
+  로그인 실패 조회 command, contract, 구현
+- `studio.one.base.security.audit.infrastructure.persistence.{jdbc,jpa}`
+  로그인 실패 감사 저장소 구현
+- `studio.one.base.security.web`
+  컨트롤러/DTO/매퍼 (`web.dto.request`, `web.dto.response`)
+- `studio.one.base.security.handler`
   인증/인가 예외 처리 핸들러
-- `studio.one.base.security.exception`  
+- `studio.one.base.security.domain.error`
   보안 관련 예외
 
 ## 스키마 (PostgreSQL)
@@ -192,8 +204,8 @@ studio:
 ```
 
 ### 3) SecurityFilterChain 구성 클래스 추가
-SecurityFilterChain은 애플리케이션의 보안 필터 흐름, 인증/인가 정책, 예외 처리 방식을 결정한다.  
-스타터는 필요한 빈을 제공하지만, 실제 요청 경로/허용 정책은 앱마다 달라 직접 구성해야 한다.  
+SecurityFilterChain은 애플리케이션의 보안 필터 흐름, 인증/인가 정책, 예외 처리 방식을 결정한다.
+스타터는 필요한 빈을 제공하지만, 실제 요청 경로/허용 정책은 앱마다 달라 직접 구성해야 한다.
 JWT 필터/예외 처리/권한 정책을 직접 구성해야 한다. 아래는 최소 구성 예시이다.
 ```java
 @Configuration

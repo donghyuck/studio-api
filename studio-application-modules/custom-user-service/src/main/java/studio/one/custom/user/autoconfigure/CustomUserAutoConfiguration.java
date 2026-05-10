@@ -10,8 +10,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
-import studio.one.base.user.persistence.ApplicationUserRepository;
-import studio.one.base.user.service.UserMutator;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
+import studio.one.base.user.application.usecase.UserMutator;
 import studio.one.custom.user.domain.entity.CustomUser;
 import studio.one.custom.user.persistence.jpa.CustomUserJpaRepository;
 import studio.one.custom.user.persistence.jdbc.CustomUserJdbcRepository;

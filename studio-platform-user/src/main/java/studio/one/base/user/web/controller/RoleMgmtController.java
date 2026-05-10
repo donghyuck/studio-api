@@ -32,13 +32,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.domain.entity.ApplicationRole;
+import studio.one.base.user.domain.model.ApplicationRole;
 import studio.one.base.user.domain.model.Group;
 import studio.one.base.user.domain.model.Role;
-import studio.one.base.user.service.ApplicationRoleService;
-import studio.one.base.user.service.BatchResult;
-import studio.one.base.user.web.dto.GroupDto;
-import studio.one.base.user.web.dto.RoleDto;
+import studio.one.base.user.application.usecase.ApplicationRoleService;
+import studio.one.base.user.application.result.BatchResult;
+import studio.one.base.user.web.dto.response.GroupDto;
+import studio.one.base.user.web.dto.response.RoleDto;
 import studio.one.base.user.web.mapper.ApplicationGroupMapper;
 import studio.one.base.user.web.mapper.ApplicationRoleMapper;
 import studio.one.base.user.web.util.RequestParamUtils;
