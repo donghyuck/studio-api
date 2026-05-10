@@ -15,7 +15,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 
-import studio.one.application.mail.config.ImapProperties;
+import studio.one.application.mail.infrastructure.config.ImapProperties;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 
 @ExtendWith(OutputCaptureExtension.class)

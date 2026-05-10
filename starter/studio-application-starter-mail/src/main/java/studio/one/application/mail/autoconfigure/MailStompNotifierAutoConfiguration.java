@@ -12,7 +12,7 @@ import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.env.Environment;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
-import studio.one.application.mail.service.StompMailSyncNotifier;
+import studio.one.application.mail.autoconfigure.service.StompMailSyncNotifier;
 import studio.one.platform.constant.PropertyKeys; 
 
 @AutoConfiguration

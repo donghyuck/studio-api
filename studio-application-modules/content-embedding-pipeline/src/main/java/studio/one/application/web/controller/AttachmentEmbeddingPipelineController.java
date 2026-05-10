@@ -44,7 +44,7 @@ import org.springframework.web.server.ResponseStatusException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.web.dto.EmbeddingResponseDto;
 import studio.one.application.web.dto.EmbeddingVectorDto;
 import studio.one.application.web.dto.SearchRequest;

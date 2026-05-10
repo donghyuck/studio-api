@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-import studio.one.application.mail.config.ImapProperties;
+import studio.one.application.mail.infrastructure.config.ImapProperties;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.constant.PropertyKeys;
 

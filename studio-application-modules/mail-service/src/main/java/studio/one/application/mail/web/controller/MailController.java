@@ -19,12 +19,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
-import studio.one.application.mail.service.MailAttachmentService;
-import studio.one.application.mail.service.MailMessageService;
-import studio.one.application.mail.service.MailSyncJobLauncher;
-import studio.one.application.mail.service.MailSyncLogService;
-import studio.one.application.mail.web.dto.MailMessageDto;
-import studio.one.application.mail.web.dto.MailSyncLogDto;
+import studio.one.application.mail.application.usecase.MailAttachmentService;
+import studio.one.application.mail.application.usecase.MailMessageService;
+import studio.one.application.mail.application.usecase.MailSyncJobLauncher;
+import studio.one.application.mail.application.usecase.MailSyncLogService;
+import studio.one.application.mail.web.dto.response.MailMessageDto;
+import studio.one.application.mail.web.dto.response.MailSyncLogDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 

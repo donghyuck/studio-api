@@ -13,10 +13,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import studio.one.application.mail.service.MailAttachmentService;
-import studio.one.application.mail.service.MailMessageService;
-import studio.one.application.mail.service.MailSyncJobLauncher;
-import studio.one.application.mail.service.MailSyncLogService;
+import studio.one.application.mail.application.usecase.MailAttachmentService;
+import studio.one.application.mail.application.usecase.MailMessageService;
+import studio.one.application.mail.application.usecase.MailSyncJobLauncher;
+import studio.one.application.mail.application.usecase.MailSyncLogService;
 
 class MailControllerAuthorizationTest {
 

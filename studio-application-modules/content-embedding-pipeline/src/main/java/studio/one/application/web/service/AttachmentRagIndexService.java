@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.vector.VectorRecord;

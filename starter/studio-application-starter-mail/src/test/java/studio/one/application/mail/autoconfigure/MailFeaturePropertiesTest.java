@@ -14,9 +14,9 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
-import studio.one.application.mail.persistence.repository.MailMessageRepository;
-import studio.one.application.mail.service.impl.JdbcMailMessageService;
-import studio.one.application.mail.service.impl.JpaMailMessageService;
+import studio.one.application.mail.infrastructure.persistence.jpa.MailMessageRepository;
+import studio.one.application.mail.application.service.JdbcMailMessageService;
+import studio.one.application.mail.application.service.JpaMailMessageService;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 
 class MailFeaturePropertiesTest {

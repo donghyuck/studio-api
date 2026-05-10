@@ -33,14 +33,14 @@ import org.springframework.context.annotation.Lazy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.application.attachment.service.AttachmentDownloadAuditLogService;
-import studio.one.application.attachment.service.AttachmentDownloadUrlService;
-import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
-import studio.one.application.attachment.service.AttachmentService;
-import studio.one.application.attachment.thumbnail.ThumbnailService;
-import studio.one.application.web.controller.AttachmentController;
-import studio.one.application.web.controller.MeAttachmentController;
-import studio.one.application.web.controller.AttachmentUrlIssueRequestDetailsResolver;
+import studio.one.application.attachment.application.usecase.AttachmentDownloadAuditLogService;
+import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
+import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
+import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
+import studio.one.application.attachment.web.controller.AttachmentController;
+import studio.one.application.attachment.web.controller.MeAttachmentController;
+import studio.one.application.attachment.web.controller.AttachmentUrlIssueRequestDetailsResolver;
 
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;

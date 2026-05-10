@@ -9,6 +9,9 @@ IMAP runtime 설정은 `studio.mail.imap.*`에서 읽는다. `studio.features.ma
 - JPA 선택 시 리포지토리/엔티티 스캔 포함
 - REST 컨트롤러(`MailController`)는 `studio.features.mail.web.enabled=true`일 때 등록
 
+## 패키지 import 기준
+mail 모듈은 `domain/application/infrastructure/web` 구조를 사용한다. service 계약은 `studio.one.application.mail.application.usecase`, 구현체와 composite notifier는 `application.service`, SSE adapter는 `web.controller`, IMAP 설정 모델은 `infrastructure.config`, JPA entity/repository는 `infrastructure.persistence.jpa`, DTO는 `web.dto.response` 기준으로 import한다. starter 전용 STOMP notifier adapter는 `studio.one.application.mail.autoconfigure.service`에 둔다. 기존 `studio.one.application.mail.service`, `config`, `domain.entity`, `persistence.repository`, `web.dto` 패키지는 제공하지 않는다.
+
 ## 설정 예시
 ```yaml
 studio:

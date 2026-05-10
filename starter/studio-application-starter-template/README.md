@@ -24,6 +24,10 @@ dependencies {
 }
 ```
 
+### 패키지 import 기준
+
+template 모듈은 `domain/application/infrastructure/web` 구조를 사용한다. `TemplatesService`는 `studio.one.application.template.application.usecase`, 구현체는 `application.service`, repository port는 `domain.port`, 저장 기술 구현은 `infrastructure.persistence.*`, DTO는 `web.dto.response` 기준으로 import한다. 기존 `studio.one.application.template.service`, `persistence`, `persistence.jpa.*`, `web.dto` 패키지는 제공하지 않는다.
+
 ## 2) 기능 활성화
 
 ```yaml

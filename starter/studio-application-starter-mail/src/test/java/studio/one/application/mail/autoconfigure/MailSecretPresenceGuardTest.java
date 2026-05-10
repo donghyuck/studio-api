@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.application.mail.config.ImapProperties;
+import studio.one.application.mail.infrastructure.config.ImapProperties;
 
 class MailSecretPresenceGuardTest {
 

@@ -36,7 +36,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.application.attachment.domain.model.Attachment;
-import studio.one.application.attachment.service.AttachmentService;
+import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;

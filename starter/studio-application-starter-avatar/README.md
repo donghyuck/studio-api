@@ -16,6 +16,10 @@ dependencies {
 }
 ```
 
+### 패키지 import 기준
+
+avatar 모듈은 `domain/application/infrastructure/web` 구조를 사용한다. `AvatarImageService`는 `studio.one.application.avatar.application.usecase`, 구현체는 `application.service`, repository/replica 구현은 `infrastructure.*`, DTO는 `web.dto.request` 또는 `web.dto.response` 기준으로 import한다. 기존 `studio.one.application.avatar.service`, `persistence`, `replica`, `domain.entity`와 공통 `studio.one.application.web.*` 패키지는 제공하지 않는다.
+
 ## 2) 기능 활성화
 
 ```yaml

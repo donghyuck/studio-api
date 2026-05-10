@@ -1,0 +1,46 @@
+package studio.one.application.attachment.domain.port;
+
+import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount;
+import studio.one.application.attachment.domain.model.*;
+
+import studio.one.application.attachment.domain.model.ApplicationAttachment;
+import studio.one.application.attachment.domain.model.Attachment;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+public interface AttachmentRepository {
+
+    public static final String SERVICE_NAME = "components:attachment-repository";
+
+    Attachment save(ApplicationAttachment attachment);
+
+    Optional<ApplicationAttachment> findById(Long id);
+
+    void delete(ApplicationAttachment attachment);
+
+    List<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId, Pageable pageable);
+
+    List<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId, long createdBy);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId, long createdBy,
+            Pageable pageable);
+
+    Page<ApplicationAttachment> findAll(Pageable pageable);
+
+    Page<ApplicationAttachment> findByNameContainingIgnoreCase(String keyword, Pageable pageable);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(
+            int objectType, Long objectId, String keyword, Pageable pageable);
+
+    Page<ApplicationAttachment> findByCreatedBy(long createdBy, Pageable pageable);
+
+    Page<ApplicationAttachment> findByCreatedByAndNameContainingIgnoreCase(long createdBy, String keyword,
+            Pageable pageable);
+
+    Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedByAndNameContainingIgnoreCase(
+            int objectType, Long objectId, long createdBy, String keyword, Pageable pageable);
+}

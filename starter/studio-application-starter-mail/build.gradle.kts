@@ -25,5 +25,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation(project(":studio-platform-realtime"))
 
 }

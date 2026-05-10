@@ -1,6 +1,7 @@
 package studio.one.application.template.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.reflect.Proxy;
@@ -19,13 +20,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import studio.one.application.template.persistence.TemplatePersistenceRepository;
-import studio.one.application.template.persistence.jdbc.TemplateJdbcRepository;
-import studio.one.application.template.persistence.jpa.repo.TemplateJpaPersistenceRepository;
-import studio.one.application.template.persistence.jpa.repo.TemplateJpaRepository;
-import studio.one.application.template.service.TemplatesService;
-import studio.one.application.template.service.impl.FreemarkerTemplateBuilder;
-import studio.one.application.template.service.impl.TemplatesServiceImpl;
+import studio.one.application.template.domain.port.TemplatePersistenceRepository;
+import studio.one.application.template.infrastructure.persistence.jdbc.TemplateJdbcRepository;
+import studio.one.application.template.infrastructure.persistence.jpa.TemplateJpaPersistenceRepository;
+import studio.one.application.template.infrastructure.persistence.jpa.TemplateJpaRepository;
+import studio.one.application.template.application.usecase.TemplatesService;
+import studio.one.application.template.application.service.FreemarkerTemplateBuilder;
+import studio.one.application.template.application.service.TemplatesServiceImpl;
 import studio.one.application.template.web.controller.TemplateMgmtController;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 
@@ -55,7 +56,6 @@ class TemplateFeaturePropertiesTest {
         PersistenceProperties persistence = new PersistenceProperties(PersistenceProperties.Type.mybatis);
 
         TemplatesServiceImpl service = configuration.templatesService(template, persistence,
-                provider(new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class))),
                 provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
                 new FreemarkerTemplateBuilder(null, null));
 
@@ -73,11 +73,38 @@ class TemplateFeaturePropertiesTest {
 
         TemplatesServiceImpl service = configuration.templatesService(template, persistence,
                 provider(jpa),
-                provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
                 new FreemarkerTemplateBuilder(null, null));
 
         assertThat((TemplatePersistenceRepository) ReflectionTestUtils.getField(service, "templateRepository"))
                 .isSameAs(jpa);
+    }
+
+    @Test
+    void explicitJpaFailsFastWhenOnlyJdbcRepositoryIsAvailable() {
+        TemplateAutoConfiguration configuration = new TemplateAutoConfiguration();
+        TemplateFeatureProperties template = new TemplateFeatureProperties();
+        template.setPersistence(PersistenceProperties.Type.jpa);
+        PersistenceProperties persistence = new PersistenceProperties(PersistenceProperties.Type.jdbc);
+
+        assertThatThrownBy(() -> configuration.templatesService(template, persistence,
+                provider(new TemplateJdbcRepository(jdbcTemplate("PostgreSQL"))),
+                new FreemarkerTemplateBuilder(null, null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TemplateJpaPersistenceRepository");
+    }
+
+    @Test
+    void explicitJdbcFailsFastWhenOnlyJpaRepositoryIsAvailable() {
+        TemplateAutoConfiguration configuration = new TemplateAutoConfiguration();
+        TemplateFeatureProperties template = new TemplateFeatureProperties();
+        template.setPersistence(PersistenceProperties.Type.jdbc);
+        PersistenceProperties persistence = new PersistenceProperties(PersistenceProperties.Type.jpa);
+
+        assertThatThrownBy(() -> configuration.templatesService(template, persistence,
+                provider(new TemplateJpaPersistenceRepository(stub(TemplateJpaRepository.class))),
+                new FreemarkerTemplateBuilder(null, null)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("TemplateJdbcRepository");
     }
 
     @Test
