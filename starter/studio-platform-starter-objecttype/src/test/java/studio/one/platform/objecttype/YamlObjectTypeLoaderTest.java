@@ -24,6 +24,20 @@ public class YamlObjectTypeLoaderTest {
     }
 
     @Test
+    void defaultCatalogContainsWellKnownAttachmentTypes() {
+        YamlObjectTypeLoader loader = new YamlObjectTypeLoader(new DefaultResourceLoader());
+        YamlObjectTypeLoader.Result result = loader.load("classpath:objecttype.yml");
+
+        assertEquals(2001, result.byKey().get("attachment").getObjectType());
+        assertEquals(2101, result.byKey().get("post-attachment").getObjectType());
+        assertEquals(2102, result.byKey().get("mail-attachment").getObjectType());
+        assertEquals(2103, result.byKey().get("workspace-attachment").getObjectType());
+        assertEquals(2104, result.byKey().get("wiki-attachment").getObjectType());
+        assertTrue(result.policies().containsKey(2103));
+        assertTrue(result.policies().containsKey(2104));
+    }
+
+    @Test
     void malformedYamlFailsFast() {
         YamlObjectTypeLoader loader = new YamlObjectTypeLoader(new ResourceLoader() {
             @Override

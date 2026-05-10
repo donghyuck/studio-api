@@ -3,7 +3,9 @@ package studio.one.platform.objecttype.web.controller;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +31,8 @@ import studio.one.platform.objecttype.web.dto.request.ObjectTypePatchRequest;
 import studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto;
 import studio.one.platform.objecttype.web.dto.request.ObjectTypePolicyUpsertRequest;
 import studio.one.platform.objecttype.web.dto.request.ObjectTypeUpsertRequest;
+import studio.one.platform.identity.ApplicationPrincipal;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -39,8 +43,10 @@ public class ObjectTypeMgmtController {
 
     private final ObjectTypeAdminService adminService;
     private final ObjectRebindService rebindService;
+    private final ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
     public ResponseEntity<ApiResponse<java.util.List<ObjectTypeDto>>> list(
             @RequestParam(value = "domain", required = false) String domain,
             @RequestParam(value = "status", required = false) String status,
@@ -52,16 +58,19 @@ public class ObjectTypeMgmtController {
     }
 
     @GetMapping("/{objectType}")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
     public ResponseEntity<ApiResponse<ObjectTypeDto>> get(@PathVariable @Min(1) int objectType) {
         return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.get(objectType))));
     }
 
     @PostMapping
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','manage')")
     public ResponseEntity<ApiResponse<ObjectTypeDto>> create(@Valid @RequestBody ObjectTypeUpsertRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.upsert(toCommand(request)))));
     }
 
     @PutMapping("/{objectType}")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','manage')")
     public ResponseEntity<ApiResponse<ObjectTypeDto>> upsert(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ObjectTypeUpsertRequest request) {
@@ -74,6 +83,7 @@ public class ObjectTypeMgmtController {
     }
 
     @PatchMapping("/{objectType}")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','manage')")
     public ResponseEntity<ApiResponse<ObjectTypeDto>> patch(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ObjectTypePatchRequest request) {
@@ -81,17 +91,20 @@ public class ObjectTypeMgmtController {
     }
 
     @GetMapping("/{objectType}/policy")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
     public ResponseEntity<ApiResponse<ObjectTypePolicyDto>> getPolicy(@PathVariable @Min(1) int objectType) {
         return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.getPolicy(objectType))));
     }
 
     @GetMapping("/{objectType}/policy/effective")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
     public ResponseEntity<ApiResponse<ObjectTypeEffectivePolicyDto>> getEffectivePolicy(
             @PathVariable @Min(1) int objectType) {
         return ResponseEntity.ok(ApiResponse.ok(toDto(adminService.getEffectivePolicy(objectType))));
     }
 
     @PutMapping("/{objectType}/policy")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','manage')")
     public ResponseEntity<ApiResponse<ObjectTypePolicyDto>> upsertPolicy(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ObjectTypePolicyUpsertRequest request) {
@@ -99,12 +112,14 @@ public class ObjectTypeMgmtController {
     }
 
     @DeleteMapping("/{objectType}")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','manage')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable @Min(1) int objectType) {
         adminService.delete(objectType);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/reload")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','manage')")
     public ResponseEntity<ApiResponse<Void>> reload() {
         rebindService.rebind();
         return ResponseEntity.ok(ApiResponse.ok());
@@ -159,6 +174,7 @@ public class ObjectTypeMgmtController {
     }
 
     private ObjectTypeUpsertCommand toCommand(ObjectTypeUpsertRequest request) {
+        AuditActor actor = auditActor();
         return new ObjectTypeUpsertCommand(
                 request.objectType(),
                 request.code(),
@@ -166,32 +182,48 @@ public class ObjectTypeMgmtController {
                 request.domain(),
                 request.status(),
                 request.description(),
-                request.updatedBy(),
-                request.updatedById(),
-                request.createdBy(),
-                request.createdById());
+                actor.name(),
+                actor.userId(),
+                actor.name(),
+                actor.userId());
     }
 
     private ObjectTypePatchCommand toCommand(ObjectTypePatchRequest request) {
+        AuditActor actor = auditActor();
         return new ObjectTypePatchCommand(
                 request.code(),
                 request.name(),
                 request.domain(),
                 request.status(),
                 request.description(),
-                request.updatedBy(),
-                request.updatedById());
+                actor.name(),
+                actor.userId());
     }
 
     private ObjectTypePolicyUpsertCommand toCommand(ObjectTypePolicyUpsertRequest request) {
+        AuditActor actor = auditActor();
         return new ObjectTypePolicyUpsertCommand(
                 request.maxFileMb(),
                 request.allowedExt(),
                 request.allowedMime(),
                 request.policyJson(),
-                request.updatedBy(),
-                request.updatedById(),
-                request.createdBy(),
-                request.createdById());
+                actor.name(),
+                actor.userId(),
+                actor.name(),
+                actor.userId());
+    }
+
+    private AuditActor auditActor() {
+        PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
+        ApplicationPrincipal principal = resolver == null ? null : resolver.currentOrNull();
+        if (principal == null) {
+            return new AuditActor("system", 0L);
+        }
+        return new AuditActor(
+                principal.username().filter(name -> !name.isBlank()).orElse("system"),
+                principal.userId().orElse(0L));
+    }
+
+    private record AuditActor(String name, Long userId) {
     }
 }

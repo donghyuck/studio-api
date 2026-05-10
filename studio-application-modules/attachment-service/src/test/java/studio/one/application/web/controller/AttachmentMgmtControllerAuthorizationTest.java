@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayInputStream;
 import java.util.Collections;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,10 +21,13 @@ import org.springframework.security.access.AccessDeniedException;
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAction;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
 import studio.one.platform.textract.extractor.FileParseException;
 import studio.one.platform.textract.service.FileContentExtractionService;
 
@@ -47,6 +51,9 @@ class AttachmentMgmtControllerAuthorizationTest {
 
     @Mock
     private ObjectProvider<FileContentExtractionService> textExtractionProvider;
+
+    @Mock
+    private ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
 
     @Mock
     private PrincipalResolver principalResolver;
@@ -106,6 +113,41 @@ class AttachmentMgmtControllerAuthorizationTest {
     }
 
     @Test
+    void listByObjectRejectsWellKnownDomainAttachmentWithoutOwnerAuthorizer() {
+        AttachmentMgmtController controller = controller();
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(7L, "USER"));
+        when(ownerAccessAuthorizers.orderedStream()).thenReturn(Stream.empty());
+
+        assertThrows(AccessDeniedException.class, () -> controller.listByObject(
+                WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT,
+                34L));
+    }
+
+    @Test
+    void listByObjectUsesDomainAuthorizerForWellKnownAttachment() {
+        AttachmentMgmtController controller = controller();
+        AttachmentOwnerAccessAuthorizer authorizer = mock(AttachmentOwnerAccessAuthorizer.class);
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(7L, "USER"));
+        when(ownerAccessAuthorizers.orderedStream()).thenReturn(Stream.of(authorizer));
+        when(authorizer.supports(WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT)).thenReturn(true);
+        when(authorizer.canAccess(
+                WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT,
+                34L,
+                principalResolver.currentOrNull(),
+                AttachmentOwnerAccessAction.LIST)).thenReturn(true);
+        when(attachmentService.getAttachments(WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT, 34L))
+                .thenReturn(Collections.emptyList());
+
+        controller.listByObject(WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT, 34L);
+
+        verify(attachmentService).getAttachments(WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT, 34L);
+    }
+
+    @Test
     void extractTextPropagatesLimitFailure() throws Exception {
         AttachmentMgmtController controller = controller();
         Attachment attachment = mock(Attachment.class);
@@ -129,7 +171,8 @@ class AttachmentMgmtControllerAuthorizationTest {
                 requestDetailsResolver,
                 identityServiceProvider,
                 principalResolverProvider,
-                textExtractionProvider);
+                textExtractionProvider,
+                ownerAccessAuthorizers);
     }
 
     private ApplicationPrincipal principal(Long userId, String role) {

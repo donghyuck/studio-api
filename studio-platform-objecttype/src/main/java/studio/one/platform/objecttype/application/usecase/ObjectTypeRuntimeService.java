@@ -11,5 +11,26 @@ public interface ObjectTypeRuntimeService {
 
     ObjectTypeDefinition definition(int objectType);
 
+    default ObjectTypeDefinition definitionByKey(String key) {
+        if (this instanceof ObjectTypeKeyRuntimeService keyRuntimeService) {
+            return keyRuntimeService.definitionByKey(key);
+        }
+        throw new UnsupportedOperationException("ObjectType key lookup is not supported");
+    }
+
+    default int objectTypeByKey(String key) {
+        if (this instanceof ObjectTypeKeyRuntimeService keyRuntimeService) {
+            return keyRuntimeService.objectTypeByKey(key);
+        }
+        throw new UnsupportedOperationException("ObjectType key lookup is not supported");
+    }
+
     ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request);
+
+    default ValidateUploadResult validateUploadByKey(String key, ValidateUploadCommand request) {
+        if (this instanceof ObjectTypeKeyRuntimeService keyRuntimeService) {
+            return keyRuntimeService.validateUploadByKey(key, request);
+        }
+        throw new UnsupportedOperationException("ObjectType key lookup is not supported");
+    }
 }

@@ -31,7 +31,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.web.controller.ObjectTypeKeyController;
 import studio.one.platform.objecttype.web.controller.ObjectTypeController;
 import studio.one.platform.objecttype.web.controller.ObjectTypeMgmtController;
 import lombok.extern.slf4j.Slf4j;
@@ -57,14 +59,21 @@ public class ObjectTypeWebAutoConfiguration {
     }
 
     @Configuration
-    @ConditionalOnBean(name = ObjectTypeRuntimeService.SERVICE_NAME)
+    @ConditionalOnBean(name = { ObjectTypeRuntimeService.SERVICE_NAME, "endpointAuthz" })
     @Import(ObjectTypeController.class)
     static class ObjectTypeRuntimeWebConfig {
 
     }
 
     @Configuration
-    @ConditionalOnBean(name = ObjectTypeAdminService.SERVICE_NAME)
+    @ConditionalOnBean(name = { ObjectTypeRuntimeService.SERVICE_NAME, "endpointAuthz" })
+    @Import(ObjectTypeKeyController.class)
+    static class ObjectTypeKeyRuntimeWebConfig {
+
+    }
+
+    @Configuration
+    @ConditionalOnBean(name = { ObjectTypeAdminService.SERVICE_NAME, "endpointAuthz" })
     @Import(ObjectTypeMgmtController.class)
     static class ObjectTypeAdminWebConfig {
 

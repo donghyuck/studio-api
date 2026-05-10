@@ -19,8 +19,10 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     compileOnly(project(":studio-platform"))
     compileOnly(project(":studio-platform-data"))
+    compileOnly(project(":studio-platform-identity"))
     compileOnly("org.springframework.boot:spring-boot-starter")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
+    compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.mybatis:mybatis:${property("mybatisVersion")}")
@@ -33,6 +35,7 @@ dependencies {
     testImplementation("org.springframework:spring-jdbc")
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-data"))
+    testImplementation(project(":studio-platform-identity"))
     testImplementation("org.springframework:spring-web")
     testImplementation("org.mybatis:mybatis:${property("mybatisVersion")}")
 }

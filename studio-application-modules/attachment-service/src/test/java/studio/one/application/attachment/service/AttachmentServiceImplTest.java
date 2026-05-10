@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -33,6 +34,7 @@ import studio.one.application.attachment.storage.FileStorageSaveResult;
 import studio.one.application.attachment.storage.FileStorageSaveResultCapable;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
 import studio.one.platform.identity.PrincipalResolver;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +54,9 @@ class AttachmentServiceImplTest {
 
     @Mock
     private ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
+
+    @Mock
+    private ObjectProvider<AttachmentObjectTypeResolver> objectTypeResolverProvider;
 
     @Mock
     private ObjectProvider<ThumbnailService> thumbnailServiceProvider;
@@ -158,6 +163,43 @@ class AttachmentServiceImplTest {
     }
 
     @Test
+    void createAttachmentByObjectTypeKeyResolvesWellKnownType() {
+        AttachmentServiceImpl service = service();
+        ObjectTypeKeyRuntimeService runtimeService = org.mockito.Mockito.mock(ObjectTypeKeyRuntimeService.class);
+        when(objectTypeRuntimeServiceProvider.getIfAvailable()).thenReturn(runtimeService);
+        when(runtimeService.objectTypeByKey("workspace-attachment")).thenReturn(2103);
+        when(attachmentRepository.save(any(ApplicationAttachment.class))).thenAnswer(invocation -> {
+            ApplicationAttachment attachment = invocation.getArgument(0);
+            attachment.setAttachmentId(45L);
+            return attachment;
+        });
+
+        Attachment saved = service.createAttachment(
+                "workspace-attachment",
+                34L,
+                "report.pdf",
+                "application/pdf",
+                new ByteArrayInputStream(new byte[] { 1, 2, 3 }),
+                3);
+
+        assertEquals(2103, saved.getObjectType());
+        assertEquals(34L, saved.getObjectId());
+        verify(runtimeService).objectTypeByKey(eq("workspace-attachment"));
+        verify(runtimeService).validateUpload(eq(2103), any());
+    }
+
+    @Test
+    void objectTypeResolverRequiresRuntimeService() {
+        when(objectTypeRuntimeServiceProvider.getIfAvailable()).thenReturn(null);
+        AttachmentObjectTypeResolver resolver = new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class,
+                () -> resolver.resolveRequired("workspace-attachment"));
+
+        assertTrue(ex.getMessage().contains("ObjectTypeRuntimeService is required"));
+    }
+
+    @Test
     void createAttachmentCleansUpObjectWhenMetadataUpdateFailsAfterStorageSave() {
         ResultFileStorage resultStorage = new ResultFileStorage();
         AttachmentServiceImpl service = new AttachmentServiceImpl(
@@ -166,6 +208,7 @@ class AttachmentServiceImplTest {
                 fileStorageResolverProvider,
                 principalResolverProvider,
                 objectTypeRuntimeServiceProvider,
+                objectTypeResolverProvider,
                 thumbnailServiceProvider);
         RuntimeException metadataFailure = new RuntimeException("metadata failed");
         AtomicInteger saves = new AtomicInteger();
@@ -200,6 +243,7 @@ class AttachmentServiceImplTest {
                 fileStorageResolverProvider,
                 principalResolverProvider,
                 objectTypeRuntimeServiceProvider,
+                objectTypeResolverProvider,
                 thumbnailServiceProvider);
     }
 

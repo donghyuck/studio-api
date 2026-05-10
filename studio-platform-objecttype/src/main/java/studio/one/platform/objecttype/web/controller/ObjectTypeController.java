@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,11 +33,13 @@ public class ObjectTypeController {
     private final ObjectTypeRuntimeService runtimeService;
 
     @GetMapping("/{objectType}/definition")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
     public ResponseEntity<ApiResponse<ObjectTypeDefinitionDto>> definition(@PathVariable @Min(1) int objectType) {
         return ResponseEntity.ok(ApiResponse.ok(toDto(runtimeService.definition(objectType))));
     }
 
     @PostMapping("/{objectType}/validate-upload")
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
     public ResponseEntity<ApiResponse<ValidateUploadResponse>> validateUpload(
             @PathVariable @Min(1) int objectType,
             @Valid @RequestBody ValidateUploadRequest request) {
@@ -44,14 +47,14 @@ public class ObjectTypeController {
         return ResponseEntity.ok(ApiResponse.ok(toDto(result)));
     }
 
-    private ObjectTypeDefinitionDto toDto(ObjectTypeDefinition definition) {
+    static ObjectTypeDefinitionDto toDto(ObjectTypeDefinition definition) {
         return ObjectTypeDefinitionDto.builder()
                 .type(toDto(definition.type()))
                 .policy(toDto(definition.policy()))
                 .build();
     }
 
-    private studio.one.platform.objecttype.web.dto.response.ObjectTypeDto toDto(ObjectTypeView view) {
+    private static studio.one.platform.objecttype.web.dto.response.ObjectTypeDto toDto(ObjectTypeView view) {
         return studio.one.platform.objecttype.web.dto.response.ObjectTypeDto.builder()
                 .objectType(view.objectType())
                 .code(view.code())
@@ -68,7 +71,7 @@ public class ObjectTypeController {
                 .build();
     }
 
-    private studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto toDto(
+    private static studio.one.platform.objecttype.web.dto.response.ObjectTypePolicyDto toDto(
             studio.one.platform.objecttype.application.result.ObjectTypePolicyView view) {
         if (view == null) {
             return null;
@@ -92,7 +95,7 @@ public class ObjectTypeController {
         return new ValidateUploadCommand(request.fileName(), request.contentType(), request.sizeBytes());
     }
 
-    private ValidateUploadResponse toDto(ValidateUploadResult result) {
+    static ValidateUploadResponse toDto(ValidateUploadResult result) {
         return ValidateUploadResponse.builder()
                 .allowed(result.allowed())
                 .reason(result.reason())

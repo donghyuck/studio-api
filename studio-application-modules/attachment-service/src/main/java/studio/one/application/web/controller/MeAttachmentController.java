@@ -3,6 +3,7 @@ package studio.one.application.web.controller;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
@@ -28,11 +29,15 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAction;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.exception.NotFoundException;
+import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
+import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.textract.service.FileContentExtractionService;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -47,6 +52,8 @@ public class MeAttachmentController {
     private final AttachmentService attachmentService;
     private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
+    private final ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
+    private final ObjectProvider<PrincipalResolver> principalResolverProvider;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<AttachmentDto>> upload(
@@ -54,13 +61,14 @@ public class MeAttachmentController {
             @RequestParam("objectId") long objectId,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal(expression = "userId") Long userId) throws IOException {
-        AttachmentAccessSupport.requireUserId(userId);
+        long resolvedUserId = AttachmentAccessSupport.requireUserId(userId);
         AttachmentWebSupport.PreparedUpload upload;
         try {
             upload = AttachmentWebSupport.prepareUpload(file);
         } catch (IllegalArgumentException e) {
             return AttachmentWebSupport.badRequest(e.getMessage());
         }
+        requireOwnerAccess(objectType, objectId, principal(resolvedUserId), AttachmentOwnerAccessAction.UPLOAD);
 
         Attachment saved = attachmentService.createAttachment(
                 objectType,
@@ -81,6 +89,7 @@ public class MeAttachmentController {
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        requireAttachmentAccess(attachment, principal(resolvedUserId), AttachmentOwnerAccessAction.READ);
         return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
     }
 
@@ -100,6 +109,7 @@ public class MeAttachmentController {
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        requireAttachmentAccess(attachment, principal(resolvedUserId), AttachmentOwnerAccessAction.READ);
         try (InputStream in = attachmentService.getInputStream(attachment)) {
             String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
             return ResponseEntity.ok(ApiResponse.ok(text));
@@ -115,6 +125,7 @@ public class MeAttachmentController {
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        requireAttachmentAccess(attachment, principal(resolvedUserId), AttachmentOwnerAccessAction.DOWNLOAD);
         return AttachmentWebSupport.downloadResponse(
                 attachment,
                 attachmentService.getInputStream(attachment),
@@ -131,6 +142,7 @@ public class MeAttachmentController {
         long resolvedUserId = AttachmentAccessSupport.requireUserId(userId);
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
+            requireOwnerAccess(objectType, objectId, principal(resolvedUserId), AttachmentOwnerAccessAction.LIST);
             if (keyword == null || keyword.isBlank()) {
                 page = attachmentService.findAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId, pageable);
             } else {
@@ -151,6 +163,7 @@ public class MeAttachmentController {
             @PathVariable long objectId,
             @AuthenticationPrincipal(expression = "userId") Long userId) {
         long resolvedUserId = AttachmentAccessSupport.requireUserId(userId);
+        requireOwnerAccess(objectType, objectId, principal(resolvedUserId), AttachmentOwnerAccessAction.LIST);
         List<Attachment> attachments = attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId);
         return ResponseEntity.ok(ApiResponse.ok(attachments.stream().map(this::toDto).toList()));
     }
@@ -164,8 +177,65 @@ public class MeAttachmentController {
         if (attachment.getCreatedBy() != resolvedUserId) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
+        requireAttachmentAccess(attachment, principal(resolvedUserId), AttachmentOwnerAccessAction.DELETE);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    private void requireAttachmentAccess(
+            Attachment attachment,
+            ApplicationPrincipal principal,
+            AttachmentOwnerAccessAction action) {
+        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(attachment.getObjectType())) {
+            return;
+        }
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment,
+                principal,
+                ownerAccessAuthorizers,
+                action);
+    }
+
+    private void requireOwnerAccess(
+            int objectType,
+            long objectId,
+            ApplicationPrincipal principal,
+            AttachmentOwnerAccessAction action) {
+        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType)) {
+            return;
+        }
+        AttachmentAccessSupport.requireOwnerAccess(
+                objectType,
+                objectId,
+                principal,
+                ownerAccessAuthorizers,
+                action);
+    }
+
+    private ApplicationPrincipal principal(long userId) {
+        PrincipalResolver resolver = principalResolverProvider.getIfAvailable();
+        if (resolver != null) {
+            ApplicationPrincipal principal = resolver.currentOrNull();
+            if (principal != null) {
+                return principal;
+            }
+        }
+        return new ApplicationPrincipal() {
+            @Override
+            public Long getUserId() {
+                return userId;
+            }
+
+            @Override
+            public String getUsername() {
+                return "user-" + userId;
+            }
+
+            @Override
+            public Set<String> getRoles() {
+                return Set.of("USER");
+            }
+        };
     }
 
     private AttachmentDto toDto(Attachment attachment) {

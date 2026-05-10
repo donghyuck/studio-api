@@ -33,6 +33,7 @@ import studio.one.application.attachment.service.AttachmentDownloadTokenInspecti
 import studio.one.application.attachment.service.AttachmentDownloadUrl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.attachment.thumbnail.ThumbnailData;
 import studio.one.application.attachment.thumbnail.ThumbnailService;
@@ -62,6 +63,9 @@ class AttachmentControllerTest {
 
     @Mock
     private ObjectProvider<PrincipalResolver> principalResolverProvider;
+
+    @Mock
+    private ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
 
     @Test
     void uploadSanitizesFilenameAndNormalizesContentType() throws Exception {
@@ -390,6 +394,7 @@ class AttachmentControllerTest {
                 downloadAuditLogService,
                 requestDetailsResolver,
                 thumbnailServiceProvider,
-                principalResolverProvider);
+                principalResolverProvider,
+                ownerAccessAuthorizers);
     }
 }

@@ -34,6 +34,8 @@ import studio.one.application.attachment.exception.AttachmentDownloadUrlUnavaila
 import studio.one.application.attachment.service.AttachmentDownloadUrl;
 import studio.one.application.attachment.service.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.service.AttachmentDownloadUrlService;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAction;
+import studio.one.application.attachment.service.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.service.AttachmentService;
 import studio.one.application.web.dto.AttachmentDownloadUrlDto;
 import studio.one.application.web.dto.AttachmentDownloadUrlIssueRequestDto;
@@ -59,6 +61,7 @@ public class AttachmentMgmtController {
     private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
+    private final ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@endpointAuthz.can('features:attachment','upload')")
@@ -72,6 +75,13 @@ public class AttachmentMgmtController {
         } catch (IllegalArgumentException e) {
             return AttachmentWebSupport.badRequest(e.getMessage());
         }
+        ApplicationPrincipal principal = requirePrincipal();
+        AttachmentAccessSupport.requireOwnerAccess(
+                objectType,
+                objectId,
+                principal,
+                ownerAccessAuthorizers,
+                AttachmentOwnerAccessAction.UPLOAD);
 
         Attachment saved = attachmentService.createAttachment(
                 objectType,
@@ -88,7 +98,8 @@ public class AttachmentMgmtController {
     public ResponseEntity<ApiResponse<AttachmentDto>> get(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        AttachmentAccessSupport.requireAttachmentAccess(attachment, requirePrincipal());
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment, requirePrincipal(), ownerAccessAuthorizers, AttachmentOwnerAccessAction.READ);
         return ResponseEntity.ok(ApiResponse.ok(toDto(attachment)));
     }
 
@@ -104,7 +115,8 @@ public class AttachmentMgmtController {
             return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(body);
         }
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        AttachmentAccessSupport.requireAttachmentAccess(attachment, requirePrincipal());
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment, requirePrincipal(), ownerAccessAuthorizers, AttachmentOwnerAccessAction.READ);
         try (InputStream in = attachmentService.getInputStream(attachment)) {
             String text = extractor.extractText(attachment.getContentType(), attachment.getName(), in);
             return ResponseEntity.ok(ApiResponse.ok(text));
@@ -116,7 +128,8 @@ public class AttachmentMgmtController {
     public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
             throws IOException, NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        AttachmentAccessSupport.requireAttachmentAccess(attachment, requirePrincipal());
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment, requirePrincipal(), ownerAccessAuthorizers, AttachmentOwnerAccessAction.DOWNLOAD);
         return AttachmentWebSupport.downloadResponse(
                 attachment,
                 attachmentService.getInputStream(attachment),
@@ -131,7 +144,8 @@ public class AttachmentMgmtController {
             HttpServletRequest httpRequest) throws NotFoundException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         ApplicationPrincipal principal = requirePrincipal();
-        AttachmentAccessSupport.requireAttachmentAccess(attachment, principal);
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment, principal, ownerAccessAuthorizers, AttachmentOwnerAccessAction.ISSUE_DOWNLOAD_URL);
         AttachmentUrlIssueRequestDetails details = requestDetailsResolver.resolve(httpRequest);
         try {
             AttachmentDownloadUrl issued = downloadUrlService.issueDownloadUrl(
@@ -163,6 +177,18 @@ public class AttachmentMgmtController {
         Page<Attachment> page;
         if (objectType != null && objectId != null) {
             if (admin) {
+                if (keyword == null || keyword.isBlank()) {
+                    page = attachmentService.findAttachments(objectType, objectId, pageable);
+                } else {
+                    page = attachmentService.findAttachments(objectType, objectId, keyword, pageable);
+                }
+            } else if (AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType)) {
+                AttachmentAccessSupport.requireOwnerAccess(
+                        objectType,
+                        objectId,
+                        principal,
+                        ownerAccessAuthorizers,
+                        AttachmentOwnerAccessAction.LIST);
                 if (keyword == null || keyword.isBlank()) {
                     page = attachmentService.findAttachments(objectType, objectId, pageable);
                 } else {
@@ -200,12 +226,23 @@ public class AttachmentMgmtController {
             @PathVariable int objectType,
             @PathVariable long objectId) {
         ApplicationPrincipal principal = requirePrincipal();
-        List<Attachment> attachments = AttachmentAccessSupport.isAdmin(principal)
-                ? attachmentService.getAttachments(objectType, objectId)
-                : attachmentService.getAttachmentsByObjectAndCreator(
-                        objectType,
-                        objectId,
-                        AttachmentAccessSupport.requireUserId(principal));
+        List<Attachment> attachments;
+        if (AttachmentAccessSupport.isAdmin(principal)) {
+            attachments = attachmentService.getAttachments(objectType, objectId);
+        } else if (AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType)) {
+            AttachmentAccessSupport.requireOwnerAccess(
+                    objectType,
+                    objectId,
+                    principal,
+                    ownerAccessAuthorizers,
+                    AttachmentOwnerAccessAction.LIST);
+            attachments = attachmentService.getAttachments(objectType, objectId);
+        } else {
+            attachments = attachmentService.getAttachmentsByObjectAndCreator(
+                    objectType,
+                    objectId,
+                    AttachmentAccessSupport.requireUserId(principal));
+        }
         return ResponseEntity.ok(ApiResponse.ok(attachments.stream().map(this::toDto).toList()));
     }
 
@@ -214,7 +251,8 @@ public class AttachmentMgmtController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable("attachmentId") long attachmentId)
             throws NotFoundException, IOException {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        AttachmentAccessSupport.requireAttachmentAccess(attachment, requirePrincipal());
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment, requirePrincipal(), ownerAccessAuthorizers, AttachmentOwnerAccessAction.DELETE);
         attachmentService.removeAttachment(attachment);
         return ResponseEntity.ok(ApiResponse.ok());
     }

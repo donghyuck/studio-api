@@ -137,6 +137,7 @@ curl -X POST "/api/mgmt/attachments" \
 
 ## ME REST API (기본 base-path: `/api/me/attachments`)
 - 모든 엔드포인트는 `isAuthenticated()`가 필요하며, 본인 소유 첨부파일만 접근 가능.
+- `@AuthenticationPrincipal.userId`가 있는 로컬 사용자 전용 API다. 서비스 계정이나 로컬 userId가 없는 principal은 서비스용 `/api/attachments` 경로에서 도메인 authorizer를 통해 처리한다.
 - `POST /` (multipart) 업로드: `objectType`, `objectId`, `file` 필수.
 - `GET /{attachmentId}`: 메타데이터 조회.
 - `GET /{attachmentId}/text`: 텍스트 추출. `FileContentExtractionService` 빈이 있을 때만 200, 없으면 501.
@@ -149,6 +150,25 @@ curl -X POST "/api/mgmt/attachments" \
 - objecttype 레지스트리에 첨부파일용 타입을 등록한다.
 - 업로드 시 `objectType` 값에 매핑된 정책(용량/확장자/MIME)이 검증된다.
 - 정책 변경은 관리자 API 또는 마이그레이션으로 수행하고, 변경 후 `rebind`/cache evict가 필요할 수 있다.
+- 도메인 모듈은 숫자 타입 대신 well-known key를 사용할 수 있다. `AttachmentObjectTypeResolver`와
+  `AttachmentService.createAttachment(String objectTypeKey, ...)`는 key를 numeric `objectType`으로 해석한다.
+  알 수 없는 key나 objecttype 기능 미구성 상태는 generic `attachment`로 fallback하지 않고 명확한 예외로 실패한다.
+
+### Well-known attachment key
+| Key | Reserved type | objectId 기준 |
+|---|---:|---|
+| `attachment` | `2001` | 기존 generic attachment |
+| `post-attachment` | `2101` | postId |
+| `mail-attachment` | `2102` | mailMessageId |
+| `workspace-attachment` | `2103` | workspaceId |
+| `wiki-attachment` | `2104` | wikiPageId |
+
+도메인별 REST API를 만들 때는 클라이언트가 `objectType`을 보내지 않게 하고, 예를 들어 Workspace 파일은
+`workspace-attachment + workspaceId`, Wiki page 파일은 `wiki-attachment + pageId`로 attachment service를 호출한다.
+`post-attachment`, `mail-attachment`, `workspace-attachment`, `wiki-attachment` 같은 도메인 소유 타입은 공통 attachment
+REST API에서도 `AttachmentOwnerAccessAuthorizer`를 통해 원본 도메인 권한을 확인한다. 지원하는 authorizer가 없으면
+fail-closed로 접근을 거부하므로, 도메인 전용 첨부 API를 추가할 때는 해당 도메인의 read/upload/download/delete 권한을
+이 SPI로 연결해야 한다. 기존 generic `attachment` 타입은 하위 호환을 위해 업로더/관리자 기준 접근 제어를 유지한다.
 
 ### 예시 (YAML)
 ```yaml

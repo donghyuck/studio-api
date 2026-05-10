@@ -9,6 +9,7 @@ import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
 import studio.one.platform.objecttype.application.result.ObjectTypePolicyView;
 import studio.one.platform.objecttype.application.result.ObjectTypeView;
 import studio.one.platform.objecttype.application.result.ValidateUploadResult;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.objecttype.domain.error.ObjectTypeErrorCodes;
 import studio.one.platform.objecttype.model.ObjectPolicy;
@@ -17,7 +18,7 @@ import studio.one.platform.objecttype.domain.model.ObjectTypeStatus;
 import studio.one.platform.objecttype.policy.ObjectPolicyResolver;
 import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
 
-public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService {
+public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService, ObjectTypeKeyRuntimeService {
 
     private final ObjectTypeRegistry registry;
     private final ObjectPolicyResolver policyResolver;
@@ -29,17 +30,36 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
 
     @Override
     public ObjectTypeDefinition definition(int objectType) {
-        ObjectTypeMetadata meta = registry.findByType(objectType)
-                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
-        requireActive(meta);
-        ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
-        return new ObjectTypeDefinition(toView(meta), toPolicyView(policy, objectType));
+        return definition(resolveByType(objectType));
+    }
+
+    @Override
+    public ObjectTypeDefinition definitionByKey(String key) {
+        return definition(resolveByKey(key));
+    }
+
+    @Override
+    public int objectTypeByKey(String key) {
+        return resolveByKey(key).getObjectType();
     }
 
     @Override
     public ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request) {
-        ObjectTypeMetadata meta = registry.findByType(objectType)
-                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
+        return validateUpload(resolveByType(objectType), request);
+    }
+
+    @Override
+    public ValidateUploadResult validateUploadByKey(String key, ValidateUploadCommand request) {
+        return validateUpload(resolveByKey(key), request);
+    }
+
+    private ObjectTypeDefinition definition(ObjectTypeMetadata meta) {
+        requireActive(meta);
+        ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
+        return new ObjectTypeDefinition(toView(meta), toPolicyView(policy, meta.getObjectType()));
+    }
+
+    private ValidateUploadResult validateUpload(ObjectTypeMetadata meta, ValidateUploadCommand request) {
         requireActive(meta);
         ObjectPolicy policy = policyResolver.resolve(meta).orElse(null);
         if (policy == null) {
@@ -68,6 +88,20 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
             }
         }
         return new ValidateUploadResult(true, null);
+    }
+
+    private ObjectTypeMetadata resolveByType(int objectType) {
+        return registry.findByType(objectType)
+                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, objectType));
+    }
+
+    private ObjectTypeMetadata resolveByKey(String key) {
+        String normalized = key == null ? "" : key.trim();
+        if (normalized.isEmpty()) {
+            throw PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, key);
+        }
+        return registry.findByKey(normalized)
+                .orElseThrow(() -> PlatformRuntimeException.of(ObjectTypeErrorCodes.UNKNOWN_OBJECT_TYPE, normalized));
     }
 
     private void requireActive(ObjectTypeMetadata meta) {
