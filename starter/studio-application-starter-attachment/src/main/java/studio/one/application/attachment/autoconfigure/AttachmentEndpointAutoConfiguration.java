@@ -39,11 +39,13 @@ import studio.one.application.attachment.application.usecase.AttachmentOwnerAcce
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.application.attachment.web.controller.AttachmentController;
+import studio.one.application.attachment.web.controller.AttachmentMgmtController;
 import studio.one.application.attachment.web.controller.MeAttachmentController;
 import studio.one.application.attachment.web.controller.AttachmentUrlIssueRequestDetailsResolver;
 
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.constant.PropertyKeys;
+import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.LogUtils;
@@ -108,6 +110,35 @@ public class AttachmentEndpointAutoConfiguration {
                                 requestDetailsResolver,
                                 thumbnailServiceProvider,
                                 principalResolverProvider,
+                                ownerAccessAuthorizers);
+        }
+
+        @Bean
+        @Lazy
+        @ConditionalOnMissingBean(AttachmentMgmtController.class)
+        AttachmentMgmtController attachmentMgmtController(
+                        AttachmentService attachmentService,
+                        AttachmentDownloadUrlService downloadUrlService,
+                        AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver,
+                        ObjectProvider<studio.one.platform.identity.IdentityService> identityServiceProvider,
+                        ObjectProvider<PrincipalResolver> principalResolverProvider,
+                        ObjectProvider<FileContentExtractionService> textExtractionProvider,
+                        ObjectProvider<ThumbnailService> thumbnailServiceProvider,
+                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers) {
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
+                                AttachmentAutoConfiguration.FEATURE_NAME,
+                                LogUtils.blue(AttachmentService.class, true),
+                                LogUtils.blue(AttachmentMgmtController.class, true),
+                                props.getWeb().getMgmtBasePath(),
+                                "CRUD+thumbnail"));
+                return new AttachmentMgmtController(
+                                attachmentService,
+                                downloadUrlService,
+                                requestDetailsResolver,
+                                identityServiceProvider,
+                                principalResolverProvider,
+                                textExtractionProvider,
+                                thumbnailServiceProvider,
                                 ownerAccessAuthorizers);
         }
 
