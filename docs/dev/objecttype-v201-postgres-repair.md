@@ -35,18 +35,107 @@ flyway migrate
 ## Already applied V201
 
 이미 기존 `V201`이 성공으로 기록된 PostgreSQL 환경에서 artifact만 교체하면 checksum mismatch가
-발생할 수 있습니다. 이 경우 아래를 먼저 확인합니다.
+발생할 수 있습니다. 이 경우 `repair` 전에 seed 데이터가 현재 artifact의 의도와 일치하는지
+먼저 검증합니다.
 
-1. `tb_application_object_type`에 `attachment`, `post-attachment`, `mail-attachment`,
-   `workspace-attachment`, `wiki-attachment` row가 있는지 확인합니다.
-2. `tb_application_object_type_policy`에 `object_type` `2001`, `2101`, `2102`, `2103`,
-   `2104` row가 있는지 확인합니다.
-3. 데이터가 의도한 seed와 일치하면 `repair`로 checksum을 현재 artifact에 맞춘 뒤 재기동합니다.
+아래 SQL은 missing/drift row를 반환합니다. 결과가 0건일 때만 `repair`를 수행합니다.
+
+```sql
+WITH expected_type AS (
+    SELECT *
+    FROM (
+        VALUES
+            (2001, 'attachment', 'Attachment', 'attachment', 'active', 'Default attachment object type'),
+            (2101, 'post-attachment', 'Post Attachment', 'post', 'active', 'Well-known attachment type for post files'),
+            (2102, 'mail-attachment', 'Mail Attachment', 'mail', 'active', 'Well-known attachment type for mail message files'),
+            (2103, 'workspace-attachment', 'Workspace Attachment', 'workspace', 'active', 'Well-known attachment type for workspace files'),
+            (2104, 'wiki-attachment', 'Wiki Attachment', 'wiki', 'active', 'Well-known attachment type for wiki page files')
+    ) AS v(object_type, code, name, domain, status, description)
+),
+expected_policy AS (
+    SELECT *
+    FROM (
+        VALUES
+            (2001, 50, NULL::text, NULL::text, NULL::jsonb),
+            (2101, 50, NULL::text, NULL::text, NULL::jsonb),
+            (2102, 50, NULL::text, NULL::text, NULL::jsonb),
+            (2103, 50, NULL::text, NULL::text, NULL::jsonb),
+            (2104, 50, NULL::text, NULL::text, NULL::jsonb)
+    ) AS v(object_type, max_file_mb, allowed_ext, allowed_mime, policy_json)
+)
+SELECT 'type' AS table_name, e.object_type
+FROM expected_type e
+LEFT JOIN tb_application_object_type t ON t.object_type = e.object_type
+WHERE t.object_type IS NULL
+   OR t.code IS DISTINCT FROM e.code
+   OR t.name IS DISTINCT FROM e.name
+   OR t.domain IS DISTINCT FROM e.domain
+   OR t.status IS DISTINCT FROM e.status
+   OR t.description IS DISTINCT FROM e.description
+UNION ALL
+SELECT 'policy' AS table_name, e.object_type
+FROM expected_policy e
+LEFT JOIN tb_application_object_type_policy p ON p.object_type = e.object_type
+WHERE p.object_type IS NULL
+   OR p.max_file_mb IS DISTINCT FROM e.max_file_mb
+   OR p.allowed_ext IS DISTINCT FROM e.allowed_ext
+   OR p.allowed_mime IS DISTINCT FROM e.allowed_mime
+   OR p.policy_json IS DISTINCT FROM e.policy_json;
+```
+
+검증 SQL이 0건이면 `repair`로 checksum을 현재 artifact에 맞춘 뒤 재기동합니다.
 
 ```bash
 flyway repair
 ```
 
-seed 데이터가 누락되었거나 일부만 적용된 경우에는 수동으로 row를 정리한 뒤 수정된 artifact로
-`migrate`를 다시 실행합니다. 운영 데이터가 있는 환경에서는 `tb_application_object_type`과
-`tb_application_object_type_policy`의 기존 사용자 정의 row를 삭제하지 않습니다.
+검증 SQL이 row를 반환하면 `repair`를 먼저 실행하지 않습니다. `V201`이 이미 성공으로 기록된
+상태에서는 단순 `migrate`가 `V201`을 재실행하지 않으므로, 누락/불일치 seed는 아래처럼 수동
+backfill한 뒤 다시 검증합니다. 운영 데이터가 있는 환경에서는 다른 `object_type` row를 삭제하지
+않습니다.
+
+```sql
+INSERT INTO tb_application_object_type (
+    object_type, code, name, domain, status, description,
+    created_by, created_by_id, updated_by, updated_by_id
+) VALUES
+    (2001, 'attachment', 'Attachment', 'attachment', 'active', 'Default attachment object type',
+     'system', 0, 'system', 0),
+    (2101, 'post-attachment', 'Post Attachment', 'post', 'active', 'Well-known attachment type for post files',
+     'system', 0, 'system', 0),
+    (2102, 'mail-attachment', 'Mail Attachment', 'mail', 'active', 'Well-known attachment type for mail message files',
+     'system', 0, 'system', 0),
+    (2103, 'workspace-attachment', 'Workspace Attachment', 'workspace', 'active', 'Well-known attachment type for workspace files',
+     'system', 0, 'system', 0),
+    (2104, 'wiki-attachment', 'Wiki Attachment', 'wiki', 'active', 'Well-known attachment type for wiki page files',
+     'system', 0, 'system', 0)
+ON CONFLICT (object_type) DO UPDATE
+SET code = EXCLUDED.code,
+    name = EXCLUDED.name,
+    domain = EXCLUDED.domain,
+    status = EXCLUDED.status,
+    description = EXCLUDED.description,
+    updated_by = 'system',
+    updated_by_id = 0,
+    updated_at = NOW();
+
+INSERT INTO tb_application_object_type_policy (
+    object_type, max_file_mb, allowed_ext, allowed_mime, policy_json,
+    created_by, created_by_id, updated_by, updated_by_id
+) VALUES
+    (2001, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+    (2101, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+    (2102, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+    (2103, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+    (2104, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0)
+ON CONFLICT (object_type) DO UPDATE
+SET max_file_mb = EXCLUDED.max_file_mb,
+    allowed_ext = EXCLUDED.allowed_ext,
+    allowed_mime = EXCLUDED.allowed_mime,
+    policy_json = EXCLUDED.policy_json,
+    updated_by = 'system',
+    updated_by_id = 0,
+    updated_at = NOW();
+```
+
+수동 backfill 후 검증 SQL이 0건이 되면 `flyway repair`를 수행하고 서버를 재기동합니다.
