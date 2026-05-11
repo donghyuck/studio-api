@@ -28,6 +28,7 @@ import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.IdentityService;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.platform.textract.domain.error.FileParseException;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
@@ -51,6 +52,9 @@ class AttachmentMgmtControllerAuthorizationTest {
 
     @Mock
     private ObjectProvider<FileContentExtractionService> textExtractionProvider;
+
+    @Mock
+    private ObjectProvider<ThumbnailService> thumbnailServiceProvider;
 
     @Mock
     private ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
@@ -172,6 +176,7 @@ class AttachmentMgmtControllerAuthorizationTest {
                 identityServiceProvider,
                 principalResolverProvider,
                 textExtractionProvider,
+                thumbnailServiceProvider,
                 ownerAccessAuthorizers);
     }
 

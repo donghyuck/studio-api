@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -33,10 +34,12 @@ import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.error.AttachmentDownloadUrlUnavailableException;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrl;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
+import studio.one.application.attachment.application.result.ThumbnailData;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.application.attachment.web.dto.response.AttachmentDownloadUrlDto;
 import studio.one.application.attachment.web.dto.request.AttachmentDownloadUrlIssueRequestDto;
 import studio.one.application.attachment.web.dto.response.AttachmentDto;
@@ -61,6 +64,7 @@ public class AttachmentMgmtController {
     private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
+    private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
     private final ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -218,6 +222,50 @@ public class AttachmentMgmtController {
             }
         }
         return ResponseEntity.ok(ApiResponse.ok(page.map(this::toDto)));
+    }
+
+    @GetMapping("/{attachmentId:[\\p{Digit}]+}/thumbnail")
+    @PreAuthorize("@endpointAuthz.can('features:attachment','download')")
+    public ResponseEntity<StreamingResponseBody> thumbnail(
+            @PathVariable("attachmentId") long attachmentId,
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestParam(value = "format", required = false) String format)
+            throws NotFoundException {
+        ThumbnailService thumbnailService = thumbnailServiceProvider.getIfAvailable();
+        if (thumbnailService == null) {
+            return ResponseEntity.status(501).build();
+        }
+        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        AttachmentAccessSupport.requireAttachmentAccess(
+                attachment,
+                requirePrincipal(),
+                ownerAccessAuthorizers,
+                AttachmentOwnerAccessAction.DOWNLOAD);
+        int requestedSize = size == null ? 0 : size;
+        var result = thumbnailService.getOrCreate(attachment, requestedSize, format);
+        if (result.isEmpty()) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("X-Thumbnail-Status", "unavailable");
+            headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+            return ResponseEntity.noContent()
+                    .headers(headers)
+                    .build();
+        }
+        ThumbnailData data = result.get();
+        StreamingResponseBody body = out -> out.write(data.getBytes());
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("X-Thumbnail-Status", data.getStatus());
+        if (data.isPending()) {
+            headers.setCacheControl(CacheControl.noStore().getHeaderValue());
+            headers.add(HttpHeaders.RETRY_AFTER, "3");
+        } else {
+            headers.setCacheControl(CacheControl.maxAge(3600, java.util.concurrent.TimeUnit.SECONDS).getHeaderValue());
+        }
+        headers.setContentType(AttachmentWebSupport.resolveMediaType(data.getContentType()));
+        headers.setContentLength(data.getBytes().length);
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(body);
     }
 
     @GetMapping("/objects/{objectType:[\\p{Digit}]+}/{objectId:[\\p{Digit}]+}")
