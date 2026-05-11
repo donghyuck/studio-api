@@ -1,3 +1,38 @@
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            VALUES
+                (2001, 'attachment'),
+                (2101, 'post-attachment'),
+                (2102, 'mail-attachment'),
+                (2103, 'workspace-attachment'),
+                (2104, 'wiki-attachment')
+        ) AS seed(object_type, code)
+        JOIN tb_application_object_type t ON t.code = seed.code
+        WHERE t.object_type <> seed.object_type
+    ) THEN
+        RAISE EXCEPTION 'reserved object type code is already bound to a different object_type';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            VALUES
+                (2001, 'attachment'),
+                (2101, 'post-attachment'),
+                (2102, 'mail-attachment'),
+                (2103, 'workspace-attachment'),
+                (2104, 'wiki-attachment')
+        ) AS seed(object_type, code)
+        JOIN tb_application_object_type t ON t.object_type = seed.object_type
+        WHERE t.code <> seed.code
+    ) THEN
+        RAISE EXCEPTION 'reserved object_type is already bound to a different code';
+    END IF;
+END $$;
+
 INSERT INTO tb_application_object_type (
     object_type, code, name, domain, status, description,
     created_by, created_by_id, updated_by, updated_by_id
