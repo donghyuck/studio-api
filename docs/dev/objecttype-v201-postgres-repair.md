@@ -122,16 +122,17 @@ SELECT seed.object_type, seed.max_file_mb, seed.allowed_ext, seed.allowed_mime, 
        'system', 0, 'system', 0
 FROM (
     VALUES
-        (2001, 50, NULL::text, NULL::text, NULL::jsonb),
-        (2101, 50, NULL::text, NULL::text, NULL::jsonb),
-        (2102, 50, NULL::text, NULL::text, NULL::jsonb),
-        (2103, 50, NULL::text, NULL::text, NULL::jsonb),
-        (2104, 50, NULL::text, NULL::text, NULL::jsonb)
-) AS seed(object_type, max_file_mb, allowed_ext, allowed_mime, policy_json)
+        (2001, 'attachment', 50, NULL::text, NULL::text, NULL::jsonb),
+        (2101, 'post-attachment', 50, NULL::text, NULL::text, NULL::jsonb),
+        (2102, 'mail-attachment', 50, NULL::text, NULL::text, NULL::jsonb),
+        (2103, 'workspace-attachment', 50, NULL::text, NULL::text, NULL::jsonb),
+        (2104, 'wiki-attachment', 50, NULL::text, NULL::text, NULL::jsonb)
+) AS seed(object_type, code, max_file_mb, allowed_ext, allowed_mime, policy_json)
 WHERE EXISTS (
     SELECT 1
     FROM tb_application_object_type t
     WHERE t.object_type = seed.object_type
+      AND t.code = seed.code
 )
 ON CONFLICT DO NOTHING;
 ```
