@@ -59,21 +59,21 @@ public class ObjectTypeWebAutoConfiguration {
     }
 
     @Configuration
-    @ConditionalOnBean(name = { ObjectTypeRuntimeService.SERVICE_NAME, "endpointAuthz" })
+    @ConditionalOnBean(name = { ObjectTypeRuntimeService.SERVICE_NAME })
     @Import(ObjectTypeController.class)
     static class ObjectTypeRuntimeWebConfig {
 
     }
 
     @Configuration
-    @ConditionalOnBean(name = { ObjectTypeRuntimeService.SERVICE_NAME, "endpointAuthz" })
+    @ConditionalOnBean(name = { ObjectTypeRuntimeService.SERVICE_NAME })
     @Import(ObjectTypeKeyController.class)
     static class ObjectTypeKeyRuntimeWebConfig {
 
     }
 
     @Configuration
-    @ConditionalOnBean(name = { ObjectTypeAdminService.SERVICE_NAME, "endpointAuthz" })
+    @ConditionalOnBean(name = { ObjectTypeAdminService.SERVICE_NAME })
     @Import(ObjectTypeMgmtController.class)
     static class ObjectTypeAdminWebConfig {
 
