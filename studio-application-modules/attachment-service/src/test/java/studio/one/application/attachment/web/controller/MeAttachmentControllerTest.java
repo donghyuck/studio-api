@@ -59,7 +59,8 @@ class MeAttachmentControllerTest {
                 identityServiceProvider,
                 textExtractionProvider,
                 ownerAccessAuthorizers,
-                principalResolverProvider);
+                principalResolverProvider,
+                objectType -> java.util.Optional.empty());
         Attachment attachment = mock(Attachment.class);
 
         when(attachmentService.getAttachmentById(44L)).thenReturn(attachment);
@@ -77,7 +78,8 @@ class MeAttachmentControllerTest {
                 identityServiceProvider,
                 textExtractionProvider,
                 ownerAccessAuthorizers,
-                principalResolverProvider);
+                principalResolverProvider,
+                objectType -> java.util.Optional.empty());
         MockMultipartFile file = new MockMultipartFile(
                 "file",
                 "/tmp/report.txt",
@@ -112,7 +114,8 @@ class MeAttachmentControllerTest {
                 identityServiceProvider,
                 textExtractionProvider,
                 ownerAccessAuthorizers,
-                principalResolverProvider);
+                principalResolverProvider,
+                objectType -> java.util.Optional.empty());
         Attachment attachment = mock(Attachment.class);
         AttachmentOwnerAccessAuthorizer authorizer = mock(AttachmentOwnerAccessAuthorizer.class);
         ApplicationPrincipal principal = principal(7L, "alice", "WORKSPACE_MEMBER");

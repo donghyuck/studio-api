@@ -31,6 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
+import studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver;
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.attachment.web.dto.response.AttachmentDto;
 import studio.one.platform.constant.PropertyKeys;
@@ -54,6 +55,7 @@ public class MeAttachmentController {
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
     private final ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
+    private final AttachmentObjectTypeResolver objectTypeResolver;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<AttachmentDto>> upload(
@@ -186,13 +188,14 @@ public class MeAttachmentController {
             Attachment attachment,
             ApplicationPrincipal principal,
             AttachmentOwnerAccessAction action) {
-        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(attachment.getObjectType())) {
+        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(attachment.getObjectType(), objectTypeResolver)) {
             return;
         }
         AttachmentAccessSupport.requireAttachmentAccess(
                 attachment,
                 principal,
                 ownerAccessAuthorizers,
+                objectTypeResolver,
                 action);
     }
 
@@ -201,7 +204,7 @@ public class MeAttachmentController {
             long objectId,
             ApplicationPrincipal principal,
             AttachmentOwnerAccessAction action) {
-        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType)) {
+        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType, objectTypeResolver)) {
             return;
         }
         AttachmentAccessSupport.requireOwnerAccess(
@@ -209,6 +212,7 @@ public class MeAttachmentController {
                 objectId,
                 principal,
                 ownerAccessAuthorizers,
+                objectTypeResolver,
                 action);
     }
 

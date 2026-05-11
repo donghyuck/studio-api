@@ -395,6 +395,7 @@ class AttachmentControllerTest {
                 requestDetailsResolver,
                 thumbnailServiceProvider,
                 principalResolverProvider,
-                ownerAccessAuthorizers);
+                ownerAccessAuthorizers,
+                objectType -> java.util.Optional.empty());
     }
 }
