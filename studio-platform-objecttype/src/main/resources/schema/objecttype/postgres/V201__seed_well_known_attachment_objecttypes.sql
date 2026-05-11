@@ -1,3 +1,38 @@
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            VALUES
+                (2001, 'attachment'),
+                (2101, 'post-attachment'),
+                (2102, 'mail-attachment'),
+                (2103, 'workspace-attachment'),
+                (2104, 'wiki-attachment')
+        ) AS seed(object_type, code)
+        JOIN tb_application_object_type t ON t.code = seed.code
+        WHERE t.object_type <> seed.object_type
+    ) THEN
+        RAISE EXCEPTION 'reserved object type code is already bound to a different object_type';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM (
+            VALUES
+                (2001, 'attachment'),
+                (2101, 'post-attachment'),
+                (2102, 'mail-attachment'),
+                (2103, 'workspace-attachment'),
+                (2104, 'wiki-attachment')
+        ) AS seed(object_type, code)
+        JOIN tb_application_object_type t ON t.object_type = seed.object_type
+        WHERE t.code <> seed.code
+    ) THEN
+        RAISE EXCEPTION 'reserved object_type is already bound to a different code';
+    END IF;
+END $$;
+
 INSERT INTO tb_application_object_type (
     object_type, code, name, domain, status, description,
     created_by, created_by_id, updated_by, updated_by_id
@@ -22,11 +57,11 @@ SELECT seed.object_type, seed.max_file_mb, seed.allowed_ext, seed.allowed_mime, 
        seed.created_by, seed.created_by_id, seed.updated_by, seed.updated_by_id
 FROM (
     VALUES
-        (2001, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2101, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2102, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2103, 50, NULL, NULL, NULL, 'system', 0, 'system', 0),
-        (2104, 50, NULL, NULL, NULL, 'system', 0, 'system', 0)
+        (2001, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2101, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2102, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2103, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0),
+        (2104, 50, NULL, NULL, NULL::jsonb, 'system', 0, 'system', 0)
 ) AS seed(object_type, max_file_mb, allowed_ext, allowed_mime, policy_json,
           created_by, created_by_id, updated_by, updated_by_id)
 WHERE EXISTS (
