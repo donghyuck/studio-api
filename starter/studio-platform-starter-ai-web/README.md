@@ -270,8 +270,7 @@ RAG 색인/검색 계열 요청은 기존 body를 유지하면서 `embeddingProf
 chat request의 `provider`/`model`은 답변 생성 모델 선택용이다.
 서버 설정과 운영 화면 적용 기준은
 [`RAG embedding profile 운영 가이드`](../../docs/dev/rag-embedding-profile-ops.md)를 따른다.
-기존 chunk를 profile 기반 metadata로 재색인하는 운영 절차는
-[`Legacy RAG chunk metadata 재색인 가이드`](../../docs/dev/rag-legacy-chunk-migration.md)를 따른다.
+기존 chunk를 profile 기반 metadata로 재색인하는 운영 절차는 별도 운영 가이드를 따른다.
 
 ### Chunk Preview / Config
 

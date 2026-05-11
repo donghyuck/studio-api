@@ -48,8 +48,8 @@ studio:
 
 신규 page 생성은 `baseRevisionId`를 생략한다. 기존 page update, archive, revert는 현재 `currentRevisionId`를 `baseRevisionId`로 전달해야 하며 누락되거나 현재 revision과 다르면 `409 Conflict`가 반환된다. `_Sidebar`, `_Footer` write/revert/archive는 `wiki.admin` 권한이 필요하다.
 
-## Schema
-Flyway location에 `schema/wiki/{db}`를 추가해 `V1400__create_workspace_wiki_tables.sql`이 적용되도록 구성한다. 이 migration은 다음 테이블을 생성한다.
+## 저장소
+Wiki DB 저장소는 다음 테이블을 사용한다.
 
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE`
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE_REVISION`

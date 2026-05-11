@@ -3,7 +3,7 @@
 첨부파일 서비스(파일 메타데이터 + 바이너리 스토리지)를 자동으로 구성하는 스타터이다.
 `studio-application-modules:attachment-service` 모듈의 서비스/리포지토리/스토리지 빈을 등록하고,
 선택적으로 REST 엔드포인트를 노출한다.
-feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, attachment storage/runtime 통합 설정은 `studio.attachment.*`를 사용한다. 썸네일 생성 기본값은 독립 platform thumbnail 서비스의 `studio.thumbnail.*`를 사용한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`, `studio.features.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 남는다.
+feature gate와 web 노출은 `studio.features.attachment.*`를 유지하고, attachment storage/runtime 통합 설정은 `studio.attachment.*`를 사용한다. 썸네일 생성 기본값은 독립 platform thumbnail 서비스의 `studio.thumbnail.*`를 사용한다. 일부 legacy thumbnail/storage 설정은 deprecated fallback으로만 남는다.
 
 ## 1) 의존성 추가
 

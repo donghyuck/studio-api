@@ -124,16 +124,8 @@ studio:
 
 공유 PK 방식(`@MapsId`)으로 `TB_APPLICATION_AVATAR_IMAGE`와 1:1 연결된다. 이미지 바이너리(BLOB)를 저장한다.
 
-## 스키마 위치
-
-```
-src/main/resources/schema/avatar/
-  ├── postgres/V700__create_avatar_tables.sql
-  ├── mariadb/V700__create_avatar_tables.sql
-  └── mysql/V700__create_avatar_tables.sql
-```
-
-Flyway 버전 범위는 `docs/flyway-versioning.md`의 avatar 범위(V700-V799)를 따른다.
+## 저장소
+DB 저장소는 `TB_APPLICATION_AVATAR_IMAGE`와 `TB_APPLICATION_AVATAR_IMAGE_DATA`를 사용한다.
 
 ## 제공 기능
 

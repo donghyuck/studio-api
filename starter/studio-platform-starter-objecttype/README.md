@@ -176,7 +176,7 @@ studio:
   `application.result`, `application.service`, `domain.model`, `domain.error`, `domain.port`,
   `infrastructure.persistence`, `infrastructure.cache`, `infrastructure.yaml`, `web.dto.request`,
   `web.dto.response` 기준으로 갱신해야 한다. 전체 mapping은 `studio-platform-objecttype/README.md`의
-  패키지 구조 및 마이그레이션 표를 따른다.
+  패키지 구조 표를 따른다.
   REST endpoint와 JSON 응답 shape는 변경되지 않았다.
 - MyBatis mapper XML을 복사하거나 커스터마이징한 경우 XML namespace와 row type FQCN도
   `infrastructure.persistence.mybatis` 및 `infrastructure.persistence.model` 기준으로 갱신해야 한다.

@@ -1,6 +1,6 @@
 # Mail Service (IMAP Sync)
 
-IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다. `studio-application-starter-mail` 을 사용하면 persistence 유형에 따라 적절한 구현이 자동 등록되고, IMAP 설정은 `studio.mail.imap.*`에서 읽는다. 기존 `studio.features.mail.imap.*`는 migration window 동안만 fallback으로 유지된다.
+IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다. `studio-application-starter-mail` 을 사용하면 persistence 유형에 따라 적절한 구현이 자동 등록되고, IMAP 설정은 `studio.mail.imap.*`에서 읽는다. 기존 `studio.features.mail.imap.*`는 deprecated fallback으로 유지된다.
 
 ## 구성 요소
 - **MailMessageService**: 메일 저장/조회 추상화(JPA: `JpaMailMessageService`, JDBC: `JdbcMailMessageService`).
@@ -9,7 +9,7 @@ IMAP 서버에서 메일을 읽어 DB(JPA/JDBC)로 동기화하는 모듈이다.
 - **MailSyncLogService**: 동기화 이력 기록/조회(JPA/JDBC).
 - **MailController**: REST/SSE(`/api/mgmt/mail` 기본) — 단건 조회(`GET /{mailId}`), 페이지 조회(`GET /?page=&size=`), 수동 동기화 요청(`POST /sync` → logId 반환, 비동기 실행), 동기화 이력 조회(`GET /sync/logs`, `GET /sync/logs/page`), SSE 완료 이벤트(`GET /sync/stream`).
 - **도메인/엔티티**: `MailMessage`/`MailMessageEntity`, `MailAttachment`/`MailAttachmentEntity`(본문/첨부/헤더/프로퍼티).
-- **SQL/DDL**: JDBC 구현은 클래스 내부 SQL 상수를 사용하며, DDL은 `schema/mail/{db}/V1000__create_mail_tables.sql`를 사용한다(`docs/flyway-versioning.md`의 mail 범위 V1000-V1099 참고).
+- **SQL/DDL**: JDBC 구현은 클래스 내부 SQL 상수를 사용하며, DB 저장소는 메일/첨부/동기화 로그 테이블을 사용한다.
 
 ## 패키지 구조
 - `application.usecase`: mail message/attachment/sync/log service와 notifier 계약.

@@ -2,7 +2,7 @@
 
 사용자 도메인(유저/그룹/권한/회사) 기능을 빠르게 붙이기 위한 스타터이다. JPA 또는 JDBC 영속성에 맞춰
 엔터티/리포지토리 스캔과 서비스 빈을 등록하고, 선택적으로 REST 엔드포인트를 노출한다. 비밀번호 정책은
-`studio.user.password-policy.*`를 사용하고, `studio.features.user.password-policy.*`는 migration window 동안만 fallback으로 남는다.
+`studio.user.password-policy.*`를 사용하고, `studio.features.user.password-policy.*`는 deprecated fallback으로 남는다.
 기본 구현(직접 사용자 엔터티/리포지토리/서비스/컨트롤러)은 `studio-platform-user-default`에서 제공된다.
 
 ## 1) 의존성 추가
@@ -225,20 +225,17 @@ studio:
 - JPA 사용 시 `EntityManagerFactory`가 필요하다.
 - JDBC 모드에서는 `JdbcTemplate` 기반 리포지토리가 사용된다.
 - 기능을 끄려면 `studio.features.user.enabled=false`로 비활성화한다.
-- 사용자 스키마는 `studio-platform-user-default`에 포함된다:
-  `studio-platform-user-default/src/main/resources/schema/user/{db}/V300__create_user_tables.sql`
-  (`docs/flyway-versioning.md`의 user 범위 V300-V399 참고)
-- Company member/permission 기반은 `V302__extend_company_and_create_company_members.sql`에서 추가된다.
-  `TB_APPLICATION_COMPANY.STATUS`, `ARCHIVED_AT`, `ARCHIVED_BY`와
-  `TB_APPLICATION_COMPANY_MEMBERS`를 생성한다.
-- Company 멤버 키와 가입 요청 기반은 `V303__create_company_join_request_tables.sql`에서 추가된다.
-- Company permission policy 저장소는 `V304__create_company_permission_policy.sql`에서 추가된다.
+- 사용자/그룹/권한/회사 저장소는 `studio-platform-user-default`의 DB별 schema resource를 기준으로 한다.
+- Company member/permission 기반은 `TB_APPLICATION_COMPANY.STATUS`, `ARCHIVED_AT`, `ARCHIVED_BY`와
+  `TB_APPLICATION_COMPANY_MEMBERS`를 사용한다.
+- Company 멤버 키와 가입 요청 기반은 `TB_APPLICATION_COMPANY_MEMBER_KEY`,
+  `TB_APPLICATION_COMPANY_JOIN_REQUEST`를 사용한다.
+- Company permission policy 저장소는 `TB_APPLICATION_COMPANY_PERMISSION_POLICY`를 사용한다.
   `TB_APPLICATION_COMPANY_MEMBER_KEY`는 평문 키가 아니라 hash만 저장하고,
   `TB_APPLICATION_COMPANY_JOIN_REQUEST`는 요청/승인/거절 actor와 일시를 보존한다.
 - PostgreSQL에서는 그룹 멤버 summary 검색의 `username`/`name`/`email` 부분 검색을 위해
-  `schema/user/postgres/V301__optimize_group_member_summary_search.sql`가 `pg_trgm` 확장과
-  `lower(...)` GIN trigram index를 추가한다. 운영 DB의 Flyway 계정은 `CREATE EXTENSION IF NOT EXISTS pg_trgm`
+  `pg_trgm` 확장과 `lower(...)` GIN trigram index를 사용할 수 있다. 운영 DB 계정은 `CREATE EXTENSION IF NOT EXISTS pg_trgm`
   실행 권한을 가져야 한다.
-- MySQL/MariaDB의 V301 migration은 PostgreSQL 전용 최적화와 버전 이력을 맞추기 위한 schema-neutral migration이다.
+- MySQL/MariaDB는 PostgreSQL 전용 trigram index를 사용하지 않는다.
   선행 wildcard 검색(`LIKE '%keyword%'`)은 일반 B-tree index로 안정적으로 최적화되지 않으므로 별도 full-text/search 정책이 필요하면
   후속 DB별 설계로 분리한다.

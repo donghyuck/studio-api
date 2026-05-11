@@ -9,7 +9,7 @@
 
 root 생성 시 self closure와 creator `OWNER` member가 자동 생성됩니다. child 생성 시 parent ancestor closure를 복사하고 self closure를 추가합니다.
 
-root 생성은 `companyId`를 받을 수 있습니다. `companyId`는 `V1301` 전환 단계에서 nullable이며, child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다. `V1302__enforce_workspace_company_scope.sql` 적용 후에는 DB도 `COMPANY_ID NOT NULL`을 강제하므로 `company-required=true`를 켜야 하며, company-scoped root slug 중복 체크는 `studio.features.workspace.company-scope-enforced=true`에서만 활성화됩니다.
+root 생성은 `companyId`를 받을 수 있습니다. child workspace는 parent의 `companyId`를 상속합니다. `studio.features.workspace.company-required=true`를 설정하면 companyId 없는 root 생성은 거부됩니다. company scope가 DB 제약으로 강제되는 운영 환경에서는 `studio.features.workspace.company-scope-enforced=true`를 함께 켜서 root slug 중복 체크를 company scope로 전환합니다.
 
 parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 closure row를 서버에서 재계산합니다. `newParentId=null`은 root 이동으로 처리하며, 자기 자신 또는 descendant 아래로 이동하는 순환 구조는 거부합니다.
 
@@ -34,14 +34,12 @@ parent 변경 시 대상 subtree의 `parentId`, `rootId`, `path`, `depth`와 clo
 
 ## Company scope enforcement
 
-운영 backfill 완료 후 `V1302__enforce_workspace_company_scope.sql`을 적용하면 `TB_PLATFORM_WORKSPACE.COMPANY_ID`가 필수 컬럼이 되고 기존 전역 `PATH`/`PARENT_ID+SLUG` unique 제약은 company-scoped unique 제약으로 교체됩니다.
+company scope가 강제된 운영 환경에서는 `TB_PLATFORM_WORKSPACE.COMPANY_ID`가 필수 컬럼이고 기존 전역 `PATH`/`PARENT_ID+SLUG` unique 제약은 company-scoped unique 제약으로 대체됩니다.
 
 - PostgreSQL: `(COMPANY_ID, PATH)`, `(COMPANY_ID, PARENT_ID, SLUG)`, root 전용 partial unique `(COMPANY_ID, SLUG) WHERE PARENT_ID IS NULL`
 - MySQL/MariaDB: generated `PARENT_KEY = COALESCE(PARENT_ID, 0)`와 `(COMPANY_ID, PARENT_KEY, SLUG)` unique
 
-적용 전 null/duplicate 검증과 backfill 절차는 [workspace-company-scope-enforcement.md](../docs/dev/workspace-company-scope-enforcement.md)를 따릅니다.
-
-`studio.features.workspace.company-scope-enforced=true`는 `V1302` 적용 후에만 켭니다. 이 설정은 `studio.features.workspace.company-required=true`와 함께만 사용할 수 있습니다. 설정을 켜면 root slug 중복 검사가 company scope로 동작하며, `V1302` schema가 없으면 애플리케이션이 기동 단계에서 실패합니다.
+`studio.features.workspace.company-scope-enforced=true`는 `studio.features.workspace.company-required=true`와 함께만 사용할 수 있습니다. 설정을 켜면 root slug 중복 검사가 company scope로 동작하며, 필요한 DB 제약이 없으면 애플리케이션이 기동 단계에서 실패합니다.
 
 ## API
 웹 컨트롤러는 starter에서 `studio.features.workspace.web.enabled=true`일 때 등록됩니다.
@@ -107,25 +105,11 @@ parent 변경 request body:
 
 지원 query parameter는 `q`, `companyId`, `parentId`, `rootOnly`, `archived`, `page`, `size`, `sort`입니다. `q`는 `name`, `slug`, `path`를 부분 검색하고, `rootOnly=true`는 root workspace만 반환합니다. 응답 item은 `id`, `companyId`, `parentId`, `rootId`, `name`, `slug`, `path`, `depth`, `visibility`, `archived`를 포함합니다.
 
-## Schema
-Flyway range는 `workspace` `1300-1399`입니다.
-
-마이그레이션 위치:
-- `src/main/resources/schema/workspace/postgres/V1300__create_workspace_tables.sql`
-- `src/main/resources/schema/workspace/postgres/V1301__add_workspace_company_scope.sql`
-- `src/main/resources/schema/workspace/postgres/V1302__enforce_workspace_company_scope.sql`
-- `src/main/resources/schema/workspace/mysql/V1300__create_workspace_tables.sql`
-- `src/main/resources/schema/workspace/mysql/V1301__add_workspace_company_scope.sql`
-- `src/main/resources/schema/workspace/mysql/V1302__enforce_workspace_company_scope.sql`
-- `src/main/resources/schema/workspace/mariadb/V1300__create_workspace_tables.sql`
-- `src/main/resources/schema/workspace/mariadb/V1301__add_workspace_company_scope.sql`
-- `src/main/resources/schema/workspace/mariadb/V1302__enforce_workspace_company_scope.sql`
-
-## MyBatis migration note
+## MyBatis note
 
 현재 production 구현은 JPA 기본 구현입니다. `src/test/resources/mybatis/workspace` 아래의 smoke test로
 `classpath*:mybatis/**/*.xml` 로딩과 mapper scan 동작을 검증합니다. 실제 workspace read model/permission
-query의 MyBatis 구현 전환은 후속 phase에서 진행합니다.
+query의 MyBatis 구현은 포함하지 않습니다.
 
 ## 검증
 ```bash

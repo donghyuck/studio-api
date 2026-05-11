@@ -73,8 +73,6 @@ Wiki action은 workspace permission action으로 등록된다.
 ## 데이터 모델
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE`: workspace별 page slug, archive 상태, current revision 포인터.
 - `TB_APPLICATION_WORKSPACE_WIKI_PAGE_REVISION`: revisionNo와 markdown 원문을 immutable history로 저장.
-- Flyway range: `wiki` `1400-1499`.
-- 초기 migration: `schema/wiki/{postgres,mysql,mariadb}/V1400__create_workspace_wiki_tables.sql`.
 
 ## 직접 사용 예
 ```java

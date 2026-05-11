@@ -1,5 +1,5 @@
 # Attachment Service
-첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 `studio.thumbnail.*`로 제어한다. `studio.features.attachment.storage.*`, `studio.features.attachment.thumbnail.*`, `studio.attachment.thumbnail.default-size/default-format`, `studio.features.attachment.thumbnail.default-size/default-format`는 migration window 동안만 fallback으로 유지된다.
+첨부파일을 도메인 객체(`objectType`/`objectId`)에 연결하고, 메타데이터 관리·검색·다운로드를 제공하는 모듈이다. `studio-application-starter-attachment` 자동구성을 통해 서비스/엔드포인트/스토리지 빈을 등록하며, feature gate는 `studio.features.attachment.*`, storage와 thumbnail 저장 경로는 `studio.attachment.*`, 썸네일 생성 정책은 `studio.thumbnail.*`로 제어한다. 일부 legacy thumbnail/storage 설정은 deprecated fallback으로만 유지된다.
 
 ## 구성 요소
 - **AttachmentService / AttachmentServiceImpl**: 생성, 조회, 목록/검색, 삭제, 스트림 로딩을 담당. ID 단위 캐시(`attachments.byId`) 사용.
@@ -163,7 +163,7 @@ curl -X POST "/api/mgmt/attachments" \
 ## ObjectType 정책 운영 가이드 (DB/YAML 공통)
 - objecttype 레지스트리에 첨부파일용 타입을 등록한다.
 - 업로드 시 `objectType` 값에 매핑된 정책(용량/확장자/MIME)이 검증된다.
-- 정책 변경은 관리자 API 또는 마이그레이션으로 수행하고, 변경 후 `rebind`/cache evict가 필요할 수 있다.
+- 정책 변경은 ObjectType 관리자 API로 수행하고, 변경 후 `rebind`/cache evict가 필요할 수 있다.
 - 도메인 모듈은 숫자 타입 대신 well-known key를 사용할 수 있다. `AttachmentObjectTypeResolver`와
   `AttachmentService.createAttachment(String objectTypeKey, ...)`는 key를 numeric `objectType`으로 해석한다.
   알 수 없는 key나 objecttype 기능 미구성 상태는 generic `attachment`로 fallback하지 않고 명확한 예외로 실패한다.
@@ -241,14 +241,9 @@ objecttypes:
 - objecttype 정책 검증이 활성화되면 용량/확장자/MIME 정책 위반 시 `POLICY_VIOLATION` 에러가 발생한다.
 - 기본 캐시 이름은 `attachments.byId`이며, 캐시 설정이 필요하면 전역 CacheManager에 매핑을 추가한다.
 
-## 스키마
-마이그레이션 파일 위치: `src/main/resources/schema/attachment/{postgres,mysql,mariadb}/V800__create_attachment_tables.sql`, `V801__create_attachment_url_issue_log.sql`, `V802__application_signed_attachment_download_url.sql`, `V803__create_attachment_download_log.sql`
-
-Flyway 버전 범위는 `docs/flyway-versioning.md`의 attachment 범위(V800-V899)를 따른다.
-
 ## 빠른 시작
 1. `studio.features.attachment.enabled=true` 와 `studio.features.attachment.web.enabled=true` 설정.
 2. 필요 시 `studio.features.attachment.persistence`(jpa/jdbc)와 `studio.attachment.storage.*` 조정.
 3. 권한 스코프(`features:attachment/*`)를 인가 서버 또는 ACL에 등록.
-4. 스타터 없이 직접 `ThumbnailServiceImpl`를 구성하는 경우 신규 생성자는 `ThumbnailGenerationService`를 함께 주입한다. 기존 `(AttachmentService, ThumbnailStorage, int, String)` 생성자는 migration window 동안 deprecated 호환 경로로 유지된다.
+4. 스타터 없이 직접 `ThumbnailServiceImpl`를 구성하는 경우 신규 생성자는 `ThumbnailGenerationService`를 함께 주입한다. 기존 `(AttachmentService, ThumbnailStorage, int, String)` 생성자는 deprecated 호환 경로로 유지된다.
 5. (선택) 파일 시스템을 쓸 경우 `base-dir` 접근 권한을 확인하고, DB 저장을 쓸 경우 BLOB 컬럼을 포함한 테이블을 준비한다.

@@ -252,7 +252,7 @@ studio:
 제한을 초과하면 `error.text.file.too-large` 오류가 발생하며 HTTP 상태는 `413 Payload Too Large`다.
 예외 메시지에는 감지된 크기, 적용된 제한값, 조정할 설정 키가 포함된다.
 
-Legacy 설정은 다음처럼 migration 한다.
+Legacy 설정은 호환용 fallback으로만 읽히며, 신규 설정은 다음 키를 사용한다.
 
 | Legacy | Target |
 | --- | --- |

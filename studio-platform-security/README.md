@@ -89,12 +89,7 @@ studio:
 - `studio.one.base.security.domain.error`
   보안 관련 예외
 
-## 스키마 (PostgreSQL)
-다음 PostgreSQL 스키마 파일이 포함되어 있다.
-- `studio-platform-security/src/main/resources/schema/security/postgres/V400__create_security_tables.sql`
-
-Flyway 버전 범위는 `docs/flyway-versioning.md`의 security 범위(V400-V499)를 따른다.
-
+## 저장소 (PostgreSQL)
 JWT refresh token, password reset token, 로그인 실패 감사 JDBC 구현은 현재 PostgreSQL 문법(`returning`, `inet`, `::inet`)을 사용한다.
 starter는 해당 JDBC 저장소 bean 생성 시 DB 제품명이 PostgreSQL이 아니면 fail-fast로 기동을 중단한다.
 계정 잠금 JDBC 구현은 portable SQL만 사용하므로 PostgreSQL guard를 적용하지 않는다.
@@ -145,8 +140,8 @@ dependencies {
 }
 ```
 
-### 2) 스키마 준비
-Flyway 등 마이그레이션 도구에 스키마를 등록한다.
+### 2) DB 준비
+JWT refresh token, password reset token, 로그인 실패 감사 저장소를 사용하려면 security 테이블을 준비한다.
 
 ### 3) JWT 구성
 `JwtConfig` 구현을 통해 시크릿/TTL/헤더/클레임 키 등을 주입한다.
@@ -248,10 +243,6 @@ public class SecurityFilterConfig {
 }
 ```
 실제 프로젝트에서는 애플리케이션 보안 설정 클래스에서 동일한 필터 체인 구성을 참고해 적용하면 된다.
-
-### 4) 스키마 준비
-JWT/리프레시/비밀번호 재설정 토큰 저장을 사용하면 아래 스키마가 필요하다.
-- `studio-platform-security/src/main/resources/schema/security/postgres/V400__create_security_tables.sql`
 
 ## 참고
 - 사용자 테이블은 `studio-platform-user` 모듈의 `TB_APPLICATION_USER`를 사용한다.

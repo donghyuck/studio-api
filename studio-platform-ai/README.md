@@ -163,8 +163,7 @@ Keyword metadata는 trim, blank 제거, case-insensitive 중복 제거를 거친
 
 관리자 산점도 화면은 원본 embedding 저장소와 2D projection 좌표를 분리해서 사용한다.
 기존 원본 벡터 테이블 `tb_ai_document_chunk`는 변경하지 않고, projection 상태와 좌표는
-AI migration `V603__create_vector_projection_tables.sql`이 추가하는 `tb_ai_vector_projection`,
-`tb_ai_vector_projection_point`에 저장한다.
+`tb_ai_vector_projection`, `tb_ai_vector_projection_point`에 저장한다.
 
 Core 계약은 `studio.one.platform.ai.core.vector.visualization` 패키지에 둔다.
 
@@ -316,11 +315,5 @@ List<RagSearchResult> filtered = ragPipelineService.search(
 - `studio-platform-textract` / `starter:studio-platform-textract-starter` — 파일 텍스트 추출(`FileContentExtractionService`)로 RAG 인덱싱 전처리
 - `studio-application-modules/content-embedding-pipeline` — 이 모듈의 포트를 활용해 첨부파일 임베딩·RAG 인덱싱을 수행하는 소비자
 
-## 스키마
-마이그레이션 파일 위치:
-
-- `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V600__create_vector_tables.sql`
-- `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V601__create_rag_index_job_tables.sql`
-- `src/main/resources/schema/ai/{postgres,mysql,mariadb}/V602__add_rag_index_job_source_name.sql`
-
-Flyway 버전 범위는 `docs/flyway-versioning.md`의 ai 범위(V600-V699)를 따른다.
+## 저장소
+벡터 저장소와 RAG job 저장소는 DB별 schema resource를 포함하며, `RagIndexJobService`는 DB repository 또는 in-memory repository 중 등록된 구현을 사용한다.

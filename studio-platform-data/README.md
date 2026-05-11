@@ -30,10 +30,8 @@
 - OCR 사용 시 `studio-platform-textract-starter`에서 Tesseract 데이터 경로/언어 설정 필요
 - MyBatis mapper location 기본값: `classpath*:mybatis/**/*.xml`
 
-## 스키마
-마이그레이션 파일 위치: `src/main/resources/schema/data/{postgres,mysql,mariadb}/V100__create_property_tables.sql`
-
-Flyway 버전 범위는 `docs/flyway-versioning.md`의 data 범위(V100-V199)를 따른다.
+## 저장소
+DB 저장소는 `TB_PLATFORM_PROPERTY` 기반 key/value 설정을 사용한다.
 
 ## 빠른 사용법
 

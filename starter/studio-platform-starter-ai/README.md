@@ -264,9 +264,7 @@ raw text가 없는 source 기반 job은 등록된 `RagIndexJobSourceExecutor`가
 분산 worker를 포함하지 않는다. 재시도를 위해 최근 raw text 요청을 메모리에 보관하되 저장 request 수는
 bounded eviction으로 제한한다. 영구 이력, 다중 인스턴스 공유, 감사 로그가 필요하면 같은
 `RagIndexJobRepository` 계약으로 DB 기반 구현을 등록한다. JDBC 기반 기본 구현을 사용하려면
-`NamedParameterJdbcTemplate` bean과 AI schema migration(`schema/ai/{db}/V601__create_rag_index_job_tables.sql`)을
-적용한 뒤 아래 설정을 사용한다. 기존 V601 적용 환경은 `V602__add_rag_index_job_source_name.sql`로
-RAG job grid 표시명인 `source_name` 컬럼을 추가한다.
+`NamedParameterJdbcTemplate` bean과 AI job 테이블을 준비한 뒤 아래 설정을 사용한다.
 
 ```yaml
 studio:
@@ -340,7 +338,7 @@ studio:
 기존 `studio.ai.pipeline.chunk-size`, `studio.ai.pipeline.chunk-overlap`는 deprecated legacy `TextChunker` fallback 설정이다.
 신규 `ChunkingOrchestrator` 경로에서는 `studio.chunking.*`가 기준이다.
 
-#### legacy RAG chunk 설정 migration
+#### legacy RAG chunk 설정
 
 신규 RAG indexing에서는 `starter:studio-platform-starter-chunking`을 추가하고 `studio.chunking.*` 설정을 사용한다.
 `studio.ai.pipeline.*` chunk 설정은 `ChunkingOrchestrator` bean이 없어서 `starter-ai`가 deprecated
@@ -351,7 +349,7 @@ studio:
 | `studio.ai.pipeline.chunk-size` | `studio.chunking.max-size` | legacy `TextChunker` fallback에서만 legacy key 적용 |
 | `studio.ai.pipeline.chunk-overlap` | `studio.chunking.overlap` | legacy `TextChunker` fallback에서만 legacy key 적용 |
 
-Migration 예시:
+설정 예시:
 
 ```yaml
 # legacy fallback only
@@ -487,7 +485,7 @@ studio:
 - **fail-fast**: 기본 chat provider에 `ChatPort`가 없거나 기본 embedding provider에 `EmbeddingPort`가 없으면
   애플리케이션 시작 시 `IllegalStateException`으로 즉시 실패한다.
 - **routing fallback**: `studio.ai.routing.default-chat-provider`와 `studio.ai.routing.default-embedding-provider`를 기본값으로 둔다.
-  legacy `studio.ai.default-provider`는 migration window 동안만 호환용 fallback으로 허용한다.
+  legacy `studio.ai.default-provider`는 deprecated 호환용 fallback으로 허용한다.
   legacy fallback을 함께 설정하는 경우 해당 provider는 기존 호출자 호환을 위해 chat/embedding port를 모두 제공해야 한다.
 - OPENAI 타입 프로바이더는 동시에 하나만 활성화할 수 있다. 두 개 이상 활성화하면 시작 시 실패한다.
 - Spring AI 표준 속성(`spring.ai.*`)과 Studio 전용 속성(`studio.ai.*`)을 혼합 사용한다.

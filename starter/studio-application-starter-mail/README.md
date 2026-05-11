@@ -2,7 +2,7 @@
 
 IMAP 기반 메일 동기화 모듈(`studio-application-modules/mail-service`)을 자동 구성하는 스타터다.
 `studio.features.mail.persistence` 또는 전역 `studio.persistence.type` 값에 따라 JPA/JDBC 구현을 선택하고,
-IMAP runtime 설정은 `studio.mail.imap.*`에서 읽는다. `studio.features.mail.imap.*`는 migration window 동안만 fallback으로 유지한다.
+IMAP runtime 설정은 `studio.mail.imap.*`에서 읽는다. `studio.features.mail.imap.*`는 deprecated fallback으로 유지한다.
 
 ## 제공 기능
 - `MailMessageService` / `MailAttachmentService` / `MailSyncService` / `MailSyncLogService` 자동 빈 등록 (JPA/JDBC 선택)
@@ -63,7 +63,5 @@ IMAP 계정/서버 설정은 `studio.mail.imap.*`를 기본으로 두고, 기존
 - `studio-platform` / `studio-platform-autoconfigure` / `starter:studio-platform-starter`
 - JavaMail (jakarta.mail) 런타임
 
-## 스키마
-마이그레이션 파일 위치: `mail-service/src/main/resources/schema/mail/{db}/V1000__create_mail_tables.sql`
-
-Flyway 버전 범위는 `docs/flyway-versioning.md`의 mail 범위(V1000-V1099)를 따른다.
+## 저장소
+DB 저장소는 메일 메시지, 첨부, 동기화 로그 테이블을 사용한다.
