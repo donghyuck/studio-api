@@ -1,6 +1,18 @@
 # studio-platform-textract
 
-문서 텍스트/구조 추출 모듈이다.
+![image](./img/image_textract.png)
+
+다양한 문서(PDF, 이미지, 스캔 파일 등)로부터 텍스트와 레이아웃 정보를 추출하여 AI 및 RAG(Retrieval-Augmented Generation) 시스템에서 활용 가능한 구조화 데이터로 변환하는 플랫폼 모듈이다. 외부 시스템 또는 상위 서비스는 REST API를 통해 문서 분석을 요청하며, API Entry 계층은 요청 검증과 인증/인가를 수행한 후 Textract Application Service에 작업을 전달한다.
+
+Textract Application Service는 전체 추출 프로세스를 관리하는 중심 계층으로, 작업 생성, 상태 관리, 결과 조합, 예외 처리를 담당한다. 이후 Textract Orchestrator는 입력 문서의 유형과 처리 전략을 분석하여 적절한 Extractor Worker를 선택한다. PDF 문서는 PDF Extractor를 통해 텍스트, 테이블, 레이아웃 정보를 분석하며, 이미지 문서는 Image Extractor를 통해 OCR 기반 텍스트 추출을 수행한다. 필요 시 OCR Fallback Extractor를 통해 Tesseract/OpenCV 기반의 대체 OCR 처리가 가능하다.
+
+실제 문서 분석은 AWS Textract와 같은 외부 OCR/문서 분석 엔진과 연동되며, 추출된 결과는 Textract Result Processor를 통해 정규화된다. 이 과정에서 텍스트 정제, 구조화 변환, confidence 처리, 메타데이터 보강 등이 수행되어 AI와 RAG 시스템이 바로 활용 가능한 형태의 데이터로 변환된다.
+
+정제된 결과는 Textract Storage Service를 통해 저장되며, 원본 파일은 Object Storage(S3 등)에 저장되고, 작업 상태 및 메타데이터는 Database(RDS)에 관리된다. 또한 OpenSearch 기반 검색 인덱스를 통해 빠른 문서 검색 및 RAG 연계를 지원한다.
+
+대용량 문서 처리 및 장시간 OCR 작업은 Message Queue(SQS 등)와 Background Worker를 활용한 비동기 구조로 처리되며, 실패 작업은 Dead Letter Queue(DLQ)로 이동하여 안정적인 운영이 가능하도록 설계되었다.
+
+최종적으로 studio-platform-textract 모듈은 단순 OCR 기능을 넘어, AI 기반 문서 이해(Document Understanding)와 RAG 파이프라인을 위한 전처리 플랫폼 역할을 수행하며, 향후 Skill Extraction, Semantic Chunking, Layout-aware RAG, HWP/HWPX 지원, 멀티모달 문서 분석 등으로 확장 가능한 구조를 목표로 한다.
 
 ## 요약
 
