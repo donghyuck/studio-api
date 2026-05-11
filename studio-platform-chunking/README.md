@@ -1,6 +1,24 @@
 # Studio Platform Chunking
+![image](./img/image_chunking.png)
+
+텍스트 및 문서 데이터를 의미 단위(Chunk)로 분할하고, 메타데이터를 부여하여 저장·검색·임베딩·RAG(Retrieval-Augmented Generation) 파이프라인에서 효율적으로 활용할 수 있도록 지원하는 Chunk 생성 플랫폼 모듈이다. 이 모듈은 단순 문자열 분할을 넘어 문서 구조와 의미를 고려한 Semantic Chunking 및 Layout-aware Chunking을 지원하며, AI 기반 검색과 문맥(Context) 유지 성능 향상을 목표로 설계되었다.
+
+외부 시스템 또는 상위 서비스는 REST API를 통해 Chunking 작업을 요청하며, API Entry 계층의 ChunkingController는 요청 검증, 인증/인가, Rate Limiting 등을 수행한 후 Chunking Application Service로 작업을 전달한다. Chunking Application Service는 작업 생성, 상태 관리, 정책 처리, 예외 처리 등을 담당하며, 전체 Chunk 생성 프로세스를 제어한다.
+
+이후 Chunking Orchestrator는 입력 문서와 텍스트를 분석하여 적절한 Chunking 전략을 결정한다. 문서 유형, 텍스트 길이, 문맥 구조 등을 기반으로 Chunking Pipeline을 선택하며, Chunking Pipeline Manager는 실제 Chunk 생성 흐름과 단계별 Processor 실행을 조합·제어한다.
+
+Chunk 생성은 여러 종류의 Chunking Processor를 통해 수행된다. Text Splitter는 고정 길이, 문장 기반, Token 기반, Recursive Splitter 등의 일반적인 텍스트 분할 전략을 제공한다. Semantic Splitter는 임베딩 기반 의미 분석을 활용하여 문맥 및 주제 단위로 텍스트를 분할하며, Layout Splitter는 제목·본문·표·이미지·코드 블록 등 문서 레이아웃 구조를 고려한 Chunk 분리를 지원한다. 또한 Overlap / Merge Processor는 Chunk 간 문맥 유지와 검색 정확도 향상을 위해 Overlap 영역 생성 및 노이즈 제거를 수행한다.
+
+생성된 Chunk는 Metadata Enricher를 통해 문서명, 페이지, 섹션, 레이아웃 정보, 키워드, 태그, 관계 정보 등 다양한 메타데이터가 부여된다. 이후 Chunk Result Assembler는 Chunk 리스트를 조립하고 품질·길이 검증을 수행하여 최종 결과를 구성한다.
+
+완성된 Chunk는 Chunk Storage Service를 통해 저장되며, 원본 문서는 File Storage(S3/Object Storage)에 저장되고, Chunk 및 메타데이터는 Database(RDS)에 관리된다. 또한 Search Index(OpenSearch)에는 검색용 색인이 생성되어 빠른 검색과 RAG 기반 Context Retrieval을 지원한다. 필요 시 AI/Embedding Platform과 연동하여 벡터 생성 및 Vector Store 적재가 수행된다.
+
+대용량 문서 또는 장시간 Chunking 작업은 Message Queue(SQS 등)와 Background Worker를 기반으로 비동기 처리되며, 실패 작업은 Dead Letter Queue(DLQ)로 이동하여 안정적인 운영과 재처리를 지원한다. 작업 완료 후에는 Event Publisher를 통해 Chunk 생성 완료 이벤트가 발행되어 상위 AI/RAG 시스템과 연계된다.
+
+최종적으로 studio-platform-chunking 모듈은 단순 텍스트 분할 기능을 넘어, AI 기반 검색, Semantic Retrieval, Hybrid Search, Context-aware RAG, Skill Extraction 등의 상위 AI 기능을 지원하기 위한 핵심 전처리 플랫폼 역할을 수행하며, 향후 Layout-aware RAG, 멀티모달 Chunking, Skill 기반 Chunk Tagging, 학습 콘텐츠 Semantic 분석 등으로 확장 가능한 구조를 목표로 한다.
 
 `studio-platform-chunking`은 AI/RAG 색인을 위한 provider-neutral chunking 계약 모듈입니다.
+
 
 ## 책임 범위
 
