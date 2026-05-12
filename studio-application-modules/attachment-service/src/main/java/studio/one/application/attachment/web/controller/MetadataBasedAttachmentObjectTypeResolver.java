@@ -43,33 +43,40 @@ public class MetadataBasedAttachmentObjectTypeResolver implements AttachmentObje
         if (runtimeService == null) {
             return Optional.empty();
         }
-        try {
-            ObjectTypeDefinition definition = runtimeService.definition(objectType);
-            return Optional.of(resolveFromRuntimeDefinition(definition));
-        } catch (RuntimeException ex) {
-            return Optional.empty();
-        }
+        ObjectTypeDefinition definition = runtimeService.definition(objectType);
+        return Optional.of(resolveFromRuntimeDefinition(definition));
     }
 
     private AttachmentObjectTypeDescriptor resolveFromMetadata(ObjectTypeMetadata metadata) {
         Map<String, Object> attrs = metadata.getAttributes();
         if (attrs == null) {
-            return new AttachmentObjectTypeDescriptor(metadata.getObjectType(), false, false, null);
+            String keyAttachmentType = attachmentTypeFromKey(metadata.getKey());
+            return new AttachmentObjectTypeDescriptor(
+                    metadata.getObjectType(),
+                    keyAttachmentType != null,
+                    false,
+                    keyAttachmentType);
         }
         String domain = asString(attrs.get("domain"));
         boolean attachmentEnabled = attachmentEnabled(attrs);
         String attachmentType = attachmentType(attrs);
+        if (attachmentType == null) {
+            attachmentType = attachmentTypeFromKey(metadata.getKey());
+        }
         boolean domainFlag = "attachment".equalsIgnoreCase(domain) || attachmentEnabled || attachmentType != null;
         return new AttachmentObjectTypeDescriptor(metadata.getObjectType(), domainFlag, attachmentEnabled, attachmentType);
     }
 
     private AttachmentObjectTypeDescriptor resolveFromRuntimeDefinition(ObjectTypeDefinition definition) {
         String domain = definition != null && definition.type() != null ? definition.type().domain() : null;
+        String attachmentType = definition != null && definition.type() != null
+                ? attachmentTypeFromKey(definition.type().code())
+                : null;
         return new AttachmentObjectTypeDescriptor(
                 definition != null && definition.type() != null ? definition.type().objectType() : -1,
-                "attachment".equalsIgnoreCase(domain),
+                "attachment".equalsIgnoreCase(domain) || attachmentType != null,
                 false,
-                null);
+                attachmentType);
     }
 
     private boolean attachmentEnabled(Map<String, Object> attrs) {
@@ -101,6 +108,23 @@ public class MetadataBasedAttachmentObjectTypeResolver implements AttachmentObje
         }
         String normalized = String.valueOf(value).trim();
         return normalized.isBlank() ? null : normalized;
+    }
+
+    private String attachmentTypeFromKey(String key) {
+        String normalized = asString(key);
+        if (normalized == null) {
+            return null;
+        }
+        String lower = normalized.toLowerCase();
+        if (lower.equals("attachment")
+                || lower.endsWith("-attachment")
+                || lower.endsWith("_attachment")
+                || lower.endsWith(".attachment")
+                || lower.endsWith(":attachment")
+                || lower.endsWith("/attachment")) {
+            return normalized;
+        }
+        return null;
     }
 
     private Boolean asBoolean(Object value) {

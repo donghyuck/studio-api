@@ -67,6 +67,22 @@ class AttachmentAccessSupportTest {
                 AttachmentOwnerAccessAction.READ));
     }
 
+    @Test
+    void metadataResolverFailureDoesNotDowngradeUnknownTypeToCreatorOnly() {
+        Attachment attachment = mock(Attachment.class);
+
+        when(attachment.getObjectType()).thenReturn(9001);
+
+        assertThrows(AccessDeniedException.class, () -> AttachmentAccessSupport.requireAttachmentAccess(
+                attachment,
+                principal("USER"),
+                null,
+                objectType -> {
+                    throw new IllegalStateException("metadata unavailable");
+                },
+                AttachmentOwnerAccessAction.READ));
+    }
+
     private ApplicationPrincipal principal(String role) {
         return new ApplicationPrincipal() {
             @Override

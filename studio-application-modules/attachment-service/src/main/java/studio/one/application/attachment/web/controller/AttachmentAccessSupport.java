@@ -132,11 +132,12 @@ final class AttachmentAccessSupport {
         if (objectType == WellKnownAttachmentObjectTypes.GENERIC_ATTACHMENT) {
             return false;
         }
+        boolean fallbackAttachmentType = isFallbackWellKnownDomainAttachmentType(objectType);
         Optional<AttachmentObjectTypeDescriptor> resolved = resolveAttachmentTypeDescriptor(objectType, objectTypeResolver);
         if (resolved.isPresent() && resolved.get().isAttachmentDomainType()) {
             return true;
         }
-        return isFallbackWellKnownDomainAttachmentType(objectType);
+        return fallbackAttachmentType;
     }
 
     private static boolean isFallbackWellKnownDomainAttachmentType(int objectType) {
@@ -155,7 +156,10 @@ final class AttachmentAccessSupport {
         try {
             return objectTypeResolver.resolve(objectType);
         } catch (Exception ex) {
-            return Optional.empty();
+            if (isFallbackWellKnownDomainAttachmentType(objectType)) {
+                return Optional.empty();
+            }
+            throw new AccessDeniedException("Forbidden attachment access", ex);
         }
     }
 }
