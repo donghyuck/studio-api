@@ -177,7 +177,8 @@ class AttachmentMgmtControllerAuthorizationTest {
                 principalResolverProvider,
                 textExtractionProvider,
                 thumbnailServiceProvider,
-                ownerAccessAuthorizers);
+                ownerAccessAuthorizers,
+                objectType -> java.util.Optional.empty());
     }
 
     private ApplicationPrincipal principal(Long userId, String role) {

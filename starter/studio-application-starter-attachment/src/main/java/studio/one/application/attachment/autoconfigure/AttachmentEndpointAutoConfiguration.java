@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
+import studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver;
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.attachment.application.usecase.ThumbnailService;
 import studio.one.application.attachment.web.controller.AttachmentController;
@@ -95,7 +96,8 @@ public class AttachmentEndpointAutoConfiguration {
                         AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver,
                         ObjectProvider<ThumbnailService> thumbnailServiceProvider,
                         ObjectProvider<PrincipalResolver> principalResolverProvider,
-                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers) {
+                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+                        AttachmentObjectTypeResolver objectTypeResolver) {
 
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                                 AttachmentAutoConfiguration.FEATURE_NAME,
@@ -110,7 +112,8 @@ public class AttachmentEndpointAutoConfiguration {
                                 requestDetailsResolver,
                                 thumbnailServiceProvider,
                                 principalResolverProvider,
-                                ownerAccessAuthorizers);
+                                ownerAccessAuthorizers,
+                                objectTypeResolver);
         }
 
         @Bean
@@ -124,7 +127,8 @@ public class AttachmentEndpointAutoConfiguration {
                         ObjectProvider<PrincipalResolver> principalResolverProvider,
                         ObjectProvider<FileContentExtractionService> textExtractionProvider,
                         ObjectProvider<ThumbnailService> thumbnailServiceProvider,
-                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers) {
+                        ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+                        AttachmentObjectTypeResolver objectTypeResolver) {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.EndPoint.REGISTERED,
                                 AttachmentAutoConfiguration.FEATURE_NAME,
                                 LogUtils.blue(AttachmentService.class, true),
@@ -139,7 +143,8 @@ public class AttachmentEndpointAutoConfiguration {
                                 principalResolverProvider,
                                 textExtractionProvider,
                                 thumbnailServiceProvider,
-                                ownerAccessAuthorizers);
+                                ownerAccessAuthorizers,
+                                objectTypeResolver);
         }
 
         @Bean
@@ -150,13 +155,15 @@ public class AttachmentEndpointAutoConfiguration {
                         ObjectProvider<studio.one.platform.identity.IdentityService> identityServiceProvider,
                         ObjectProvider<studio.one.platform.textract.application.usecase.FileContentExtractionService> textExtractionProvider,
                         ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
-                        ObjectProvider<PrincipalResolver> principalResolverProvider) {
+                        ObjectProvider<PrincipalResolver> principalResolverProvider,
+                        AttachmentObjectTypeResolver objectTypeResolver) {
                 return new MeAttachmentController(
                                 attachmentService,
                                 identityServiceProvider,
                                 textExtractionProvider,
                                 ownerAccessAuthorizers,
-                                principalResolverProvider);
+                                principalResolverProvider,
+                                objectTypeResolver);
         }
 
 }

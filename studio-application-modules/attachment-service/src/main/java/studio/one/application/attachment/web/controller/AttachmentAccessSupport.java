@@ -1,5 +1,6 @@
 package studio.one.application.attachment.web.controller;
 
+import java.util.Optional;
 import java.util.Objects;
 import java.util.Set;
 
@@ -9,7 +10,9 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
+import studio.one.application.attachment.application.result.AttachmentObjectTypeDescriptor;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
+import studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver;
 import studio.one.platform.identity.ApplicationPrincipal;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.WellKnownAttachmentObjectTypes;
@@ -60,15 +63,25 @@ final class AttachmentAccessSupport {
             ApplicationPrincipal principal,
             ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
             AttachmentOwnerAccessAction action) {
+        requireAttachmentAccess(attachment, principal, ownerAccessAuthorizers, null, action);
+    }
+
+    static void requireAttachmentAccess(
+            Attachment attachment,
+            ApplicationPrincipal principal,
+            ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+            AttachmentObjectTypeResolver objectTypeResolver,
+            AttachmentOwnerAccessAction action) {
         if (isAdmin(principal)) {
             return;
         }
-        if (isWellKnownDomainAttachmentType(attachment.getObjectType())) {
+        if (isWellKnownDomainAttachmentType(attachment.getObjectType(), objectTypeResolver)) {
             requireOwnerAccess(
                     attachment.getObjectType(),
                     attachment.getObjectId(),
                     principal,
                     ownerAccessAuthorizers,
+                    objectTypeResolver,
                     action);
             return;
         }
@@ -84,10 +97,20 @@ final class AttachmentAccessSupport {
             ApplicationPrincipal principal,
             ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
             AttachmentOwnerAccessAction action) {
+        requireOwnerAccess(objectType, objectId, principal, ownerAccessAuthorizers, null, action);
+    }
+
+    static void requireOwnerAccess(
+            int objectType,
+            long objectId,
+            ApplicationPrincipal principal,
+            ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers,
+            AttachmentObjectTypeResolver objectTypeResolver,
+            AttachmentOwnerAccessAction action) {
         if (isAdmin(principal)) {
             return;
         }
-        if (!isWellKnownDomainAttachmentType(objectType)) {
+        if (!isWellKnownDomainAttachmentType(objectType, objectTypeResolver)) {
             return;
         }
         if (ownerAccessAuthorizers == null) {
@@ -102,9 +125,41 @@ final class AttachmentAccessSupport {
     }
 
     static boolean isWellKnownDomainAttachmentType(int objectType) {
+        return isWellKnownDomainAttachmentType(objectType, null);
+    }
+
+    static boolean isWellKnownDomainAttachmentType(int objectType, AttachmentObjectTypeResolver objectTypeResolver) {
+        if (objectType == WellKnownAttachmentObjectTypes.GENERIC_ATTACHMENT) {
+            return false;
+        }
+        boolean fallbackAttachmentType = isFallbackWellKnownDomainAttachmentType(objectType);
+        Optional<AttachmentObjectTypeDescriptor> resolved = resolveAttachmentTypeDescriptor(objectType, objectTypeResolver);
+        if (resolved.isPresent() && resolved.get().isAttachmentDomainType()) {
+            return true;
+        }
+        return fallbackAttachmentType;
+    }
+
+    private static boolean isFallbackWellKnownDomainAttachmentType(int objectType) {
         return objectType == WellKnownAttachmentObjectTypes.POST_ATTACHMENT
                 || objectType == WellKnownAttachmentObjectTypes.MAIL_ATTACHMENT
                 || objectType == WellKnownAttachmentObjectTypes.WORKSPACE_ATTACHMENT
                 || objectType == WellKnownAttachmentObjectTypes.WIKI_ATTACHMENT;
+    }
+
+    private static Optional<AttachmentObjectTypeDescriptor> resolveAttachmentTypeDescriptor(
+            int objectType,
+            AttachmentObjectTypeResolver objectTypeResolver) {
+        if (objectTypeResolver == null) {
+            return Optional.empty();
+        }
+        try {
+            return objectTypeResolver.resolve(objectType);
+        } catch (Exception ex) {
+            if (isFallbackWellKnownDomainAttachmentType(objectType)) {
+                return Optional.empty();
+            }
+            throw new AccessDeniedException("Forbidden attachment access", ex);
+        }
     }
 }

@@ -74,6 +74,7 @@ import studio.one.application.attachment.application.service.AttachmentDownloadU
 import studio.one.application.attachment.application.service.AttachmentObjectTypeResolver;
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.attachment.application.service.AttachmentServiceImpl;
+import studio.one.application.attachment.web.controller.MetadataBasedAttachmentObjectTypeResolver;
 import studio.one.application.attachment.infrastructure.storage.AttachmentFileStorageResolver;
 import studio.one.application.attachment.infrastructure.storage.AttachmentStorageBackend;
 import studio.one.application.attachment.infrastructure.storage.AttachmentStorageType;
@@ -95,6 +96,7 @@ import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.constant.ServiceNames;
 import studio.one.platform.identity.PrincipalResolver;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
+import studio.one.platform.objecttype.registry.ObjectTypeRegistry;
 import studio.one.platform.service.I18n;
 import studio.one.platform.service.Repository;
 import studio.one.platform.storage.application.usecase.ObjectStorageRegistry;
@@ -318,6 +320,14 @@ public class AttachmentAutoConfiguration {
     AttachmentObjectTypeResolver attachmentObjectTypeResolver(
             ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
         return new AttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver.class)
+    studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver attachmentPermissionObjectTypeResolver(
+            ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
+            ObjectProvider<ObjectTypeRegistry> objectTypeRegistryProvider) {
+        return new MetadataBasedAttachmentObjectTypeResolver(objectTypeRuntimeServiceProvider, objectTypeRegistryProvider);
     }
 
     @Bean

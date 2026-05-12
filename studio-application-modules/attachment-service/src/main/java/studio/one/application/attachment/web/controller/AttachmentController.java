@@ -41,6 +41,7 @@ import studio.one.application.attachment.application.result.AttachmentDownloadTo
 import studio.one.application.attachment.application.result.AttachmentDownloadUrl;
 import studio.one.application.attachment.application.result.AttachmentDownloadTokenClaims;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
+import studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
@@ -71,6 +72,7 @@ public class AttachmentController {
     private final ObjectProvider<ThumbnailService> thumbnailServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
     private final ObjectProvider<AttachmentOwnerAccessAuthorizer> ownerAccessAuthorizers;
+    private final AttachmentObjectTypeResolver objectTypeResolver;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("@endpointAuthz.can('features:attachment','service-upload')")
@@ -311,18 +313,19 @@ public class AttachmentController {
     }
 
     private void requireAttachmentAccess(Attachment attachment, AttachmentOwnerAccessAction action) {
-        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(attachment.getObjectType())) {
+        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(attachment.getObjectType(), objectTypeResolver)) {
             return;
         }
         AttachmentAccessSupport.requireAttachmentAccess(
                 attachment,
                 AttachmentAccessSupport.requirePrincipal(principalResolverProvider),
                 ownerAccessAuthorizers,
+                objectTypeResolver,
                 action);
     }
 
     private void requireOwnerAccess(int objectType, long objectId, AttachmentOwnerAccessAction action) {
-        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType)) {
+        if (!AttachmentAccessSupport.isWellKnownDomainAttachmentType(objectType, objectTypeResolver)) {
             return;
         }
         AttachmentAccessSupport.requireOwnerAccess(
@@ -330,6 +333,7 @@ public class AttachmentController {
                 objectId,
                 AttachmentAccessSupport.requirePrincipal(principalResolverProvider),
                 ownerAccessAuthorizers,
+                objectTypeResolver,
                 action);
     }
 
