@@ -79,8 +79,17 @@ class IdentityContractsTest {
         }
     }
 
-    private record TestPrincipal(Long principalUserId, String principalUsername, Set<String> principalRoles)
-            implements ApplicationPrincipal {
+    private static final class TestPrincipal implements ApplicationPrincipal {
+        private final Long principalUserId;
+        private final String principalUsername;
+        private final Set<String> principalRoles;
+
+        private TestPrincipal(Long principalUserId, String principalUsername, Set<String> principalRoles) {
+            this.principalUserId = principalUserId;
+            this.principalUsername = principalUsername;
+            this.principalRoles = principalRoles;
+        }
+
         @Override
         public Long getUserId() {
             return principalUserId;

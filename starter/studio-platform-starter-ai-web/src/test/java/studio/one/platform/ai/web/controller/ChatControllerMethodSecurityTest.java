@@ -166,9 +166,18 @@ class ChatControllerMethodSecurityTest {
     static class MethodSecurityConfig {
     }
 
-    private record SecuredController(
-            AnnotationConfigApplicationContext context,
-            ChatController controller) implements AutoCloseable {
+    private static final class SecuredController implements AutoCloseable {
+        private final AnnotationConfigApplicationContext context;
+        private final ChatController controller;
+
+        private SecuredController(AnnotationConfigApplicationContext context, ChatController controller) {
+            this.context = context;
+            this.controller = controller;
+        }
+
+        private ChatController controller() {
+            return controller;
+        }
 
         @Override
         public void close() {

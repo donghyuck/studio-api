@@ -151,8 +151,8 @@ class TextractDocumentPreviewThumbnailRenderer implements ThumbnailRenderer {
         List<String> lines = new ArrayList<>();
         StringBuilder current = new StringBuilder();
         for (String word : normalized.split(" ")) {
-            String candidate = current.isEmpty() ? word : current + " " + word;
-            if (metrics.stringWidth(candidate) > maxWidth && !current.isEmpty()) {
+            String candidate = current.length() == 0 ? word : current + " " + word;
+            if (metrics.stringWidth(candidate) > maxWidth && current.length() > 0) {
                 lines.add(current.toString());
                 current.setLength(0);
                 current.append(word);
@@ -164,7 +164,7 @@ class TextractDocumentPreviewThumbnailRenderer implements ThumbnailRenderer {
                 current.append(candidate);
             }
         }
-        if (!current.isEmpty() && lines.size() < MAX_LINES) {
+        if (current.length() > 0 && lines.size() < MAX_LINES) {
             lines.add(current.toString());
         }
         return lines;

@@ -54,17 +54,7 @@ public class JdbcAttachmentDownloadAuditLogRepository implements AttachmentDownl
 
     @Override
     public AttachmentDownloadAuditLog save(AttachmentDownloadAuditLog log) {
-        String sql = """
-                insert into %s (
-                    ISSUE_LOG_ID, TOKEN_HASH, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID,
-                    LINK_TYPE, REQUESTED_AT, RESULT, HTTP_STATUS, DOWNLOADED_BYTES,
-                    CLIENT_IP, USER_AGENT, ERROR_CODE
-                ) values (
-                    :issueLogId, :tokenHash, :attachmentId, :objectType, :objectId,
-                    :linkType, :requestedAt, :result, :httpStatus, :downloadedBytes,
-                    :clientIp, :userAgent, :errorCode
-                )
-                """.formatted(TABLE);
+        String sql = String.format("insert into %s ( ISSUE_LOG_ID, TOKEN_HASH, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, LINK_TYPE, REQUESTED_AT, RESULT, HTTP_STATUS, DOWNLOADED_BYTES, CLIENT_IP, USER_AGENT, ERROR_CODE ) values ( :issueLogId, :tokenHash, :attachmentId, :objectType, :objectId, :linkType, :requestedAt, :result, :httpStatus, :downloadedBytes, :clientIp, :userAgent, :errorCode )", TABLE);
         template.update(sql, params(log));
         return log;
     }
@@ -79,13 +69,7 @@ public class JdbcAttachmentDownloadAuditLogRepository implements AttachmentDownl
             return Page.empty(pageable == null ? Pageable.unpaged() : pageable);
         }
 
-        String dataSql = """
-                select
-                    DOWNLOAD_LOG_ID, ISSUE_LOG_ID, TOKEN_HASH, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID,
-                    LINK_TYPE, REQUESTED_AT, RESULT, HTTP_STATUS, DOWNLOADED_BYTES,
-                    CLIENT_IP, USER_AGENT, ERROR_CODE
-                from %s
-                """.formatted(TABLE) + where + orderBy(pageable);
+        String dataSql = String.format("select DOWNLOAD_LOG_ID, ISSUE_LOG_ID, TOKEN_HASH, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, LINK_TYPE, REQUESTED_AT, RESULT, HTTP_STATUS, DOWNLOADED_BYTES, CLIENT_IP, USER_AGENT, ERROR_CODE from %s", TABLE) + where + orderBy(pageable);
         if (pageable != null && pageable.isPaged()) {
             params.put("limit", pageable.getPageSize());
             params.put("offset", pageable.getOffset());
@@ -109,18 +93,13 @@ public class JdbcAttachmentDownloadAuditLogRepository implements AttachmentDownl
             params.put("issueLogIds", issueLogIds);
         }
         if (tokenHashes != null && !tokenHashes.isEmpty()) {
-            if (!where.isEmpty()) {
+            if (where.length() > 0) {
                 where.append(" or ");
             }
             where.append("TOKEN_HASH in (:tokenHashes)");
             params.put("tokenHashes", tokenHashes);
         }
-        String sql = """
-                select ISSUE_LOG_ID, TOKEN_HASH, count(*) as DOWNLOAD_COUNT
-                from %s
-                where %s
-                group by ISSUE_LOG_ID, TOKEN_HASH
-                """.formatted(TABLE, where);
+        String sql = String.format("select ISSUE_LOG_ID, TOKEN_HASH, count(*) as DOWNLOAD_COUNT from %s where %s group by ISSUE_LOG_ID, TOKEN_HASH", TABLE, where);
         return template.query(sql, params, (rs, rowNum) -> new AttachmentDownloadAuditLogCount(
                 nullableLong(rs, "ISSUE_LOG_ID"),
                 rs.getString("TOKEN_HASH"),
@@ -192,7 +171,7 @@ public class JdbcAttachmentDownloadAuditLogRepository implements AttachmentDownl
         List<String> orders = pageable.getSort().stream()
                 .map(this::orderExpression)
                 .filter(StringUtils::hasText)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return orders.isEmpty() ? DEFAULT_ORDER : " order by " + String.join(", ", orders);
     }
 

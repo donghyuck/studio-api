@@ -25,18 +25,7 @@ public interface AclEntryRepository extends JpaRepository<AclEntryEntity, Long> 
      *
      * @return list of projection rows
      */
-    @Query("""
-            select c.className as className,
-                   oi.objectIdIdentity as objectIdentity,
-                   s.sid as sid,
-                   s.principal as principal,
-                   e.mask as mask,
-                   e.granting as granting
-            from AclEntryEntity e
-            join e.aclObjectIdentity oi
-            join oi.aclClass c
-            join e.sid s
-            """)
+    @Query("select c.className as className, oi.objectIdIdentity as objectIdentity, s.sid as sid, s.principal as principal, e.mask as mask, e.granting as granting from AclEntryEntity e join e.aclObjectIdentity oi join oi.aclClass c join e.sid s")
     List<AclPolicyProjection> findAllForPolicy();
 
     /**
@@ -52,13 +41,7 @@ public interface AclEntryRepository extends JpaRepository<AclEntryEntity, Long> 
 
     List<AclEntryEntity> findByAclObjectIdentity_IdOrderByAceOrderAsc(Long objectIdentityId);
 
-    @Query("""
-            select e.mask from AclEntryEntity e
-            where e.aclObjectIdentity = :objectIdentity
-              and e.sid = :sid
-              and e.granting = true
-              and e.mask in :masks
-            """)
+    @Query("select e.mask from AclEntryEntity e where e.aclObjectIdentity = :objectIdentity and e.sid = :sid and e.granting = true and e.mask in :masks")
     List<Integer> findMasksByObjectIdentityAndSid(
             @Param("objectIdentity") AclObjectIdentityEntity objectIdentity,
             @Param("sid") AclSidEntity sid,
@@ -66,13 +49,7 @@ public interface AclEntryRepository extends JpaRepository<AclEntryEntity, Long> 
 
     @Modifying
     @Transactional
-    @Query("""
-            delete from AclEntryEntity e
-            where e.aclObjectIdentity = :objectIdentity
-              and e.sid = :sid
-              and e.granting = true
-              and e.mask in :masks
-            """)
+    @Query("delete from AclEntryEntity e where e.aclObjectIdentity = :objectIdentity and e.sid = :sid and e.granting = true and e.mask in :masks")
     int deleteByObjectIdentityAndSidAndMaskIn(
             @Param("objectIdentity") AclObjectIdentityEntity objectIdentity,
             @Param("sid") AclSidEntity sid,

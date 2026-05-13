@@ -18,11 +18,7 @@ public interface ApplicationCompanyPermissionPolicyJpaRepository
         ApplicationCompanyPermissionPolicyRepository {
 
     @Override
-    @Query("""
-            select p from ApplicationCompanyPermissionPolicy p
-             where p.id.companyId = :companyId
-             order by p.id.role asc, p.id.action asc
-            """)
+    @Query("select p from ApplicationCompanyPermissionPolicy p\\n" + " where p.id.companyId = :companyId\\n" + " order by p.id.role asc, p.id.action asc\\n")
     List<ApplicationCompanyPermissionPolicy> findAllByCompanyId(@Param("companyId") Long companyId);
 
     @Override

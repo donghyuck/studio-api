@@ -27,21 +27,20 @@ class PyMuPdf4LlmHttpClientTest {
             upgradeHeaderRef.set(exchange.getRequestHeaders().getFirst("Upgrade"));
             protocolRef.set(exchange.getProtocol());
             bodyRef.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.ISO_8859_1));
-            byte[] response = """
-                    {
-                      "filename": "sample.pdf",
-                      "contentType": "application/pdf",
-                      "markdown": "ok",
-                      "pages": [],
-                      "blocks": [],
-                      "tables": [],
-                      "images": [],
-                      "metadata": {},
-                      "warnings": [],
-                      "elapsedMs": 1,
-                      "ocrApplied": false
-                    }
-                    """.getBytes(StandardCharsets.UTF_8);
+            byte[] response = String.join("\n",
+                    "{",
+                    "  \"filename\": \"sample.pdf\",",
+                    "  \"contentType\": \"application/pdf\",",
+                    "  \"markdown\": \"ok\",",
+                    "  \"pages\": [],",
+                    "  \"blocks\": [],",
+                    "  \"tables\": [],",
+                    "  \"images\": [],",
+                    "  \"metadata\": {},",
+                    "  \"warnings\": [],",
+                    "  \"elapsedMs\": 1,",
+                    "  \"ocrApplied\": false",
+                    "}").getBytes(StandardCharsets.UTF_8);
             exchange.sendResponseHeaders(200, response.length);
             exchange.getResponseBody().write(response);
             exchange.close();

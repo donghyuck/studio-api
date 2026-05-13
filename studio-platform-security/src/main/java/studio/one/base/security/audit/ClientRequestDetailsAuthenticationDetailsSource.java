@@ -3,7 +3,7 @@ package studio.one.base.security.audit;
 import java.util.Collection;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.security.authentication.AuthenticationDetailsSource;
 

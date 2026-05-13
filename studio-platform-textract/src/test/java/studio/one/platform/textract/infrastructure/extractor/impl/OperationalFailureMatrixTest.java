@@ -141,14 +141,13 @@ class OperationalFailureMatrixTest {
 
     private byte[] hwpxBytesWithMissingSection() throws Exception {
         return zip(Map.of(
-                "Contents/content.hpf", """
-                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
-                          <opf:manifest>
-                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
-                          </opf:manifest>
-                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
-                        </opf:package>
-                        """.getBytes(UTF_8)));
+                "Contents/content.hpf", ("<opf:package xmlns:opf=\"http://www.idpf.org/2007/opf\">\n" +
+                "  <opf:manifest>\n" +
+                "    <opf:item id=\"section0\" href=\"section0.xml\" media-type=\"application/xml\"/>\n" +
+                "  </opf:manifest>\n" +
+                "  <opf:spine><opf:itemref idref=\"section0\"/></opf:spine>\n" +
+                "</opf:package>\n" +
+                "").getBytes(UTF_8)));
     }
 
     private byte[] hwpEncryptedHeaderOnlyBytes() {

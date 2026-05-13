@@ -68,7 +68,7 @@ public class AttachmentServiceImpl implements AttachmentService {
     @Override
     public List<Attachment> getAttachments(int objectType, long objectId) {
         return attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId).stream().map(e -> (Attachment) e)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -80,18 +80,18 @@ public class AttachmentServiceImpl implements AttachmentService {
     public List<Attachment> getAttachmentsByObjectAndCreator(int objectType, long objectId, long createdBy) {
         return attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy).stream()
                 .map(e -> (Attachment) e)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
     public Page<Attachment> findAttachments(Pageable pageable) {
-        Page page = attachmentRepository.findAll(pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        Page<?> page = attachmentRepository.findAll(pageable);
+        return new PageImpl<Attachment>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     public Page<Attachment> findAttachments(int objectType, long objectId, Pageable pageable) {
-        Page page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        Page<?> page = attachmentRepository.findByObjectTypeAndObjectId(objectType, objectId, pageable);
+        return new PageImpl<Attachment>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
@@ -101,8 +101,8 @@ public class AttachmentServiceImpl implements AttachmentService {
 
     @Override
     public Page<Attachment> findAttachmentsByCreator(long createdBy, Pageable pageable) {
-        Page page = attachmentRepository.findByCreatedBy(createdBy, pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        Page<?> page = attachmentRepository.findByCreatedBy(createdBy, pageable);
+        return new PageImpl<Attachment>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
@@ -112,15 +112,15 @@ public class AttachmentServiceImpl implements AttachmentService {
         }
         Page<ApplicationAttachment> page = attachmentRepository.findByCreatedByAndNameContainingIgnoreCase(
                 createdBy, keyword, pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        return new PageImpl<Attachment>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
     public Page<Attachment> findAttachmentsByObjectAndCreator(
             int objectType, long objectId, long createdBy, Pageable pageable) {
-        Page page = attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy,
+        Page<?> page = attachmentRepository.findByObjectTypeAndObjectIdAndCreatedBy(objectType, objectId, createdBy,
                 pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        return new PageImpl<Attachment>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
@@ -132,7 +132,7 @@ public class AttachmentServiceImpl implements AttachmentService {
         Page<ApplicationAttachment> page = attachmentRepository
                 .findByObjectTypeAndObjectIdAndCreatedByAndNameContainingIgnoreCase(
                         objectType, objectId, createdBy, keyword, pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        return new PageImpl<Attachment>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
@@ -141,7 +141,7 @@ public class AttachmentServiceImpl implements AttachmentService {
             return Page.empty(pageable);
         }
         Page<ApplicationAttachment> page = attachmentRepository.findByNameContainingIgnoreCase(keyword, pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
@@ -151,7 +151,7 @@ public class AttachmentServiceImpl implements AttachmentService {
         }
         Page<ApplicationAttachment> page = attachmentRepository
                 .findByObjectTypeAndObjectIdAndNameContainingIgnoreCase(objectType, objectId, keyword, pageable);
-        return new PageImpl<>(page.stream().map(e -> (Attachment) e).toList(), pageable, page.getTotalElements());
+        return new PageImpl<>(page.stream().map(e -> (Attachment) e).collect(java.util.stream.Collectors.toList()), pageable, page.getTotalElements());
     }
 
     @Override
@@ -267,7 +267,8 @@ public class AttachmentServiceImpl implements AttachmentService {
     }
 
     private ApplicationAttachment toEntity(Attachment attachment) {
-        if (attachment instanceof ApplicationAttachment attach) {
+        if (attachment instanceof ApplicationAttachment) {
+            ApplicationAttachment attach = (ApplicationAttachment) attachment;
             return attach;
         }
         ApplicationAttachment entity = new ApplicationAttachment();
@@ -375,7 +376,8 @@ public class AttachmentServiceImpl implements AttachmentService {
             FileStorage storage,
             Attachment attachment,
             InputStream inputStream) {
-        if (storage instanceof FileStorageSaveResultCapable capable) {
+        if (storage instanceof FileStorageSaveResultCapable) {
+            FileStorageSaveResultCapable capable = (FileStorageSaveResultCapable) storage;
             return capable.saveWithResult(attachment, inputStream);
         }
         return FileStorageSaveResult.of(storage.save(attachment, inputStream));

@@ -17,10 +17,10 @@ final class ChatMetadataMaps {
             if (key == null || key.isBlank() || value == null) {
                 return;
             }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
+            if (value instanceof String && ((String) value).isBlank()) {
                 return;
             }
-            if (value instanceof Map<?, ?> mapValue && mapValue.isEmpty()) {
+            if (value instanceof Map<?, ?> && ((Map<?, ?>) value).isEmpty()) {
                 return;
             }
             compact.put(key, value);

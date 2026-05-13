@@ -2,7 +2,7 @@ package studio.one.platform.ai.web.controller;
 
 import java.util.Locale;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -82,7 +82,7 @@ public class VectorVisualizationMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(new ProjectionListResponse(
                 projectionService.list(limit, offset).stream()
                         .map(this::summary)
-                        .toList())));
+                        .collect(java.util.stream.Collectors.toList()))));
     }
 
     @GetMapping("/projections/{projectionId}")
@@ -113,7 +113,7 @@ public class VectorVisualizationMgmtController {
                 projectionId,
                 projection.algorithm().name(),
                 page.totalCount(),
-                page.items().stream().map(this::point).toList())));
+                page.items().stream().map(this::point).collect(java.util.stream.Collectors.toList()))));
     }
 
     @GetMapping("/items/{vectorItemId}")
@@ -215,6 +215,6 @@ public class VectorVisualizationMgmtController {
                                 point.x(),
                                 point.y(),
                                 point.similarity()))
-                        .toList());
+                        .collect(java.util.stream.Collectors.toList()));
     }
 }

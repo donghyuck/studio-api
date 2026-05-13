@@ -22,7 +22,6 @@
 package studio.one.platform.autoconfigure.objecttype;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -32,7 +31,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import org.mybatis.spring.SqlSessionTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -85,7 +84,7 @@ import studio.one.platform.objecttype.application.service.DefaultObjectTypeRunti
 import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({ ObjectTypeFeatureProperties.class, ObjectTypeProperties.class })
 @ConditionalOnProperty(prefix = "studio.features.objecttype", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor
@@ -216,8 +215,8 @@ public class ObjectTypeAutoConfiguration {
             ObjectRebindService delegate,
             ObjectTypeRegistry registry,
             ObjectPolicyResolver resolver) {
-        CacheInvalidatable registryCache = (registry instanceof CacheInvalidatable ci) ? ci : null;
-        CacheInvalidatable policyCache = (resolver instanceof CacheInvalidatable ci) ? ci : null;
+        CacheInvalidatable registryCache = (registry instanceof CacheInvalidatable) ? (CacheInvalidatable) registry : null;
+        CacheInvalidatable policyCache = (resolver instanceof CacheInvalidatable) ? (CacheInvalidatable) resolver : null;
         if (registryCache == null && policyCache == null) {
             return delegate;
         }
@@ -261,7 +260,7 @@ public class ObjectTypeAutoConfiguration {
         @ConditionalOnMissingBean
         public ObjectTypeStore objectTypeStore(ObjectTypeJpaRepository typeRepository,
                 ObjectTypePolicyJpaRepository policyRepository,
-                jakarta.persistence.EntityManager entityManager) {
+                javax.persistence.EntityManager entityManager) {
             I18n i18n = I18nUtils.resolve(i18nProvider);
             log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS,
                     ObjectTypeAutoConfiguration.FEATURE_NAME,

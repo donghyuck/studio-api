@@ -6,6 +6,7 @@ import java.util.concurrent.Executor;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -75,9 +76,10 @@ import studio.one.platform.chunking.core.ChunkContextExpander;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 
 @Configuration(proxyBeanMethods = false)
+@AutoConfigureAfter(AiAutoConfiguration.class)
 @ConditionalOnClass(name = {
         "studio.one.platform.ai.core.chat.ChatPort",
-        "jakarta.validation.Valid",
+        "javax.validation.Valid",
         "org.springframework.security.access.prepost.PreAuthorize",
         "org.springframework.web.bind.annotation.RestController"
 })
@@ -89,7 +91,7 @@ public class AiWebAutoConfiguration {
     RagContextBuilder ragContextBuilder(
             AiWebRagProperties properties,
             ObjectProvider<ChunkContextExpander> contextExpanders) {
-        return new RagContextBuilder(properties, contextExpanders.stream().toList());
+        return new RagContextBuilder(properties, contextExpanders.stream().collect(java.util.stream.Collectors.toList()));
     }
 
     @Bean
@@ -204,7 +206,7 @@ public class AiWebAutoConfiguration {
                 projectionRepository,
                 pointRepository,
                 itemRepository,
-                generators.orderedStream().toList());
+                generators.orderedStream().collect(java.util.stream.Collectors.toList()));
     }
 
     @Bean
@@ -286,7 +288,7 @@ public class AiWebAutoConfiguration {
                 vectorStorePort,
                 ragIndexJobExecutor,
                 ragPipelineProperties.getObjectScope().getMaxListLimit(),
-                sourceNameResolvers.orderedStream().toList());
+                sourceNameResolvers.orderedStream().collect(java.util.stream.Collectors.toList()));
     }
 
     @Bean
@@ -300,7 +302,7 @@ public class AiWebAutoConfiguration {
             Environment environment) {
         return new RagChunkPreviewController(
                 chunkingOrchestratorProvider.getIfAvailable(),
-                chunkers.stream().toList(),
+                chunkers.stream().collect(java.util.stream.Collectors.toList()),
                 textChunkerProvider.getIfAvailable(),
                 ragPipelineProperties,
                 ragProperties,

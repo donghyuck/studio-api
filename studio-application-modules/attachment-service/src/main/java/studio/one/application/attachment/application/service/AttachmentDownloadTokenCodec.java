@@ -12,7 +12,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -135,7 +134,7 @@ final class AttachmentDownloadTokenCodec {
     static String sha256HexValue(String value) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+            return toHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (GeneralSecurityException ex) {
             throw new IllegalStateException("SHA-256 is not available", ex);
         }
@@ -200,4 +199,16 @@ final class AttachmentDownloadTokenCodec {
             throw new IllegalStateException("HMAC-SHA256 is not available", ex);
         }
     }
+
+    private static String toHex(byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 0xff;
+            hex[i * 2] = digits[value >>> 4];
+            hex[i * 2 + 1] = digits[value & 0x0f];
+        }
+        return new String(hex);
+    }
+
 }

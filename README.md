@@ -99,7 +99,6 @@ implementation(project(":starter:studio-application-starter-attachment"))
 implementation(project(":studio-application-modules:content-embedding-pipeline"))
 implementation(project(":starter:studio-platform-starter-chunking"))
 implementation(project(":starter:studio-platform-starter-ai"))
-implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
 // 실시간 알림 앱
 implementation(project(":starter:studio-platform-starter-realtime"))
@@ -111,22 +110,12 @@ implementation(project(":starter:studio-application-starter-mail"))
 ```
 
 ### AI 스타터 사용 시 주의사항
-`studio-platform-starter-ai`는 provider 라이브러리를 `compileOnly`로만 제공하므로,
-소비 앱에서 필요한 provider를 직접 선언해야 한다. Spring AI BOM은 `api(platform(...))`으로
-노출되므로 별도 BOM 선언 없이 일관된 Spring AI 버전을 사용할 수 있다.
+`studio-platform-starter-ai`는 OpenAI, Google AI Gemini, Ollama용 LangChain4j provider artifact를 직접 포함한다.
+소비 앱은 Spring AI BOM이나 Spring AI provider starter를 별도로 선언하지 않는다.
 
 ```kotlin
-// OpenAI 사용 예시
 implementation(project(":starter:studio-platform-starter-ai"))
-implementation("org.springframework.ai:spring-ai-starter-model-openai")
 
-// Google GenAI 사용 예시
-implementation(project(":starter:studio-platform-starter-ai"))
-implementation("org.springframework.ai:spring-ai-google-genai")
-
-// Ollama 사용 예시
-implementation(project(":starter:studio-platform-starter-ai"))
-implementation("org.springframework.ai:spring-ai-ollama")
 ```
 
 ## 모듈 의존 방향
@@ -388,7 +377,7 @@ studio:
       allowed-specials: "!@#$%^&*"
       allow-whitespace: false
 ```
-필요 없는 기능은 `studio.features.<feature>.enabled=false`로 비활성화하고, feature wiring은 `studio.features.<feature>.*`, runtime detail은 `studio.<module>.*`, 외부 provider SDK 값은 `spring.*`로 조정한다.
+필요 없는 기능은 `studio.features.<feature>.enabled=false`로 비활성화하고, feature wiring은 `studio.features.<feature>.*`, runtime detail은 `studio.<module>.*`, 외부 provider SDK 값은 `studio.ai.providers.<id>.*`로 조정한다. `spring.ai.*`는 1.x migration fallback으로만 사용한다.
 
 ## 문서 바로가기
 - 스타터 요약: `starter/README.md`

@@ -32,7 +32,7 @@ public class TextractNormalizedDocumentAdapter {
         List<String> tableRefs = parsedFile.tables().stream()
                 .map(ExtractedTable::sourceRef)
                 .filter(ref -> ref != null && !ref.isBlank())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         parsedFile.blocks().stream()
                 .filter(block -> !isExtractedTableBlock(block, tableRefs))
                 .map(block -> fromBlock(block, headingPaths.get(block)))
@@ -100,7 +100,7 @@ public class TextractNormalizedDocumentAdapter {
                 .sorted(Comparator.comparing(
                         ParsedBlock::order,
                         Comparator.nullsLast(Integer::compareTo)))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private boolean isExtractedTableBlock(ParsedBlock block, List<String> tableRefs) {
@@ -174,7 +174,7 @@ public class TextractNormalizedDocumentAdapter {
                 .map(ExtractedTableCell::sourceRef)
                 .filter(ref -> ref != null && !ref.isBlank())
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (!refs.isEmpty()) {
             return refs;
         }
@@ -186,12 +186,12 @@ public class TextractNormalizedDocumentAdapter {
 
     private String filename(Map<String, Object> metadata) {
         Object value = metadata.get("filename");
-        return value instanceof String stringValue ? stringValue : "";
+        return value instanceof String ? (String) value : "";
     }
 
     private String stringMetadata(Map<String, Object> metadata, String key) {
         Object value = metadata.get(key);
-        return value instanceof String stringValue ? stringValue : "";
+        return value instanceof String ? (String) value : "";
     }
 
     private String firstNonBlank(String... values) {

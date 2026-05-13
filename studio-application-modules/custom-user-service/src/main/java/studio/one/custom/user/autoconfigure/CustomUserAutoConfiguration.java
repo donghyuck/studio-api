@@ -1,12 +1,13 @@
 package studio.one.custom.user.autoconfigure;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -22,7 +23,8 @@ import studio.one.platform.constant.PropertyKeys;
  * 커스텀 User 구현을 위한 자동 구성.
  * features.user.enabled=true 일 때 기본 User 구현이 없으면 CustomUser를 등록한다.
  */
-@AutoConfiguration(before = HibernateJpaAutoConfiguration.class)
+@Configuration
+@AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
 @ConditionalOnClass(CustomUser.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @EntityScan(basePackageClasses = CustomUser.class)

@@ -26,10 +26,10 @@ import java.net.InetAddress;
 import java.security.MessageDigest;
 import java.util.regex.Pattern;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
+import javax.annotation.PostConstruct;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
  
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.http.HttpStatus;

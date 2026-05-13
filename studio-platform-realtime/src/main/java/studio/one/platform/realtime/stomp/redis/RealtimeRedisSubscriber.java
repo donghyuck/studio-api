@@ -81,10 +81,11 @@ public class RealtimeRedisSubscriber implements MessageListener {
                         return;
                     }
                 }
-                if (!(payload instanceof RealtimePayload typedPayload)) {
+                if (!(payload instanceof RealtimePayload)) {
                     log.warn("Skip realtime message: payload is not RealtimePayload. destination={}", envelope.getDestination());
                     return;
                 }
+                RealtimePayload typedPayload = (RealtimePayload) payload;
                 if (envelope.getType() == RealtimeEnvelope.MessageType.USER && envelope.getUserId() != null) {
                     messagingService.sendToUser(envelope.getUserId(), envelope.getDestination(), typedPayload);
                 } else {

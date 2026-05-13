@@ -4,31 +4,46 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 /**
  * Parser-neutral structured document input for chunking.
  */
-public record NormalizedDocument(
-        String sourceDocumentId,
-        String plainText,
-        String sourceFormat,
-        String filename,
-        List<NormalizedBlock> blocks,
-        Map<String, Object> metadata) {
+public class NormalizedDocument {
+    private final String sourceDocumentId;
+    private final String plainText;
+    private final String sourceFormat;
+    private final String filename;
+    private final List<NormalizedBlock> blocks;
+    private final Map<String, Object> metadata;
 
-    public NormalizedDocument {
+
+    public NormalizedDocument(
+            String sourceDocumentId,
+            String plainText,
+            String sourceFormat,
+            String filename,
+            List<NormalizedBlock> blocks,
+            Map<String, Object> metadata) {
         sourceDocumentId = normalize(sourceDocumentId);
         plainText = plainText == null ? "" : plainText.trim();
         sourceFormat = normalize(sourceFormat);
         filename = normalize(filename);
-        blocks = blocks == null ? List.of() : blocks.stream()
+        blocks = blocks == null ? List.of() : Collections.unmodifiableList(blocks.stream()
                 .filter(block -> block != null)
                 .filter(NormalizedBlock::hasText)
                 .sorted(Comparator.comparing(
                         NormalizedBlock::order,
                         Comparator.nullsLast(Integer::compareTo)))
-                .toList();
+                .collect(java.util.stream.Collectors.toList()));
         metadata = sanitize(metadata);
+    
+        this.sourceDocumentId = sourceDocumentId;
+        this.plainText = plainText;
+        this.sourceFormat = sourceFormat;
+        this.filename = filename;
+        this.blocks = blocks;
+        this.metadata = metadata;
     }
 
     public String chunkableText() {
@@ -74,7 +89,7 @@ public record NormalizedDocument(
             if (key == null || key.isBlank() || value == null) {
                 return;
             }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
+            if (value instanceof String && ((String) value).isBlank()) {
                 return;
             }
             sanitized.put(key, value);
@@ -126,5 +141,29 @@ public record NormalizedDocument(
         public NormalizedDocument build() {
             return new NormalizedDocument(sourceDocumentId, plainText, sourceFormat, filename, blocks, metadata);
         }
+    }
+
+    public String sourceDocumentId() {
+        return sourceDocumentId;
+    }
+
+    public String plainText() {
+        return plainText;
+    }
+
+    public String sourceFormat() {
+        return sourceFormat;
+    }
+
+    public String filename() {
+        return filename;
+    }
+
+    public List<NormalizedBlock> blocks() {
+        return blocks;
+    }
+
+    public Map<String, Object> metadata() {
+        return metadata;
     }
 }

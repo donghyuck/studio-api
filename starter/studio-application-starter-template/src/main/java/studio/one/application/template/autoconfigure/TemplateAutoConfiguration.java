@@ -21,10 +21,9 @@
 
 package studio.one.application.template.autoconfigure;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -68,7 +67,7 @@ import studio.one.application.template.autoconfigure.condition.ConditionalOnTemp
  * </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
         + ".template", name = "enabled", havingValue = "true", matchIfMissing = false)
 @EnableConfigurationProperties({ TemplateFeatureProperties.class, PersistenceProperties.class })
@@ -128,7 +127,7 @@ public class TemplateAutoConfiguration {
             ObjectProvider<freemarker.template.Configuration> configurationProvider,
             ObjectProvider<WebApplicationContext> webContextProvider) {
         WebApplicationContext context = webContextProvider.getIfAvailable();
-        jakarta.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
+        javax.servlet.ServletContext servletContext = (context != null) ? context.getServletContext() : null;
         FreeMarkerConfig freeMarkerConfig = freeMarkerConfigProvider.getIfAvailable();
         if (freeMarkerConfig != null) {
             return new FreemarkerTemplateBuilder(servletContext, freeMarkerConfig);
@@ -142,7 +141,7 @@ public class TemplateAutoConfiguration {
                 }
 
                 @Override
-                public freemarker.ext.jakarta.jsp.TaglibFactory getTaglibFactory() {
+                public freemarker.ext.jsp.TaglibFactory getTaglibFactory() {
                     return null;
                 }
             });
@@ -152,7 +151,7 @@ public class TemplateAutoConfiguration {
 
     @Configuration
     @ConditionalOnClass(name = {
-            "jakarta.validation.Valid",
+            "javax.validation.Valid",
             "org.springframework.data.domain.Pageable",
             "org.springframework.data.web.PageableDefault",
             "org.springframework.security.access.prepost.PreAuthorize",

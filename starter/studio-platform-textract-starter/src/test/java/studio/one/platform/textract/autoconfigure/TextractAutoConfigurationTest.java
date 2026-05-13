@@ -215,9 +215,12 @@ class TextractAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
-                            .hasMessageContaining("studio.features.text.max-extract-bytes")
-                            .rootCause()
-                            .hasMessageContaining("between 1B");
+                            .hasMessageContaining("studio.features.text.max-extract-bytes");
+                    Throwable root = context.getStartupFailure();
+                    while (root.getCause() != null) {
+                        root = root.getCause();
+                    }
+                    assertThat(root.getMessage()).contains("between 1B");
                 });
     }
 

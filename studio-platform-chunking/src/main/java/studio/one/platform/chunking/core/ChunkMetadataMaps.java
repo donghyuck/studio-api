@@ -17,7 +17,7 @@ final class ChunkMetadataMaps {
             if (key == null || key.isBlank() || value == null) {
                 return;
             }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
+            if (value instanceof String && ((String) value).isBlank()) {
                 return;
             }
             sanitized.put(key, value);

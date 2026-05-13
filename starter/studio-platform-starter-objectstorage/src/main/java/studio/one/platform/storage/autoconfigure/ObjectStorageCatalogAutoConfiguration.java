@@ -1,6 +1,7 @@
 package studio.one.platform.storage.autoconfigure;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -15,7 +16,7 @@ import studio.one.platform.storage.application.result.ProviderCatalog;
 import studio.one.platform.storage.infrastructure.storage.ProviderCatalogImpl;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureAfter(ObjectStorageAutoConfiguration.class)
 @EnableConfigurationProperties(StorageProperties.class)
 @Slf4j

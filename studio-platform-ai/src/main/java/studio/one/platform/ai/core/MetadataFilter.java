@@ -114,9 +114,10 @@ public final class MetadataFilter {
         if (this == other) {
             return true;
         }
-        if (!(other instanceof MetadataFilter that)) {
+        if (!(other instanceof MetadataFilter)) {
             return false;
         }
+        MetadataFilter that = (MetadataFilter) other;
         return Objects.equals(objectType, that.objectType)
                 && Objects.equals(objectId, that.objectId)
                 && Objects.equals(equalsCriteria, that.equalsCriteria)
@@ -161,8 +162,8 @@ public final class MetadataFilter {
         values.forEach((key, value) -> {
             String normalizedKey = normalize(key);
             if (normalizedKey != null && value != null
-                    && (!(value instanceof String text) || !text.isBlank())) {
-                sanitized.put(normalizedKey, value instanceof String text ? text.trim() : value);
+                    && (!(value instanceof String) || !((String) value).isBlank())) {
+                sanitized.put(normalizedKey, value instanceof String ? ((String) value).trim() : value);
             }
         });
         return Map.copyOf(sanitized);
@@ -180,10 +181,10 @@ public final class MetadataFilter {
             }
             List<Object> sanitizedCandidates = candidates.stream()
                     .filter(Objects::nonNull)
-                    .filter(value -> !(value instanceof String text) || !text.isBlank())
-                    .map(value -> value instanceof String text ? text.trim() : value)
+                    .filter(value -> !(value instanceof String) || !((String) value).isBlank())
+                    .map(value -> value instanceof String ? ((String) value).trim() : value)
                     .distinct()
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
             if (!sanitizedCandidates.isEmpty()) {
                 sanitized.put(normalizedKey, sanitizedCandidates);
             }

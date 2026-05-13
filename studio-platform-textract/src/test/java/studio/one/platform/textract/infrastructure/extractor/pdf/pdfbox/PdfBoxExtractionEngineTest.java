@@ -22,20 +22,19 @@ class PdfBoxExtractionEngineTest {
 
     @Test
     void cleanPdfTextCompactsFragmentedShortLines() {
-        String raw = """
-                증
-                주
-                업
-                을
-                왼쪽
-                유
-                문
-                로맨스로
-                고는
-                오른쪽과
-                그
-                에 있는 캐릭터는 삶을 살면서 서로의 감정을 나누는
-                """;
+        String raw = "증\n" +
+                "주\n" +
+                "업\n" +
+                "을\n" +
+                "왼쪽\n" +
+                "유\n" +
+                "문\n" +
+                "로맨스로\n" +
+                "고는\n" +
+                "오른쪽과\n" +
+                "그\n" +
+                "에 있는 캐릭터는 삶을 살면서 서로의 감정을 나누는\n" +
+                "";
 
         assertThat(engine.cleanPdfText(raw))
                 .isEqualTo("증주업을왼쪽유문로맨스로고는오른쪽과그에 있는 캐릭터는 삶을 살면서 서로의 감정을 나누는");

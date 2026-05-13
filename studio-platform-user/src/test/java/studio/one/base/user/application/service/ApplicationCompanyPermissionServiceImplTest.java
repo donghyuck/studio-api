@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+import java.util.stream.Collectors;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -267,6 +268,6 @@ class ApplicationCompanyPermissionServiceImplTest {
     }
 
     private List<String> sorted(java.util.Set<String> actions) {
-        return actions.stream().sorted().toList();
+        return actions.stream().sorted().collect(Collectors.toList());
     }
 }

@@ -42,18 +42,17 @@ class PgVectorStoreAdapterV2PostgresTest {
         jdbcTemplate = new JdbcTemplate(dataSource);
         jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS vector");
         jdbcTemplate.execute("DROP TABLE IF EXISTS tb_ai_document_chunk");
-        jdbcTemplate.execute("""
-                CREATE TABLE tb_ai_document_chunk (
-                    id BIGSERIAL PRIMARY KEY,
-                    object_type VARCHAR(100) NOT NULL,
-                    object_id VARCHAR(100) NOT NULL,
-                    chunk_index INTEGER NOT NULL,
-                    text TEXT NOT NULL,
-                    metadata JSONB NOT NULL,
-                    embedding vector(2) NOT NULL,
-                    CONSTRAINT uq_test_chunk UNIQUE (object_type, object_id, chunk_index)
-                )
-                """);
+        jdbcTemplate.execute(String.join("\n",
+        "CREATE TABLE tb_ai_document_chunk (",
+        "    id BIGSERIAL PRIMARY KEY,",
+        "    object_type VARCHAR(100) NOT NULL,",
+        "    object_id VARCHAR(100) NOT NULL,",
+        "    chunk_index INTEGER NOT NULL,",
+        "    text TEXT NOT NULL,",
+        "    metadata JSONB NOT NULL,",
+        "    embedding vector(2) NOT NULL,",
+        "    CONSTRAINT uq_test_chunk UNIQUE (object_type, object_id, chunk_index)",
+        ")"));
         PgVectorMapper mapper = mapper(dataSource);
         adapter = new PgVectorStoreAdapterV2(mapper, dataSource);
         adapter.upsert(List.of(

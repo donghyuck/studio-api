@@ -1,7 +1,9 @@
 package studio.one.platform.objecttype.web.controller;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
+import javax.validation.Valid;
+import java.util.stream.Collectors;
+
+import javax.validation.constraints.Min;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.ResponseEntity;
@@ -53,7 +55,7 @@ public class ObjectTypeMgmtController {
             @RequestParam(value = "q", required = false) String q) {
         java.util.List<ObjectTypeDto> list = adminService.search(domain, status, q).stream()
                 .map(this::toDto)
-                .toList();
+                .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(list));
     }
 
@@ -224,6 +226,16 @@ public class ObjectTypeMgmtController {
                 principal.userId().orElse(0L));
     }
 
-    private record AuditActor(String name, Long userId) {
+    private static class AuditActor {
+        private final String name;
+        private final Long userId;
+
+        private AuditActor(String name, Long userId) {
+            this.name = name;
+            this.userId = userId;
+        }
+
+        private String name() { return name; }
+        private Long userId() { return userId; }
     }
 }

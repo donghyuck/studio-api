@@ -11,7 +11,7 @@ RAG chunking 실행은 `starter:studio-platform-starter-ai`의 `RagPipelineServi
 
 ## 1) 의존성 추가
 
-AI 코어 스타터와 웹 스타터를 함께 선언한다. 프로바이더 라이브러리도 소비 앱에서 직접 선언해야 한다.
+AI 코어 스타터와 웹 스타터를 함께 선언한다. AI 코어 스타터가 OpenAI, Google AI Gemini, Ollama용 LangChain4j provider artifact를 직접 포함하므로 소비 앱은 Spring AI BOM/provider starter를 선언하지 않는다.
 
 ```kotlin
 dependencies {
@@ -25,8 +25,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
-    // 사용할 프로바이더 라이브러리 선언 (예: OpenAI)
-    implementation("org.springframework.ai:spring-ai-starter-model-openai")
+    // OpenAI/Google AI Gemini/Ollama provider artifact는 AI 코어 스타터가 포함한다.
 }
 ```
 
@@ -745,7 +744,7 @@ query embedding 생성 중 provider quota/rate limit이 발생하면 HTTP 429 `P
 - 벡터/RAG 검색에서 `query`만 전달하는 semantic search는 embedding provider 호출을 수반한다.
 - 벡터 검색 시 `hybrid=true`를 설정하면 BM25 + 벡터 하이브리드 검색이 활성화된다. lexical score 계산에는
   `query` 텍스트가 필요하고, vector score 계산에는 직접 전달한 `embedding` 또는 query로 생성한 embedding이 필요하다.
-- 채팅 API의 `provider`는 Studio provider id 선택만 담당한다. OpenAI 런타임 설정은 계속 `spring.ai.openai.*`가 소유한다.
+- 채팅 API의 `provider`는 Studio provider id 선택만 담당한다. OpenAI 런타임 설정은 `studio.ai.providers.openai.*`가 소유하며, `spring.ai.openai.*`는 1.x migration fallback으로만 읽는다.
 - Google GenAI 등 provider quota/rate limit 오류는 AI web exception handler가 HTTP 429 `ProblemDetails`로 변환한다.
 - Vector/RAG query embedding quota/rate limit 오류는 chat quota와 구분되는 embedding provider 메시지로 반환한다.
 - `query-rewrite` 엔드포인트는 Mustache 템플릿(`query-rewrite`)이 없으면 내장 폴백 프롬프트를 사용한다.

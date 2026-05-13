@@ -86,12 +86,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Page<ApplicationUser> findAll(Pageable pageable) {
-        String select = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                """;
+        String select = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER";
         String count = "select count(*) from TB_APPLICATION_USER";
         Page<ApplicationUser> page = queryPage(select, count, Map.of(), pageable, USER_ROW_MAPPER, "USER_ID", SORT_COLUMNS);
         loadProperties(page.getContent());
@@ -100,13 +95,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationUser> findById(Long userId) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where USER_ID = :userId
-                """;
+        String sql = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where USER_ID = :userId";
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("userId", userId), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -114,14 +103,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationUser> findEnabledById(Long userId) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where USER_ID = :userId
-                   and USER_ENABLED = true
-                """;
+        String sql = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where USER_ID = :userId and USER_ENABLED = true";
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("userId", userId), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -129,13 +111,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationUser> findByUsername(String username) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where lower(USERNAME) = lower(:username)
-                """;
+        String sql = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where lower(USERNAME) = lower(:username)";
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("username", username), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -143,14 +119,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationUser> findEnabledByUsername(String username) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where lower(USERNAME) = lower(:username)
-                   and USER_ENABLED = true
-                """;
+        String sql = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where lower(USERNAME) = lower(:username) and USER_ENABLED = true";
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("username", username), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -158,14 +127,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationUser> findByUsernameForUpdate(String username) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where lower(USERNAME) = lower(:username)
-                 for update
-                """;
+        String sql = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where lower(USERNAME) = lower(:username) for update";
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("username", username), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -173,13 +135,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationUser> findByEmail(String email) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where lower(EMAIL) = lower(:email)
-                """;
+        String sql = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where lower(EMAIL) = lower(:email)";
         Optional<ApplicationUser> result = queryOptional(sql, Map.of("email", email), USER_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -209,14 +165,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
     @Override
     public Page<ApplicationUser> findUsersByGroupId(Long groupId, Pageable pageable) {
         Map<String, Object> params = Map.of("groupId", groupId);
-        String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
-                 where gm.GROUP_ID = :groupId
-                """;
+        String select = "select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH, u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS, u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE from TB_APPLICATION_USER u join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID where gm.GROUP_ID = :groupId";
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
         Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", SORT_COLUMNS);
         loadProperties(page.getContent());
@@ -225,14 +174,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public List<ApplicationUser> findUsersByGroupId(Long groupId) {
-        String sql = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
-                 where gm.GROUP_ID = :groupId
-                """;
+        String sql = "select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH, u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS, u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE from TB_APPLICATION_USER u join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID where gm.GROUP_ID = :groupId";
         List<ApplicationUser> users = namedTemplate.query(sql, Map.of("groupId", groupId), USER_ROW_MAPPER);
         loadProperties(users);
         return users;
@@ -241,20 +183,8 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
     @Override
     public Page<ApplicationUser> findUsersByCompanyId(Long companyId, Pageable pageable) {
         Map<String, Object> params = Map.of("companyId", companyId);
-        String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID
-                 where cm.COMPANY_ID = :companyId
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_COMPANY_MEMBERS cm
-                  join TB_APPLICATION_USER u on u.USER_ID = cm.USER_ID
-                 where cm.COMPANY_ID = :companyId
-                """;
+        String select = "select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH, u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS, u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE from TB_APPLICATION_USER u join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID where cm.COMPANY_ID = :companyId";
+        String count = "select count(*) from TB_APPLICATION_COMPANY_MEMBERS cm join TB_APPLICATION_USER u on u.USER_ID = cm.USER_ID where cm.COMPANY_ID = :companyId";
         Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_ALIAS_SORT_COLUMNS);
         loadProperties(page.getContent());
         return page;
@@ -263,28 +193,8 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
     @Override
     public Page<ApplicationUser> searchByCompanyId(Long companyId, String keyword, Pageable pageable) {
         Map<String, Object> params = Map.of("companyId", companyId, "q", normalize(keyword));
-        String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID
-                 where cm.COMPANY_ID = :companyId
-                   and (:q = '' or
-                       lower(u.USERNAME) like :q or
-                       lower(u.NAME) like :q or
-                       lower(u.EMAIL) like :q)
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID
-                 where cm.COMPANY_ID = :companyId
-                   and (:q = '' or
-                       lower(u.USERNAME) like :q or
-                       lower(u.NAME) like :q or
-                       lower(u.EMAIL) like :q)
-                """;
+        String select = "select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH, u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS, u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE from TB_APPLICATION_USER u join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID where cm.COMPANY_ID = :companyId and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)";
+        String count = "select count(*) from TB_APPLICATION_USER u join TB_APPLICATION_COMPANY_MEMBERS cm on cm.USER_ID = u.USER_ID where cm.COMPANY_ID = :companyId and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)";
         Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "u.USER_ID", USER_ALIAS_SORT_COLUMNS);
         loadProperties(page.getContent());
         return page;
@@ -293,24 +203,8 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
     @Override
     public Page<ApplicationUser> search(String keyword, Pageable pageable) {
         Map<String, Object> params = Map.of("q", normalize(keyword));
-        String select = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_USER
-                 where (:q = '' or
-                       lower(USERNAME) like :q or
-                       lower(NAME) like :q or
-                       lower(EMAIL) like :q)
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_USER
-                 where (:q = '' or
-                       lower(USERNAME) like :q or
-                       lower(NAME) like :q or
-                       lower(EMAIL) like :q)
-                """;
+        String select = "select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from TB_APPLICATION_USER where (:q = '' or lower(USERNAME) like :q or lower(NAME) like :q or lower(EMAIL) like :q)";
+        String count = "select count(*) from TB_APPLICATION_USER where (:q = '' or lower(USERNAME) like :q or lower(NAME) like :q or lower(EMAIL) like :q)";
         Page<ApplicationUser> page = queryPage(select, count, params, pageable, USER_ROW_MAPPER, "USER_ID", SORT_COLUMNS);
         loadProperties(page.getContent());
         return page;
@@ -318,12 +212,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public List<ApplicationGroup> findGroupsByUserId(Long userId) {
-        String sql = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID
-                 where gm.USER_ID = :userId
-                """;
+        String sql = "select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE from TB_APPLICATION_GROUP g join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID where gm.USER_ID = :userId";
         List<ApplicationGroup> groups = namedTemplate.query(sql, Map.of("userId", userId), GROUP_ROW_MAPPER);
         loadGroupProperties(groups);
         return groups;
@@ -362,25 +251,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
         if (user.getModifiedDate() == null) {
             user.setModifiedDate(Instant.now());
         }
-        String sql = """
-                update TB_APPLICATION_USER set
-                    USERNAME = :username,
-                    NAME = :name,
-                    FIRST_NAME = :firstName,
-                    LAST_NAME = :lastName,
-                    PASSWORD_HASH = :password,
-                    NAME_VISIBLE = :nameVisible,
-                    EMAIL = :email,
-                    EMAIL_VISIBLE = :emailVisible,
-                    USER_ENABLED = :enabled,
-                    USER_EXTERNAL = :external,
-                    STATUS = :status,
-                    FAILED_ATTEMPTS = :failedAttempts,
-                    LAST_FAILED_AT = :lastFailedAt,
-                    ACCOUNT_LOCKED_UNTIL = :accountLockedUntil,
-                    MODIFIED_DATE = :modifiedDate
-                 where USER_ID = :userId
-                """;
+        String sql = "update TB_APPLICATION_USER set USERNAME = :username, NAME = :name, FIRST_NAME = :firstName, LAST_NAME = :lastName, PASSWORD_HASH = :password, NAME_VISIBLE = :nameVisible, EMAIL = :email, EMAIL_VISIBLE = :emailVisible, USER_ENABLED = :enabled, USER_EXTERNAL = :external, STATUS = :status, FAILED_ATTEMPTS = :failedAttempts, LAST_FAILED_AT = :lastFailedAt, ACCOUNT_LOCKED_UNTIL = :accountLockedUntil, MODIFIED_DATE = :modifiedDate where USER_ID = :userId";
         Map<String, Object> params = parameterMap(user);
         namedTemplate.update(sql, params);
         replaceProperties(PROPERTY_TABLE, "USER_ID", user.getUserId(), user.getProperties());
@@ -458,7 +329,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
         List<Long> ids = users.stream()
                 .map(ApplicationUser::getUserId)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (ids.isEmpty()) {
             return;
         }
@@ -473,7 +344,7 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
         List<Long> ids = groups.stream()
                 .map(ApplicationGroup::getGroupId)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (ids.isEmpty()) {
             return;
         }
@@ -491,7 +362,13 @@ public class ApplicationUserJdbcRepository extends BaseJdbcRepository implements
         return "%" + keyword.toLowerCase() + "%";
     }
 
-    private record SimpleUserId(Long userId) implements UserIdOnly {
+    private static final class SimpleUserId implements UserIdOnly {
+        private final Long userId;
+
+        private SimpleUserId(Long userId) {
+            this.userId = userId;
+        }
+
         @Override
         public Long getUserId() {
             return userId;

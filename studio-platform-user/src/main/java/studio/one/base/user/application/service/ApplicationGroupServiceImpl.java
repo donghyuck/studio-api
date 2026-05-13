@@ -2,6 +2,7 @@ package studio.one.base.user.application.service;
 
 import java.sql.PreparedStatement;
 import java.time.OffsetDateTime;
+import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -12,7 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
@@ -171,13 +172,13 @@ public class ApplicationGroupServiceImpl
     public int addMembers(Long groupId, List<Long> userIds, @Nullable String joinedBy) {
         List<Long> candidates = userIds.stream()
                 .filter(Objects::nonNull)
-                .distinct().toList();
+                .distinct().collect(Collectors.toList());
         if (candidates.isEmpty())
             return 0;
         List<Long> exist = membershipRepo.findExistingUserIdsInGroup(groupId, candidates);
         Set<Long> existing = new HashSet<>(exist);
         List<Long> toInsert = candidates.stream()
-                .filter(uid -> !existing.contains(uid)).toList();
+                .filter(uid -> !existing.contains(uid)).collect(Collectors.toList());
         if (toInsert.isEmpty())
             return 0;
 
@@ -207,12 +208,8 @@ public class ApplicationGroupServiceImpl
         if (arr.length == 0)
             return 0;
 
-        final String sql = """
-                insert into tb_application_group_members (group_id, user_id, joined_at, joined_by)
-                select ?, uid, coalesce(?, now()), ?
-                from unnest(?::bigint[]) as uid
-                on conflict (group_id, user_id) do nothing
-                """;
+        final String sql = (
+"insert into tb_application_group_members (group_id, user_id, joined_at, joined_by)\\n" + "select ?, uid, coalesce(?, now()), ?\\n" + "from unnest(?::bigint[]) as uid\\n" + "on conflict (group_id, user_id) do nothing\\n");
 
         final String actor = (joinedBy == null || joinedBy.isEmpty()) ? "system" : joinedBy;
 
@@ -243,17 +240,17 @@ public class ApplicationGroupServiceImpl
     public BatchResult updateGroupRolesBulk(Long groupId, List<Long> desired, String actor) {
 
         List<Long> current = roleRepo.findRolesByGroupId(groupId).stream().map(Role::getRoleId).filter(Objects::nonNull)
-                .toList();
+                .collect(Collectors.toList());
         Set<Long> desiredSet = new HashSet<>(desired);
         Set<Long> currentSet = new HashSet<>(current);
 
         List<Long> toAssign = desiredSet.stream()
                 .filter(id -> !currentSet.contains(id))
-                .toList();
+                .collect(Collectors.toList());
 
         List<Long> toRevoke = currentSet.stream()
                 .filter(id -> !desiredSet.contains(id))
-                .toList();
+                .collect(Collectors.toList());
 
         long inserted = toAssign.isEmpty() ? 0 : assignRolesBulk(groupId, toAssign, actor).getInserted();
         long deleted = toRevoke.isEmpty() ? 0 : groupRoleRepo.deleteByGroupIdAndRoleIds(groupId, toRevoke);
@@ -265,23 +262,20 @@ public class ApplicationGroupServiceImpl
 
         List<Long> candidates = (roles == null)
                 ? java.util.Collections.emptyList()
-                : roles.stream().filter(Objects::nonNull).distinct().toList();
+                : roles.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
         if (candidates.isEmpty()) {
             return new BatchResult(0, 0, 0, 0);
         }
 
         Set<Long> existingRoleIds = new HashSet<>(roleRepo.findExistingIds(candidates));
         List<Long> valid = candidates.stream()
-                .filter(existingRoleIds::contains).toList();
+                .filter(existingRoleIds::contains).collect(Collectors.toList());
         if (valid.isEmpty()) {
             return new BatchResult(0, 0, 0, 0);
         }
 
-        final String sql = """
-                insert into tb_application_group_roles (group_id, role_id, assigned_at, assigned_by)
-                select ?, uid, now(), ? from unnest(?::bigint[]) as uid
-                on conflict (group_id, role_id) do nothing
-                """;
+        final String sql = (
+"insert into tb_application_group_roles (group_id, role_id, assigned_at, assigned_by)\\n" + "select ?, uid, now(), ? from unnest(?::bigint[]) as uid\\n" + "on conflict (group_id, role_id) do nothing\\n");
 
         final Long[] arr = valid.toArray(new Long[0]);
         final String assignedBy = (actor != null && !actor.isEmpty()) ? actor : "system";
@@ -301,7 +295,7 @@ public class ApplicationGroupServiceImpl
 
     public BatchResult assignRoles(Long groupId, List<Long> roles, String actor) {
         List<Long> candidates = roles == null ? List.of()
-                : roles.stream().filter(Objects::nonNull).distinct().toList();
+                : roles.stream().filter(Objects::nonNull).distinct().collect(Collectors.toList());
         if (candidates.isEmpty())
             return new BatchResult(0, 0, 0, 0);
         int inserted = 0;

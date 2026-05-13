@@ -68,9 +68,7 @@ class CompanySelfJoinRequestControllerTest {
 
         mvc.perform(post("/api/self/company-join-requests")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"memberKey":"","message":"hello"}
-                                """))
+                        .content("{\"memberKey\":\"\",\"message\":\"hello\"}\\n"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -84,9 +82,9 @@ class CompanySelfJoinRequestControllerTest {
 
         mvc.perform(post("/api/self/company-join-requests")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"memberKey":"%s","message":"%s"}
-                                """.formatted("k".repeat(129), "m".repeat(1001))))
+                        .content(String.format(
+                                "{\"memberKey\":\"%s\",\"message\":\"%s\"}\n",
+                                "k".repeat(129), "m".repeat(1001))))
                 .andExpect(status().isBadRequest());
     }
 

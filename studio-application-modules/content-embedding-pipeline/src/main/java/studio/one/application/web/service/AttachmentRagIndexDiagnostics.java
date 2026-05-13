@@ -6,13 +6,28 @@ import java.util.Map;
 /**
  * Debug-safe diagnostics for attachment RAG indexing.
  */
-public record AttachmentRagIndexDiagnostics(
-        String path,
-        boolean structured,
-        String fallbackReason,
-        int parsedBlockCount,
-        int chunkCount,
-        int vectorCount) {
+public class AttachmentRagIndexDiagnostics {
+    private final String path;
+    private final boolean structured;
+    private final String fallbackReason;
+    private final int parsedBlockCount;
+    private final int chunkCount;
+    private final int vectorCount;
+
+    public AttachmentRagIndexDiagnostics(
+            String path,
+            boolean structured,
+            String fallbackReason,
+            int parsedBlockCount,
+            int chunkCount,
+            int vectorCount) {
+        this.path = path;
+        this.structured = structured;
+        this.fallbackReason = fallbackReason;
+        this.parsedBlockCount = parsedBlockCount;
+        this.chunkCount = chunkCount;
+        this.vectorCount = vectorCount;
+    }
 
     public static AttachmentRagIndexDiagnostics structured(int parsedBlockCount, int chunkCount, int vectorCount) {
         return new AttachmentRagIndexDiagnostics("structured", true, null,
@@ -25,6 +40,30 @@ public record AttachmentRagIndexDiagnostics(
 
     public static AttachmentRagIndexDiagnostics fallback(String reason) {
         return new AttachmentRagIndexDiagnostics("fallback", false, normalize(reason), 0, 0, 0);
+    }
+
+    public String path() {
+        return path;
+    }
+
+    public boolean structured() {
+        return structured;
+    }
+
+    public String fallbackReason() {
+        return fallbackReason;
+    }
+
+    public int parsedBlockCount() {
+        return parsedBlockCount;
+    }
+
+    public int chunkCount() {
+        return chunkCount;
+    }
+
+    public int vectorCount() {
+        return vectorCount;
     }
 
     public Map<String, Object> toMetadata() {
@@ -43,9 +82,13 @@ public record AttachmentRagIndexDiagnostics(
     }
 
     private static void put(Map<String, Object> metadata, String key, Object value) {
-        if (value != null && (!(value instanceof String text) || !text.isBlank())) {
-            metadata.put(key, value);
+        if (value == null) {
+            return;
         }
+        if (value instanceof String && ((String) value).isBlank()) {
+            return;
+        }
+        metadata.put(key, value);
     }
 
     private static void putCount(Map<String, Object> metadata, String key, int value) {

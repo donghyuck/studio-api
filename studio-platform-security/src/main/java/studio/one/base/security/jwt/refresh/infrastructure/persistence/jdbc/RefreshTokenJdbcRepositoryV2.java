@@ -21,31 +21,25 @@ import studio.one.base.security.jwt.refresh.domain.port.RefreshTokenRepository;
  */
 public class RefreshTokenJdbcRepositoryV2 implements RefreshTokenRepository {
 
-    private static final String INSERT_SQL = """
-            insert into TB_APPLICATION_REFRESH_TOKEN
-                (USER_ID, SELECTOR, VERIFIER_HASH, EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID)
-            values
-                (:userId, :selector, :verifierHash, :expiresAt, :revoked, :createdAt, :replacedById)
-            returning ID
-            """;
+    private static final String INSERT_SQL = "insert into TB_APPLICATION_REFRESH_TOKEN\n"
+                + "    (USER_ID, SELECTOR, VERIFIER_HASH, EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID)\n"
+                + "values\n"
+                + "    (:userId, :selector, :verifierHash, :expiresAt, :revoked, :createdAt, :replacedById)\n"
+                + "returning ID\n";
 
-    private static final String UPDATE_SQL = """
-            update TB_APPLICATION_REFRESH_TOKEN
-               set USER_ID = :userId,
-                   SELECTOR = :selector,
-                   VERIFIER_HASH = :verifierHash,
-                   EXPIRES_AT = :expiresAt,
-                   REVOKED = :revoked,
-                   REPLACED_BY_ID = :replacedById
-             where ID = :id
-            """;
+    private static final String UPDATE_SQL = "update TB_APPLICATION_REFRESH_TOKEN\n"
+                + "   set USER_ID = :userId,\n"
+                + "       SELECTOR = :selector,\n"
+                + "       VERIFIER_HASH = :verifierHash,\n"
+                + "       EXPIRES_AT = :expiresAt,\n"
+                + "       REVOKED = :revoked,\n"
+                + "       REPLACED_BY_ID = :replacedById\n"
+                + " where ID = :id\n";
 
-    private static final String FIND_BY_SELECTOR_SQL = """
-            select ID, USER_ID, SELECTOR, VERIFIER_HASH,
-                   EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID
-              from TB_APPLICATION_REFRESH_TOKEN
-             where SELECTOR = :selector
-            """;
+    private static final String FIND_BY_SELECTOR_SQL = "select ID, USER_ID, SELECTOR, VERIFIER_HASH,\n"
+                + "       EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID\n"
+                + "  from TB_APPLICATION_REFRESH_TOKEN\n"
+                + " where SELECTOR = :selector\n";
 
     private static final RowMapper<RefreshToken> ROW_MAPPER = (rs, rowNum) -> RefreshToken.builder()
             .id(rs.getLong("ID"))

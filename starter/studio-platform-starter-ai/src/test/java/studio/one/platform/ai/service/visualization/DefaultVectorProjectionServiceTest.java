@@ -49,7 +49,7 @@ class DefaultVectorProjectionServiceTest {
                     public List<VectorProjectionPoint> generate(String projectionId, List<VectorItem> sourceItems, Instant createdAt) {
                         return sourceItems.stream()
                                 .map(source -> new VectorProjectionPoint(projectionId, source.vectorItemId(), 0.1, 0.2, null, 0, createdAt))
-                                .toList();
+                                .collect(java.util.stream.Collectors.toList());
                     }
                 }));
         DefaultVectorProjectionService service = new DefaultVectorProjectionService(
@@ -230,7 +230,7 @@ class DefaultVectorProjectionServiceTest {
             public List<VectorProjectionPoint> generate(String projectionId, List<VectorItem> sourceItems, Instant createdAt) {
                 return sourceItems.stream()
                         .map(source -> new VectorProjectionPoint(projectionId, source.vectorItemId(), x, y, null, 0, createdAt))
-                        .toList();
+                        .collect(java.util.stream.Collectors.toList());
             }
         };
     }
@@ -250,7 +250,7 @@ class DefaultVectorProjectionServiceTest {
 
         @Override
         public List<VectorProjection> findAll(int limit, int offset) {
-            return projections.values().stream().skip(offset).limit(limit).toList();
+            return projections.values().stream().skip(offset).limit(limit).collect(java.util.stream.Collectors.toList());
         }
 
         @Override
@@ -336,7 +336,7 @@ class DefaultVectorProjectionServiceTest {
 
         @Override
         public List<VectorItem> findByVectorItemIds(Collection<String> vectorItemIds) {
-            return items.stream().filter(item -> vectorItemIds.contains(item.vectorItemId())).toList();
+            return items.stream().filter(item -> vectorItemIds.contains(item.vectorItemId())).collect(java.util.stream.Collectors.toList());
         }
     }
 }

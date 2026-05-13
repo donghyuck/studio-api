@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.ai.autoconfigure.AiSecretPresenceGuard,\
+studio.one.platform.ai.autoconfigure.AiAutoConfiguration

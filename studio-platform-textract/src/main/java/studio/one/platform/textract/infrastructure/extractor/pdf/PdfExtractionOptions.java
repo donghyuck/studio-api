@@ -1,20 +1,25 @@
 package studio.one.platform.textract.infrastructure.extractor.pdf;
 
-public record PdfExtractionOptions(
-        PdfExtractionMode engine,
-        boolean fallbackEnabled,
-        boolean pdfBoxEnabled,
-        boolean pyMuPdf4LlmEnabled,
-        boolean ocrRequired,
-        boolean preserveLayout,
-        boolean tableExtractionRequired,
-        Integer pageCount,
-        int preferPyMuPdf4LlmMinPages,
-        int pyMuPdf4LlmMaxFileSizeBytes) {
+import lombok.Value;
+import lombok.experimental.Accessors;
+@Value
+@Accessors(fluent = true)
+public class PdfExtractionOptions {
+    PdfExtractionMode engine;
+    boolean fallbackEnabled;
+    boolean pdfBoxEnabled;
+    boolean pyMuPdf4LlmEnabled;
+    boolean ocrRequired;
+    boolean preserveLayout;
+    boolean tableExtractionRequired;
+    Integer pageCount;
+    int preferPyMuPdf4LlmMinPages;
+    int pyMuPdf4LlmMaxFileSizeBytes;
+
 
     private static final int DEFAULT_PYMUPDF_MAX_BYTES = 50 * 1024 * 1024;
 
-    public PdfExtractionOptions {
+    public PdfExtractionOptions(PdfExtractionMode engine, boolean fallbackEnabled, boolean pdfBoxEnabled, boolean pyMuPdf4LlmEnabled, boolean ocrRequired, boolean preserveLayout, boolean tableExtractionRequired, Integer pageCount, int preferPyMuPdf4LlmMinPages, int pyMuPdf4LlmMaxFileSizeBytes) {
         engine = engine == null ? PdfExtractionMode.AUTO : engine;
         if (pageCount != null && pageCount < 0) {
             pageCount = null;
@@ -23,6 +28,27 @@ public record PdfExtractionOptions(
         pyMuPdf4LlmMaxFileSizeBytes = pyMuPdf4LlmMaxFileSizeBytes <= 0
                 ? DEFAULT_PYMUPDF_MAX_BYTES
                 : pyMuPdf4LlmMaxFileSizeBytes;
+
+        this.engine = engine;
+
+        this.fallbackEnabled = fallbackEnabled;
+
+        this.pdfBoxEnabled = pdfBoxEnabled;
+
+        this.pyMuPdf4LlmEnabled = pyMuPdf4LlmEnabled;
+
+        this.ocrRequired = ocrRequired;
+
+        this.preserveLayout = preserveLayout;
+
+        this.tableExtractionRequired = tableExtractionRequired;
+
+        this.pageCount = pageCount;
+
+        this.preferPyMuPdf4LlmMinPages = preferPyMuPdf4LlmMinPages;
+
+        this.pyMuPdf4LlmMaxFileSizeBytes = pyMuPdf4LlmMaxFileSizeBytes;
+
     }
 
     public static PdfExtractionOptions defaults() {

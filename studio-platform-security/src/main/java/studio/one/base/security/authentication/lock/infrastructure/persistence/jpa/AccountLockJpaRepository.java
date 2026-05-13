@@ -14,32 +14,26 @@ public interface AccountLockJpaRepository extends JpaRepository<ApplicationUser,
 
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-        update ApplicationUser u
-           set u.failedAttempts = u.failedAttempts + 1,
-               u.lastFailedAt = :now
-         where u.username = :username
-        """)
+    @Query("update ApplicationUser u\n"
+                + "   set u.failedAttempts = u.failedAttempts + 1,\n"
+                + "       u.lastFailedAt = :now\n"
+                + " where u.username = :username\n")
     int bumpFailedAttempts(@Param("username") String username, @Param("now") Instant now);
 
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-        update ApplicationUser u
-           set u.accountLockedUntil = :until
-         where u.username = :username
-        """)
+    @Query("update ApplicationUser u\n"
+                + "   set u.accountLockedUntil = :until\n"
+                + " where u.username = :username\n")
     int lockUntil(@Param("username") String username, @Param("until") Instant until);
 
     @Override
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-        update ApplicationUser u
-           set u.failedAttempts = 0,
-               u.lastFailedAt = null,
-               u.accountLockedUntil = null
-         where u.username = :username
-        """)
+    @Query("update ApplicationUser u\n"
+                + "   set u.failedAttempts = 0,\n"
+                + "       u.lastFailedAt = null,\n"
+                + "       u.accountLockedUntil = null\n"
+                + " where u.username = :username\n")
     int resetLockState(@Param("username") String username);
 
     @Override

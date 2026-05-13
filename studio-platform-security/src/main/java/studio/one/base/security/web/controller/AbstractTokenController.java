@@ -23,7 +23,7 @@ package studio.one.base.security.web.controller;
 
 import java.time.Duration;
 
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.http.ResponseCookie;
 

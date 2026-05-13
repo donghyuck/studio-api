@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.web.PageableDefault;
@@ -298,7 +298,7 @@ public class AttachmentController {
         }
         List<AttachmentDto> dto = attachments.stream()
                 .map(a -> AttachmentDto.of(a, null))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 

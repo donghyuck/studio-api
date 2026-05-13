@@ -58,35 +58,16 @@ public class AclPolicySeeder {
     }
 
     private long ensureObjectIdentity(long classId, String identity) {
-        jdbcTemplate.update("""
-                insert into acl_object_identity (object_id_class, object_id_identity, entries_inheriting)
-                values (?, ?, true)
-                on conflict (object_id_class, object_id_identity) do nothing
-                """, classId, identity);
-        return jdbcTemplate.queryForObject("""
-                select id from acl_object_identity
-                where object_id_class = ? and object_id_identity = ?
-                """, Long.class, classId, identity);
+        jdbcTemplate.update("insert into acl_object_identity (object_id_class, object_id_identity, entries_inheriting) values (?, ?, true) on conflict (object_id_class, object_id_identity) do nothing", classId, identity);
+        return jdbcTemplate.queryForObject("select id from acl_object_identity where object_id_class = ? and object_id_identity = ?", Long.class, classId, identity);
     }
 
     private void ensureEntry(long objectId, long sidId, int mask) {
-        Boolean exists = jdbcTemplate.queryForObject("""
-                select exists(
-                    select 1 from acl_entry
-                    where acl_object_identity = ? and sid = ? and mask = ? and granting = true
-                )
-                """, Boolean.class, objectId, sidId, mask);
+        Boolean exists = jdbcTemplate.queryForObject("select exists( select 1 from acl_entry where acl_object_identity = ? and sid = ? and mask = ? and granting = true )", Boolean.class, objectId, sidId, mask);
         if (Boolean.TRUE.equals(exists))
             return;
-        Integer aceOrder = jdbcTemplate.queryForObject("""
-                select coalesce(max(ace_order), -1) + 1 from acl_entry
-                where acl_object_identity = ?
-                """, Integer.class, objectId);
-        jdbcTemplate.update("""
-                insert into acl_entry (
-                    acl_object_identity, ace_order, sid, mask, granting, audit_success, audit_failure
-                ) values (?, ?, ?, ?, true, false, false)
-                """, objectId, aceOrder, sidId, mask);
+        Integer aceOrder = jdbcTemplate.queryForObject("select coalesce(max(ace_order), -1) + 1 from acl_entry where acl_object_identity = ?", Integer.class, objectId);
+        jdbcTemplate.update("insert into acl_entry ( acl_object_identity, ace_order, sid, mask, granting, audit_success, audit_failure ) values (?, ?, ?, ?, true, false, false)", objectId, aceOrder, sidId, mask);
     }
 
     private int maskFor(EnumSet<AclAction> actions) {

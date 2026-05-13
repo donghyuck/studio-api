@@ -4,13 +4,12 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
-import jakarta.servlet.Filter;
-import jakarta.persistence.EntityManagerFactory;
+import javax.servlet.Filter;
+import javax.persistence.EntityManagerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -82,7 +81,7 @@ import studio.one.platform.util.LogUtils;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureAfter(JwtAutoConfiguration.class)
 @EnableConfigurationProperties({ AuditProperties.class, PersistenceProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Security.Audit.LOGIN_FAILURE, name = "enabled", havingValue = "true")
@@ -180,7 +179,8 @@ public class LoginFailureAuditAutoConfiguration {
                 return new BeanPostProcessor() {
                         @Override
                         public Object postProcessAfterInitialization(Object bean, String beanName) {
-                                if (bean instanceof SecurityFilterChain chain) {
+                                if (bean instanceof SecurityFilterChain) {
+                                        SecurityFilterChain chain = (SecurityFilterChain) bean;
                                         applyDetailsSource(chain.getFilters(), detailsSource);
                                 }
                                 return bean;
@@ -189,8 +189,8 @@ public class LoginFailureAuditAutoConfiguration {
                         private void applyDetailsSource(List<Filter> filters,
                                         ClientRequestDetailsAuthenticationDetailsSource detailsSource) {
                                 for (Filter filter : filters) {
-                                        if (filter instanceof UsernamePasswordAuthenticationFilter authFilter) {
-                                                applyDetailsSource(authFilter, detailsSource);
+                                        if (filter instanceof UsernamePasswordAuthenticationFilter) {
+                                                applyDetailsSource((UsernamePasswordAuthenticationFilter) filter, detailsSource);
                                         }
                                 }
                         }

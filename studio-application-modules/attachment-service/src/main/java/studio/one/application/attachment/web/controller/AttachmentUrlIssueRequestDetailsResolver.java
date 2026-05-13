@@ -1,6 +1,6 @@
 package studio.one.application.attachment.web.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.util.StringUtils;
 

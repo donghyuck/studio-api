@@ -24,7 +24,7 @@ public interface VectorStorePort {
         }
         upsert(records.stream()
                 .map(VectorStorePort::toLegacyDocument)
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
     }
 
     default void deleteByObject(String objectType, String objectId) {
@@ -55,7 +55,7 @@ public interface VectorStorePort {
         Objects.requireNonNull(records, "records");
         replaceByObject(objectType, objectId, records.stream()
                 .map(record -> toObjectScopedDocument(objectType, objectId, record))
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
     }
 
     private static VectorDocument toObjectScopedDocument(String objectType, String objectId, VectorRecord record) {
@@ -90,7 +90,7 @@ public interface VectorStorePort {
         long startedAt = System.nanoTime();
         List<VectorSearchHit> hits = search(request).stream()
                 .map(result -> VectorSearchHit.from(result, request.includeText(), request.includeMetadata()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         return new VectorSearchResults(hits, elapsedMs);
     }
@@ -147,7 +147,7 @@ public interface VectorStorePort {
                     return typeOk && idOk;
                 })
                 .limit(request.topK())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**
@@ -188,7 +188,7 @@ public interface VectorStorePort {
         return listByObject(objectType, objectId, fetchLimit).stream()
                 .skip(safeOffset)
                 .limit(safeLimit)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**

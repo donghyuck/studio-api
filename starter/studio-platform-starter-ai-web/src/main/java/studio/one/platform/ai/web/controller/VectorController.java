@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -168,7 +168,7 @@ public class VectorController {
         VectorSearchResults results = executeSearch(store, request, searchRequest);
         List<VectorSearchResultDto> payload = results.hits().stream()
                 .map(this::toVectorSearchResultDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(payload));
     }
 
@@ -219,8 +219,8 @@ public class VectorController {
     }
 
     private void putIfPresent(Map<String, Object> values, String key, Object value) {
-        if (value != null && (!(value instanceof String text) || !text.isBlank())) {
-            values.put(key, value instanceof String text ? text.trim() : value);
+        if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
+            values.put(key, value instanceof String ? ((String) value).trim() : value);
         }
     }
 
@@ -358,7 +358,7 @@ public class VectorController {
         long startedAt = System.nanoTime();
         List<VectorSearchHit> hits = results.stream()
                 .map(result -> VectorSearchHit.from(result, request.includeText(), request.includeMetadata()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000L;
         return applyMinScore(VectorSearchResults.of(hits, elapsedMs), request.minScore());
     }
@@ -369,7 +369,7 @@ public class VectorController {
         }
         List<VectorSearchHit> hits = results.hits().stream()
                 .filter(result -> result.score() >= minScore)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return VectorSearchResults.of(hits, results.elapsedMs());
     }
 
@@ -380,11 +380,44 @@ public class VectorController {
         return vectorStorePort;
     }
 
-    private record ResolvedVectorEmbedding(
-            List<Double> values,
-            String profileId,
-            String provider,
-            String model,
-            Integer dimension) {
+    private static final class ResolvedVectorEmbedding {
+        private final List<Double> values;
+        private final String profileId;
+        private final String provider;
+        private final String model;
+        private final Integer dimension;
+
+        private ResolvedVectorEmbedding(
+                List<Double> values,
+                String profileId,
+                String provider,
+                String model,
+                Integer dimension) {
+            this.values = values;
+            this.profileId = profileId;
+            this.provider = provider;
+            this.model = model;
+            this.dimension = dimension;
+        }
+
+        private List<Double> values() {
+            return values;
+        }
+
+        private String profileId() {
+            return profileId;
+        }
+
+        private String provider() {
+            return provider;
+        }
+
+        private String model() {
+            return model;
+        }
+
+        private Integer dimension() {
+            return dimension;
+        }
     }
 }

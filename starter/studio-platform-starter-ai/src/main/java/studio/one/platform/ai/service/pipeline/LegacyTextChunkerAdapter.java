@@ -20,6 +20,6 @@ final class LegacyTextChunkerAdapter implements RagChunker {
     public List<RagPipelineChunk> chunk(String indexedText, RagIndexRequest request) {
         return textChunker.chunk(request.documentId(), indexedText).stream()
                 .map(chunk -> new RagPipelineChunk(chunk.id(), chunk.content(), Map.of()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 }

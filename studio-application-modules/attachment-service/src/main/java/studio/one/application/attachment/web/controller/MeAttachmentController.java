@@ -167,7 +167,7 @@ public class MeAttachmentController {
         long resolvedUserId = AttachmentAccessSupport.requireUserId(userId);
         requireOwnerAccess(objectType, objectId, principal(resolvedUserId), AttachmentOwnerAccessAction.LIST);
         List<Attachment> attachments = attachmentService.getAttachmentsByObjectAndCreator(objectType, objectId, resolvedUserId);
-        return ResponseEntity.ok(ApiResponse.ok(attachments.stream().map(this::toDto).toList()));
+        return ResponseEntity.ok(ApiResponse.ok(attachments.stream().map(this::toDto).collect(java.util.stream.Collectors.toList())));
     }
 
     @DeleteMapping("/{attachmentId:[\\p{Digit}]+}")

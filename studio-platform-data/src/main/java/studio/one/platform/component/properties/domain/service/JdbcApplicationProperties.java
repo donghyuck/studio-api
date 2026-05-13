@@ -11,8 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.transaction.Transactional;
+import javax.annotation.PostConstruct;
+import javax.transaction.Transactional;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.math.NumberUtils;
@@ -411,18 +411,12 @@ public class JdbcApplicationProperties implements ApplicationProperties {
         map.putAll(result);
     }
 
-    private static final String SQL_INSERT_PROPERTY = """
-            INSERT INTO TB_APPLICATION_PROPERTY ( PROPERTY_NAME, PROPERTY_VALUE ) VALUES (? ,?)
-            """;
-    private static final String SQL_UPDATE_PROPERTY = """
-            UPDATE TB_APPLICATION_PROPERTY SET PROPERTY_VALUE=? WHERE PROPERTY_NAME=?
-             """;
-    private static final String SQL_DELETE_PROPERTY = """
-            DELETE FROM TB_APPLICATION_PROPERTY
-            WHERE PROPERTY_NAME = ?
-            """;
-    private static final String SQL_SELECT_ALL_PROPERTY = """
-            SELECT PROPERTY_NAME, PROPERTY_VALUE
-            FROM TB_APPLICATION_PROPERTY
-            """;
+    private static final String SQL_INSERT_PROPERTY =
+            "INSERT INTO TB_APPLICATION_PROPERTY ( PROPERTY_NAME, PROPERTY_VALUE ) VALUES (? ,?)";
+    private static final String SQL_UPDATE_PROPERTY =
+            "UPDATE TB_APPLICATION_PROPERTY SET PROPERTY_VALUE=? WHERE PROPERTY_NAME=?";
+    private static final String SQL_DELETE_PROPERTY =
+            "DELETE FROM TB_APPLICATION_PROPERTY WHERE PROPERTY_NAME = ?";
+    private static final String SQL_SELECT_ALL_PROPERTY =
+            "SELECT PROPERTY_NAME, PROPERTY_VALUE FROM TB_APPLICATION_PROPERTY";
 }

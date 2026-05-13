@@ -71,11 +71,11 @@ abstract class BaseJdbcRepository {
         if (ownerIds == null || ownerIds.isEmpty()) {
             return Map.of();
         }
-        String sql = """
-                select %s as owner_id, property_name, property_value
-                  from %s
-                 where %s in (:ids)
-                """.formatted(ownerColumn, tableName, ownerColumn);
+        String sql = String.format(
+                "select %s as owner_id, property_name, property_value\n"
+                        + "  from %s\n"
+                        + " where %s in (:ids)\n",
+                ownerColumn, tableName, ownerColumn);
         Map<String, Object> params = Map.of("ids", ownerIds);
         Map<Long, Map<String, String>> grouped = new TreeMap<>();
         namedTemplate.query(sql, params, rs -> {
@@ -95,15 +95,15 @@ abstract class BaseJdbcRepository {
         if (ownerId == null) {
             return;
         }
-        namedTemplate.update("delete from %s where %s = :ownerId".formatted(tableName, ownerColumn),
+        namedTemplate.update(String.format("delete from %s where %s = :ownerId", tableName, ownerColumn),
                 Map.of("ownerId", ownerId));
         if (properties == null || properties.isEmpty()) {
             return;
         }
-        String sql = """
-                insert into %s (%s, property_name, property_value)
-                values (:ownerId, :name, :value)
-                """.formatted(tableName, ownerColumn);
+        String sql = String.format(
+                "insert into %s (%s, property_name, property_value)\n"
+                        + "values (:ownerId, :name, :value)\n",
+                tableName, ownerColumn);
         SqlParameterSource[] batch = properties.entrySet().stream()
                 .map(entry -> new MapSqlParameterSource()
                         .addValue("ownerId", ownerId)

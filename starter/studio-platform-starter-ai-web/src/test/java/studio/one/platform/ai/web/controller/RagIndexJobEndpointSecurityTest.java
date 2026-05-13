@@ -89,7 +89,12 @@ class RagIndexJobEndpointSecurityTest {
         assertThat(security.isAttachmentObject("article")).isFalse();
     }
 
-    private record StubJobService(RagIndexJob job) implements RagIndexJobService {
+    private static final class StubJobService implements RagIndexJobService {
+        private final RagIndexJob job;
+
+        private StubJobService(RagIndexJob job) {
+            this.job = job;
+        }
 
         @Override
         public RagIndexJob createJob(RagIndexJobCreateRequest request) {

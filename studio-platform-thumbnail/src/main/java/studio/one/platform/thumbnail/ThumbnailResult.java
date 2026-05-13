@@ -2,16 +2,23 @@ package studio.one.platform.thumbnail;
 
 import java.util.Arrays;
 
-public record ThumbnailResult(byte[] bytes, String contentType, String format) {
+public class ThumbnailResult {
 
-    public ThumbnailResult {
-        bytes = bytes == null ? new byte[0] : Arrays.copyOf(bytes, bytes.length);
-        contentType = contentType == null ? ThumbnailFormats.contentType(format) : contentType;
-        format = ThumbnailFormats.normalize(format);
+    private final byte[] bytes;
+    private final String contentType;
+    private final String format;
+
+    public ThumbnailResult(byte[] bytes, String contentType, String format) {
+        byte[] normalizedBytes = bytes == null ? new byte[0] : Arrays.copyOf(bytes, bytes.length);
+        String normalizedFormat = ThumbnailFormats.normalize(format);
+        this.bytes = normalizedBytes;
+        this.contentType = contentType == null ? ThumbnailFormats.contentType(normalizedFormat) : contentType;
+        this.format = normalizedFormat;
     }
 
-    @Override
-    public byte[] bytes() {
-        return Arrays.copyOf(bytes, bytes.length);
-    }
+    public byte[] bytes() { return Arrays.copyOf(bytes, bytes.length); }
+
+    public String contentType() { return contentType; }
+
+    public String format() { return format; }
 }

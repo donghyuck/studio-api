@@ -21,21 +21,29 @@ public final class ImageResize {
             double sx = W / (double) src.getWidth();
             double sy = H / (double) src.getHeight();
             switch (fit) {
-                case COVER -> {
+                case COVER: {
                     double s = Math.max(sx, sy);
                     int w = (int) Math.round(src.getWidth() * s);
                     int h = (int) Math.round(src.getHeight() * s);
                     g.setColor(Color.WHITE); g.fillRect(0, 0, W, H);
                     g.drawImage(src, (W - w) / 2, (H - h) / 2, w, h, null);
+                    break;
                 }
-                case CONTAIN, INSIDE -> {
+                case CONTAIN:
+                case INSIDE: {
                     double s = Math.min(sx, sy);
                     int w = (int) Math.round(src.getWidth() * s);
                     int h = (int) Math.round(src.getHeight() * s);
                     g.setColor(Color.WHITE); g.fillRect(0, 0, W, H);
                     g.drawImage(src, (W - w) / 2, (H - h) / 2, w, h, null);
+                    break;
                 }
-                case FILL, OUTSIDE -> g.drawImage(src, 0, 0, W, H, null);
+                case FILL:
+                case OUTSIDE:
+                    g.drawImage(src, 0, 0, W, H, null);
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unsupported fit: " + fit);
             }
         } finally {
             g.dispose();

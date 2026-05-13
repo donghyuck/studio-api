@@ -2,7 +2,6 @@ package studio.one.platform.chunking.autoconfigure;
 
 import java.util.List;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,7 +21,7 @@ import studio.one.platform.chunking.service.TableChunkContextExpander;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
 import studio.one.platform.chunking.service.WindowChunkContextExpander;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(ChunkingProperties.class)
 @ConditionalOnProperty(prefix = "studio.chunking", name = "enabled", havingValue = "true", matchIfMissing = true)
 public class ChunkingAutoConfiguration {

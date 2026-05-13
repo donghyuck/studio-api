@@ -22,6 +22,8 @@
 
 package studio.one.platform.autoconfigure.jasypt;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.security.Security;
 
 import org.jasypt.encryption.StringEncryptor;
@@ -30,7 +32,6 @@ import org.jasypt.encryption.pbe.config.SimpleStringPBEConfig;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -81,7 +82,7 @@ import studio.one.platform.util.LogUtils;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({ JasyptProperties.class })
 @Slf4j
 // ① 프로퍼티 토글로 ON일 때만

@@ -34,6 +34,6 @@ dependencies {
     testImplementation("org.springframework:spring-webmvc")
     testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework:spring-test")
-    testImplementation("jakarta.servlet:jakarta.servlet-api")
+    testImplementation("javax.servlet:javax.servlet-api")
     testImplementation("org.springframework.boot:spring-boot-starter-validation")
 }

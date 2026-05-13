@@ -20,31 +20,25 @@ import studio.one.base.security.jwt.reset.domain.port.PasswordResetTokenReposito
  */
 public class PasswordResetTokenJdbcRepositoryV2 implements PasswordResetTokenRepository {
 
-    private static final String INSERT_SQL = """
-            insert into TB_APPLICATION_PASSWORD_RESET_TOKEN
-                (USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT)
-            values
-                (:userId, :token, :expiresAt, :used, :createdAt)
-            returning ID
-            """;
+    private static final String INSERT_SQL = "insert into TB_APPLICATION_PASSWORD_RESET_TOKEN\n"
+                + "    (USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT)\n"
+                + "values\n"
+                + "    (:userId, :token, :expiresAt, :used, :createdAt)\n"
+                + "returning ID\n";
 
-    private static final String UPDATE_SQL = """
-            update TB_APPLICATION_PASSWORD_RESET_TOKEN
-               set USER_ID = :userId,
-                   TOKEN = :token,
-                   EXPIRES_AT = :expiresAt,
-                   USED = :used
-             where ID = :id
-            """;
+    private static final String UPDATE_SQL = "update TB_APPLICATION_PASSWORD_RESET_TOKEN\n"
+                + "   set USER_ID = :userId,\n"
+                + "       TOKEN = :token,\n"
+                + "       EXPIRES_AT = :expiresAt,\n"
+                + "       USED = :used\n"
+                + " where ID = :id\n";
 
-    private static final String FIND_ACTIVE_BY_USER_ID_SQL = """
-            select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
-              from TB_APPLICATION_PASSWORD_RESET_TOKEN
-             where USER_ID = :userId
-               and USED = false
-             order by CREATED_AT desc
-             limit 1
-            """;
+    private static final String FIND_ACTIVE_BY_USER_ID_SQL = "select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT\n"
+                + "  from TB_APPLICATION_PASSWORD_RESET_TOKEN\n"
+                + " where USER_ID = :userId\n"
+                + "   and USED = false\n"
+                + " order by CREATED_AT desc\n"
+                + " limit 1\n";
 
     private static final RowMapper<PasswordResetToken> ROW_MAPPER = (rs, rowNum) -> PasswordResetToken.builder()
             .id(rs.getLong("ID"))

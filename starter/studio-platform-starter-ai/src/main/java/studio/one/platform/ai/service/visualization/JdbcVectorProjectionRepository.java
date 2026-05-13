@@ -38,50 +38,46 @@ public class JdbcVectorProjectionRepository implements VectorProjectionRepositor
     @Override
     public void save(VectorProjection projection) {
         String filterExpression = postgres ? "CAST(:filters AS jsonb)" : ":filters";
-        jdbcTemplate.update("""
-                INSERT INTO tb_ai_vector_projection(
-                    projection_id, name, algorithm, status, target_types, filter_json,
-                    item_count, error_message, created_by, created_at, completed_at)
-                VALUES (
-                    :projectionId, :name, :algorithm, :status, :targetTypes, %s,
-                    :itemCount, :errorMessage, :createdBy, :createdAt, :completedAt)
-                """.formatted(filterExpression), params(projection));
+        jdbcTemplate.update(String.format(String.join("\n",
+        "INSERT INTO tb_ai_vector_projection(",
+        "    projection_id, name, algorithm, status, target_types, filter_json,",
+        "    item_count, error_message, created_by, created_at, completed_at)",
+        "VALUES (",
+        "    :projectionId, :name, :algorithm, :status, :targetTypes, %s,",
+        "    :itemCount, :errorMessage, :createdBy, :createdAt, :completedAt)"), filterExpression), params(projection));
     }
 
     @Override
     public Optional<VectorProjection> findById(String projectionId) {
-        List<VectorProjection> items = jdbcTemplate.query("""
-                SELECT projection_id, name, algorithm, status, target_types, filter_json,
-                       item_count, error_message, created_by, created_at, completed_at
-                  FROM tb_ai_vector_projection
-                 WHERE projection_id = :projectionId
-                """, new MapSqlParameterSource("projectionId", projectionId), rowMapper);
+        List<VectorProjection> items = jdbcTemplate.query(String.join("\n",
+        "SELECT projection_id, name, algorithm, status, target_types, filter_json,",
+        "       item_count, error_message, created_by, created_at, completed_at",
+        "  FROM tb_ai_vector_projection",
+        " WHERE projection_id = :projectionId"), new MapSqlParameterSource("projectionId", projectionId), rowMapper);
         return items.stream().findFirst();
     }
 
     @Override
     public List<VectorProjection> findAll(int limit, int offset) {
-        return jdbcTemplate.query("""
-                SELECT projection_id, name, algorithm, status, target_types, filter_json,
-                       item_count, error_message, created_by, created_at, completed_at
-                  FROM tb_ai_vector_projection
-                 WHERE status <> 'DELETED'
-                 ORDER BY created_at DESC
-                 LIMIT :limit OFFSET :offset
-                """, new MapSqlParameterSource()
+        return jdbcTemplate.query(String.join("\n",
+        "SELECT projection_id, name, algorithm, status, target_types, filter_json,",
+        "       item_count, error_message, created_by, created_at, completed_at",
+        "  FROM tb_ai_vector_projection",
+        " WHERE status <> 'DELETED'",
+        " ORDER BY created_at DESC",
+        " LIMIT :limit OFFSET :offset"), new MapSqlParameterSource()
                 .addValue("limit", limit)
                 .addValue("offset", offset), rowMapper);
     }
 
     @Override
     public void updateStatus(String projectionId, ProjectionStatus status, String errorMessage, Instant completedAt) {
-        jdbcTemplate.update("""
-                UPDATE tb_ai_vector_projection
-                   SET status = :status,
-                       error_message = :errorMessage,
-                       completed_at = :completedAt
-                 WHERE projection_id = :projectionId
-                """, new MapSqlParameterSource()
+        jdbcTemplate.update(String.join("\n",
+        "UPDATE tb_ai_vector_projection",
+        "   SET status = :status,",
+        "       error_message = :errorMessage,",
+        "       completed_at = :completedAt",
+        " WHERE projection_id = :projectionId"), new MapSqlParameterSource()
                 .addValue("projectionId", projectionId)
                 .addValue("status", status.name())
                 .addValue("errorMessage", errorMessage)
@@ -90,15 +86,14 @@ public class JdbcVectorProjectionRepository implements VectorProjectionRepositor
 
     @Override
     public void markCompleted(String projectionId, int itemCount, List<String> targetTypes, Instant completedAt) {
-        jdbcTemplate.update("""
-                UPDATE tb_ai_vector_projection
-                   SET status = 'COMPLETED',
-                       target_types = :targetTypes,
-                       item_count = :itemCount,
-                       error_message = NULL,
-                       completed_at = :completedAt
-                 WHERE projection_id = :projectionId
-                """, new MapSqlParameterSource()
+        jdbcTemplate.update(String.join("\n",
+        "UPDATE tb_ai_vector_projection",
+        "   SET status = 'COMPLETED',",
+        "       target_types = :targetTypes,",
+        "       item_count = :itemCount,",
+        "       error_message = NULL,",
+        "       completed_at = :completedAt",
+        " WHERE projection_id = :projectionId"), new MapSqlParameterSource()
                 .addValue("projectionId", projectionId)
                 .addValue("itemCount", itemCount)
                 .addValue("targetTypes", String.join(",", targetTypes == null ? List.of() : targetTypes))
@@ -142,7 +137,7 @@ public class JdbcVectorProjectionRepository implements VectorProjectionRepositor
         return Arrays.stream(text.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private String writeJson(Map<String, Object> value) {

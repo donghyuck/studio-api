@@ -204,10 +204,12 @@ public class DefaultObjectTypeRuntimeService implements ObjectTypeRuntimeService
     }
 
     private Integer asInt(Object v) {
-        if (v instanceof Number n) {
+        if (v instanceof Number) {
+            Number n = (Number) v;
             return n.intValue();
         }
-        if (v instanceof String s) {
+        if (v instanceof String) {
+            String s = (String) v;
             try {
                 return Integer.parseInt(s.trim());
             } catch (NumberFormatException ignore) {

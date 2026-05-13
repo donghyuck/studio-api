@@ -95,7 +95,7 @@ public class JpaMailMessageService implements MailMessageService {
                 var lowered = cb.lower(cb.coalesce(path, ""));
                 predicates.add(cb.like(lowered, like));
             }
-            return cb.or(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+            return cb.or(predicates.toArray(new javax.persistence.criteria.Predicate[0]));
         };
     }
 
@@ -117,7 +117,8 @@ public class JpaMailMessageService implements MailMessageService {
     }
 
     private MailMessageEntity toEntity(MailMessage message) {
-        if (message instanceof MailMessageEntity entity) {
+        if (message instanceof MailMessageEntity) {
+            MailMessageEntity entity = (MailMessageEntity) message;
             return entity;
         }
         MailMessageEntity entity = new MailMessageEntity();

@@ -43,7 +43,7 @@ public class AclAdministrationService {
     public List<AclClassResult> listClasses() {
         return classRepository.findAll().stream()
                 .map(this::toDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public AclClassResult createClass(AclClassCommand request) {
@@ -59,7 +59,7 @@ public class AclAdministrationService {
     public List<AclSidResult> listSids() {
         return sidRepository.findAll().stream()
                 .map(this::toDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public AclSidResult createSid(AclSidCommand request) {
@@ -76,7 +76,7 @@ public class AclAdministrationService {
     public List<AclObjectIdentityResult> listObjectIdentities() {
         return objectIdentityRepository.findAll().stream()
                 .map(this::toDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public AclObjectIdentityResult createObjectIdentity(AclObjectIdentityCommand request) {
@@ -104,7 +104,7 @@ public class AclAdministrationService {
     public List<AclEntryResult> listEntries() {
         return entryRepository.findAll().stream()
                 .map(this::toDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public AclEntryResult createEntry(AclEntryCommand request) {

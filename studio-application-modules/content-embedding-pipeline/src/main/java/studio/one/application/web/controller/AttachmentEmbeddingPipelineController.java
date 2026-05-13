@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -350,7 +351,10 @@ public class AttachmentEmbeddingPipelineController {
     private Object firstPresent(Map<String, Object> metadata, String... keys) {
         for (String key : keys) {
             Object value = metadata.get(key);
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value == null) {
+                continue;
+            }
+            if (!(value instanceof String) || !((String) value).isBlank()) {
                 return value;
             }
         }
@@ -407,7 +411,7 @@ public class AttachmentEmbeddingPipelineController {
                         result.content(),
                         result.metadata(),
                         result.score()))
-                .toList();
+                .collect(Collectors.toList());
         return ResponseEntity.ok(new SearchResponse(payload));
     }
 
@@ -447,7 +451,7 @@ public class AttachmentEmbeddingPipelineController {
     private List<EmbeddingVectorDto> toEmbeddingVectors(EmbeddingResponse response) {
         return response.vectors().stream()
                 .map(vector -> new EmbeddingVectorDto(vector.referenceId(), List.copyOf(vector.values())))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private void upsertVectorDocument(VectorStorePort vectorStore, Attachment attachment, String text, EmbeddingVector vector) {

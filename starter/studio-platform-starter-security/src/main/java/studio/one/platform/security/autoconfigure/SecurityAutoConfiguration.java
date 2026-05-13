@@ -20,13 +20,14 @@
  */
 package studio.one.platform.security.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -220,7 +221,7 @@ import studio.one.platform.util.LogUtils;
  * 2025-11-18  donghyuck, son: 최초 생성.
  *          </pre>
  */
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
 @AutoConfigureAfter(name = "studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration")
 @ConditionalOnClass({ HttpSecurity.class, PasswordEncoder.class })
@@ -261,12 +262,21 @@ public class SecurityAutoConfiguration {
                 Integer iterations = props.getIterations() != null ? props.getIterations() : 185000;
                 Integer hashWidth = props.getHashWidth() != null ? props.getHashWidth() : 256;
                 String secret = props.getSecret() != null ? props.getSecret() : "";
-                SecretKeyFactoryAlgorithm pbkdf2Algo = switch (props.getPbkdf2Algo()) {
-                        case PBKDF2WithHmacSHA1 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1;
-                        case PBKDF2WithHmacSHA512 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512;
-                        case PBKDF2WithHmacSHA256 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
-                };
-                Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth, pbkdf2Algo);
+                SecretKeyFactoryAlgorithm pbkdf2Algo;
+                switch (props.getPbkdf2Algo()) {
+                        case PBKDF2WithHmacSHA1:
+                                pbkdf2Algo = SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1;
+                                break;
+                        case PBKDF2WithHmacSHA512:
+                                pbkdf2Algo = SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512;
+                                break;
+                        case PBKDF2WithHmacSHA256:
+                        default:
+                                pbkdf2Algo = SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
+                                break;
+                }
+                Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth);
+                pbkdf2.setAlgorithm(pbkdf2Algo);
                 encoders.put(PasswordEncoderProperties.Algorithm.PBKDF2.name().toLowerCase(), pbkdf2);
 
                 String idForEncode = PasswordEncoderProperties.Algorithm.BCRYPT.name().toLowerCase();

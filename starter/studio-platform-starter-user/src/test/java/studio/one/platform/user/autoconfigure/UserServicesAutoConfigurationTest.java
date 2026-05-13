@@ -68,10 +68,10 @@ class UserServicesAutoConfigurationTest {
     }
 
     @Test
-    void autoConfigurationImportsIncludeUserServices() throws Exception {
+    void springFactoriesIncludeUserServices() throws Exception {
         String imports = new String(
                 Objects.requireNonNull(getClass().getClassLoader().getResourceAsStream(
-                        "META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports"))
+                        "META-INF/spring.factories"))
                         .readAllBytes(),
                 StandardCharsets.UTF_8);
 

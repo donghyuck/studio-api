@@ -6,19 +6,84 @@ import java.util.LinkedHashMap;
 /**
  * Provider-neutral chat streaming event.
  */
-public record ChatStreamEvent(
-        ChatStreamEventType type,
-        String delta,
-        String model,
-        ChatResponseMetadata metadata,
-        String errorMessage) {
+public final class ChatStreamEvent {
 
-    public ChatStreamEvent {
-        type = type == null ? ChatStreamEventType.DELTA : type;
-        delta = delta == null ? "" : delta;
-        model = model == null ? "" : model;
-        metadata = metadata == null ? ChatResponseMetadata.empty() : metadata;
-        errorMessage = errorMessage == null ? "" : errorMessage;
+    private final ChatStreamEventType type;
+    private final String delta;
+    private final String model;
+    private final ChatResponseMetadata metadata;
+    private final String errorMessage;
+
+    public ChatStreamEvent(
+            ChatStreamEventType type,
+            String delta,
+            String model,
+            ChatResponseMetadata metadata,
+            String errorMessage
+    ) {
+                type = type == null ? ChatStreamEventType.DELTA : type;
+                delta = delta == null ? "" : delta;
+                model = model == null ? "" : model;
+                metadata = metadata == null ? ChatResponseMetadata.empty() : metadata;
+                errorMessage = errorMessage == null ? "" : errorMessage;
+        
+        this.type = type;
+        this.delta = delta;
+        this.model = model;
+        this.metadata = metadata;
+        this.errorMessage = errorMessage;
+    }
+
+    public ChatStreamEventType type() {
+        return type;
+    }
+
+    public String delta() {
+        return delta;
+    }
+
+    public String model() {
+        return model;
+    }
+
+    public ChatResponseMetadata metadata() {
+        return metadata;
+    }
+
+    public String errorMessage() {
+        return errorMessage;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ChatStreamEvent)) {
+            return false;
+        }
+        ChatStreamEvent that = (ChatStreamEvent) o;
+        return java.util.Objects.equals(type, that.type)
+                && java.util.Objects.equals(delta, that.delta)
+                && java.util.Objects.equals(model, that.model)
+                && java.util.Objects.equals(metadata, that.metadata)
+                && java.util.Objects.equals(errorMessage, that.errorMessage);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(type, delta, model, metadata, errorMessage);
+    }
+
+    @Override
+    public String toString() {
+        return "ChatStreamEvent[" +
+                "type=" + type + ", " +
+                "delta=" + delta + ", " +
+                "model=" + model + ", " +
+                "metadata=" + metadata + ", " +
+                "errorMessage=" + errorMessage +
+                "]";
     }
 
     public static ChatStreamEvent delta(String delta, String model, ChatResponseMetadata metadata) {

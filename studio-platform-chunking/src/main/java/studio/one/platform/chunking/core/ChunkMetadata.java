@@ -4,29 +4,32 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Collections;
 
 /**
  * Standard metadata attached to each chunk before vector indexing.
  */
-public record ChunkMetadata(
-        String sourceDocumentId,
-        String parentId,
-        ChunkType chunkType,
-        String parentChunkId,
-        String previousChunkId,
-        String nextChunkId,
-        String section,
-        int order,
-        ChunkingStrategyType strategy,
-        String objectType,
-        String objectId,
-        Integer startOffset,
-        Integer endOffset,
-        Integer tokenCount,
-        Integer charCount,
-        List<String> blockIds,
-        Double confidence,
-        Map<String, Object> attributes) {
+public class ChunkMetadata {
+    private final String sourceDocumentId;
+    private final String parentId;
+    private final ChunkType chunkType;
+    private final String parentChunkId;
+    private final String previousChunkId;
+    private final String nextChunkId;
+    private final String section;
+    private final int order;
+    private final ChunkingStrategyType strategy;
+    private final String objectType;
+    private final String objectId;
+    private final Integer startOffset;
+    private final Integer endOffset;
+    private final Integer tokenCount;
+    private final Integer charCount;
+    private final List<String> blockIds;
+    private final Double confidence;
+    private final Map<String, Object> attributes;
+
+
 
     public static final String KEY_SOURCE_DOCUMENT_ID = "sourceDocumentId";
     public static final String KEY_PARENT_ID = "parentId";
@@ -60,8 +63,25 @@ public record ChunkMetadata(
     public static final String KEY_CHUNK_UNIT = "chunkUnit";
     public static final String KEY_MAX_SIZE = "maxSize";
     public static final String KEY_OVERLAP = "overlap";
-
-    public ChunkMetadata {
+    public ChunkMetadata(
+            String sourceDocumentId,
+            String parentId,
+            ChunkType chunkType,
+            String parentChunkId,
+            String previousChunkId,
+            String nextChunkId,
+            String section,
+            int order,
+            ChunkingStrategyType strategy,
+            String objectType,
+            String objectId,
+            Integer startOffset,
+            Integer endOffset,
+            Integer tokenCount,
+            Integer charCount,
+            List<String> blockIds,
+            Double confidence,
+            Map<String, Object> attributes) {
         if (order < 0) {
             throw new IllegalArgumentException("order must not be negative");
         }
@@ -69,6 +89,25 @@ public record ChunkMetadata(
         strategy = Objects.requireNonNull(strategy, "strategy must not be null");
         blockIds = sanitizeList(blockIds);
         attributes = sanitize(attributes);
+    
+        this.sourceDocumentId = sourceDocumentId;
+        this.parentId = parentId;
+        this.chunkType = chunkType;
+        this.parentChunkId = parentChunkId;
+        this.previousChunkId = previousChunkId;
+        this.nextChunkId = nextChunkId;
+        this.section = section;
+        this.order = order;
+        this.strategy = strategy;
+        this.objectType = objectType;
+        this.objectId = objectId;
+        this.startOffset = startOffset;
+        this.endOffset = endOffset;
+        this.tokenCount = tokenCount;
+        this.charCount = charCount;
+        this.blockIds = blockIds;
+        this.confidence = confidence;
+        this.attributes = attributes;
     }
 
     public ChunkMetadata(
@@ -124,7 +163,7 @@ public record ChunkMetadata(
         if (value == null) {
             return;
         }
-        if (value instanceof String stringValue && stringValue.isBlank()) {
+        if (value instanceof String && ((String) value).isBlank()) {
             return;
         }
         metadata.putIfAbsent(key, value);
@@ -139,7 +178,7 @@ public record ChunkMetadata(
             if (key == null || key.isBlank() || value == null) {
                 return;
             }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
+            if (value instanceof String && ((String) value).isBlank()) {
                 return;
             }
             sanitized.put(key, value);
@@ -151,12 +190,12 @@ public record ChunkMetadata(
         if (values == null || values.isEmpty()) {
             return List.of();
         }
-        return values.stream()
+        return Collections.unmodifiableList(values.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList()));
     }
 
     public static final class Builder {
@@ -292,5 +331,77 @@ public record ChunkMetadata(
                     confidence,
                     attributes);
         }
+    }
+
+    public String sourceDocumentId() {
+        return sourceDocumentId;
+    }
+
+    public String parentId() {
+        return parentId;
+    }
+
+    public ChunkType chunkType() {
+        return chunkType;
+    }
+
+    public String parentChunkId() {
+        return parentChunkId;
+    }
+
+    public String previousChunkId() {
+        return previousChunkId;
+    }
+
+    public String nextChunkId() {
+        return nextChunkId;
+    }
+
+    public String section() {
+        return section;
+    }
+
+    public int order() {
+        return order;
+    }
+
+    public ChunkingStrategyType strategy() {
+        return strategy;
+    }
+
+    public String objectType() {
+        return objectType;
+    }
+
+    public String objectId() {
+        return objectId;
+    }
+
+    public Integer startOffset() {
+        return startOffset;
+    }
+
+    public Integer endOffset() {
+        return endOffset;
+    }
+
+    public Integer tokenCount() {
+        return tokenCount;
+    }
+
+    public Integer charCount() {
+        return charCount;
+    }
+
+    public List<String> blockIds() {
+        return blockIds;
+    }
+
+    public Double confidence() {
+        return confidence;
+    }
+
+    public Map<String, Object> attributes() {
+        return attributes;
     }
 }

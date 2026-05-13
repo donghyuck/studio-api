@@ -32,10 +32,10 @@ public class JdbcFileStore implements FileStorage {
                     .addValue("id", attachment.getAttachmentId())
                     .addValue("payload", new SqlLobValue(bytes, lobHandler), Types.BLOB);
             int updated = template.update(
-                    "update %s set ATTACHMENT_DATA = :payload where ATTACHMENT_ID = :id".formatted(TABLE), params);
+                    String.format("update %s set ATTACHMENT_DATA = :payload where ATTACHMENT_ID = :id", TABLE), params);
             if (updated == 0) {
                 template.update(
-                        "insert into %s (ATTACHMENT_ID, ATTACHMENT_DATA) values (:id, :payload)".formatted(TABLE),
+                        String.format("insert into %s (ATTACHMENT_ID, ATTACHMENT_DATA) values (:id, :payload)", TABLE),
                         params);
             }
             return String.valueOf(attachment.getAttachmentId());
@@ -46,7 +46,7 @@ public class JdbcFileStore implements FileStorage {
 
     @Override
     public InputStream load(Attachment attachment) {
-        String sql = "select ATTACHMENT_DATA from %s where ATTACHMENT_ID = :id".formatted(TABLE);
+        String sql = String.format("select ATTACHMENT_DATA from %s where ATTACHMENT_ID = :id", TABLE);
         List<InputStream> streams = template.query(sql, Map.of("id", attachment.getAttachmentId()),
                 (rs, rowNum) -> lobHandler.getBlobAsBinaryStream(rs, "ATTACHMENT_DATA"));
         if (streams.isEmpty() || streams.get(0) == null) {
@@ -57,7 +57,7 @@ public class JdbcFileStore implements FileStorage {
 
     @Override
     public void delete(Attachment attachment) {
-        template.update("delete from %s where ATTACHMENT_ID = :id".formatted(TABLE),
+        template.update(String.format("delete from %s where ATTACHMENT_ID = :id", TABLE),
                 Map.of("id", attachment.getAttachmentId()));
     }
 }

@@ -3,9 +3,9 @@ package studio.one.application.template.web.controller;
 import java.io.IOException;
 import java.util.Map;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
@@ -162,15 +162,88 @@ public class TemplateMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(rendered));
     }
 
-    public record TemplateRequest(
-            @NotNull Integer objectType,
-            @NotNull Long objectId,
-            @NotBlank String name,
-            String displayName,
-            String description,
-            String subject,
-            String body,
-            Map<String, String> properties) {
+    public static class TemplateRequest {
+        @NotNull
+        private Integer objectType;
+        @NotNull
+        private Long objectId;
+        @NotBlank
+        private String name;
+        private String displayName;
+        private String description;
+        private String subject;
+        private String body;
+        private Map<String, String> properties;
+
+        public TemplateRequest() {
+        }
+
+        public TemplateRequest(
+                @NotNull Integer objectType,
+                @NotNull Long objectId,
+                @NotBlank String name,
+                String displayName,
+                String description,
+                String subject,
+                String body,
+                Map<String, String> properties) {
+            this.objectType = objectType;
+            this.objectId = objectId;
+            this.name = name;
+            this.displayName = displayName;
+            this.description = description;
+            this.subject = subject;
+            this.body = body;
+            this.properties = properties;
+        }
+
+        public Integer getObjectType() { return objectType; }
+
+        public void setObjectType(Integer objectType) { this.objectType = objectType; }
+
+        public Integer objectType() { return objectType; }
+
+        public Long getObjectId() { return objectId; }
+
+        public void setObjectId(Long objectId) { this.objectId = objectId; }
+
+        public Long objectId() { return objectId; }
+
+        public String getName() { return name; }
+
+        public void setName(String name) { this.name = name; }
+
+        public String name() { return name; }
+
+        public String getDisplayName() { return displayName; }
+
+        public void setDisplayName(String displayName) { this.displayName = displayName; }
+
+        public String displayName() { return displayName; }
+
+        public String getDescription() { return description; }
+
+        public void setDescription(String description) { this.description = description; }
+
+        public String description() { return description; }
+
+        public String getSubject() { return subject; }
+
+        public void setSubject(String subject) { this.subject = subject; }
+
+        public String subject() { return subject; }
+
+        public String getBody() { return body; }
+
+        public void setBody(String body) { this.body = body; }
+
+        public String body() { return body; }
+
+        public Map<String, String> getProperties() { return properties; }
+
+        public void setProperties(Map<String, String> properties) { this.properties = properties; }
+
+        public Map<String, String> properties() { return properties; }
 
         java.io.InputStream bodyInputStream() {
             if (body == null) {
@@ -206,7 +279,8 @@ public class TemplateMgmtController {
     }
 
     private long requireUserId(UserDetails principal) {
-        if (principal instanceof ApplicationPrincipal aud) {
+        if (principal instanceof ApplicationPrincipal) {
+            ApplicationPrincipal aud = (ApplicationPrincipal) principal;
             Long userId = aud.getUserId();
             if (userId != null && userId > 0) {
                 return userId;

@@ -1,27 +1,26 @@
 # RAG embedding profile 운영 가이드
 
 이 문서는 RAG 색인/검색에서 embedding provider, model, profile을 선택할 때의 운영 기준을 정리한다.
-서버 런타임 설정은 Spring AI와 provider별 Studio adapter 설정이 함께 담당하고, Studio RAG 설정은
-orchestration과 선택 정책을 소유한다.
+서버 런타임 설정은 provider별 `studio.ai.providers.*` 설정과 LangChain4j 직접 adapter가 담당하고, Studio RAG 설정은
+orchestration과 선택 정책을 소유한다. `spring.ai.*`는 1.x migration fallback으로만 사용한다.
 
 ## 설정 책임
 
 | 영역 | Canonical source | 설명 |
 |---|---|---|
-| API key / base-url | `spring.ai.*`, provider별 `studio.ai.providers.<id>.*` fallback | provider SDK 접속 설정이다. Google Gemini chat은 `studio.ai.providers.<id>.api-key`와 `base-url` fallback도 사용한다. |
-| chat model | `spring.ai.<provider>.chat.options.model`, provider별 chat model fallback | 실제 chat provider 호출 model이다. Google Gemini chat은 `studio.ai.providers.<id>.chat.model` fallback을 지원한다. |
-| embedding runtime model | `spring.ai.<provider>.embedding.*` | 현재 embedding provider 호출 model source다. OpenAI, Google Gemini, Ollama embedding은 Spring AI embedding model 설정이 필요하다. |
-| RAG embedding dimension/filter | `studio.ai.rag.embedding-profiles.*.dimension` | explicit profile 검색과 Vector metadata filter에 쓰는 RAG 기준값이다. 실제 provider dimension 설정과 일치해야 한다. |
-| provider enable / default provider | `studio.ai.providers.*`, `studio.ai.default-provider`, `studio.ai.default-chat-provider`, `studio.ai.default-embedding-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. `default-provider`는 기존 호환 fallback이고, chat/embedding 기본 provider는 분리할 수 있다. |
+| API key / base-url | `studio.ai.providers.<id>.*` | provider SDK 접속 설정이다. 기존 `spring.ai.*` 값은 migration fallback으로만 사용한다. |
+| chat model | `studio.ai.providers.<id>.chat.model` | 실제 chat provider 호출 model이다. 기존 `spring.ai.*.chat.*` 값은 migration fallback으로만 사용한다. |
+| embedding runtime model | `studio.ai.providers.<id>.embedding.model` | 현재 embedding provider 호출 model source다. 기존 `spring.ai.*.embedding.*` 값은 migration fallback으로만 사용한다. |
+| RAG embedding dimension/filter | `studio.ai.rag.embedding-profiles.*.dimension`, `studio.ai.providers.<id>.embedding.dimension` | profile 검색과 Vector metadata filter 기준값이다. 실제 provider output dimension과 일치해야 한다. |
+| provider enable / default routing | `studio.ai.providers.*`, `studio.ai.routing.default-chat-provider`, `studio.ai.routing.default-embedding-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. legacy `studio.ai.default-provider`는 fallback으로만 유지한다. |
 | RAG embedding profile | `studio.ai.rag.embedding-profiles.*` | RAG 요청에서 선택할 profile id와 metadata/filter 기준이다. |
 
-`studio.ai.default-provider`를 설정하면 기존 호출자 호환을 위해 해당 provider가 chat과 embedding port를 모두 제공해야 한다.
-chat 전용 기본값과 embedding 전용 기본값만 분리하려면 `default-provider`를 생략하고
-`default-chat-provider` / `default-embedding-provider`를 함께 설정한다.
+`studio.ai.routing.default-chat-provider`와 `studio.ai.routing.default-embedding-provider`를 함께 설정한다.
+legacy `studio.ai.default-provider`를 설정하면 기존 호출자 호환을 위해 해당 provider가 chat과 embedding port를 모두 제공해야 한다.
 
-`studio.ai.providers.<id>.embedding.model`은 현재 runtime embedding model fallback으로 쓰지 않는다.
-Spring AI provider를 쓰는 embedding 운영 환경에서는 `spring.ai.*.embedding.*`과
-`studio.ai.rag.embedding-profiles.*`의 model/dimension 값을 같이 맞춘다.
+`studio.ai.providers.<id>.embedding.model`은 runtime embedding model canonical source다.
+기존 `spring.ai.*.embedding.*` 값은 fallback으로만 읽는다. embedding 운영 환경에서는
+`studio.ai.providers.<id>.embedding.*`과 `studio.ai.rag.embedding-profiles.*`의 model/dimension 값을 같이 맞춘다.
 
 ## 기본 예시
 
@@ -31,18 +30,21 @@ Google Gemini embedding을 RAG 기본 profile로 사용하는 예시다.
 studio:
   ai:
     enabled: true
-    default-provider: gemini
-    # chat/embedding 기본 provider를 분리할 때만 지정한다.
-    # default-chat-provider: gemini-chat
-    # default-embedding-provider: gemini
+    routing:
+      default-chat-provider: gemini
+      default-embedding-provider: gemini
     providers:
       gemini:
         type: GOOGLE_AI_GEMINI
         enabled: true
+        api-key: ${GOOGLE_AI_API_KEY}
         chat:
           enabled: true
+          model: gemini-1.5-flash
         embedding:
           enabled: true
+          model: gemini-embedding-001
+          dimension: 768
         google-embedding:
           task-type: RETRIEVAL_DOCUMENT
     rag:
@@ -53,29 +55,17 @@ studio:
           model: gemini-embedding-001
           dimension: 768
           supported-input-types: [TEXT, TABLE_TEXT, IMAGE_CAPTION, OCR_TEXT]
-
-spring:
-  ai:
-    google:
-      genai:
-        chat:
-          api-key: ${GOOGLE_AI_API_KEY}
-          options:
-            model: gemini-2.5-flash
-        embedding:
-          api-key: ${GOOGLE_AI_API_KEY}
-          text:
-            options:
-              model: gemini-embedding-001
-              dimensions: 768
 ```
 
-OpenAI embedding을 사용할 때는 `spring.ai.openai.embedding.options.model`을 실제 embedding model source로 둔다.
+
+OpenAI embedding을 사용할 때는 `studio.ai.providers.<id>.embedding.model`을 실제 embedding model source로 둔다.
 
 ```yaml
 studio:
   ai:
-    default-provider: openai
+    routing:
+      default-chat-provider: openai
+      default-embedding-provider: openai
     providers:
       openai:
         type: OPENAI
@@ -91,17 +81,6 @@ studio:
           provider: openai
           model: text-embedding-3-small
           dimension: 1536
-
-spring:
-  ai:
-    openai:
-      api-key: ${OPENAI_API_KEY}
-      chat:
-        options:
-          model: gpt-4o-mini
-      embedding:
-        options:
-          model: text-embedding-3-small
 ```
 
 ## 선택 우선순위
@@ -116,8 +95,8 @@ RAG 색인/검색 요청의 embedding 선택은 다음 순서로 처리한다.
 `embeddingProfileId`와 `embeddingProvider`/`embeddingModel`을 동시에 보내는 요청은 혼합 해석을 막기 위해 거부한다.
 요청에서 provider/model만 지정하면 default profile의 model/dimension을 섞어 쓰지 않는다.
 
-Spring AI adapter는 등록 시점의 `EmbeddingModel` 하나를 호출한다. 따라서 profile/request의 `embeddingModel`은
-실제 `spring.ai.*` embedding model 설정과 일치해야 한다. 다른 model을 요청하면 metadata만 다른 vector space로
+LangChain4j adapter는 등록 시점의 `EmbeddingModel` 하나를 호출한다. 따라서 profile/request의 `embeddingModel`은
+실제 `studio.ai.providers.<id>.embedding.model` 설정과 일치해야 한다. 다른 model을 요청하면 metadata만 다른 vector space로
 저장되는 것을 막기 위해 실패한다.
 
 ## API 요청 필드

@@ -6,7 +6,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -274,7 +273,10 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
 
     private void mergeChunkMetadata(Map<String, Object> metadata, Map<String, Object> chunkMetadata) {
         chunkMetadata.forEach((key, value) -> {
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value == null) {
+                return;
+            }
+            if (!(value instanceof String) || !((String) value).isBlank()) {
                 metadata.putIfAbsent(key, value);
             }
         });
@@ -307,7 +309,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
 
     private Object value(Map<String, Object> metadata, String key) {
         Object value = metadata.get(key);
-        if (value == null || (value instanceof String textValue && textValue.isBlank())) {
+        if (value == null || (value instanceof String && ((String) value).isBlank())) {
             return null;
         }
         return value;
@@ -322,8 +324,8 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         if (value == null) {
             return null;
         }
-        if (value instanceof Iterable<?> iterable) {
-            return join(iterable);
+        if (value instanceof Iterable<?>) {
+            return join((Iterable<?>) value);
         }
         String text = Objects.toString(value, null);
         return text == null || text.isBlank() ? null : text;
@@ -340,12 +342,12 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     }
 
     private Integer integer(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.valueOf(text);
+                return Integer.valueOf((String) value);
             } catch (NumberFormatException ignored) {
                 return null;
             }
@@ -356,9 +358,20 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private String contentHash(String content) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
+            return hex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 digest is not available", ex);
         }
+    }
+
+    private String hex(byte[] bytes) {
+        char[] encoded = new char[bytes.length * 2];
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 0xff;
+            encoded[i * 2] = digits[value >>> 4];
+            encoded[i * 2 + 1] = digits[value & 0x0f];
+        }
+        return new String(encoded);
     }
 }

@@ -1,7 +1,8 @@
 package studio.one.platform.user.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.config.BeanPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.core.env.Environment;
@@ -10,7 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.base.user.application.config.PasswordPolicyProperties;
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(PasswordPolicyProperties.class)
 @Slf4j
 public class UserPasswordPolicyAutoConfiguration {
@@ -23,8 +24,8 @@ public class UserPasswordPolicyAutoConfiguration {
         return new BeanPostProcessor() {
             @Override
             public Object postProcessAfterInitialization(Object bean, String beanName) {
-                if (bean instanceof PasswordPolicyProperties properties) {
-                    bindLegacyFallback(environment, properties);
+                if (bean instanceof PasswordPolicyProperties) {
+                    bindLegacyFallback(environment, (PasswordPolicyProperties) bean);
                 }
                 return bean;
             }

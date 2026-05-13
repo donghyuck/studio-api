@@ -75,7 +75,8 @@ public class PptxThumbnailRenderer implements ThumbnailRenderer {
         } catch (IOException ex) {
             throw new ThumbnailGenerationException("Failed to render PPTX thumbnail source", ex);
         } catch (RuntimeException ex) {
-            if (ex instanceof ThumbnailGenerationException thumbnailEx) {
+            if (ex instanceof ThumbnailGenerationException) {
+            ThumbnailGenerationException thumbnailEx = (ThumbnailGenerationException) ex;
                 throw thumbnailEx;
             }
             throw new ThumbnailGenerationException("Failed to render PPTX thumbnail source", ex);

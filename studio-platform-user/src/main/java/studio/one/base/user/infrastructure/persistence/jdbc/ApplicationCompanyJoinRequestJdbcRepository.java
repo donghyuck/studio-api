@@ -86,39 +86,24 @@ public class ApplicationCompanyJoinRequestJdbcRepository extends BaseJdbcReposit
 
     @Override
     public boolean existsPendingByKeyIdAndUserId(Long keyId, Long userId) {
-        String sql = """
-                select count(*)
-                  from TB_APPLICATION_COMPANY_JOIN_REQUEST
-                 where KEY_ID = :keyId
-                   and USER_ID = :userId
-                   and STATUS = 'PENDING'
-                """;
+        String sql = (
+"select count(*)\\n" + "  from TB_APPLICATION_COMPANY_JOIN_REQUEST\\n" + " where KEY_ID = :keyId\\n" + "   and USER_ID = :userId\\n" + "   and STATUS = 'PENDING'\\n");
         Long count = namedTemplate.queryForObject(sql, Map.of("keyId", keyId, "userId", userId), Long.class);
         return count != null && count > 0;
     }
 
     @Override
     public boolean existsPendingByCompanyIdAndUserId(Long companyId, Long userId) {
-        String sql = """
-                select count(*)
-                  from TB_APPLICATION_COMPANY_JOIN_REQUEST
-                 where COMPANY_ID = :companyId
-                   and USER_ID = :userId
-                   and STATUS = 'PENDING'
-                """;
+        String sql = (
+"select count(*)\\n" + "  from TB_APPLICATION_COMPANY_JOIN_REQUEST\\n" + " where COMPANY_ID = :companyId\\n" + "   and USER_ID = :userId\\n" + "   and STATUS = 'PENDING'\\n");
         Long count = namedTemplate.queryForObject(sql, Map.of("companyId", companyId, "userId", userId), Long.class);
         return count != null && count > 0;
     }
 
     @Override
     public long countPendingByKeyId(Long keyId) {
-        String sql = """
-                select count(*)
-                  from TB_APPLICATION_COMPANY_JOIN_REQUEST
-                 where KEY_ID = :keyId
-                   and STATUS = 'PENDING'
-                   and USER_ID is not null
-                """;
+        String sql = (
+"select count(*)\\n" + "  from TB_APPLICATION_COMPANY_JOIN_REQUEST\\n" + " where KEY_ID = :keyId\\n" + "   and STATUS = 'PENDING'\\n" + "   and USER_ID is not null\\n");
         Long count = namedTemplate.queryForObject(sql, Map.of("keyId", keyId), Long.class);
         return count == null ? 0 : count;
     }
@@ -143,14 +128,8 @@ public class ApplicationCompanyJoinRequestJdbcRepository extends BaseJdbcReposit
         if (request.getStatus() == null) {
             request.setStatus(CompanyJoinRequestStatus.PENDING);
         }
-        String sql = """
-                insert into TB_APPLICATION_COMPANY_JOIN_REQUEST
-                    (COMPANY_ID, KEY_ID, USER_ID, REQUEST_NAME, EMAIL, MESSAGE, REQUESTED_ROLE, STATUS,
-                     REQUESTED_AT, REQUESTED_BY, DECIDED_AT, DECIDED_BY, UPDATED_AT)
-                values
-                    (:companyId, :keyId, :userId, :name, :email, :message, :requestedRole, :status,
-                     :requestedAt, :requestedBy, :decidedAt, :decidedBy, :updatedAt)
-                """;
+        String sql = (
+"insert into TB_APPLICATION_COMPANY_JOIN_REQUEST\\n" + "    (COMPANY_ID, KEY_ID, USER_ID, REQUEST_NAME, EMAIL, MESSAGE, REQUESTED_ROLE, STATUS,\\n" + "     REQUESTED_AT, REQUESTED_BY, DECIDED_AT, DECIDED_BY, UPDATED_AT)\\n" + "values\\n" + "    (:companyId, :keyId, :userId, :name, :email, :message, :requestedRole, :status,\\n" + "     :requestedAt, :requestedBy, :decidedAt, :decidedBy, :updatedAt)\\n");
         KeyHolder holder = new GeneratedKeyHolder();
         namedTemplate.update(sql, new MapSqlParameterSource(params(request)), holder, new String[] { "request_id" });
         Number generated = holder.getKey();
@@ -162,19 +141,8 @@ public class ApplicationCompanyJoinRequestJdbcRepository extends BaseJdbcReposit
 
     private void update(ApplicationCompanyJoinRequest request) {
         request.setUpdatedAt(Instant.now());
-        String sql = """
-                update TB_APPLICATION_COMPANY_JOIN_REQUEST
-                   set USER_ID = :userId,
-                       REQUEST_NAME = :name,
-                       EMAIL = :email,
-                       MESSAGE = :message,
-                       REQUESTED_ROLE = :requestedRole,
-                       STATUS = :status,
-                       DECIDED_AT = :decidedAt,
-                       DECIDED_BY = :decidedBy,
-                       UPDATED_AT = :updatedAt
-                 where REQUEST_ID = :requestId
-                """;
+        String sql = (
+"update TB_APPLICATION_COMPANY_JOIN_REQUEST\\n" + "   set USER_ID = :userId,\\n" + "       REQUEST_NAME = :name,\\n" + "       EMAIL = :email,\\n" + "       MESSAGE = :message,\\n" + "       REQUESTED_ROLE = :requestedRole,\\n" + "       STATUS = :status,\\n" + "       DECIDED_AT = :decidedAt,\\n" + "       DECIDED_BY = :decidedBy,\\n" + "       UPDATED_AT = :updatedAt\\n" + " where REQUEST_ID = :requestId\\n");
         namedTemplate.update(sql, params(request));
     }
 
@@ -198,10 +166,7 @@ public class ApplicationCompanyJoinRequestJdbcRepository extends BaseJdbcReposit
     }
 
     private String selectSql() {
-        return """
-                select REQUEST_ID, COMPANY_ID, KEY_ID, USER_ID, REQUEST_NAME, EMAIL, MESSAGE, REQUESTED_ROLE,
-                       STATUS, REQUESTED_AT, REQUESTED_BY, DECIDED_AT, DECIDED_BY, UPDATED_AT
-                  from TB_APPLICATION_COMPANY_JOIN_REQUEST
-                """;
+        return (
+"select REQUEST_ID, COMPANY_ID, KEY_ID, USER_ID, REQUEST_NAME, EMAIL, MESSAGE, REQUESTED_ROLE,\\n" + "       STATUS, REQUESTED_AT, REQUESTED_BY, DECIDED_AT, DECIDED_BY, UPDATED_AT\\n" + "  from TB_APPLICATION_COMPANY_JOIN_REQUEST\\n");
     }
 }

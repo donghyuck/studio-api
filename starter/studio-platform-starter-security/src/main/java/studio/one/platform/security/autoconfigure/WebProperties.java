@@ -3,7 +3,7 @@ package studio.one.platform.security.autoconfigure;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import jakarta.validation.constraints.Pattern;
+import javax.validation.constraints.Pattern;
 
 import org.springframework.validation.annotation.Validated;
 

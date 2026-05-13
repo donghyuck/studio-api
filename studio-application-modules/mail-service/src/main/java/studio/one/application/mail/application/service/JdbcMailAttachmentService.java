@@ -20,23 +20,11 @@ import studio.one.application.mail.application.usecase.MailAttachmentService;
 @Service(MailAttachmentService.SERVICE_NAME)
 public class JdbcMailAttachmentService implements MailAttachmentService {
 
-    private static final String DELETE_ATTACHMENTS_BY_MAIL_SQL = """
-            delete from TB_APPLICATION_MAIL_ATTACHMENT
-             where MAIL_ID = :mailId
-            """;
+    private static final String DELETE_ATTACHMENTS_BY_MAIL_SQL = "delete from TB_APPLICATION_MAIL_ATTACHMENT where MAIL_ID = :mailId";
 
-    private static final String INSERT_ATTACHMENT_SQL = """
-            insert into TB_APPLICATION_MAIL_ATTACHMENT
-                (MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT)
-            values
-                (:mailId, :filename, :contentType, :size, :content, :createdAt, :updatedAt)
-            """;
+    private static final String INSERT_ATTACHMENT_SQL = "insert into TB_APPLICATION_MAIL_ATTACHMENT (MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT) values (:mailId, :filename, :contentType, :size, :content, :createdAt, :updatedAt)";
 
-    private static final String FIND_ATTACHMENTS_BY_MAIL_SQL = """
-            select ATTACHMENT_ID, MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_MAIL_ATTACHMENT
-             where MAIL_ID = :mailId
-            """;
+    private static final String FIND_ATTACHMENTS_BY_MAIL_SQL = "select ATTACHMENT_ID, MAIL_ID, FILENAME, CONTENT_TYPE, SIZE, CONTENT, CREATED_AT, UPDATED_AT from TB_APPLICATION_MAIL_ATTACHMENT where MAIL_ID = :mailId";
 
     private static final RowMapper<MailAttachment> ROW_MAPPER = (rs, rowNum) -> {
         DefaultMailAttachment attachment = new DefaultMailAttachment();
@@ -75,7 +63,7 @@ public class JdbcMailAttachmentService implements MailAttachmentService {
                         .addValue("content", att.getContent())
                         .addValue("createdAt", toTimestamp(att.getCreatedAt(), now))
                         .addValue("updatedAt", Timestamp.from(now)))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         jdbcTemplate.batchUpdate(INSERT_ATTACHMENT_SQL, batch.toArray(new MapSqlParameterSource[0]));
     }
 

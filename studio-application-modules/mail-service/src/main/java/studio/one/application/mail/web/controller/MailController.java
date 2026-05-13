@@ -78,7 +78,7 @@ public class MailController {
         requireAdmin();
         List<MailSyncLogDto> logs = mailSyncLogService.recent(limit).stream()
                 .map(MailSyncLogDto::from)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(logs));
     }
 

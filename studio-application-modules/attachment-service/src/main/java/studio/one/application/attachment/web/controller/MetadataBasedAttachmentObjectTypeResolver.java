@@ -81,7 +81,8 @@ public class MetadataBasedAttachmentObjectTypeResolver implements AttachmentObje
 
     private boolean attachmentEnabled(Map<String, Object> attrs) {
         Object raw = attrs.get("attachment");
-        if (raw instanceof Map<?, ?> attachmentMap) {
+        if (raw instanceof Map<?, ?>) {
+            Map<?, ?> attachmentMap = (Map<?, ?>) raw;
             Object enabled = attachmentMap.get("enabled");
             Boolean parsed = asBoolean(enabled);
             if (parsed != null) {
@@ -95,7 +96,8 @@ public class MetadataBasedAttachmentObjectTypeResolver implements AttachmentObje
 
     private String attachmentType(Map<String, Object> attrs) {
         Object raw = attrs.get("attachment");
-        if (raw instanceof Map<?, ?> attachmentMap) {
+        if (raw instanceof Map<?, ?>) {
+            Map<?, ?> attachmentMap = (Map<?, ?>) raw;
             Object typeValue = attachmentMap.get("type");
             return asString(typeValue);
         }
@@ -131,10 +133,12 @@ public class MetadataBasedAttachmentObjectTypeResolver implements AttachmentObje
         if (value == null) {
             return null;
         }
-        if (value instanceof Boolean bool) {
+        if (value instanceof Boolean) {
+            Boolean bool = (Boolean) value;
             return bool;
         }
-        if (value instanceof Number number) {
+        if (value instanceof Number) {
+            Number number = (Number) value;
             return number.intValue() != 0;
         }
         String raw = String.valueOf(value).trim();

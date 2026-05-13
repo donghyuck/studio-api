@@ -30,7 +30,7 @@ final class OrchestratedRagChunker implements RagChunker {
                 .build();
         return chunkingOrchestrator.chunk(context).stream()
                 .map(this::toPipelineChunk)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private RagPipelineChunk toPipelineChunk(Chunk chunk) {

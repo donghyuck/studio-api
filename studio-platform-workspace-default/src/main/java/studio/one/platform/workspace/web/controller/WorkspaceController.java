@@ -2,7 +2,7 @@ package studio.one.platform.workspace.web.controller;
 
 import java.util.List;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;

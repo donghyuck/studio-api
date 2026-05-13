@@ -160,7 +160,7 @@ public class AttachmentDownloadAuditLogServiceImpl implements AttachmentDownload
         }
         List<Sort.Order> orders = sort.stream()
                 .filter(order -> ALLOWED_SORT_PROPERTIES.contains(order.getProperty()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return orders.isEmpty() ? Sort.unsorted() : Sort.by(orders);
     }
 

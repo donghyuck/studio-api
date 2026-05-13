@@ -5,7 +5,6 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -277,7 +276,7 @@ public class ApplicationCompanyJoinRequestServiceImpl implements ApplicationComp
         }
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(normalized.getBytes(StandardCharsets.UTF_8)));
+            return toHex(digest.digest(normalized.getBytes(StandardCharsets.UTF_8)));
         } catch (Exception e) {
             throw new IllegalStateException("SHA-256 is not available", e);
         }
@@ -301,4 +300,16 @@ public class ApplicationCompanyJoinRequestServiceImpl implements ApplicationComp
             throw new IllegalArgumentException(name + " must be positive");
         }
     }
+
+    private static String toHex(byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 0xFF;
+            hex[i * 2] = digits[value >>> 4];
+            hex[i * 2 + 1] = digits[value & 0x0F];
+        }
+        return new String(hex);
+    }
+
 }

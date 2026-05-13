@@ -351,7 +351,7 @@ class RagIndexJobControllerTest {
                 List.of(),
                 false)))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(400));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(400));
     }
 
     @Test
@@ -469,7 +469,7 @@ class RagIndexJobControllerTest {
 
         assertThatThrownBy(() -> controller.retryJob("job-1"))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(409));
     }
 
     @Test
@@ -495,7 +495,7 @@ class RagIndexJobControllerTest {
 
         assertThatThrownBy(() -> controller.cancelJob("job-1"))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(409));
     }
 
     @Test
@@ -507,7 +507,7 @@ class RagIndexJobControllerTest {
 
         assertThatThrownBy(() -> controller.cancelJob("job-1"))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(501));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(501));
     }
 
     @Test
@@ -519,7 +519,7 @@ class RagIndexJobControllerTest {
 
         assertThatThrownBy(() -> controller.cancelJob("job-1"))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(409));
     }
 
     @Test
@@ -631,7 +631,7 @@ class RagIndexJobControllerTest {
                                 "chunk " + index,
                                 Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-" + index),
                                 1.0d))
-                        .toList());
+                        .collect(java.util.stream.Collectors.toList()));
 
         ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
                 controller.objectChunksPage("attachment", "42", 0, 200);
@@ -683,7 +683,7 @@ class RagIndexJobControllerTest {
 
         assertThatThrownBy(() -> controller.deleteObject("attachment", "42"))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(409));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(409));
         verify(ragPipelineService, never()).deleteByObject("attachment", "42");
     }
 
@@ -699,7 +699,7 @@ class RagIndexJobControllerTest {
 
         assertThatThrownBy(() -> controller.deleteObject("attachment", "42"))
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value()).isEqualTo(501));
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value()).isEqualTo(501));
     }
 
     @Test
@@ -815,7 +815,12 @@ class RagIndexJobControllerTest {
                 .build();
     }
 
-    private record FixedSourceNameResolver(String sourceName) implements RagIndexJobSourceNameResolver {
+    private static final class FixedSourceNameResolver implements RagIndexJobSourceNameResolver {
+        private final String sourceName;
+
+        private FixedSourceNameResolver(String sourceName) {
+            this.sourceName = sourceName;
+        }
 
         @Override
         public boolean supports(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {

@@ -37,23 +37,23 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import jakarta.mail.AuthenticationFailedException;
-import jakarta.mail.FetchProfile;
-import jakarta.mail.Flags;
-import jakarta.mail.Folder;
-import jakarta.mail.Message;
-import jakarta.mail.MessagingException;
-import jakarta.mail.Session;
-import jakarta.mail.internet.InternetAddress;
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.internet.MimeUtility;
+import javax.mail.AuthenticationFailedException;
+import javax.mail.FetchProfile;
+import javax.mail.Flags;
+import javax.mail.Folder;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.Session;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeUtility;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import org.eclipse.angus.mail.imap.IMAPFolder;
-import org.eclipse.angus.mail.imap.IMAPStore;
+import com.sun.mail.imap.IMAPFolder;
+import com.sun.mail.imap.IMAPStore;
 
 import lombok.extern.slf4j.Slf4j;
 import studio.one.application.mail.infrastructure.config.ImapProperties;
@@ -157,7 +157,7 @@ public class ImapMailSyncService implements MailSyncService {
                             MailMessage saved = mailMessageService.saveOrUpdate(target);
                             mailAttachmentService.replaceAttachments(saved.getMailId(), attachments);
                             if (properties.isDeleteAfterFetch()) {
-                                msg.setFlag(jakarta.mail.Flags.Flag.DELETED, true);
+                                msg.setFlag(javax.mail.Flags.Flag.DELETED, true);
                             }
                             succeeded.incrementAndGet();
                         } catch (DataIntegrityViolationException dive) {
@@ -222,7 +222,7 @@ public class ImapMailSyncService implements MailSyncService {
         target.setUpdatedAt(Instant.now());
     }
 
-    private String joinAddresses(jakarta.mail.Address[] addresses) {
+    private String joinAddresses(javax.mail.Address[] addresses) {
         if (addresses == null || addresses.length == 0) {
             return null;
         }
@@ -246,8 +246,8 @@ public class ImapMailSyncService implements MailSyncService {
     }
 
     private String extractMessageId(Message message) throws MessagingException {
-        if (message instanceof MimeMessage mime) {
-            return mime.getMessageID();
+        if (message instanceof MimeMessage) {
+            return ((MimeMessage) message).getMessageID();
         }
         String[] headers = message.getHeader("Message-ID");
         if (headers != null && headers.length > 0) {
@@ -262,13 +262,14 @@ public class ImapMailSyncService implements MailSyncService {
         if (content instanceof String) {
             return truncateBody((String) content);
         }
-        if (content instanceof jakarta.mail.Multipart multipart) {
+        if (content instanceof javax.mail.Multipart) {
+            javax.mail.Multipart multipart = (javax.mail.Multipart) content;
             StringBuilder builder = new StringBuilder();
             for (int i = 0; i < multipart.getCount(); i++) {
                 var bodyPart = multipart.getBodyPart(i);
                 String disposition = bodyPart.getDisposition();
                 boolean isAttachment = disposition != null
-                        && disposition.equalsIgnoreCase(jakarta.mail.Part.ATTACHMENT);
+                        && disposition.equalsIgnoreCase(javax.mail.Part.ATTACHMENT);
                 try {
                     Object partContent = bodyPart.getContent();
                     if (isAttachment || bodyPart.getFileName() != null) {

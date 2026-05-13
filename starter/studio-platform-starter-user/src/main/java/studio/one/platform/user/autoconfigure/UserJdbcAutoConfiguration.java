@@ -1,6 +1,5 @@
 package studio.one.platform.user.autoconfigure;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -14,7 +13,7 @@ import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersistence;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
 @ConditionalOnExpression("${" + PropertyKeys.Features.User.ENABLED + ":true} && ${" + PropertyKeys.Features.User.USE_DEFAULT + ":true}")
 @Slf4j

@@ -199,22 +199,18 @@ class SecurityJdbcRepositoryPostgresTest {
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_REFRESH_TOKEN cascade");
         template.getJdbcTemplate().execute("drop table if exists TB_LOGIN_FAILURE_LOG cascade");
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_USER cascade");
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_USER (
-                    USER_ID bigint primary key,
-                    USERNAME varchar(255) not null unique,
-                    FAILED_ATTEMPTS integer not null default 0,
-                    LAST_FAILED_AT timestamptz,
-                    ACCOUNT_LOCKED_UNTIL timestamptz
-                )
-                """);
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_USER (\n"
+                + "    USER_ID bigint primary key,\n"
+                + "    USERNAME varchar(255) not null unique,\n"
+                + "    FAILED_ATTEMPTS integer not null default 0,\n"
+                + "    LAST_FAILED_AT timestamptz,\n"
+                + "    ACCOUNT_LOCKED_UNTIL timestamptz\n"
+                + ")\n");
         executeSecurityMigration();
-        template.getJdbcTemplate().update("""
-                insert into TB_APPLICATION_USER
-                    (USER_ID, USERNAME, FAILED_ATTEMPTS)
-                values
-                    (1, 'kim.owner', 0)
-                """);
+        template.getJdbcTemplate().update("insert into TB_APPLICATION_USER\n"
+                + "    (USER_ID, USERNAME, FAILED_ATTEMPTS)\n"
+                + "values\n"
+                + "    (1, 'kim.owner', 0)\n");
     }
 
     private void executeSecurityMigration() throws Exception {

@@ -26,7 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import lombok.Value;
 

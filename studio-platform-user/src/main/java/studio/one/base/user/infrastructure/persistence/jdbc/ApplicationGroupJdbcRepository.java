@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.stream.Collectors;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,10 +56,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
 
     @Override
     public Page<ApplicationGroup> findAll(Pageable pageable) {
-        String select = """
-                select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_GROUP
-                """;
+        String select = (
+"select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP\\n");
         String count = "select count(*) from TB_APPLICATION_GROUP";
         Page<ApplicationGroup> page = queryPage(select, count, Map.of(), pageable, GROUP_ROW_MAPPER, "GROUP_ID", SORT_COLUMNS);
         loadProperties(page.getContent());
@@ -67,11 +66,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
 
     @Override
     public Optional<ApplicationGroup> findById(Long groupId) {
-        String sql = """
-                select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_GROUP
-                 where GROUP_ID = :groupId
-                """;
+        String sql = (
+"select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP\\n" + " where GROUP_ID = :groupId\\n");
         Optional<ApplicationGroup> result = queryOptional(sql, Map.of("groupId", groupId), GROUP_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -79,11 +75,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
 
     @Override
     public List<ApplicationGroup> findAll() {
-        String sql = """
-                select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_GROUP
-                  order by GROUP_ID
-                """;
+        String sql = (
+"select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP\\n" + "  order by GROUP_ID\\n");
         List<ApplicationGroup> groups = namedTemplate.query(sql, GROUP_ROW_MAPPER);
         loadProperties(groups);
         return groups;
@@ -92,12 +85,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
     @Override
     public Page<ApplicationGroup> findGroupsByUserId(Long userId, Pageable pageable) {
         Map<String, Object> params = Map.of("userId", userId);
-        String select = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID
-                 where gm.USER_ID = :userId
-                """;
+        String select = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID\\n" + " where gm.USER_ID = :userId\\n");
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where USER_ID = :userId";
         Page<ApplicationGroup> page = queryPage(select, count, params, pageable, GROUP_ROW_MAPPER, "g.GROUP_ID", SORT_COLUMNS);
         loadProperties(page.getContent());
@@ -106,12 +95,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
 
     @Override
     public List<ApplicationGroup> findGroupsByUserId(Long userId) {
-        String sql = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID
-                 where gm.USER_ID = :userId
-                """;
+        String sql = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID\\n" + " where gm.USER_ID = :userId\\n");
         List<ApplicationGroup> groups = namedTemplate.query(sql, Map.of("userId", userId), GROUP_ROW_MAPPER);
         loadProperties(groups);
         return groups;
@@ -119,15 +104,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
 
     @Override
     public List<ApplicationGroupWithMemberCount> findGroupsWithMemberCountByUserId(Long userId) {
-        String sql = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE,
-                       count(allm.USER_ID) as MEMBER_COUNT
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID and gm.USER_ID = :userId
-                  left join TB_APPLICATION_GROUP_MEMBERS allm on allm.GROUP_ID = g.GROUP_ID
-                 group by g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                 order by g.GROUP_ID desc
-                """;
+        String sql = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE,\\n" + "       count(allm.USER_ID) as MEMBER_COUNT\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID and gm.USER_ID = :userId\\n" + "  left join TB_APPLICATION_GROUP_MEMBERS allm on allm.GROUP_ID = g.GROUP_ID\\n" + " group by g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE\\n" + " order by g.GROUP_ID desc\\n");
         List<ApplicationGroupWithMemberCount> rows = namedTemplate.query(sql, Map.of("userId", userId), GROUP_WITH_COUNT_MAPPER);
         rows.forEach(row -> loadProperties(row.getEntity()));
         return rows;
@@ -136,16 +114,10 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
     @Override
     public Page<ApplicationGroup> findGroupsByName(String keyword, Pageable pageable) {
         Map<String, Object> params = Map.of("q", normalizeKeyword(keyword));
-        String select = """
-                select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_GROUP
-                 where (:q = '' or lower(NAME) like :q)
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_GROUP
-                 where (:q = '' or lower(NAME) like :q)
-                """;
+        String select = (
+"select GROUP_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP\\n" + " where (:q = '' or lower(NAME) like :q)\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_GROUP\\n" + " where (:q = '' or lower(NAME) like :q)\\n");
         Page<ApplicationGroup> page = queryPage(select, count, params, pageable, GROUP_ROW_MAPPER, "GROUP_ID", SORT_COLUMNS);
         loadProperties(page.getContent());
         return page;
@@ -154,19 +126,10 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
     @Override
     public Page<ApplicationGroupWithMemberCount> findGroupsWithMemberCountByName(String keyword, Pageable pageable) {
         Map<String, Object> params = Map.of("q", normalizeKeyword(keyword));
-        String select = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE,
-                       count(m.USER_ID) as MEMBER_COUNT
-                  from TB_APPLICATION_GROUP g
-                  left join TB_APPLICATION_GROUP_MEMBERS m on m.GROUP_ID = g.GROUP_ID
-                 where (:q = '' or lower(g.NAME) like :q)
-                 group by g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_GROUP
-                 where (:q = '' or lower(NAME) like :q)
-                """;
+        String select = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE,\\n" + "       count(m.USER_ID) as MEMBER_COUNT\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  left join TB_APPLICATION_GROUP_MEMBERS m on m.GROUP_ID = g.GROUP_ID\\n" + " where (:q = '' or lower(g.NAME) like :q)\\n" + " group by g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_GROUP\\n" + " where (:q = '' or lower(NAME) like :q)\\n");
         Page<ApplicationGroupWithMemberCount> page = queryPage(select, count, params, pageable, GROUP_WITH_COUNT_MAPPER, "g.GROUP_ID", SORT_COLUMNS);
         page.getContent().forEach(row -> loadProperties(row.getEntity()));
         return page;
@@ -203,13 +166,8 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
         if (group.getModifiedDate() == null) {
             group.setModifiedDate(Instant.now());
         }
-        String sql = """
-                update TB_APPLICATION_GROUP
-                   set NAME = :name,
-                       DESCRIPTION = :description,
-                       MODIFIED_DATE = :modifiedDate
-                 where GROUP_ID = :groupId
-                """;
+        String sql = (
+"update TB_APPLICATION_GROUP\\n" + "   set NAME = :name,\\n" + "       DESCRIPTION = :description,\\n" + "       MODIFIED_DATE = :modifiedDate\\n" + " where GROUP_ID = :groupId\\n");
         Map<String, Object> params = new HashMap<>();
         params.put("name", group.getName());
         params.put("description", group.getDescription());
@@ -251,7 +209,7 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
         List<Long> ids = groups.stream()
                 .map(ApplicationGroup::getGroupId)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(Collectors.toList());
         if (ids.isEmpty()) {
             return;
         }
@@ -283,8 +241,22 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
         return "%" + keyword.toLowerCase() + "%";
     }
 
-    private record JdbcApplicationGroupWithMemberCount(ApplicationGroup entity, Long memberCount)
-            implements ApplicationGroupWithMemberCount {
+    private static class JdbcApplicationGroupWithMemberCount implements ApplicationGroupWithMemberCount {
+        private final ApplicationGroup entity;
+        private final Long memberCount;
+
+        public JdbcApplicationGroupWithMemberCount(ApplicationGroup entity, Long memberCount) {
+            this.entity = entity;
+            this.memberCount = memberCount;
+        }
+
+        public ApplicationGroup entity() {
+            return entity;
+        }
+
+        public Long memberCount() {
+            return memberCount;
+        }
 
         @Override
         public ApplicationGroup getEntity() {
@@ -295,5 +267,6 @@ public class ApplicationGroupJdbcRepository extends BaseJdbcRepository implement
         public Long getMemberCount() {
             return memberCount;
         }
+    
     }
 }

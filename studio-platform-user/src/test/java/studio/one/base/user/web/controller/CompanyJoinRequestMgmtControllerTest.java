@@ -220,9 +220,9 @@ class CompanyJoinRequestMgmtControllerTest {
 
         mvc.perform(post("/api/mgmt/companies/{companyId}/member-keys", COMPANY_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"role":"MEMBER","expiresAt":"%s","maxUses":1}
-                                """.formatted(Instant.now().minusSeconds(60))))
+                        .content(String.format(
+                                "{\"role\":\"MEMBER\",\"expiresAt\":\"%s\",\"maxUses\":1}\n",
+                                Instant.now().minusSeconds(60))))
                 .andExpect(status().isBadRequest());
     }
 
@@ -253,9 +253,7 @@ class CompanyJoinRequestMgmtControllerTest {
 
         mvc.perform(post("/api/mgmt/companies/{companyId}/member-keys", COMPANY_ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"role":"MEMBER","maxUses":0}
-                                """))
+                        .content("{\"role\":\"MEMBER\",\"maxUses\":0}\\n"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -284,7 +282,17 @@ class CompanyJoinRequestMgmtControllerTest {
         return validator;
     }
 
-    private record SingletonObjectProvider<T>(T value) implements ObjectProvider<T> {
+    private static class SingletonObjectProvider<T> implements ObjectProvider<T> {
+        private final T value;
+
+        public SingletonObjectProvider(T value) {
+            this.value = value;
+        }
+
+        public T value() {
+            return value;
+        }
+
         @Override
         public T getObject(Object... args) {
             return value;
@@ -304,5 +312,6 @@ class CompanyJoinRequestMgmtControllerTest {
         public T getObject() {
             return value;
         }
+    
     }
 }

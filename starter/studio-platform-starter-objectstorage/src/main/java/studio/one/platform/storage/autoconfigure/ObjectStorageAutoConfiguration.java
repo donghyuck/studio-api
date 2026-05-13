@@ -30,7 +30,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
@@ -74,7 +73,7 @@ import studio.one.platform.util.LogUtils;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(StorageProperties.class)
 @Slf4j
 public class ObjectStorageAutoConfiguration {

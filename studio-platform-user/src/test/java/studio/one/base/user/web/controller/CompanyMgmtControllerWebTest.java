@@ -114,9 +114,7 @@ class CompanyMgmtControllerWebTest {
 
         mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":[{"role":"ADMIN","override":true}]}
-                                """))
+                        .content("{\"roles\":[{\"role\":\"ADMIN\",\"override\":true}]}\\n"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -126,9 +124,7 @@ class CompanyMgmtControllerWebTest {
 
         mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":[{"role":"ADMIN","actions":[" "],"override":true}]}
-                                """))
+                        .content("{\"roles\":[{\"role\":\"ADMIN\",\"actions\":[\" \"],\"override\":true}]}\\n"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -138,9 +134,7 @@ class CompanyMgmtControllerWebTest {
 
         mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":[{"role":"ADMIN","actions":["company.read"]}]}
-                                """))
+                        .content("{\"roles\":[{\"role\":\"ADMIN\",\"actions\":[\"company.read\"]}]}\\n"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -159,12 +153,7 @@ class CompanyMgmtControllerWebTest {
         mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 10L)
                         .principal(() -> "actor")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":[
-                                  {"role":"ADMIN","actions":["company.read"],"override":true},
-                                  {"role":"ADMIN","actions":["company.read"],"override":true}
-                                ]}
-                                """))
+                        .content("{\"roles\":[\\n" + "  {\"role\":\"ADMIN\",\"actions\":[\"company.read\"],\"override\":true},\\n" + "  {\"role\":\"ADMIN\",\"actions\":[\"company.read\"],\"override\":true}\\n" + "]}\\n"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -184,9 +173,7 @@ class CompanyMgmtControllerWebTest {
         mvc.perform(put("/api/mgmt/companies/{companyId}/permissions/policy", 0L)
                         .principal(() -> "actor")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"roles":[{"role":"ADMIN","actions":["company.read"],"override":true}]}
-                                """))
+                        .content("{\"roles\":[{\"role\":\"ADMIN\",\"actions\":[\"company.read\"],\"override\":true}]}\\n"))
                 .andExpect(status().isBadRequest());
 
         org.mockito.Mockito.verifyNoInteractions(companyService);
@@ -255,7 +242,17 @@ class CompanyMgmtControllerWebTest {
         }
     }
 
-    private record SingletonObjectProvider<T>(T value) implements ObjectProvider<T> {
+    private static class SingletonObjectProvider<T> implements ObjectProvider<T> {
+        private final T value;
+
+        public SingletonObjectProvider(T value) {
+            this.value = value;
+        }
+
+        public T value() {
+            return value;
+        }
+
         @Override
         public T getObject(Object... args) {
             return value;
@@ -275,6 +272,7 @@ class CompanyMgmtControllerWebTest {
         public T getObject() {
             return value;
         }
+    
     }
 
     private static class TestPrincipalArgumentResolver implements HandlerMethodArgumentResolver {

@@ -35,7 +35,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -311,7 +311,7 @@ public class ChatController {
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
         ChatResponse response = executeChat(chatPort(request.provider()), toDomainChatRequest(request, domainMessages));
         int memoryMessageCount = appendMemory(memory, request.messages(), response);
-        appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).toList(), response);
+        appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).collect(java.util.stream.Collectors.toList()), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
     }
 
@@ -331,7 +331,7 @@ public class ChatController {
                 requestId,
                 events,
                 memory,
-                request.messages().stream().map(this::toDomainMessage).toList(),
+                request.messages().stream().map(this::toDomainMessage).collect(java.util.stream.Collectors.toList()),
                 principal);
         return ResponseEntity.ok()
                 .contentType(MediaType.TEXT_EVENT_STREAM)
@@ -440,7 +440,7 @@ public class ChatController {
 
         ChatResponse response = executeChat(chatPort(chat.provider()), toDomainChatRequest(augmented));
         int memoryMessageCount = appendMemory(memory, chat.messages(), response);
-        appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
+        appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).collect(java.util.stream.Collectors.toList()), response);
         boolean exposeDiagnostics = shouldExposeDiagnostics(request);
         Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
         extraMetadata.put("ragReferences", ragReferences(contextResult.usedResults(), exposeDiagnostics));
@@ -490,7 +490,7 @@ public class ChatController {
         String ownerId = conversationChatService.ownerId(principal);
         List<ChatMessage> messages = conversationChatService.messagesForRegenerate(ownerId, request.conversationId()).stream()
                 .map(studio.one.platform.ai.core.chat.ChatConversationMessage::message)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         ChatRequestDto chat = request.chat();
         String provider = chat == null ? null : chat.provider();
         ChatRequest domainRequest = toDomainChatRequest(chat == null ? minimalChatRequest(messages) : chat, messages);
@@ -658,18 +658,18 @@ public class ChatController {
         List<ChatMessage> domainMessages = new ArrayList<>();
         domainMessages.addAll(messages.stream()
                 .map(this::toDomainMessage)
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
         domainMessages.addAll(history);
         domainMessages.addAll(request.messages().stream()
                 .map(this::toDomainMessage)
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
         return domainMessages;
     }
 
     private List<ChatMessageDto> toDtoMessages(List<ChatMessage> messages) {
         return messages.stream()
                 .map(message -> new ChatMessageDto(message.role().name().toLowerCase(Locale.ROOT), message.content()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private ChatMessage toDomainMessage(ChatMessageDto dto) {
@@ -684,7 +684,7 @@ public class ChatController {
             Map<String, Object> extraMetadata) {
         List<ChatMessageDto> messages = response.messages().stream()
                 .map(message -> new ChatMessageDto(message.role().name().toLowerCase(Locale.ROOT), message.content()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         Map<String, Object> metadata = new HashMap<>(response.metadata());
         metadata.putAll(extraMetadata);
         if (exposeDiagnostics && diagnostics != null) {
@@ -749,8 +749,8 @@ public class ChatController {
     private String firstText(Map<String, Object> metadata, String... keys) {
         for (String key : keys) {
             Object value = metadata.get(key);
-            if (value instanceof String text && !text.isBlank()) {
-                return text.trim();
+            if (value instanceof String && !((String) value).isBlank()) {
+                return ((String) value).trim();
             }
             if (value != null && !(value instanceof String)) {
                 String text = value.toString();
@@ -773,12 +773,12 @@ public class ChatController {
     }
 
     private Integer integer(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.parseInt(text.trim());
+                return Integer.parseInt(((String) value).trim());
             } catch (NumberFormatException ignored) {
                 return null;
             }
@@ -809,7 +809,7 @@ public class ChatController {
         }
         return results.stream()
                 .limit(Math.max(topK, 0))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private String resolveRagQuery(ChatRagRequestDto request) {
@@ -984,7 +984,14 @@ public class ChatController {
                 : ex.getMessage();
     }
 
-    private record ObjectScope(String objectType, String objectId) {
+    private static final class ObjectScope {
+        private final String objectType;
+        private final String objectId;
+
+        private ObjectScope(String objectType, String objectId) {
+            this.objectType = objectType;
+            this.objectId = objectId;
+        }
 
         static ObjectScope none() {
             return new ObjectScope(null, null);
@@ -992,6 +999,14 @@ public class ChatController {
 
         boolean hasFilter() {
             return objectType != null || objectId != null;
+        }
+
+        String objectType() {
+            return objectType;
+        }
+
+        String objectId() {
+            return objectId;
         }
     }
 
@@ -1007,10 +1022,37 @@ public class ChatController {
         return "anonymous";
     }
 
-    private record ChatMemoryContext(boolean enabled, String conversationId, String storageKey, List<ChatMessage> history) {
+    private static final class ChatMemoryContext {
+        private final boolean enabled;
+        private final String conversationId;
+        private final String storageKey;
+        private final List<ChatMessage> history;
+
+        private ChatMemoryContext(boolean enabled, String conversationId, String storageKey, List<ChatMessage> history) {
+            this.enabled = enabled;
+            this.conversationId = conversationId;
+            this.storageKey = storageKey;
+            this.history = history;
+        }
 
         static ChatMemoryContext disabled() {
             return new ChatMemoryContext(false, null, null, List.of());
+        }
+
+        boolean enabled() {
+            return enabled;
+        }
+
+        String conversationId() {
+            return conversationId;
+        }
+
+        String storageKey() {
+            return storageKey;
+        }
+
+        List<ChatMessage> history() {
+            return history;
         }
     }
 }

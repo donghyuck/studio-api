@@ -36,7 +36,8 @@ public interface ApplicationUserMapper {
      * Fallback for non-ApplicationUser implementations.
      */
     default void updateEntityFromDto(UpdateUserRequest dto, @org.mapstruct.MappingTarget User entity) {
-        if (entity instanceof ApplicationUser appUser) {
+        if (entity instanceof ApplicationUser) {
+            ApplicationUser appUser = (ApplicationUser) entity;
             updateEntityFromDto(dto, appUser);
         } else {
             throw new IllegalArgumentException("Unsupported user type: " + entity.getClass());

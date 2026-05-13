@@ -51,14 +51,12 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
         }
         String filterClause = filterClause(filters, params);
         params.addValue("limit", ExistingVectorItemRepository.DEFAULT_MAX_PROJECTION_ITEMS + 1);
-        List<VectorItem> items = jdbcTemplate.query("""
-                SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at
-                  FROM tb_ai_document_chunk
-                 WHERE embedding IS NOT NULL
-                """ + targetClause + filterClause + """
-                 ORDER BY object_type, object_id, chunk_index, id
-                 LIMIT :limit
-                """, params, rowMapper);
+        List<VectorItem> items = jdbcTemplate.query(String.join("\n",
+        "SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at",
+        "  FROM tb_ai_document_chunk",
+        " WHERE embedding IS NOT NULL") + targetClause + filterClause + String.join("\n",
+        "ORDER BY object_type, object_id, chunk_index, id",
+        "LIMIT :limit"), params, rowMapper);
         return items;
     }
 
@@ -74,16 +72,13 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (ids.isEmpty()) {
             return List.of();
         }
-        return jdbcTemplate.query("""
-                SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at
-                 FROM tb_ai_document_chunk
-                """ + JdbcVectorProjectionSql.vectorItemIdMatchClause(postgres) + """
-                 ORDER BY object_type, object_id, chunk_index, id
-                """, new MapSqlParameterSource("ids", ids), rowMapper);
+        return jdbcTemplate.query(String.join("\n",
+        "SELECT id, object_type, object_id, chunk_index, text, embedding, metadata, created_at",
+        " FROM tb_ai_document_chunk") + JdbcVectorProjectionSql.vectorItemIdMatchClause(postgres) + "ORDER BY object_type, object_id, chunk_index, id", new MapSqlParameterSource("ids", ids), rowMapper);
     }
 
     private VectorItem mapItem(ResultSet rs, int rowNum) throws SQLException {
@@ -167,7 +162,7 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
         if (value == null) {
             return null;
         }
-        String text = value instanceof Iterable<?> iterable ? join(iterable) : value.toString();
+        String text = value instanceof Iterable<?> ? join((Iterable<?>) value) : value.toString();
         text = text.trim();
         return text.isBlank() ? null : text;
     }
@@ -191,12 +186,12 @@ public class JdbcExistingVectorItemRepository implements ExistingVectorItemRepos
     }
 
     private Integer integer(Object value, Integer fallback) {
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.valueOf(text.trim());
+                return Integer.valueOf(((String) value).trim());
             } catch (NumberFormatException ignored) {
                 return fallback;
             }

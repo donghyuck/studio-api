@@ -126,14 +126,21 @@ public abstract class AbstractAvatarController {
             return fallback;
         }
         String f = format.toLowerCase(Locale.ROOT);
-        return switch (f) {
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            case "gif" -> "image/gif";
-            case "bmp" -> "image/bmp";
-            case "webp" -> "image/webp";
-            default -> fallback;
-        };
+        switch (f) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            case "bmp":
+                return "image/bmp";
+            case "webp":
+                return "image/webp";
+            default:
+                return fallback;
+        }
     }
 
     protected ResponseEntity<ApiResponse<AvatarImageDto>> transformImage(

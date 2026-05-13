@@ -30,10 +30,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+import javax.validation.Valid;
+import javax.validation.constraints.Max;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
@@ -96,7 +96,7 @@ public class ObjectStorageController {
     public ResponseEntity<ApiResponse<List<ProviderInfoDto>>> listProviders(
             @RequestParam(defaultValue = "false") boolean health) {
         requireAdmin();
-        return ok(ApiResponse.ok(catalog.list(health).stream().map(this::toDto).toList()));
+        return ok(ApiResponse.ok(catalog.list(health).stream().map(this::toDto).collect(java.util.stream.Collectors.toList())));
     }
 
     private ProviderInfoDto toDto(ProviderInfo info) {
@@ -115,7 +115,7 @@ public class ObjectStorageController {
                 .s3PresignerEnabled(info.getS3PresignerEnabled())
                 .capabilities(info.getCapabilities() == null ? null : info.getCapabilities().stream()
                         .map(capability -> ProviderInfoDto.Capability.valueOf(capability.name()))
-                        .toList())
+                        .collect(java.util.stream.Collectors.toList()))
                 .labels(info.getLabels())
                 .build();
     }
@@ -152,7 +152,7 @@ public class ObjectStorageController {
                 .eTag(oi.getETag())
                 .lastModified(oi.getModifiedDate() != null ? oi.getModifiedDate() : oi.getCreatedDate())
                 .folder(oi.isFolder())
-                .build()).toList();
+                .build()).collect(java.util.stream.Collectors.toList());
         var body = ObjectListResponse.builder()
                 .bucket(bucket)
                 .prefix(prefix)

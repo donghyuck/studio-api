@@ -20,11 +20,12 @@
  */
 
 package studio.one.platform.autoconfigure.features.properties;
+
+import org.springframework.context.annotation.Configuration;
  
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -66,7 +67,7 @@ import studio.one.platform.util.I18nUtils;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureBefore(HibernateJpaAutoConfiguration.class)
 @EnableConfigurationProperties({ PersistenceProperties.class, PropertiesProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Features.ApplicationProperties.PREFIX, name = "enabled", havingValue = "true", matchIfMissing = false )
@@ -98,10 +99,10 @@ public class PropertiesAutoConfiguration {
     }
 
     @Bean(name = ServiceNames.APPLICATION_PROPERTIES)
-    @ConditionalOnClass(name="jakarta.persistence.EntityManager")
+    @ConditionalOnClass(name="javax.persistence.EntityManager")
     @ConditionalOnPropertiesPersistence(PersistenceProperties.Type.jpa) 
     public ApplicationProperties jpaApplicationProperties(  
-            ObjectProvider<jakarta.persistence.EntityManager> emProvider,
+            ObjectProvider<javax.persistence.EntityManager> emProvider,
             ApplicationEventPublisher publisher,
             ObjectProvider<I18n> i18nProvider 
     ) {  

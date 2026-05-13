@@ -30,20 +30,19 @@ class PdfFileParserTest {
 
     @Test
     void cleanPdfTextCompactsFragmentedShortLines() {
-        String raw = """
-                증
-                주
-                업
-                을
-                왼쪽
-                유
-                문
-                로맨스로
-                고는
-                오른쪽과
-                그
-                에 있는 캐릭터는 삶을 살면서 서로의 감정을 나누는
-                """;
+        String raw = "증\n" +
+                "주\n" +
+                "업\n" +
+                "을\n" +
+                "왼쪽\n" +
+                "유\n" +
+                "문\n" +
+                "로맨스로\n" +
+                "고는\n" +
+                "오른쪽과\n" +
+                "그\n" +
+                "에 있는 캐릭터는 삶을 살면서 서로의 감정을 나누는\n" +
+                "";
 
         String result = parser.cleanPdfText(raw);
 
@@ -52,37 +51,33 @@ class PdfFileParserTest {
 
     @Test
     void cleanPdfTextKeepsNormalLineBreaks() {
-        String raw = """
-                첫 번째 문단입니다.
-                다음 줄도 문단 구조입니다.
-
-                두 번째 문단입니다.
-                정상적인 줄바꿈은 유지합니다.
-                """;
+        String raw = "첫 번째 문단입니다.\n" +
+                "다음 줄도 문단 구조입니다.\n" +
+                "\n" +
+                "두 번째 문단입니다.\n" +
+                "정상적인 줄바꿈은 유지합니다.\n" +
+                "";
 
         String result = parser.cleanPdfText(raw);
 
-        assertEquals("""
-                첫 번째 문단입니다.
-                다음 줄도 문단 구조입니다.
-
-                두 번째 문단입니다.
-                정상적인 줄바꿈은 유지합니다.""", result);
+        assertEquals("첫 번째 문단입니다.\n" +
+                "다음 줄도 문단 구조입니다.\n" +
+                "\n" +
+                "두 번째 문단입니다.\n" +
+                "정상적인 줄바꿈은 유지합니다.", result);
     }
 
     @Test
     void cleanPdfPagesRemovesRepeatedBoundaryLines() {
         List<String> result = parser.cleanPdfPages(List.of(
-                """
-                공통 헤더
-                첫 페이지 본문
-                공통 푸터
-                """,
-                """
-                공통 헤더
-                둘째 페이지 본문
-                공통 푸터
-                """));
+                "공통 헤더\n" +
+                "첫 페이지 본문\n" +
+                "공통 푸터\n" +
+                "",
+                "공통 헤더\n" +
+                "둘째 페이지 본문\n" +
+                "공통 푸터\n" +
+                ""));
 
         assertEquals(List.of("첫 페이지 본문", "둘째 페이지 본문"), result);
     }
@@ -90,31 +85,26 @@ class PdfFileParserTest {
     @Test
     void cleanPdfPagesKeepsBoundaryLinesBelowRepeatedRatio() {
         List<String> result = parser.cleanPdfPages(List.of(
-                """
-                우연히 같은 첫 줄
-                첫 페이지 본문
-                끝1
-                """,
-                """
-                우연히 같은 첫 줄
-                둘째 페이지 본문
-                끝2
-                """,
-                """
-                다른 첫 줄
-                셋째 페이지 본문
-                끝3
-                """,
-                """
-                또 다른 첫 줄
-                넷째 페이지 본문
-                끝4
-                """,
-                """
-                마지막 첫 줄
-                다섯째 페이지 본문
-                끝5
-                """));
+                "우연히 같은 첫 줄\n" +
+                "첫 페이지 본문\n" +
+                "끝1\n" +
+                "",
+                "우연히 같은 첫 줄\n" +
+                "둘째 페이지 본문\n" +
+                "끝2\n" +
+                "",
+                "다른 첫 줄\n" +
+                "셋째 페이지 본문\n" +
+                "끝3\n" +
+                "",
+                "또 다른 첫 줄\n" +
+                "넷째 페이지 본문\n" +
+                "끝4\n" +
+                "",
+                "마지막 첫 줄\n" +
+                "다섯째 페이지 본문\n" +
+                "끝5\n" +
+                ""));
 
         assertTrue(result.get(0).contains("우연히 같은 첫 줄"));
         assertTrue(result.get(1).contains("우연히 같은 첫 줄"));
@@ -171,10 +161,9 @@ class PdfFileParserTest {
         assertEquals("pdf", table.format());
         assertEquals("page[1]/table[0]", table.sourceRef());
         assertEquals(4, table.cellCount());
-        assertEquals("""
-                | Name | Score |
-                | --- | --- |
-                | Alice | 90 |""", table.markdown());
+        assertEquals("| Name | Score |\n" +
+                "| --- | --- |\n" +
+                "| Alice | 90 |", table.markdown());
         assertEquals("Name", table.cells().get(0).text());
         assertTrue(table.cells().get(0).header());
         assertEquals("Name | Score\nName: Alice | Score: 90", table.vectorText());

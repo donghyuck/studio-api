@@ -56,23 +56,7 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
 
     @Override
     public AttachmentDownloadUrlIssueAuditLog save(AttachmentDownloadUrlIssueAuditLog log) {
-        String sql = """
-                insert into %s (
-                    ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND,
-                    ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME,
-                    ISSUED_AT, EXPIRES_AT, TTL_SECONDS,
-                    LINK_TYPE, TOKEN_HASH,
-                    STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH,
-                    CLIENT_IP, USER_AGENT
-                ) values (
-                    :attachmentId, :objectType, :objectId, :endpointKind,
-                    :issuedByUserId, :issuedByPrincipalName,
-                    :issuedAt, :expiresAt, :ttlSeconds,
-                    :linkType, :tokenHash,
-                    :storageProviderId, :bucket, :objectKeyHash,
-                    :clientIp, :userAgent
-                )
-                """.formatted(TABLE);
+        String sql = String.format("insert into %s ( ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND, ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME, ISSUED_AT, EXPIRES_AT, TTL_SECONDS, LINK_TYPE, TOKEN_HASH, STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH, CLIENT_IP, USER_AGENT ) values ( :attachmentId, :objectType, :objectId, :endpointKind, :issuedByUserId, :issuedByPrincipalName, :issuedAt, :expiresAt, :ttlSeconds, :linkType, :tokenHash, :storageProviderId, :bucket, :objectKeyHash, :clientIp, :userAgent )", TABLE);
         template.update(sql, params(log));
         return log;
     }
@@ -82,19 +66,7 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
         if (!StringUtils.hasText(tokenHash)) {
             return Optional.empty();
         }
-        String sql = """
-                select
-                    LOG_ID, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND,
-                    ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME,
-                    ISSUED_AT, EXPIRES_AT, TTL_SECONDS,
-                    LINK_TYPE, TOKEN_HASH,
-                    STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH,
-                    CLIENT_IP, USER_AGENT
-                from %s
-                where TOKEN_HASH = :tokenHash
-                order by ISSUED_AT desc, LOG_ID desc
-                limit 1
-                """.formatted(TABLE);
+        String sql = String.format("select LOG_ID, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND, ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME, ISSUED_AT, EXPIRES_AT, TTL_SECONDS, LINK_TYPE, TOKEN_HASH, STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH, CLIENT_IP, USER_AGENT from %s where TOKEN_HASH = :tokenHash order by ISSUED_AT desc, LOG_ID desc limit 1", TABLE);
         List<AttachmentDownloadUrlIssueAuditLog> logs =
                 template.query(sql, Map.of("tokenHash", tokenHash), ROW_MAPPER);
         return logs.stream().findFirst();
@@ -113,16 +85,7 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
             return Page.empty(pageable == null ? Pageable.unpaged() : pageable);
         }
 
-        String dataSql = """
-                select
-                    LOG_ID, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND,
-                    ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME,
-                    ISSUED_AT, EXPIRES_AT, TTL_SECONDS,
-                    LINK_TYPE, TOKEN_HASH,
-                    STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH,
-                    CLIENT_IP, USER_AGENT
-                from %s
-                """.formatted(TABLE) + where + orderBy(pageable);
+        String dataSql = String.format("select LOG_ID, ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, ENDPOINT_KIND, ISSUED_BY_USER_ID, ISSUED_BY_PRINCIPAL_NAME, ISSUED_AT, EXPIRES_AT, TTL_SECONDS, LINK_TYPE, TOKEN_HASH, STORAGE_PROVIDER_ID, BUCKET, OBJECT_KEY_HASH, CLIENT_IP, USER_AGENT from %s", TABLE) + where + orderBy(pageable);
         if (pageable != null && pageable.isPaged()) {
             params.put("limit", pageable.getPageSize());
             params.put("offset", pageable.getOffset());
@@ -196,7 +159,7 @@ public class JdbcAttachmentDownloadUrlIssueAuditLogRepository implements Attachm
         List<String> orders = pageable.getSort().stream()
                 .map(this::orderExpression)
                 .filter(StringUtils::hasText)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return orders.isEmpty() ? DEFAULT_ORDER : " order by " + String.join(", ", orders);
     }
 

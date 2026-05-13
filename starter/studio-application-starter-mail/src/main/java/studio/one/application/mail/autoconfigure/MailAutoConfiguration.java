@@ -1,11 +1,10 @@
 package studio.one.application.mail.autoconfigure;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -50,7 +49,7 @@ import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.application.mail.autoconfigure.condition.ConditionalOnMailPersistence;
 
-@AutoConfiguration
+@Configuration
 @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX
         + ".mail", name = "enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties({ MailFeatureProperties.class, PersistenceProperties.class })
@@ -165,7 +164,7 @@ public class MailAutoConfiguration {
     public MailSyncJobLauncher mailSyncJobLauncher(MailSyncService mailSyncService,
             MailSyncLogService mailSyncLogService,
             ObjectProvider<MailSyncNotifier> mailSyncNotifiers) {
-        List<MailSyncNotifier> notifiers = mailSyncNotifiers.orderedStream().toList();
+        List<MailSyncNotifier> notifiers = mailSyncNotifiers.orderedStream().collect(java.util.stream.Collectors.toList());
         return new MailSyncJobLauncher(mailSyncService, mailSyncLogService, new CompositeMailSyncNotifier(notifiers));
     }
 

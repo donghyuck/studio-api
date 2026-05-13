@@ -1,11 +1,27 @@
 package studio.one.application.attachment.application.result;
 
-public record AttachmentDownloadTokenInspection(
-        AttachmentDownloadTokenInspectionStatus status,
-        AttachmentDownloadTokenClaims claims,
-        String tokenHash) {
+public class AttachmentDownloadTokenInspection {
 
-    public static AttachmentDownloadTokenInspection valid(
+    private final AttachmentDownloadTokenInspectionStatus status;
+    private final AttachmentDownloadTokenClaims claims;
+    private final String tokenHash;
+
+    public AttachmentDownloadTokenInspection(
+            AttachmentDownloadTokenInspectionStatus status,
+            AttachmentDownloadTokenClaims claims,
+            String tokenHash) {
+        this.status = status;
+        this.claims = claims;
+        this.tokenHash = tokenHash;
+    }
+
+    public AttachmentDownloadTokenInspectionStatus status() { return status; }
+
+    public AttachmentDownloadTokenClaims claims() { return claims; }
+
+    public String tokenHash() { return tokenHash; }
+
+public static AttachmentDownloadTokenInspection valid(
             AttachmentDownloadTokenClaims claims,
             String tokenHash) {
         return new AttachmentDownloadTokenInspection(

@@ -12,8 +12,8 @@ import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import jakarta.servlet.Filter;
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.Filter;
+import javax.servlet.http.HttpServletRequest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -170,7 +170,7 @@ class LoginFailureAuditAutoConfigurationTest {
         BeanPostProcessor postProcessor =
                 LoginFailureAuditAutoConfiguration.clientRequestDetailsSecurityFilterChainPostProcessor(detailsSource);
         UsernamePasswordAuthenticationFilter filter = new UsernamePasswordAuthenticationFilter();
-        AuthenticationDetailsSource<jakarta.servlet.http.HttpServletRequest, String> customSource = request -> "custom";
+        AuthenticationDetailsSource<javax.servlet.http.HttpServletRequest, String> customSource = request -> "custom";
         filter.setAuthenticationDetailsSource(customSource);
         SecurityFilterChain chain = new SecurityFilterChain() {
             @Override
@@ -231,7 +231,7 @@ class LoginFailureAuditAutoConfigurationTest {
             @Override
             public Authentication attemptAuthentication(
                     HttpServletRequest request,
-                    jakarta.servlet.http.HttpServletResponse response)
+                    javax.servlet.http.HttpServletResponse response)
                     throws AuthenticationException {
                 return null;
             }
@@ -273,6 +273,11 @@ class LoginFailureAuditAutoConfigurationTest {
 
             @Override
             public T getIfAvailable() {
+                return object;
+            }
+
+            @Override
+            public T getIfUnique() {
                 return object;
             }
 

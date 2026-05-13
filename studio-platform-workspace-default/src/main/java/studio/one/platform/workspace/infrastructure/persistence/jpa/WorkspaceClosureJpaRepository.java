@@ -14,33 +14,25 @@ public interface WorkspaceClosureJpaRepository extends JpaRepository<WorkspaceCl
 
     List<WorkspaceClosureEntity> findByIdAncestorIdOrderByDepthAsc(Long ancestorId);
 
-    @Query("""
-            select c.id.ancestorId
-            from WorkspaceClosureEntity c
-            where c.id.descendantId = :workspaceId
-            order by c.depth desc
-            """)
+    @Query("select c.id.ancestorId "
+            + "from WorkspaceClosureEntity c "
+            + "where c.id.descendantId = :workspaceId "
+            + "order by c.depth desc")
     List<Long> findAncestorIds(@Param("workspaceId") Long workspaceId);
 
-    @Query("""
-            select c.id.descendantId
-            from WorkspaceClosureEntity c
-            where c.id.ancestorId = :workspaceId
-            order by c.depth asc
-            """)
+    @Query("select c.id.descendantId "
+            + "from WorkspaceClosureEntity c "
+            + "where c.id.ancestorId = :workspaceId "
+            + "order by c.depth asc")
     List<Long> findDescendantIds(@Param("workspaceId") Long workspaceId);
 
-    @Query("""
-            select c
-            from WorkspaceClosureEntity c
-            where c.id.descendantId in :workspaceIds
-            """)
+    @Query("select c "
+            + "from WorkspaceClosureEntity c "
+            + "where c.id.descendantId in :workspaceIds")
     List<WorkspaceClosureEntity> findByDescendantIds(@Param("workspaceIds") Collection<Long> workspaceIds);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
-            delete from WorkspaceClosureEntity c
-            where c.id.descendantId in :descendantIds
-            """)
+    @Query("delete from WorkspaceClosureEntity c "
+            + "where c.id.descendantId in :descendantIds")
     void deleteByDescendantIds(@Param("descendantIds") Collection<Long> descendantIds);
 }

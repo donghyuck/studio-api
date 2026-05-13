@@ -57,7 +57,7 @@ public class DefaultVectorProjectionService implements VectorProjectionService {
         List<String> targetTypes = command.targetTypes().stream()
                 .map(this::normalize)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (String.join(",", targetTypes).length() > MAX_TARGET_TYPES_LENGTH) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "targetTypes must fit within " + MAX_TARGET_TYPES_LENGTH + " characters");

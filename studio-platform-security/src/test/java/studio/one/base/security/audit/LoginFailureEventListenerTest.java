@@ -182,6 +182,16 @@ class LoginFailureEventListenerTest {
             }
 
             @Override
+            public AccountLockService getIfAvailable() {
+                return accountLockService;
+            }
+
+            @Override
+            public AccountLockService getIfUnique() {
+                return accountLockService;
+            }
+
+            @Override
             public Iterator<AccountLockService> iterator() {
                 return List.of(accountLockService).iterator();
             }

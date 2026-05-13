@@ -23,10 +23,12 @@ public final class LoginFailureAuditEventDataExtractor {
             if (event.getAuthentication() != null) {
                 username = event.getAuthentication().getName();
                 Object details = event.getAuthentication().getDetails();
-                if (details instanceof ClientRequestDetails crd) {
+                if (details instanceof ClientRequestDetails) {
+                    ClientRequestDetails crd = (ClientRequestDetails) details;
                     remoteIp = crd.getRemoteIp();
                     userAgent = crd.getUserAgent();
-                } else if (details instanceof WebAuthenticationDetails wad) {
+                } else if (details instanceof WebAuthenticationDetails) {
+                    WebAuthenticationDetails wad = (WebAuthenticationDetails) details;
                     remoteIp = wad.getRemoteAddress();
                 }
             }

@@ -24,6 +24,8 @@ import studio.one.platform.textract.domain.model.ExtractedImage;
 import studio.one.platform.textract.domain.model.ParseWarning;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 @Slf4j
 public class ImageFileParser extends AbstractFileParser implements StructuredFileParser {
@@ -100,7 +102,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         return tesseract.getWords(image, ITessAPI.TessPageIteratorLevel.RIL_WORD).stream()
                 .map(word -> new OcrToken(word.getText(), normalizeConfidence(word.getConfidence()), word.getBoundingBox()))
                 .filter(token -> token.text() != null && !token.text().isBlank())
-                .toList();
+                .collect(Collectors.toList());
     }
 
     List<ParsedBlock> ocrLineBlocks(String text) {
@@ -172,10 +174,10 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
             metadata.put(KEY_WORD_COUNT, tokens.size());
             metadata.put(KEY_BBOX, bbox(union(tokens.stream()
                     .map(OcrToken::bbox)
-                    .toList())));
+                    .collect(Collectors.toList()))));
             metadata.put(KEY_WORDS, tokens.stream()
                     .map(this::wordMetadata)
-                    .toList());
+                    .collect(Collectors.toList()));
             Double minConfidence = minConfidence(tokens);
             if (minConfidence != null) {
                 metadata.put(KEY_MIN_CONFIDENCE, minConfidence);
@@ -223,7 +225,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
             }
             List<OcrToken> target = null;
             for (List<OcrToken> line : lines) {
-                Rectangle existing = union(line.stream().map(OcrToken::bbox).toList());
+                Rectangle existing = union(line.stream().map(OcrToken::bbox).collect(Collectors.toList()));
                 if (existing != null && verticallyOverlaps(existing, token.bbox())) {
                     target = line;
                     break;
@@ -263,7 +265,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         List<Double> values = tokens.stream()
                 .map(OcrToken::confidence)
                 .filter(confidence -> confidence != null)
-                .toList();
+                .collect(Collectors.toList());
         if (values.isEmpty()) {
             return null;
         }
@@ -274,7 +276,7 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
         List<Double> values = tokens.stream()
                 .map(OcrToken::confidence)
                 .filter(confidence -> confidence != null)
-                .toList();
+                .collect(Collectors.toList());
         if (values.isEmpty()) {
             return null;
         }
@@ -320,24 +322,34 @@ public class ImageFileParser extends AbstractFileParser implements StructuredFil
                 "y", bbox.y,
                 "width", bbox.width,
                 "height", bbox.height);
+    }    @Value
+    @Accessors(fluent = true)
+    static final class OcrToken {
+        String text;
+        Double confidence;
+        Rectangle bbox;
+
     }
 
-    record OcrToken(String text, Double confidence, Rectangle bbox) {
-    }
+        @Value
+    @Accessors(fluent = true)
+    private static final class OcrQuality {
+        boolean confidenceAvailable;
+        double minConfidence;
+        double averageConfidence;
 
-    private record OcrQuality(boolean confidenceAvailable, double minConfidence, double averageConfidence) {
 
         static OcrQuality fromBlocks(List<ParsedBlock> blocks) {
             List<Double> values = blocks.stream()
                     .map(ParsedBlock::confidence)
                     .filter(confidence -> confidence != null)
-                    .toList();
+                    .collect(Collectors.toList());
             List<Double> minValues = blocks.stream()
                     .map(block -> block.metadata().get(KEY_MIN_CONFIDENCE))
                     .filter(Number.class::isInstance)
                     .map(Number.class::cast)
                     .map(Number::doubleValue)
-                    .toList();
+                    .collect(Collectors.toList());
             if (values.isEmpty()) {
                 return new OcrQuality(false, 1d, 1d);
             }

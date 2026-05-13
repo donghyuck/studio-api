@@ -52,7 +52,7 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
         List<RagIndexJob> matched = jobs.values().stream()
                 .filter(job -> matches(effectiveFilter, job))
                 .sorted(comparator(effectiveSort))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         int fromIndex = Math.min(effectivePageable.offset(), matched.size());
         int toIndex = Math.min(fromIndex + effectivePageable.limit(), matched.size());
         return new RagIndexJobPage(
@@ -137,7 +137,7 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
                         && Objects.equals(objectId, job.objectId())
                         && isTerminal(job.status()))
                 .map(RagIndexJob::jobId)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         jobIds.forEach(jobId -> {
             jobs.remove(jobId);
             logs.remove(jobId);
@@ -165,22 +165,46 @@ public class InMemoryRagIndexJobRepository implements RagIndexJobRepository {
 
     private Comparator<RagIndexJob> comparator(RagIndexJobSort sort) {
         boolean descending = sort.direction() == RagIndexJobSort.Direction.DESC;
-        Comparator<RagIndexJob> comparator = switch (sort.field()) {
-            case STARTED_AT -> comparingInstant(RagIndexJob::startedAt, descending);
-            case FINISHED_AT -> comparingInstant(RagIndexJob::finishedAt, descending);
-            case STATUS -> comparingText(job -> job.status().name(), descending);
-            case CURRENT_STEP -> comparingText(
-                    job -> job.currentStep() == null ? null : job.currentStep().name(),
-                    descending);
-            case OBJECT_TYPE -> comparingText(RagIndexJob::objectType, descending);
-            case OBJECT_ID -> comparingText(RagIndexJob::objectId, descending);
-            case DOCUMENT_ID -> comparingText(RagIndexJob::documentId, descending);
-            case SOURCE_TYPE -> comparingText(RagIndexJob::sourceType, descending);
-            case DURATION_MS -> Comparator.comparing(
-                    RagIndexJob::durationMs,
-                    Comparator.nullsLast(numberComparator(descending)));
-            case CREATED_AT -> comparingInstant(RagIndexJob::createdAt, descending);
-        };
+        Comparator<RagIndexJob> comparator;
+        switch (sort.field()) {
+            case STARTED_AT:
+                comparator = comparingInstant(RagIndexJob::startedAt, descending);
+                break;
+            case FINISHED_AT:
+                comparator = comparingInstant(RagIndexJob::finishedAt, descending);
+                break;
+            case STATUS:
+                comparator = comparingText(job -> job.status().name(), descending);
+                break;
+            case CURRENT_STEP:
+                comparator = comparingText(
+                        job -> job.currentStep() == null ? null : job.currentStep().name(),
+                        descending);
+                break;
+            case OBJECT_TYPE:
+                comparator = comparingText(RagIndexJob::objectType, descending);
+                break;
+            case OBJECT_ID:
+                comparator = comparingText(RagIndexJob::objectId, descending);
+                break;
+            case DOCUMENT_ID:
+                comparator = comparingText(RagIndexJob::documentId, descending);
+                break;
+            case SOURCE_TYPE:
+                comparator = comparingText(RagIndexJob::sourceType, descending);
+                break;
+            case DURATION_MS:
+                comparator = Comparator.comparing(
+                        RagIndexJob::durationMs,
+                        Comparator.nullsLast(numberComparator(descending)));
+                break;
+            case CREATED_AT:
+                comparator = comparingInstant(RagIndexJob::createdAt, descending);
+                break;
+            default:
+                comparator = comparingInstant(RagIndexJob::createdAt, descending);
+                break;
+        }
         return comparator.thenComparing(RagIndexJob::jobId);
     }
 

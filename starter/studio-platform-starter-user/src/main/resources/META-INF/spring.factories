@@ -1,0 +1,5 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.user.autoconfigure.UserPasswordPolicyAutoConfiguration,\
+studio.one.platform.user.autoconfigure.UserEntityAutoConfiguration,\
+studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration,\
+studio.one.platform.user.autoconfigure.UserEndpointsAutoConfiguration

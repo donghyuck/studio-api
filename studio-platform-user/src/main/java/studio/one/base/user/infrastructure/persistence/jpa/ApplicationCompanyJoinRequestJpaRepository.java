@@ -10,7 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import jakarta.persistence.LockModeType;
+import javax.persistence.LockModeType;
 
 import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
 import studio.one.base.user.domain.model.ApplicationCompanyJoinRequest;
@@ -21,11 +21,7 @@ public interface ApplicationCompanyJoinRequestJpaRepository
         extends JpaRepository<ApplicationCompanyJoinRequest, Long>, ApplicationCompanyJoinRequestRepository {
 
     @Override
-    @Query("""
-            select r from ApplicationCompanyJoinRequest r
-             where r.companyId = :companyId
-               and (:status is null or r.status = :status)
-            """)
+    @Query("select r from ApplicationCompanyJoinRequest r\\n" + " where r.companyId = :companyId\\n" + "   and (:status is null or r.status = :status)\\n")
     Page<ApplicationCompanyJoinRequest> findAllByCompanyId(
             @Param("companyId") Long companyId,
             @Param("status") CompanyJoinRequestStatus status,
@@ -37,29 +33,14 @@ public interface ApplicationCompanyJoinRequestJpaRepository
     Optional<ApplicationCompanyJoinRequest> findForUpdateById(@Param("requestId") Long requestId);
 
     @Override
-    @Query("""
-            select count(r) > 0 from ApplicationCompanyJoinRequest r
-             where r.keyId = :keyId
-               and r.userId = :userId
-               and r.status = studio.one.base.user.domain.model.company.CompanyJoinRequestStatus.PENDING
-            """)
+    @Query("select count(r) > 0 from ApplicationCompanyJoinRequest r\\n" + " where r.keyId = :keyId\\n" + "   and r.userId = :userId\\n" + "   and r.status = studio.one.base.user.domain.model.company.CompanyJoinRequestStatus.PENDING\\n")
     boolean existsPendingByKeyIdAndUserId(@Param("keyId") Long keyId, @Param("userId") Long userId);
 
     @Override
-    @Query("""
-            select count(r) > 0 from ApplicationCompanyJoinRequest r
-             where r.companyId = :companyId
-               and r.userId = :userId
-               and r.status = studio.one.base.user.domain.model.company.CompanyJoinRequestStatus.PENDING
-            """)
+    @Query("select count(r) > 0 from ApplicationCompanyJoinRequest r\\n" + " where r.companyId = :companyId\\n" + "   and r.userId = :userId\\n" + "   and r.status = studio.one.base.user.domain.model.company.CompanyJoinRequestStatus.PENDING\\n")
     boolean existsPendingByCompanyIdAndUserId(@Param("companyId") Long companyId, @Param("userId") Long userId);
 
     @Override
-    @Query("""
-            select count(r) from ApplicationCompanyJoinRequest r
-             where r.keyId = :keyId
-               and r.status = studio.one.base.user.domain.model.company.CompanyJoinRequestStatus.PENDING
-               and r.userId is not null
-            """)
+    @Query("select count(r) from ApplicationCompanyJoinRequest r\\n" + " where r.keyId = :keyId\\n" + "   and r.status = studio.one.base.user.domain.model.company.CompanyJoinRequestStatus.PENDING\\n" + "   and r.userId is not null\\n")
     long countPendingByKeyId(@Param("keyId") Long keyId);
 }

@@ -21,7 +21,7 @@
 
 package studio.one.application.attachment.autoconfigure;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.slf4j.Logger;
 import org.springframework.boot.context.properties.ConfigurationProperties;

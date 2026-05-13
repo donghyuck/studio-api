@@ -29,12 +29,11 @@ import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -120,7 +119,7 @@ import studio.one.platform.identity.*;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureAfter(ThumbnailAutoConfiguration.class)
 @EnableConfigurationProperties({
         AttachmentFeatureProperties.class,

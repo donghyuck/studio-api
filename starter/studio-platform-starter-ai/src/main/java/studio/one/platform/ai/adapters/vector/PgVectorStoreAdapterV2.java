@@ -79,7 +79,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     public List<VectorSearchResult> search(VectorSearchRequest request) {
         return mapper.search(searchParameter(request, true, null, null)).stream()
                 .map(PgVectorStoreAdapterV2::mapSearchRow)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -106,7 +106,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     public List<VectorSearchResult> searchByObject(String objectType, String objectId, VectorSearchRequest request) {
         return mapper.searchByObject(searchParameter(request, false, normalize(objectType), normalize(objectId))).stream()
                 .map(PgVectorStoreAdapterV2::mapSearchRow)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -124,7 +124,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 null,
                 null)).stream()
                 .map(PgVectorStoreAdapterV2::mapSearchRow)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -144,7 +144,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 normalize(objectType),
                 normalize(objectId))).stream()
                 .map(PgVectorStoreAdapterV2::mapSearchRow)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -157,7 +157,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         int rowLimit = limit == null || limit <= 0 ? Integer.MAX_VALUE : limit;
         return mapper.listByObject(objectType, objectId, rowLimit).stream()
                 .map(PgVectorStoreAdapterV2::mapListRow)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -166,7 +166,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         int rowLimit = limit <= 0 ? 50 : limit;
         return mapper.listByObjectPage(objectType, objectId, rowOffset, rowLimit).stream()
                 .map(PgVectorStoreAdapterV2::mapListRow)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -244,7 +244,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 .map(entry -> new PgVectorMetadataEqualsCriterion(
                         entry.getKey(),
                         Objects.toString(entry.getValue(), null)))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private static List<PgVectorMetadataInCriterion> inCriteria(MetadataFilter filter) {
@@ -254,8 +254,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                         entry.getKey(),
                         entry.getValue().stream()
                                 .map(value -> Objects.toString(value, null))
-                                .toList()))
-                .toList();
+                                .collect(java.util.stream.Collectors.toList())))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private static PGvector toPgVector(List<Double> embedding) {
@@ -281,8 +281,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
 
     private static int resolveChunkIndex(Map<String, Object> metadata) {
         Object value = metadata.getOrDefault("chunkOrder", metadata.getOrDefault("chunkIndex", 0));
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
         try {
             return Integer.parseInt(value.toString());

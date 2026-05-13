@@ -172,6 +172,21 @@ final class AttachmentWebSupport {
         return userId == null ? null : String.valueOf(userId);
     }
 
-    record PreparedUpload(String name, String contentType, int sizeBytes) {
+    static final class PreparedUpload {
+        private final String name;
+        private final String contentType;
+        private final int sizeBytes;
+
+        PreparedUpload(String name, String contentType, int sizeBytes) {
+            this.name = name;
+            this.contentType = contentType;
+            this.sizeBytes = sizeBytes;
+        }
+
+        String name() { return name; }
+
+        String contentType() { return contentType; }
+
+        int sizeBytes() { return sizeBytes; }
     }
 }

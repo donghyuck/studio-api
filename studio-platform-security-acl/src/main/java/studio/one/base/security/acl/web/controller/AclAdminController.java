@@ -25,7 +25,7 @@ import static org.springframework.http.ResponseEntity.ok;
 
 import java.util.List;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -73,7 +73,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/classes")
     public ResponseEntity<ApiResponse<List<AclClassDto>>> classes() {
-        var list = administrationService.listClasses().stream().map(this::toDto).toList();
+        var list = administrationService.listClasses().stream().map(this::toDto).collect(java.util.stream.Collectors.toList());
         return ok(ApiResponse.ok(list));
     }
 
@@ -106,7 +106,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/sids")
     public ResponseEntity<ApiResponse<List<AclSidDto>>> sids() {
-        var list = administrationService.listSids().stream().map(this::toDto).toList();
+        var list = administrationService.listSids().stream().map(this::toDto).collect(java.util.stream.Collectors.toList());
         return ok(ApiResponse.ok(list));
     }
 
@@ -129,7 +129,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/objects")
     public ResponseEntity<ApiResponse<List<AclObjectIdentityDto>>> objectIdentities() {
-        var list = administrationService.listObjectIdentities().stream().map(this::toDto).toList();
+        var list = administrationService.listObjectIdentities().stream().map(this::toDto).collect(java.util.stream.Collectors.toList());
         return ok(ApiResponse.ok(list));
     }
 
@@ -153,7 +153,7 @@ public class AclAdminController {
     @PreAuthorize("@endpointAuthz.can('security:acl','read')")
     @GetMapping("/entries")
     public ResponseEntity<ApiResponse<List<AclEntryDto>>>  entries() {
-        var list = administrationService.listEntries().stream().map(this::toDto).toList();
+        var list = administrationService.listEntries().stream().map(this::toDto).collect(java.util.stream.Collectors.toList());
         return ok(ApiResponse.ok(list));
     }
 

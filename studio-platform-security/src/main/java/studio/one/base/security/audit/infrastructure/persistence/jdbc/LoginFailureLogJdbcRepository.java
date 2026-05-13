@@ -24,46 +24,34 @@ import studio.one.base.security.audit.application.command.LoginFailQuery;
 @Repository
 public class LoginFailureLogJdbcRepository implements LoginFailureLogRepository {
 
-    private static final String INSERT_SQL = """
-            insert into TB_LOGIN_FAILURE_LOG
-                (USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT)
-            values
-                (:username, :remote_ip::inet, :user_agent, :failure_type, :message, :occurred_at)
-            returning ID
-            """;
+    private static final String INSERT_SQL = "insert into TB_LOGIN_FAILURE_LOG\n"
+                + "    (USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT)\n"
+                + "values\n"
+                + "    (:username, :remote_ip::inet, :user_agent, :failure_type, :message, :occurred_at)\n"
+                + "returning ID\n";
 
-    private static final String UPDATE_SQL = """
-            update TB_LOGIN_FAILURE_LOG
-               set USERNAME = :username,
-                   REMOTE_IP = :remote_ip::inet,
-                   USER_AGENT = :user_agent,
-                   FAILURE_TYPE = :failure_type,
-                   MESSAGE = :message,
-                   OCCURRED_AT = :occurred_at
-             where ID = :id
-            """;
+    private static final String UPDATE_SQL = "update TB_LOGIN_FAILURE_LOG\n"
+                + "   set USERNAME = :username,\n"
+                + "       REMOTE_IP = :remote_ip::inet,\n"
+                + "       USER_AGENT = :user_agent,\n"
+                + "       FAILURE_TYPE = :failure_type,\n"
+                + "       MESSAGE = :message,\n"
+                + "       OCCURRED_AT = :occurred_at\n"
+                + " where ID = :id\n";
 
-    private static final String DELETE_OLDER_THAN_SQL = """
-            delete from TB_LOGIN_FAILURE_LOG
-             where OCCURRED_AT < :cutoff
-            """;
+    private static final String DELETE_OLDER_THAN_SQL = "delete from TB_LOGIN_FAILURE_LOG\n"
+                + " where OCCURRED_AT < :cutoff\n";
 
-    private static final String COUNT_BY_USERNAME_SINCE_SQL = """
-            select count(*)
-              from TB_LOGIN_FAILURE_LOG
-             where USERNAME = :username
-               and OCCURRED_AT >= :since
-            """;
+    private static final String COUNT_BY_USERNAME_SINCE_SQL = "select count(*)\n"
+                + "  from TB_LOGIN_FAILURE_LOG\n"
+                + " where USERNAME = :username\n"
+                + "   and OCCURRED_AT >= :since\n";
 
-    private static final String COUNT_SEARCH_BASE_SQL = """
-            select count(*)
-              from TB_LOGIN_FAILURE_LOG
-            """;
+    private static final String COUNT_SEARCH_BASE_SQL = "select count(*)\n"
+                + "  from TB_LOGIN_FAILURE_LOG\n";
 
-    private static final String SEARCH_BASE_SQL = """
-            select ID, USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT
-              from TB_LOGIN_FAILURE_LOG
-            """;
+    private static final String SEARCH_BASE_SQL = "select ID, USERNAME, REMOTE_IP, USER_AGENT, FAILURE_TYPE, MESSAGE, OCCURRED_AT\n"
+                + "  from TB_LOGIN_FAILURE_LOG\n";
 
     private static final RowMapper<LoginFailureLog> ROW_MAPPER = (rs, rowNum) -> LoginFailureLog.builder()
             .id(rs.getLong("id"))

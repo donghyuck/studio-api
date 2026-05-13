@@ -72,7 +72,13 @@ class MailNotifierConditionTest {
                 });
     }
 
-    private record TestConditionContext(Environment environment) implements ConditionContext {
+    private static final class TestConditionContext implements ConditionContext {
+
+        private final Environment environment;
+
+        private TestConditionContext(Environment environment) {
+            this.environment = environment;
+        }
 
         @Override
         public org.springframework.beans.factory.support.BeanDefinitionRegistry getRegistry() {

@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
@@ -102,7 +102,7 @@ public class RagChunkPreviewController {
                 warnings.add("Chunk preview truncated to " + maxPreviewChunks + " chunks.");
             }
             return ResponseEntity.ok(ApiResponse.ok(new RagChunkPreviewResponseDto(
-                    returned.stream().map(chunk -> toItem(chunk, requestMetadata)).toList(),
+                    returned.stream().map(chunk -> toItem(chunk, requestMetadata)).collect(java.util.stream.Collectors.toList()),
                     chunks.size(),
                     totalChars,
                     effectiveStrategy(context).value(),
@@ -246,7 +246,7 @@ public class RagChunkPreviewController {
         return chunkers.stream()
                 .map(chunker -> chunker.getClass().getSimpleName())
                 .sorted(Comparator.naturalOrder())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private ChunkingStrategyType effectiveStrategy(ChunkingContext context) {
@@ -279,7 +279,7 @@ public class RagChunkPreviewController {
             if (key == null || key.isBlank() || value == null) {
                 return;
             }
-            if (value instanceof String text && text.isBlank()) {
+            if (value instanceof String && ((String) value).isBlank()) {
                 return;
             }
             sanitized.put(key, value);
@@ -290,7 +290,7 @@ public class RagChunkPreviewController {
     private Object firstPresent(Map<String, Object> metadata, String... keys) {
         for (String key : keys) {
             Object value = metadata.get(key);
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
                 return value;
             }
         }
@@ -310,12 +310,12 @@ public class RagChunkPreviewController {
     }
 
     private Integer integer(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.valueOf(text.trim());
+                return Integer.valueOf(((String) value).trim());
             } catch (NumberFormatException ignored) {
                 return null;
             }

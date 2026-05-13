@@ -66,9 +66,10 @@ public final class MetadataRange<T extends Comparable<T>> {
         if (this == other) {
             return true;
         }
-        if (!(other instanceof MetadataRange<?> that)) {
+        if (!(other instanceof MetadataRange<?>)) {
             return false;
         }
+        MetadataRange<?> that = (MetadataRange<?>) other;
         return includeFrom == that.includeFrom
                 && includeTo == that.includeTo
                 && Objects.equals(from, that.from)

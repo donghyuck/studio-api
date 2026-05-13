@@ -50,13 +50,11 @@ public class PasswordResetTokenJdbcRepository implements PasswordResetTokenRepos
 
     @Override
     public Optional<PasswordResetToken> findActiveByUserId(Long userId) {
-        String sql = """
-                select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT
-                  from %s
-                 where USER_ID = :userId
-                   and USED = false
-                 order by CREATED_AT desc
-                """.formatted(TABLE);
+        String sql = String.format("select ID, USER_ID, TOKEN, EXPIRES_AT, USED, CREATED_AT\n"
+                + "  from %s\n"
+                + " where USER_ID = :userId\n"
+                + "   and USED = false\n"
+                + " order by CREATED_AT desc\n", TABLE);
         return template.query(sql, Map.of("userId", userId), ROW_MAPPER).stream().findFirst();
     }
 
@@ -75,14 +73,12 @@ public class PasswordResetTokenJdbcRepository implements PasswordResetTokenRepos
     }
 
     private PasswordResetToken update(PasswordResetToken token) {
-        String sql = """
-                update %s
-                   set USER_ID = :userId,
-                       TOKEN = :token,
-                       EXPIRES_AT = :expiresAt,
-                       USED = :used
-                 where ID = :id
-                """.formatted(TABLE);
+        String sql = String.format("update %s\n"
+                + "   set USER_ID = :userId,\n"
+                + "       TOKEN = :token,\n"
+                + "       EXPIRES_AT = :expiresAt,\n"
+                + "       USED = :used\n"
+                + " where ID = :id\n", TABLE);
         Map<String, Object> params = new HashMap<>();
         params.put("userId", token.getUserId());
         params.put("token", token.getToken());

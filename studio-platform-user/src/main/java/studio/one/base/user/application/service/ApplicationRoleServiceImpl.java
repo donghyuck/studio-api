@@ -1,13 +1,14 @@
 package studio.one.base.user.application.service;
 
 import java.time.OffsetDateTime;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.transaction.Transactional;
+import javax.annotation.PostConstruct;
+import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
@@ -157,11 +158,14 @@ public class ApplicationRoleServiceImpl
     public Page<Long> findUsersGrantedRole(Long roleId, String scope, String q, Pageable pageable) {
         final String s = scope == null ? "effective" : scope.toLowerCase();
         final String keyword = blankToNull(q);
-        return switch (s) {
-            case "direct" -> userRoleRepo.findUserIdsByRoleId(roleId, keyword, pageable);
-            case "group" -> userRoleRepo.findUserIdsByRoleIdViaGroup(roleId, keyword, pageable);
-            default -> userRoleRepo.findUserIdsByRoleId(roleId, keyword, pageable); // 간단 구현
-        };
+        switch (s) {
+            case "direct":
+                return userRoleRepo.findUserIdsByRoleId(roleId, keyword, pageable);
+            case "group":
+                return userRoleRepo.findUserIdsByRoleIdViaGroup(roleId, keyword, pageable);
+            default:
+                return userRoleRepo.findUserIdsByRoleId(roleId, keyword, pageable); // 간단 구현
+        }
     }
 
     private static String blankToNull(String s) {
@@ -201,18 +205,14 @@ public class ApplicationRoleServiceImpl
         final List<Long> candidates = userIds.stream()
                 .filter(Objects::nonNull)
                 .distinct()
-                .toList();
+                .collect(Collectors.toList());
         if (candidates.isEmpty()) {
             return new BatchResult(0, 0, 0, 0);
         }
         final Long[] arr = candidates.toArray(new Long[0]);
 
-        final String sql = """
-                insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)
-                select uid, ?, coalesce(?, now()), ?
-                from unnest(?::bigint[]) as uid
-                on conflict (user_id, role_id) do nothing
-                """;
+        final String sql = (
+"insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)\\n" + "select uid, ?, coalesce(?, now()), ?\\n" + "from unnest(?::bigint[]) as uid\\n" + "on conflict (user_id, role_id) do nothing\\n");
         int inserted = jdbcTemplate.update(con -> {
             final java.sql.PreparedStatement ps = con.prepareStatement(sql);
             ps.setLong(1, roleId);

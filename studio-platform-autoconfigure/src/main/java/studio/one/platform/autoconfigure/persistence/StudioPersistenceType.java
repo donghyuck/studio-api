@@ -27,34 +27,49 @@ public enum StudioPersistenceType {
     }
 
     public PersistenceProperties.Type toLegacyType() {
-        return switch (this) {
-            case JPA -> PersistenceProperties.Type.jpa;
-            case MYBATIS -> PersistenceProperties.Type.mybatis;
-            case JDBC -> PersistenceProperties.Type.jdbc;
-        };
+        switch (this) {
+            case JPA:
+                return PersistenceProperties.Type.jpa;
+            case MYBATIS:
+                return PersistenceProperties.Type.mybatis;
+            case JDBC:
+                return PersistenceProperties.Type.jdbc;
+            default:
+                throw new IllegalStateException("Unsupported persistence type: " + this);
+        }
     }
 
     public static StudioPersistenceType from(PersistenceProperties.Type type) {
         if (type == null) {
             return null;
         }
-        return switch (type) {
-            case jpa -> JPA;
-            case mybatis -> MYBATIS;
-            case jdbc -> JDBC;
-        };
+        switch (type) {
+            case jpa:
+                return JPA;
+            case mybatis:
+                return MYBATIS;
+            case jdbc:
+                return JDBC;
+            default:
+                throw new IllegalArgumentException("Unsupported persistence type: " + type);
+        }
     }
 
     public static StudioPersistenceType parse(String raw, String propertyName) {
         if (raw == null || raw.trim().isEmpty()) {
             throw new IllegalArgumentException("Persistence type must not be empty: " + propertyName);
         }
-        return switch (raw.trim().toLowerCase(Locale.ROOT)) {
-            case "jpa" -> JPA;
-            case "mybatis" -> MYBATIS;
-            case "jdbc" -> JDBC;
-            default -> throw new IllegalArgumentException("Unsupported persistence type '" + raw + "' for "
+        String normalized = raw.trim().toLowerCase(Locale.ROOT);
+        switch (normalized) {
+            case "jpa":
+                return JPA;
+            case "mybatis":
+                return MYBATIS;
+            case "jdbc":
+                return JDBC;
+            default:
+                throw new IllegalArgumentException("Unsupported persistence type '" + raw + "' for "
                     + propertyName + ". Supported values are: jpa, mybatis, jdbc(deprecated alias).");
-        };
+        }
     }
 }

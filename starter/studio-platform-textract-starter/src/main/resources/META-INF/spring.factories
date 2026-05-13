@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.textract.autoconfigure.TextractAutoConfiguration

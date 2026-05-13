@@ -70,48 +70,45 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
     @Override
     public RagIndexJob save(RagIndexJob job) {
         if (findById(job.jobId()).isPresent()) {
-            template.update("""
-                    UPDATE tb_ai_rag_index_job
-                       SET object_type = :objectType,
-                           object_id = :objectId,
-                           document_id = :documentId,
-                           source_type = :sourceType,
-                           source_name = :sourceName,
-                           status = :status,
-                           current_step = :currentStep,
-                           chunk_count = :chunkCount,
-                           embedded_count = :embeddedCount,
-                           indexed_count = :indexedCount,
-                           warning_count = :warningCount,
-                           error_message = :errorMessage,
-                           created_at = :createdAt,
-                           started_at = :startedAt,
-                           finished_at = :finishedAt,
-                           duration_ms = :durationMs
-                     WHERE job_id = :jobId
-                    """, jobParameters(job));
+            template.update(String.join("\n",
+        "UPDATE tb_ai_rag_index_job",
+        "   SET object_type = :objectType,",
+        "       object_id = :objectId,",
+        "       document_id = :documentId,",
+        "       source_type = :sourceType,",
+        "       source_name = :sourceName,",
+        "       status = :status,",
+        "       current_step = :currentStep,",
+        "       chunk_count = :chunkCount,",
+        "       embedded_count = :embeddedCount,",
+        "       indexed_count = :indexedCount,",
+        "       warning_count = :warningCount,",
+        "       error_message = :errorMessage,",
+        "       created_at = :createdAt,",
+        "       started_at = :startedAt,",
+        "       finished_at = :finishedAt,",
+        "       duration_ms = :durationMs",
+        " WHERE job_id = :jobId"), jobParameters(job));
             return job;
         }
-        template.update("""
-                INSERT INTO tb_ai_rag_index_job(
-                    job_id, object_type, object_id, document_id, source_type, source_name,
-                    status, current_step, chunk_count, embedded_count, indexed_count,
-                    warning_count, error_message, created_at, started_at, finished_at, duration_ms)
-                VALUES (
-                    :jobId, :objectType, :objectId, :documentId, :sourceType, :sourceName,
-                    :status, :currentStep, :chunkCount, :embeddedCount, :indexedCount,
-                    :warningCount, :errorMessage, :createdAt, :startedAt, :finishedAt, :durationMs)
-                """, jobParameters(job));
+        template.update(String.join("\n",
+        "INSERT INTO tb_ai_rag_index_job(",
+        "    job_id, object_type, object_id, document_id, source_type, source_name,",
+        "    status, current_step, chunk_count, embedded_count, indexed_count,",
+        "    warning_count, error_message, created_at, started_at, finished_at, duration_ms)",
+        "VALUES (",
+        "    :jobId, :objectType, :objectId, :documentId, :sourceType, :sourceName,",
+        "    :status, :currentStep, :chunkCount, :embeddedCount, :indexedCount,",
+        "    :warningCount, :errorMessage, :createdAt, :startedAt, :finishedAt, :durationMs)"), jobParameters(job));
         return job;
     }
 
     @Override
     public Optional<RagIndexJob> findById(String jobId) {
-        List<RagIndexJob> jobs = template.query("""
-                SELECT *
-                  FROM tb_ai_rag_index_job
-                 WHERE job_id = :jobId
-                """, new MapSqlParameterSource("jobId", jobId), JOB_ROW_MAPPER);
+        List<RagIndexJob> jobs = template.query(String.join("\n",
+        "SELECT *",
+        "  FROM tb_ai_rag_index_job",
+        " WHERE job_id = :jobId"), new MapSqlParameterSource("jobId", jobId), JOB_ROW_MAPPER);
         return jobs.stream().findFirst();
     }
 
@@ -136,10 +133,9 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
         MapSqlParameterSource params = query.params()
                 .addValue("limit", effectivePageable.limit())
                 .addValue("offset", effectivePageable.offset());
-        List<RagIndexJob> jobs = template.query("""
-                SELECT *
-                  FROM tb_ai_rag_index_job
-                """
+        List<RagIndexJob> jobs = template.query(String.join("\n",
+        "SELECT *",
+        "  FROM tb_ai_rag_index_job")
                 + query.whereClause()
                 + " ORDER BY " + orderBy(effectiveSort)
                 + " LIMIT :limit OFFSET :offset",
@@ -205,23 +201,21 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                 && log.code() != RagIndexJobLogCode.JOB_CANCELLED).isPresent()) {
             return log;
         }
-        template.update("""
-                INSERT INTO tb_ai_rag_index_job_log(
-                    log_id, job_id, log_level, step, code, message, detail, created_at)
-                VALUES (
-                    :logId, :jobId, :logLevel, :step, :code, :message, :detail, :createdAt)
-                """, logParameters(log));
+        template.update(String.join("\n",
+        "INSERT INTO tb_ai_rag_index_job_log(",
+        "    log_id, job_id, log_level, step, code, message, detail, created_at)",
+        "VALUES (",
+        "    :logId, :jobId, :logLevel, :step, :code, :message, :detail, :createdAt)"), logParameters(log));
         return log;
     }
 
     @Override
     public List<RagIndexJobLog> findLogs(String jobId) {
-        return template.query("""
-                SELECT *
-                  FROM tb_ai_rag_index_job_log
-                 WHERE job_id = :jobId
-                 ORDER BY created_at ASC, log_id ASC
-                """, new MapSqlParameterSource("jobId", jobId), LOG_ROW_MAPPER);
+        return template.query(String.join("\n",
+        "SELECT *",
+        "  FROM tb_ai_rag_index_job_log",
+        " WHERE job_id = :jobId",
+        " ORDER BY created_at ASC, log_id ASC"), new MapSqlParameterSource("jobId", jobId), LOG_ROW_MAPPER);
     }
 
     @Override
@@ -230,26 +224,23 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                 .addValue("objectType", objectType)
                 .addValue("objectId", objectId)
                 .addValue("terminalStatuses", TERMINAL_STATUS_NAMES);
-        List<String> jobIds = template.queryForList("""
-                SELECT job_id
-                  FROM tb_ai_rag_index_job
-                 WHERE object_type = :objectType
-                   AND object_id = :objectId
-                   AND status IN (:terminalStatuses)
-                """, params, String.class);
+        List<String> jobIds = template.queryForList(String.join("\n",
+        "SELECT job_id",
+        "  FROM tb_ai_rag_index_job",
+        " WHERE object_type = :objectType",
+        "   AND object_id = :objectId",
+        "   AND status IN (:terminalStatuses)"), params, String.class);
         if (jobIds.isEmpty()) {
             return List.of();
         }
 
         MapSqlParameterSource deleteParams = new MapSqlParameterSource("jobIds", jobIds);
-        template.update("""
-                DELETE FROM tb_ai_rag_index_job_log
-                 WHERE job_id IN (:jobIds)
-                """, deleteParams);
-        template.update("""
-                DELETE FROM tb_ai_rag_index_job
-                 WHERE job_id IN (:jobIds)
-                """, deleteParams);
+        template.update(String.join("\n",
+        "DELETE FROM tb_ai_rag_index_job_log",
+        " WHERE job_id IN (:jobIds)"), deleteParams);
+        template.update(String.join("\n",
+        "DELETE FROM tb_ai_rag_index_job",
+        " WHERE job_id IN (:jobIds)"), deleteParams);
         return jobIds;
     }
 
@@ -318,18 +309,42 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
     }
 
     private String orderBy(RagIndexJobSort sort) {
-        String column = switch (sort.field()) {
-            case STARTED_AT -> "started_at";
-            case FINISHED_AT -> "finished_at";
-            case STATUS -> "status";
-            case CURRENT_STEP -> "current_step";
-            case OBJECT_TYPE -> "object_type";
-            case OBJECT_ID -> "object_id";
-            case DOCUMENT_ID -> "document_id";
-            case SOURCE_TYPE -> "source_type";
-            case DURATION_MS -> "duration_ms";
-            case CREATED_AT -> "created_at";
-        };
+        String column;
+        switch (sort.field()) {
+            case STARTED_AT:
+                column = "started_at";
+                break;
+            case FINISHED_AT:
+                column = "finished_at";
+                break;
+            case STATUS:
+                column = "status";
+                break;
+            case CURRENT_STEP:
+                column = "current_step";
+                break;
+            case OBJECT_TYPE:
+                column = "object_type";
+                break;
+            case OBJECT_ID:
+                column = "object_id";
+                break;
+            case DOCUMENT_ID:
+                column = "document_id";
+                break;
+            case SOURCE_TYPE:
+                column = "source_type";
+                break;
+            case DURATION_MS:
+                column = "duration_ms";
+                break;
+            case CREATED_AT:
+                column = "created_at";
+                break;
+            default:
+                column = "created_at";
+                break;
+        }
         String direction = sort.direction() == RagIndexJobSort.Direction.ASC ? "ASC" : "DESC";
         return column + " " + direction + ", job_id ASC";
     }
@@ -363,6 +378,21 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
         }
     }
 
-    private record QueryParts(String whereClause, MapSqlParameterSource params) {
+    private static final class QueryParts {
+        private final String whereClause;
+        private final MapSqlParameterSource params;
+
+        private QueryParts(String whereClause, MapSqlParameterSource params) {
+            this.whereClause = whereClause;
+            this.params = params;
+        }
+
+        private String whereClause() {
+            return whereClause;
+        }
+
+        private MapSqlParameterSource params() {
+            return params;
+        }
     }
 }

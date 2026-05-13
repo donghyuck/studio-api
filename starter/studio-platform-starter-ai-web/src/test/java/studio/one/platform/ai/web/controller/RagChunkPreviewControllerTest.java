@@ -243,7 +243,7 @@ class RagChunkPreviewControllerTest {
     private void assertStatus(Runnable action, int expectedStatus) {
         assertThatThrownBy(action::run)
                 .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode().value())
+                .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatus().value())
                         .isEqualTo(expectedStatus));
     }
 

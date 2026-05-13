@@ -1,7 +1,6 @@
 package studio.one.application.web.autoconfigure;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -18,7 +17,7 @@ import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureAfter(name = "studio.one.application.attachment.autoconfigure.AttachmentAutoConfiguration")
 @ConditionalOnClass({AttachmentService.class, RagPipelineService.class})
 @ConditionalOnBean(AttachmentService.class)

@@ -49,47 +49,27 @@ public class AvatarImageJdbcRepository implements AvatarImageRepository {
 
     @Override
     public List<AvatarImage> findByUserIdOrderByCreationDateDesc(Long userId) {
-        String sql = """
-                select AVATAR_IMAGE_ID, USER_ID, PRIMARY_IMAGE, FILE_NAME, FILE_SIZE, CONTENT_TYPE,
-                       CREATION_DATE, MODIFIED_DATE
-                  from %s
-                 where USER_ID = :userId
-                 order by CREATION_DATE desc
-                """.formatted(TABLE);
+        String sql = String.format("select AVATAR_IMAGE_ID, USER_ID, PRIMARY_IMAGE, FILE_NAME, FILE_SIZE, CONTENT_TYPE, CREATION_DATE, MODIFIED_DATE from %s where USER_ID = :userId order by CREATION_DATE desc", TABLE);
         return template.query(sql, Map.of("userId", userId), ROW_MAPPER);
     }
 
     @Override
     public Optional<AvatarImage> findFirstByUserIdAndPrimaryImageTrueOrderByCreationDateDesc(Long userId) {
-        String sql = """
-                select AVATAR_IMAGE_ID, USER_ID, PRIMARY_IMAGE, FILE_NAME, FILE_SIZE, CONTENT_TYPE,
-                       CREATION_DATE, MODIFIED_DATE
-                  from %s
-                 where USER_ID = :userId and PRIMARY_IMAGE = true
-                 order by CREATION_DATE desc
-                 limit 1
-                """.formatted(TABLE);
+        String sql = String.format("select AVATAR_IMAGE_ID, USER_ID, PRIMARY_IMAGE, FILE_NAME, FILE_SIZE, CONTENT_TYPE, CREATION_DATE, MODIFIED_DATE from %s where USER_ID = :userId and PRIMARY_IMAGE = true order by CREATION_DATE desc limit 1", TABLE);
         return querySingle(sql, Map.of("userId", userId));
     }
 
     @Override
     public long countByUserId(Long userId) {
         return template.queryForObject(
-                "select count(*) from %s where USER_ID = :userId".formatted(TABLE),
+                String.format("select count(*) from %s where USER_ID = :userId", TABLE),
                 Map.of("userId", userId),
                 Long.class);
     }
 
     @Override
     public Optional<AvatarImage> findById(Long id) {
-        String sql = """
-                select i.AVATAR_IMAGE_ID, i.USER_ID, i.PRIMARY_IMAGE, i.FILE_NAME, i.FILE_SIZE,
-                       i.CONTENT_TYPE, i.CREATION_DATE, i.MODIFIED_DATE,
-                       d.AVATAR_IMAGE_DATA
-                  from %s i
-                  left join %s d on d.AVATAR_IMAGE_ID = i.AVATAR_IMAGE_ID
-                 where i.AVATAR_IMAGE_ID = :id
-                """.formatted(TABLE, TABLE_DATA);
+        String sql = String.format("select i.AVATAR_IMAGE_ID, i.USER_ID, i.PRIMARY_IMAGE, i.FILE_NAME, i.FILE_SIZE, i.CONTENT_TYPE, i.CREATION_DATE, i.MODIFIED_DATE, d.AVATAR_IMAGE_DATA from %s i left join %s d on d.AVATAR_IMAGE_ID = i.AVATAR_IMAGE_ID where i.AVATAR_IMAGE_ID = :id", TABLE, TABLE_DATA);
         return template.query(sql, Map.of("id", id), (rs, rowNum) -> mapWithData(rs)).stream().findFirst();
     }
 
@@ -116,8 +96,8 @@ public class AvatarImageJdbcRepository implements AvatarImageRepository {
             return;
         }
         Map<String, Object> params = Map.of("id", avatarImage.getId());
-        template.update("delete from %s where AVATAR_IMAGE_ID = :id".formatted(TABLE_DATA), params);
-        template.update("delete from %s where AVATAR_IMAGE_ID = :id".formatted(TABLE), params);
+        template.update(String.format("delete from %s where AVATAR_IMAGE_ID = :id", TABLE_DATA), params);
+        template.update(String.format("delete from %s where AVATAR_IMAGE_ID = :id", TABLE), params);
     }
 
     private AvatarImage insert(AvatarImage avatar) {
@@ -147,16 +127,7 @@ public class AvatarImageJdbcRepository implements AvatarImageRepository {
             modified = OffsetDateTime.now(ZoneOffset.UTC);
             avatar.setModifiedDate(modified);
         }
-        String sql = """
-                update %s
-                   set USER_ID = :userId,
-                       PRIMARY_IMAGE = :primaryImage,
-                       FILE_NAME = :fileName,
-                       FILE_SIZE = :fileSize,
-                       CONTENT_TYPE = :contentType,
-                       MODIFIED_DATE = :modifiedDate
-                 where AVATAR_IMAGE_ID = :id
-                """.formatted(TABLE);
+        String sql = String.format("update %s set USER_ID = :userId, PRIMARY_IMAGE = :primaryImage, FILE_NAME = :fileName, FILE_SIZE = :fileSize, CONTENT_TYPE = :contentType, MODIFIED_DATE = :modifiedDate where AVATAR_IMAGE_ID = :id", TABLE);
         Map<String, Object> params = new HashMap<>();
         params.put("userId", avatar.getUserId());
         params.put("primaryImage", avatar.isPrimaryImage());

@@ -21,12 +21,12 @@
 
 package studio.one.platform.autoconfigure.objecttype;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
@@ -38,7 +38,8 @@ import studio.one.platform.objecttype.web.controller.ObjectTypeController;
 import studio.one.platform.objecttype.web.controller.ObjectTypeMgmtController;
 import lombok.extern.slf4j.Slf4j;
 
-@AutoConfiguration(after = ObjectTypeAutoConfiguration.class)
+@Configuration
+@AutoConfigureAfter(ObjectTypeAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "studio.features.objecttype.web", name = "enabled", havingValue = "true", matchIfMissing = false)
 @Slf4j
 public class ObjectTypeWebAutoConfiguration {

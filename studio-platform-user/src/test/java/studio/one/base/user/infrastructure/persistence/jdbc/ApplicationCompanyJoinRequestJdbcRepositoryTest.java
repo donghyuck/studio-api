@@ -142,69 +142,12 @@ class ApplicationCompanyJoinRequestJdbcRepositoryTest {
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY_MEMBERS");
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_USER");
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY");
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_COMPANY (
-                    COMPANY_ID bigint primary key,
-                    STATUS varchar(30) not null default 'ACTIVE'
-                )
-                """);
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_USER (
-                    USER_ID bigint primary key
-                )
-                """);
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_COMPANY_MEMBER_KEY (
-                    KEY_ID bigserial primary key,
-                    COMPANY_ID bigint not null,
-                    ROLE varchar(30) not null,
-                    KEY_HASH varchar(64) not null unique,
-                    STATUS varchar(30) not null default 'ACTIVE',
-                    EXPIRES_AT timestamptz,
-                    MAX_USES integer,
-                    USED_COUNT integer not null default 0,
-                    CREATED_AT timestamptz not null default now(),
-                    CREATED_BY bigint,
-                    UPDATED_AT timestamptz,
-                    UPDATED_BY bigint
-                )
-                """);
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_COMPANY_JOIN_REQUEST (
-                    REQUEST_ID bigserial primary key,
-                    COMPANY_ID bigint not null,
-                    KEY_ID bigint not null,
-                    USER_ID bigint,
-                    REQUEST_NAME varchar(255),
-                    EMAIL varchar(255),
-                    MESSAGE varchar(1000),
-                    REQUESTED_ROLE varchar(30) not null,
-                    STATUS varchar(30) not null default 'PENDING',
-                    REQUESTED_AT timestamptz not null default now(),
-                    REQUESTED_BY bigint,
-                    DECIDED_AT timestamptz,
-                    DECIDED_BY bigint,
-                    UPDATED_AT timestamptz
-                )
-                """);
-        template.getJdbcTemplate().execute("""
-                create table TB_APPLICATION_COMPANY_MEMBERS (
-                    COMPANY_ID bigint not null,
-                    USER_ID bigint not null,
-                    ROLE varchar(30) not null,
-                    STATUS varchar(30) not null default 'ACTIVE',
-                    JOINED_AT timestamptz,
-                    JOINED_BY bigint,
-                    UPDATED_AT timestamptz,
-                    UPDATED_BY bigint,
-                    primary key (COMPANY_ID, USER_ID)
-                )
-                """);
-        template.getJdbcTemplate().execute("""
-                create unique index UK_COMPANY_JOIN_REQUEST_PENDING_USER
-                    on TB_APPLICATION_COMPANY_JOIN_REQUEST (COMPANY_ID, USER_ID)
-                    where STATUS = 'PENDING' and USER_ID is not null
-                """);
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_COMPANY (\\n" + "    COMPANY_ID bigint primary key,\\n" + "    STATUS varchar(30) not null default 'ACTIVE'\\n" + ")\\n");
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_USER (\\n" + "    USER_ID bigint primary key\\n" + ")\\n");
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_COMPANY_MEMBER_KEY (\\n" + "    KEY_ID bigserial primary key,\\n" + "    COMPANY_ID bigint not null,\\n" + "    ROLE varchar(30) not null,\\n" + "    KEY_HASH varchar(64) not null unique,\\n" + "    STATUS varchar(30) not null default 'ACTIVE',\\n" + "    EXPIRES_AT timestamptz,\\n" + "    MAX_USES integer,\\n" + "    USED_COUNT integer not null default 0,\\n" + "    CREATED_AT timestamptz not null default now(),\\n" + "    CREATED_BY bigint,\\n" + "    UPDATED_AT timestamptz,\\n" + "    UPDATED_BY bigint\\n" + ")\\n");
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_COMPANY_JOIN_REQUEST (\\n" + "    REQUEST_ID bigserial primary key,\\n" + "    COMPANY_ID bigint not null,\\n" + "    KEY_ID bigint not null,\\n" + "    USER_ID bigint,\\n" + "    REQUEST_NAME varchar(255),\\n" + "    EMAIL varchar(255),\\n" + "    MESSAGE varchar(1000),\\n" + "    REQUESTED_ROLE varchar(30) not null,\\n" + "    STATUS varchar(30) not null default 'PENDING',\\n" + "    REQUESTED_AT timestamptz not null default now(),\\n" + "    REQUESTED_BY bigint,\\n" + "    DECIDED_AT timestamptz,\\n" + "    DECIDED_BY bigint,\\n" + "    UPDATED_AT timestamptz\\n" + ")\\n");
+        template.getJdbcTemplate().execute("create table TB_APPLICATION_COMPANY_MEMBERS (\\n" + "    COMPANY_ID bigint not null,\\n" + "    USER_ID bigint not null,\\n" + "    ROLE varchar(30) not null,\\n" + "    STATUS varchar(30) not null default 'ACTIVE',\\n" + "    JOINED_AT timestamptz,\\n" + "    JOINED_BY bigint,\\n" + "    UPDATED_AT timestamptz,\\n" + "    UPDATED_BY bigint,\\n" + "    primary key (COMPANY_ID, USER_ID)\\n" + ")\\n");
+        template.getJdbcTemplate().execute("create unique index UK_COMPANY_JOIN_REQUEST_PENDING_USER\\n" + "    on TB_APPLICATION_COMPANY_JOIN_REQUEST (COMPANY_ID, USER_ID)\\n" + "    where STATUS = 'PENDING' and USER_ID is not null\\n");
         template.getJdbcTemplate().execute("insert into TB_APPLICATION_COMPANY (COMPANY_ID) values (10)");
         template.getJdbcTemplate().execute("insert into TB_APPLICATION_USER (USER_ID) values (7)");
     }

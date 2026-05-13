@@ -21,9 +21,10 @@
 
 package studio.one.platform.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.ApplicationEventPublisher;
@@ -57,7 +58,7 @@ import studio.one.platform.util.I18nUtils;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @RequiredArgsConstructor
 @AutoConfigureAfter({ PropertiesAutoConfiguration.class, I18nAutoConfiguration.class })
 @Slf4j

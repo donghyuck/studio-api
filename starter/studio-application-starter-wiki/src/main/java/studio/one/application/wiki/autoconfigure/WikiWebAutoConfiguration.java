@@ -1,7 +1,8 @@
 package studio.one.application.wiki.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -14,7 +15,7 @@ import studio.one.application.wiki.web.controller.WikiMgmtController;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.identity.PrincipalResolver;
 
-@AutoConfiguration(after = WikiAutoConfiguration.class)
+@Configuration
 @AutoConfigureAfter(WikiAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".wiki.web", name = "enabled", havingValue = "true")
 @ConditionalOnBean(WikiPageService.class)

@@ -12,7 +12,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Base64;
-import java.util.HexFormat;
 import java.util.Map;
 
 import javax.crypto.Mac;
@@ -169,13 +168,12 @@ class AttachmentDownloadUrlServiceImplTest {
         assertThrows(AttachmentDownloadTokenInvalidException.class,
                 () -> service.verifyDownloadToken(segments[0] + "." + segments[1] + "a"));
         assertThrows(AttachmentDownloadTokenInvalidException.class,
-                () -> service.verifyDownloadToken(signedToken("""
-                        purpose=other
-                        attachmentId=11
-                        issuedAt=2026-05-05T00:00:00Z
-                        expiresAt=2026-05-05T00:01:00Z
-                        nonce=test
-                        """.stripTrailing())));
+                () -> service.verifyDownloadToken(signedToken(String.join("\n",
+                        "purpose=other",
+                        "attachmentId=11",
+                        "issuedAt=2026-05-05T00:00:00Z",
+                        "expiresAt=2026-05-05T00:01:00Z",
+                        "nonce=test"))));
     }
 
     @Test
@@ -280,6 +278,18 @@ class AttachmentDownloadUrlServiceImplTest {
 
     private static String sha256(String token) throws Exception {
         var digest = java.security.MessageDigest.getInstance("SHA-256");
-        return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
+        return toHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
     }
+
+    private static String toHex(byte[] bytes) {
+        char[] hex = new char[bytes.length * 2];
+        char[] digits = "0123456789abcdef".toCharArray();
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 0xff;
+            hex[i * 2] = digits[value >>> 4];
+            hex[i * 2 + 1] = digits[value & 0x0f];
+        }
+        return new String(hex);
+    }
+
 }

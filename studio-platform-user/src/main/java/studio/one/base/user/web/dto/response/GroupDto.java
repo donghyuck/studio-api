@@ -26,8 +26,8 @@ import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.Map;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.Size;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

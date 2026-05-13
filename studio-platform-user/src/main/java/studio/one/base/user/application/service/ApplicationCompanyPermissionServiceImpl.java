@@ -1,5 +1,6 @@
 package studio.one.base.user.application.service;
 
+import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
@@ -59,7 +60,7 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
     public List<String> getGrantedActions(Long companyId, Long userId) {
         return effectiveActions(companyId, memberService.getCompanyRole(companyId, userId)).stream()
                 .sorted()
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -137,7 +138,7 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
                     .filter(ApplicationCompanyPermissionPolicy::isEnabled)
                     .map(policy -> policy.getId().getAction())
                     .sorted()
-                    .toList();
+                    .collect(Collectors.toList());
             roles.add(new CompanyPermissionRolePolicyRef(role, actions, defaultActions, true));
         }
         return new CompanyPermissionPolicyRef(companyId, roles);
@@ -173,7 +174,7 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
             }
             normalized.add(new CompanyPermissionRolePolicyRef(
                     rolePolicy.role(),
-                    actions.stream().sorted().toList(),
+                    actions.stream().sorted().collect(Collectors.toList()),
                     sorted(CompanyPermissionActions.actionsFor(rolePolicy.role())),
                     true));
         }
@@ -204,6 +205,6 @@ public class ApplicationCompanyPermissionServiceImpl implements ApplicationCompa
     }
 
     private List<String> sorted(Set<String> actions) {
-        return actions.stream().sorted().toList();
+        return actions.stream().sorted().collect(Collectors.toList());
     }
 }

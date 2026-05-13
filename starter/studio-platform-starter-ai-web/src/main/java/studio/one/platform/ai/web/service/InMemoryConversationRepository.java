@@ -50,7 +50,7 @@ public class InMemoryConversationRepository implements ConversationRepositoryPor
                 .skip(safeOffset)
                 .limit(safeLimit)
                 .map(ChatConversationSummary::from)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -81,7 +81,7 @@ public class InMemoryConversationRepository implements ConversationRepositoryPor
                 .sorted(Comparator.comparing(ChatConversationMessage::createdAt))
                 .skip(safeOffset)
                 .limit(safeLimit)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override

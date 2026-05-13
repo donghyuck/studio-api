@@ -21,8 +21,8 @@
 
 package studio.one.base.security.web.controller;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -102,8 +102,8 @@ public class JwtRefreshController extends AbstractTokenController {
     }
 
     private String getUsernameByUserID(Long userId){
-        if( userDetailsService instanceof UserIdToUsername byUserId )
-        {
+        if (userDetailsService instanceof UserIdToUsername) {
+            UserIdToUsername byUserId = (UserIdToUsername) userDetailsService;
             return byUserId.usernameOf(userId);
         }
         throw new UserNotFoundException(userId);

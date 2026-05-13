@@ -18,12 +18,11 @@ class ImageFileParserTest {
 
     @Test
     void ocrLineBlocksSplitTextIntoLineLevelBlocks() {
-        List<ParsedBlock> blocks = new ImageFileParser("/tmp", "kor+eng").ocrLineBlocks("""
-                첫 줄
-                둘째 줄
-
-                셋째 줄
-                """);
+        List<ParsedBlock> blocks = new ImageFileParser("/tmp", "kor+eng").ocrLineBlocks("첫 줄\n" +
+                "둘째 줄\n" +
+                "\n" +
+                "셋째 줄\n" +
+                "");
 
         assertEquals(3, blocks.size());
         assertTrue(blocks.stream().allMatch(block -> block.blockType() == BlockType.OCR_TEXT));

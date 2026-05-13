@@ -1,7 +1,8 @@
 package studio.one.application.mail.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -15,7 +16,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 import studio.one.application.mail.autoconfigure.service.StompMailSyncNotifier;
 import studio.one.platform.constant.PropertyKeys; 
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(MailFeatureProperties.class)
 @ConditionalOnClass(name = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".mail", name = "enabled", havingValue = "true", matchIfMissing = true)

@@ -35,13 +35,12 @@ class QueryRewriteControllerTest {
 
     @Test
     void normalizesExpandedQueryAndDeduplicatesKeywordsFromParsedJson() {
-        when(chatPort.chat(any())).thenReturn(response("""
-                {
-                  "original_query": "  hello  ",
-                  "expanded_query": "hello, greeting,\\n salutation , hello",
-                  "keywords": ["hello", "Greeting", "salutation", "hello"]
-                }
-                """));
+        when(chatPort.chat(any())).thenReturn(response(String.join("\n",
+        "{",
+        "  \"original_query\": \"  hello  \",",
+        "  \"expanded_query\": \"hello, greeting,\\\\n salutation , hello\",",
+        "  \"keywords\": [\"hello\", \"Greeting\", \"salutation\", \"hello\"]",
+        "}")));
 
         ApiResponse<QueryRewriteResponseDto> response = controller.rewrite(new QueryRewriteRequestDto("hello"));
 
@@ -52,12 +51,11 @@ class QueryRewriteControllerTest {
 
     @Test
     void derivesKeywordsFromExpandedQueryWhenKeywordsFieldIsMissing() {
-        when(chatPort.chat(any())).thenReturn(response("""
-                {
-                  "original_query": "hello",
-                  "expanded_query": "hello, greeting, salutation"
-                }
-                """));
+        when(chatPort.chat(any())).thenReturn(response(String.join("\n",
+        "{",
+        "  \"original_query\": \"hello\",",
+        "  \"expanded_query\": \"hello, greeting, salutation\"",
+        "}")));
 
         ApiResponse<QueryRewriteResponseDto> response = controller.rewrite(new QueryRewriteRequestDto("hello"));
 
@@ -67,12 +65,11 @@ class QueryRewriteControllerTest {
 
     @Test
     void fallsBackToNormalizedRawTermsWhenJsonParsingFails() {
-        when(chatPort.chat(any())).thenReturn(response("""
-                ```json
-                hello, greeting,
-                salutation, hello
-                ```
-                """));
+        when(chatPort.chat(any())).thenReturn(response(String.join("\n",
+        "```json",
+        "hello, greeting,",
+        "salutation, hello",
+        "```")));
 
         ApiResponse<QueryRewriteResponseDto> response = controller.rewrite(new QueryRewriteRequestDto("hello"));
 

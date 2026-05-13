@@ -22,9 +22,10 @@
 
 package studio.one.platform.autoconfigure.jasypt;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnNotWebApplication;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -45,7 +46,7 @@ import org.springframework.context.annotation.Bean;
  * </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(JasyptProperties.class)
 @ConditionalOnBean(StringEncryptor.class) // encryptor 빈 있어야 실행
 @ConditionalOnNotWebApplication   // ← 웹 컨텍스트가 아닐 때만 러너 등록

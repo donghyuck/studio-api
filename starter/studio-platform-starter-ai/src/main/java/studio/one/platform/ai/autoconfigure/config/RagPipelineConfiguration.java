@@ -8,12 +8,13 @@ import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -56,7 +57,8 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration(afterName = "studio.one.platform.chunking.autoconfigure.ChunkingAutoConfiguration")
+@Configuration(proxyBeanMethods = false)
+@AutoConfigureAfter(name = "studio.one.platform.chunking.autoconfigure.ChunkingAutoConfiguration")
 @EnableConfigurationProperties({RagPipelineProperties.class, RagEmbeddingProperties.class})
 @RequiredArgsConstructor
 @Slf4j
@@ -179,7 +181,7 @@ public class RagPipelineConfiguration {
                 return new DefaultRagIndexJobService(
                                 ragIndexJobRepository,
                                 ragPipelineService,
-                                sourceExecutors.orderedStream().toList());
+                                sourceExecutors.orderedStream().collect(java.util.stream.Collectors.toList()));
         }
 
         @Bean
@@ -231,7 +233,7 @@ public class RagPipelineConfiguration {
                 List<EmbeddingInputType> inputTypes = values.stream()
                                 .map(this::embeddingInputType)
                                 .distinct()
-                                .toList();
+                                .collect(java.util.stream.Collectors.toList());
                 return inputTypes.isEmpty() ? List.of(EmbeddingInputType.TEXT) : inputTypes;
         }
 

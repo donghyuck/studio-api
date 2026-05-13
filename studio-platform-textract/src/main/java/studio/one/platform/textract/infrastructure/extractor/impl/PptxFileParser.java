@@ -27,6 +27,8 @@ import studio.one.platform.textract.domain.model.ExtractedImage;
 import studio.one.platform.textract.domain.model.ParseWarning;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 public class PptxFileParser extends AbstractFileParser implements StructuredFileParser {
 
@@ -60,7 +62,8 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
                 int shapeIndex = 0;
                 for (XSLFShape shape : slide.getShapes()) {
                     String path = "slide[" + (slideIndex + 1) + "]/shape[" + shapeIndex + "]";
-                    if (shape instanceof XSLFTextShape textShape) {
+                    if (shape instanceof XSLFTextShape) {
+            XSLFTextShape textShape = (XSLFTextShape) shape;
                         String text = cleanText(textShape.getText());
                         if (text != null && !text.isBlank()) {
                             BlockType blockType = resolveTextShapeType(textShape, pageSize, titleSeen);
@@ -79,7 +82,8 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
                             slideText.append(text).append("\n");
                             order++;
                         }
-                    } else if (shape instanceof XSLFPictureShape pictureShape) {
+                    } else if (shape instanceof XSLFPictureShape) {
+            XSLFPictureShape pictureShape = (XSLFPictureShape) shape;
                         pictureCandidates.add(new PictureCandidate(pictureShape, path));
                     }
                     shapeIndex++;
@@ -215,9 +219,19 @@ public class PptxFileParser extends AbstractFileParser implements StructuredFile
         return metadata;
     }
 
-    private record TextCandidate(String text, Rectangle2D anchor) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class TextCandidate {
+        String text;
+        Rectangle2D anchor;
+
     }
 
-    private record PictureCandidate(XSLFPictureShape pictureShape, String sourceRef) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class PictureCandidate {
+        XSLFPictureShape pictureShape;
+        String sourceRef;
+
     }
 }

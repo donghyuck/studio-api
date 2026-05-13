@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.realtime.autoconfigure.RealtimeStompAutoConfiguration,\
+studio.one.platform.realtime.autoconfigure.RealtimeStompRedisAutoConfiguration,\
+studio.one.platform.realtime.autoconfigure.RealtimeStompWebSocketAutoConfiguration

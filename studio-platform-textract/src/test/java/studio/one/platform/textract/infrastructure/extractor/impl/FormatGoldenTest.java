@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+import java.util.stream.Collectors;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -39,6 +40,8 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.textract.domain.model.DocumentFormat;
 import studio.one.platform.textract.domain.model.BlockType;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 class FormatGoldenTest {
 
@@ -158,12 +161,11 @@ class FormatGoldenTest {
 
     @Test
     void ocrGoldenCapturesKoreanLineBlocksWithoutEngineDependency() {
-        List<String> blocks = new ImageFileParser("/tmp", "kor+eng").ocrLineBlocks("""
-                첫 줄
-                둘째 줄
-                """).stream()
+        List<String> blocks = new ImageFileParser("/tmp", "kor+eng").ocrLineBlocks("첫 줄\n" +
+                "둘째 줄\n" +
+                "").stream()
                 .map(block -> block.blockType() + FIELD + block.sourceRef() + FIELD + block.order() + FIELD + block.text())
-                .toList();
+                .collect(Collectors.toList());
 
         assertEquals(List.of(
                 "OCR_TEXT|image/ocr/line[0]|0|첫 줄",
@@ -180,13 +182,13 @@ class FormatGoldenTest {
                                 + FIELD + block.sourceRef()
                                 + FIELD + value(block.order())
                                 + FIELD + normalize(block.text()))
-                        .toList(),
+                        .collect(Collectors.toList()),
                 file.pages().stream()
                         .map(page -> page.blockType()
                                 + FIELD + value(page.page())
                                 + FIELD + page.sourceRef()
                                 + FIELD + value(page.order()))
-                        .toList(),
+                        .collect(Collectors.toList()),
                 file.tables().stream()
                         .map(table -> table.format()
                                 + FIELD + table.sourceRef()
@@ -196,18 +198,18 @@ class FormatGoldenTest {
                                         .orElse(0)
                                 + FIELD + table.cellCount()
                                 + FIELD + normalize(table.vectorText()))
-                        .toList(),
+                        .collect(Collectors.toList()),
                 file.images().stream()
                         .map(image -> image.mimeType()
                                 + FIELD + image.sourceRef()
                                 + FIELD + imageReference(image.filename(), image.binDataRef()))
-                        .toList(),
+                        .collect(Collectors.toList()),
                 file.warnings().stream()
                         .map(warning -> warning.severity()
                                 + FIELD + warning.canonicalCode()
                                 + FIELD + warning.partialParse()
                                 + FIELD + warning.sourceRef())
-                        .toList());
+                        .collect(Collectors.toList()));
     }
 
     private String normalize(String value) {
@@ -308,20 +310,18 @@ class FormatGoldenTest {
     }
 
     private byte[] htmlBytes() {
-        return """
-                <html>
-                  <body>
-                    <nav>메뉴 링크</nav>
-                    <main>
-                      <h1>문서 제목</h1>
-                      <p>본문 문단</p>
-                      <ul><li>목록 항목</li></ul>
-                      <table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>
-                      <img src="hero.png" alt="대표 이미지">
-                    </main>
-                  </body>
-                </html>
-                """.getBytes(UTF_8);
+        return ("<html>\n" +
+                "  <body>\n" +
+                "    <nav>메뉴 링크</nav>\n" +
+                "    <main>\n" +
+                "      <h1>문서 제목</h1>\n" +
+                "      <p>본문 문단</p>\n" +
+                "      <ul><li>목록 항목</li></ul>\n" +
+                "      <table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>\n" +
+                "      <img src=\"hero.png\" alt=\"대표 이미지\">\n" +
+                "    </main>\n" +
+                "  </body>\n" +
+                "</html>\n").getBytes(UTF_8);
     }
 
     private byte[] excelBytes() throws Exception {
@@ -341,48 +341,45 @@ class FormatGoldenTest {
 
     private byte[] hwpxBytes() throws Exception {
         Map<String, byte[]> entries = Map.of(
-                "Contents/content.hpf", """
-                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
-                          <opf:manifest>
-                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
-                            <opf:item id="image1" href="BinData/image1.png" media-type="image/png"/>
-                          </opf:manifest>
-                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
-                        </opf:package>
-                        """.getBytes(UTF_8),
-                "Contents/section0.xml", """
-                        <hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"
-                                xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
-                          <hp:p><hp:run><hp:t>본문 문단</hp:t></hp:run></hp:p>
-                          <hp:p>
-                            <hp:tbl>
-                              <hp:tr>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>A1</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>B1</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                              </hp:tr>
-                              <hp:tr>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>A2</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>B2</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                              </hp:tr>
-                            </hp:tbl>
-                          </hp:p>
-                          <hp:p><hp:pic><hp:img binaryItemIDRef="image1"/></hp:pic></hp:p>
-                        </hs:sec>
-                        """.getBytes(UTF_8),
+                "Contents/content.hpf", ("<opf:package xmlns:opf=\"http://www.idpf.org/2007/opf\">\n" +
+                "  <opf:manifest>\n" +
+                "    <opf:item id=\"section0\" href=\"section0.xml\" media-type=\"application/xml\"/>\n" +
+                "    <opf:item id=\"image1\" href=\"BinData/image1.png\" media-type=\"image/png\"/>\n" +
+                "  </opf:manifest>\n" +
+                "  <opf:spine><opf:itemref idref=\"section0\"/></opf:spine>\n" +
+                "</opf:package>\n" +
+                "").getBytes(UTF_8),
+                "Contents/section0.xml", ("<hs:sec xmlns:hs=\"http://www.hancom.co.kr/hwpml/2011/section\"\n" +
+                "        xmlns:hp=\"http://www.hancom.co.kr/hwpml/2011/paragraph\">\n" +
+                "  <hp:p><hp:run><hp:t>본문 문단</hp:t></hp:run></hp:p>\n" +
+                "  <hp:p>\n" +
+                "    <hp:tbl>\n" +
+                "      <hp:tr>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>A1</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>B1</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "      </hp:tr>\n" +
+                "      <hp:tr>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>A2</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>B2</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "      </hp:tr>\n" +
+                "    </hp:tbl>\n" +
+                "  </hp:p>\n" +
+                "  <hp:p><hp:pic><hp:img binaryItemIDRef=\"image1\"/></hp:pic></hp:p>\n" +
+                "</hs:sec>\n" +
+                "").getBytes(UTF_8),
                 "Contents/BinData/image1.png", new byte[] { (byte) 0x89, 'P', 'N', 'G' });
         return zip(entries);
     }
 
     private byte[] hwpxBytesWithMissingSection() throws Exception {
         return zip(Map.of(
-                "Contents/content.hpf", """
-                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
-                          <opf:manifest>
-                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
-                          </opf:manifest>
-                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
-                        </opf:package>
-                        """.getBytes(UTF_8)));
+                "Contents/content.hpf", ("<opf:package xmlns:opf=\"http://www.idpf.org/2007/opf\">\n" +
+                "  <opf:manifest>\n" +
+                "    <opf:item id=\"section0\" href=\"section0.xml\" media-type=\"application/xml\"/>\n" +
+                "  </opf:manifest>\n" +
+                "  <opf:spine><opf:itemref idref=\"section0\"/></opf:spine>\n" +
+                "</opf:package>\n" +
+                "").getBytes(UTF_8)));
     }
 
     private byte[] zip(Map<String, byte[]> entries) throws Exception {
@@ -449,13 +446,16 @@ class FormatGoldenTest {
         return out.toByteArray();
     }
 
-    private record GoldenSnapshot(
-            String format,
-            String plainText,
-            List<String> blocks,
-            List<String> pages,
-            List<String> tables,
-            List<String> images,
-            List<String> warnings) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class GoldenSnapshot {
+        String format;
+        String plainText;
+        List<String> blocks;
+        List<String> pages;
+        List<String> tables;
+        List<String> images;
+        List<String> warnings;
+
     }
 }

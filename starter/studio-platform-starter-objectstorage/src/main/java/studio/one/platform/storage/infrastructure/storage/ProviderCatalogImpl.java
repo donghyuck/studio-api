@@ -63,7 +63,7 @@ public class ProviderCatalogImpl implements ProviderCatalog {
                     .capabilities(capabilitiesOf(kind))
                     .labels(null)  
                     .build();
-        }).toList();
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     // ---------- helpers ----------

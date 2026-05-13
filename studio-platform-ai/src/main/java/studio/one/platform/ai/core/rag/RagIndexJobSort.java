@@ -2,11 +2,54 @@ package studio.one.platform.ai.core.rag;
 
 import java.util.Locale;
 
-public record RagIndexJobSort(Field field, Direction direction) {
+public final class RagIndexJobSort {
 
-    public RagIndexJobSort {
-        field = field == null ? Field.CREATED_AT : field;
-        direction = direction == null ? Direction.DESC : direction;
+    private final Field field;
+    private final Direction direction;
+
+    public RagIndexJobSort(
+            Field field,
+            Direction direction
+    ) {
+                field = field == null ? Field.CREATED_AT : field;
+                direction = direction == null ? Direction.DESC : direction;
+        
+        this.field = field;
+        this.direction = direction;
+    }
+
+    public Field field() {
+        return field;
+    }
+
+    public Direction direction() {
+        return direction;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof RagIndexJobSort)) {
+            return false;
+        }
+        RagIndexJobSort that = (RagIndexJobSort) o;
+        return java.util.Objects.equals(field, that.field)
+                && java.util.Objects.equals(direction, that.direction);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(field, direction);
+    }
+
+    @Override
+    public String toString() {
+        return "RagIndexJobSort[" +
+                "field=" + field + ", " +
+                "direction=" + direction +
+                "]";
     }
 
     public static RagIndexJobSort defaults() {

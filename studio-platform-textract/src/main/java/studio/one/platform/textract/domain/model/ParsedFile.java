@@ -3,31 +3,44 @@ package studio.one.platform.textract.domain.model;
 import java.util.List;
 import java.util.Map;
 
-import studio.one.platform.textract.domain.model.DocumentFormat;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * Structured file parsing result for text extraction and RAG indexing.
  */
-public record ParsedFile(
-        DocumentFormat format,
-        String plainText,
-        List<ParsedBlock> blocks,
-        Map<String, Object> metadata,
-        List<ParseWarning> warnings,
-        List<ParsedBlock> pages,
-        List<ExtractedTable> tables,
-        List<ExtractedImage> images,
-        boolean ocrApplied) {
+@Value
+@Accessors(fluent = true)
+public class ParsedFile {
+    DocumentFormat format;
+    String plainText;
+    List<ParsedBlock> blocks;
+    Map<String, Object> metadata;
+    List<ParseWarning> warnings;
+    List<ParsedBlock> pages;
+    List<ExtractedTable> tables;
+    List<ExtractedImage> images;
+    boolean ocrApplied;
 
-    public ParsedFile {
-        format = format == null ? DocumentFormat.UNKNOWN : format;
-        plainText = plainText == null ? "" : plainText;
-        blocks = blocks == null ? List.of() : List.copyOf(blocks);
-        metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
-        warnings = warnings == null ? List.of() : List.copyOf(warnings);
-        pages = pages == null ? List.of() : List.copyOf(pages);
-        tables = tables == null ? List.of() : List.copyOf(tables);
-        images = images == null ? List.of() : List.copyOf(images);
+    public ParsedFile(
+            DocumentFormat format,
+            String plainText,
+            List<ParsedBlock> blocks,
+            Map<String, Object> metadata,
+            List<ParseWarning> warnings,
+            List<ParsedBlock> pages,
+            List<ExtractedTable> tables,
+            List<ExtractedImage> images,
+            boolean ocrApplied) {
+        this.format = format == null ? DocumentFormat.UNKNOWN : format;
+        this.plainText = plainText == null ? "" : plainText;
+        this.blocks = blocks == null ? List.of() : List.copyOf(blocks);
+        this.metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+        this.warnings = warnings == null ? List.of() : List.copyOf(warnings);
+        this.pages = pages == null ? List.of() : List.copyOf(pages);
+        this.tables = tables == null ? List.of() : List.copyOf(tables);
+        this.images = images == null ? List.of() : List.copyOf(images);
+        this.ocrApplied = ocrApplied;
     }
 
     public static ParsedFile textOnly(DocumentFormat format, String plainText, String filename) {

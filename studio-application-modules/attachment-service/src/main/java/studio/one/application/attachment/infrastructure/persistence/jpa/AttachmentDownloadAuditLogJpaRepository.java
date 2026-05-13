@@ -26,17 +26,7 @@ public interface AttachmentDownloadAuditLogJpaRepository
     Sort DEFAULT_SORT = Sort.by(Sort.Order.desc("requestedAt"), Sort.Order.desc("downloadLogId"));
 
     @Override
-    @Query("""
-            select new studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount(
-                log.issueLogId,
-                log.tokenHash,
-                count(log)
-            )
-            from AttachmentDownloadAuditLog log
-            where log.issueLogId in :issueLogIds
-               or log.tokenHash in :tokenHashes
-            group by log.issueLogId, log.tokenHash
-            """)
+    @Query("select new studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount( log.issueLogId, log.tokenHash, count(log) ) from AttachmentDownloadAuditLog log where log.issueLogId in :issueLogIds or log.tokenHash in :tokenHashes group by log.issueLogId, log.tokenHash")
     List<AttachmentDownloadAuditLogCount> countByIssueLogIdsOrTokenHashes(
             @Param("issueLogIds") Collection<Long> issueLogIds,
             @Param("tokenHashes") Collection<String> tokenHashes);

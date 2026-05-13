@@ -155,7 +155,13 @@ class ThumbnailGenerationServiceTest {
         }
     }
 
-    private record TestRenderer(boolean supports) implements ThumbnailRenderer {
+    private static final class TestRenderer implements ThumbnailRenderer {
+        private final boolean supports;
+
+        private TestRenderer(boolean supports) {
+            this.supports = supports;
+        }
+
         @Override
         public boolean supports(ThumbnailSource source) {
             return supports;

@@ -21,9 +21,10 @@
 
 package studio.one.platform.realtime.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.List;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -38,7 +39,7 @@ import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
 import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
 
-@AutoConfiguration
+@Configuration
 @EnableWebSocketMessageBroker
 @EnableConfigurationProperties(RealtimeStompProperties.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX  + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)

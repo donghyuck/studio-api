@@ -15,10 +15,14 @@ public interface IdentityService {
     Optional<UserRef> findByUsername(String username);
 
     default Optional<UserRef> resolve(UserKey key) {
-        if (key instanceof UserIdKey k)
+        if (key instanceof UserIdKey) {
+            UserIdKey k = (UserIdKey) key;
             return findById(k.userId());
-        if (key instanceof UsernameKey k)
+        }
+        if (key instanceof UsernameKey) {
+            UsernameKey k = (UsernameKey) key;
             return findByUsername(k.username());
+        }
         return Optional.empty();
     }
 }

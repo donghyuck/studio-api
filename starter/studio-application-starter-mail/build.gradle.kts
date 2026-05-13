@@ -20,7 +20,7 @@ dependencies {
     implementation(project(":studio-platform-autoconfigure"))
     implementation(project(":starter:studio-platform-starter"))
     api(project(":studio-application-modules:mail-service"))
-    api("org.eclipse.angus:jakarta.mail")
+    api("com.sun.mail:jakarta.mail")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
 

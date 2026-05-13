@@ -92,12 +92,8 @@ public class ApplicationCompanyMemberKeyJdbcRepository extends BaseJdbcRepositor
         if (key.getStatus() == null) {
             key.setStatus(CompanyMemberKeyStatus.ACTIVE);
         }
-        String sql = """
-                insert into TB_APPLICATION_COMPANY_MEMBER_KEY
-                    (COMPANY_ID, ROLE, KEY_HASH, STATUS, EXPIRES_AT, MAX_USES, USED_COUNT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY)
-                values
-                    (:companyId, :role, :keyHash, :status, :expiresAt, :maxUses, :usedCount, :createdAt, :createdBy, :updatedAt, :updatedBy)
-                """;
+        String sql = (
+"insert into TB_APPLICATION_COMPANY_MEMBER_KEY\\n" + "    (COMPANY_ID, ROLE, KEY_HASH, STATUS, EXPIRES_AT, MAX_USES, USED_COUNT, CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY)\\n" + "values\\n" + "    (:companyId, :role, :keyHash, :status, :expiresAt, :maxUses, :usedCount, :createdAt, :createdBy, :updatedAt, :updatedBy)\\n");
         KeyHolder holder = new GeneratedKeyHolder();
         namedTemplate.update(sql, new MapSqlParameterSource(params(key)), holder, new String[] { "key_id" });
         Number generated = holder.getKey();
@@ -109,17 +105,8 @@ public class ApplicationCompanyMemberKeyJdbcRepository extends BaseJdbcRepositor
 
     private void update(ApplicationCompanyMemberKey key) {
         key.setUpdatedAt(Instant.now());
-        String sql = """
-                update TB_APPLICATION_COMPANY_MEMBER_KEY
-                   set ROLE = :role,
-                       STATUS = :status,
-                       EXPIRES_AT = :expiresAt,
-                       MAX_USES = :maxUses,
-                       USED_COUNT = :usedCount,
-                       UPDATED_AT = :updatedAt,
-                       UPDATED_BY = :updatedBy
-                 where KEY_ID = :keyId
-                """;
+        String sql = (
+"update TB_APPLICATION_COMPANY_MEMBER_KEY\\n" + "   set ROLE = :role,\\n" + "       STATUS = :status,\\n" + "       EXPIRES_AT = :expiresAt,\\n" + "       MAX_USES = :maxUses,\\n" + "       USED_COUNT = :usedCount,\\n" + "       UPDATED_AT = :updatedAt,\\n" + "       UPDATED_BY = :updatedBy\\n" + " where KEY_ID = :keyId\\n");
         namedTemplate.update(sql, params(key));
     }
 
@@ -141,10 +128,7 @@ public class ApplicationCompanyMemberKeyJdbcRepository extends BaseJdbcRepositor
     }
 
     private String selectSql() {
-        return """
-                select KEY_ID, COMPANY_ID, ROLE, KEY_HASH, STATUS, EXPIRES_AT, MAX_USES, USED_COUNT,
-                       CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY
-                  from TB_APPLICATION_COMPANY_MEMBER_KEY
-                """;
+        return (
+"select KEY_ID, COMPANY_ID, ROLE, KEY_HASH, STATUS, EXPIRES_AT, MAX_USES, USED_COUNT,\\n" + "       CREATED_AT, CREATED_BY, UPDATED_AT, UPDATED_BY\\n" + "  from TB_APPLICATION_COMPANY_MEMBER_KEY\\n");
     }
 }

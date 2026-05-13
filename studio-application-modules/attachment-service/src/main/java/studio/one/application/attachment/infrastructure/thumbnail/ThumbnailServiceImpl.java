@@ -198,14 +198,40 @@ public class ThumbnailServiceImpl implements ThumbnailService {
         return locks;
     }
 
-    private record AttachmentIdentity(int objectType, long attachmentId) {
+    private static final class AttachmentIdentity {
+        private final int objectType;
+        private final long attachmentId;
+
+        private AttachmentIdentity(int objectType, long attachmentId) {
+            this.objectType = objectType;
+            this.attachmentId = attachmentId;
+        }
+
+        private int objectType() { return objectType; }
+
+        private long attachmentId() { return attachmentId; }
 
         private static AttachmentIdentity from(Attachment attachment) {
             return new AttachmentIdentity(attachment.getObjectType(), attachment.getAttachmentId());
         }
     }
 
-    private record ThumbnailSourceKey(int objectType, long attachmentId, String format) {
+    private static final class ThumbnailSourceKey {
+        private final int objectType;
+        private final long attachmentId;
+        private final String format;
+
+        private ThumbnailSourceKey(int objectType, long attachmentId, String format) {
+            this.objectType = objectType;
+            this.attachmentId = attachmentId;
+            this.format = format;
+        }
+
+        private int objectType() { return objectType; }
+
+        private long attachmentId() { return attachmentId; }
+
+        private String format() { return format; }
 
         private static ThumbnailSourceKey from(Attachment attachment, String format) {
             return new ThumbnailSourceKey(

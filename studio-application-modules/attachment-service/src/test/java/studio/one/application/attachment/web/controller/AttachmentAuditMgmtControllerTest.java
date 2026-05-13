@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.lang.reflect.RecordComponent;
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.Arrays;
@@ -183,9 +183,9 @@ class AttachmentAuditMgmtControllerTest {
 
     @Test
     void auditDtoDoesNotExposeRawSignedUrlOrObjectKey() {
-        List<String> fieldNames = Arrays.stream(AttachmentDownloadUrlIssueAuditLogDto.class.getRecordComponents())
-                .map(RecordComponent::getName)
-                .toList();
+        List<String> fieldNames = Arrays.stream(AttachmentDownloadUrlIssueAuditLogDto.class.getDeclaredFields())
+                .map(Field::getName)
+                .collect(java.util.stream.Collectors.toList());
 
         assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "objectKey", "token", "rawToken");
         assertThat(fieldNames).contains("objectKeyHash", "tokenHash", "linkType", "downloadCount");
@@ -193,9 +193,9 @@ class AttachmentAuditMgmtControllerTest {
 
     @Test
     void downloadAuditDtoDoesNotExposeRawToken() {
-        List<String> fieldNames = Arrays.stream(AttachmentDownloadAuditLogDto.class.getRecordComponents())
-                .map(RecordComponent::getName)
-                .toList();
+        List<String> fieldNames = Arrays.stream(AttachmentDownloadAuditLogDto.class.getDeclaredFields())
+                .map(Field::getName)
+                .collect(java.util.stream.Collectors.toList());
 
         assertThat(fieldNames).doesNotContain("url", "signedUrl", "downloadUrl", "token", "rawToken");
         assertThat(fieldNames).contains("tokenHash", "result", "downloadedBytes");

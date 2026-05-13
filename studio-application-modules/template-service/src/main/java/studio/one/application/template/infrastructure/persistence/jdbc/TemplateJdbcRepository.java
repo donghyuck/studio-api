@@ -34,72 +34,25 @@ import studio.one.platform.data.jdbc.PagingJdbcTemplate;
 @Repository
 public class TemplateJdbcRepository implements TemplatePersistenceRepository {
 
-    private static final String INSERT_SQL = """
-            insert into TB_APPLICATION_TEMPLATE
-                (OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT)
-            values
-                (:objectType, :objectId, :name, :displayName, :description, :subject, :body, :createdBy, :updatedBy, :createdAt, :updatedAt)
-            returning TEMPLATE_ID
-            """;
+    private static final String INSERT_SQL = "insert into TB_APPLICATION_TEMPLATE (OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT) values (:objectType, :objectId, :name, :displayName, :description, :subject, :body, :createdBy, :updatedBy, :createdAt, :updatedAt) returning TEMPLATE_ID";
 
-    private static final String UPDATE_SQL = """
-            update TB_APPLICATION_TEMPLATE
-               set OBJECT_TYPE  = :objectType,
-                   OBJECT_ID    = :objectId,
-                   NAME         = :name,
-                   DISPLAY_NAME = :displayName,
-                   DESCRIPTION  = :description,
-                   SUBJECT      = :subject,
-                   BODY         = :body,
-                   UPDATED_BY   = :updatedBy,
-                   UPDATED_AT   = :updatedAt
-             where TEMPLATE_ID = :templateId
-            """;
+    private static final String UPDATE_SQL = "update TB_APPLICATION_TEMPLATE set OBJECT_TYPE  = :objectType, OBJECT_ID    = :objectId, NAME         = :name, DISPLAY_NAME = :displayName, DESCRIPTION  = :description, SUBJECT      = :subject, BODY         = :body, UPDATED_BY   = :updatedBy, UPDATED_AT   = :updatedAt where TEMPLATE_ID = :templateId";
 
-    private static final String FIND_BY_ID_SQL = """
-            select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
-                   SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_TEMPLATE
-             where TEMPLATE_ID = :templateId
-            """;
+    private static final String FIND_BY_ID_SQL = "select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT from TB_APPLICATION_TEMPLATE where TEMPLATE_ID = :templateId";
 
-    private static final String FIND_BY_NAME_SQL = """
-            select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
-                   SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_TEMPLATE
-             where NAME = :name
-            """;
+    private static final String FIND_BY_NAME_SQL = "select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT from TB_APPLICATION_TEMPLATE where NAME = :name";
 
-    private static final String DELETE_SQL = """
-            delete from TB_APPLICATION_TEMPLATE
-             where TEMPLATE_ID = :templateId
-            """;
+    private static final String DELETE_SQL = "delete from TB_APPLICATION_TEMPLATE where TEMPLATE_ID = :templateId";
 
-    private static final String DELETE_PROPERTIES_SQL = """
-            delete from TB_APPLICATION_TEMPLATE_PROPERTY
-             where TEMPLATE_ID = :templateId
-            """;
+    private static final String DELETE_PROPERTIES_SQL = "delete from TB_APPLICATION_TEMPLATE_PROPERTY where TEMPLATE_ID = :templateId";
 
-    private static final String INSERT_PROPERTY_SQL = """
-            insert into TB_APPLICATION_TEMPLATE_PROPERTY
-                (TEMPLATE_ID, PROPERTY_NAME, PROPERTY_VALUE)
-            values
-                (:templateId, :name, :value)
-            """;
+    private static final String INSERT_PROPERTY_SQL = "insert into TB_APPLICATION_TEMPLATE_PROPERTY (TEMPLATE_ID, PROPERTY_NAME, PROPERTY_VALUE) values (:templateId, :name, :value)";
 
-    private static final String FIND_PROPERTIES_SQL = """
-            select PROPERTY_NAME, PROPERTY_VALUE
-              from TB_APPLICATION_TEMPLATE_PROPERTY
-             where TEMPLATE_ID = :templateId
-            """;
+    private static final String FIND_PROPERTIES_SQL = "select PROPERTY_NAME, PROPERTY_VALUE from TB_APPLICATION_TEMPLATE_PROPERTY where TEMPLATE_ID = :templateId";
 
     private static final String COUNT_ALL_SQL = "select count(*) from TB_APPLICATION_TEMPLATE";
 
-    private static final String FIND_PAGE_SQL = """
-            select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION,
-                   SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_TEMPLATE
-            """;
+    private static final String FIND_PAGE_SQL = "select TEMPLATE_ID, OBJECT_TYPE, OBJECT_ID, NAME, DISPLAY_NAME, DESCRIPTION, SUBJECT, BODY, CREATED_BY, UPDATED_BY, CREATED_AT, UPDATED_AT from TB_APPLICATION_TEMPLATE";
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
             Map.entry("templateId", "TEMPLATE_ID"),

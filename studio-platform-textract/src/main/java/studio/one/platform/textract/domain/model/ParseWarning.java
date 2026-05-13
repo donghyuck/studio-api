@@ -3,15 +3,20 @@ package studio.one.platform.textract.domain.model;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * Non-fatal warning emitted during parsing.
  */
-public record ParseWarning(
-        String code,
-        String message,
-        String path,
-        Map<String, Object> metadata) {
+@Value
+@Accessors(fluent = true)
+public class ParseWarning {
+    String code;
+    String message;
+    String path;
+    Map<String, Object> metadata;
+
 
     public static final String KEY_CANONICAL_CODE = "canonicalCode";
     public static final String KEY_SEVERITY = "severity";
@@ -19,11 +24,20 @@ public record ParseWarning(
     public static final String KEY_BLOCK_REF = "blockRef";
     public static final String KEY_PARTIAL_PARSE = "partialParse";
 
-    public ParseWarning {
+    public ParseWarning(String code, String message, String path, Map<String, Object> metadata) {
         code = code == null ? "unknown" : code;
         message = message == null ? "" : message;
         path = path == null ? "" : path;
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+
+        this.code = code;
+
+        this.message = message;
+
+        this.path = path;
+
+        this.metadata = metadata;
+
     }
 
     public static ParseWarning warning(String code, String message, String sourceRef) {
@@ -54,14 +68,17 @@ public record ParseWarning(
 
     public String canonicalCode() {
         Object value = metadata.get(KEY_CANONICAL_CODE);
-        return value instanceof String stringValue && !stringValue.isBlank()
-                ? stringValue
-                : normalizeCode(code);
+        if (value instanceof String) {
+            String stringValue = (String) value;
+            return !stringValue.isBlank() ? stringValue : normalizeCode(code);
+        }
+        return normalizeCode(code);
     }
 
     public ParseWarningSeverity severity() {
         Object value = metadata.get(KEY_SEVERITY);
-        if (value instanceof String stringValue) {
+        if (value instanceof String) {
+            String stringValue = (String) value;
             try {
                 return ParseWarningSeverity.valueOf(stringValue);
             } catch (IllegalArgumentException ignored) {
@@ -73,17 +90,21 @@ public record ParseWarning(
 
     public String sourceRef() {
         Object value = metadata.get(KEY_SOURCE_REF);
-        return value instanceof String stringValue && !stringValue.isBlank() ? stringValue : path;
+        if (value instanceof String) {
+            String stringValue = (String) value;
+            return !stringValue.isBlank() ? stringValue : path;
+        }
+        return path;
     }
 
     public String blockRef() {
         Object value = metadata.get(KEY_BLOCK_REF);
-        return value instanceof String stringValue ? stringValue : "";
+        return value instanceof String ? (String) value : "";
     }
 
     public boolean partialParse() {
         Object value = metadata.get(KEY_PARTIAL_PARSE);
-        return value instanceof Boolean booleanValue && booleanValue;
+        return value instanceof Boolean && (Boolean) value;
     }
 
     public boolean isError() {

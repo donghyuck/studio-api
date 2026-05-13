@@ -83,21 +83,15 @@ public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public Optional<ApplicationRole> findById(Long roleId) {
-        String sql = """
-                select ROLE_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_ROLE
-                 where ROLE_ID = :roleId
-                """;
+        String sql = (
+"select ROLE_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE\\n" + " where ROLE_ID = :roleId\\n");
         return queryOptional(sql, Map.of("roleId", roleId), ROLE_ROW_MAPPER);
     }
 
     @Override
     public Optional<ApplicationRole> findByName(String name) {
-        String sql = """
-                select ROLE_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE
-                  from TB_APPLICATION_ROLE
-                 where lower(NAME) = lower(:name)
-                """;
+        String sql = (
+"select ROLE_ID, NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE\\n" + " where lower(NAME) = lower(:name)\\n");
         return queryOptional(sql, Map.of("name", name), ROLE_ROW_MAPPER);
     }
 
@@ -110,24 +104,16 @@ public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements
 
     @Override
     public List<ApplicationRole> findRolesByUserId(Long userId) {
-        String sql = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID
-                 where ur.USER_ID = :userId
-                """;
+        String sql = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID\\n" + " where ur.USER_ID = :userId\\n");
         return namedTemplate.query(sql, Map.of("userId", userId), ROLE_ROW_MAPPER);
     }
 
     @Override
     public Page<ApplicationRole> findRolesByUserId(Long userId, Pageable pageable) {
         Map<String, Object> params = Map.of("userId", userId);
-        String select = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID
-                 where ur.USER_ID = :userId
-                """;
+        String select = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID\\n" + " where ur.USER_ID = :userId\\n");
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where USER_ID = :userId";
         return queryPage(select, count, params, pageable, ROLE_ROW_MAPPER, "r.ROLE_ID", ROLE_SORT_COLUMNS);
     }
@@ -137,24 +123,16 @@ public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements
         if (groupIds == null || groupIds.isEmpty()) {
             return List.of();
         }
-        String sql = """
-                select distinct r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID
-                 where gr.GROUP_ID in (:groupIds)
-                """;
+        String sql = (
+"select distinct r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID\\n" + " where gr.GROUP_ID in (:groupIds)\\n");
         return namedTemplate.query(sql, Map.of("groupIds", groupIds), ROLE_ROW_MAPPER);
     }
 
     @Override
     public Page<ApplicationRole> findRolesByGroupId(Long groupId, Pageable pageable) {
         Map<String, Object> params = Map.of("groupId", groupId);
-        String select = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID
-                 where gr.GROUP_ID = :groupId
-                """;
+        String select = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID\\n" + " where gr.GROUP_ID = :groupId\\n");
         String count = "select count(*) from TB_APPLICATION_GROUP_ROLES where GROUP_ID = :groupId";
         return queryPage(select, count, params, pageable, ROLE_ROW_MAPPER, "r.ROLE_ID", ROLE_SORT_COLUMNS);
     }
@@ -162,34 +140,15 @@ public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements
     @Override
     public List<ApplicationRole> findRolesByGroupId(Long groupId, Sort sort) {
         String orderBy = buildOrderByClause(sort, "r.ROLE_ID", ROLE_SORT_COLUMNS);
-        String sql = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID
-                 where gr.GROUP_ID = :groupId
-                """ + orderBy;
+        String sql = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID\\n" + " where gr.GROUP_ID = :groupId\\n") + orderBy;
         return namedTemplate.query(sql, Map.of("groupId", groupId), ROLE_ROW_MAPPER);
     }
 
     @Override
     public List<ApplicationRole> findEffectiveRolesByUserId(Long userId) {
-        String sql = """
-                select distinct r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                 where exists (
-                        select 1
-                          from TB_APPLICATION_USER_ROLES ur
-                         where ur.ROLE_ID = r.ROLE_ID
-                           and ur.USER_ID = :userId
-                 )
-                    or exists (
-                        select 1
-                          from TB_APPLICATION_GROUP_ROLES gr
-                          join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = gr.GROUP_ID
-                         where gr.ROLE_ID = r.ROLE_ID
-                           and gm.USER_ID = :userId
-                 )
-                """;
+        String sql = (
+"select distinct r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + " where exists (\\n" + "        select 1\\n" + "          from TB_APPLICATION_USER_ROLES ur\\n" + "         where ur.ROLE_ID = r.ROLE_ID\\n" + "           and ur.USER_ID = :userId\\n" + " )\\n" + "    or exists (\\n" + "        select 1\\n" + "          from TB_APPLICATION_GROUP_ROLES gr\\n" + "          join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = gr.GROUP_ID\\n" + "         where gr.ROLE_ID = r.ROLE_ID\\n" + "           and gm.USER_ID = :userId\\n" + " )\\n");
         return namedTemplate.query(sql, Map.of("userId", userId), ROLE_ROW_MAPPER);
     }
 
@@ -233,13 +192,8 @@ public class ApplicationRoleJdbcRepository extends BaseJdbcRepository implements
         if (role.getModifiedDate() == null) {
             role.setModifiedDate(Instant.now());
         }
-        String sql = """
-                update TB_APPLICATION_ROLE
-                   set NAME = :name,
-                       DESCRIPTION = :description,
-                       MODIFIED_DATE = :modifiedDate
-                 where ROLE_ID = :roleId
-                """;
+        String sql = (
+"update TB_APPLICATION_ROLE\\n" + "   set NAME = :name,\\n" + "       DESCRIPTION = :description,\\n" + "       MODIFIED_DATE = :modifiedDate\\n" + " where ROLE_ID = :roleId\\n");
         Map<String, Object> params = new HashMap<>();
         params.put("name", role.getName());
         params.put("description", role.getDescription());

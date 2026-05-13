@@ -21,8 +21,9 @@
 
 package studio.one.platform.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 
@@ -48,7 +49,7 @@ import studio.one.platform.web.advice.GlobalExceptionHandler;
  * </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @RequiredArgsConstructor
 @Slf4j
 public class WebAdviceAutoConfiguration {

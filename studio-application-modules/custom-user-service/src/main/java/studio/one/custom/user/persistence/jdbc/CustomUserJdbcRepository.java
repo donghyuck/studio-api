@@ -69,13 +69,8 @@ public class CustomUserJdbcRepository implements ApplicationUserRepository {
 
     @Override
     public Page<CustomUser> findAll(Pageable pageable) {
-        String select = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from %s
-                """.formatted(TABLE);
-        String count = "select count(*) from %s".formatted(TABLE);
+        String select = String.format("select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from %s", TABLE);
+        String count = String.format("select count(*) from %s", TABLE);
         List<CustomUser> content = namedTemplate.query(select + buildOrderBy(pageable), Map.of(), USER_ROW_MAPPER);
         long total = namedTemplate.queryForObject(count, Map.of(), Long.class);
         return new PageImpl<>(content, pageable, total);
@@ -83,25 +78,13 @@ public class CustomUserJdbcRepository implements ApplicationUserRepository {
 
     @Override
     public Optional<CustomUser> findById(Long userId) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from %s
-                 where USER_ID = :userId
-                """.formatted(TABLE);
+        String sql = String.format("select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from %s where USER_ID = :userId", TABLE);
         return queryOptional(sql, Map.of("userId", userId));
     }
 
     @Override
     public Optional<CustomUser> findByUsername(String username) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from %s
-                 where lower(USERNAME) = lower(:username)
-                """.formatted(TABLE);
+        String sql = String.format("select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from %s where lower(USERNAME) = lower(:username)", TABLE);
         return queryOptional(sql, Map.of("username", username));
     }
 
@@ -112,96 +95,55 @@ public class CustomUserJdbcRepository implements ApplicationUserRepository {
 
     @Override
     public Optional<UserIdOnly> findFirstByUsernameIgnoreCase(String username) {
-        String sql = "select USER_ID from %s where lower(USERNAME) = lower(:username)".formatted(TABLE);
+        String sql = String.format("select USER_ID from %s where lower(USERNAME) = lower(:username)", TABLE);
         return queryOptional(sql, Map.of("username", username),
                 (rs, rowNum) -> (UserIdOnly) () -> rs.getLong("USER_ID"));
     }
 
     @Override
     public Optional<CustomUser> findByEmail(String email) {
-        String sql = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from %s
-                 where lower(EMAIL) = lower(:email)
-                """.formatted(TABLE);
+        String sql = String.format("select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from %s where lower(EMAIL) = lower(:email)", TABLE);
         return queryOptional(sql, Map.of("email", email));
     }
 
     @Override
     public boolean existsByUsername(String username) {
-        String sql = "select exists(select 1 from %s where lower(USERNAME)=lower(:username))".formatted(TABLE);
+        String sql = String.format("select exists(select 1 from %s where lower(USERNAME)=lower(:username))", TABLE);
         Boolean exists = namedTemplate.queryForObject(sql, Map.of("username", username), Boolean.class);
         return Boolean.TRUE.equals(exists);
     }
 
     @Override
     public boolean existsByEmail(String email) {
-        String sql = "select exists(select 1 from %s where lower(EMAIL)=lower(:email))".formatted(TABLE);
+        String sql = String.format("select exists(select 1 from %s where lower(EMAIL)=lower(:email))", TABLE);
         Boolean exists = namedTemplate.queryForObject(sql, Map.of("email", email), Boolean.class);
         return Boolean.TRUE.equals(exists);
     }
 
     @Override
     public Page<CustomUser> findUsersByGroupId(Long groupId, Pageable pageable) {
-        String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
-                  from %s u
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
-                 where gm.GROUP_ID = :groupId
-                """.formatted(TABLE);
+        String select = String.format("select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH, u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS, u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE from %s u join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID where gm.GROUP_ID = :groupId", TABLE);
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
         return queryPage(select, count, Map.of("groupId", groupId), pageable);
     }
 
     @Override
     public List<CustomUser> findUsersByGroupId(Long groupId) {
-        String sql = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH,
-                       u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS,
-                       u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE
-                  from %s u
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
-                 where gm.GROUP_ID = :groupId
-                """.formatted(TABLE);
+        String sql = String.format("select u.USER_ID, u.USERNAME, u.NAME, u.FIRST_NAME, u.LAST_NAME, u.PASSWORD_HASH, u.NAME_VISIBLE, u.EMAIL, u.EMAIL_VISIBLE, u.USER_ENABLED, u.USER_EXTERNAL, u.STATUS, u.FAILED_ATTEMPTS, u.LAST_FAILED_AT, u.ACCOUNT_LOCKED_UNTIL, u.CREATION_DATE, u.MODIFIED_DATE from %s u join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID where gm.GROUP_ID = :groupId", TABLE);
         return namedTemplate.query(sql, Map.of("groupId", groupId), USER_ROW_MAPPER);
     }
 
     @Override
     public Page<CustomUser> search(String keyword, Pageable pageable) {
         Map<String, Object> params = Map.of("q", normalize(keyword));
-        String select = """
-                select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                       NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                       FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE
-                  from %s
-                 where (:q = '' or
-                       lower(USERNAME) like :q or
-                       lower(NAME) like :q or
-                       lower(EMAIL) like :q)
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where (:q = '' or
-                       lower(USERNAME) like :q or
-                       lower(NAME) like :q or
-                       lower(EMAIL) like :q)
-                """.formatted(TABLE);
+        String select = String.format("select USER_ID, USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE from %s where (:q = '' or lower(USERNAME) like :q or lower(NAME) like :q or lower(EMAIL) like :q)", TABLE);
+        String count = String.format("select count(*) from %s where (:q = '' or lower(USERNAME) like :q or lower(NAME) like :q or lower(EMAIL) like :q)", TABLE);
         return queryPage(select, count, params, pageable);
     }
 
     @Override
     public List<ApplicationGroup> findGroupsByUserId(Long userId) {
-        String sql = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID
-                 where gm.USER_ID = :userId
-                """;
+        String sql = "select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE from TB_APPLICATION_GROUP g join TB_APPLICATION_GROUP_MEMBERS gm on gm.GROUP_ID = g.GROUP_ID where gm.USER_ID = :userId";
         return namedTemplate.query(sql, Map.of("userId", userId), (rs, rowNum) -> {
             ApplicationGroup g = new ApplicationGroup();
             g.setGroupId(rs.getLong("GROUP_ID"));
@@ -234,7 +176,7 @@ public class CustomUserJdbcRepository implements ApplicationUserRepository {
     @Override
     public void delete(CustomUser user) {
         if (user == null || user.getUserId() == null) return;
-        namedTemplate.update("delete from %s where USER_ID = :id".formatted(TABLE), Map.of("id", user.getUserId()));
+        namedTemplate.update(String.format("delete from %s where USER_ID = :id", TABLE), Map.of("id", user.getUserId()));
     }
 
     @Override
@@ -250,21 +192,13 @@ public class CustomUserJdbcRepository implements ApplicationUserRepository {
 
     @Override
     public boolean existsById(Long id) {
-        String sql = "select exists(select 1 from %s where USER_ID = :id)".formatted(TABLE);
+        String sql = String.format("select exists(select 1 from %s where USER_ID = :id)", TABLE);
         Boolean exists = namedTemplate.queryForObject(sql, Map.of("id", id), Boolean.class);
         return Boolean.TRUE.equals(exists);
     }
 
     private CustomUser insert(CustomUser user) {
-        String sql = """
-                insert into %s (USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH,
-                                NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS,
-                                FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE)
-                values (:username, :name, :firstName, :lastName, :password,
-                        :nameVisible, :email, :emailVisible, :enabled, :external, :status,
-                        :failedAttempts, :lastFailedAt, :accountLockedUntil, :creationDate, :modifiedDate)
-                returning USER_ID
-                """.formatted(TABLE);
+        String sql = String.format("insert into %s (USERNAME, NAME, FIRST_NAME, LAST_NAME, PASSWORD_HASH, NAME_VISIBLE, EMAIL, EMAIL_VISIBLE, USER_ENABLED, USER_EXTERNAL, STATUS, FAILED_ATTEMPTS, LAST_FAILED_AT, ACCOUNT_LOCKED_UNTIL, CREATION_DATE, MODIFIED_DATE) values (:username, :name, :firstName, :lastName, :password, :nameVisible, :email, :emailVisible, :enabled, :external, :status, :failedAttempts, :lastFailedAt, :accountLockedUntil, :creationDate, :modifiedDate) returning USER_ID", TABLE);
         MapSqlParameterSource params = toParams(user);
         Long id = namedTemplate.queryForObject(sql, params, Long.class);
         user.setUserId(id);
@@ -272,24 +206,7 @@ public class CustomUserJdbcRepository implements ApplicationUserRepository {
     }
 
     private CustomUser update(CustomUser user) {
-        String sql = """
-                update %s
-                   set NAME = :name,
-                       FIRST_NAME = :firstName,
-                       LAST_NAME = :lastName,
-                       PASSWORD_HASH = :password,
-                       NAME_VISIBLE = :nameVisible,
-                       EMAIL = :email,
-                       EMAIL_VISIBLE = :emailVisible,
-                       USER_ENABLED = :enabled,
-                       USER_EXTERNAL = :external,
-                       STATUS = :status,
-                       FAILED_ATTEMPTS = :failedAttempts,
-                       LAST_FAILED_AT = :lastFailedAt,
-                       ACCOUNT_LOCKED_UNTIL = :accountLockedUntil,
-                       MODIFIED_DATE = :modifiedDate
-                 where USER_ID = :userId
-                """.formatted(TABLE);
+        String sql = String.format("update %s set NAME = :name, FIRST_NAME = :firstName, LAST_NAME = :lastName, PASSWORD_HASH = :password, NAME_VISIBLE = :nameVisible, EMAIL = :email, EMAIL_VISIBLE = :emailVisible, USER_ENABLED = :enabled, USER_EXTERNAL = :external, STATUS = :status, FAILED_ATTEMPTS = :failedAttempts, LAST_FAILED_AT = :lastFailedAt, ACCOUNT_LOCKED_UNTIL = :accountLockedUntil, MODIFIED_DATE = :modifiedDate where USER_ID = :userId", TABLE);
         namedTemplate.update(sql, toParams(user));
         return user;
     }

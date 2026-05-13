@@ -25,11 +25,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -94,7 +93,7 @@ import studio.one.platform.security.acl.metrics.MicrometerAclMetricsRecorder;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @RequiredArgsConstructor
 @EnableConfigurationProperties(SecurityAclProperties.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Security.Acl.PREFIX, name = "enabled", havingValue = "true")

@@ -5,9 +5,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.TypedQuery;
+import javax.persistence.EntityManager;
+import javax.persistence.TypedQuery;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -75,38 +76,36 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         }
         List<ObjectTypeEntity> content = query.getResultList();
         if (pageable == null || pageable.isUnpaged()) {
-            List<ObjectTypeRow> rows = content.stream().map(JpaObjectTypeStore::toRow).toList();
+            List<ObjectTypeRow> rows = content.stream().map(JpaObjectTypeStore::toRow).collect(Collectors.toList());
             return new PageImpl<>(rows, pageable == null ? Pageable.unpaged() : pageable, rows.size());
         }
         var countQuery = entityManager.createQuery(countJpql.toString(), Long.class);
         params.forEach(countQuery::setParameter);
         Long total = countQuery.getSingleResult();
-        List<ObjectTypeRow> rows = content.stream().map(JpaObjectTypeStore::toRow).toList();
+        List<ObjectTypeRow> rows = content.stream().map(JpaObjectTypeStore::toRow).collect(Collectors.toList());
         return new PageImpl<>(rows, pageable, total);
     }
 
     @Override
     public ObjectTypeRow upsert(ObjectTypeRow row) {
-        String sql = """
-            INSERT INTO tb_application_object_type (
-              OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
-              CREATED_BY, CREATED_BY_ID, CREATED_AT,
-              UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
-            ) VALUES (
-              :objectType, :code, :name, :domain, :status, :description,
-              :createdBy, :createdById, COALESCE(:createdAt, NOW()),
-              :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
-            )
-            ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
-              CODE = EXCLUDED.CODE,
-              NAME = EXCLUDED.NAME,
-              DOMAIN = EXCLUDED.DOMAIN,
-              STATUS = EXCLUDED.STATUS,
-              DESCRIPTION = EXCLUDED.DESCRIPTION,
-              UPDATED_BY = EXCLUDED.UPDATED_BY,
-              UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
-              UPDATED_AT = EXCLUDED.UPDATED_AT
-            """;
+        String sql = "INSERT INTO tb_application_object_type (\n"
+                + "  OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,\n"
+                + "  CREATED_BY, CREATED_BY_ID, CREATED_AT,\n"
+                + "  UPDATED_BY, UPDATED_BY_ID, UPDATED_AT\n"
+                + ") VALUES (\n"
+                + "  :objectType, :code, :name, :domain, :status, :description,\n"
+                + "  :createdBy, :createdById, COALESCE(:createdAt, NOW()),\n"
+                + "  :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())\n"
+                + ")\n"
+                + "ON CONFLICT (OBJECT_TYPE) DO UPDATE SET\n"
+                + "  CODE = EXCLUDED.CODE,\n"
+                + "  NAME = EXCLUDED.NAME,\n"
+                + "  DOMAIN = EXCLUDED.DOMAIN,\n"
+                + "  STATUS = EXCLUDED.STATUS,\n"
+                + "  DESCRIPTION = EXCLUDED.DESCRIPTION,\n"
+                + "  UPDATED_BY = EXCLUDED.UPDATED_BY,\n"
+                + "  UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,\n"
+                + "  UPDATED_AT = EXCLUDED.UPDATED_AT\n";
         var q = entityManager.createNativeQuery(sql);
         applyTypeParams(q, row);
         q.executeUpdate();
@@ -168,25 +167,23 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
 
     @Override
     public ObjectTypePolicyRow upsertPolicy(ObjectTypePolicyRow row) {
-        String sql = """
-            INSERT INTO tb_application_object_type_policy (
-              OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
-              CREATED_BY, CREATED_BY_ID, CREATED_AT,
-              UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
-            ) VALUES (
-              :objectType, :maxFileMb, :allowedExt, :allowedMime, :policyJson,
-              :createdBy, :createdById, COALESCE(:createdAt, NOW()),
-              :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
-            )
-            ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
-              MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,
-              ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,
-              ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,
-              POLICY_JSON = EXCLUDED.POLICY_JSON,
-              UPDATED_BY = EXCLUDED.UPDATED_BY,
-              UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
-              UPDATED_AT = EXCLUDED.UPDATED_AT
-            """;
+        String sql = "INSERT INTO tb_application_object_type_policy (\n"
+                + "  OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,\n"
+                + "  CREATED_BY, CREATED_BY_ID, CREATED_AT,\n"
+                + "  UPDATED_BY, UPDATED_BY_ID, UPDATED_AT\n"
+                + ") VALUES (\n"
+                + "  :objectType, :maxFileMb, :allowedExt, :allowedMime, :policyJson,\n"
+                + "  :createdBy, :createdById, COALESCE(:createdAt, NOW()),\n"
+                + "  :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())\n"
+                + ")\n"
+                + "ON CONFLICT (OBJECT_TYPE) DO UPDATE SET\n"
+                + "  MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,\n"
+                + "  ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,\n"
+                + "  ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,\n"
+                + "  POLICY_JSON = EXCLUDED.POLICY_JSON,\n"
+                + "  UPDATED_BY = EXCLUDED.UPDATED_BY,\n"
+                + "  UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,\n"
+                + "  UPDATED_AT = EXCLUDED.UPDATED_AT\n";
         var q = entityManager.createNativeQuery(sql);
         applyPolicyParams(q, row);
         q.executeUpdate();
@@ -226,7 +223,7 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         return row;
     }
 
-    private void applyTypeParams(jakarta.persistence.Query q, ObjectTypeRow row) {
+    private void applyTypeParams(javax.persistence.Query q, ObjectTypeRow row) {
         q.setParameter("objectType", row.getObjectType());
         q.setParameter("code", row.getCode());
         q.setParameter("name", row.getName());
@@ -241,7 +238,7 @@ public class JpaObjectTypeStore implements ObjectTypeStore {
         q.setParameter("updatedAt", row.getUpdatedAt());
     }
 
-    private void applyPolicyParams(jakarta.persistence.Query q, ObjectTypePolicyRow row) {
+    private void applyPolicyParams(javax.persistence.Query q, ObjectTypePolicyRow row) {
         q.setParameter("objectType", row.getObjectType());
         q.setParameter("maxFileMb", row.getMaxFileMb());
         q.setParameter("allowedExt", row.getAllowedExt());

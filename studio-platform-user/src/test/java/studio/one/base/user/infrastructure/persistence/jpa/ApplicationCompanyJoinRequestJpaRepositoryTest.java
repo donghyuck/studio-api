@@ -10,7 +10,6 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -33,7 +32,6 @@ import studio.one.base.user.domain.model.ApplicationCompanyMemberKey;
 class ApplicationCompanyJoinRequestJpaRepositoryTest {
 
     @Container
-    @ServiceConnection
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
 
     @Autowired
@@ -100,11 +98,7 @@ class ApplicationCompanyJoinRequestJpaRepositoryTest {
         em.flush();
         em.clear();
 
-        em.getEntityManager().createNativeQuery("""
-                create unique index UK_TEST_COMPANY_JOIN_REQUEST_PENDING_USER
-                    on TB_APPLICATION_COMPANY_JOIN_REQUEST (COMPANY_ID, USER_ID)
-                    where STATUS = 'PENDING' and USER_ID is not null
-                """).executeUpdate();
+        em.getEntityManager().createNativeQuery("create unique index UK_TEST_COMPANY_JOIN_REQUEST_PENDING_USER\\n" + "    on TB_APPLICATION_COMPANY_JOIN_REQUEST (COMPANY_ID, USER_ID)\\n" + "    where STATUS = 'PENDING' and USER_ID is not null\\n").executeUpdate();
 
         assertThat(memberRepository.countByCompanyIdAndRole(company.getCompanyId(), CompanyRole.OWNER)).isEqualTo(2);
         assertThat(memberRepository.countByCompanyIdAndRole(company.getCompanyId(), CompanyRole.ADMIN)).isEqualTo(1);

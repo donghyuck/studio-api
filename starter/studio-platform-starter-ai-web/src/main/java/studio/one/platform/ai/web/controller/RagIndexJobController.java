@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -126,7 +126,7 @@ public class RagIndexJobController {
                         RagIndexJobSort.Field.from(sort),
                         RagIndexJobSort.Direction.from(direction)));
         return ResponseEntity.ok(ApiResponse.ok(new RagIndexJobListResponseDto(
-                page.jobs().stream().map(RagIndexJobDto::from).toList(),
+                page.jobs().stream().map(RagIndexJobDto::from).collect(java.util.stream.Collectors.toList()),
                 page.total(),
                 page.offset(),
                 page.limit())));
@@ -189,7 +189,7 @@ public class RagIndexJobController {
         requireJob(jobId);
         return ResponseEntity.ok(ApiResponse.ok(jobService.getLogs(jobId).stream()
                 .map(RagIndexJobLogDto::from)
-                .toList()));
+                .collect(java.util.stream.Collectors.toList())));
     }
 
     @GetMapping("/jobs/{jobId}/chunks")
@@ -232,7 +232,7 @@ public class RagIndexJobController {
         int boundedLimit = boundedChunkLimit(limit);
         List<RagIndexChunkDto> chunks = ragPipelineService.listByObject(objectType, objectId, boundedLimit).stream()
                 .map(this::toChunkDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(chunks));
     }
 
@@ -252,7 +252,7 @@ public class RagIndexJobController {
                 .listByObject(objectType, objectId, boundedOffset, fetchLimit)
                 .stream()
                 .map(this::toChunkDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         boolean hasMore = fetched.size() > boundedLimit;
         List<RagIndexChunkDto> items = hasMore ? fetched.subList(0, boundedLimit) : fetched;
         return ResponseEntity.ok(ApiResponse.ok(new RagIndexChunkPageResponseDto(
@@ -480,7 +480,7 @@ public class RagIndexJobController {
     private Object firstPresent(Map<String, Object> metadata, String... keys) {
         for (String key : keys) {
             Object value = metadata.get(key);
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
                 return value;
             }
         }
@@ -499,7 +499,8 @@ public class RagIndexJobController {
         if (value == null) {
             return null;
         }
-        if (value instanceof Iterable<?> iterable) {
+        if (value instanceof Iterable<?>) {
+            Iterable<?> iterable = (Iterable<?>) value;
             return java.util.stream.StreamSupport.stream(iterable.spliterator(), false)
                     .filter(Objects::nonNull)
                     .map(Objects::toString)
@@ -512,12 +513,12 @@ public class RagIndexJobController {
     }
 
     private Integer integer(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.valueOf(text.trim());
+                return Integer.valueOf(((String) value).trim());
             } catch (NumberFormatException ignored) {
                 return null;
             }
@@ -526,12 +527,12 @@ public class RagIndexJobController {
     }
 
     private Instant instant(Object value) {
-        if (value instanceof Instant instant) {
-            return instant;
+        if (value instanceof Instant) {
+            return (Instant) value;
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Instant.parse(text.trim());
+                return Instant.parse(((String) value).trim());
             } catch (RuntimeException ignored) {
                 return null;
             }
@@ -539,6 +540,21 @@ public class RagIndexJobController {
         return null;
     }
 
-    private record CreateJobCommand(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+    private static final class CreateJobCommand {
+        private final RagIndexJobCreateRequest request;
+        private final RagIndexJobSourceRequest sourceRequest;
+
+        private CreateJobCommand(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            this.request = request;
+            this.sourceRequest = sourceRequest;
+        }
+
+        private RagIndexJobCreateRequest request() {
+            return request;
+        }
+
+        private RagIndexJobSourceRequest sourceRequest() {
+            return sourceRequest;
+        }
     }
 }

@@ -73,36 +73,34 @@ public final class AiConfigurationMigration {
                 legacyDefaultProvider != null);
     }
 
-    public static String springOrLegacyProviderValue(
+    public static String studioOrSpringProviderValue(
             Environment environment,
+            String studioKey,
+            String studioValue,
             String springKey,
-            String springValue,
-            String legacyKey,
-            String legacyValue,
             Logger log) {
-        String normalizedSpringValue = trimToNull(springValue);
-        if (normalizedSpringValue != null) {
-            return normalizedSpringValue;
+        String normalizedStudioValue = trimToNull(studioValue);
+        if (normalizedStudioValue != null) {
+            return normalizedStudioValue;
         }
-        String environmentValue = trimToNull(environment.getProperty(springKey));
-        if (environmentValue != null) {
-            return environmentValue;
+        String environmentStudioValue = environment == null ? null : trimToNull(environment.getProperty(studioKey));
+        if (environmentStudioValue != null) {
+            return environmentStudioValue;
         }
-        String normalizedLegacyValue = trimToNull(legacyValue);
-        if (normalizedLegacyValue != null) {
-            warn(log, legacyKey, springKey);
-            return normalizedLegacyValue;
+        String springValue = environment == null ? null : trimToNull(environment.getProperty(springKey));
+        if (springValue != null) {
+            warn(log, springKey, studioKey);
+            return springValue;
         }
         return null;
     }
 
-    public static String springOrLegacyProviderValue(
+    public static String studioOrSpringProviderValue(
             Environment environment,
+            String studioKey,
             String springKey,
-            String legacyKey,
-            String legacyValue,
             Logger log) {
-        return springOrLegacyProviderValue(environment, springKey, null, legacyKey, legacyValue, log);
+        return studioOrSpringProviderValue(environment, studioKey, null, springKey, log);
     }
 
     public static void applyRagPipelineFallback(Environment environment, RagPipelineProperties properties, Logger log) {
@@ -246,10 +244,36 @@ public final class AiConfigurationMigration {
         return value.trim();
     }
 
-    public record RoutingDefaults(
-            String defaultProvider,
-            String defaultChatProvider,
-            String defaultEmbeddingProvider,
-            boolean legacyDefaultProviderConfigured) {
+    public static final class RoutingDefaults {
+        private final String defaultProvider;
+        private final String defaultChatProvider;
+        private final String defaultEmbeddingProvider;
+        private final boolean legacyDefaultProviderConfigured;
+
+        public RoutingDefaults(String defaultProvider,
+                               String defaultChatProvider,
+                               String defaultEmbeddingProvider,
+                               boolean legacyDefaultProviderConfigured) {
+            this.defaultProvider = defaultProvider;
+            this.defaultChatProvider = defaultChatProvider;
+            this.defaultEmbeddingProvider = defaultEmbeddingProvider;
+            this.legacyDefaultProviderConfigured = legacyDefaultProviderConfigured;
+        }
+
+        public String defaultProvider() {
+            return defaultProvider;
+        }
+
+        public String defaultChatProvider() {
+            return defaultChatProvider;
+        }
+
+        public String defaultEmbeddingProvider() {
+            return defaultEmbeddingProvider;
+        }
+
+        public boolean legacyDefaultProviderConfigured() {
+            return legacyDefaultProviderConfigured;
+        }
     }
 }
