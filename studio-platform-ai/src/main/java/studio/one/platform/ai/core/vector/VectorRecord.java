@@ -308,7 +308,7 @@ public final class VectorRecord {
     }
 
     private static void put(Map<String, Object> values, String key, Object value) {
-        if (value != null && (!(value instanceof String textValue) || !textValue.isBlank())) {
+        if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
             values.put(key, value);
         }
     }

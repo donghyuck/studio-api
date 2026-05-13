@@ -30,7 +30,7 @@ public final class RequestParamUtils {
         List<String> tokens = List.of(raw.split(",")).stream()
                 .map(String::trim)
                 .filter(value -> !value.isEmpty())
-                .toList();
+                .collect(Collectors.toList());
         if (tokens.isEmpty()) {
             return defaultFieldsLower;
         }

@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.application.mail.autoconfigure.MailSecretPresenceGuard,\
+studio.one.application.mail.autoconfigure.MailAutoConfiguration,\
+studio.one.application.mail.autoconfigure.MailStompNotifierAutoConfiguration

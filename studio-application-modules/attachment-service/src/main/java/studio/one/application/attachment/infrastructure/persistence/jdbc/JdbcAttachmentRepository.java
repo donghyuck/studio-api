@@ -90,12 +90,7 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         if (id == null) {
             return Optional.empty();
         }
-        String sql = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where ATTACHMENT_ID = :id
-                """.formatted(TABLE);
+        String sql = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where ATTACHMENT_ID = :id", TABLE);
         Optional<ApplicationAttachment> result = queryOptional(sql, Map.of("id", id), ATTACHMENT_ROW_MAPPER);
         result.ifPresent(this::loadProperties);
         return result;
@@ -107,19 +102,13 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
             return;
         }
         Map<String, Object> params = Map.of("id", attachment.getAttachmentId());
-        namedTemplate.update("delete from %s where ATTACHMENT_ID = :id".formatted(PROPERTY_TABLE), params);
-        namedTemplate.update("delete from %s where ATTACHMENT_ID = :id".formatted(TABLE), params);
+        namedTemplate.update(String.format("delete from %s where ATTACHMENT_ID = :id", PROPERTY_TABLE), params);
+        namedTemplate.update(String.format("delete from %s where ATTACHMENT_ID = :id", TABLE), params);
     }
 
     @Override
     public List<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId) {
-        String sql = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
-                 order by ATTACHMENT_ID
-                """.formatted(TABLE);
+        String sql = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId order by ATTACHMENT_ID", TABLE);
         Map<String, Object> params = Map.of("objectType", objectType, "objectId", objectId);
         List<ApplicationAttachment> attachments = namedTemplate.query(sql, params, ATTACHMENT_ROW_MAPPER);
         loadProperties(attachments);
@@ -129,17 +118,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
     @Override
     public Page<ApplicationAttachment> findByObjectTypeAndObjectId(int objectType, Long objectId, Pageable pageable) {
         Map<String, Object> params = Map.of("objectType", objectType, "objectId", objectId);
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId", TABLE);
+        String count = String.format("select count(*) from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId", TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
         return page;
@@ -148,13 +128,7 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
     @Override
     public List<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId,
             long createdBy) {
-        String sql = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
-                 order by ATTACHMENT_ID
-                """.formatted(TABLE);
+        String sql = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy order by ATTACHMENT_ID", TABLE);
         Map<String, Object> params = Map.of("objectType", objectType, "objectId", objectId, "createdBy", createdBy);
         List<ApplicationAttachment> attachments = namedTemplate.query(sql, params, ATTACHMENT_ROW_MAPPER);
         loadProperties(attachments);
@@ -165,17 +139,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
     public Page<ApplicationAttachment> findByObjectTypeAndObjectIdAndCreatedBy(int objectType, Long objectId,
             long createdBy, Pageable pageable) {
         Map<String, Object> params = Map.of("objectType", objectType, "objectId", objectId, "createdBy", createdBy);
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy", TABLE);
+        String count = String.format("select count(*) from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy", TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
         return page;
@@ -183,12 +148,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
 
     @Override
     public Page<ApplicationAttachment> findAll(Pageable pageable) {
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                """.formatted(TABLE);
-        String count = "select count(*) from %s".formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s", TABLE);
+        String count = String.format("select count(*) from %s", TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, Map.of(), pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
         return page;
@@ -199,17 +160,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         if (keyword == null || keyword.isBlank()) {
             return Page.empty(pageable);
         }
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where lower(FILE_NAME) like :keyword", TABLE);
+        String count = String.format("select count(*) from %s where lower(FILE_NAME) like :keyword", TABLE);
         Map<String, Object> params = new HashMap<>();
         params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
@@ -227,19 +179,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         params.put("objectType", objectType);
         params.put("objectId", objectId);
         params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
-                   and lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId
-                   and lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and lower(FILE_NAME) like :keyword", TABLE);
+        String count = String.format("select count(*) from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and lower(FILE_NAME) like :keyword", TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
         return page;
@@ -247,17 +188,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
 
     @Override
     public Page<ApplicationAttachment> findByCreatedBy(long createdBy, Pageable pageable) {
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where CREATED_BY = :createdBy
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where CREATED_BY = :createdBy
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where CREATED_BY = :createdBy", TABLE);
+        String count = String.format("select count(*) from %s where CREATED_BY = :createdBy", TABLE);
         Map<String, Object> params = Map.of("createdBy", createdBy);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
@@ -273,19 +205,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         Map<String, Object> params = new HashMap<>();
         params.put("createdBy", createdBy);
         params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where CREATED_BY = :createdBy
-                   and lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where CREATED_BY = :createdBy
-                   and lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where CREATED_BY = :createdBy and lower(FILE_NAME) like :keyword", TABLE);
+        String count = String.format("select count(*) from %s where CREATED_BY = :createdBy and lower(FILE_NAME) like :keyword", TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
         return page;
@@ -302,19 +223,8 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         params.put("objectId", objectId);
         params.put("createdBy", createdBy);
         params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
-        String select = """
-                select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE,
-                       CREATED_BY, CREATED_AT, UPDATED_AT
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
-                   and lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
-        String count = """
-                select count(*)
-                  from %s
-                 where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy
-                   and lower(FILE_NAME) like :keyword
-                """.formatted(TABLE);
+        String select = String.format("select ATTACHMENT_ID, OBJECT_TYPE, OBJECT_ID, CONTENT_TYPE, FILE_NAME, FILE_SIZE, CREATED_BY, CREATED_AT, UPDATED_AT from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy and lower(FILE_NAME) like :keyword", TABLE);
+        String count = String.format("select count(*) from %s where OBJECT_TYPE = :objectType and OBJECT_ID = :objectId and CREATED_BY = :createdBy and lower(FILE_NAME) like :keyword", TABLE);
         Page<ApplicationAttachment> page = queryPage(select, count, params, pageable, ATTACHMENT_ROW_MAPPER);
         loadProperties(page.getContent());
         return page;
@@ -349,16 +259,7 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
             updatedAt = Instant.now();
             attachment.setUpdatedAt(updatedAt);
         }
-        String sql = """
-                update %s
-                   set OBJECT_TYPE = :objectType,
-                       OBJECT_ID = :objectId,
-                       CONTENT_TYPE = :contentType,
-                       FILE_NAME = :fileName,
-                       FILE_SIZE = :fileSize,
-                       UPDATED_AT = :updatedAt
-                 where ATTACHMENT_ID = :id
-                """.formatted(TABLE);
+        String sql = String.format("update %s set OBJECT_TYPE = :objectType, OBJECT_ID = :objectId, CONTENT_TYPE = :contentType, FILE_NAME = :fileName, FILE_SIZE = :fileSize, UPDATED_AT = :updatedAt where ATTACHMENT_ID = :id", TABLE);
         Map<String, Object> params = new HashMap<>();
         params.put("objectType", attachment.getObjectType());
         params.put("objectId", attachment.getObjectId());
@@ -424,7 +325,7 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
                 .map(ApplicationAttachment::getAttachmentId)
                 .filter(Objects::nonNull)
                 .filter(id -> id > 0)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (ids.isEmpty()) {
             return;
         }
@@ -439,11 +340,7 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
         if (attachmentIds == null || attachmentIds.isEmpty()) {
             return Map.of();
         }
-        String sql = """
-                select ATTACHMENT_ID, PROPERTY_NAME, PROPERTY_VALUE
-                  from %s
-                 where ATTACHMENT_ID in (:ids)
-                """.formatted(PROPERTY_TABLE);
+        String sql = String.format("select ATTACHMENT_ID, PROPERTY_NAME, PROPERTY_VALUE from %s where ATTACHMENT_ID in (:ids)", PROPERTY_TABLE);
         Map<Long, Map<String, String>> grouped = new TreeMap<>();
         namedTemplate.query(sql, Map.of("ids", attachmentIds), rs -> {
             long id = rs.getLong("ATTACHMENT_ID");
@@ -459,15 +356,12 @@ public class JdbcAttachmentRepository implements AttachmentRepository {
             return;
         }
         namedTemplate.update(
-                "delete from %s where ATTACHMENT_ID = :id".formatted(PROPERTY_TABLE),
+                String.format("delete from %s where ATTACHMENT_ID = :id", PROPERTY_TABLE),
                 Map.of("id", attachmentId));
         if (properties == null || properties.isEmpty()) {
             return;
         }
-        String sql = """
-                insert into %s (ATTACHMENT_ID, PROPERTY_NAME, PROPERTY_VALUE)
-                values (:id, :name, :value)
-                """.formatted(PROPERTY_TABLE);
+        String sql = String.format("insert into %s (ATTACHMENT_ID, PROPERTY_NAME, PROPERTY_VALUE) values (:id, :name, :value)", PROPERTY_TABLE);
         SqlParameterSource[] batch = properties.entrySet().stream()
                 .map(entry -> new MapSqlParameterSource()
                         .addValue("id", attachmentId)

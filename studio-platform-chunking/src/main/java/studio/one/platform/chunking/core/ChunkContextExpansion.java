@@ -3,19 +3,26 @@ package studio.one.platform.chunking.core;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Collections;
 
 /**
  * Expanded context returned by a {@link ChunkContextExpander}.
  * The content is non-blank because {@link Chunk} also rejects blank content.
  */
-public record ChunkContextExpansion(
-        Chunk seedChunk,
-        List<Chunk> contextChunks,
-        String content,
-        ChunkContextExpansionStrategy strategy,
-        Map<String, Object> metadata) {
+public class ChunkContextExpansion {
+    private final Chunk seedChunk;
+    private final List<Chunk> contextChunks;
+    private final String content;
+    private final ChunkContextExpansionStrategy strategy;
+    private final Map<String, Object> metadata;
 
-    public ChunkContextExpansion {
+
+    public ChunkContextExpansion(
+            Chunk seedChunk,
+            List<Chunk> contextChunks,
+            String content,
+            ChunkContextExpansionStrategy strategy,
+            Map<String, Object> metadata) {
         seedChunk = Objects.requireNonNull(seedChunk, "seedChunk must not be null");
         contextChunks = sanitizeChunks(contextChunks);
         content = content == null ? "" : content.trim();
@@ -24,6 +31,12 @@ public record ChunkContextExpansion(
         }
         strategy = strategy == null ? ChunkContextExpansionStrategy.UNKNOWN : strategy;
         metadata = ChunkMetadataMaps.sanitize(metadata);
+    
+        this.seedChunk = seedChunk;
+        this.contextChunks = contextChunks;
+        this.content = content;
+        this.strategy = strategy;
+        this.metadata = metadata;
     }
 
     public static ChunkContextExpansion of(
@@ -59,9 +72,29 @@ public record ChunkContextExpansion(
         if (chunks == null || chunks.isEmpty()) {
             return List.of();
         }
-        return chunks.stream()
+        return Collections.unmodifiableList(chunks.stream()
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(java.util.stream.Collectors.toList()));
     }
 
+
+    public Chunk seedChunk() {
+        return seedChunk;
+    }
+
+    public List<Chunk> contextChunks() {
+        return contextChunks;
+    }
+
+    public String content() {
+        return content;
+    }
+
+    public ChunkContextExpansionStrategy strategy() {
+        return strategy;
+    }
+
+    public Map<String, Object> metadata() {
+        return metadata;
+    }
 }

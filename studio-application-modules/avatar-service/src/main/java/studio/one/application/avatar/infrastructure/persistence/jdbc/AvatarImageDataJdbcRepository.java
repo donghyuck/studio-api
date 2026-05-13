@@ -28,11 +28,11 @@ public class AvatarImageDataJdbcRepository implements AvatarImageDataRepository 
                 "id", data.getId(),
                 "payload", data.getData());
         int updated = template.update(
-                "update %s set AVATAR_IMAGE_DATA = :payload where AVATAR_IMAGE_ID = :id".formatted(TABLE),
+                String.format("update %s set AVATAR_IMAGE_DATA = :payload where AVATAR_IMAGE_ID = :id", TABLE),
                 params);
         if (updated == 0) {
             template.update(
-                    "insert into %s (AVATAR_IMAGE_ID, AVATAR_IMAGE_DATA) values (:id, :payload)".formatted(TABLE),
+                    String.format("insert into %s (AVATAR_IMAGE_ID, AVATAR_IMAGE_DATA) values (:id, :payload)", TABLE),
                     params);
         }
         return data;

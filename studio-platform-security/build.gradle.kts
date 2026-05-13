@@ -32,8 +32,8 @@ dependencies {
     testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework.data:spring-data-commons")
     testImplementation("org.mockito:mockito-core")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:junit-jupiter:${property("testcontainersVersion")}")
+    testImplementation("org.testcontainers:postgresql:${property("testcontainersVersion")}")
     testRuntimeOnly("org.postgresql:postgresql")
 
     compileOnly ("org.mapstruct:mapstruct:$mapstructVersion")

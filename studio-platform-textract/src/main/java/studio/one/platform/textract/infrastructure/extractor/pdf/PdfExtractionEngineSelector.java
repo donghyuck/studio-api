@@ -23,22 +23,30 @@ public class PdfExtractionEngineSelector {
 
     public ParsedFile extract(PdfExtractionRequest request) throws FileParseException {
         PdfExtractionOptions options = request.options();
-        return switch (options.engine()) {
-            case PDFBOX -> extractRequired(request, PdfExtractionEngineType.PDFBOX);
-            case PYMUPDF4LLM -> extractPyMuPdfFirst(request);
-            case AUTO -> extractAuto(request);
-        };
+        switch (options.engine()) {
+            case PDFBOX:
+                return extractRequired(request, PdfExtractionEngineType.PDFBOX);
+            case PYMUPDF4LLM:
+                return extractPyMuPdfFirst(request);
+            case AUTO:
+            default:
+                return extractAuto(request);
+        }
     }
 
     public boolean supports(PdfExtractionRequest request) {
         PdfExtractionOptions options = request.options();
-        return switch (options.engine()) {
-            case PDFBOX -> supports(request, PdfExtractionEngineType.PDFBOX);
-            case PYMUPDF4LLM -> supports(request, PdfExtractionEngineType.PYMUPDF4LLM)
-                    || (options.fallbackEnabled() && supports(request, PdfExtractionEngineType.PDFBOX));
-            case AUTO -> supports(request, PdfExtractionEngineType.PDFBOX)
-                    || supports(request, PdfExtractionEngineType.PYMUPDF4LLM);
-        };
+        switch (options.engine()) {
+            case PDFBOX:
+                return supports(request, PdfExtractionEngineType.PDFBOX);
+            case PYMUPDF4LLM:
+                return supports(request, PdfExtractionEngineType.PYMUPDF4LLM)
+                        || (options.fallbackEnabled() && supports(request, PdfExtractionEngineType.PDFBOX));
+            case AUTO:
+            default:
+                return supports(request, PdfExtractionEngineType.PDFBOX)
+                        || supports(request, PdfExtractionEngineType.PYMUPDF4LLM);
+        }
     }
 
     private ParsedFile extractAuto(PdfExtractionRequest request) throws FileParseException {

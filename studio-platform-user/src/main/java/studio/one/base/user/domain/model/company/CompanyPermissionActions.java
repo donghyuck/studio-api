@@ -31,21 +31,25 @@ public final class CompanyPermissionActions {
         actions.add(READ);
         actions.add(WORKSPACE_READ);
         switch (role) {
-            case BILLING_ADMIN -> {
+            case BILLING_ADMIN:
                 actions.add(BILLING_READ);
                 actions.add(BILLING_MANAGE);
-            }
-            case ADMIN -> addAdminActions(actions);
-            case OWNER -> {
+                break;
+            case ADMIN:
+                addAdminActions(actions);
+                break;
+            case OWNER:
                 addAdminActions(actions);
                 actions.add(ARCHIVE);
                 actions.add(PERMISSION_MANAGE);
                 actions.add(BILLING_READ);
                 actions.add(BILLING_MANAGE);
-            }
-            case MEMBER -> {
+                break;
+            case MEMBER:
                 // base actions only
-            }
+                break;
+            default:
+                break;
         }
         return Set.copyOf(actions);
     }

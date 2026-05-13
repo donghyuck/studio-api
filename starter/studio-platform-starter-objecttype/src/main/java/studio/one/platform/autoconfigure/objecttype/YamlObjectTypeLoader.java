@@ -25,10 +25,31 @@ public class YamlObjectTypeLoader {
 
     private static final Logger log = LoggerFactory.getLogger(YamlObjectTypeLoader.class);
 
-    public record Result(
-            Map<Integer, ObjectTypeMetadata> byType,
-            Map<String, ObjectTypeMetadata> byKey,
-            Map<Integer, ObjectPolicy> policies) {
+    public static final class Result {
+        private final Map<Integer, ObjectTypeMetadata> byType;
+        private final Map<String, ObjectTypeMetadata> byKey;
+        private final Map<Integer, ObjectPolicy> policies;
+
+        public Result(
+                Map<Integer, ObjectTypeMetadata> byType,
+                Map<String, ObjectTypeMetadata> byKey,
+                Map<Integer, ObjectPolicy> policies) {
+            this.byType = byType;
+            this.byKey = byKey;
+            this.policies = policies;
+        }
+
+        public Map<Integer, ObjectTypeMetadata> byType() {
+            return byType;
+        }
+
+        public Map<String, ObjectTypeMetadata> byKey() {
+            return byKey;
+        }
+
+        public Map<Integer, ObjectPolicy> policies() {
+            return policies;
+        }
     }
 
     private final ResourceLoader resourceLoader;
@@ -53,22 +74,25 @@ public class YamlObjectTypeLoader {
             options.setMaxAliasesForCollections(50);
             Yaml yaml = new Yaml(new SafeConstructor(options));
             Object data = yaml.load(in);
-            if (!(data instanceof Map<?, ?> root)) {
+            if (!(data instanceof Map<?, ?>)) {
                 log.warn("ObjectType YAML root is not a map: {}", location);
                 return empty();
             }
+            Map<?, ?> root = (Map<?, ?>) data;
             Object list = root.get("objecttypes");
-            if (!(list instanceof List<?> items)) {
+            if (!(list instanceof List<?>)) {
                 log.warn("ObjectType YAML has no 'objecttypes' list: {}", location);
                 return empty();
             }
+            List<?> items = (List<?>) list;
             Map<Integer, ObjectTypeMetadata> byType = new HashMap<>();
             Map<String, ObjectTypeMetadata> byKey = new HashMap<>();
             Map<Integer, ObjectPolicy> policies = new HashMap<>();
             for (Object item : items) {
-                if (!(item instanceof Map<?, ?> m)) {
+                if (!(item instanceof Map<?, ?>)) {
                     continue;
                 }
+                Map<?, ?> m = (Map<?, ?>) item;
                 Integer type = getInt(m, "type", "objectType");
                 if (type == null) {
                     continue;
@@ -85,7 +109,8 @@ public class YamlObjectTypeLoader {
                     byKey.put(key, meta);
                 }
                 Object policyRaw = m.get("policy");
-                if (policyRaw instanceof Map<?, ?> p) {
+                if (policyRaw instanceof Map<?, ?>) {
+                    Map<?, ?> p = (Map<?, ?>) policyRaw;
                     String policyKey = getString(p, "key");
                     Map<String, Object> policyAttrs = new HashMap<>();
                     for (Map.Entry<?, ?> e : p.entrySet()) {
@@ -116,12 +141,12 @@ public class YamlObjectTypeLoader {
     private static Integer getInt(Map<?, ?> map, String... keys) {
         for (String key : keys) {
             Object v = map.get(key);
-            if (v instanceof Number n) {
-                return n.intValue();
+            if (v instanceof Number) {
+                return ((Number) v).intValue();
             }
-            if (v instanceof String s && StringUtils.hasText(s)) {
+            if (v instanceof String && StringUtils.hasText((String) v)) {
                 try {
-                    return Integer.parseInt(s.trim());
+                    return Integer.parseInt(((String) v).trim());
                 } catch (NumberFormatException ignored) {
                     continue;
                 }
@@ -147,7 +172,7 @@ public class YamlObjectTypeLoader {
         if (value == null) {
             return;
         }
-        if (value instanceof String s && !StringUtils.hasText(s)) {
+        if (value instanceof String && !StringUtils.hasText((String) value)) {
             return;
         }
         target.put(key, value);

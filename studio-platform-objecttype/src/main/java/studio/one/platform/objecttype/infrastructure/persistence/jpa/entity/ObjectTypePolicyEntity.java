@@ -5,13 +5,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.Table;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -36,7 +33,6 @@ public class ObjectTypePolicyEntity implements ObjectPolicy {
     @Column(name = "allowed_mime")
     private String allowedMime;
 
-    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "policy_json", columnDefinition = "jsonb")
     private String policyJson;
 

@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +22,6 @@ public class ProviderEmbeddingConfiguration {
     public Map<String, EmbeddingPort> embeddingPorts(
             AiAdapterProperties properties,
             Environment environment,
-            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider,
             List<ProviderEmbeddingPortFactory> factories) {
 
         Map<AiAdapterProperties.ProviderType, ProviderEmbeddingPortFactory> factoryMap = factories.stream()
@@ -44,11 +42,7 @@ public class ProviderEmbeddingConfiguration {
                         provider.getType(), entry.getKey());
                 continue;
             }
-            ports.put(entry.getKey(), factory.create(
-                    entry.getKey(),
-                    provider,
-                    environment,
-                    springAiEmbeddingModelProvider));
+            ports.put(entry.getKey(), factory.create(entry.getKey(), provider, environment));
         }
         return ports;
     }

@@ -93,7 +93,8 @@ public class TemplateJpaPersistenceRepository implements TemplatePersistenceRepo
     }
 
     private TemplateEntity toEntity(Template template) {
-        if (template instanceof TemplateEntity entity) {
+        if (template instanceof TemplateEntity) {
+            TemplateEntity entity = (TemplateEntity) template;
             return entity;
         }
         TemplateEntity entity = new TemplateEntity();
@@ -122,7 +123,7 @@ public class TemplateJpaPersistenceRepository implements TemplatePersistenceRepo
                 var lowered = cb.lower(cb.coalesce(path, ""));
                 predicates.add(cb.like(lowered, like));
             }
-            return cb.or(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+            return cb.or(predicates.toArray(new javax.persistence.criteria.Predicate[0]));
         };
     }
 

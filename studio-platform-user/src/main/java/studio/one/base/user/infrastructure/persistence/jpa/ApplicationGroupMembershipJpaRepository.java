@@ -42,33 +42,10 @@ public interface ApplicationGroupMembershipJpaRepository
 
   @Override
   @Query(
-      value = """
-          select u.userId as userId,
-                 u.username as username,
-                 u.name as name,
-                 u.enabled as enabled
-            from ApplicationGroupMembership gm
-            join ApplicationUser u on u.userId = gm.id.userId
-           where gm.id.groupId = :groupId
-             and (
-                   :#{#keyword == null || #keyword.trim().isEmpty()} = true
-                or lower(u.username) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
-                or lower(u.name) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
-                or lower(u.email) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
-             )
-          """,
-      countQuery = """
-          select count(gm)
-            from ApplicationGroupMembership gm
-            join ApplicationUser u on u.userId = gm.id.userId
-           where gm.id.groupId = :groupId
-             and (
-                   :#{#keyword == null || #keyword.trim().isEmpty()} = true
-                or lower(u.username) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
-                or lower(u.name) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
-                or lower(u.email) like lower(concat('%', CAST(:#{#keyword == null ? '' : #keyword.trim()} AS String), '%'))
-             )
-          """)
+      value = (
+"select u.userId as userId, " + "       u.username as username, " + "       u.name as name, " + "       u.enabled as enabled " + "  from ApplicationGroupMembership gm " + "  join ApplicationUser u on u.userId = gm.id.userId " + " where gm.id.groupId = :groupId " + "   and ( " + "         :#{#keyword == null || #keyword.trim().isEmpty()} = true " + "      or lower(u.username) like lower(concat('%', :#{#keyword == null ? '' : #keyword.trim()}, '%')) " + "      or lower(u.name) like lower(concat('%', :#{#keyword == null ? '' : #keyword.trim()}, '%')) " + "      or lower(u.email) like lower(concat('%', :#{#keyword == null ? '' : #keyword.trim()}, '%')) " + "   ) "),
+      countQuery = (
+"select count(gm) " + "  from ApplicationGroupMembership gm " + "  join ApplicationUser u on u.userId = gm.id.userId " + " where gm.id.groupId = :groupId " + "   and ( " + "         :#{#keyword == null || #keyword.trim().isEmpty()} = true " + "      or lower(u.username) like lower(concat('%', :#{#keyword == null ? '' : #keyword.trim()}, '%')) " + "      or lower(u.name) like lower(concat('%', :#{#keyword == null ? '' : #keyword.trim()}, '%')) " + "      or lower(u.email) like lower(concat('%', :#{#keyword == null ? '' : #keyword.trim()}, '%')) " + "   ) "))
   Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(
       @Param("groupId") Long groupId,
       @Param("keyword") @Nullable String keyword,

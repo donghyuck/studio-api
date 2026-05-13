@@ -14,7 +14,7 @@ final class ProjectionCoordinateSupport {
     static List<VectorItem> usableItems(List<VectorItem> items) {
         return items.stream()
                 .filter(item -> item.embedding() != null && !item.embedding().isEmpty())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     static List<double[]> pcaCoordinates(List<VectorItem> usable) {

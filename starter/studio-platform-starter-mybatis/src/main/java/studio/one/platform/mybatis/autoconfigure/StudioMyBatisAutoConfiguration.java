@@ -1,5 +1,8 @@
 package studio.one.platform.mybatis.autoconfigure;
 
+import org.springframework.boot.autoconfigure.AutoConfigureBefore;
+import org.springframework.context.annotation.Configuration;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,7 +15,6 @@ import org.mybatis.spring.SqlSessionFactoryBean;
 import org.mybatis.spring.boot.autoconfigure.ConfigurationCustomizer;
 import org.mybatis.spring.boot.autoconfigure.MybatisAutoConfiguration;
 import org.mybatis.spring.boot.autoconfigure.SqlSessionFactoryBeanCustomizer;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -29,7 +31,8 @@ import org.springframework.util.StringUtils;
 import studio.one.platform.data.mybatis.StudioMyBatisDatabaseIdProviderFactory;
 import studio.one.platform.data.mybatis.StudioMyBatisProperties;
 
-@AutoConfiguration(before = MybatisAutoConfiguration.class)
+@Configuration
+@AutoConfigureBefore(MybatisAutoConfiguration.class)
 @ConditionalOnClass({ SqlSessionFactory.class, SqlSessionFactoryBean.class })
 @EnableConfigurationProperties(StudioMyBatisProperties.class)
 public class StudioMyBatisAutoConfiguration {

@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import jakarta.persistence.LockModeType;
+import javax.persistence.LockModeType;
 
 import studio.one.base.user.domain.model.ApplicationCompanyMemberKey;
 import studio.one.base.user.domain.port.ApplicationCompanyMemberKeyRepository;

@@ -19,76 +19,66 @@ import studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchRow;
 
 public final class PgVectorJdbcMapper implements PgVectorMapper {
 
-    private static final String UPSERT_CHUNK_SQL = """
-            INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
-            VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding)
-            ON CONFLICT (object_type, object_id, chunk_index)
-            DO UPDATE SET text = EXCLUDED.text, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding
-            """;
-    private static final String SEARCH_SQL = """
-            SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
-              FROM tb_ai_document_chunk
-             ORDER BY embedding <-> :vector ASC
-             LIMIT :limit
-            """;
-    private static final String DELETE_BY_OBJECT_SQL = """
-            DELETE FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-            """;
-    private static final String SEARCH_BY_OBJECT_SQL = """
-            SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
-              FROM tb_ai_document_chunk
-             WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))
-               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
-             ORDER BY embedding <-> :vector ASC
-             LIMIT :limit
-            """;
-    private static final String HYBRID_SEARCH_SQL = """
-            SELECT id, object_id, text, metadata,
-                   (embedding <-> :vector) AS distance,
-                   ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
-                   ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
-              FROM tb_ai_document_chunk
-             ORDER BY hybrid ASC
-             LIMIT :limit
-            """;
-    private static final String HYBRID_SEARCH_BY_OBJECT_SQL = """
-            SELECT id, object_id, text, metadata,
-                   (embedding <-> :vector) AS distance,
-                   ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
-                   ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
-              FROM tb_ai_document_chunk
-             WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))
-               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
-             ORDER BY hybrid ASC
-             LIMIT :limit
-            """;
-    private static final String EXISTS_SQL = """
-            SELECT COUNT(*)
-              FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-            """;
-    private static final String LIST_BY_OBJECT_SQL = """
-            SELECT object_id, text, metadata
-              FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
-             LIMIT :limit
-            """;
-    private static final String LIST_BY_OBJECT_PAGE_SQL = """
-            SELECT object_id, text, metadata
-              FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
-             LIMIT :limit OFFSET :offset
-            """;
-    private static final String METADATA_BY_OBJECT_SQL = """
-            SELECT metadata
-              FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
-             LIMIT 1
-            """;
+    private static final String UPSERT_CHUNK_SQL = String.join("\n",
+        "INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)",
+        "VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding)",
+        "ON CONFLICT (object_type, object_id, chunk_index)",
+        "DO UPDATE SET text = EXCLUDED.text, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding");
+    private static final String SEARCH_SQL = String.join("\n",
+        "SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance",
+        "  FROM tb_ai_document_chunk",
+        " ORDER BY embedding <-> :vector ASC",
+        " LIMIT :limit");
+    private static final String DELETE_BY_OBJECT_SQL = String.join("\n",
+        "DELETE FROM tb_ai_document_chunk",
+        " WHERE object_type = :objectType AND object_id = :objectId");
+    private static final String SEARCH_BY_OBJECT_SQL = String.join("\n",
+        "SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance",
+        "  FROM tb_ai_document_chunk",
+        " WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))",
+        "   AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))",
+        " ORDER BY embedding <-> :vector ASC",
+        " LIMIT :limit");
+    private static final String HYBRID_SEARCH_SQL = String.join("\n",
+        "SELECT id, object_id, text, metadata,",
+        "       (embedding <-> :vector) AS distance,",
+        "       ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,",
+        "       ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid",
+        "  FROM tb_ai_document_chunk",
+        " ORDER BY hybrid ASC",
+        " LIMIT :limit");
+    private static final String HYBRID_SEARCH_BY_OBJECT_SQL = String.join("\n",
+        "SELECT id, object_id, text, metadata,",
+        "       (embedding <-> :vector) AS distance,",
+        "       ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,",
+        "       ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid",
+        "  FROM tb_ai_document_chunk",
+        " WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))",
+        "   AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))",
+        " ORDER BY hybrid ASC",
+        " LIMIT :limit");
+    private static final String EXISTS_SQL = String.join("\n",
+        "SELECT COUNT(*)",
+        "  FROM tb_ai_document_chunk",
+        " WHERE object_type = :objectType AND object_id = :objectId");
+    private static final String LIST_BY_OBJECT_SQL = String.join("\n",
+        "SELECT object_id, text, metadata",
+        "  FROM tb_ai_document_chunk",
+        " WHERE object_type = :objectType AND object_id = :objectId",
+        " ORDER BY chunk_index",
+        " LIMIT :limit");
+    private static final String LIST_BY_OBJECT_PAGE_SQL = String.join("\n",
+        "SELECT object_id, text, metadata",
+        "  FROM tb_ai_document_chunk",
+        " WHERE object_type = :objectType AND object_id = :objectId",
+        " ORDER BY chunk_index",
+        " LIMIT :limit OFFSET :offset");
+    private static final String METADATA_BY_OBJECT_SQL = String.join("\n",
+        "SELECT metadata",
+        "  FROM tb_ai_document_chunk",
+        " WHERE object_type = :objectType AND object_id = :objectId",
+        " ORDER BY chunk_index",
+        " LIMIT 1");
 
     private static final RowMapper<PgVectorSearchRow> ROW_MAPPER = new RowMapper<>() {
         @Override

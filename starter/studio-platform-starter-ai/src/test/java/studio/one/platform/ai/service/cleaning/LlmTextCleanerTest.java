@@ -40,11 +40,10 @@ class LlmTextCleanerTest {
         LlmTextCleaner cleaner = cleaner(true);
         when(promptRenderer.render(eq("rag-cleaner"), any(Map.class))).thenReturn("clean prompt");
         when(chatPort.chat(any(ChatRequest.class))).thenReturn(new ChatResponse(
-                List.of(ChatMessage.assistant("""
-                        ```json
-                        {"clean_text":"정제된 본문"}
-                        ```
-                        """)),
+                List.of(ChatMessage.assistant(String.join("\n",
+        "```json",
+        "{\"clean_text\":\"\uc815\uc81c\ub41c \ubcf8\ubb38\"}",
+        "```"))),
                 "test-model",
                 Map.of()));
 

@@ -196,7 +196,7 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                 .map(NormalizedBlock::effectiveSourceRef)
                 .filter(ref -> ref != null && !ref.isBlank())
                 .distinct()
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
         if (parentChunk != null) {
             putIfPresent(attributes, ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, parentChunk.content());
             putIfPresent(attributes, ChunkMetadata.KEY_PARENT_CHUNK_BLOCK_IDS, parentChunk.metadata().blockIds());
@@ -210,7 +210,7 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         if (value == null) {
             return;
         }
-        if (value instanceof String text && text.isBlank()) {
+        if (value instanceof String && ((String) value).isBlank()) {
             return;
         }
         attributes.put(key, value);
@@ -356,14 +356,14 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                 .map(String::trim)
                 .filter(id -> !id.isBlank())
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private Double aggregateConfidence(List<NormalizedBlock> blocks) {
         List<Double> values = blocks.stream()
                 .map(NormalizedBlock::confidence)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (values.isEmpty()) {
             return null;
         }
@@ -406,10 +406,64 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         return other != null && Objects.equals(current.metadata().parentChunkId(), other.metadata().parentChunkId());
     }
 
-    private record Section(String headingPath, int startOrder, List<NormalizedBlock> blocks,
-                           List<NormalizedBlock> parentBlocks) {
+    private static final class Section {
+        private final String headingPath;
+        private final int startOrder;
+        private final List<NormalizedBlock> blocks;
+        private final List<NormalizedBlock> parentBlocks;
+
+        private Section(String headingPath, int startOrder, List<NormalizedBlock> blocks,
+                List<NormalizedBlock> parentBlocks) {
+            this.headingPath = headingPath;
+            this.startOrder = startOrder;
+            this.blocks = blocks;
+            this.parentBlocks = parentBlocks;
+        }
+
+        private String headingPath() {
+            return headingPath;
+        }
+
+        private int startOrder() {
+            return startOrder;
+        }
+
+        private List<NormalizedBlock> blocks() {
+            return blocks;
+        }
+
+        private List<NormalizedBlock> parentBlocks() {
+            return parentBlocks;
+        }
     }
 
-    private record ParentChunk(String id, String content, ChunkMetadata metadata, Section section) {
+    private static final class ParentChunk {
+        private final String id;
+        private final String content;
+        private final ChunkMetadata metadata;
+        private final Section section;
+
+        private ParentChunk(String id, String content, ChunkMetadata metadata, Section section) {
+            this.id = id;
+            this.content = content;
+            this.metadata = metadata;
+            this.section = section;
+        }
+
+        private String id() {
+            return id;
+        }
+
+        private String content() {
+            return content;
+        }
+
+        private ChunkMetadata metadata() {
+            return metadata;
+        }
+
+        private Section section() {
+            return section;
+        }
     }
 }

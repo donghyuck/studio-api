@@ -20,13 +20,15 @@
  */
 package studio.one.platform.security.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -47,8 +49,11 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -220,7 +225,7 @@ import studio.one.platform.util.LogUtils;
  * 2025-11-18  donghyuck, son: 최초 생성.
  *          </pre>
  */
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
 @AutoConfigureAfter(name = "studio.one.platform.user.autoconfigure.UserServicesAutoConfiguration")
 @ConditionalOnClass({ HttpSecurity.class, PasswordEncoder.class })
@@ -231,6 +236,18 @@ import studio.one.platform.util.LogUtils;
 public class SecurityAutoConfiguration {
 
         protected static final String FEATURE_NAME = "Security";
+
+        @Bean(name = "studioAuthenticationPrincipalWebMvcConfigurer")
+        @ConditionalOnClass(AuthenticationPrincipalArgumentResolver.class)
+        @ConditionalOnMissingBean(name = "studioAuthenticationPrincipalWebMvcConfigurer")
+        WebMvcConfigurer authenticationPrincipalWebMvcConfigurer() {
+                return new WebMvcConfigurer() {
+                        @Override
+                        public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+                                resolvers.add(new AuthenticationPrincipalArgumentResolver());
+                        }
+                };
+        }
 
         /**
          * PasswordEncoder 빈을 정의합니다.
@@ -261,12 +278,21 @@ public class SecurityAutoConfiguration {
                 Integer iterations = props.getIterations() != null ? props.getIterations() : 185000;
                 Integer hashWidth = props.getHashWidth() != null ? props.getHashWidth() : 256;
                 String secret = props.getSecret() != null ? props.getSecret() : "";
-                SecretKeyFactoryAlgorithm pbkdf2Algo = switch (props.getPbkdf2Algo()) {
-                        case PBKDF2WithHmacSHA1 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1;
-                        case PBKDF2WithHmacSHA512 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512;
-                        case PBKDF2WithHmacSHA256 -> SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
-                };
-                Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth, pbkdf2Algo);
+                SecretKeyFactoryAlgorithm pbkdf2Algo;
+                switch (props.getPbkdf2Algo()) {
+                        case PBKDF2WithHmacSHA1:
+                                pbkdf2Algo = SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA1;
+                                break;
+                        case PBKDF2WithHmacSHA512:
+                                pbkdf2Algo = SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA512;
+                                break;
+                        case PBKDF2WithHmacSHA256:
+                        default:
+                                pbkdf2Algo = SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
+                                break;
+                }
+                Pbkdf2PasswordEncoder pbkdf2 = new Pbkdf2PasswordEncoder(secret, iterations, hashWidth);
+                pbkdf2.setAlgorithm(pbkdf2Algo);
                 encoders.put(PasswordEncoderProperties.Algorithm.PBKDF2.name().toLowerCase(), pbkdf2);
 
                 String idForEncode = PasswordEncoderProperties.Algorithm.BCRYPT.name().toLowerCase();
@@ -340,6 +366,7 @@ public class SecurityAutoConfiguration {
                                         cors.getMaxAge() != null ? cors.getMaxAge() : "-"));
                 }
                 config.setAllowedOrigins(cors.getAllowedOrigins());
+                config.setAllowedOriginPatterns(cors.getAllowedOriginPatterns());
                 config.setAllowedMethods(cors.getAllowedMethods());
                 config.setAllowedHeaders(cors.getAllowedHeaders());
                 config.setExposedHeaders(cors.getExposedHeaders());

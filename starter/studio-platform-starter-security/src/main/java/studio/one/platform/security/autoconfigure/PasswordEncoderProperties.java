@@ -23,8 +23,8 @@ package studio.one.platform.security.autoconfigure;
 
 import java.util.Map;
 
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Positive;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.Positive;
 
 import lombok.Getter;
 import lombok.Setter;

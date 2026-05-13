@@ -84,7 +84,7 @@ public class RagContextBuilder {
         this.includeScores = includeScores;
         this.expansion = expansion == null ? new AiWebRagProperties.ExpansionProperties() : expansion;
         this.contextExpanders = contextExpanders == null ? List.of()
-                : contextExpanders.stream().filter(Objects::nonNull).toList();
+                : contextExpanders.stream().filter(Objects::nonNull).collect(java.util.stream.Collectors.toList());
     }
 
     public static RagContextBuilder defaults() {
@@ -423,10 +423,11 @@ public class RagContextBuilder {
     }
 
     private int intValue(Object value, int fallback) {
-        if (value instanceof Number number) {
-            return Math.max(0, number.intValue());
+        if (value instanceof Number) {
+            return Math.max(0, ((Number) value).intValue());
         }
-        if (value instanceof String stringValue) {
+        if (value instanceof String) {
+            String stringValue = (String) value;
             try {
                 return Math.max(0, Integer.parseInt(stringValue.trim()));
             } catch (NumberFormatException ignored) {
@@ -437,39 +438,86 @@ public class RagContextBuilder {
     }
 
     private String text(Object value) {
-        return value instanceof String stringValue && !stringValue.isBlank() ? stringValue.trim() : null;
+        return value instanceof String && !((String) value).isBlank() ? ((String) value).trim() : null;
     }
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
     }
 
-    public record BuildResult(String context, Diagnostics diagnostics, List<RagSearchResult> usedResults) {
+    public static final class BuildResult {
+        private final String context;
+        private final Diagnostics diagnostics;
+        private final List<RagSearchResult> usedResults;
 
         public BuildResult(String context, Diagnostics diagnostics) {
             this(context, diagnostics, List.of());
         }
 
-        public BuildResult {
-            usedResults = usedResults == null ? List.of() : List.copyOf(usedResults);
+        public BuildResult(String context, Diagnostics diagnostics, List<RagSearchResult> usedResults) {
+            this.context = context;
+            this.diagnostics = diagnostics;
+            this.usedResults = usedResults == null ? List.of() : List.copyOf(usedResults);
+        }
+
+        public String context() {
+            return context;
+        }
+
+        public Diagnostics diagnostics() {
+            return diagnostics;
+        }
+
+        public List<RagSearchResult> usedResults() {
+            return usedResults;
         }
     }
 
-    public record Diagnostics(
-            boolean expansionSupported,
-            boolean applied,
-            String strategy,
-            int expandedHitCount,
-            int fallbackHitCount,
-            int candidateCount,
-            int resultCount,
-            int includedCount,
-            int compressedHitCount,
-            int skippedHitCount,
-            int maxChunks,
-            int maxChars,
-            int contextCharCount,
-            String fallbackReason) {
+    public static final class Diagnostics {
+        private final boolean expansionSupported;
+        private final boolean applied;
+        private final String strategy;
+        private final int expandedHitCount;
+        private final int fallbackHitCount;
+        private final int candidateCount;
+        private final int resultCount;
+        private final int includedCount;
+        private final int compressedHitCount;
+        private final int skippedHitCount;
+        private final int maxChunks;
+        private final int maxChars;
+        private final int contextCharCount;
+        private final String fallbackReason;
+
+        public Diagnostics(boolean expansionSupported,
+                           boolean applied,
+                           String strategy,
+                           int expandedHitCount,
+                           int fallbackHitCount,
+                           int candidateCount,
+                           int resultCount,
+                           int includedCount,
+                           int compressedHitCount,
+                           int skippedHitCount,
+                           int maxChunks,
+                           int maxChars,
+                           int contextCharCount,
+                           String fallbackReason) {
+            this.expansionSupported = expansionSupported;
+            this.applied = applied;
+            this.strategy = strategy;
+            this.expandedHitCount = expandedHitCount;
+            this.fallbackHitCount = fallbackHitCount;
+            this.candidateCount = candidateCount;
+            this.resultCount = resultCount;
+            this.includedCount = includedCount;
+            this.compressedHitCount = compressedHitCount;
+            this.skippedHitCount = skippedHitCount;
+            this.maxChunks = maxChunks;
+            this.maxChars = maxChars;
+            this.contextCharCount = contextCharCount;
+            this.fallbackReason = fallbackReason;
+        }
 
         public Map<String, Object> toMetadata() {
             Map<String, Object> metadata = new LinkedHashMap<>();
@@ -491,22 +539,63 @@ public class RagContextBuilder {
         }
 
         private static void put(Map<String, Object> metadata, String key, Object value) {
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
                 metadata.put(key, value);
             }
         }
     }
 
-    private record ExpansionAttempt(
-            RagSearchResult result,
-            boolean expanded,
-            String strategy,
-            String fallbackReason) {
+    private static final class ExpansionAttempt {
+        private final RagSearchResult result;
+        private final boolean expanded;
+        private final String strategy;
+        private final String fallbackReason;
+
+        private ExpansionAttempt(RagSearchResult result, boolean expanded, String strategy, String fallbackReason) {
+            this.result = result;
+            this.expanded = expanded;
+            this.strategy = strategy;
+            this.fallbackReason = fallbackReason;
+        }
+
+        private RagSearchResult result() {
+            return result;
+        }
+
+        private boolean expanded() {
+            return expanded;
+        }
+
+        private String strategy() {
+            return strategy;
+        }
+
+        private String fallbackReason() {
+            return fallbackReason;
+        }
     }
 
-    private record PackedChunk(
-            String text,
-            RagSearchResult result,
-            boolean compressed) {
+    private static final class PackedChunk {
+        private final String text;
+        private final RagSearchResult result;
+        private final boolean compressed;
+
+        private PackedChunk(String text, RagSearchResult result, boolean compressed) {
+            this.text = text;
+            this.result = result;
+            this.compressed = compressed;
+        }
+
+        private String text() {
+            return text;
+        }
+
+        private RagSearchResult result() {
+            return result;
+        }
+
+        private boolean compressed() {
+            return compressed;
+        }
     }
 }

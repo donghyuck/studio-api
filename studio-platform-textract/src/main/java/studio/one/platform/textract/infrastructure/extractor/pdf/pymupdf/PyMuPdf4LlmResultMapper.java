@@ -220,7 +220,7 @@ public class PyMuPdf4LlmResultMapper extends AbstractFileParser {
                         warning.message(),
                         firstNonBlank(warning.sourceRef(), "document"),
                         safeMetadata(warning.metadata())))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private Map<String, Object> metadata(PyMuPdf4LlmResponse response, PdfExtractionRequest request) {
@@ -259,7 +259,11 @@ public class PyMuPdf4LlmResultMapper extends AbstractFileParser {
 
     private String sourceRef(Map<String, Object> metadata, String fallback) {
         Object value = metadata.get(ParsedBlock.KEY_SOURCE_REF);
-        return value instanceof String text && !text.isBlank() ? text : fallback;
+        if (value instanceof String) {
+            String text = (String) value;
+            return !text.isBlank() ? text : fallback;
+        }
+        return fallback;
     }
 
     private BlockType blockType(String type) {
@@ -270,25 +274,41 @@ public class PyMuPdf4LlmResultMapper extends AbstractFileParser {
                 .replace('-', '_')
                 .replace(' ', '_')
                 .toUpperCase(Locale.ROOT);
-        return switch (normalized) {
-            case "TITLE" -> BlockType.TITLE;
-            case "HEADING", "HEADER_TEXT" -> BlockType.HEADING;
-            case "LIST", "LIST_ITEM" -> BlockType.LIST_ITEM;
-            case "TABLE" -> BlockType.TABLE;
-            case "IMAGE", "FIGURE" -> BlockType.IMAGE;
-            case "IMAGE_CAPTION", "CAPTION" -> BlockType.IMAGE_CAPTION;
-            case "OCR", "OCR_TEXT" -> BlockType.OCR_TEXT;
-            case "FOOTNOTE" -> BlockType.FOOTNOTE;
-            default -> BlockType.PARAGRAPH;
-        };
+        switch (normalized) {
+            case "TITLE":
+                return BlockType.TITLE;
+            case "HEADING":
+            case "HEADER_TEXT":
+                return BlockType.HEADING;
+            case "LIST":
+            case "LIST_ITEM":
+                return BlockType.LIST_ITEM;
+            case "TABLE":
+                return BlockType.TABLE;
+            case "IMAGE":
+            case "FIGURE":
+                return BlockType.IMAGE;
+            case "IMAGE_CAPTION":
+            case "CAPTION":
+                return BlockType.IMAGE_CAPTION;
+            case "OCR":
+            case "OCR_TEXT":
+                return BlockType.OCR_TEXT;
+            case "FOOTNOTE":
+                return BlockType.FOOTNOTE;
+            default:
+                return BlockType.PARAGRAPH;
+        }
     }
 
     private Integer integerValue(Map<String, Object> metadata, String key) {
         Object value = metadata.get(key);
-        if (value instanceof Integer integerValue) {
+        if (value instanceof Integer) {
+            Integer integerValue = (Integer) value;
             return integerValue;
         }
-        if (value instanceof Number numberValue) {
+        if (value instanceof Number) {
+            Number numberValue = (Number) value;
             return numberValue.intValue();
         }
         return null;

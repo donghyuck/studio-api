@@ -49,12 +49,18 @@ public class RoleAclSidSyncListener {
             return;
         String roleName = event.getRoleName().trim();
         switch (event.getAction()) {
-            case CREATED -> ensureSid(roleName);
-            case UPDATED -> {
+            case CREATED:
+                ensureSid(roleName);
+                break;
+            case UPDATED:
                 ensureSid(roleName);
                 ensureRemovedIfRenamed(event.getPreviousRoleName(), roleName);
-            }
-            case DELETED -> deleteSidAndEntries(roleName);
+                break;
+            case DELETED:
+                deleteSidAndEntries(roleName);
+                break;
+            default:
+                break;
         }
     }
 

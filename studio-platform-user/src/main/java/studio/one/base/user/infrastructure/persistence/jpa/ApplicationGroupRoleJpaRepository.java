@@ -62,17 +62,7 @@ public interface ApplicationGroupRoleJpaRepository extends JpaRepository<Applica
     int deleteByGroupIdsAndRoleId(@Param("groupIds") Collection<Long> groupIds, @Param("roleId") Long roleId);
 
     @Override
-    @Query("""
-    select g
-      from ApplicationGroup g
-      join ApplicationGroupRole gr on gr.group = g
-     where gr.role.roleId = :roleId
-       and (
-            :q is null
-         or lower(g.name) like lower(concat('%', CAST(:q AS String), '%'))
-         or lower(g.description) like lower(concat('%', CAST(:q AS String), '%'))
-       )
-    """)
+    @Query("select g " + "  from ApplicationGroup g " + "  join ApplicationGroupRole gr on gr.group = g " + " where gr.role.roleId = :roleId " + "   and ( " + "        :q is null " + "     or lower(g.name) like lower(concat('%', :q, '%')) " + "     or lower(g.description) like lower(concat('%', :q, '%')) " + "   ) ")
     Page<ApplicationGroup> findGroupsByRoleId(
             @Param("roleId") Long roleId,
             @Param("q") String q,
@@ -80,31 +70,10 @@ public interface ApplicationGroupRoleJpaRepository extends JpaRepository<Applica
 
     @Override
     @Query(
-      value = """
-        select distinct g as entity,
-              (select count(m)
-                  from ApplicationGroupMembership m
-                where m.group = g) as memberCount
-          from ApplicationGroup g
-          join ApplicationGroupRole gr on gr.group = g
-        where gr.role.roleId = :roleId
-          and (
-                :q is null
-            or lower(g.name) like lower(concat('%', CAST(:q AS String), '%'))
-            or lower(g.description) like lower(concat('%', CAST(:q AS String), '%'))
-          )
-        """,
-      countQuery = """
-        select count(distinct g)
-          from ApplicationGroup g
-          join ApplicationGroupRole gr on gr.group = g
-        where gr.role.roleId = :roleId
-          and (
-                :q is null
-            or lower(g.name) like lower(concat('%', CAST(:q AS String), '%'))
-            or lower(g.description) like lower(concat('%', CAST(:q AS String), '%'))
-          )
-        """
+      value = (
+"select distinct g as entity, " + "      (select count(m) " + "          from ApplicationGroupMembership m " + "        where m.group = g) as memberCount " + "  from ApplicationGroup g " + "  join ApplicationGroupRole gr on gr.group = g " + "where gr.role.roleId = :roleId " + "  and ( " + "        :q is null " + "    or lower(g.name) like lower(concat('%', :q, '%')) " + "    or lower(g.description) like lower(concat('%', :q, '%')) " + "  ) "),
+      countQuery = (
+"select count(distinct g) " + "  from ApplicationGroup g " + "  join ApplicationGroupRole gr on gr.group = g " + "where gr.role.roleId = :roleId " + "  and ( " + "        :q is null " + "    or lower(g.name) like lower(concat('%', :q, '%')) " + "    or lower(g.description) like lower(concat('%', :q, '%')) " + "  ) ")
     )
     Page<ApplicationGroupWithMemberCount> findGroupsWithMemberCountByRoleId(
             @Param("roleId") Long roleId,

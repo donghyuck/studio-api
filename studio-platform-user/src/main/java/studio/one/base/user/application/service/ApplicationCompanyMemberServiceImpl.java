@@ -1,5 +1,6 @@
 package studio.one.base.user.application.service;
 
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Objects;
 
@@ -93,7 +94,7 @@ public class ApplicationCompanyMemberServiceImpl implements ApplicationCompanyMe
         requireCompanyId(companyId);
         return memberRepository.findAllByCompanyId(companyId).stream()
                 .map(ApplicationCompanyMember::toRef)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     @Override

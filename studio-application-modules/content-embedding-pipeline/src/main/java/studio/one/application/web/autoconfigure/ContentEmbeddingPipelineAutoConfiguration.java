@@ -1,24 +1,30 @@
 package studio.one.application.web.autoconfigure;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.web.controller.AttachmentEmbeddingPipelineController;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
+import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.service.pipeline.RagIndexJobService;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.service.I18n;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureAfter(name = "studio.one.application.attachment.autoconfigure.AttachmentAutoConfiguration")
 @ConditionalOnClass({AttachmentService.class, RagPipelineService.class})
 @ConditionalOnBean(AttachmentService.class)
@@ -51,6 +57,31 @@ public class ContentEmbeddingPipelineAutoConfiguration {
     AttachmentRagIndexJobSourceNameResolver attachmentRagIndexJobSourceNameResolver(
             AttachmentService attachmentService) {
         return new AttachmentRagIndexJobSourceNameResolver(attachmentService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "studio.features.attachment.web", name = "enabled", havingValue = "true")
+    AttachmentEmbeddingPipelineController attachmentEmbeddingPipelineController(
+            AttachmentService attachmentService,
+            ObjectProvider<FileContentExtractionService> textExtractionProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider,
+            ObjectProvider<RagPipelineService> ragPipelineProvider,
+            ObjectProvider<RagIndexJobService> ragIndexJobServiceProvider,
+            ObjectProvider<RagPipelineOptions> ragPipelineOptionsProvider,
+            AttachmentRagIndexService attachmentRagIndexService,
+            ObjectProvider<I18n> i18nProvider) {
+        return new AttachmentEmbeddingPipelineController(
+                attachmentService,
+                textExtractionProvider,
+                embeddingPortProvider,
+                vectorStoreProvider,
+                ragPipelineProvider,
+                ragIndexJobServiceProvider,
+                ragPipelineOptionsProvider,
+                attachmentRagIndexService,
+                i18nProvider);
     }
 
 }

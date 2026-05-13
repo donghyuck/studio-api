@@ -21,7 +21,7 @@ final class ChunkContextExpansionSupport {
                 .forEach(chunk -> unique.putIfAbsent(chunk.id(), chunk));
         return unique.values().stream()
                 .sorted(Comparator.comparingInt(chunk -> chunk.metadata().order()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     static List<Chunk> withSeed(Chunk seed, List<Chunk> chunks) {
@@ -42,7 +42,7 @@ final class ChunkContextExpansionSupport {
         }
         return order(chunks.stream()
                 .filter(chunk -> parentChunkId.equals(chunk.metadata().parentChunkId()))
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
     }
 
     static List<Chunk> sameSection(String section, List<Chunk> chunks) {
@@ -51,7 +51,7 @@ final class ChunkContextExpansionSupport {
         }
         return order(chunks.stream()
                 .filter(chunk -> section.equals(chunk.metadata().section()))
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
     }
 
     static ChunkType chunkType(Chunk chunk) {
@@ -60,13 +60,13 @@ final class ChunkContextExpansionSupport {
 
     static String parentContent(Chunk chunk) {
         Object value = chunk.metadata().toMap().get(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT);
-        return value instanceof String stringValue ? stringValue.trim() : "";
+        return value instanceof String ? ((String) value).trim() : "";
     }
 
     static Map<String, Object> metadata(String key, Object value) {
         Map<String, Object> metadata = new LinkedHashMap<>();
         if (key != null && !key.isBlank() && value != null) {
-            if (!(value instanceof String stringValue) || !stringValue.isBlank()) {
+            if (!(value instanceof String) || !((String) value).isBlank()) {
                 metadata.put(key, value);
             }
         }

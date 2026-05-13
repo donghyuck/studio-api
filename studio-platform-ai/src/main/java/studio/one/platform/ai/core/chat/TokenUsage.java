@@ -6,7 +6,65 @@ import java.util.LinkedHashMap;
 /**
  * Provider-neutral token usage metadata.
  */
-public record TokenUsage(Integer inputTokens, Integer outputTokens, Integer totalTokens) {
+public final class TokenUsage {
+
+    private final Integer inputTokens;
+    private final Integer outputTokens;
+    private final Integer totalTokens;
+
+    public TokenUsage(
+            Integer inputTokens,
+            Integer outputTokens,
+            Integer totalTokens
+    ) {
+                inputTokens = nonNegative(inputTokens);
+                outputTokens = nonNegative(outputTokens);
+                totalTokens = nonNegative(totalTokens);
+        
+        this.inputTokens = inputTokens;
+        this.outputTokens = outputTokens;
+        this.totalTokens = totalTokens;
+    }
+
+    public Integer inputTokens() {
+        return inputTokens;
+    }
+
+    public Integer outputTokens() {
+        return outputTokens;
+    }
+
+    public Integer totalTokens() {
+        return totalTokens;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof TokenUsage)) {
+            return false;
+        }
+        TokenUsage that = (TokenUsage) o;
+        return java.util.Objects.equals(inputTokens, that.inputTokens)
+                && java.util.Objects.equals(outputTokens, that.outputTokens)
+                && java.util.Objects.equals(totalTokens, that.totalTokens);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(inputTokens, outputTokens, totalTokens);
+    }
+
+    @Override
+    public String toString() {
+        return "TokenUsage[" +
+                "inputTokens=" + inputTokens + ", " +
+                "outputTokens=" + outputTokens + ", " +
+                "totalTokens=" + totalTokens +
+                "]";
+    }
 
     public static final String KEY_INPUT_TOKENS = "inputTokens";
     public static final String KEY_OUTPUT_TOKENS = "outputTokens";
@@ -14,12 +72,6 @@ public record TokenUsage(Integer inputTokens, Integer outputTokens, Integer tota
     public static final String LEGACY_PROMPT_TOKENS = "promptTokens";
     public static final String LEGACY_COMPLETION_TOKENS = "completionTokens";
     public static final String LEGACY_TOTAL_TOKENS_SNAKE_CASE = "total_tokens";
-
-    public TokenUsage {
-        inputTokens = nonNegative(inputTokens);
-        outputTokens = nonNegative(outputTokens);
-        totalTokens = nonNegative(totalTokens);
-    }
 
     public static TokenUsage empty() {
         return new TokenUsage(null, null, null);
@@ -30,10 +82,11 @@ public record TokenUsage(Integer inputTokens, Integer outputTokens, Integer tota
     }
 
     public static TokenUsage from(Object value) {
-        if (value instanceof TokenUsage tokenUsage) {
-            return tokenUsage;
+        if (value instanceof TokenUsage) {
+            return (TokenUsage) value;
         }
-        if (value instanceof Map<?, ?> map) {
+        if (value instanceof Map<?, ?>) {
+            Map<?, ?> map = (Map<?, ?>) value;
             return new TokenUsage(
                     integerValue(map.get(KEY_INPUT_TOKENS), map.get(LEGACY_PROMPT_TOKENS)),
                     integerValue(map.get(KEY_OUTPUT_TOKENS), map.get(LEGACY_COMPLETION_TOKENS)),
@@ -52,15 +105,15 @@ public record TokenUsage(Integer inputTokens, Integer outputTokens, Integer tota
 
     private static Integer integerValue(Object primary, Object fallback) {
         Object value = primary == null ? fallback : primary;
-        if (value instanceof Integer integerValue) {
-            return integerValue;
+        if (value instanceof Integer) {
+            return (Integer) value;
         }
-        if (value instanceof Number numberValue) {
-            return numberValue.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String stringValue && !stringValue.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.parseInt(stringValue);
+                return Integer.parseInt((String) value);
             } catch (NumberFormatException ignored) {
                 return null;
             }

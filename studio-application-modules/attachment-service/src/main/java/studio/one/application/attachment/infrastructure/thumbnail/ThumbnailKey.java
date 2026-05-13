@@ -36,9 +36,10 @@ public final class ThumbnailKey {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof ThumbnailKey that)) {
+        if (!(o instanceof ThumbnailKey)) {
             return false;
         }
+        ThumbnailKey that = (ThumbnailKey) o;
         return objectType == that.objectType
                 && attachmentId == that.attachmentId
                 && size == that.size

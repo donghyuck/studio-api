@@ -1,6 +1,6 @@
 package studio.one.platform.autoconfigure.objecttype;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;

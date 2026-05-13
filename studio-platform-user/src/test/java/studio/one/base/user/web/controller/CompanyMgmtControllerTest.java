@@ -410,7 +410,17 @@ class CompanyMgmtControllerTest {
         return identityService;
     }
 
-    private record SingletonObjectProvider<T>(T value) implements ObjectProvider<T> {
+    private static class SingletonObjectProvider<T> implements ObjectProvider<T> {
+        private final T value;
+
+        public SingletonObjectProvider(T value) {
+            this.value = value;
+        }
+
+        public T value() {
+            return value;
+        }
+
         @Override
         public T getObject(Object... args) {
             return value;
@@ -430,5 +440,6 @@ class CompanyMgmtControllerTest {
         public T getObject() {
             return value;
         }
+    
     }
 }

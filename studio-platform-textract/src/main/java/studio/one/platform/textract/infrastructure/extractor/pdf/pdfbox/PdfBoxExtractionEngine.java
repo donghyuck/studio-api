@@ -34,6 +34,8 @@ import studio.one.platform.textract.domain.model.ExtractedTableCell;
 import studio.one.platform.textract.domain.model.ParseWarning;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExtractionEngine {
 
@@ -150,7 +152,7 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         }
         List<List<String>> pageLines = rawPages.stream()
                 .map(this::contentLines)
-                .toList();
+                .collect(Collectors.toList());
         Map<String, Integer> boundaryFrequency = new LinkedHashMap<>();
         for (List<String> lines : pageLines) {
             for (String boundaryLine : boundaryLines(lines)) {
@@ -160,7 +162,7 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         List<String> repeatedBoundaries = boundaryFrequency.entrySet().stream()
                 .filter(entry -> isRepeatedBoundary(entry.getValue(), rawPages.size()))
                 .map(Map.Entry::getKey)
-                .toList();
+                .collect(Collectors.toList());
         List<String> cleaned = new ArrayList<>();
         for (String rawPage : rawPages) {
             String pageWithoutRepeatedBoundaries = removeRepeatedBoundaries(rawPage, repeatedBoundaries);
@@ -245,19 +247,26 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         if (suffix == null || suffix.isBlank()) {
             return null;
         }
-        return switch (suffix.toLowerCase()) {
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            case "tif", "tiff" -> "image/tiff";
-            case "gif" -> "image/gif";
-            default -> null;
-        };
+        switch (suffix.toLowerCase()) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "tif":
+            case "tiff":
+                return "image/tiff";
+            case "gif":
+                return "image/gif";
+            default:
+                return null;
+        }
     }
 
     private List<ExtractedTable> tablesOnPage(List<ExtractedTable> tables, String pagePath) {
         return tables.stream()
                 .filter(table -> table.sourceRef().startsWith(pagePath + "/"))
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private TableExtraction extractTables(List<String> pages) {
@@ -271,7 +280,7 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
             }
             List<List<String>> rows = new ArrayList<>();
             int candidateStartLine = -1;
-            List<String> lines = page.lines().toList();
+            List<String> lines = page.lines().collect(Collectors.toList());
             for (int lineIndex = 0; lineIndex <= lines.size(); lineIndex++) {
                 String line = lineIndex < lines.size() ? lines.get(lineIndex) : "";
                 List<String> cells = splitTableCells(line);
@@ -357,7 +366,7 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         return Arrays.stream(cells)
                 .map(String::trim)
                 .filter(cell -> !cell.isBlank())
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private boolean isRepeatedBoundary(int count, int pageCount) {
@@ -402,7 +411,7 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         return cleaned.lines()
                 .map(String::trim)
                 .filter(line -> !line.isBlank())
-                .toList();
+                .collect(Collectors.toList());
     }
 
     private List<String> boundaryLines(List<String> lines) {
@@ -431,7 +440,7 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
     }
 
     private void appendLine(StringBuilder paragraph, String line, int previousLineLength) {
-        if (paragraph.isEmpty()) {
+        if (paragraph.length() == 0) {
             paragraph.append(line);
             return;
         }
@@ -457,14 +466,19 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
     }
 
     private void flushParagraph(StringBuilder paragraph, List<String> paragraphs) {
-        if (paragraph.isEmpty()) {
+        if (paragraph.length() == 0) {
             return;
         }
         paragraphs.add(paragraph.toString());
         paragraph.setLength(0);
     }
 
-    private record TableExtraction(List<ExtractedTable> tables, List<ParseWarning> warnings) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class TableExtraction {
+        List<ExtractedTable> tables;
+        List<ParseWarning> warnings;
+
     }
 
     private class DrawnImageCollector extends PDFGraphicsStreamEngine {

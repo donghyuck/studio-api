@@ -1,6 +1,6 @@
 package studio.one.base.user.web.controller;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;

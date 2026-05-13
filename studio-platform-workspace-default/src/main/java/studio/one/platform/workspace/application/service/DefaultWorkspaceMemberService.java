@@ -10,8 +10,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.criteria.Predicate;
+import javax.persistence.EntityManager;
+import javax.persistence.criteria.Predicate;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -123,7 +123,7 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
         permissionService.assertGranted(workspaceId, actor, WorkspacePermissionActions.MEMBER_READ);
         return memberRepository.findByWorkspaceIdOrderByUserIdAsc(workspaceId).stream()
                 .map(member -> member.toRef(false))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -176,7 +176,7 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
         }
         List<WorkspaceMemberRef> filtered = effectiveMemberList(workspaceId, ancestorIds, resolved, matchedUserIds).stream()
                 .sorted(memberRefComparator(safePageable.getSort()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return page(filtered, safePageable);
     }
 
@@ -213,7 +213,7 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
                 .filter(member -> query.role() == null || member.role() == query.role())
                 .filter(member -> query.inherited() == null || member.inherited() == query.inherited())
                 .sorted((left, right) -> Long.compare(left.userId(), right.userId()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private Specification<WorkspaceMemberEntity> directMemberSpecification(
@@ -283,21 +283,20 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
     private List<Long> searchUsersViaDatabase(String keyword, Collection<Long> workspaceIds) {
         String pattern = "%" + escapeLike(keyword.toLowerCase(Locale.ROOT)) + "%";
         @SuppressWarnings("unchecked")
-        List<Number> rows = entityManager.createNativeQuery("""
-                        select distinct m.USER_ID
-                          from TB_PLATFORM_WORKSPACE_MEMBER m
-                          left join TB_APPLICATION_USER u on u.USER_ID = m.USER_ID
-                         where m.WORKSPACE_ID in (:workspaceIds)
-                           and (lower(coalesce(u.USERNAME, '')) like :pattern escape '!'
-                            or lower(coalesce(u.NAME, '')) like :pattern escape '!'
-                            or lower(coalesce(u.EMAIL, '')) like :pattern escape '!')
-                        """)
+        List<Number> rows = entityManager.createNativeQuery(
+                        "select distinct m.USER_ID "
+                                + "from TB_PLATFORM_WORKSPACE_MEMBER m "
+                                + "left join TB_APPLICATION_USER u on u.USER_ID = m.USER_ID "
+                                + "where m.WORKSPACE_ID in (:workspaceIds) "
+                                + "and (lower(coalesce(u.USERNAME, '')) like :pattern escape '!' "
+                                + "or lower(coalesce(u.NAME, '')) like :pattern escape '!' "
+                                + "or lower(coalesce(u.EMAIL, '')) like :pattern escape '!')")
                 .setParameter("workspaceIds", workspaceIds)
                 .setParameter("pattern", pattern)
                 .getResultList();
         return rows.stream()
                 .map(Number::longValue)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private String escapeLike(String value) {
@@ -335,20 +334,31 @@ public class DefaultWorkspaceMemberService implements WorkspaceMemberService {
                     return new Sort.Order(order.getDirection(), property);
                 })
                 .filter(order -> order != null)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return orders.isEmpty() ? DEFAULT_MEMBER_SORT : Sort.by(orders);
     }
 
     private Comparator<WorkspaceMemberRef> memberRefComparator(Sort sort) {
         Comparator<WorkspaceMemberRef> comparator = null;
         for (Sort.Order order : sort) {
-            Comparator<WorkspaceMemberRef> next = switch (order.getProperty()) {
-                case "workspaceId" -> Comparator.comparing(WorkspaceMemberRef::workspaceId);
-                case "role" -> Comparator.comparing(member -> member.role().rank());
-                case "inherited" -> Comparator.comparing(WorkspaceMemberRef::inherited);
-                case "userId" -> Comparator.comparing(WorkspaceMemberRef::userId);
-                default -> Comparator.comparing(WorkspaceMemberRef::userId);
-            };
+            Comparator<WorkspaceMemberRef> next;
+            switch (order.getProperty()) {
+                case "workspaceId":
+                    next = Comparator.comparing(WorkspaceMemberRef::workspaceId);
+                    break;
+                case "role":
+                    next = Comparator.comparing(member -> member.role().rank());
+                    break;
+                case "inherited":
+                    next = Comparator.comparing(WorkspaceMemberRef::inherited);
+                    break;
+                case "userId":
+                    next = Comparator.comparing(WorkspaceMemberRef::userId);
+                    break;
+                default:
+                    next = Comparator.comparing(WorkspaceMemberRef::userId);
+                    break;
+            }
             if (order.isDescending()) {
                 next = next.reversed();
             }

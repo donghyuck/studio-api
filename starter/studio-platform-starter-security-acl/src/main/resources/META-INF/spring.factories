@@ -1,0 +1,6 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.security.acl.autoconfigure.SecurityAclDatabaseAutoConfiguration,\
+studio.one.platform.security.acl.autoconfigure.DefaultAclPolicyAutoConfiguration,\
+studio.one.platform.security.acl.autoconfigure.DefaultAclPolicyInitializer,\
+studio.one.platform.security.acl.autoconfigure.SecurityAclWebAutoConfiguration,\
+studio.one.platform.security.acl.autoconfigure.SecurityAclAdminAutoConfiguration

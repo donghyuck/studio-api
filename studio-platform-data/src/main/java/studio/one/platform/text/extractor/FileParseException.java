@@ -29,7 +29,8 @@ public class FileParseException extends studio.one.platform.textract.domain.erro
     }
 
     public static FileParseException from(studio.one.platform.textract.domain.error.FileParseException exception) {
-        if (exception instanceof FileParseException legacy) {
+        if (exception instanceof FileParseException) {
+            FileParseException legacy = (FileParseException) exception;
             return legacy;
         }
         return new FileParseException(exception.getType(), exception.getMessage(), exception, exception.getArgs());

@@ -20,22 +20,20 @@ import studio.one.platform.objecttype.infrastructure.persistence.model.ObjectTyp
 
 public class ObjectTypeJdbcRepository implements ObjectTypeStore {
 
-    private static final String SELECT_TYPE_COLUMNS = """
-            SELECT
-              OBJECT_TYPE AS objectType,
-              CODE AS code,
-              NAME AS name,
-              DOMAIN AS domain,
-              STATUS AS status,
-              DESCRIPTION AS description,
-              CREATED_BY AS createdBy,
-              CREATED_BY_ID AS createdById,
-              CREATED_AT AS createdAt,
-              UPDATED_BY AS updatedBy,
-              UPDATED_BY_ID AS updatedById,
-              UPDATED_AT AS updatedAt
-            FROM tb_application_object_type
-            """;
+    private static final String SELECT_TYPE_COLUMNS = "SELECT\n"
+                + "  OBJECT_TYPE AS objectType,\n"
+                + "  CODE AS code,\n"
+                + "  NAME AS name,\n"
+                + "  DOMAIN AS domain,\n"
+                + "  STATUS AS status,\n"
+                + "  DESCRIPTION AS description,\n"
+                + "  CREATED_BY AS createdBy,\n"
+                + "  CREATED_BY_ID AS createdById,\n"
+                + "  CREATED_AT AS createdAt,\n"
+                + "  UPDATED_BY AS updatedBy,\n"
+                + "  UPDATED_BY_ID AS updatedById,\n"
+                + "  UPDATED_AT AS updatedAt\n"
+                + "FROM tb_application_object_type\n";
 
     private static final String SELECT_BY_TYPE_SQL = SELECT_TYPE_COLUMNS
             + "WHERE OBJECT_TYPE = :objectType";
@@ -45,68 +43,60 @@ public class ObjectTypeJdbcRepository implements ObjectTypeStore {
 
     private static final String SEARCH_BASE_SQL = SELECT_TYPE_COLUMNS;
 
-    private static final String COUNT_BASE_SQL = """
-            SELECT count(*)
-            FROM tb_application_object_type
-            """;
+    private static final String COUNT_BASE_SQL = "SELECT count(*)\n"
+                + "FROM tb_application_object_type\n";
 
-    private static final String SELECT_POLICY_BY_TYPE_SQL = """
-            SELECT
-              OBJECT_TYPE AS objectType,
-              MAX_FILE_MB AS maxFileMb,
-              ALLOWED_EXT AS allowedExt,
-              ALLOWED_MIME AS allowedMime,
-              POLICY_JSON AS policyJson,
-              CREATED_BY AS createdBy,
-              CREATED_BY_ID AS createdById,
-              CREATED_AT AS createdAt,
-              UPDATED_BY AS updatedBy,
-              UPDATED_BY_ID AS updatedById,
-              UPDATED_AT AS updatedAt
-            FROM tb_application_object_type_policy
-            WHERE OBJECT_TYPE = :objectType
-            """;
+    private static final String SELECT_POLICY_BY_TYPE_SQL = "SELECT\n"
+                + "  OBJECT_TYPE AS objectType,\n"
+                + "  MAX_FILE_MB AS maxFileMb,\n"
+                + "  ALLOWED_EXT AS allowedExt,\n"
+                + "  ALLOWED_MIME AS allowedMime,\n"
+                + "  POLICY_JSON AS policyJson,\n"
+                + "  CREATED_BY AS createdBy,\n"
+                + "  CREATED_BY_ID AS createdById,\n"
+                + "  CREATED_AT AS createdAt,\n"
+                + "  UPDATED_BY AS updatedBy,\n"
+                + "  UPDATED_BY_ID AS updatedById,\n"
+                + "  UPDATED_AT AS updatedAt\n"
+                + "FROM tb_application_object_type_policy\n"
+                + "WHERE OBJECT_TYPE = :objectType\n";
 
-    private static final String UPSERT_TYPE_SQL = """
-            INSERT INTO tb_application_object_type (
-              OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
-              CREATED_BY, CREATED_BY_ID, CREATED_AT,
-              UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
-            ) VALUES (
-              :objectType, :code, :name, :domain, :status, :description,
-              :createdBy, :createdById, COALESCE(:createdAt, NOW()),
-              :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
-            )
-            ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
-              CODE = EXCLUDED.CODE,
-              NAME = EXCLUDED.NAME,
-              DOMAIN = EXCLUDED.DOMAIN,
-              STATUS = EXCLUDED.STATUS,
-              DESCRIPTION = EXCLUDED.DESCRIPTION,
-              UPDATED_BY = EXCLUDED.UPDATED_BY,
-              UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
-              UPDATED_AT = EXCLUDED.UPDATED_AT
-            """;
+    private static final String UPSERT_TYPE_SQL = "INSERT INTO tb_application_object_type (\n"
+                + "  OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,\n"
+                + "  CREATED_BY, CREATED_BY_ID, CREATED_AT,\n"
+                + "  UPDATED_BY, UPDATED_BY_ID, UPDATED_AT\n"
+                + ") VALUES (\n"
+                + "  :objectType, :code, :name, :domain, :status, :description,\n"
+                + "  :createdBy, :createdById, COALESCE(:createdAt, NOW()),\n"
+                + "  :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())\n"
+                + ")\n"
+                + "ON CONFLICT (OBJECT_TYPE) DO UPDATE SET\n"
+                + "  CODE = EXCLUDED.CODE,\n"
+                + "  NAME = EXCLUDED.NAME,\n"
+                + "  DOMAIN = EXCLUDED.DOMAIN,\n"
+                + "  STATUS = EXCLUDED.STATUS,\n"
+                + "  DESCRIPTION = EXCLUDED.DESCRIPTION,\n"
+                + "  UPDATED_BY = EXCLUDED.UPDATED_BY,\n"
+                + "  UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,\n"
+                + "  UPDATED_AT = EXCLUDED.UPDATED_AT\n";
 
-    private static final String UPSERT_POLICY_SQL = """
-            INSERT INTO tb_application_object_type_policy (
-              OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,
-              CREATED_BY, CREATED_BY_ID, CREATED_AT,
-              UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
-            ) VALUES (
-              :objectType, :maxFileMb, :allowedExt, :allowedMime, :policyJson,
-              :createdBy, :createdById, COALESCE(:createdAt, NOW()),
-              :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())
-            )
-            ON CONFLICT (OBJECT_TYPE) DO UPDATE SET
-              MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,
-              ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,
-              ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,
-              POLICY_JSON = EXCLUDED.POLICY_JSON,
-              UPDATED_BY = EXCLUDED.UPDATED_BY,
-              UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,
-              UPDATED_AT = EXCLUDED.UPDATED_AT
-            """;
+    private static final String UPSERT_POLICY_SQL = "INSERT INTO tb_application_object_type_policy (\n"
+                + "  OBJECT_TYPE, MAX_FILE_MB, ALLOWED_EXT, ALLOWED_MIME, POLICY_JSON,\n"
+                + "  CREATED_BY, CREATED_BY_ID, CREATED_AT,\n"
+                + "  UPDATED_BY, UPDATED_BY_ID, UPDATED_AT\n"
+                + ") VALUES (\n"
+                + "  :objectType, :maxFileMb, :allowedExt, :allowedMime, :policyJson,\n"
+                + "  :createdBy, :createdById, COALESCE(:createdAt, NOW()),\n"
+                + "  :updatedBy, :updatedById, COALESCE(:updatedAt, NOW())\n"
+                + ")\n"
+                + "ON CONFLICT (OBJECT_TYPE) DO UPDATE SET\n"
+                + "  MAX_FILE_MB = EXCLUDED.MAX_FILE_MB,\n"
+                + "  ALLOWED_EXT = EXCLUDED.ALLOWED_EXT,\n"
+                + "  ALLOWED_MIME = EXCLUDED.ALLOWED_MIME,\n"
+                + "  POLICY_JSON = EXCLUDED.POLICY_JSON,\n"
+                + "  UPDATED_BY = EXCLUDED.UPDATED_BY,\n"
+                + "  UPDATED_BY_ID = EXCLUDED.UPDATED_BY_ID,\n"
+                + "  UPDATED_AT = EXCLUDED.UPDATED_AT\n";
 
     private static final RowMapper<ObjectTypeRow> OBJECT_TYPE_ROW_MAPPER = (rs, rowNum) -> {
         ObjectTypeRow row = new ObjectTypeRow();

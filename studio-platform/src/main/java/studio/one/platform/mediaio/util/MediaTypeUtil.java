@@ -31,9 +31,15 @@ public final class MediaTypeUtil {
 
     /** ImageIO.write 포맷 추정 */
     public static String guessWriteFormat(String contentType, String fileName) {
-        return switch (extFromNameOrType(fileName, contentType)) {
-            case "png", "webp", "gif", "bmp" -> extFromNameOrType(fileName, contentType);
-            default -> "jpeg";
-        };
+        String ext = extFromNameOrType(fileName, contentType);
+        switch (ext) {
+            case "png":
+            case "webp":
+            case "gif":
+            case "bmp":
+                return ext;
+            default:
+                return "jpeg";
+        }
     }
 }

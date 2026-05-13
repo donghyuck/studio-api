@@ -72,7 +72,7 @@ public class DefaultVectorProjectionJobService implements VectorProjectionJobSer
     private VectorProjectionGenerator generatorFor(VectorProjection projection) {
         List<VectorProjectionGenerator> matching = generators.stream()
                 .filter(generator -> generator.algorithm() == projection.algorithm())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return matching.stream()
                 .filter(generator -> !isDefaultGenerator(generator))
                 .findFirst()
@@ -91,6 +91,6 @@ public class DefaultVectorProjectionJobService implements VectorProjectionJobSer
                 .map(VectorItem::targetType)
                 .filter(value -> value != null && !value.isBlank())
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 }

@@ -66,17 +66,16 @@ class ObjectTypeMyBatisAutoConfigurationTest {
 
             JdbcTemplate jdbcTemplate = new JdbcTemplate(context.getBean(javax.sql.DataSource.class));
             createSchema(jdbcTemplate);
-            jdbcTemplate.update("""
-                    INSERT INTO tb_application_object_type (
-                      OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,
-                      CREATED_BY, CREATED_BY_ID, CREATED_AT,
-                      UPDATED_BY, UPDATED_BY_ID, UPDATED_AT
-                    ) VALUES (
-                      1001, 'attachment', 'Attachment', 'system', 'active', 'default',
-                      'tester', 1, CURRENT_TIMESTAMP,
-                      'tester', 1, CURRENT_TIMESTAMP
-                    )
-                    """);
+            jdbcTemplate.update(String.join("\n",
+                    "INSERT INTO tb_application_object_type (",
+                    "  OBJECT_TYPE, CODE, NAME, DOMAIN, STATUS, DESCRIPTION,",
+                    "  CREATED_BY, CREATED_BY_ID, CREATED_AT,",
+                    "  UPDATED_BY, UPDATED_BY_ID, UPDATED_AT",
+                    ") VALUES (",
+                    "  1001, 'attachment', 'Attachment', 'system', 'active', 'default',",
+                    "  'tester', 1, CURRENT_TIMESTAMP,",
+                    "  'tester', 1, CURRENT_TIMESTAMP",
+                    ")"));
 
             ObjectTypeMapper mapper = context.getBean(ObjectTypeMapper.class);
             ObjectTypeRow newRow = new ObjectTypeRow();
@@ -261,37 +260,35 @@ class ObjectTypeMyBatisAutoConfigurationTest {
     }
 
     private void createSchema(JdbcTemplate jdbcTemplate) {
-        jdbcTemplate.execute("""
-                CREATE TABLE tb_application_object_type (
-                  OBJECT_TYPE INT PRIMARY KEY,
-                  CODE VARCHAR(100),
-                  NAME VARCHAR(200),
-                  DOMAIN VARCHAR(100),
-                  STATUS VARCHAR(50),
-                  DESCRIPTION VARCHAR(500),
-                  CREATED_BY VARCHAR(100),
-                  CREATED_BY_ID BIGINT,
-                  CREATED_AT TIMESTAMP,
-                  UPDATED_BY VARCHAR(100),
-                  UPDATED_BY_ID BIGINT,
-                  UPDATED_AT TIMESTAMP
-                )
-                """);
-        jdbcTemplate.execute("""
-                CREATE TABLE tb_application_object_type_policy (
-                  OBJECT_TYPE INT PRIMARY KEY,
-                  MAX_FILE_MB INT,
-                  ALLOWED_EXT VARCHAR(500),
-                  ALLOWED_MIME VARCHAR(500),
-                  POLICY_JSON CLOB,
-                  CREATED_BY VARCHAR(100),
-                  CREATED_BY_ID BIGINT,
-                  CREATED_AT TIMESTAMP,
-                  UPDATED_BY VARCHAR(100),
-                  UPDATED_BY_ID BIGINT,
-                  UPDATED_AT TIMESTAMP
-                )
-                """);
+        jdbcTemplate.execute(String.join("\n",
+                "CREATE TABLE tb_application_object_type (",
+                "  OBJECT_TYPE INT PRIMARY KEY,",
+                "  CODE VARCHAR(100),",
+                "  NAME VARCHAR(200),",
+                "  DOMAIN VARCHAR(100),",
+                "  STATUS VARCHAR(50),",
+                "  DESCRIPTION VARCHAR(500),",
+                "  CREATED_BY VARCHAR(100),",
+                "  CREATED_BY_ID BIGINT,",
+                "  CREATED_AT TIMESTAMP,",
+                "  UPDATED_BY VARCHAR(100),",
+                "  UPDATED_BY_ID BIGINT,",
+                "  UPDATED_AT TIMESTAMP",
+                ")"));
+        jdbcTemplate.execute(String.join("\n",
+                "CREATE TABLE tb_application_object_type_policy (",
+                "  OBJECT_TYPE INT PRIMARY KEY,",
+                "  MAX_FILE_MB INT,",
+                "  ALLOWED_EXT VARCHAR(500),",
+                "  ALLOWED_MIME VARCHAR(500),",
+                "  POLICY_JSON CLOB,",
+                "  CREATED_BY VARCHAR(100),",
+                "  CREATED_BY_ID BIGINT,",
+                "  CREATED_AT TIMESTAMP,",
+                "  UPDATED_BY VARCHAR(100),",
+                "  UPDATED_BY_ID BIGINT,",
+                "  UPDATED_AT TIMESTAMP",
+                ")"));
     }
 
     @AutoConfigurationPackage(basePackageClasses = ObjectTypeMapper.class)

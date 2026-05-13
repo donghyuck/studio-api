@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.application.attachment.autoconfigure.AttachmentAutoConfiguration,\
+studio.one.application.attachment.autoconfigure.AttachmentEndpointAutoConfiguration

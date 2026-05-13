@@ -36,81 +36,25 @@ import studio.one.platform.exception.NotFoundException;
 @Service( MailMessageService.SERVICE_NAME)
 public class JdbcMailMessageService implements MailMessageService {
 
-    private static final String INSERT_SQL = """
-            insert into TB_APPLICATION_MAIL_MESSAGE
-                (FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
-                 SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT)
-            values
-                (:folder, :uid, :messageId, :subject, :fromAddress, :toAddress, :ccAddress, :bccAddress,
-                 :sentAt, :receivedAt, :flags, :body, :createdAt, :updatedAt)
-            returning MAIL_ID
-            """;
+    private static final String INSERT_SQL = "insert into TB_APPLICATION_MAIL_MESSAGE (FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS, SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT) values (:folder, :uid, :messageId, :subject, :fromAddress, :toAddress, :ccAddress, :bccAddress, :sentAt, :receivedAt, :flags, :body, :createdAt, :updatedAt) returning MAIL_ID";
 
-    private static final String UPDATE_SQL = """
-            update TB_APPLICATION_MAIL_MESSAGE
-               set FOLDER       = :folder,
-                   UID          = :uid,
-                   MESSAGE_ID   = :messageId,
-                   SUBJECT      = :subject,
-                   FROM_ADDRESS = :fromAddress,
-                   TO_ADDRESS   = :toAddress,
-                   CC_ADDRESS   = :ccAddress,
-                   BCC_ADDRESS  = :bccAddress,
-                   SENT_AT      = :sentAt,
-                   RECEIVED_AT  = :receivedAt,
-                   FLAGS        = :flags,
-                   BODY         = :body,
-                   UPDATED_AT   = :updatedAt
-             where MAIL_ID      = :mailId
-            """;
+    private static final String UPDATE_SQL = "update TB_APPLICATION_MAIL_MESSAGE set FOLDER       = :folder, UID          = :uid, MESSAGE_ID   = :messageId, SUBJECT      = :subject, FROM_ADDRESS = :fromAddress, TO_ADDRESS   = :toAddress, CC_ADDRESS   = :ccAddress, BCC_ADDRESS  = :bccAddress, SENT_AT      = :sentAt, RECEIVED_AT  = :receivedAt, FLAGS        = :flags, BODY         = :body, UPDATED_AT   = :updatedAt where MAIL_ID      = :mailId";
 
-    private static final String FIND_BY_UID_SQL = """
-            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
-                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_MAIL_MESSAGE
-             where FOLDER = :folder
-               and UID = :uid
-            """;
+    private static final String FIND_BY_UID_SQL = "select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS, SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT from TB_APPLICATION_MAIL_MESSAGE where FOLDER = :folder and UID = :uid";
 
-    private static final String FIND_BY_MESSAGE_ID_SQL = """
-            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
-                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_MAIL_MESSAGE
-             where MESSAGE_ID = :messageId
-            """;
+    private static final String FIND_BY_MESSAGE_ID_SQL = "select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS, SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT from TB_APPLICATION_MAIL_MESSAGE where MESSAGE_ID = :messageId";
 
-    private static final String FIND_BY_ID_SQL = """
-            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
-                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_MAIL_MESSAGE
-             where MAIL_ID = :mailId
-            """;
+    private static final String FIND_BY_ID_SQL = "select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS, SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT from TB_APPLICATION_MAIL_MESSAGE where MAIL_ID = :mailId";
 
     private static final String COUNT_ALL_SQL = "select count(*) from TB_APPLICATION_MAIL_MESSAGE";
 
-    private static final String FIND_PAGE_SQL = """
-            select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS,
-                   SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT
-              from TB_APPLICATION_MAIL_MESSAGE
-            """;
+    private static final String FIND_PAGE_SQL = "select MAIL_ID, FOLDER, UID, MESSAGE_ID, SUBJECT, FROM_ADDRESS, TO_ADDRESS, CC_ADDRESS, BCC_ADDRESS, SENT_AT, RECEIVED_AT, FLAGS, BODY, CREATED_AT, UPDATED_AT from TB_APPLICATION_MAIL_MESSAGE";
 
-    private static final String DELETE_PROPERTIES_SQL = """
-            delete from TB_APPLICATION_MAIL_PROPERTY
-             where MAIL_ID = :mailId
-            """;
+    private static final String DELETE_PROPERTIES_SQL = "delete from TB_APPLICATION_MAIL_PROPERTY where MAIL_ID = :mailId";
 
-    private static final String INSERT_PROPERTY_SQL = """
-            insert into TB_APPLICATION_MAIL_PROPERTY
-                (MAIL_ID, PROPERTY_NAME, PROPERTY_VALUE)
-            values
-                (:mailId, :name, :value)
-            """;
+    private static final String INSERT_PROPERTY_SQL = "insert into TB_APPLICATION_MAIL_PROPERTY (MAIL_ID, PROPERTY_NAME, PROPERTY_VALUE) values (:mailId, :name, :value)";
 
-    private static final String FIND_PROPERTIES_SQL = """
-            select PROPERTY_NAME, PROPERTY_VALUE
-              from TB_APPLICATION_MAIL_PROPERTY
-             where MAIL_ID = :mailId
-            """;
+    private static final String FIND_PROPERTIES_SQL = "select PROPERTY_NAME, PROPERTY_VALUE from TB_APPLICATION_MAIL_PROPERTY where MAIL_ID = :mailId";
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
             Map.entry("mailId", "MAIL_ID"),

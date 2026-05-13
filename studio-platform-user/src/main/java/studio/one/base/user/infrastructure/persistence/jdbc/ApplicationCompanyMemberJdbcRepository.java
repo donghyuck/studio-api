@@ -53,50 +53,31 @@ public class ApplicationCompanyMemberJdbcRepository extends BaseJdbcRepository i
     @Override
     public Page<ApplicationCompanyMember> findAllByCompanyId(Long companyId, Pageable pageable) {
         Map<String, Object> params = Map.of("companyId", companyId);
-        String select = """
-                select COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY
-                  from TB_APPLICATION_COMPANY_MEMBERS
-                 where COMPANY_ID = :companyId
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_COMPANY_MEMBERS
-                 where COMPANY_ID = :companyId
-                """;
+        String select = (
+"select COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY\\n" + "  from TB_APPLICATION_COMPANY_MEMBERS\\n" + " where COMPANY_ID = :companyId\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_COMPANY_MEMBERS\\n" + " where COMPANY_ID = :companyId\\n");
         return queryPage(select, count, params, pageable, MEMBER_ROW_MAPPER, "USER_ID", SORT_COLUMNS);
     }
 
     @Override
     public List<ApplicationCompanyMember> findAllByCompanyId(Long companyId) {
-        String sql = """
-                select COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY
-                  from TB_APPLICATION_COMPANY_MEMBERS
-                 where COMPANY_ID = :companyId
-                 order by USER_ID
-                """;
+        String sql = (
+"select COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY\\n" + "  from TB_APPLICATION_COMPANY_MEMBERS\\n" + " where COMPANY_ID = :companyId\\n" + " order by USER_ID\\n");
         return namedTemplate.query(sql, Map.of("companyId", companyId), MEMBER_ROW_MAPPER);
     }
 
     @Override
     public Optional<ApplicationCompanyMember> findById(ApplicationCompanyMemberId id) {
-        String sql = """
-                select COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY
-                  from TB_APPLICATION_COMPANY_MEMBERS
-                 where COMPANY_ID = :companyId
-                   and USER_ID = :userId
-                """;
+        String sql = (
+"select COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY\\n" + "  from TB_APPLICATION_COMPANY_MEMBERS\\n" + " where COMPANY_ID = :companyId\\n" + "   and USER_ID = :userId\\n");
         return queryOptional(sql, Map.of("companyId", id.getCompanyId(), "userId", id.getUserId()), MEMBER_ROW_MAPPER);
     }
 
     @Override
     public boolean existsById(ApplicationCompanyMemberId id) {
-        String sql = """
-                select exists(
-                    select 1 from TB_APPLICATION_COMPANY_MEMBERS
-                     where COMPANY_ID = :companyId
-                       and USER_ID = :userId
-                )
-                """;
+        String sql = (
+"select exists(\\n" + "    select 1 from TB_APPLICATION_COMPANY_MEMBERS\\n" + "     where COMPANY_ID = :companyId\\n" + "       and USER_ID = :userId\\n" + ")\\n");
         Boolean exists = namedTemplate.queryForObject(
                 sql,
                 Map.of("companyId", id.getCompanyId(), "userId", id.getUserId()),
@@ -106,12 +87,8 @@ public class ApplicationCompanyMemberJdbcRepository extends BaseJdbcRepository i
 
     @Override
     public long countByCompanyIdAndRole(Long companyId, CompanyRole role) {
-        String sql = """
-                select count(*)
-                  from TB_APPLICATION_COMPANY_MEMBERS
-                 where COMPANY_ID = :companyId
-                   and ROLE = :role
-                """;
+        String sql = (
+"select count(*)\\n" + "  from TB_APPLICATION_COMPANY_MEMBERS\\n" + " where COMPANY_ID = :companyId\\n" + "   and ROLE = :role\\n");
         Long count = namedTemplate.queryForObject(
                 sql,
                 Map.of("companyId", companyId, "role", role.name()),
@@ -132,11 +109,8 @@ public class ApplicationCompanyMemberJdbcRepository extends BaseJdbcRepository i
 
     @Override
     public void deleteById(ApplicationCompanyMemberId id) {
-        String sql = """
-                delete from TB_APPLICATION_COMPANY_MEMBERS
-                 where COMPANY_ID = :companyId
-                   and USER_ID = :userId
-                """;
+        String sql = (
+"delete from TB_APPLICATION_COMPANY_MEMBERS\\n" + " where COMPANY_ID = :companyId\\n" + "   and USER_ID = :userId\\n");
         namedTemplate.update(sql, Map.of("companyId", id.getCompanyId(), "userId", id.getUserId()));
     }
 
@@ -151,26 +125,15 @@ public class ApplicationCompanyMemberJdbcRepository extends BaseJdbcRepository i
         if (member.getStatus() == null) {
             member.setStatus(CompanyMemberStatus.ACTIVE);
         }
-        String sql = """
-                insert into TB_APPLICATION_COMPANY_MEMBERS
-                    (COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY)
-                values
-                    (:companyId, :userId, :role, :status, :joinedAt, :joinedBy, :updatedAt, :updatedBy)
-                """;
+        String sql = (
+"insert into TB_APPLICATION_COMPANY_MEMBERS\\n" + "    (COMPANY_ID, USER_ID, ROLE, STATUS, JOINED_AT, JOINED_BY, UPDATED_AT, UPDATED_BY)\\n" + "values\\n" + "    (:companyId, :userId, :role, :status, :joinedAt, :joinedBy, :updatedAt, :updatedBy)\\n");
         namedTemplate.update(sql, params(member));
     }
 
     private void update(ApplicationCompanyMember member) {
         member.setUpdatedAt(Instant.now());
-        String sql = """
-                update TB_APPLICATION_COMPANY_MEMBERS
-                   set ROLE = :role,
-                       STATUS = :status,
-                       UPDATED_AT = :updatedAt,
-                       UPDATED_BY = :updatedBy
-                 where COMPANY_ID = :companyId
-                   and USER_ID = :userId
-                """;
+        String sql = (
+"update TB_APPLICATION_COMPANY_MEMBERS\\n" + "   set ROLE = :role,\\n" + "       STATUS = :status,\\n" + "       UPDATED_AT = :updatedAt,\\n" + "       UPDATED_BY = :updatedBy\\n" + " where COMPANY_ID = :companyId\\n" + "   and USER_ID = :userId\\n");
         namedTemplate.update(sql, params(member));
     }
 

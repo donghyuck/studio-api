@@ -1,6 +1,8 @@
 package studio.one.platform.thumbnail.autoconfigure;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -13,7 +15,8 @@ import studio.one.platform.thumbnail.renderer.DocxThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.HwpThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.HwpxThumbnailRenderer;
 
-@AutoConfiguration(after = ThumbnailAutoConfiguration.class)
+@Configuration
+@AutoConfigureAfter(ThumbnailAutoConfiguration.class)
 @ConditionalOnClass(name = "studio.one.platform.textract.application.usecase.FileContentExtractionService")
 @ConditionalOnBean(type = "studio.one.platform.textract.application.usecase.FileContentExtractionService")
 public class ThumbnailTextractPreviewAutoConfiguration {

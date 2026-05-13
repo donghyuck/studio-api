@@ -2,7 +2,7 @@ package studio.one.base.user.web.controller;
 
 import java.util.Optional;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.core.env.Environment;
 import org.springframework.beans.factory.ObjectProvider;

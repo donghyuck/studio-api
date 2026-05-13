@@ -21,14 +21,16 @@
 
 package studio.one.platform.security.acl.autoconfigure;
 
-import jakarta.annotation.PostConstruct;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import studio.one.base.security.acl.application.policy.AclPolicyRefreshPublisher;
 import studio.one.base.security.acl.application.policy.AclPolicySeeder;
+import studio.one.platform.autoconfigure.condition.ConditionalOnProperties;
+import studio.one.platform.constant.PropertyKeys;
 
 /**
  * Applies the configured default ACL policies by invoking {@link AclPolicySeeder}
@@ -37,19 +39,25 @@ import studio.one.base.security.acl.application.policy.AclPolicySeeder;
 @Configuration(proxyBeanMethods = false)
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(prefix = "studio.security.acl.defaults", name = "enabled", havingValue = "true")
+@ConditionalOnProperties(prefix = PropertyKeys.Security.Acl.PREFIX, value = {
+        @ConditionalOnProperties.Property(name = "enabled", havingValue = "true"),
+        @ConditionalOnProperties.Property(name = "sync.enabled", havingValue = "true", matchIfMissing = false),
+        @ConditionalOnProperties.Property(name = "defaults.enabled", havingValue = "true", matchIfMissing = false)
+})
 public class DefaultAclPolicyInitializer {
 
     private final DefaultAclPolicyProperties properties;
     private final AclPolicySeeder seeder;
+    private final AclPolicyRefreshPublisher refreshPublisher;
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     void init() {
         if (properties.getPolicies() == null || properties.getPolicies().isEmpty()) {
             log.debug("no default ACL policies configured");
             return;
         }
         properties.getPolicies().forEach(seeder::apply);
+        refreshPublisher.publishAfterCommit();
         log.info("seeded {} default ACL policies", properties.getPolicies().size());
     }
 }

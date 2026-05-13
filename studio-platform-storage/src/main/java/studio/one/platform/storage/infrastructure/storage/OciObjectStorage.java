@@ -214,7 +214,7 @@ public class OciObjectStorage implements CloudObjectStorage {
                     .bucket(b.getName())
                     .createdDate(b.getTimeCreated() != null ? b.getTimeCreated().toInstant() : null)
                     .build();
-        }).toList();
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -240,7 +240,7 @@ public class OciObjectStorage implements CloudObjectStorage {
                     .createdDate(object.getTimeCreated().toInstant())
                     .bucket(bucketName)
                     .build();
-        }).toList();
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -292,7 +292,7 @@ public class OciObjectStorage implements CloudObjectStorage {
                     .createdDate(object.getTimeCreated().toInstant())
                     .bucket(bucketName)
                     .build();
-        }).toList();
+        }).collect(java.util.stream.Collectors.toList());
         return new PageImpl<>(objects, PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()),
                 listObjectsResponse.getListObjects().getObjects().size());
     }

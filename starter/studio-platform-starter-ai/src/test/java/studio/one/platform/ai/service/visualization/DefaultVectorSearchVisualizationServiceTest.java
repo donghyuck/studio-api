@@ -199,7 +199,7 @@ class DefaultVectorSearchVisualizationServiceTest {
 
         @Override
         public List<ProjectionPointView> findByVectorItemIds(String projectionId, Collection<String> vectorItemIds) {
-            return points.stream().filter(point -> vectorItemIds.contains(point.vectorItemId())).toList();
+            return points.stream().filter(point -> vectorItemIds.contains(point.vectorItemId())).collect(java.util.stream.Collectors.toList());
         }
 
         @Override

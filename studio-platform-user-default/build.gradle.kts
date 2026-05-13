@@ -43,8 +43,7 @@ dependencies {
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-user"))
     testImplementation(project(":studio-platform-identity"))
-    testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:postgresql")
+    testImplementation("org.testcontainers:junit-jupiter:${property("testcontainersVersion")}")
+    testImplementation("org.testcontainers:postgresql:${property("testcontainersVersion")}")
     testRuntimeOnly("org.postgresql:postgresql")
 }

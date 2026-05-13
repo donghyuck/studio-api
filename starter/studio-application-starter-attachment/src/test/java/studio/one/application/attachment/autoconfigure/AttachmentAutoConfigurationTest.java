@@ -314,12 +314,16 @@ class AttachmentAutoConfigurationTest {
                 new Class<?>[] { CloudObjectStorage.class },
                 (proxy, method, args) -> {
                     if (method.getDeclaringClass() == Object.class) {
-                        return switch (method.getName()) {
-                            case "toString" -> "CloudObjectStorageStub";
-                            case "hashCode" -> System.identityHashCode(proxy);
-                            case "equals" -> proxy == args[0];
-                            default -> null;
-                        };
+                        switch (method.getName()) {
+                            case "toString":
+                                return "CloudObjectStorageStub";
+                            case "hashCode":
+                                return System.identityHashCode(proxy);
+                            case "equals":
+                                return proxy == args[0];
+                            default:
+                                return null;
+                        }
                     }
                     if ("name".equals(method.getName())) {
                         return name;
@@ -334,12 +338,16 @@ class AttachmentAutoConfigurationTest {
                 new Class<?>[] { DataSource.class },
                 (proxy, method, args) -> {
                     if (method.getDeclaringClass() == Object.class) {
-                        return switch (method.getName()) {
-                            case "toString" -> "DataSourceStub";
-                            case "hashCode" -> System.identityHashCode(proxy);
-                            case "equals" -> proxy == args[0];
-                            default -> null;
-                        };
+                        switch (method.getName()) {
+                            case "toString":
+                                return "DataSourceStub";
+                            case "hashCode":
+                                return System.identityHashCode(proxy);
+                            case "equals":
+                                return proxy == args[0];
+                            default:
+                                return null;
+                        }
                     }
                     return null;
                 });
@@ -359,12 +367,16 @@ class AttachmentAutoConfigurationTest {
                 new Class<?>[] { AttachmentRepository.class },
                 (proxy, method, args) -> {
                     if (method.getDeclaringClass() == Object.class) {
-                        return switch (method.getName()) {
-                            case "toString" -> "AttachmentRepositoryStub";
-                            case "hashCode" -> System.identityHashCode(proxy);
-                            case "equals" -> proxy == args[0];
-                            default -> null;
-                        };
+                        switch (method.getName()) {
+                            case "toString":
+                                return "AttachmentRepositoryStub";
+                            case "hashCode":
+                                return System.identityHashCode(proxy);
+                            case "equals":
+                                return proxy == args[0];
+                            default:
+                                return null;
+                        }
                     }
                     Class<?> returnType = method.getReturnType();
                     if (returnType == Optional.class) {

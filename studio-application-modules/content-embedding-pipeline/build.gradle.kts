@@ -16,7 +16,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 val mapstructVersion: String = project.findProperty("mapstructVersion") as String? ?: "0.11.5"
 dependencies { 
     compileOnly("org.springframework.boot:spring-boot-starter-web")
-    compileOnly("jakarta.validation:jakarta.validation-api")
+    compileOnly("javax.validation:validation-api")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly(project(":studio-platform")) 

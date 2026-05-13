@@ -1,7 +1,8 @@
 package studio.one.platform.workspace.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -16,7 +17,7 @@ import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
 import studio.one.platform.workspace.web.controller.WorkspaceController;
 import studio.one.platform.workspace.web.controller.WorkspaceMgmtController;
 
-@AutoConfiguration(after = WorkspaceAutoConfiguration.class)
+@Configuration
 @AutoConfigureAfter(WorkspaceAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace.web", name = "enabled", havingValue = "true")
 @ConditionalOnBean({

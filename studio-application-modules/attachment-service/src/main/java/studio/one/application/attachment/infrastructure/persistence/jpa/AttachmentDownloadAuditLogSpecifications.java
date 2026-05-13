@@ -3,9 +3,9 @@ package studio.one.application.attachment.infrastructure.persistence.jpa;
 import java.util.ArrayList;
 import java.util.List;
 
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.Predicate;
+import javax.persistence.criteria.Root;
 
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
@@ -50,7 +50,7 @@ final class AttachmentDownloadAuditLogSpecifications {
         if (value == null) {
             return;
         }
-        if (value instanceof String stringValue && !StringUtils.hasText(stringValue)) {
+        if (value instanceof String && !StringUtils.hasText((String) value)) {
             return;
         }
         predicates.add(cb.equal(root.get(field), value));

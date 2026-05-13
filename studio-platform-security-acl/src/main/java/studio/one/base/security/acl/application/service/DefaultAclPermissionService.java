@@ -125,7 +125,7 @@ public class DefaultAclPermissionService implements AclPermissionService {
         List<Integer> requestedMasks = permissions.stream()
                 .map(Permission::getMask)
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (requestedMasks.isEmpty()) {
             metricsRecorder.record("bulk_grant", elapsed(started), 0);
             return 0;
@@ -155,7 +155,7 @@ public class DefaultAclPermissionService implements AclPermissionService {
         metricsRecorder.record("bulk_grant", elapsed(started), entries.size());
         if (auditEnabled && log.isInfoEnabled()) {
             log.info("ACL_AUDIT action=bulk_grant identity={} sid={} masks={} added={}",
-                    identity, sid, entries.stream().map(AclEntryEntity::getMask).toList(), entries.size());
+                    identity, sid, entries.stream().map(AclEntryEntity::getMask).collect(java.util.stream.Collectors.toList()), entries.size());
         }
         return entries.size();
     }
@@ -249,7 +249,7 @@ public class DefaultAclPermissionService implements AclPermissionService {
         List<Integer> masks = permissions.stream()
                 .map(Permission::getMask)
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         int deleted = entryRepository.deleteByObjectIdentityAndSidAndMaskIn(objectIdentity.get(), sidEntity.get(), masks);
         if (deleted > 0) {
             publishRefresh();
@@ -370,10 +370,12 @@ public class DefaultAclPermissionService implements AclPermissionService {
         if (sidRepository == null) {
             return Optional.empty();
         }
-        if (sid instanceof PrincipalSid principalSid) {
+        if (sid instanceof PrincipalSid) {
+            PrincipalSid principalSid = (PrincipalSid) sid;
             return sidRepository.findBySidAndPrincipal(principalSid.getPrincipal(), true);
         }
-        if (sid instanceof GrantedAuthoritySid authoritySid) {
+        if (sid instanceof GrantedAuthoritySid) {
+            GrantedAuthoritySid authoritySid = (GrantedAuthoritySid) sid;
             return sidRepository.findBySidAndPrincipal(authoritySid.getGrantedAuthority(), false);
         }
         return Optional.empty();

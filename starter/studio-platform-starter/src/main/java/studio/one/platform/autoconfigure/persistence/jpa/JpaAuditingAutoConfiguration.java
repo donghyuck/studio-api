@@ -68,7 +68,7 @@ public class JpaAuditingAutoConfiguration {
     private List<AuditorAware<String>> resolveExternalAuditors(ObjectProvider<AuditorAware<String>> provider) {
         return provider.orderedStream()
                 .filter(this::isExternalAuditorAware)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private boolean isExternalAuditorAware(AuditorAware<String> auditorAware) {

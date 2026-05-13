@@ -3,7 +3,7 @@ package studio.one.base.user.application.service;
 import java.util.Objects;
 import java.util.function.Consumer;
 
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -87,7 +87,8 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
     public void delete(Long companyId) {
         try {
             companyRepo.deleteById(companyId);
-            if (companyRepo instanceof org.springframework.data.jpa.repository.JpaRepository<?, ?> jpaRepository) {
+            if (companyRepo instanceof org.springframework.data.jpa.repository.JpaRepository<?, ?>) {
+                org.springframework.data.jpa.repository.JpaRepository<?, ?> jpaRepository = (org.springframework.data.jpa.repository.JpaRepository<?, ?>) companyRepo;
                 jpaRepository.flush();
             }
         } catch (DataIntegrityViolationException ex) {

@@ -19,6 +19,7 @@ import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import java.util.stream.Collectors;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -44,6 +45,8 @@ import studio.one.platform.textract.domain.model.ExtractedTableCell;
 import studio.one.platform.textract.domain.model.ParseWarning;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * HWP/HWPX parser based on rhwp's parser flow:
@@ -522,9 +525,10 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             DirectoryEntry root,
             List<BinDataRef> binDataRefs,
             ExtractionBudget budget) throws IOException {
-        if (!hasEntry(root, "BinData") || !(root.getEntry("BinData") instanceof DirectoryEntry binDataDir)) {
+        if (!hasEntry(root, "BinData") || !(root.getEntry("BinData") instanceof DirectoryEntry)) {
             return List.of();
         }
+        DirectoryEntry binDataDir = (DirectoryEntry) root.getEntry("BinData");
         Map<Integer, BinDataRef> refsByStorageId = new HashMap<>();
         for (BinDataRef ref : binDataRefs) {
             refsByStorageId.put(ref.storageId(), ref);
@@ -645,7 +649,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
             List<String> fallbackSections = entries.keySet().stream()
                     .filter(name -> name.toLowerCase(Locale.ROOT).contains("section"))
                     .sorted()
-                    .toList();
+                    .collect(Collectors.toList());
             return new PackageInfo(fallbackSections, List.of(), new HashMap<>());
         }
         Document doc = parseXml(content);
@@ -686,7 +690,7 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         }
         List<PackageItem> binData = allItems.stream()
                 .filter(item -> item.href().contains("BinData/") || item.href().startsWith("BinData/"))
-                .toList();
+                .collect(Collectors.toList());
         return new PackageInfo(sectionFiles, binData, new HashMap<>());
     }
 
@@ -801,9 +805,10 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         String[] parts = path.split("/");
         DirectoryEntry dir = root;
         for (int i = 0; i < parts.length - 1; i++) {
-            if (!hasEntry(dir, parts[i]) || !(dir.getEntry(parts[i]) instanceof DirectoryEntry next)) {
+            if (!hasEntry(dir, parts[i]) || !(dir.getEntry(parts[i]) instanceof DirectoryEntry)) {
                 return Optional.empty();
             }
+            DirectoryEntry next = (DirectoryEntry) dir.getEntry(parts[i]);
             dir = next;
         }
         if (!hasEntry(dir, parts[parts.length - 1])) {
@@ -881,16 +886,26 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
     }
 
     private String contentTypeForExtension(String extension) {
-        return switch (extension.toLowerCase(Locale.ROOT)) {
-            case "jpg", "jpeg" -> "image/jpeg";
-            case "png" -> "image/png";
-            case "gif" -> "image/gif";
-            case "bmp" -> "image/bmp";
-            case "tif", "tiff" -> "image/tiff";
-            case "wmf" -> "image/wmf";
-            case "emf" -> "image/emf";
-            default -> "application/octet-stream";
-        };
+        switch (extension.toLowerCase(Locale.ROOT)) {
+            case "jpg":
+            case "jpeg":
+                return "image/jpeg";
+            case "png":
+                return "image/png";
+            case "gif":
+                return "image/gif";
+            case "bmp":
+                return "image/bmp";
+            case "tif":
+            case "tiff":
+                return "image/tiff";
+            case "wmf":
+                return "image/wmf";
+            case "emf":
+                return "image/emf";
+            default:
+                return "application/octet-stream";
+        }
     }
 
     private String extensionOf(String filename) {
@@ -918,19 +933,47 @@ public class HwpHwpxFileParser extends AbstractFileParser implements StructuredF
         return ByteBuffer.wrap(data, offset, 4).order(ByteOrder.LITTLE_ENDIAN).getInt();
     }
 
-    private record PackageItem(String id, String href, String mediaType) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class PackageItem {
+        String id;
+        String href;
+        String mediaType;
+
     }
 
-    private record PackageInfo(List<String> sectionFiles, List<PackageItem> binDataItems,
-            Map<String, List<String>> referencedImages) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class PackageInfo {
+        List<String> sectionFiles;
+        List<PackageItem> binDataItems;
+        Map<String, List<String>> referencedImages;
+
     }
 
-    private record HwpFlags(boolean compressed, boolean encrypted, boolean distribution) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class HwpFlags {
+        boolean compressed;
+        boolean encrypted;
+        boolean distribution;
+
     }
 
-    private record HwpRecord(int tagId, int level, byte[] data) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class HwpRecord {
+        int tagId;
+        int level;
+        byte[] data;
+
     }
 
-    private record BinDataRef(int storageId, String extension) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class BinDataRef {
+        int storageId;
+        String extension;
+
     }
 }

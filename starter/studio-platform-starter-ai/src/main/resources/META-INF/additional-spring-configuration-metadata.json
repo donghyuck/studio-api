@@ -300,38 +300,27 @@
     {
       "name": "studio.ai.providers.*.api-key",
       "type": "java.lang.String",
-      "deprecation": {
-        "level": "warning",
-        "reason": "Provider SDK credentials moved to spring.ai.*.",
-        "replacement": "spring.ai.*"
-      }
+      "description": "Canonical provider API key. Legacy spring.ai.* keys are supported only as migration fallback."
     },
     {
       "name": "studio.ai.providers.*.base-url",
       "type": "java.lang.String",
-      "deprecation": {
-        "level": "warning",
-        "reason": "Provider SDK base URL moved to spring.ai.*.",
-        "replacement": "spring.ai.*"
-      }
+      "description": "Canonical provider base URL. Legacy spring.ai.* keys are supported only as migration fallback."
     },
     {
       "name": "studio.ai.providers.*.chat.model",
       "type": "java.lang.String",
-      "deprecation": {
-        "level": "warning",
-        "reason": "Provider chat model moved to spring.ai.*.",
-        "replacement": "spring.ai.*"
-      }
+      "description": "Canonical provider chat model. Legacy spring.ai.* keys are supported only as migration fallback."
     },
     {
       "name": "studio.ai.providers.*.embedding.model",
       "type": "java.lang.String",
-      "deprecation": {
-        "level": "warning",
-        "reason": "Provider embedding model moved to spring.ai.*.",
-        "replacement": "spring.ai.*"
-      }
+      "description": "Canonical provider embedding model. Legacy spring.ai.* keys are supported only as migration fallback."
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.dimension",
+      "type": "java.lang.Integer",
+      "description": "Canonical provider embedding output dimension when the provider supports reduced-dimension embeddings. Legacy Spring AI dimension keys are supported only as migration fallback."
     },
     {
       "name": "studio.ai.pipeline.chunk-size",

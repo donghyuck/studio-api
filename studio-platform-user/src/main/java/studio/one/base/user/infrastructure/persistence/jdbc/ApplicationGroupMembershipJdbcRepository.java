@@ -68,11 +68,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
     @Override
     public Page<ApplicationGroupMembership> findAllByGroupId(Long groupId, Pageable pageable) {
         Map<String, Object> params = Map.of("groupId", groupId);
-        String select = """
-                select GROUP_ID, USER_ID, JOINED_AT, JOINED_BY
-                  from TB_APPLICATION_GROUP_MEMBERS
-                 where GROUP_ID = :groupId
-                """;
+        String select = (
+"select GROUP_ID, USER_ID, JOINED_AT, JOINED_BY\\n" + "  from TB_APPLICATION_GROUP_MEMBERS\\n" + " where GROUP_ID = :groupId\\n");
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
         return queryPage(select, count, params, pageable, MEMBERSHIP_ROW_MAPPER, "USER_ID", MEMBERSHIP_SORT_COLUMNS);
     }
@@ -80,11 +77,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
     @Override
     public Page<Long> findUserIdsByGroupId(Long groupId, Pageable pageable) {
         Map<String, Object> params = Map.of("groupId", groupId);
-        String select = """
-                select USER_ID
-                  from TB_APPLICATION_GROUP_MEMBERS
-                 where GROUP_ID = :groupId
-                """;
+        String select = (
+"select USER_ID\\n" + "  from TB_APPLICATION_GROUP_MEMBERS\\n" + " where GROUP_ID = :groupId\\n");
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where GROUP_ID = :groupId";
         return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "USER_ID",
                 MEMBERSHIP_SORT_COLUMNS);
@@ -94,20 +88,10 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
     public Page<ApplicationGroupMemberSummary> findMemberSummariesByGroupId(Long groupId, @Nullable String keyword,
             Pageable pageable) {
         Map<String, Object> params = Map.of("groupId", groupId, "q", normalize(keyword));
-        String select = """
-                select u.USER_ID, u.USERNAME, u.NAME, u.ENABLED
-                  from TB_APPLICATION_GROUP_MEMBERS gm
-                  join TB_APPLICATION_USER u on u.USER_ID = gm.USER_ID
-                 where gm.GROUP_ID = :groupId
-                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_GROUP_MEMBERS gm
-                  join TB_APPLICATION_USER u on u.USER_ID = gm.USER_ID
-                 where gm.GROUP_ID = :groupId
-                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
-                """;
+        String select = (
+"select u.USER_ID, u.USERNAME, u.NAME, u.ENABLED\\n" + "  from TB_APPLICATION_GROUP_MEMBERS gm\\n" + "  join TB_APPLICATION_USER u on u.USER_ID = gm.USER_ID\\n" + " where gm.GROUP_ID = :groupId\\n" + "   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_GROUP_MEMBERS gm\\n" + "  join TB_APPLICATION_USER u on u.USER_ID = gm.USER_ID\\n" + " where gm.GROUP_ID = :groupId\\n" + "   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)\\n");
         return queryPage(select, count, params, pageable, GROUP_MEMBER_SUMMARY_ROW_MAPPER, "u.USER_ID", Map.of(
                 "userId", "u.USER_ID",
                 "username", "u.USERNAME",
@@ -118,11 +102,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
     @Override
     public Page<ApplicationGroupMembership> findAllByUserId(Long userId, Pageable pageable) {
         Map<String, Object> params = Map.of("userId", userId);
-        String select = """
-                select GROUP_ID, USER_ID, JOINED_AT, JOINED_BY
-                  from TB_APPLICATION_GROUP_MEMBERS
-                 where USER_ID = :userId
-                """;
+        String select = (
+"select GROUP_ID, USER_ID, JOINED_AT, JOINED_BY\\n" + "  from TB_APPLICATION_GROUP_MEMBERS\\n" + " where USER_ID = :userId\\n");
         String count = "select count(*) from TB_APPLICATION_GROUP_MEMBERS where USER_ID = :userId";
         return queryPage(select, count, params, pageable, MEMBERSHIP_ROW_MAPPER, "GROUP_ID", MEMBERSHIP_SORT_COLUMNS);
     }
@@ -132,12 +113,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (groupIds == null || groupIds.isEmpty()) {
             return List.of();
         }
-        String sql = """
-                select GROUP_ID, count(*) as CNT
-                  from TB_APPLICATION_GROUP_MEMBERS
-                 where GROUP_ID in (:groupIds)
-                 group by GROUP_ID
-                """;
+        String sql = (
+"select GROUP_ID, count(*) as CNT\\n" + "  from TB_APPLICATION_GROUP_MEMBERS\\n" + " where GROUP_ID in (:groupIds)\\n" + " group by GROUP_ID\\n");
         return namedTemplate.query(sql, Map.of("groupIds", groupIds),
                 (rs, rowNum) -> new JdbcGroupCount(rs.getLong("GROUP_ID"), rs.getLong("CNT")));
     }
@@ -147,11 +124,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (userIds == null || userIds.isEmpty()) {
             return 0;
         }
-        String sql = """
-                delete from TB_APPLICATION_GROUP_MEMBERS
-                 where GROUP_ID = :groupId
-                   and USER_ID in (:userIds)
-                """;
+        String sql = (
+"delete from TB_APPLICATION_GROUP_MEMBERS\\n" + " where GROUP_ID = :groupId\\n" + "   and USER_ID in (:userIds)\\n");
         return namedTemplate.update(sql, Map.of("groupId", groupId, "userIds", userIds));
     }
 
@@ -160,12 +134,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (userIds == null || userIds.isEmpty()) {
             return List.of();
         }
-        String sql = """
-                select USER_ID
-                  from TB_APPLICATION_GROUP_MEMBERS
-                 where GROUP_ID = :groupId
-                   and USER_ID in (:userIds)
-                """;
+        String sql = (
+"select USER_ID\\n" + "  from TB_APPLICATION_GROUP_MEMBERS\\n" + " where GROUP_ID = :groupId\\n" + "   and USER_ID in (:userIds)\\n");
         return namedTemplate.query(sql, Map.of("groupId", groupId, "userIds", userIds),
                 (rs, rowNum) -> rs.getLong("USER_ID"));
     }
@@ -175,11 +145,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (userIds == null || userIds.length == 0) {
             return 0;
         }
-        String sql = """
-                insert into TB_APPLICATION_GROUP_MEMBERS (GROUP_ID, USER_ID, JOINED_AT, JOINED_BY)
-                values (:groupId, :userId, :joinedAt, :joinedBy)
-                on conflict (GROUP_ID, USER_ID) do nothing
-                """;
+        String sql = (
+"insert into TB_APPLICATION_GROUP_MEMBERS (GROUP_ID, USER_ID, JOINED_AT, JOINED_BY)\\n" + "values (:groupId, :userId, :joinedAt, :joinedBy)\\n" + "on conflict (GROUP_ID, USER_ID) do nothing\\n");
         LocalDateTime actualJoinedAt = joinedAt == null ? LocalDateTime.now() : joinedAt;
         Timestamp ts = Timestamp.valueOf(actualJoinedAt);
 
@@ -204,12 +171,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (id == null) {
             return false;
         }
-        String sql = """
-                select exists(
-                    select 1 from TB_APPLICATION_GROUP_MEMBERS
-                     where GROUP_ID = :groupId
-                       and USER_ID = :userId)
-                """;
+        String sql = (
+"select exists(\\n" + "    select 1 from TB_APPLICATION_GROUP_MEMBERS\\n" + "     where GROUP_ID = :groupId\\n" + "       and USER_ID = :userId)\\n");
         Boolean exists = namedTemplate.queryForObject(sql, Map.of(
                 "groupId", id.getGroupId(),
                 "userId", id.getUserId()), Boolean.class);
@@ -222,13 +185,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (id == null) {
             throw new IllegalArgumentException("membership id must not be null");
         }
-        String sql = """
-                insert into TB_APPLICATION_GROUP_MEMBERS (GROUP_ID, USER_ID, JOINED_AT, JOINED_BY)
-                values (:groupId, :userId, :joinedAt, :joinedBy)
-                on conflict (GROUP_ID, USER_ID) do update
-                      set JOINED_AT = excluded.JOINED_AT,
-                          JOINED_BY = excluded.JOINED_BY
-                """;
+        String sql = (
+"insert into TB_APPLICATION_GROUP_MEMBERS (GROUP_ID, USER_ID, JOINED_AT, JOINED_BY)\\n" + "values (:groupId, :userId, :joinedAt, :joinedBy)\\n" + "on conflict (GROUP_ID, USER_ID) do update\\n" + "      set JOINED_AT = excluded.JOINED_AT,\\n" + "          JOINED_BY = excluded.JOINED_BY\\n");
         LocalDateTime joinedAt = membership.getJoinedAt() == null ? LocalDateTime.now() : membership.getJoinedAt();
         namedTemplate.update(sql, Map.of(
                 "groupId", id.getGroupId(),
@@ -246,13 +204,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (buffer.isEmpty()) {
             return buffer;
         }
-        String sql = """
-                insert into TB_APPLICATION_GROUP_MEMBERS (GROUP_ID, USER_ID, JOINED_AT, JOINED_BY)
-                values (:groupId, :userId, :joinedAt, :joinedBy)
-                on conflict (GROUP_ID, USER_ID) do update
-                      set JOINED_AT = excluded.JOINED_AT,
-                          JOINED_BY = excluded.JOINED_BY
-                """;
+        String sql = (
+"insert into TB_APPLICATION_GROUP_MEMBERS (GROUP_ID, USER_ID, JOINED_AT, JOINED_BY)\\n" + "values (:groupId, :userId, :joinedAt, :joinedBy)\\n" + "on conflict (GROUP_ID, USER_ID) do update\\n" + "      set JOINED_AT = excluded.JOINED_AT,\\n" + "          JOINED_BY = excluded.JOINED_BY\\n");
         SqlParameterSource[] batch = buffer.stream()
                 .map(m -> {
                     ApplicationGroupMembershipId id = m.getId();
@@ -274,11 +227,8 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         if (id == null) {
             return;
         }
-        String sql = """
-                delete from TB_APPLICATION_GROUP_MEMBERS
-                 where GROUP_ID = :groupId
-                   and USER_ID = :userId
-                """;
+        String sql = (
+"delete from TB_APPLICATION_GROUP_MEMBERS\\n" + " where GROUP_ID = :groupId\\n" + "   and USER_ID = :userId\\n");
         namedTemplate.update(sql, Map.of("groupId", id.getGroupId(), "userId", id.getUserId()));
     }
 
@@ -289,7 +239,23 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         return "%" + keyword.trim().toLowerCase() + "%";
     }
 
-    private record JdbcGroupCount(Long groupId, long count) implements GroupCount {
+    private static class JdbcGroupCount implements GroupCount {
+        private final Long groupId;
+        private final long count;
+
+        public JdbcGroupCount(Long groupId, long count) {
+            this.groupId = groupId;
+            this.count = count;
+        }
+
+        public Long groupId() {
+            return groupId;
+        }
+
+        public long count() {
+            return count;
+        }
+
         @Override
         public Long getGroupId() {
             return groupId;
@@ -299,10 +265,38 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         public long getCount() {
             return count;
         }
+    
     }
 
-    private record JdbcApplicationGroupMemberSummary(Long userId, String username, String name, boolean enabled)
-            implements ApplicationGroupMemberSummary {
+    private static class JdbcApplicationGroupMemberSummary implements ApplicationGroupMemberSummary {
+        private final Long userId;
+        private final String username;
+        private final String name;
+        private final boolean enabled;
+
+        public JdbcApplicationGroupMemberSummary(Long userId, String username, String name, boolean enabled) {
+            this.userId = userId;
+            this.username = username;
+            this.name = name;
+            this.enabled = enabled;
+        }
+
+        public Long userId() {
+            return userId;
+        }
+
+        public String username() {
+            return username;
+        }
+
+        public String name() {
+            return name;
+        }
+
+        public boolean enabled() {
+            return enabled;
+        }
+
         @Override
         public Long getUserId() {
             return userId;
@@ -322,5 +316,6 @@ public class ApplicationGroupMembershipJdbcRepository extends BaseJdbcRepository
         public boolean isEnabled() {
             return enabled;
         }
+    
     }
 }

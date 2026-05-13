@@ -1,9 +1,10 @@
 package studio.one.platform.thumbnail.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -28,7 +29,7 @@ import studio.one.platform.thumbnail.renderer.PptxThumbnailRenderer;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(ThumbnailProperties.class)
 @Conditional(ThumbnailFeatureCondition.class)
 @Slf4j
@@ -73,7 +74,7 @@ public class ThumbnailAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     ThumbnailRendererFactory thumbnailRendererFactory(ObjectProvider<ThumbnailRenderer> rendererProvider) {
-        List<ThumbnailRenderer> renderers = rendererProvider.orderedStream().toList();
+        List<ThumbnailRenderer> renderers = rendererProvider.orderedStream().collect(java.util.stream.Collectors.toList());
         logCreated(ThumbnailRendererFactory.class);
         return new ThumbnailRendererFactory(renderers);
     }

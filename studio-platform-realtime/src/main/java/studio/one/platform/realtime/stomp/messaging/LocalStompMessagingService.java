@@ -66,7 +66,7 @@ public class LocalStompMessagingService implements RealtimeMessagingService {
     @Override
     public void publish(RealtimeEnvelope envelope) {
         Object payloadObject = envelope.getPayload();
-        if (!(payloadObject instanceof RealtimePayload payload)) {
+        if (!(payloadObject instanceof RealtimePayload)) {
             throw new IllegalArgumentException("RealtimeEnvelope payload 는 비어 있을 수 없습니다. DTO를 전달하세요.");
         }
         boolean redisRequested = properties.isRedisEnabled();
@@ -85,6 +85,7 @@ public class LocalStompMessagingService implements RealtimeMessagingService {
         }
 
         // Redis 비활성: 현재 노드로 직접 전송
+        RealtimePayload payload = (RealtimePayload) payloadObject;
         dispatchLocal(envelope, payload);
     }
 

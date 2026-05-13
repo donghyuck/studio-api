@@ -55,15 +55,13 @@ public class MailServiceImpl implements MailService {
         String link = resetPasswordUrl + "?token=" + URLEncoder.encode(token, StandardCharsets.UTF_8);
 
         String subject = "[MyApp] 비밀번호 재설정 안내";
-        String content = """
-                비밀번호 재설정을 요청하셨습니다.
-                아래 링크를 클릭하여 비밀번호를 재설정해주세요.
-
-                %s
-
-                이 링크는 30분 동안만 유효합니다.
-                본인이 요청하지 않은 경우 이 메일을 무시하셔도 됩니다.
-                """.formatted(link);
+        String content = String.format("비밀번호 재설정을 요청하셨습니다.\n"
+                + "아래 링크를 클릭하여 비밀번호를 재설정해주세요.\n"
+                + "\n"
+                + "%s\n"
+                + "\n"
+                + "이 링크는 30분 동안만 유효합니다.\n"
+                + "본인이 요청하지 않은 경우 이 메일을 무시하셔도 됩니다.\n", link);
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setTo(to);

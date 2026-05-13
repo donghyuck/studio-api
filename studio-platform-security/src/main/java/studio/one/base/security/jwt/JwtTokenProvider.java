@@ -30,9 +30,9 @@ import java.util.Date;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 import javax.crypto.SecretKey;
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.security.SecurityProperties;
@@ -295,10 +295,12 @@ public class JwtTokenProvider {
 
     private Long resolveUserId(Authentication authentication) {
         Object principal = authentication.getPrincipal();
-        if (principal instanceof ApplicationUserDetails<?> aud) {
+        if (principal instanceof ApplicationUserDetails<?>) {
+            ApplicationUserDetails<?> aud = (ApplicationUserDetails<?>) principal;
             return aud.getUserId();
         }
-        if (principal instanceof ApplicationPrincipal ap) {
+        if (principal instanceof ApplicationPrincipal) {
+            ApplicationPrincipal ap = (ApplicationPrincipal) principal;
             return ap.getUserId();
         }
         return null;
@@ -306,10 +308,12 @@ public class JwtTokenProvider {
 
     private String resolveUsername(Authentication authentication) {
         Object principal = authentication.getPrincipal();
-        if (principal instanceof ApplicationUserDetails<?> aud) {
+        if (principal instanceof ApplicationUserDetails<?>) {
+            ApplicationUserDetails<?> aud = (ApplicationUserDetails<?>) principal;
             return aud.getUsername();
         }
-        if (principal instanceof ApplicationPrincipal ap) {
+        if (principal instanceof ApplicationPrincipal) {
+            ApplicationPrincipal ap = (ApplicationPrincipal) principal;
             return ap.getUsername();
         }
         return authentication.getName();

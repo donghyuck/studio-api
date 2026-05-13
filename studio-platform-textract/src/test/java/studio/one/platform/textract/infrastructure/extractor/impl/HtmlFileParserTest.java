@@ -17,21 +17,20 @@ class HtmlFileParserTest {
 
     @Test
     void parseStructuredExtractsSemanticBlocksAndSkipsBoilerplate() {
-        String html = """
-                <html>
-                  <body>
-                    <nav>메뉴 링크</nav>
-                    <main>
-                      <h1>문서 제목</h1>
-                      <p>본문 문단</p>
-                      <ul><li>목록 항목</li></ul>
-                      <table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>
-                      <img src="hero.png" alt="대표 이미지">
-                    </main>
-                    <footer>푸터</footer>
-                  </body>
-                </html>
-                """;
+        String html = "<html>\n" +
+                "  <body>\n" +
+                "    <nav>메뉴 링크</nav>\n" +
+                "    <main>\n" +
+                "      <h1>문서 제목</h1>\n" +
+                "      <p>본문 문단</p>\n" +
+                "      <ul><li>목록 항목</li></ul>\n" +
+                "      <table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>\n" +
+                "      <img src=\"hero.png\" alt=\"대표 이미지\">\n" +
+                "    </main>\n" +
+                "    <footer>푸터</footer>\n" +
+                "  </body>\n" +
+                "</html>\n" +
+                "";
 
         ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "sample.html");
 
@@ -57,14 +56,13 @@ class HtmlFileParserTest {
 
     @Test
     void parseStructuredKeepsHtmlTableSpanMetadata() {
-        String html = """
-                <main>
-                  <table>
-                    <tr><th>A</th><th colspan="2">B</th></tr>
-                    <tr><td>1</td><td>2</td><td>3</td></tr>
-                  </table>
-                </main>
-                """;
+        String html = "<main>\n" +
+                "  <table>\n" +
+                "    <tr><th>A</th><th colspan=\"2\">B</th></tr>\n" +
+                "    <tr><td>1</td><td>2</td><td>3</td></tr>\n" +
+                "  </table>\n" +
+                "</main>\n" +
+                "";
 
         ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "span.html");
 
@@ -80,14 +78,13 @@ class HtmlFileParserTest {
 
     @Test
     void parseStructuredKeepsHtmlRowspanLogicalColumns() {
-        String html = """
-                <main>
-                  <table>
-                    <tr><th rowspan="2">구분</th><th>값</th></tr>
-                    <tr><td>A</td></tr>
-                  </table>
-                </main>
-                """;
+        String html = "<main>\n" +
+                "  <table>\n" +
+                "    <tr><th rowspan=\"2\">구분</th><th>값</th></tr>\n" +
+                "    <tr><td>A</td></tr>\n" +
+                "  </table>\n" +
+                "</main>\n" +
+                "";
 
         ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "rowspan.html");
 
@@ -98,14 +95,13 @@ class HtmlFileParserTest {
 
     @Test
     void parseStructuredUsesAllSpannedHeadersForHtmlDataColspan() {
-        String html = """
-                <main>
-                  <table>
-                    <tr><th>Q1</th><th>Q2</th></tr>
-                    <tr><td colspan="2">100</td></tr>
-                  </table>
-                </main>
-                """;
+        String html = "<main>\n" +
+                "  <table>\n" +
+                "    <tr><th>Q1</th><th>Q2</th></tr>\n" +
+                "    <tr><td colspan=\"2\">100</td></tr>\n" +
+                "  </table>\n" +
+                "</main>\n" +
+                "";
 
         ParsedFile result = new HtmlFileParser().parseStructured(html.getBytes(UTF_8), "text/html", "data-colspan.html");
 

@@ -153,39 +153,37 @@ class JdbcRagIndexJobRepositoryTest {
 
     private void createSchema(JdbcTemplate jdbcTemplate) {
         List.of(
-                """
-                CREATE TABLE tb_ai_rag_index_job (
-                  job_id VARCHAR(100) PRIMARY KEY,
-                  object_type VARCHAR(100),
-                  object_id VARCHAR(150),
-                  document_id VARCHAR(200),
-                  source_type VARCHAR(100),
-                  source_name VARCHAR(300),
-                  status VARCHAR(30) NOT NULL,
-                  current_step VARCHAR(30),
-                  chunk_count INT NOT NULL DEFAULT 0,
-                  embedded_count INT NOT NULL DEFAULT 0,
-                  indexed_count INT NOT NULL DEFAULT 0,
-                  warning_count INT NOT NULL DEFAULT 0,
-                  error_message CLOB,
-                  created_at TIMESTAMP NOT NULL,
-                  started_at TIMESTAMP,
-                  finished_at TIMESTAMP,
-                  duration_ms BIGINT
-                )
-                """,
-                """
-                CREATE TABLE tb_ai_rag_index_job_log (
-                  log_id VARCHAR(100) PRIMARY KEY,
-                  job_id VARCHAR(100) NOT NULL,
-                  log_level VARCHAR(20) NOT NULL,
-                  step VARCHAR(30),
-                  code VARCHAR(100) NOT NULL,
-                  message CLOB,
-                  detail CLOB,
-                  created_at TIMESTAMP NOT NULL
-                )
-                """)
+                String.join("\n",
+        "CREATE TABLE tb_ai_rag_index_job (",
+        "  job_id VARCHAR(100) PRIMARY KEY,",
+        "  object_type VARCHAR(100),",
+        "  object_id VARCHAR(150),",
+        "  document_id VARCHAR(200),",
+        "  source_type VARCHAR(100),",
+        "  source_name VARCHAR(300),",
+        "  status VARCHAR(30) NOT NULL,",
+        "  current_step VARCHAR(30),",
+        "  chunk_count INT NOT NULL DEFAULT 0,",
+        "  embedded_count INT NOT NULL DEFAULT 0,",
+        "  indexed_count INT NOT NULL DEFAULT 0,",
+        "  warning_count INT NOT NULL DEFAULT 0,",
+        "  error_message CLOB,",
+        "  created_at TIMESTAMP NOT NULL,",
+        "  started_at TIMESTAMP,",
+        "  finished_at TIMESTAMP,",
+        "  duration_ms BIGINT",
+        ")"),
+                String.join("\n",
+        "CREATE TABLE tb_ai_rag_index_job_log (",
+        "  log_id VARCHAR(100) PRIMARY KEY,",
+        "  job_id VARCHAR(100) NOT NULL,",
+        "  log_level VARCHAR(20) NOT NULL,",
+        "  step VARCHAR(30),",
+        "  code VARCHAR(100) NOT NULL,",
+        "  message CLOB,",
+        "  detail CLOB,",
+        "  created_at TIMESTAMP NOT NULL",
+        ")"))
                 .forEach(jdbcTemplate::execute);
     }
 }

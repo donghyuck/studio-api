@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import jakarta.persistence.criteria.Predicate;
+import javax.persistence.criteria.Predicate;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -303,7 +303,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         return workspaceRepository.findByParentIdOrderByPositionAscWorkspaceIdAsc(workspaceId).stream()
                 .filter(entity -> isReadable(entity, actor))
                 .map(WorkspaceEntity::toRef)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -317,7 +317,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 .filter(entity -> entity != null)
                 .filter(entity -> isReadable(entity, actor))
                 .map(WorkspaceEntity::toRef)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -330,7 +330,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 .map(closure -> byId.get(closure.descendantId()))
                 .filter(entity -> entity != null)
                 .sorted(Comparator.comparing(WorkspaceEntity::getDepth).thenComparing(WorkspaceEntity::getPath))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         Set<Long> visibleBranchIds = new HashSet<>();
         visibleBranchIds.add(workspaceId);
         List<WorkspaceEntity> visible = new ArrayList<>();
@@ -343,7 +343,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         return visible.stream()
                 .sorted(Comparator.comparing(WorkspaceEntity::getPath))
                 .map(WorkspaceEntity::toRef)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -356,7 +356,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                 .filter(entity -> entity != null)
                 .filter(entity -> entity.getWorkspaceId().equals(workspaceId) || isReadable(entity, actor))
                 .sorted(Comparator.comparing(WorkspaceEntity::getDepth).thenComparing(WorkspaceEntity::getPosition))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         Map<Long, WorkspaceTreeNodeBuilder> builders = new LinkedHashMap<>();
         for (WorkspaceEntity entity : entities) {
             builders.put(entity.getWorkspaceId(), new WorkspaceTreeNodeBuilder(entity.toRef()));
@@ -384,7 +384,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         List<WorkspaceEntity> descendants = descendantsOf(entity);
         List<WorkspaceEntity> activeDescendants = descendants.stream()
                 .filter(descendant -> !descendant.isArchived())
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (!cascade && !activeDescendants.isEmpty()) {
             throw new WorkspaceConflictException("Workspace has active descendants; cascade archive is required");
         }
@@ -413,7 +413,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         if (cascade) {
             List<WorkspaceEntity> archivedDescendants = descendantsOf(entity).stream()
                     .filter(WorkspaceEntity::isArchived)
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
             assertGranted(archivedDescendants, resolved, WorkspacePermissionActions.ACTIVATE);
             archivedDescendants.forEach(descendant -> activateEntity(descendant, userId));
             workspaceRepository.saveAll(archivedDescendants);
@@ -519,7 +519,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
     private List<WorkspaceEntity> descendantsOf(WorkspaceEntity entity) {
         List<Long> descendantIds = closureRepository.findDescendantIds(entity.getWorkspaceId()).stream()
                 .filter(id -> !id.equals(entity.getWorkspaceId()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (descendantIds.isEmpty()) {
             return List.of();
         }
@@ -644,7 +644,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
                     return new Sort.Order(order.getDirection(), property);
                 })
                 .filter(order -> order != null)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return orders.isEmpty() ? DEFAULT_LIST_SORT : Sort.by(orders);
     }
 
@@ -752,7 +752,18 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         return closures;
     }
 
-    private record WorkspaceAncestor(Long workspaceId, int depthToNewParent) {
+    private static final class WorkspaceAncestor {
+        private final Long workspaceId;
+        private final int depthToNewParent;
+
+        private WorkspaceAncestor(Long workspaceId, int depthToNewParent) {
+            this.workspaceId = workspaceId;
+            this.depthToNewParent = depthToNewParent;
+        }
+
+        private Long workspaceId() { return workspaceId; }
+
+        private int depthToNewParent() { return depthToNewParent; }
     }
 
     private static final class WorkspaceTreeNodeBuilder {
@@ -764,7 +775,7 @@ public class DefaultWorkspaceTreeService implements WorkspaceTreeService {
         }
 
         private WorkspaceTreeNode build() {
-            return new WorkspaceTreeNode(ref, children.values().stream().map(WorkspaceTreeNodeBuilder::build).toList());
+            return new WorkspaceTreeNode(ref, children.values().stream().map(WorkspaceTreeNodeBuilder::build).collect(java.util.stream.Collectors.toList()));
         }
     }
 }

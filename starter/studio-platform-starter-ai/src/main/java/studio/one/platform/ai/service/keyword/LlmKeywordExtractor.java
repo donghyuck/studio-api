@@ -21,11 +21,10 @@ import studio.one.platform.ai.service.prompt.PromptRenderer;
 public class LlmKeywordExtractor implements KeywordExtractor {
 
     private static final String TEMPLATE_NAME = "keyword-extraction";
-    private static final String FALLBACK_PROMPT = """
-            You are a professional keyword extractor.
-            Extract 5-10 concise, noun-centric keywords that best represent the following text.
-            Respond with a JSON array of strings only (no code fences, no additional commentary).
-            """;
+    private static final String FALLBACK_PROMPT = String.join("\n",
+        "You are a professional keyword extractor.",
+        "Extract 5-10 concise, noun-centric keywords that best represent the following text.",
+        "Respond with a JSON array of strings only (no code fences, no additional commentary).");
 
     private final PromptRenderer promptRenderer;
     private final ChatPort chatPort;
@@ -89,7 +88,7 @@ public class LlmKeywordExtractor implements KeywordExtractor {
         }
         return normalizeKeywords(Arrays.stream(cleaned.split("[,\\n]"))
                 .map(String::trim)
-                .toList());
+                .collect(java.util.stream.Collectors.toList()));
     }
 
     private List<String> tryParseJson(String cleaned) {

@@ -64,13 +64,12 @@ public class YamlObjectTypeLoaderTest {
         YamlObjectTypeLoader loader = new YamlObjectTypeLoader(new ResourceLoader() {
             @Override
             public Resource getResource(String location) {
-                return new ByteArrayResource("""
-                        objecttypes:
-                          - type: invalid
-                            objectType: 1002
-                            key: alias-document
-                            name: Alias Document
-                        """.getBytes()) {
+                return new ByteArrayResource(String.join("\n",
+                        "objecttypes:",
+                        "  - type: invalid",
+                        "    objectType: 1002",
+                        "    key: alias-document",
+                        "    name: Alias Document").getBytes()) {
                     @Override
                     public boolean exists() {
                         return true;

@@ -66,9 +66,8 @@ class ExcelFileParserTest {
         assertEquals(2, table.rowCount());
         assertEquals(10, table.cellCount());
         assertEquals(1, table.headerRowCount());
-        assertEquals("""
-                Name | Amount | Active | Date | Total
-                Name: alpha | Amount: 10 | Active: TRUE | Date: 2026-01-02 | Total: 20""".strip(), table.vectorText());
+        assertEquals("Name | Amount | Active | Date | Total\n" +
+                "Name: alpha | Amount: 10 | Active: TRUE | Date: 2026-01-02 | Total: 20".strip(), table.vectorText());
 
         ExtractedTableCell formulaCell = table.cells().stream()
                 .filter(cell -> "20".equals(cell.text()))

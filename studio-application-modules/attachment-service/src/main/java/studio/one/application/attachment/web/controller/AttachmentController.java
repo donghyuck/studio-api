@@ -5,7 +5,7 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.web.PageableDefault;
@@ -289,6 +289,24 @@ public class AttachmentController {
             @PathVariable long objectId,
             @RequestParam(value = "keyword", required = false) String keyword,
             @PageableDefault org.springframework.data.domain.Pageable pageable) {
+        return listByObjectInternal(objectType, objectId, keyword, pageable);
+    }
+
+    @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:attachment','service-read')")
+    public ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObjectQuery(
+            @RequestParam("objectType") int objectType,
+            @RequestParam("objectId") long objectId,
+            @RequestParam(value = "keyword", required = false) String keyword,
+            @PageableDefault org.springframework.data.domain.Pageable pageable) {
+        return listByObjectInternal(objectType, objectId, keyword, pageable);
+    }
+
+    private ResponseEntity<ApiResponse<List<AttachmentDto>>> listByObjectInternal(
+            int objectType,
+            long objectId,
+            String keyword,
+            org.springframework.data.domain.Pageable pageable) {
         requireOwnerAccess(objectType, objectId, AttachmentOwnerAccessAction.LIST);
         List<Attachment> attachments;
         if (keyword == null || keyword.isBlank()) {
@@ -298,7 +316,7 @@ public class AttachmentController {
         }
         List<AttachmentDto> dto = attachments.stream()
                 .map(a -> AttachmentDto.of(a, null))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return ResponseEntity.ok(ApiResponse.ok(dto));
     }
 

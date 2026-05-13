@@ -3,18 +3,23 @@ package studio.one.platform.textract.domain.model;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 /**
  * RAG-friendly logical content block.
  */
-public record ParsedBlock(
-        String id,
-        BlockType type,
-        String path,
-        String text,
-        Integer page,
-        List<ParsedBlock> children,
-        Map<String, Object> metadata) {
+@Value
+@Accessors(fluent = true)
+public class ParsedBlock {
+    String id;
+    BlockType type;
+    String path;
+    String text;
+    Integer page;
+    List<ParsedBlock> children;
+    Map<String, Object> metadata;
+
 
     public static final String KEY_ORDER = "order";
     public static final String KEY_SOURCE_REF = "sourceRef";
@@ -22,13 +27,28 @@ public record ParsedBlock(
     public static final String KEY_CONFIDENCE = "confidence";
     public static final String KEY_SLIDE = "slide";
 
-    public ParsedBlock {
+    public ParsedBlock(String id, BlockType type, String path, String text, Integer page, List<ParsedBlock> children, Map<String, Object> metadata) {
         id = id == null ? path : id;
         type = type == null ? BlockType.UNKNOWN : type;
         path = path == null ? "" : path;
         text = text == null ? "" : text;
         children = children == null ? List.of() : List.copyOf(children);
         metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+
+        this.id = id;
+
+        this.type = type;
+
+        this.path = path;
+
+        this.text = text;
+
+        this.page = page;
+
+        this.children = children;
+
+        this.metadata = metadata;
+
     }
 
     public static ParsedBlock text(String path, BlockType type, String text) {
@@ -51,25 +71,31 @@ public record ParsedBlock(
 
     public Integer order() {
         Object value = metadata.get(KEY_ORDER);
-        return value instanceof Integer integerValue ? integerValue : null;
+        return value instanceof Integer ? (Integer) value : null;
     }
 
     public String sourceRef() {
         Object value = metadata.get(KEY_SOURCE_REF);
-        return value instanceof String stringValue && !stringValue.isBlank() ? stringValue : path;
+        if (value instanceof String) {
+            String stringValue = (String) value;
+            return !stringValue.isBlank() ? stringValue : path;
+        }
+        return path;
     }
 
     public String parentBlockId() {
         Object value = metadata.get(KEY_PARENT_BLOCK_ID);
-        return value instanceof String stringValue ? stringValue : "";
+        return value instanceof String ? (String) value : "";
     }
 
     public Double confidence() {
         Object value = metadata.get(KEY_CONFIDENCE);
-        if (value instanceof Double doubleValue) {
+        if (value instanceof Double) {
+            Double doubleValue = (Double) value;
             return doubleValue;
         }
-        if (value instanceof Number numberValue) {
+        if (value instanceof Number) {
+            Number numberValue = (Number) value;
             return numberValue.doubleValue();
         }
         return null;
@@ -77,7 +103,7 @@ public record ParsedBlock(
 
     public Integer slide() {
         Object value = metadata.get(KEY_SLIDE);
-        return value instanceof Integer integerValue ? integerValue : null;
+        return value instanceof Integer ? (Integer) value : null;
     }
 
     public static Map<String, Object> metadata(

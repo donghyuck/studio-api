@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.ObjectProvider;
@@ -570,10 +570,10 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         Set<Long> currentSet = new HashSet<>(current);
         List<Long> toAssign = desiredSet.stream()
                 .filter(id -> !currentSet.contains(id))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         List<Long> toRevoke = currentSet.stream()
                 .filter(id -> !desiredSet.contains(id))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         long inserted = toAssign.isEmpty() ? 0 : assignRolesBulk(userId, toAssign, actor).getInserted();
         long deleted = toRevoke.isEmpty() ? 0 : userRoleRepo.deleteByUserIdAndRoleIds(userId, toRevoke);
         long skipped = toAssign.size() - inserted;
@@ -585,7 +585,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
 
         List<Long> candidates = (roles == null)
                 ? java.util.Collections.emptyList()
-                : roles.stream().filter(Objects::nonNull).distinct().toList();
+                : roles.stream().filter(Objects::nonNull).distinct().collect(java.util.stream.Collectors.toList());
         if (candidates.isEmpty()) {
             return new BatchResult(0, 0, 0, 0);
         }
@@ -593,16 +593,12 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         Set<Long> existingRoleIds = new HashSet<>(roleRepo.findExistingIds(candidates));
         List<Long> valid = candidates.stream()
                 .filter(existingRoleIds::contains)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (valid.isEmpty()) {
             return new BatchResult(0, 0, 0, 0);
         }
 
-        final String sql = """
-                insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)
-                select ?, uid, now(), ? from unnest(?::bigint[]) as uid
-                on conflict (user_id, role_id) do nothing
-                """;
+        final String sql = "insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by) select ?, uid, now(), ? from unnest(?::bigint[]) as uid on conflict (user_id, role_id) do nothing";
 
         final Long[] arr = valid.toArray(new Long[0]);
         final String assignedBy = (actor != null && !actor.isEmpty()) ? actor : "system";

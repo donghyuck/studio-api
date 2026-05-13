@@ -138,7 +138,7 @@ public class DefaultVectorSearchVisualizationService implements VectorSearchVisu
                 return vectorStorePort.searchWithFilter(baseRequest).hits().stream()
                         .filter(hit -> minScore == null || hit.score() >= minScore)
                         .limit(topK)
-                        .toList();
+                        .collect(java.util.stream.Collectors.toList());
             }
             return targetTypes.stream()
                     .filter(value -> value != null && !value.isBlank())
@@ -147,7 +147,7 @@ public class DefaultVectorSearchVisualizationService implements VectorSearchVisu
                     .filter(hit -> minScore == null || hit.score() >= minScore)
                     .sorted(Comparator.comparingDouble(VectorSearchHit::score).reversed())
                     .limit(topK)
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
         } catch (RuntimeException ex) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "PROJECTION_SEARCH_FAILED", ex);
         }
@@ -180,7 +180,7 @@ public class DefaultVectorSearchVisualizationService implements VectorSearchVisu
         }
         return requestedTypes.stream()
                 .filter(projectionTypes::contains)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private List<String> normalizedDistinct(List<String> values) {
@@ -191,7 +191,7 @@ public class DefaultVectorSearchVisualizationService implements VectorSearchVisu
                 .map(this::normalize)
                 .filter(Objects::nonNull)
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private int effectiveTopK(Integer topK) {

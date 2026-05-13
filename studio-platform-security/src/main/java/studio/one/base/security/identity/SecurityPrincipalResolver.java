@@ -31,13 +31,16 @@ public class SecurityPrincipalResolver implements PrincipalResolver {
             return null;
         }
         Object principal = auth.getPrincipal();
-        if (principal instanceof ApplicationPrincipal ap) {
+        if (principal instanceof ApplicationPrincipal) {
+            ApplicationPrincipal ap = (ApplicationPrincipal) principal;
             return ap;
         }
-        if (principal instanceof UserDetails ud) {
+        if (principal instanceof UserDetails) {
+            UserDetails ud = (UserDetails) principal;
             return new SimplePrincipal(null, ud.getUsername(), toRoles(ud.getAuthorities()));
         }
-        if (principal instanceof String s && !s.isBlank()) {
+        if (principal instanceof String && !((String) principal).isBlank()) {
+            String s = (String) principal;
             return new SimplePrincipal(null, s, toRoles(auth.getAuthorities()));
         }
         return null;
@@ -52,20 +55,24 @@ public class SecurityPrincipalResolver implements PrincipalResolver {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private record SimplePrincipal(Long id, String name, Set<String> roles) implements ApplicationPrincipal {
-        @Override
-        public Long getUserId() {
-            return id;
+    private static class SimplePrincipal implements ApplicationPrincipal {
+        private final Long id;
+        private final String name;
+        private final Set<String> roles;
+
+        private SimplePrincipal(Long id, String name, Set<String> roles) {
+            this.id = id;
+            this.name = name;
+            this.roles = roles;
         }
 
         @Override
-        public String getUsername() {
-            return name;
-        }
+        public Long getUserId() { return id; }
 
         @Override
-        public Set<String> getRoles() {
-            return roles;
-        }
+        public String getUsername() { return name; }
+
+        @Override
+        public Set<String> getRoles() { return roles; }
     }
 }

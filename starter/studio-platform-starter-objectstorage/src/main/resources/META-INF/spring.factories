@@ -1,0 +1,5 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.storage.autoconfigure.ObjectStorageSecretPresenceGuard,\
+studio.one.platform.storage.autoconfigure.ObjectStorageAutoConfiguration,\
+studio.one.platform.storage.autoconfigure.ObjectStorageCatalogAutoConfiguration,\
+studio.one.platform.storage.autoconfigure.ObjectStorageEndpointAutoConfiguration

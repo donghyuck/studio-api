@@ -127,10 +127,15 @@ public class DocxFileParser extends AbstractFileParser implements StructuredFile
             IBodyElement element = elements.get(i);
             String path = parentPath + "/element[" + i + "]";
             switch (element.getElementType()) {
-                case PARAGRAPH -> order += appendParagraph(
-                        (XWPFParagraph) element, sb, blocks, images, path, containerType, order);
-                case TABLE -> order += appendTable((XWPFTable) element, sb, blocks, tables, images, path, order);
-                default -> { /* ignore other elements */ }
+                case PARAGRAPH:
+                    order += appendParagraph(
+                            (XWPFParagraph) element, sb, blocks, images, path, containerType, order);
+                    break;
+                case TABLE:
+                    order += appendTable((XWPFTable) element, sb, blocks, tables, images, path, order);
+                    break;
+                default:
+                    break;
             }
         }
         return order;

@@ -253,9 +253,9 @@ public class S3ObjectStorage implements CloudObjectStorage {
                 .size(o.size())
                 .eTag(o.eTag())
                 .modifiedDate(o.lastModified()) // Instant
-                .build()).toList();
+                .build()).collect(java.util.stream.Collectors.toList());
         var prefixes = res.commonPrefixes() == null ? List.<String>of()
-                : res.commonPrefixes().stream().map(CommonPrefix::prefix).toList();
+                : res.commonPrefixes().stream().map(CommonPrefix::prefix).collect(java.util.stream.Collectors.toList());
         return PageResult.<ObjectInfo>builder()
                 .items(items)
                 .commonPrefixes(prefixes)
@@ -290,7 +290,7 @@ public class S3ObjectStorage implements CloudObjectStorage {
                     .modifiedDate(object.lastModified())
                     .eTag(object.eTag())
                     .build();
-        }).toList();
+        }).collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -319,7 +319,7 @@ public class S3ObjectStorage implements CloudObjectStorage {
                         .modifiedDate(object.lastModified())
                         .eTag(object.eTag())
                         .build();
-            }).toList();
+            }).collect(java.util.stream.Collectors.toList());
             totalFetched += pageObjects.size();
             if (totalFetched > offset) {
                 int fromIndex = Math.max(0, offset - (totalFetched - pageObjects.size()));
@@ -346,7 +346,7 @@ public class S3ObjectStorage implements CloudObjectStorage {
                     .bucket(b.name())
                     .createdDate(b.creationDate())
                     .build();
-        }).toList();
+        }).collect(java.util.stream.Collectors.toList());
     }
  
     /*

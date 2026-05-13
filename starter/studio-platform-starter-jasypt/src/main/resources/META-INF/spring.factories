@@ -1,0 +1,4 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.platform.autoconfigure.jasypt.JasyptPresenceGuard,\
+studio.one.platform.autoconfigure.jasypt.JasyptAutoConfiguration,\
+studio.one.platform.autoconfigure.jasypt.JasyptHttpAutoConfiguration

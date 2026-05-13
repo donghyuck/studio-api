@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
@@ -53,7 +53,10 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path:/api/mgmt/attachments}")
+@RequestMapping({
+        "${" + PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path:/api/mgmt/attachments}",
+        "/api/mgmt/files"
+})
 @RequiredArgsConstructor
 @Slf4j
 @Validated
@@ -297,7 +300,7 @@ public class AttachmentMgmtController {
                     objectId,
                     AttachmentAccessSupport.requireUserId(principal));
         }
-        return ResponseEntity.ok(ApiResponse.ok(attachments.stream().map(this::toDto).toList()));
+        return ResponseEntity.ok(ApiResponse.ok(attachments.stream().map(this::toDto).collect(java.util.stream.Collectors.toList())));
     }
 
     @DeleteMapping("/{attachmentId:[\\p{Digit}]+}")

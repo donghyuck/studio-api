@@ -2,6 +2,7 @@ package studio.one.base.user.infrastructure.persistence.jdbc;
 
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -74,23 +75,15 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
 
     @Override
     public List<ApplicationRole> findRolesByGroupId(Long groupId) {
-        String sql = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID
-                 where gr.GROUP_ID = :groupId
-                """;
+        String sql = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.ROLE_ID = r.ROLE_ID\\n" + " where gr.GROUP_ID = :groupId\\n");
         return namedTemplate.query(sql, Map.of("groupId", groupId), ROLE_ROW_MAPPER);
     }
 
     @Override
     public List<ApplicationGroup> findGroupsByRoleId(Long roleId) {
-        String sql = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                """;
+        String sql = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n");
         List<ApplicationGroup> groups = namedTemplate.query(sql, Map.of("roleId", roleId), GROUP_ROW_MAPPER);
         loadGroupProperties(groups);
         return groups;
@@ -98,12 +91,8 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
 
     @Override
     public boolean existsByGroupIdAndRoleId(Long groupId, Long roleId) {
-        String sql = """
-                select exists(
-                    select 1 from TB_APPLICATION_GROUP_ROLES
-                     where GROUP_ID = :groupId
-                       and ROLE_ID = :roleId)
-                """;
+        String sql = (
+"select exists(\\n" + "    select 1 from TB_APPLICATION_GROUP_ROLES\\n" + "     where GROUP_ID = :groupId\\n" + "       and ROLE_ID = :roleId)\\n");
         Boolean exists = namedTemplate.queryForObject(sql, Map.of("groupId", groupId, "roleId", roleId), Boolean.class);
         return Boolean.TRUE.equals(exists);
     }
@@ -123,11 +112,8 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         if (roleIds == null || roleIds.isEmpty()) {
             return 0;
         }
-        String sql = """
-                delete from TB_APPLICATION_GROUP_ROLES
-                 where GROUP_ID = :groupId
-                   and ROLE_ID in (:roleIds)
-                """;
+        String sql = (
+"delete from TB_APPLICATION_GROUP_ROLES\\n" + " where GROUP_ID = :groupId\\n" + "   and ROLE_ID in (:roleIds)\\n");
         return namedTemplate.update(sql, Map.of("groupId", groupId, "roleIds", roleIds));
     }
 
@@ -136,11 +122,8 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         if (groupIds == null || groupIds.isEmpty()) {
             return 0;
         }
-        String sql = """
-                delete from TB_APPLICATION_GROUP_ROLES
-                 where GROUP_ID in (:groupIds)
-                   and ROLE_ID = :roleId
-                """;
+        String sql = (
+"delete from TB_APPLICATION_GROUP_ROLES\\n" + " where GROUP_ID in (:groupIds)\\n" + "   and ROLE_ID = :roleId\\n");
         return namedTemplate.update(sql, Map.of("groupIds", groupIds, "roleId", roleId));
     }
 
@@ -150,20 +133,10 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         params.put("roleId", roleId);
         params.put("q", normalize(keyword));
 
-        String select = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)
-                """;
+        String select = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)\\n");
         Page<ApplicationGroup> page = queryPage(select, count, params, pageable, GROUP_ROW_MAPPER, "g.GROUP_ID", GROUP_SORT_COLUMNS);
         loadGroupProperties(page.getContent());
         return page;
@@ -175,26 +148,15 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         params.put("roleId", roleId);
         params.put("q", normalize(keyword));
 
-        String select = """
-                select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE,
-                       (select count(m.USER_ID) from TB_APPLICATION_GROUP_MEMBERS m where m.GROUP_ID = g.GROUP_ID) as MEMBER_COUNT
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)
-                """;
-        String count = """
-                select count(distinct g.GROUP_ID)
-                  from TB_APPLICATION_GROUP g
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)
-                """;
+        String select = (
+"select g.GROUP_ID, g.NAME, g.DESCRIPTION, g.CREATION_DATE, g.MODIFIED_DATE,\\n" + "       (select count(m.USER_ID) from TB_APPLICATION_GROUP_MEMBERS m where m.GROUP_ID = g.GROUP_ID) as MEMBER_COUNT\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)\\n");
+        String count = (
+"select count(distinct g.GROUP_ID)\\n" + "  from TB_APPLICATION_GROUP g\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = g.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(g.NAME) like :q or lower(g.DESCRIPTION) like :q)\\n");
         Page<ApplicationGroupWithMemberCount> page = queryPage(select, count, params, pageable, GROUP_WITH_COUNT, "g.GROUP_ID", GROUP_SORT_COLUMNS);
         List<ApplicationGroup> entities = page.getContent().stream()
                 .map(ApplicationGroupWithMemberCount::getEntity)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(Collectors.toList());
         loadGroupProperties(entities);
         return page;
     }
@@ -213,13 +175,8 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
             assignedAt = LocalDateTime.now();
             groupRole.setAssignedAt(assignedAt);
         }
-        String sql = """
-                insert into TB_APPLICATION_GROUP_ROLES (GROUP_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)
-                values (:groupId, :roleId, :assignedAt, :assignedBy)
-                on conflict (GROUP_ID, ROLE_ID) do update
-                      set ASSIGNED_AT = excluded.ASSIGNED_AT,
-                          ASSIGNED_BY = excluded.ASSIGNED_BY
-                """;
+        String sql = (
+"insert into TB_APPLICATION_GROUP_ROLES (GROUP_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)\\n" + "values (:groupId, :roleId, :assignedAt, :assignedBy)\\n" + "on conflict (GROUP_ID, ROLE_ID) do update\\n" + "      set ASSIGNED_AT = excluded.ASSIGNED_AT,\\n" + "          ASSIGNED_BY = excluded.ASSIGNED_BY\\n");
         namedTemplate.update(sql, Map.of(
                 "groupId", id.getGroupId(),
                 "roleId", id.getRoleId(),
@@ -235,13 +192,8 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         if (buffer.isEmpty()) {
             return buffer;
         }
-        String sql = """
-                insert into TB_APPLICATION_GROUP_ROLES (GROUP_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)
-                values (:groupId, :roleId, :assignedAt, :assignedBy)
-                on conflict (GROUP_ID, ROLE_ID) do update
-                      set ASSIGNED_AT = excluded.ASSIGNED_AT,
-                          ASSIGNED_BY = excluded.ASSIGNED_BY
-                """;
+        String sql = (
+"insert into TB_APPLICATION_GROUP_ROLES (GROUP_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)\\n" + "values (:groupId, :roleId, :assignedAt, :assignedBy)\\n" + "on conflict (GROUP_ID, ROLE_ID) do update\\n" + "      set ASSIGNED_AT = excluded.ASSIGNED_AT,\\n" + "          ASSIGNED_BY = excluded.ASSIGNED_BY\\n");
         SqlParameterSource[] batch = buffer.stream()
                 .map(gr -> {
                     ApplicationGroupRoleId id = gr.getId();
@@ -269,11 +221,8 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         if (id == null) {
             return;
         }
-        String sql = """
-                delete from TB_APPLICATION_GROUP_ROLES
-                 where GROUP_ID = :groupId
-                   and ROLE_ID = :roleId
-                """;
+        String sql = (
+"delete from TB_APPLICATION_GROUP_ROLES\\n" + " where GROUP_ID = :groupId\\n" + "   and ROLE_ID = :roleId\\n");
         namedTemplate.update(sql, Map.of("groupId", id.getGroupId(), "roleId", id.getRoleId()));
     }
 
@@ -281,7 +230,7 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         List<Long> ids = groups.stream()
                 .map(ApplicationGroup::getGroupId)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(Collectors.toList());
         if (ids.isEmpty()) {
             return;
         }
@@ -299,8 +248,23 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         return "%" + keyword.toLowerCase(Locale.ROOT) + "%";
     }
 
-    private record JdbcGroupWithMemberCount(ApplicationGroup entity, Long memberCount)
-            implements ApplicationGroupWithMemberCount {
+    private static class JdbcGroupWithMemberCount implements ApplicationGroupWithMemberCount {
+        private final ApplicationGroup entity;
+        private final Long memberCount;
+
+        public JdbcGroupWithMemberCount(ApplicationGroup entity, Long memberCount) {
+            this.entity = entity;
+            this.memberCount = memberCount;
+        }
+
+        public ApplicationGroup entity() {
+            return entity;
+        }
+
+        public Long memberCount() {
+            return memberCount;
+        }
+
         @Override
         public ApplicationGroup getEntity() {
             return entity;
@@ -310,5 +274,6 @@ public class ApplicationGroupRoleJdbcRepository extends BaseJdbcRepository imple
         public Long getMemberCount() {
             return memberCount;
         }
+    
     }
 }

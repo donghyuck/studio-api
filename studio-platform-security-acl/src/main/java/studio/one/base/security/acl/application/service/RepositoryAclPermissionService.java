@@ -144,7 +144,7 @@ public class RepositoryAclPermissionService implements AclPermissionService {
         List<Integer> requestedMasks = permissions.stream()
                 .map(Permission::getMask)
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         if (requestedMasks.isEmpty()) {
             metricsRecorder.record("bulk_grant", elapsed(started), 0);
             return 0;
@@ -167,7 +167,7 @@ public class RepositoryAclPermissionService implements AclPermissionService {
         entryRepository.saveAll(entries);
         publishRefresh();
         metricsRecorder.record("bulk_grant", elapsed(started), entries.size());
-        audit("bulk_grant", identity, sid, entries.stream().map(AclEntryEntity::getMask).toList(), entries.size());
+        audit("bulk_grant", identity, sid, entries.stream().map(AclEntryEntity::getMask).collect(java.util.stream.Collectors.toList()), entries.size());
         return entries.size();
     }
 
@@ -188,7 +188,7 @@ public class RepositoryAclPermissionService implements AclPermissionService {
         List<Integer> masks = permissions.stream()
                 .map(Permission::getMask)
                 .distinct()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         int deleted = entryRepository.deleteByObjectIdentityAndSidAndMaskIn(
                 objectIdentity.get(), sidEntity.get(), masks);
         if (deleted > 0) {
@@ -284,10 +284,12 @@ public class RepositoryAclPermissionService implements AclPermissionService {
     }
 
     private String sidValue(Sid sid) {
-        if (sid instanceof PrincipalSid principalSid) {
+        if (sid instanceof PrincipalSid) {
+            PrincipalSid principalSid = (PrincipalSid) sid;
             return principalSid.getPrincipal();
         }
-        if (sid instanceof GrantedAuthoritySid authoritySid) {
+        if (sid instanceof GrantedAuthoritySid) {
+            GrantedAuthoritySid authoritySid = (GrantedAuthoritySid) sid;
             return authoritySid.getGrantedAuthority();
         }
         return sid.toString();

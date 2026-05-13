@@ -30,44 +30,17 @@ import studio.one.platform.exception.NotFoundException;
 @Service(MailSyncLogService.SERVICE_NAME)
 public class JdbcMailSyncLogService implements MailSyncLogService {
 
-    private static final String INSERT_SQL = """
-            insert into TB_APPLICATION_MAIL_SYNC_LOG
-                (STARTED_AT, STATUS, TRIGGERED_BY)
-            values
-                (:startedAt, :status, :triggeredBy)
-            returning LOG_ID
-            """;
+    private static final String INSERT_SQL = "insert into TB_APPLICATION_MAIL_SYNC_LOG (STARTED_AT, STATUS, TRIGGERED_BY) values (:startedAt, :status, :triggeredBy) returning LOG_ID";
 
-    private static final String UPDATE_SQL = """
-            update TB_APPLICATION_MAIL_SYNC_LOG
-               set FINISHED_AT = :finishedAt,
-                   PROCESSED = :processed,
-                   SUCCEEDED = :succeeded,
-                   FAILED = :failed,
-                   STATUS = :status,
-                   MESSAGE = :message
-             where LOG_ID = :logId
-            """;
+    private static final String UPDATE_SQL = "update TB_APPLICATION_MAIL_SYNC_LOG set FINISHED_AT = :finishedAt, PROCESSED = :processed, SUCCEEDED = :succeeded, FAILED = :failed, STATUS = :status, MESSAGE = :message where LOG_ID = :logId";
 
-    private static final String RECENT_SQL = """
-            select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
-              from TB_APPLICATION_MAIL_SYNC_LOG
-             order by STARTED_AT desc
-             limit :limit
-            """;
+    private static final String RECENT_SQL = "select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY from TB_APPLICATION_MAIL_SYNC_LOG order by STARTED_AT desc limit :limit";
 
     private static final String COUNT_SQL = "select count(*) from TB_APPLICATION_MAIL_SYNC_LOG";
 
-    private static final String FIND_PAGE_SQL = """
-            select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
-              from TB_APPLICATION_MAIL_SYNC_LOG
-            """;
+    private static final String FIND_PAGE_SQL = "select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY from TB_APPLICATION_MAIL_SYNC_LOG";
 
-    private static final String FIND_BY_ID_SQL = """
-            select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY
-              from TB_APPLICATION_MAIL_SYNC_LOG
-             where LOG_ID = :logId
-            """;
+    private static final String FIND_BY_ID_SQL = "select LOG_ID, STARTED_AT, FINISHED_AT, PROCESSED, SUCCEEDED, FAILED, STATUS, MESSAGE, TRIGGERED_BY from TB_APPLICATION_MAIL_SYNC_LOG where LOG_ID = :logId";
 
     private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
             Map.entry("logId", "LOG_ID"),

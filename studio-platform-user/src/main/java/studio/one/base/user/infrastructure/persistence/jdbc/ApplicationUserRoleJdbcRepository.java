@@ -71,67 +71,48 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
 
     @Override
     public List<ApplicationUserRole> findAllByUserId(Long userId) {
-        String sql = """
-                select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY
-                  from TB_APPLICATION_USER_ROLES
-                 where USER_ID = :userId
-                """;
+        String sql = (
+"select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY\\n" + "  from TB_APPLICATION_USER_ROLES\\n" + " where USER_ID = :userId\\n");
         return namedTemplate.query(sql, Map.of("userId", userId), USER_ROLE_ROW_MAPPER);
     }
 
     @Override
     public Page<ApplicationUserRole> findAllByUserId(Long userId, Pageable pageable) {
         Map<String, Object> params = Map.of("userId", userId);
-        String select = """
-                select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY
-                  from TB_APPLICATION_USER_ROLES
-                 where USER_ID = :userId
-                """;
+        String select = (
+"select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY\\n" + "  from TB_APPLICATION_USER_ROLES\\n" + " where USER_ID = :userId\\n");
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where USER_ID = :userId";
         return queryPage(select, count, params, pageable, USER_ROLE_ROW_MAPPER, "USER_ID", USER_ROLE_SORT_COLUMNS);
     }
 
     @Override
     public List<ApplicationUserRole> findAllByRoleId(Long roleId) {
-        String sql = """
-                select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY
-                  from TB_APPLICATION_USER_ROLES
-                 where ROLE_ID = :roleId
-                """;
+        String sql = (
+"select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY\\n" + "  from TB_APPLICATION_USER_ROLES\\n" + " where ROLE_ID = :roleId\\n");
         return namedTemplate.query(sql, Map.of("roleId", roleId), USER_ROLE_ROW_MAPPER);
     }
 
     @Override
     public Page<ApplicationUserRole> findAllByRoleId(Long roleId, Pageable pageable) {
         Map<String, Object> params = Map.of("roleId", roleId);
-        String select = """
-                select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY
-                  from TB_APPLICATION_USER_ROLES
-                 where ROLE_ID = :roleId
-                """;
+        String select = (
+"select USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY\\n" + "  from TB_APPLICATION_USER_ROLES\\n" + " where ROLE_ID = :roleId\\n");
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where ROLE_ID = :roleId";
         return queryPage(select, count, params, pageable, USER_ROLE_ROW_MAPPER, "USER_ID", USER_ROLE_SORT_COLUMNS);
     }
 
     @Override
     public boolean existsByUserIdAndRoleId(Long userId, Long roleId) {
-        String sql = """
-                select exists(
-                    select 1 from TB_APPLICATION_USER_ROLES
-                     where USER_ID = :userId
-                       and ROLE_ID = :roleId)
-                """;
+        String sql = (
+"select exists(\\n" + "    select 1 from TB_APPLICATION_USER_ROLES\\n" + "     where USER_ID = :userId\\n" + "       and ROLE_ID = :roleId)\\n");
         Boolean exists = namedTemplate.queryForObject(sql, Map.of("userId", userId, "roleId", roleId), Boolean.class);
         return Boolean.TRUE.equals(exists);
     }
 
     @Override
     public int deleteByUserIdAndRoleId(Long userId, Long roleId) {
-        String sql = """
-                delete from TB_APPLICATION_USER_ROLES
-                 where USER_ID = :userId
-                   and ROLE_ID = :roleId
-                """;
+        String sql = (
+"delete from TB_APPLICATION_USER_ROLES\\n" + " where USER_ID = :userId\\n" + "   and ROLE_ID = :roleId\\n");
         return namedTemplate.update(sql, Map.of("userId", userId, "roleId", roleId));
     }
 
@@ -140,11 +121,8 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         if (roleIds == null || roleIds.isEmpty()) {
             return 0;
         }
-        String sql = """
-                delete from TB_APPLICATION_USER_ROLES
-                 where USER_ID = :userId
-                   and ROLE_ID in (:roleIds)
-                """;
+        String sql = (
+"delete from TB_APPLICATION_USER_ROLES\\n" + " where USER_ID = :userId\\n" + "   and ROLE_ID in (:roleIds)\\n");
         return namedTemplate.update(sql, Map.of("userId", userId, "roleIds", roleIds));
     }
 
@@ -153,35 +131,24 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         if (userIds == null || userIds.isEmpty()) {
             return 0;
         }
-        String sql = """
-                delete from TB_APPLICATION_USER_ROLES
-                 where USER_ID in (:userIds)
-                   and ROLE_ID = :roleId
-                """;
+        String sql = (
+"delete from TB_APPLICATION_USER_ROLES\\n" + " where USER_ID in (:userIds)\\n" + "   and ROLE_ID = :roleId\\n");
         return namedTemplate.update(sql, Map.of("userIds", userIds, "roleId", roleId));
     }
 
     @Override
     public Page<ApplicationRole> findRolesByUserId(Long userId, Pageable pageable) {
         Map<String, Object> params = Map.of("userId", userId);
-        String select = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID
-                 where ur.USER_ID = :userId
-                """;
+        String select = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID\\n" + " where ur.USER_ID = :userId\\n");
         String count = "select count(*) from TB_APPLICATION_USER_ROLES where USER_ID = :userId";
         return queryPage(select, count, params, pageable, ROLE_ROW_MAPPER, "r.ROLE_ID", ROLE_SORT_COLUMNS);
     }
 
     @Override
     public List<ApplicationRole> findRolesByUserId(Long userId) {
-        String sql = """
-                select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE
-                  from TB_APPLICATION_ROLE r
-                  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID
-                 where ur.USER_ID = :userId
-                """;
+        String sql = (
+"select r.ROLE_ID, r.NAME, r.DESCRIPTION, r.CREATION_DATE, r.MODIFIED_DATE\\n" + "  from TB_APPLICATION_ROLE r\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.ROLE_ID = r.ROLE_ID\\n" + " where ur.USER_ID = :userId\\n");
         return namedTemplate.query(sql, Map.of("userId", userId), ROLE_ROW_MAPPER);
     }
 
@@ -194,18 +161,10 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
     @Override
     public Page<Long> findUserIdsByRoleId(Long roleId, Pageable pageable) {
         Map<String, Object> params = Map.of("roleId", roleId);
-        String select = """
-                select u.USER_ID
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
-                 where ur.ROLE_ID = :roleId
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
-                 where ur.ROLE_ID = :roleId
-                """;
+        String select = (
+"select u.USER_ID\\n" + "  from TB_APPLICATION_USER u\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID\\n" + " where ur.ROLE_ID = :roleId\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_USER u\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID\\n" + " where ur.ROLE_ID = :roleId\\n");
         return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "u.USER_ID", Map.of(
                 "userId", "u.USER_ID",
                 "username", "u.USERNAME",
@@ -224,20 +183,10 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         Map<String, Object> params = new HashMap<>();
         params.put("roleId", roleId);
         params.put("q", normalize(keyword));
-        String select = """
-                select u.USER_ID
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
-                 where ur.ROLE_ID = :roleId
-                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
-                """;
-        String count = """
-                select count(*)
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID
-                 where ur.ROLE_ID = :roleId
-                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
-                """;
+        String select = (
+"select u.USER_ID\\n" + "  from TB_APPLICATION_USER u\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID\\n" + " where ur.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)\\n");
+        String count = (
+"select count(*)\\n" + "  from TB_APPLICATION_USER u\\n" + "  join TB_APPLICATION_USER_ROLES ur on ur.USER_ID = u.USER_ID\\n" + " where ur.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)\\n");
         return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "u.USER_ID", Map.of(
                 "userId", "u.USER_ID",
                 "username", "u.USERNAME",
@@ -250,22 +199,10 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         Map<String, Object> params = new HashMap<>();
         params.put("roleId", roleId);
         params.put("q", normalize(keyword));
-        String select = """
-                select distinct u.USER_ID
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = gm.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
-                """;
-        String count = """
-                select count(distinct u.USER_ID)
-                  from TB_APPLICATION_USER u
-                  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID
-                  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = gm.GROUP_ID
-                 where gr.ROLE_ID = :roleId
-                   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)
-                """;
+        String select = (
+"select distinct u.USER_ID\\n" + "  from TB_APPLICATION_USER u\\n" + "  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = gm.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)\\n");
+        String count = (
+"select count(distinct u.USER_ID)\\n" + "  from TB_APPLICATION_USER u\\n" + "  join TB_APPLICATION_GROUP_MEMBERS gm on gm.USER_ID = u.USER_ID\\n" + "  join TB_APPLICATION_GROUP_ROLES gr on gr.GROUP_ID = gm.GROUP_ID\\n" + " where gr.ROLE_ID = :roleId\\n" + "   and (:q = '' or lower(u.USERNAME) like :q or lower(u.NAME) like :q or lower(u.EMAIL) like :q)\\n");
         return queryPage(select, count, params, pageable, (rs, rowNum) -> rs.getLong("USER_ID"), "u.USER_ID", Map.of(
                 "userId", "u.USER_ID",
                 "username", "u.USERNAME",
@@ -287,13 +224,8 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
             assignedAt = LocalDateTime.now();
             userRole.setAssignedAt(assignedAt);
         }
-        String sql = """
-                insert into TB_APPLICATION_USER_ROLES (USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)
-                values (:userId, :roleId, :assignedAt, :assignedBy)
-                on conflict (USER_ID, ROLE_ID) do update
-                      set ASSIGNED_AT = excluded.ASSIGNED_AT,
-                          ASSIGNED_BY = excluded.ASSIGNED_BY
-                """;
+        String sql = (
+"insert into TB_APPLICATION_USER_ROLES (USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)\\n" + "values (:userId, :roleId, :assignedAt, :assignedBy)\\n" + "on conflict (USER_ID, ROLE_ID) do update\\n" + "      set ASSIGNED_AT = excluded.ASSIGNED_AT,\\n" + "          ASSIGNED_BY = excluded.ASSIGNED_BY\\n");
         namedTemplate.update(sql, Map.of(
                 "userId", id.getUserId(),
                 "roleId", id.getRoleId(),
@@ -309,13 +241,8 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         if (buffer.isEmpty()) {
             return buffer;
         }
-        String sql = """
-                insert into TB_APPLICATION_USER_ROLES (USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)
-                values (:userId, :roleId, :assignedAt, :assignedBy)
-                on conflict (USER_ID, ROLE_ID) do update
-                      set ASSIGNED_AT = excluded.ASSIGNED_AT,
-                          ASSIGNED_BY = excluded.ASSIGNED_BY
-                """;
+        String sql = (
+"insert into TB_APPLICATION_USER_ROLES (USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)\\n" + "values (:userId, :roleId, :assignedAt, :assignedBy)\\n" + "on conflict (USER_ID, ROLE_ID) do update\\n" + "      set ASSIGNED_AT = excluded.ASSIGNED_AT,\\n" + "          ASSIGNED_BY = excluded.ASSIGNED_BY\\n");
         SqlParameterSource[] batch = buffer.stream()
                 .map(ur -> {
                     ApplicationUserRoleId id = ur.getId();
@@ -343,12 +270,8 @@ public class ApplicationUserRoleJdbcRepository extends BaseJdbcRepository implem
         if (id == null) {
             return false;
         }
-        String sql = """
-                select exists(
-                    select 1 from TB_APPLICATION_USER_ROLES
-                     where USER_ID = :userId
-                       and ROLE_ID = :roleId)
-                """;
+        String sql = (
+"select exists(\\n" + "    select 1 from TB_APPLICATION_USER_ROLES\\n" + "     where USER_ID = :userId\\n" + "       and ROLE_ID = :roleId)\\n");
         Boolean exists = namedTemplate.queryForObject(sql, Map.of(
                 "userId", id.getUserId(),
                 "roleId", id.getRoleId()), Boolean.class);

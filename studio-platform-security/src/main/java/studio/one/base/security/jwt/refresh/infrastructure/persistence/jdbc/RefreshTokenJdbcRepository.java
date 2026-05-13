@@ -53,12 +53,10 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
 
     @Override
     public Optional<RefreshToken> findBySelector(String selector) {
-        String sql = """
-                select ID, USER_ID, SELECTOR, VERIFIER_HASH,
-                       EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID
-                  from %s
-                 where SELECTOR = :selector
-                """.formatted(TABLE);
+        String sql = String.format("select ID, USER_ID, SELECTOR, VERIFIER_HASH,\n"
+                + "       EXPIRES_AT, REVOKED, CREATED_AT, REPLACED_BY_ID\n"
+                + "  from %s\n"
+                + " where SELECTOR = :selector\n", TABLE);
         return namedTemplate.query(sql, Map.of("selector", selector), ROW_MAPPER).stream().findFirst();
     }
 
@@ -79,16 +77,14 @@ public class RefreshTokenJdbcRepository implements RefreshTokenRepository {
     }
 
     private RefreshToken update(RefreshToken token) {
-        String sql = """
-                update %s
-                   set USER_ID = :userId,
-                       SELECTOR = :selector,
-                       VERIFIER_HASH = :verifierHash,
-                       EXPIRES_AT = :expiresAt,
-                       REVOKED = :revoked,
-                       REPLACED_BY_ID = :replacedById
-                 where ID = :id
-                """.formatted(TABLE);
+        String sql = String.format("update %s\n"
+                + "   set USER_ID = :userId,\n"
+                + "       SELECTOR = :selector,\n"
+                + "       VERIFIER_HASH = :verifierHash,\n"
+                + "       EXPIRES_AT = :expiresAt,\n"
+                + "       REVOKED = :revoked,\n"
+                + "       REPLACED_BY_ID = :replacedById\n"
+                + " where ID = :id\n", TABLE);
         Map<String, Object> params = new HashMap<>();
         params.put("userId", token.getUserId());
         params.put("selector", token.getSelector());

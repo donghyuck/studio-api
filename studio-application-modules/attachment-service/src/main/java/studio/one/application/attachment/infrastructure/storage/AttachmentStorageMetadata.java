@@ -46,6 +46,21 @@ public final class AttachmentStorageMetadata {
         return properties.get(key);
     }
 
-    public record ObjectStorageLocation(String providerId, String bucket, String key) {
+    public static final class ObjectStorageLocation {
+        private final String providerId;
+        private final String bucket;
+        private final String key;
+
+        public ObjectStorageLocation(String providerId, String bucket, String key) {
+            this.providerId = providerId;
+            this.bucket = bucket;
+            this.key = key;
+        }
+
+        public String providerId() { return providerId; }
+
+        public String bucket() { return bucket; }
+
+        public String key() { return key; }
     }
 }

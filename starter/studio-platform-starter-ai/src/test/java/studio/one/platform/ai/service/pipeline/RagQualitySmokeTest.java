@@ -148,7 +148,7 @@ class RagQualitySmokeTest {
         public EmbeddingResponse embed(EmbeddingRequest request) {
             List<EmbeddingVector> vectors = request.texts().stream()
                     .map(text -> new EmbeddingVector("fixture", vectorize(text)))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
             return new EmbeddingResponse(vectors);
         }
     }
@@ -206,13 +206,13 @@ class RagQualitySmokeTest {
                     .sorted(Comparator.comparingInt(InMemoryVectorStore::chunkOrder))
                     .limit(limit)
                     .map(document -> new VectorSearchResult(document, 1.0))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         private List<VectorDocument> scopedDocuments(String objectType, String objectId) {
             return documents.values().stream()
                     .filter(document -> matchesObject(document, objectType, objectId))
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         private List<VectorSearchResult> hybridRank(Iterable<VectorDocument> candidates,
@@ -232,7 +232,7 @@ class RagQualitySmokeTest {
                     .sorted(Comparator.comparingDouble(VectorSearchResult::score).reversed()
                             .thenComparing(result -> chunkOrder(result.document())))
                     .limit(request.topK())
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         private List<VectorSearchResult> rank(Iterable<VectorDocument> candidates, List<Double> queryEmbedding, int topK) {
@@ -242,7 +242,7 @@ class RagQualitySmokeTest {
                     .sorted(Comparator.comparingDouble(VectorSearchResult::score).reversed()
                             .thenComparing(result -> chunkOrder(result.document())))
                     .limit(topK)
-                    .toList();
+                    .collect(java.util.stream.Collectors.toList());
         }
 
         private static boolean matchesObject(VectorDocument document, String objectType, String objectId) {
@@ -253,7 +253,7 @@ class RagQualitySmokeTest {
 
         private static int chunkOrder(VectorDocument document) {
             Object value = document.metadata().get("chunkOrder");
-            return value instanceof Number number ? number.intValue() : Integer.MAX_VALUE;
+            return value instanceof Number ? ((Number) value).intValue() : Integer.MAX_VALUE;
         }
 
         private static double lexicalScore(Set<String> queryTerms, String content) {

@@ -2,7 +2,7 @@ package studio.one.platform.ai.web.controller;
 
 import java.time.OffsetDateTime;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -33,7 +33,7 @@ public class AiWebExceptionHandler {
     public ResponseEntity<ProblemDetails> handleResponseStatusException(
             ResponseStatusException ex,
             HttpServletRequest request) {
-        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
+        HttpStatus status = HttpStatus.resolve(ex.getStatus().value());
         if (status == null) {
             status = HttpStatus.INTERNAL_SERVER_ERROR;
         }
@@ -45,7 +45,7 @@ public class AiWebExceptionHandler {
                 .instance(request.getRequestURI())
                 .timestamp(OffsetDateTime.now())
                 .build();
-        return ResponseEntity.status(ex.getStatusCode()).body(body);
+        return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
     @ExceptionHandler(RuntimeException.class)

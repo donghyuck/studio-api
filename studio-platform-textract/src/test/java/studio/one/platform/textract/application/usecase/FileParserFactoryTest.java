@@ -51,7 +51,13 @@ class FileParserFactoryTest {
         assertEquals("structured", parser.parse("ignored".getBytes(UTF_8), "text/plain", "sample.txt"));
     }
 
-    private record StaticParser(String value) implements FileParser {
+    private static final class StaticParser implements FileParser {
+        private final String value;
+
+        private StaticParser(String value) {
+            this.value = value;
+        }
+
         @Override
         public boolean supports(String contentType, String filename) {
             return true;

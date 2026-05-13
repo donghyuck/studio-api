@@ -30,7 +30,7 @@ class LoginFailureLogControllerTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> controller.grouped(null, null, null, "not-an-ip", null, PageRequest.of(0, 20)));
 
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         verify(service, never()).find(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 
@@ -43,7 +43,7 @@ class LoginFailureLogControllerTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> controller.grouped(null, null, null, "fe80::1%lo0", null, PageRequest.of(0, 20)));
 
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         verify(service, never()).find(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
     }
 

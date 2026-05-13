@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import jakarta.persistence.EntityManager;
+import javax.persistence.EntityManager;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -72,25 +72,25 @@ class DefaultWorkspaceServiceTest {
     private static final WorkspaceAccessContext PLATFORM_ADMIN = new WorkspaceAccessContext(99L, "admin", true);
     private static final Map<Long, TestUser> TEST_USERS = new ConcurrentHashMap<>();
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private WorkspaceTreeService treeService;
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private WorkspaceMemberService memberService;
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private WorkspacePermissionService permissionService;
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private WorkspaceClosureJpaRepository closureRepository;
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private WorkspaceJpaRepository workspaceRepository;
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private WorkspaceMemberJpaRepository memberRepository;
 
-    @jakarta.annotation.Resource
+    @javax.annotation.Resource
     private EntityManager entityManager;
 
     @BeforeEach
@@ -1135,10 +1135,9 @@ class DefaultWorkspaceServiceTest {
         entityManager.createNativeQuery("delete from TB_APPLICATION_USER where USER_ID = :userId")
                 .setParameter("userId", userId)
                 .executeUpdate();
-        entityManager.createNativeQuery("""
-                insert into TB_APPLICATION_USER (USER_ID, USERNAME, NAME, EMAIL)
-                values (:userId, :username, :name, :email)
-                """)
+        entityManager.createNativeQuery(
+                        "insert into TB_APPLICATION_USER (USER_ID, USERNAME, NAME, EMAIL) "
+                                + "values (:userId, :username, :name, :email)")
                 .setParameter("userId", userId)
                 .setParameter("username", username)
                 .setParameter("name", name)
@@ -1174,7 +1173,7 @@ class DefaultWorkspaceServiceTest {
                                 .skip(pageable.getOffset())
                                 .limit(pageable.getPageSize())
                                 .map(user -> (User) user)
-                                .toList();
+                                .collect(java.util.stream.Collectors.toList());
                         long total = TEST_USERS.values().stream()
                                 .filter(user -> contains(user.getUsername(), keyword)
                                         || contains(user.getName(), keyword)
@@ -1198,7 +1197,18 @@ class DefaultWorkspaceServiceTest {
         return value != null && value.toLowerCase(java.util.Locale.ROOT).contains(keyword);
     }
 
-    record TestUser(Long userId, String username, String name, String email) implements User {
+    static final class TestUser implements User {
+        private final Long userId;
+        private final String username;
+        private final String name;
+        private final String email;
+
+        TestUser(Long userId, String username, String name, String email) {
+            this.userId = userId;
+            this.username = username;
+            this.name = name;
+            this.email = email;
+        }
         @Override
         public Long getUserId() {
             return userId;
@@ -1304,20 +1314,20 @@ class DefaultWorkspaceServiceTest {
         }
     }
 
-    @jakarta.persistence.Entity
-    @jakarta.persistence.Table(name = "TB_APPLICATION_USER")
+    @javax.persistence.Entity
+    @javax.persistence.Table(name = "TB_APPLICATION_USER")
     static class TestApplicationUserEntity {
-        @jakarta.persistence.Id
-        @jakarta.persistence.Column(name = "USER_ID")
+        @javax.persistence.Id
+        @javax.persistence.Column(name = "USER_ID")
         private Long userId;
 
-        @jakarta.persistence.Column(name = "USERNAME")
+        @javax.persistence.Column(name = "USERNAME")
         private String username;
 
-        @jakarta.persistence.Column(name = "NAME")
+        @javax.persistence.Column(name = "NAME")
         private String name;
 
-        @jakarta.persistence.Column(name = "EMAIL")
+        @javax.persistence.Column(name = "EMAIL")
         private String email;
     }
 }

@@ -132,21 +132,21 @@ public final class VectorSearchHit {
         if (value == null) {
             return fallback;
         }
-        String text = value instanceof Iterable<?> iterable ? join(iterable) : value.toString().trim();
+        String text = value instanceof Iterable<?> ? join((Iterable<?>) value) : value.toString().trim();
         return text.isBlank() ? fallback : text;
     }
 
     private static Integer integerMetadata(Map<String, Object> metadata, String key) {
         Object value = metadata.get(key);
-        if (value instanceof Integer integerValue) {
-            return integerValue;
+        if (value instanceof Integer) {
+            return (Integer) value;
         }
-        if (value instanceof Number numberValue) {
-            return numberValue.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String textValue && !textValue.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.valueOf(textValue.trim());
+                return Integer.valueOf(((String) value).trim());
             } catch (NumberFormatException ignored) {
                 return null;
             }

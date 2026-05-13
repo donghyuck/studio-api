@@ -45,11 +45,33 @@ public class PasswordResetController {
                 .build());
     }
 
-    public record PasswordResetRequest(String email) {
-        
+    public static class PasswordResetRequest {
+        private String email;
+
+        public PasswordResetRequest() {
+        }
+
+        public PasswordResetRequest(String email) {
+            this.email = email;
+        }
+
+        public String email() { return email; }
     }
 
-    public record PasswordResetConfirmRequest(String token, String password) {
+    public static class PasswordResetConfirmRequest {
+        private String token;
+        private String password;
+
+        public PasswordResetConfirmRequest() {
+        }
+
+        public PasswordResetConfirmRequest(String token, String password) {
+            this.token = token;
+            this.password = password;
+        }
+
+        public String token() { return token; }
+        public String password() { return password; }
     }
 
 }

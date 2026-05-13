@@ -21,7 +21,8 @@
 
 package studio.one.platform.realtime.autoconfigure;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -42,7 +43,7 @@ import studio.one.platform.realtime.stomp.domain.model.RealtimeEnvelope;
 import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
 import studio.one.platform.realtime.stomp.redis.RealtimeRedisSubscriber;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(RealtimeStompProperties.class)
 @ConditionalOnClass(name = "org.springframework.data.redis.connection.RedisConnectionFactory")
 //@ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".realtime",  name = "enabled", havingValue = "true", matchIfMissing = false)

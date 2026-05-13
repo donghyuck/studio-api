@@ -1,7 +1,8 @@
 package studio.one.platform.autoconfigure.jasypt;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.context.MessageSource;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.support.MessageSourceAccessor;
@@ -9,7 +10,7 @@ import org.springframework.context.support.ResourceBundleMessageSource;
 
 import studio.one.platform.constant.ServiceNames;
 
-@AutoConfiguration
+@Configuration
 public class JasyptI18nConfiguration {
 
      /** starter 전용 메시지 소스 */

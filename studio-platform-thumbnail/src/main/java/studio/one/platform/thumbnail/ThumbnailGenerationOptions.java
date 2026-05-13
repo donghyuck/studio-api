@@ -1,14 +1,16 @@
 package studio.one.platform.thumbnail;
 
-public record ThumbnailGenerationOptions(
-        int defaultSize,
-        String defaultFormat,
-        int minSize,
-        int maxSize,
-        long maxSourceBytes,
-        long maxSourcePixels) {
+public class ThumbnailGenerationOptions {
 
-    public ThumbnailGenerationOptions {
+    private final int defaultSize;
+    private final String defaultFormat;
+    private final int minSize;
+    private final int maxSize;
+    private final long maxSourceBytes;
+    private final long maxSourcePixels;
+
+    public ThumbnailGenerationOptions(int defaultSize, String defaultFormat, int minSize, int maxSize,
+            long maxSourceBytes, long maxSourcePixels) {
         if (minSize <= 0) {
             throw new IllegalArgumentException("studio.thumbnail.min-size must be positive");
         }
@@ -25,7 +27,23 @@ public record ThumbnailGenerationOptions(
         if (maxSourcePixels <= 0) {
             throw new IllegalArgumentException("studio.thumbnail.max-source-pixels must be positive");
         }
-        defaultSize = Math.max(minSize, Math.min(maxSize, defaultSize));
-        defaultFormat = ThumbnailFormats.normalizeOrDefault(defaultFormat, ThumbnailFormats.DEFAULT_FORMAT);
+        this.defaultSize = Math.max(minSize, Math.min(maxSize, defaultSize));
+        this.defaultFormat = ThumbnailFormats.normalizeOrDefault(defaultFormat, ThumbnailFormats.DEFAULT_FORMAT);
+        this.minSize = minSize;
+        this.maxSize = maxSize;
+        this.maxSourceBytes = maxSourceBytes;
+        this.maxSourcePixels = maxSourcePixels;
     }
+
+    public int defaultSize() { return defaultSize; }
+
+    public String defaultFormat() { return defaultFormat; }
+
+    public int minSize() { return minSize; }
+
+    public int maxSize() { return maxSize; }
+
+    public long maxSourceBytes() { return maxSourceBytes; }
+
+    public long maxSourcePixels() { return maxSourcePixels; }
 }

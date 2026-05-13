@@ -1,15 +1,16 @@
 package studio.one.platform.security.autoconfigure;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
 @ConditionalOnProperty(prefix = "studio.security.jwt", name = "enabled", havingValue = "true")
 @RequiredArgsConstructor

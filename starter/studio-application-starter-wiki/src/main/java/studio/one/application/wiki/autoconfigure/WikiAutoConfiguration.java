@@ -1,8 +1,7 @@
 package studio.one.application.wiki.autoconfigure;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -27,7 +26,7 @@ import studio.one.platform.autoconfigure.EntityScanRegistrarSupport;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 
-@AutoConfiguration(afterName = "studio.one.platform.workspace.autoconfigure.WorkspaceAutoConfiguration")
+@Configuration
 @AutoConfigureAfter(name = "studio.one.platform.workspace.autoconfigure.WorkspaceAutoConfiguration")
 @EnableConfigurationProperties(WikiFeatureProperties.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".wiki", name = "enabled", havingValue = "true")
@@ -40,10 +39,7 @@ public class WikiAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean({
-            WikiPageJpaRepository.class,
-            WikiPageRevisionJpaRepository.class,
-            WorkspacePermissionService.class })
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".wiki", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @ConditionalOnMissingBean
     WikiPageService wikiPageService(
             WikiPageJpaRepository pageRepository,
@@ -71,7 +67,6 @@ public class WikiAutoConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
-    @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".wiki", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @EnableJpaRepositories(basePackageClasses = {
             WikiPageJpaRepository.class,

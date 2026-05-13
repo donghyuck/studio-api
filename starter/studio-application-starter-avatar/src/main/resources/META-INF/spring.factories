@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+studio.one.application.avatar.autoconfigure.AvatarAutoConfiguration,\
+studio.one.application.avatar.autoconfigure.AvatarEndpointsAutoConfiguration

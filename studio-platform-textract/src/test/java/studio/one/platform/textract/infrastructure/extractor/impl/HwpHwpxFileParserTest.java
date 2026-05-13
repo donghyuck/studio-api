@@ -106,34 +106,32 @@ class HwpHwpxFileParserTest {
 
     private byte[] hwpxBytes() throws Exception {
         Map<String, byte[]> entries = Map.of(
-                "Contents/content.hpf", """
-                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
-                          <opf:manifest>
-                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
-                            <opf:item id="image1" href="BinData/image1.png" media-type="image/png"/>
-                          </opf:manifest>
-                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
-                        </opf:package>
-                        """.getBytes(UTF_8),
-                "Contents/section0.xml", """
-                        <hs:sec xmlns:hs="http://www.hancom.co.kr/hwpml/2011/section"
-                                xmlns:hp="http://www.hancom.co.kr/hwpml/2011/paragraph">
-                          <hp:p><hp:run><hp:t>본문 문단</hp:t></hp:run></hp:p>
-                          <hp:p>
-                            <hp:tbl>
-                              <hp:tr>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>A1</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>B1</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                              </hp:tr>
-                              <hp:tr>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>A2</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                                <hp:tc><hp:subList><hp:p><hp:run><hp:t>B2</hp:t></hp:run></hp:p></hp:subList></hp:tc>
-                              </hp:tr>
-                            </hp:tbl>
-                          </hp:p>
-                          <hp:p><hp:pic><hp:img binaryItemIDRef="image1"/></hp:pic></hp:p>
-                        </hs:sec>
-                        """.getBytes(UTF_8),
+                "Contents/content.hpf", ("<opf:package xmlns:opf=\"http://www.idpf.org/2007/opf\">\n" +
+                "  <opf:manifest>\n" +
+                "    <opf:item id=\"section0\" href=\"section0.xml\" media-type=\"application/xml\"/>\n" +
+                "    <opf:item id=\"image1\" href=\"BinData/image1.png\" media-type=\"image/png\"/>\n" +
+                "  </opf:manifest>\n" +
+                "  <opf:spine><opf:itemref idref=\"section0\"/></opf:spine>\n" +
+                "</opf:package>\n" +
+                "").getBytes(UTF_8),
+                "Contents/section0.xml", ("<hs:sec xmlns:hs=\"http://www.hancom.co.kr/hwpml/2011/section\"\n" +
+                "        xmlns:hp=\"http://www.hancom.co.kr/hwpml/2011/paragraph\">\n" +
+                "  <hp:p><hp:run><hp:t>본문 문단</hp:t></hp:run></hp:p>\n" +
+                "  <hp:p>\n" +
+                "    <hp:tbl>\n" +
+                "      <hp:tr>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>A1</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>B1</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "      </hp:tr>\n" +
+                "      <hp:tr>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>A2</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "        <hp:tc><hp:subList><hp:p><hp:run><hp:t>B2</hp:t></hp:run></hp:p></hp:subList></hp:tc>\n" +
+                "      </hp:tr>\n" +
+                "    </hp:tbl>\n" +
+                "  </hp:p>\n" +
+                "  <hp:p><hp:pic><hp:img binaryItemIDRef=\"image1\"/></hp:pic></hp:p>\n" +
+                "</hs:sec>\n" +
+                "").getBytes(UTF_8),
                 "Contents/BinData/image1.png", new byte[] { (byte) 0x89, 'P', 'N', 'G' });
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(out)) {
@@ -148,14 +146,13 @@ class HwpHwpxFileParserTest {
 
     private byte[] hwpxBytesWithMissingSection() throws Exception {
         Map<String, byte[]> entries = Map.of(
-                "Contents/content.hpf", """
-                        <opf:package xmlns:opf="http://www.idpf.org/2007/opf">
-                          <opf:manifest>
-                            <opf:item id="section0" href="section0.xml" media-type="application/xml"/>
-                          </opf:manifest>
-                          <opf:spine><opf:itemref idref="section0"/></opf:spine>
-                        </opf:package>
-                        """.getBytes(UTF_8));
+                "Contents/content.hpf", ("<opf:package xmlns:opf=\"http://www.idpf.org/2007/opf\">\n" +
+                "  <opf:manifest>\n" +
+                "    <opf:item id=\"section0\" href=\"section0.xml\" media-type=\"application/xml\"/>\n" +
+                "  </opf:manifest>\n" +
+                "  <opf:spine><opf:itemref idref=\"section0\"/></opf:spine>\n" +
+                "</opf:package>\n" +
+                "").getBytes(UTF_8));
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(out)) {
             for (Map.Entry<String, byte[]> entry : entries.entrySet()) {

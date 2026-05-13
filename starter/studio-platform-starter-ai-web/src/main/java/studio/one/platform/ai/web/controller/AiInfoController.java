@@ -45,7 +45,7 @@ public class AiInfoController {
         this.vectorStorePort = vectorStorePort;
     }
 
-    @GetMapping("/providers")
+    @GetMapping({"", "/", "/providers", "/providers/"})
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','read') || @endpointAuthz.can('services:ai_embedding','read')")
     public ResponseEntity<ApiResponse<AiInfoResponse>> providers() {
         List<ProviderInfo> providerInfos = new ArrayList<>();
@@ -75,13 +75,21 @@ public class AiInfoController {
     }
 
     private ProviderInfo mapProvider(String name, AiAdapterProperties.Provider provider) {
-        String baseUrl = switch (provider.getType()) {
-            case OPENAI -> environment.getProperty("spring.ai.openai.base-url");
-            case OLLAMA -> firstNonBlank(environment.getProperty("spring.ai.ollama.base-url"), provider.getBaseUrl());
-            case GOOGLE_AI_GEMINI -> firstNonBlank(
-                    environment.getProperty("spring.ai.google.genai.chat.base-url"),
-                    provider.getBaseUrl());
-        };
+        String baseUrl;
+        switch (provider.getType()) {
+            case OPENAI:
+                baseUrl = firstNonBlank(provider.getBaseUrl(), environment.getProperty("spring.ai.openai.base-url"));
+                break;
+            case OLLAMA:
+                baseUrl = firstNonBlank(provider.getBaseUrl(), environment.getProperty("spring.ai.ollama.base-url"));
+                break;
+            case GOOGLE_AI_GEMINI:
+                baseUrl = firstNonBlank(provider.getBaseUrl(), environment.getProperty("spring.ai.google.genai.chat.base-url"));
+                break;
+            default:
+                baseUrl = null;
+                break;
+        }
         ProviderChannel chat = new ProviderChannel(
                 provider.getChat().isEnabled(),
                 chatModel(provider));
@@ -92,31 +100,29 @@ public class AiInfoController {
     }
 
     private String chatModel(AiAdapterProperties.Provider provider) {
-        return switch (provider.getType()) {
-            case OPENAI -> firstNonBlank(
-                    environment.getProperty("spring.ai.openai.chat.options.model"),
-                    provider.getChat().getModel());
-            case GOOGLE_AI_GEMINI -> firstNonBlank(
-                    environment.getProperty("spring.ai.google.genai.chat.options.model"),
-                    provider.getChat().getModel());
-            case OLLAMA -> firstNonBlank(
-                    environment.getProperty("spring.ai.ollama.chat.options.model"),
-                    provider.getChat().getModel());
-        };
+        switch (provider.getType()) {
+            case OPENAI:
+                return firstNonBlank(provider.getChat().getModel(), environment.getProperty("spring.ai.openai.chat.options.model"));
+            case GOOGLE_AI_GEMINI:
+                return firstNonBlank(provider.getChat().getModel(), environment.getProperty("spring.ai.google.genai.chat.options.model"));
+            case OLLAMA:
+                return firstNonBlank(provider.getChat().getModel(), environment.getProperty("spring.ai.ollama.chat.options.model"));
+            default:
+                return null;
+        }
     }
 
     private String embeddingModel(AiAdapterProperties.Provider provider) {
-        return switch (provider.getType()) {
-            case OPENAI -> firstNonBlank(
-                    environment.getProperty("spring.ai.openai.embedding.options.model"),
-                    provider.getEmbedding().getModel());
-            case GOOGLE_AI_GEMINI -> firstNonBlank(
-                    environment.getProperty("spring.ai.google.genai.embedding.text.options.model"),
-                    provider.getEmbedding().getModel());
-            case OLLAMA -> firstNonBlank(
-                    environment.getProperty("spring.ai.ollama.embedding.options.model"),
-                    provider.getEmbedding().getModel());
-        };
+        switch (provider.getType()) {
+            case OPENAI:
+                return firstNonBlank(provider.getEmbedding().getModel(), environment.getProperty("spring.ai.openai.embedding.options.model"));
+            case GOOGLE_AI_GEMINI:
+                return firstNonBlank(provider.getEmbedding().getModel(), environment.getProperty("spring.ai.google.genai.embedding.text.options.model"));
+            case OLLAMA:
+                return firstNonBlank(provider.getEmbedding().getModel(), environment.getProperty("spring.ai.ollama.embedding.options.model"));
+            default:
+                return null;
+        }
     }
 
     private String firstNonBlank(String... values) {
@@ -140,28 +146,172 @@ public class AiInfoController {
         return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultProvider();
     }
 
-    public record AiInfoResponse(List<ProviderInfo> providers,
-                                 String defaultProvider,
-                                 String defaultChatProvider,
-                                 String defaultEmbeddingProvider,
-                                 VectorInfo vector,
-                                 ChatInfo chat) {
+    public static final class AiInfoResponse {
+        private final List<ProviderInfo> providers;
+        private final String defaultProvider;
+        private final String defaultChatProvider;
+        private final String defaultEmbeddingProvider;
+        private final VectorInfo vector;
+        private final ChatInfo chat;
+
+        public AiInfoResponse(List<ProviderInfo> providers,
+                              String defaultProvider,
+                              String defaultChatProvider,
+                              String defaultEmbeddingProvider,
+                              VectorInfo vector,
+                              ChatInfo chat) {
+            this.providers = providers;
+            this.defaultProvider = defaultProvider;
+            this.defaultChatProvider = defaultChatProvider;
+            this.defaultEmbeddingProvider = defaultEmbeddingProvider;
+            this.vector = vector;
+            this.chat = chat;
+        }
+
         public AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector, ChatInfo chat) {
             this(providers, defaultProvider, defaultProvider, defaultProvider, vector, chat);
         }
+
+        public List<ProviderInfo> getProviders() {
+            return providers;
+        }
+
+        public String getDefaultProvider() {
+            return defaultProvider;
+        }
+
+        public String getDefaultChatProvider() {
+            return defaultChatProvider;
+        }
+
+        public String getDefaultEmbeddingProvider() {
+            return defaultEmbeddingProvider;
+        }
+
+        public VectorInfo getVector() {
+            return vector;
+        }
+
+        public ChatInfo getChat() {
+            return chat;
+        }
     }
 
-    public record ProviderInfo(String name,
-                               AiAdapterProperties.ProviderType type,
-                               ProviderChannel chat,
-                               ProviderChannel embedding,
-                               String baseUrl) {}
+    public static final class ProviderInfo {
+        private final String name;
+        private final AiAdapterProperties.ProviderType type;
+        private final ProviderChannel chat;
+        private final ProviderChannel embedding;
+        private final String baseUrl;
 
-    public record ProviderChannel(boolean enabled, String model) {}
+        public ProviderInfo(String name,
+                            AiAdapterProperties.ProviderType type,
+                            ProviderChannel chat,
+                            ProviderChannel embedding,
+                            String baseUrl) {
+            this.name = name;
+            this.type = type;
+            this.chat = chat;
+            this.embedding = embedding;
+            this.baseUrl = baseUrl;
+        }
 
-    public record VectorInfo(boolean available, String implementation) {}
+        public String getName() {
+            return name;
+        }
 
-    public record ChatInfo(ChatMemoryInfo memory) {}
+        public AiAdapterProperties.ProviderType getType() {
+            return type;
+        }
 
-    public record ChatMemoryInfo(boolean enabled, int maxMessages, long maxConversations, String ttl) {}
+        public ProviderChannel getChat() {
+            return chat;
+        }
+
+        public ProviderChannel getEmbedding() {
+            return embedding;
+        }
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+    }
+
+    public static final class ProviderChannel {
+        private final boolean enabled;
+        private final String model;
+
+        public ProviderChannel(boolean enabled, String model) {
+            this.enabled = enabled;
+            this.model = model;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public String getModel() {
+            return model;
+        }
+    }
+
+    public static final class VectorInfo {
+        private final boolean available;
+        private final String implementation;
+
+        public VectorInfo(boolean available, String implementation) {
+            this.available = available;
+            this.implementation = implementation;
+        }
+
+        public boolean isAvailable() {
+            return available;
+        }
+
+        public String getImplementation() {
+            return implementation;
+        }
+    }
+
+    public static final class ChatInfo {
+        private final ChatMemoryInfo memory;
+
+        public ChatInfo(ChatMemoryInfo memory) {
+            this.memory = memory;
+        }
+
+        public ChatMemoryInfo getMemory() {
+            return memory;
+        }
+    }
+
+    public static final class ChatMemoryInfo {
+        private final boolean enabled;
+        private final int maxMessages;
+        private final long maxConversations;
+        private final String ttl;
+
+        public ChatMemoryInfo(boolean enabled, int maxMessages, long maxConversations, String ttl) {
+            this.enabled = enabled;
+            this.maxMessages = maxMessages;
+            this.maxConversations = maxConversations;
+            this.ttl = ttl;
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public int getMaxMessages() {
+            return maxMessages;
+        }
+
+        public long getMaxConversations() {
+            return maxConversations;
+        }
+
+        public String getTtl() {
+            return ttl;
+        }
+    }
 }

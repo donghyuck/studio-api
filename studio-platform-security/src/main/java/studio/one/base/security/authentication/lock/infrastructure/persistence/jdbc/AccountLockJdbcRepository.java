@@ -12,44 +12,32 @@ import studio.one.base.security.authentication.lock.domain.port.AccountLockRepos
 @Repository
 public class AccountLockJdbcRepository implements AccountLockRepository {
 
-    private static final String BUMP_FAILED_ATTEMPTS_SQL = """
-            update TB_APPLICATION_USER
-               set FAILED_ATTEMPTS = FAILED_ATTEMPTS + 1,
-                   LAST_FAILED_AT = :now
-             where USERNAME = :username
-            """;
+    private static final String BUMP_FAILED_ATTEMPTS_SQL = "update TB_APPLICATION_USER\n"
+                + "   set FAILED_ATTEMPTS = FAILED_ATTEMPTS + 1,\n"
+                + "       LAST_FAILED_AT = :now\n"
+                + " where USERNAME = :username\n";
 
-    private static final String LOCK_UNTIL_SQL = """
-            update TB_APPLICATION_USER
-               set ACCOUNT_LOCKED_UNTIL = :until
-             where USERNAME = :username
-            """;
+    private static final String LOCK_UNTIL_SQL = "update TB_APPLICATION_USER\n"
+                + "   set ACCOUNT_LOCKED_UNTIL = :until\n"
+                + " where USERNAME = :username\n";
 
-    private static final String RESET_LOCK_STATE_SQL = """
-            update TB_APPLICATION_USER
-               set FAILED_ATTEMPTS = 0,
-                   LAST_FAILED_AT = null,
-                   ACCOUNT_LOCKED_UNTIL = null
-             where USERNAME = :username
-            """;
+    private static final String RESET_LOCK_STATE_SQL = "update TB_APPLICATION_USER\n"
+                + "   set FAILED_ATTEMPTS = 0,\n"
+                + "       LAST_FAILED_AT = null,\n"
+                + "       ACCOUNT_LOCKED_UNTIL = null\n"
+                + " where USERNAME = :username\n";
 
-    private static final String FIND_FAILED_ATTEMPTS_SQL = """
-            select FAILED_ATTEMPTS
-              from TB_APPLICATION_USER
-             where USERNAME = :username
-            """;
+    private static final String FIND_FAILED_ATTEMPTS_SQL = "select FAILED_ATTEMPTS\n"
+                + "  from TB_APPLICATION_USER\n"
+                + " where USERNAME = :username\n";
 
-    private static final String FIND_LAST_FAILED_AT_SQL = """
-            select LAST_FAILED_AT
-              from TB_APPLICATION_USER
-             where USERNAME = :username
-            """;
+    private static final String FIND_LAST_FAILED_AT_SQL = "select LAST_FAILED_AT\n"
+                + "  from TB_APPLICATION_USER\n"
+                + " where USERNAME = :username\n";
 
-    private static final String FIND_ACCOUNT_LOCKED_UNTIL_SQL = """
-            select ACCOUNT_LOCKED_UNTIL
-              from TB_APPLICATION_USER
-             where USERNAME = :username
-            """;
+    private static final String FIND_ACCOUNT_LOCKED_UNTIL_SQL = "select ACCOUNT_LOCKED_UNTIL\n"
+                + "  from TB_APPLICATION_USER\n"
+                + " where USERNAME = :username\n";
 
     private final NamedParameterJdbcTemplate template;
 

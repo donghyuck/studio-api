@@ -27,6 +27,8 @@ import studio.one.platform.textract.domain.model.ExtractedTableCell;
 import studio.one.platform.textract.domain.model.ParseWarning;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import lombok.Value;
+import lombok.experimental.Accessors;
 
 public class ExcelFileParser extends AbstractFileParser implements StructuredFileParser {
 
@@ -293,26 +295,40 @@ public class ExcelFileParser extends AbstractFileParser implements StructuredFil
         return text == null ? "" : text.replace('\n', ' ').trim();
     }
 
-    private record CellExtraction(String text, Map<String, Object> metadata) {
-        CellExtraction {
+        @Value
+    @Accessors(fluent = true)
+    private static final class CellExtraction {
+        String text;
+        Map<String, Object> metadata;
+
+        CellExtraction(String text, Map<String, Object> metadata) {
             text = text == null ? "" : text;
             metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
+
+            this.text = text;
+
+            this.metadata = metadata;
+
         }
     }
 
-    private record SheetExtraction(
-            String plainText,
-            String markdown,
-            List<ExtractedTableCell> cells,
-            int headerRowCount) {
+        @Value
+    @Accessors(fluent = true)
+    private static final class SheetExtraction {
+        String plainText;
+        String markdown;
+        List<ExtractedTableCell> cells;
+        int headerRowCount;
+
         static SheetExtraction empty() {
             return new SheetExtraction("", "", List.of(), 0);
         }
 
-        SheetExtraction {
-            plainText = plainText == null ? "" : plainText;
-            markdown = markdown == null ? "" : markdown;
-            cells = cells == null ? List.of() : List.copyOf(cells);
+        SheetExtraction(String plainText, String markdown, List<ExtractedTableCell> cells, int headerRowCount) {
+            this.plainText = plainText == null ? "" : plainText;
+            this.markdown = markdown == null ? "" : markdown;
+            this.cells = cells == null ? List.of() : List.copyOf(cells);
+            this.headerRowCount = headerRowCount;
         }
 
         boolean isEmpty() {

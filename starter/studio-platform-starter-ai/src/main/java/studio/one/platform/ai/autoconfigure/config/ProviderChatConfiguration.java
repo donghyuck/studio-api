@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,7 +22,6 @@ public class ProviderChatConfiguration {
     public Map<String, ChatPort> chatPorts(
             AiAdapterProperties properties,
             Environment environment,
-            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider,
             List<ProviderChatPortFactory> factories) {
 
         Map<AiAdapterProperties.ProviderType, ProviderChatPortFactory> factoryMap = factories.stream()
@@ -44,7 +42,7 @@ public class ProviderChatConfiguration {
                         provider.getType(), entry.getKey());
                 continue;
             }
-            ports.put(entry.getKey(), factory.create(entry.getKey(), provider, environment, springAiChatModelProvider));
+            ports.put(entry.getKey(), factory.create(entry.getKey(), provider, environment));
         }
         return ports;
     }

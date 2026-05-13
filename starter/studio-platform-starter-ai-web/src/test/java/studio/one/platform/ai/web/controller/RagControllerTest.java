@@ -107,7 +107,7 @@ class RagControllerTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.search(new SearchRequest("hello", 3, "attachment", null)));
 
-        assertThat(exception.getStatusCode().value()).isEqualTo(400);
+        assertThat(exception.getStatus().value()).isEqualTo(400);
     }
 
     @Test
@@ -122,7 +122,7 @@ class RagControllerTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.search(new SearchRequest("hello", 3, "attachment", "42")));
 
-        assertThat(exception.getStatusCode().value()).isEqualTo(429);
+        assertThat(exception.getStatus().value()).isEqualTo(429);
         assertThat(exception.getReason()).contains("Embedding provider quota exceeded");
         assertThat(exception.getReason()).contains("Query-based RAG search");
     }

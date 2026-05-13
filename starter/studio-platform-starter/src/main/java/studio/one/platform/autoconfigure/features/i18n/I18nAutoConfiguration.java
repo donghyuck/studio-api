@@ -1,5 +1,7 @@
 package studio.one.platform.autoconfigure.features.i18n;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.io.IOException;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -8,7 +10,6 @@ import java.util.regex.Pattern;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.context.MessageSourceAutoConfiguration;
@@ -48,7 +49,7 @@ import studio.one.platform.web.aop.MessageAspect;
  *          </pre>
  */
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(I18nProperties.class)
 @AutoConfigureBefore(MessageSourceAutoConfiguration.class)
 @Slf4j

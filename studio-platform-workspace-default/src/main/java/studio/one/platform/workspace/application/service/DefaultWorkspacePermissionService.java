@@ -154,7 +154,7 @@ public class DefaultWorkspacePermissionService implements WorkspacePermissionSer
                         || WorkspacePermissionActions.ACTIVATE.equals(action))
                 .filter(action -> !companyOwnerOverride || hasCompanyOwnerOverride(workspace, userId, action))
                 .sorted()
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override

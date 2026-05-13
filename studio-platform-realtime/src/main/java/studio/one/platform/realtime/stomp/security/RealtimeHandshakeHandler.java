@@ -49,7 +49,8 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
             return new SimplePrincipal(name);
         } catch (Exception ex) {
             log.debug("Handshake JWT decode failed: {}", ex.getMessage());
-            if (ex instanceof HandshakeFailureException hfe) {
+            if (ex instanceof HandshakeFailureException) {
+            HandshakeFailureException hfe = (HandshakeFailureException) ex;
                 throw hfe;
             }
             throw new HandshakeFailureException("JWT handshake failed", ex);
@@ -69,7 +70,13 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
         return null;
     }
 
-    private record SimplePrincipal(String name) implements Principal {
+    private static final class SimplePrincipal implements Principal {
+        private final String name;
+
+        private SimplePrincipal(String name) {
+            this.name = name;
+        }
+
         @Override
         public String getName() {
             return name;

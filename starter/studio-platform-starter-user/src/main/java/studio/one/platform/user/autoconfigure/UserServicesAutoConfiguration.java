@@ -1,10 +1,11 @@
 package studio.one.platform.user.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.time.Clock;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -63,7 +64,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @RequiredArgsConstructor
 @EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class, PasswordPolicyProperties.class })
 @AutoConfigureAfter(UserEntityAutoConfiguration.class)

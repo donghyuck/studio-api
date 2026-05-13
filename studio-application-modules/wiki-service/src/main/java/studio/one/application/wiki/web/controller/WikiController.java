@@ -1,6 +1,6 @@
 package studio.one.application.wiki.web.controller;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;

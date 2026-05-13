@@ -9,12 +9,11 @@ import java.util.Locale;
 
 import javax.sql.DataSource;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -46,7 +45,7 @@ import studio.one.platform.workspace.application.service.DefaultWorkspacePermiss
 import studio.one.platform.workspace.application.service.DefaultWorkspaceTreeService;
 import studio.one.platform.workspace.application.service.WorkspaceSettings;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({
         WorkspaceFeatureProperties.class,
         WorkspaceProperties.class })
@@ -85,7 +84,7 @@ public class WorkspaceAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(WorkspaceJpaRepository.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @ConditionalOnMissingBean
     WorkspacePermissionService workspacePermissionService(
             WorkspaceJpaRepository workspaceRepository,
@@ -110,14 +109,14 @@ public class WorkspaceAutoConfiguration {
                 workspaceRepository,
                 closureRepository,
                 memberRepository,
-                contributors.orderedStream().toList(),
+                contributors.orderedStream().collect(java.util.stream.Collectors.toList()),
                 settings,
                 companyMemberService,
                 companyPermissionService);
     }
 
     @Bean
-    @ConditionalOnBean(WorkspaceJpaRepository.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @ConditionalOnMissingBean
     WorkspaceTreeService workspaceTreeService(
             WorkspaceJpaRepository workspaceRepository,
@@ -146,7 +145,7 @@ public class WorkspaceAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(WorkspaceJpaRepository.class)
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @ConditionalOnMissingBean
     WorkspaceMemberService workspaceMemberService(
             WorkspaceJpaRepository workspaceRepository,
@@ -178,7 +177,6 @@ public class WorkspaceAutoConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
-    @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".workspace", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @EnableJpaRepositories(basePackageClasses = {
             WorkspaceJpaRepository.class,

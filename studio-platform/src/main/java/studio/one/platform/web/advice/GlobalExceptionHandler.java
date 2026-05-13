@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.ConstraintViolationException;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.ConstraintViolationException;
 
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
@@ -279,7 +279,7 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
      */
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ProblemDetails> handleResponseStatus(ResponseStatusException ex, HttpServletRequest req) {
-        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        HttpStatus status = ex.getStatus();
         ProblemDetails body = baseProblem(status, req)
                 .type("urn:error:http-status")
                 .detail(ex.getReason() == null ? status.getReasonPhrase() : ex.getReason())

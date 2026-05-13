@@ -9,22 +9,95 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.vector.VectorRecord;
 
-public record ResolvedRagEmbedding(
-        EmbeddingPort embeddingPort,
-        String profileId,
-        String provider,
-        String model,
-        Integer dimension,
-        EmbeddingInputType inputType) {
+public final class ResolvedRagEmbedding {
 
-    public ResolvedRagEmbedding {
-        if (embeddingPort == null) {
-            throw new IllegalArgumentException("embeddingPort must not be null");
+    private final EmbeddingPort embeddingPort;
+    private final String profileId;
+    private final String provider;
+    private final String model;
+    private final Integer dimension;
+    private final EmbeddingInputType inputType;
+
+    public ResolvedRagEmbedding(
+            EmbeddingPort embeddingPort,
+            String profileId,
+            String provider,
+            String model,
+            Integer dimension,
+            EmbeddingInputType inputType
+    ) {
+                if (embeddingPort == null) {
+                    throw new IllegalArgumentException("embeddingPort must not be null");
+                }
+                profileId = normalize(profileId);
+                provider = normalize(provider);
+                model = normalize(model);
+                inputType = inputType == null ? EmbeddingInputType.TEXT : inputType;
+        
+        this.embeddingPort = embeddingPort;
+        this.profileId = profileId;
+        this.provider = provider;
+        this.model = model;
+        this.dimension = dimension;
+        this.inputType = inputType;
+    }
+
+    public EmbeddingPort embeddingPort() {
+        return embeddingPort;
+    }
+
+    public String profileId() {
+        return profileId;
+    }
+
+    public String provider() {
+        return provider;
+    }
+
+    public String model() {
+        return model;
+    }
+
+    public Integer dimension() {
+        return dimension;
+    }
+
+    public EmbeddingInputType inputType() {
+        return inputType;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
         }
-        profileId = normalize(profileId);
-        provider = normalize(provider);
-        model = normalize(model);
-        inputType = inputType == null ? EmbeddingInputType.TEXT : inputType;
+        if (!(o instanceof ResolvedRagEmbedding)) {
+            return false;
+        }
+        ResolvedRagEmbedding that = (ResolvedRagEmbedding) o;
+        return java.util.Objects.equals(embeddingPort, that.embeddingPort)
+                && java.util.Objects.equals(profileId, that.profileId)
+                && java.util.Objects.equals(provider, that.provider)
+                && java.util.Objects.equals(model, that.model)
+                && java.util.Objects.equals(dimension, that.dimension)
+                && java.util.Objects.equals(inputType, that.inputType);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(embeddingPort, profileId, provider, model, dimension, inputType);
+    }
+
+    @Override
+    public String toString() {
+        return "ResolvedRagEmbedding[" +
+                "embeddingPort=" + embeddingPort + ", " +
+                "profileId=" + profileId + ", " +
+                "provider=" + provider + ", " +
+                "model=" + model + ", " +
+                "dimension=" + dimension + ", " +
+                "inputType=" + inputType +
+                "]";
     }
 
     public EmbeddingRequest request(List<String> texts) {
@@ -42,7 +115,7 @@ public record ResolvedRagEmbedding(
     }
 
     private static void put(Map<String, Object> values, String key, Object value) {
-        if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+        if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
             values.put(key, value);
         }
     }

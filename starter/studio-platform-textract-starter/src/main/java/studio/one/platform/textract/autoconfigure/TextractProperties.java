@@ -9,7 +9,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.util.unit.DataSize;
 import org.springframework.util.unit.DataUnit;
 
-import jakarta.validation.constraints.NotBlank;
+import javax.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

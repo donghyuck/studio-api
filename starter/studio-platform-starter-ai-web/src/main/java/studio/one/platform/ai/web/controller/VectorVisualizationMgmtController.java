@@ -2,7 +2,7 @@ package studio.one.platform.ai.web.controller;
 
 import java.util.Locale;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -82,7 +82,7 @@ public class VectorVisualizationMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(new ProjectionListResponse(
                 projectionService.list(limit, offset).stream()
                         .map(this::summary)
-                        .toList())));
+                        .collect(java.util.stream.Collectors.toList()))));
     }
 
     @GetMapping("/projections/{projectionId}")
@@ -93,7 +93,7 @@ public class VectorVisualizationMgmtController {
     }
 
     @GetMapping("/projections/{projectionId}/points")
-    @PreAuthorize("@endpointAuthz.can('services:ai_vector','admin')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<ProjectionPointsResponse>> points(
             @PathVariable String projectionId,
             @RequestParam(required = false) String targetType,
@@ -113,7 +113,7 @@ public class VectorVisualizationMgmtController {
                 projectionId,
                 projection.algorithm().name(),
                 page.totalCount(),
-                page.items().stream().map(this::point).toList())));
+                page.items().stream().map(this::point).collect(java.util.stream.Collectors.toList()))));
     }
 
     @GetMapping("/items/{vectorItemId}")
@@ -127,7 +127,7 @@ public class VectorVisualizationMgmtController {
     public ResponseEntity<ApiResponse<VectorSearchVisualizationResponse>> searchVisualization(
             @Valid @RequestBody VectorSearchVisualizationRequest request) {
         if (searchVisualizationService == null) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Vector search visualization is not configured");
+            throw new StatusCodeResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Vector search visualization is not configured");
         }
         VectorSearchVisualizationResult result = searchVisualizationService.search(new VectorSearchVisualizationCommand(
                 request.projectionId(),
@@ -215,6 +215,16 @@ public class VectorVisualizationMgmtController {
                                 point.x(),
                                 point.y(),
                                 point.similarity()))
-                        .toList());
+                        .collect(java.util.stream.Collectors.toList()));
+    }
+    private static final class StatusCodeResponseStatusException extends ResponseStatusException {
+
+        private StatusCodeResponseStatusException(HttpStatus status, String reason) {
+            super(status, reason);
+        }
+
+        public HttpStatus getStatusCode() {
+            return getStatus();
+        }
     }
 }

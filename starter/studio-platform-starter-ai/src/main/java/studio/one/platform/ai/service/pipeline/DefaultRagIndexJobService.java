@@ -306,7 +306,22 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         return value.trim();
     }
 
-    private record StoredRequest(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+    private static final class StoredRequest {
+        private final RagIndexJobCreateRequest request;
+        private final RagIndexJobSourceRequest sourceRequest;
+
+        private StoredRequest(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {
+            this.request = request;
+            this.sourceRequest = sourceRequest;
+        }
+
+        private RagIndexJobCreateRequest request() {
+            return request;
+        }
+
+        private RagIndexJobSourceRequest sourceRequest() {
+            return sourceRequest;
+        }
     }
 
     private class RepositoryBackedProgressListener implements RagIndexProgressListener {

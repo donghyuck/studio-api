@@ -148,7 +148,7 @@ class UserMgmtControllerAuthorizationTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.list(Optional.empty(), Optional.of(20L), actor, pageable));
 
-        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatus());
     }
 
     @Test
@@ -160,7 +160,7 @@ class UserMgmtControllerAuthorizationTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.list(Optional.empty(), Optional.of(20L), actor, Pageable.unpaged()));
 
-        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatus());
         verify(userService, never()).findAllByCompanyId(any(), any());
     }
 
@@ -174,7 +174,7 @@ class UserMgmtControllerAuthorizationTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.list(Optional.empty(), Optional.of(20L), actor, Pageable.unpaged()));
 
-        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatusCode());
+        assertEquals(HttpStatus.NOT_IMPLEMENTED, exception.getStatus());
         verify(userService, never()).findAllByCompanyId(any(), any());
     }
 
@@ -189,7 +189,7 @@ class UserMgmtControllerAuthorizationTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.list(Optional.empty(), Optional.of(20L), actor, Pageable.unpaged()));
 
-        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatusCode());
+        assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
         verify(userService, never()).findAllByCompanyId(any(), any());
     }
 
@@ -200,7 +200,7 @@ class UserMgmtControllerAuthorizationTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class,
                 () -> controller.list(Optional.empty(), Optional.of(0L), null, Pageable.unpaged()));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
         verify(userService, never()).findAllByCompanyId(any(), any());
     }
 
@@ -240,7 +240,7 @@ class UserMgmtControllerAuthorizationTest {
 
         var response = controller.delete(10L);
 
-        assertEquals(204, response.getStatusCode().value());
+        assertEquals(204, response.getStatusCodeValue());
         verify(userService).delete(10L);
     }
 

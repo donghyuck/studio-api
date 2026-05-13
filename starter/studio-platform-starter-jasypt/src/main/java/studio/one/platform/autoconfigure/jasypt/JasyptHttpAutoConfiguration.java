@@ -22,9 +22,10 @@
 
 package studio.one.platform.autoconfigure.jasypt;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.jasypt.encryption.StringEncryptor;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -52,7 +53,7 @@ import studio.one.platform.util.I18nUtils;
  */
 
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(JasyptProperties.class)
 @ConditionalOnBean(StringEncryptor.class)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)

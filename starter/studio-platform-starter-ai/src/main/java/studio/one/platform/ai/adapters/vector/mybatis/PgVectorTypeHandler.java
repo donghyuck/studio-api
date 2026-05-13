@@ -38,8 +38,8 @@ public final class PgVectorTypeHandler extends BaseTypeHandler<PGvector> {
         if (value == null) {
             return null;
         }
-        if (value instanceof PGvector vector) {
-            return vector;
+        if (value instanceof PGvector) {
+            return (PGvector) value;
         }
         return new PGvector(value.toString());
     }

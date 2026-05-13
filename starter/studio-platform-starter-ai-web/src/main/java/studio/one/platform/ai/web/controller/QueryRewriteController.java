@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -43,39 +43,38 @@ import studio.one.platform.web.dto.ApiResponse;
 public class QueryRewriteController {
 
     private static final String TEMPLATE_NAME = "query-rewrite";
-    private static final String FALLBACK_PROMPT = """
-            You are a "Query Optimizer" for a Semantic Search system.
-
-            Users usually type natural, informal search queries, and directly embedding these queries
-            often reduces search accuracy. Your task is to rewrite the user's query into an
-            "Intention-Expanded Query" that improves retrieval quality for vector-based semantic search.
-
-            [Goal]
-            - Expand the user's original query into a richer representation that includes
-              related concepts, synonyms, higher-level categories, and domain-relevant keywords.
-            - The expanded query must significantly increase recall in vector search while
-              preserving the user’s actual intent.
-
-            [Rules]
-            1. Keep the original meaning but expand it with 5–10+ relevant concepts.
-            2. Do NOT write sentences. Use comma-separated keywords only.
-            3. Prefer noun-centric keywords.
-            4. Include synonyms, related terms, and broader/narrower concepts.
-            5. English-focused expansion is preferred, but include multilingual keywords
-               if they are commonly-used domain terms (optional).
-            6. Output MUST be valid JSON.
-
-            [Output Format]
-            {
-              "original_query": "{{user_query}}",
-              "expanded_query": "<comma-separated expanded keywords>",
-              "keywords": ["keyword1", "keyword2", ...]
-            }
-
-            Rewrite and expand the following user query:
-
-            "{{user_query}}"
-                        """;
+    private static final String FALLBACK_PROMPT = String.join("\n",
+        "You are a \"Query Optimizer\" for a Semantic Search system.",
+        "",
+        "Users usually type natural, informal search queries, and directly embedding these queries",
+        "often reduces search accuracy. Your task is to rewrite the user's query into an",
+        "\"Intention-Expanded Query\" that improves retrieval quality for vector-based semantic search.",
+        "",
+        "[Goal]",
+        "- Expand the user's original query into a richer representation that includes",
+        "  related concepts, synonyms, higher-level categories, and domain-relevant keywords.",
+        "- The expanded query must significantly increase recall in vector search while",
+        "  preserving the user\u2019s actual intent.",
+        "",
+        "[Rules]",
+        "1. Keep the original meaning but expand it with 5\u201310+ relevant concepts.",
+        "2. Do NOT write sentences. Use comma-separated keywords only.",
+        "3. Prefer noun-centric keywords.",
+        "4. Include synonyms, related terms, and broader/narrower concepts.",
+        "5. English-focused expansion is preferred, but include multilingual keywords",
+        "   if they are commonly-used domain terms (optional).",
+        "6. Output MUST be valid JSON.",
+        "",
+        "[Output Format]",
+        "{",
+        "  \"original_query\": \"{{user_query}}\",",
+        "  \"expanded_query\": \"<comma-separated expanded keywords>\",",
+        "  \"keywords\": [\"keyword1\", \"keyword2\", ...]",
+        "}",
+        "",
+        "Rewrite and expand the following user query:",
+        "",
+        "\"{{user_query}}\"");
 
     private final PromptRenderer promptManager;
     private final ChatPort chatPort;
@@ -229,7 +228,7 @@ public class QueryRewriteController {
         if (value == null) {
             return fallback;
         }
-        String normalized = value.trim().replaceAll("\\s+", " ");
+        String normalized = value.replace("\\n", "\n").trim().replaceAll("\\s+", " ");
         return normalized.isBlank() ? fallback : normalized;
     }
 }

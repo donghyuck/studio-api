@@ -4,13 +4,12 @@ import java.time.Clock;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -40,7 +39,7 @@ import studio.one.platform.user.autoconfigure.condition.ConditionalOnUserPersist
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class })
 @ConditionalOnExpression("${" + PropertyKeys.Features.User.ENABLED + ":true} && ${" + PropertyKeys.Features.User.USE_DEFAULT + ":true}")
 @Slf4j

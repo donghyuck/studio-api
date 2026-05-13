@@ -39,7 +39,7 @@ public interface RagPipelineService {
         return listByObject(objectType, objectId, fetchLimit).stream()
                 .skip(safeOffset)
                 .limit(safeLimit)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     /**

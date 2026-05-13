@@ -5,9 +5,16 @@ import java.util.Objects;
 /**
  * Immutable chunk content and metadata generated from a source document.
  */
-public record Chunk(String id, String content, ChunkMetadata metadata) {
+public class Chunk {
+    private final String id;
+    private final String content;
+    private final ChunkMetadata metadata;
 
-    public Chunk {
+
+    public Chunk(
+            String id,
+            String content,
+            ChunkMetadata metadata) {
         if (isBlank(id)) {
             throw new IllegalArgumentException("id must not be blank");
         }
@@ -15,6 +22,10 @@ public record Chunk(String id, String content, ChunkMetadata metadata) {
             throw new IllegalArgumentException("content must not be blank");
         }
         metadata = Objects.requireNonNull(metadata, "metadata must not be null");
+    
+        this.id = id;
+        this.content = content;
+        this.metadata = metadata;
     }
 
     public static Chunk of(String id, String content, ChunkMetadata metadata) {
@@ -23,5 +34,17 @@ public record Chunk(String id, String content, ChunkMetadata metadata) {
 
     private static boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    public String id() {
+        return id;
+    }
+
+    public String content() {
+        return content;
+    }
+
+    public ChunkMetadata metadata() {
+        return metadata;
     }
 }

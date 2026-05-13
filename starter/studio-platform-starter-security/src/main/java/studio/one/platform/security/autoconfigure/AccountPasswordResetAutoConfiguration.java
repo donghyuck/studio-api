@@ -1,11 +1,10 @@
 package studio.one.platform.security.autoconfigure;
 
-import jakarta.persistence.EntityManagerFactory;
+import javax.persistence.EntityManagerFactory;
 
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.BeanDefinitionRegistryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -46,7 +45,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({ AccountPasswordResetProperties.class, PersistenceProperties.class })
 @ConditionalOnProperty(prefix = PropertyKeys.Security.Auth.PASSWORD_RESET, name = "enabled", havingValue = "true")
 @RequiredArgsConstructor

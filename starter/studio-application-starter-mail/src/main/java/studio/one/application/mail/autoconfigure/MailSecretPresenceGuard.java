@@ -1,8 +1,9 @@
 package studio.one.application.mail.autoconfigure;
 
-import jakarta.annotation.PostConstruct;
+import org.springframework.context.annotation.Configuration;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
+import javax.annotation.PostConstruct;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Import;
@@ -12,7 +13,7 @@ import lombok.RequiredArgsConstructor;
 import studio.one.application.mail.infrastructure.config.ImapProperties;
 import studio.one.platform.constant.PropertyKeys;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(MailFeatureProperties.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".mail", name = "enabled", havingValue = "true", matchIfMissing = true)
 @Import(MailImapPropertiesConfiguration.class)

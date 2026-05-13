@@ -1,10 +1,11 @@
 package studio.one.platform.textract.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -44,7 +45,7 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(TextractProperties.class)
 @Conditional(TextractFeatureCondition.class)
 @Slf4j

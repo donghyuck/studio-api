@@ -155,14 +155,12 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/rag/search")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "query": "hello",
-                                  "topK": 2,
-                                  "objectType": "attachment",
-                                  "objectId": "1"
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"query\": \"hello\",\n" +
+                                "  \"topK\": 2,\n" +
+                                "  \"objectType\": \"attachment\",\n" +
+                                "  \"objectId\": \"1\"\n" +
+                                "}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.results[0].documentId").value("doc-1"))
                 .andExpect(jsonPath("$.results[0].content").value("body"))
@@ -204,11 +202,9 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         customMvc.perform(post(BASE_PATH + "/rag/search")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "query": "hello"
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"query\": \"hello\"\n" +
+                                "}"))
                 .andExpect(status().isOk());
 
         verify(ragPipelineService).search(captor.capture());
@@ -222,12 +218,10 @@ class AttachmentEmbeddingPipelineControllerTest {
     void ragSearchRejectsInvalidRequestBody() throws Exception {
         mockMvc.perform(post(BASE_PATH + "/rag/search")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "query": "",
-                                  "topK": 0
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"query\": \"\",\n" +
+                                "  \"topK\": 0\n" +
+                                "}"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -245,15 +239,13 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "metadata": {
-                                    "filename": "caller.txt",
-                                    "sourceType": "caller-source",
-                                    "indexedAt": "caller-time"
-                                  }
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"metadata\": {\n" +
+                                "    \"filename\": \"caller.txt\",\n" +
+                                "    \"sourceType\": \"caller-source\",\n" +
+                                "    \"indexedAt\": \"caller-time\"\n" +
+                                "  }\n" +
+                                "}"))
                 .andExpect(status().isAccepted());
 
         verify(ragPipelineService).index(argThat((RagIndexRequest request) -> {
@@ -319,24 +311,22 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "documentId": "doc-1",
-                                  "embeddingProfileId": "request-profile",
-                                  "embeddingProvider": "google",
-                                  "embeddingModel": "request-model",
-                                  "debug": true,
-                                  "metadata": {
-                                    "category": "manual",
-                                    "objectType": "caller-object",
-                                    "objectId": "caller-id",
-                                    "chunkIndex": 99,
-                                    "embeddingProfileId": "metadata-profile",
-                                    "embeddingProvider": "metadata-provider",
-                                    "embeddingModel": "metadata-model"
-                                  }
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"documentId\": \"doc-1\",\n" +
+                                "  \"embeddingProfileId\": \"request-profile\",\n" +
+                                "  \"embeddingProvider\": \"google\",\n" +
+                                "  \"embeddingModel\": \"request-model\",\n" +
+                                "  \"debug\": true,\n" +
+                                "  \"metadata\": {\n" +
+                                "    \"category\": \"manual\",\n" +
+                                "    \"objectType\": \"caller-object\",\n" +
+                                "    \"objectId\": \"caller-id\",\n" +
+                                "    \"chunkIndex\": 99,\n" +
+                                "    \"embeddingProfileId\": \"metadata-profile\",\n" +
+                                "    \"embeddingProvider\": \"metadata-provider\",\n" +
+                                "    \"embeddingModel\": \"metadata-model\"\n" +
+                                "  }\n" +
+                                "}"))
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("X-RAG-Index-Path", "structured"))
                 .andExpect(header().string("X-RAG-Index-Structured", "true"))
@@ -438,15 +428,13 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "documentId": "doc-1",
-                                  "debug": true,
-                                  "metadata": {
-                                    "category": "manual"
-                                  }
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"documentId\": \"doc-1\",\n" +
+                                "  \"debug\": true,\n" +
+                                "  \"metadata\": {\n" +
+                                "    \"category\": \"manual\"\n" +
+                                "  }\n" +
+                                "}"))
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("X-RAG-Index-Path", "structured"))
                 .andExpect(header().string("X-RAG-Index-Chunk-Count", "2"))
@@ -487,11 +475,9 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "debug": true
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"debug\": true\n" +
+                                "}"))
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("X-RAG-Index-Path", "fallback"))
                 .andExpect(header().string("X-RAG-Index-Structured", "false"))
@@ -572,11 +558,9 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "debug": true
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"debug\": true\n" +
+                                "}"))
                 .andExpect(status().isAccepted())
                 .andExpect(header().doesNotExist("X-RAG-Index-Path"))
                 .andExpect(header().doesNotExist("X-RAG-Index-Fallback-Reason"));
@@ -599,11 +583,9 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {
-                                  "debug": true
-                                }
-                                """))
+                        .content("{\n" +
+                                "  \"debug\": true\n" +
+                                "}"))
                 .andExpect(status().isAccepted())
                 .andExpect(header().string("X-RAG-Index-Path", "structured"))
                 .andExpect(header().string("X-RAG-Index-Structured", "true"))

@@ -12,8 +12,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import javax.servlet.http.HttpServletRequest;
+import javax.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.env.Environment;
@@ -395,7 +395,7 @@ public class UserMgmtController extends AbstractPasswordPolicyControllerSupport 
                 List<Long> desired = Optional.ofNullable(req.getRoleIds()).orElseGet(Collections::emptyList)
                                 .stream()
                                 .filter(Objects::nonNull)
-                                .distinct().toList();
+                                .distinct().collect(java.util.stream.Collectors.toList());
 
                 BatchResult result = userService.updateUserRolesBulk(id, desired, actor.getUsername());
                 log.debug("batch : {}", result);

@@ -34,9 +34,9 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Table;
-import jakarta.persistence.metamodel.EntityType;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.Table;
+import javax.persistence.metamodel.EntityType;
 
 import org.slf4j.Logger;
 
@@ -97,7 +97,7 @@ public final class EntityLogger {
     private static final String[] PU_NAME_KEYS = {
             "hibernate.ejb.persistenceUnitName",
             "hibernate.persistenceUnitName",
-            "jakarta.persistence.persistenceUnitName",
+            "javax.persistence.persistenceUnitName",
             "javax.persistence.persistenceUnitName"
     };
 

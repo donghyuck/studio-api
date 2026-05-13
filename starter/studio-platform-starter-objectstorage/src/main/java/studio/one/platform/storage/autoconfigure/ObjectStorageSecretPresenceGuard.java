@@ -1,17 +1,18 @@
 package studio.one.platform.storage.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.Locale;
 import java.util.Map;
 
-import jakarta.annotation.PostConstruct;
+import javax.annotation.PostConstruct;
 
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(StorageProperties.class)
 @RequiredArgsConstructor
 public class ObjectStorageSecretPresenceGuard {
@@ -28,16 +29,18 @@ public class ObjectStorageSecretPresenceGuard {
             }
             String type = provider.getType() == null ? "" : provider.getType().trim().toLowerCase(Locale.ROOT);
             switch (type) {
-                case "s3" -> {
+                case "s3":
                     requireText(provider.getCredentials().getAccessKey(),
                             "studio.cloud.storage.providers." + providerId + ".credentials.access-key must be configured");
                     requireText(provider.getCredentials().getSecretKey(),
                             "studio.cloud.storage.providers." + providerId + ".credentials.secret-key must be configured");
-                }
-                case "fs" -> requireText(provider.getFs().getRoot(),
-                        "studio.cloud.storage.providers." + providerId + ".fs.root must be configured");
-                default -> {
-                }
+                    break;
+                case "fs":
+                    requireText(provider.getFs().getRoot(),
+                            "studio.cloud.storage.providers." + providerId + ".fs.root must be configured");
+                    break;
+                default:
+                    break;
             }
         }
     }

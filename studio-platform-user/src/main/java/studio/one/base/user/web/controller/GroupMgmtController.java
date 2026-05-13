@@ -32,7 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -193,7 +193,7 @@ public class GroupMgmtController implements GroupMgmtApi {
         List<Long> desired = Optional.ofNullable(req.getRoleIds()).orElseGet(Collections::emptyList)
                 .stream()
                 .filter(Objects::nonNull)
-                .distinct().toList();
+                .distinct().collect(Collectors.toList());
         BatchResult result = groupService.updateGroupRolesBulk(id, desired, actor.getUsername());
         log.debug("batch : {}", result);
         return ok(ApiResponse.ok());

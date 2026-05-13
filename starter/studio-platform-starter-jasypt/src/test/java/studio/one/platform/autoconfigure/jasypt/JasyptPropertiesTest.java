@@ -27,10 +27,14 @@ class JasyptPropertiesTest {
                 .run(context -> {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
-                            .hasMessageContaining("Could not bind properties to 'JasyptProperties'")
-                            .rootCause()
-                            .hasMessageContaining("password")
-                            .hasMessageContaining("16");
+                            .hasMessageContaining("Could not bind properties to 'JasyptProperties'");
+                    Throwable root = context.getStartupFailure();
+                    while (root.getCause() != null) {
+                        root = root.getCause();
+                    }
+                    assertThat(root.getMessage())
+                            .contains("password")
+                            .contains("16");
                 });
     }
 

@@ -19,7 +19,8 @@ public class FileParserFactory {
 
     public FileParser getParser(String contentType, String filename) {
         studio.one.platform.textract.application.usecase.FileParser parser = delegate.getParser(contentType, filename);
-        if (parser instanceof FileParser legacyParser) {
+        if (parser instanceof FileParser) {
+            FileParser legacyParser = (FileParser) parser;
             return legacyParser;
         }
         return parsers.stream()

@@ -46,7 +46,8 @@ public final class ChatMessage {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof ChatMessage that)) return false;
+        if (!(o instanceof ChatMessage)) return false;
+        ChatMessage that = (ChatMessage) o;
         return role == that.role && content.equals(that.content);
     }
 

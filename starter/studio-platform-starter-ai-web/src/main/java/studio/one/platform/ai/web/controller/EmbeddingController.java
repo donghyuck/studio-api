@@ -3,7 +3,7 @@ package studio.one.platform.ai.web.controller;
 import java.util.List;
 import java.util.Objects;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -77,6 +77,6 @@ public class EmbeddingController {
     private List<EmbeddingVectorDto> toEmbeddingVectors(EmbeddingResponse response) {
         return response.vectors().stream()
                 .map(vector -> new EmbeddingVectorDto(vector.referenceId(), List.copyOf(vector.values())))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 }

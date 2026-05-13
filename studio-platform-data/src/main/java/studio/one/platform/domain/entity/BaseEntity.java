@@ -23,8 +23,8 @@ package studio.one.platform.domain.entity;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.MappedSuperclass;
+import javax.persistence.Column;
+import javax.persistence.MappedSuperclass;
 
 import lombok.Getter;
 import lombok.Setter;

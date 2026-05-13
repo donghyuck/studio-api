@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -319,7 +318,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
 
     private void mergeChunkMetadata(Map<String, Object> metadata, Map<String, Object> chunkMetadata) {
         chunkMetadata.forEach((key, value) -> {
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
                 metadata.putIfAbsent(key, value);
             }
         });
@@ -328,7 +327,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
     private Object firstPresent(Map<String, Object> metadata, String... keys) {
         for (String key : keys) {
             Object value = metadata.get(key);
-            if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            if (value != null && (!(value instanceof String) || !((String) value).isBlank())) {
                 return value;
             }
         }
@@ -344,7 +343,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
         if (value == null) {
             return null;
         }
-        if (value instanceof Iterable<?> iterable) {
+        if (value instanceof Iterable<?>) {
+            Iterable<?> iterable = (Iterable<?>) value;
             return java.util.stream.StreamSupport.stream(iterable.spliterator(), false)
                     .filter(Objects::nonNull)
                     .map(Objects::toString)
@@ -357,12 +357,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     private Integer integer(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
         }
-        if (value instanceof String text && !text.isBlank()) {
+        if (value instanceof String && !((String) value).isBlank()) {
             try {
-                return Integer.valueOf(text.trim());
+                return Integer.valueOf(((String) value).trim());
             } catch (NumberFormatException ignored) {
                 return null;
             }
@@ -373,7 +373,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
     private String contentHash(String content) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(content.getBytes(StandardCharsets.UTF_8)));
+            byte[] bytes = digest.digest(content.getBytes(StandardCharsets.UTF_8));
+            StringBuilder builder = new StringBuilder(bytes.length * 2);
+            for (byte value : bytes) {
+                builder.append(String.format("%02x", value));
+            }
+            return builder.toString();
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 digest is not available", ex);
         }
@@ -457,7 +462,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                         result.document().content(),
                         result.document().metadata(),
                         result.score()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -480,7 +485,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                         result.document().content(),
                         result.document().metadata(),
                         result.score()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private int clampPagedListLimit(int limit) {
@@ -703,7 +708,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
         return results.stream()
                 .limit(Math.max(topK, 0))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private RagSearchRequest withDefaults(RagSearchRequest request) {
@@ -779,7 +784,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         double effectiveMinScore = minScore == null ? options.minScore() : minScore;
         return results.stream()
                 .filter(result -> result.score() >= effectiveMinScore)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private List<RagSearchResult> toRagSearchResults(List<VectorSearchResult> results) {
@@ -789,7 +794,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                         result.document().content(),
                         result.document().metadata(),
                         result.score()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private void clearDiagnostics() {

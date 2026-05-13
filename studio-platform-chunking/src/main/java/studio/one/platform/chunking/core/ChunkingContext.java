@@ -8,18 +8,20 @@ import java.util.Optional;
 /**
  * Immutable request context passed to chunking strategies.
  */
-public record ChunkingContext(
-        String sourceDocumentId,
-        String text,
-        String contentType,
-        String filename,
-        String objectType,
-        String objectId,
-        ChunkingStrategyType strategy,
-        int maxSize,
-        int overlap,
-        ChunkUnit unit,
-        Map<String, Object> metadata) {
+public class ChunkingContext {
+    private final String sourceDocumentId;
+    private final String text;
+    private final String contentType;
+    private final String filename;
+    private final String objectType;
+    private final String objectId;
+    private final ChunkingStrategyType strategy;
+    private final int maxSize;
+    private final int overlap;
+    private final ChunkUnit unit;
+    private final Map<String, Object> metadata;
+
+
 
     public static final int DEFAULT_MAX_SIZE = 800;
     public static final int DEFAULT_OVERLAP = 100;
@@ -35,8 +37,18 @@ public record ChunkingContext(
      * {@link Builder#overlap(int)}.
      */
     public static final int USE_CONFIGURED_OVERLAP = -1;
-
-    public ChunkingContext {
+    public ChunkingContext(
+            String sourceDocumentId,
+            String text,
+            String contentType,
+            String filename,
+            String objectType,
+            String objectId,
+            ChunkingStrategyType strategy,
+            int maxSize,
+            int overlap,
+            ChunkUnit unit,
+            Map<String, Object> metadata) {
         if (isBlank(text)) {
             throw new IllegalArgumentException("text must not be blank");
         }
@@ -51,6 +63,18 @@ public record ChunkingContext(
         }
         unit = unit == null ? ChunkUnit.CHARACTER : unit;
         metadata = sanitize(metadata);
+    
+        this.sourceDocumentId = sourceDocumentId;
+        this.text = text;
+        this.contentType = contentType;
+        this.filename = filename;
+        this.objectType = objectType;
+        this.objectId = objectId;
+        this.strategy = strategy;
+        this.maxSize = maxSize;
+        this.overlap = overlap;
+        this.unit = unit;
+        this.metadata = metadata;
     }
 
     public static Builder builder(String text) {
@@ -77,7 +101,7 @@ public record ChunkingContext(
             if (key == null || key.isBlank() || value == null) {
                 return;
             }
-            if (value instanceof String stringValue && stringValue.isBlank()) {
+            if (value instanceof String && ((String) value).isBlank()) {
                 return;
             }
             sanitized.put(key, value);
@@ -197,5 +221,49 @@ public record ChunkingContext(
                     unit,
                     metadata);
         }
+    }
+
+    public String sourceDocumentId() {
+        return sourceDocumentId;
+    }
+
+    public String text() {
+        return text;
+    }
+
+    public String contentType() {
+        return contentType;
+    }
+
+    public String filename() {
+        return filename;
+    }
+
+    public String objectType() {
+        return objectType;
+    }
+
+    public String objectId() {
+        return objectId;
+    }
+
+    public ChunkingStrategyType strategy() {
+        return strategy;
+    }
+
+    public int maxSize() {
+        return maxSize;
+    }
+
+    public int overlap() {
+        return overlap;
+    }
+
+    public ChunkUnit unit() {
+        return unit;
+    }
+
+    public Map<String, Object> metadata() {
+        return metadata;
     }
 }

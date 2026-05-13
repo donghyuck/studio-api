@@ -1,7 +1,6 @@
 package studio.one.platform.autoconfigure;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -11,7 +10,7 @@ import studio.one.platform.constant.PropertyKeys;
 @ConfigurationProperties(prefix = PropertyKeys.Persistence.PREFIX )
 public class PersistenceProperties {
 
-    private final Type type;
+    private Type type = Type.jpa;
 
     public enum Type {
         jpa,
@@ -19,7 +18,10 @@ public class PersistenceProperties {
         jdbc
     }
     
-    public PersistenceProperties(@DefaultValue("jpa") Type type) {
+    public PersistenceProperties() {
+    }
+
+    public PersistenceProperties(Type type) {
         this.type = type;
     }
 

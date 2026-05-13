@@ -41,21 +41,14 @@ public class ApplicationCompanyPermissionPolicyJdbcRepository extends BaseJdbcRe
 
     @Override
     public List<ApplicationCompanyPermissionPolicy> findAllByCompanyId(Long companyId) {
-        String sql = """
-                select COMPANY_ID, ROLE, ACTION_NAME, ENABLED, CREATED_AT, UPDATED_AT, UPDATED_BY
-                  from TB_APPLICATION_COMPANY_PERMISSION_POLICY
-                 where COMPANY_ID = :companyId
-                 order by ROLE, ACTION_NAME
-                """;
+        String sql = (
+"select COMPANY_ID, ROLE, ACTION_NAME, ENABLED, CREATED_AT, UPDATED_AT, UPDATED_BY\\n" + "  from TB_APPLICATION_COMPANY_PERMISSION_POLICY\\n" + " where COMPANY_ID = :companyId\\n" + " order by ROLE, ACTION_NAME\\n");
         return namedTemplate.query(sql, Map.of("companyId", companyId), POLICY_ROW_MAPPER);
     }
 
     @Override
     public void deleteAllByCompanyId(Long companyId) {
-        namedTemplate.update("""
-                delete from TB_APPLICATION_COMPANY_PERMISSION_POLICY
-                 where COMPANY_ID = :companyId
-                """, Map.of("companyId", companyId));
+        namedTemplate.update("delete from TB_APPLICATION_COMPANY_PERMISSION_POLICY\\n" + " where COMPANY_ID = :companyId\\n", Map.of("companyId", companyId));
     }
 
     @Override
@@ -67,12 +60,8 @@ public class ApplicationCompanyPermissionPolicyJdbcRepository extends BaseJdbcRe
         if (policy.getUpdatedAt() == null) {
             policy.setUpdatedAt(policy.getCreatedAt());
         }
-        String sql = """
-                insert into TB_APPLICATION_COMPANY_PERMISSION_POLICY
-                    (COMPANY_ID, ROLE, ACTION_NAME, ENABLED, CREATED_AT, UPDATED_AT, UPDATED_BY)
-                values
-                    (:companyId, :role, :action, :enabled, :createdAt, :updatedAt, :updatedBy)
-                """;
+        String sql = (
+"insert into TB_APPLICATION_COMPANY_PERMISSION_POLICY\\n" + "    (COMPANY_ID, ROLE, ACTION_NAME, ENABLED, CREATED_AT, UPDATED_AT, UPDATED_BY)\\n" + "values\\n" + "    (:companyId, :role, :action, :enabled, :createdAt, :updatedAt, :updatedBy)\\n");
         Map<String, Object> params = new HashMap<>();
         params.put("companyId", policy.getId().getCompanyId());
         params.put("role", policy.getId().getRole().name());

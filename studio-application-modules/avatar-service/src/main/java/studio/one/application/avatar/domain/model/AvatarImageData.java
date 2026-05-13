@@ -21,16 +21,13 @@
 
 package studio.one.application.avatar.domain.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import javax.persistence.Column;
+import javax.persistence.Entity;
+import javax.persistence.Id;
+import javax.persistence.JoinColumn;
+import javax.persistence.MapsId;
+import javax.persistence.OneToOne;
+import javax.persistence.Table;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -72,8 +69,7 @@ public class AvatarImageData {
     @Column(name = "AVATAR_IMAGE_ID")
     private Long id;
 
-    @JdbcTypeCode(SqlTypes.VARBINARY)
-    @Column(name = "AVATAR_IMAGE_DATA", columnDefinition = "bytea", nullable = true) 
+    @Column(name = "AVATAR_IMAGE_DATA", nullable = true) 
     @JsonIgnore   
     private byte[] data;
 

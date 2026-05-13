@@ -174,7 +174,7 @@ RAG job 운영 API 권한은 다음 기준으로 처리한다.
 클라이언트 기준:
 
 - `provider`는 사용자가 provider를 고르는 화면에서만 보낸다.
-- `provider`를 비우면 서버의 `studio.ai.default-provider`가 사용된다.
+- `provider`를 비우면 서버의 `studio.ai.routing.default-chat-provider`가 사용된다. legacy `studio.ai.default-provider`는 fallback으로만 유지된다.
 - 알 수 없는 `provider`는 400 오류로 처리한다.
 - `systemPrompt`는 별도 system message로 직접 넣지 않고 최상위 필드로 보낸다.
 - 기존 `messages` 배열은 유지한다.

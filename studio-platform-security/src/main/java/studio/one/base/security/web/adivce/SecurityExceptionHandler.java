@@ -22,7 +22,7 @@ package studio.one.base.security.web.adivce;
 
 import java.time.Clock;
 
-import jakarta.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.Ordered;

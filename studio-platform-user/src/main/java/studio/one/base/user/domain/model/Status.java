@@ -83,8 +83,8 @@ public enum Status {
         if (raw == null)
             return NONE;
 
-        if(raw instanceof Number n) {
-            return BY_ID.getOrDefault((n).intValue(), NONE);
+        if(raw instanceof Number) {
+            return BY_ID.getOrDefault(((Number) raw).intValue(), NONE);
         }
 
         String s = raw.toString().trim();

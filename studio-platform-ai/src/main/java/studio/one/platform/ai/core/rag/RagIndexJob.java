@@ -3,45 +3,206 @@ package studio.one.platform.ai.core.rag;
 import java.time.Instant;
 import java.util.Objects;
 
-public record RagIndexJob(
-        String jobId,
-        String objectType,
-        String objectId,
-        String documentId,
-        String sourceType,
-        String sourceName,
-        RagIndexJobStatus status,
-        RagIndexJobStep currentStep,
-        int chunkCount,
-        int embeddedCount,
-        int indexedCount,
-        int warningCount,
-        String errorMessage,
-        Instant createdAt,
-        Instant startedAt,
-        Instant finishedAt,
-        Long durationMs) {
+public final class RagIndexJob {
+
+    private final String jobId;
+    private final String objectType;
+    private final String objectId;
+    private final String documentId;
+    private final String sourceType;
+    private final String sourceName;
+    private final RagIndexJobStatus status;
+    private final RagIndexJobStep currentStep;
+    private final int chunkCount;
+    private final int embeddedCount;
+    private final int indexedCount;
+    private final int warningCount;
+    private final String errorMessage;
+    private final Instant createdAt;
+    private final Instant startedAt;
+    private final Instant finishedAt;
+    private final Long durationMs;
+
+    public RagIndexJob(
+            String jobId,
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            String sourceName,
+            RagIndexJobStatus status,
+            RagIndexJobStep currentStep,
+            int chunkCount,
+            int embeddedCount,
+            int indexedCount,
+            int warningCount,
+            String errorMessage,
+            Instant createdAt,
+            Instant startedAt,
+            Instant finishedAt,
+            Long durationMs
+    ) {
+                jobId = requireText(jobId, "jobId");
+                documentId = normalize(documentId);
+                objectType = normalize(objectType);
+                objectId = normalize(objectId);
+                sourceType = normalize(sourceType);
+                sourceName = normalizeSourceName(sourceName);
+                status = status == null ? RagIndexJobStatus.PENDING : status;
+                chunkCount = Math.max(0, chunkCount);
+                embeddedCount = Math.max(0, embeddedCount);
+                indexedCount = Math.max(0, indexedCount);
+                warningCount = Math.max(0, warningCount);
+                errorMessage = normalize(errorMessage);
+                createdAt = createdAt == null ? Instant.now() : createdAt;
+                if (durationMs != null && durationMs < 0L) {
+                    durationMs = 0L;
+                }
+        
+        this.jobId = jobId;
+        this.objectType = objectType;
+        this.objectId = objectId;
+        this.documentId = documentId;
+        this.sourceType = sourceType;
+        this.sourceName = sourceName;
+        this.status = status;
+        this.currentStep = currentStep;
+        this.chunkCount = chunkCount;
+        this.embeddedCount = embeddedCount;
+        this.indexedCount = indexedCount;
+        this.warningCount = warningCount;
+        this.errorMessage = errorMessage;
+        this.createdAt = createdAt;
+        this.startedAt = startedAt;
+        this.finishedAt = finishedAt;
+        this.durationMs = durationMs;
+    }
+
+    public String jobId() {
+        return jobId;
+    }
+
+    public String objectType() {
+        return objectType;
+    }
+
+    public String objectId() {
+        return objectId;
+    }
+
+    public String documentId() {
+        return documentId;
+    }
+
+    public String sourceType() {
+        return sourceType;
+    }
+
+    public String sourceName() {
+        return sourceName;
+    }
+
+    public RagIndexJobStatus status() {
+        return status;
+    }
+
+    public RagIndexJobStep currentStep() {
+        return currentStep;
+    }
+
+    public int chunkCount() {
+        return chunkCount;
+    }
+
+    public int embeddedCount() {
+        return embeddedCount;
+    }
+
+    public int indexedCount() {
+        return indexedCount;
+    }
+
+    public int warningCount() {
+        return warningCount;
+    }
+
+    public String errorMessage() {
+        return errorMessage;
+    }
+
+    public Instant createdAt() {
+        return createdAt;
+    }
+
+    public Instant startedAt() {
+        return startedAt;
+    }
+
+    public Instant finishedAt() {
+        return finishedAt;
+    }
+
+    public Long durationMs() {
+        return durationMs;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof RagIndexJob)) {
+            return false;
+        }
+        RagIndexJob that = (RagIndexJob) o;
+        return java.util.Objects.equals(jobId, that.jobId)
+                && java.util.Objects.equals(objectType, that.objectType)
+                && java.util.Objects.equals(objectId, that.objectId)
+                && java.util.Objects.equals(documentId, that.documentId)
+                && java.util.Objects.equals(sourceType, that.sourceType)
+                && java.util.Objects.equals(sourceName, that.sourceName)
+                && java.util.Objects.equals(status, that.status)
+                && java.util.Objects.equals(currentStep, that.currentStep)
+                && chunkCount == that.chunkCount
+                && embeddedCount == that.embeddedCount
+                && indexedCount == that.indexedCount
+                && warningCount == that.warningCount
+                && java.util.Objects.equals(errorMessage, that.errorMessage)
+                && java.util.Objects.equals(createdAt, that.createdAt)
+                && java.util.Objects.equals(startedAt, that.startedAt)
+                && java.util.Objects.equals(finishedAt, that.finishedAt)
+                && java.util.Objects.equals(durationMs, that.durationMs);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(jobId, objectType, objectId, documentId, sourceType, sourceName, status, currentStep, chunkCount, embeddedCount, indexedCount, warningCount, errorMessage, createdAt, startedAt, finishedAt, durationMs);
+    }
+
+    @Override
+    public String toString() {
+        return "RagIndexJob[" +
+                "jobId=" + jobId + ", " +
+                "objectType=" + objectType + ", " +
+                "objectId=" + objectId + ", " +
+                "documentId=" + documentId + ", " +
+                "sourceType=" + sourceType + ", " +
+                "sourceName=" + sourceName + ", " +
+                "status=" + status + ", " +
+                "currentStep=" + currentStep + ", " +
+                "chunkCount=" + chunkCount + ", " +
+                "embeddedCount=" + embeddedCount + ", " +
+                "indexedCount=" + indexedCount + ", " +
+                "warningCount=" + warningCount + ", " +
+                "errorMessage=" + errorMessage + ", " +
+                "createdAt=" + createdAt + ", " +
+                "startedAt=" + startedAt + ", " +
+                "finishedAt=" + finishedAt + ", " +
+                "durationMs=" + durationMs +
+                "]";
+    }
 
     public static final int MAX_SOURCE_NAME_LENGTH = 300;
-
-    public RagIndexJob {
-        jobId = requireText(jobId, "jobId");
-        documentId = normalize(documentId);
-        objectType = normalize(objectType);
-        objectId = normalize(objectId);
-        sourceType = normalize(sourceType);
-        sourceName = normalizeSourceName(sourceName);
-        status = status == null ? RagIndexJobStatus.PENDING : status;
-        chunkCount = Math.max(0, chunkCount);
-        embeddedCount = Math.max(0, embeddedCount);
-        indexedCount = Math.max(0, indexedCount);
-        warningCount = Math.max(0, warningCount);
-        errorMessage = normalize(errorMessage);
-        createdAt = createdAt == null ? Instant.now() : createdAt;
-        if (durationMs != null && durationMs < 0L) {
-            durationMs = 0L;
-        }
-    }
 
     public RagIndexJob(
             String jobId,

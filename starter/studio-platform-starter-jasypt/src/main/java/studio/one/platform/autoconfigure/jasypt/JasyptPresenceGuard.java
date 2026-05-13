@@ -23,12 +23,13 @@
 
 package studio.one.platform.autoconfigure.jasypt;
 
+import org.springframework.context.annotation.Configuration;
+
 import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.config.BeanFactoryPostProcessor;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -76,7 +77,7 @@ import studio.one.platform.constant.ServiceNames;
  */
 
 
-@AutoConfiguration
+@Configuration
 @AutoConfigureBefore(JasyptAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.Jasypt.PREFIX, name = "enabled", havingValue = "true")
 @EnableConfigurationProperties(JasyptProperties.class)

@@ -1,6 +1,6 @@
 package studio.one.base.security.acl.web.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
+import javax.validation.constraints.NotBlank;
 
 import lombok.Data;
 

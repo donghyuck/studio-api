@@ -59,7 +59,7 @@ abstract class NeighborVectorProjectionGenerator implements VectorProjectionGene
                 candidates.add(new Neighbor(j, distance, similarity(distance)));
             }
             candidates.sort(Comparator.comparingDouble(Neighbor::distance));
-            neighbors.add(candidates.stream().limit(limit).toList());
+            neighbors.add(candidates.stream().limit(limit).collect(java.util.stream.Collectors.toList()));
         }
         return neighbors;
     }
@@ -169,6 +169,61 @@ abstract class NeighborVectorProjectionGenerator implements VectorProjectionGene
         return 1.0d - Math.max(-1.0d, Math.min(1.0d, similarity));
     }
 
-    private record Neighbor(int index, double distance, double similarity) {
+    private final class Neighbor {
+
+    private final int index;
+    private final double distance;
+    private final double similarity;
+
+    private Neighbor(
+            int index,
+            double distance,
+            double similarity
+    ) {
+        this.index = index;
+        this.distance = distance;
+        this.similarity = similarity;
     }
+
+    public int index() {
+        return index;
+    }
+
+    public double distance() {
+        return distance;
+    }
+
+    public double similarity() {
+        return similarity;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Neighbor)) {
+            return false;
+        }
+        Neighbor that = (Neighbor) o;
+        return index == that.index
+                && Double.compare(that.distance, distance) == 0
+                && Double.compare(that.similarity, similarity) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(index, distance, similarity);
+    }
+
+    @Override
+    public String toString() {
+        return "Neighbor[" +
+                "index=" + index + ", " +
+                "distance=" + distance + ", " +
+                "similarity=" + similarity +
+                "]";
+    }
+    
+}
 }

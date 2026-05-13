@@ -56,14 +56,14 @@ public class ConversationChatService {
                         summary.messageCount(),
                         summary.lastUpdatedAt(),
                         summary.status().name().toLowerCase(Locale.ROOT)))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public ConversationDetailDto detail(String ownerId, String conversationId) {
         ChatConversation conversation = requireConversation(ownerId, conversationId);
         List<ConversationMessageDto> messages = allMessages(conversation.conversationId()).stream()
                 .map(this::toDto)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return new ConversationDetailDto(
                 clientConversationId(ownerId, conversation.conversationId()),
                 conversation.title(),

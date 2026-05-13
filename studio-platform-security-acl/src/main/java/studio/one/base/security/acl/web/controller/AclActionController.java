@@ -28,7 +28,7 @@ public class AclActionController {
     public ResponseEntity<ApiResponse<List<AclActionMaskDto>>> actions() {
         List<AclActionMaskDto> actions = Arrays.stream(AclAction.values())
                 .map(action -> new AclActionMaskDto(action.name(), action.getMask()))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
         return ok(ApiResponse.ok(actions));
     }
 }

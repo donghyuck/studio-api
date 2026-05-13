@@ -62,7 +62,7 @@ class ChatResponseMetadataTest {
                 .messages(List.of(ChatMessage.user("hi")))
                 .build();
 
-        List<ChatStreamEvent> events = port.stream(request).toList();
+        List<ChatStreamEvent> events = port.stream(request).collect(java.util.stream.Collectors.toList());
 
         assertThat(events).extracting(ChatStreamEvent::type)
                 .containsExactly(ChatStreamEventType.DELTA, ChatStreamEventType.USAGE, ChatStreamEventType.COMPLETE);
@@ -79,7 +79,7 @@ class ChatResponseMetadataTest {
                 .messages(List.of(ChatMessage.user("hi")))
                 .build();
 
-        List<ChatStreamEvent> events = port.stream(request).toList();
+        List<ChatStreamEvent> events = port.stream(request).collect(java.util.stream.Collectors.toList());
 
         assertThat(events).hasSize(1);
         assertThat(events.get(0).type()).isEqualTo(ChatStreamEventType.ERROR);

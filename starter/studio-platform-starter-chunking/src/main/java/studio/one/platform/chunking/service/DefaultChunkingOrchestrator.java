@@ -43,8 +43,8 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
                 .overlap(properties.getOverlap())
                 .build();
         Chunker chunker = selectChunker(context);
-        if (chunker instanceof NormalizedDocumentChunker normalizedDocumentChunker) {
-            return normalizedDocumentChunker.chunk(document, context);
+        if (chunker instanceof NormalizedDocumentChunker) {
+            return ((NormalizedDocumentChunker) chunker).chunk(document, context);
         }
         return chunker.chunk(context);
     }

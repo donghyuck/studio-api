@@ -40,8 +40,8 @@ import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.stream.StreamSupport;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.servlet.ServletContext;
+import javax.annotation.PostConstruct;
+import javax.servlet.ServletContext;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;

@@ -148,7 +148,7 @@ class VectorControllerTest {
         ResponseStatusException exception = assertThrows(ResponseStatusException.class, () -> controller.search(
                 new VectorSearchRequestDto("hello", null, 3, false, null, null, null)));
 
-        assertThat(exception.getStatusCode().value()).isEqualTo(429);
+        assertThat(exception.getStatus().value()).isEqualTo(429);
         assertThat(exception.getReason()).contains("Embedding provider quota exceeded");
         assertThat(exception.getReason()).contains("precomputed embedding");
         verifyNoInteractions(vectorStorePort);
@@ -332,7 +332,7 @@ class VectorControllerTest {
                         null,
                         null)));
 
-        assertThat(ex.getStatusCode().value()).isEqualTo(400);
+        assertThat(ex.getStatus().value()).isEqualTo(400);
         verifyNoInteractions(embeddingPort, vectorStorePort);
     }
 
@@ -351,7 +351,7 @@ class VectorControllerTest {
                         "42",
                         null)));
 
-        assertThat(ex.getStatusCode().value()).isEqualTo(400);
+        assertThat(ex.getStatus().value()).isEqualTo(400);
         verifyNoInteractions(embeddingPort, vectorStorePort);
     }
 

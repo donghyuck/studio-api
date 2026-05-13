@@ -3,22 +3,18 @@ package studio.one.platform.ai.autoconfigure.config;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import studio.one.platform.ai.autoconfigure.adapter.GoogleSpringAiChatAdapter;
-import studio.one.platform.ai.core.chat.ChatPort;
 
-/**
- * Registers a {@link ProviderChatPortFactory} bean for the Google GenAI provider.
- * Active only when {@code spring-ai-google-genai} is on the classpath.
- * Builds the {@code GoogleGenAiChatModel} directly using {@code spring.ai.google.genai.*}
- * provider options.
- */
+import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
+import studio.one.platform.ai.autoconfigure.adapter.LangChainChatAdapter;
+import studio.one.platform.ai.core.chat.ChatPort;
+import studio.one.platform.ai.core.chat.ChatRequest;
+
 @Configuration(proxyBeanMethods = false)
-@ConditionalOnClass(name = "org.springframework.ai.google.genai.GoogleGenAiChatModel")
+@ConditionalOnClass(name = "dev.langchain4j.model.googleai.GoogleAiGeminiChatModel")
 public class GoogleGenAiChatPortFactoryConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(GoogleGenAiChatPortFactoryConfiguration.class);
@@ -36,66 +32,67 @@ public class GoogleGenAiChatPortFactoryConfiguration {
         }
 
         @Override
-        public ChatPort create(AiAdapterProperties.Provider provider,
-                               Environment env,
-                               ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
-            return create("<id>", provider, env, chatModelProvider);
-        }
-
-        @Override
-        public ChatPort create(String providerId,
-                               AiAdapterProperties.Provider provider,
-                               Environment env,
-                               ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
-            String model = AiConfigurationMigration.springOrLegacyProviderValue(
-                    env,
-                    "spring.ai.google.genai.chat.options.model",
-                    "studio.ai.providers." + providerId + ".chat.model",
-                    provider.getChat().getModel(),
-                    log);
-            String apiKey = requireText(
-                    AiConfigurationMigration.springOrLegacyProviderValue(
-                            env,
-                            "spring.ai.google.genai.chat.api-key",
-                            "studio.ai.providers." + providerId + ".api-key",
-                            provider.getApiKey(),
-                            log),
-                    "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            model = requireText(model,
-                    "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
-            String baseUrl = AiConfigurationMigration.springOrLegacyProviderValue(
-                    env,
-                    "spring.ai.google.genai.chat.base-url",
-                    "studio.ai.providers." + providerId + ".base-url",
-                    provider.getBaseUrl(),
-                    log);
-
-            com.google.genai.Client.Builder clientBuilder = com.google.genai.Client.builder().apiKey(apiKey);
+        public ChatPort create(String providerId, AiAdapterProperties.Provider provider, Environment env) {
+            String model = requireText(value(env, providerId, "chat.model", provider.getChat().getModel(),
+                    "spring.ai.google.genai.chat.options.model"),
+                    "studio.ai.providers." + providerId + ".chat.model must be configured for GOOGLE_AI_GEMINI chat provider");
+            String apiKey = requireText(value(env, providerId, "api-key", provider.getApiKey(),
+                    "spring.ai.google.genai.chat.api-key"),
+                    "studio.ai.providers." + providerId + ".api-key must be configured for GOOGLE_AI_GEMINI chat provider");
+            String baseUrl = value(env, providerId, "base-url", provider.getBaseUrl(),
+                    "spring.ai.google.genai.chat.base-url");
             if (StringUtils.isNotBlank(baseUrl)) {
-                clientBuilder.httpOptions(com.google.genai.types.HttpOptions.builder()
-                        .baseUrl(baseUrl)
-                        .build());
+                throw new IllegalStateException(
+                        "GOOGLE_AI_GEMINI chat base-url override is not supported by LangChain4j 0.35.0 on Java 11");
             }
-            com.google.genai.Client client = clientBuilder.build();
-
-            org.springframework.ai.google.genai.GoogleGenAiChatOptions defaultOptions =
-                    org.springframework.ai.google.genai.GoogleGenAiChatOptions.builder()
-                            .model(model)
-                            .build();
-            org.springframework.ai.google.genai.GoogleGenAiChatModel chatModel =
-                    org.springframework.ai.google.genai.GoogleGenAiChatModel.builder()
-                            .genAiClient(client)
-                            .defaultOptions(defaultOptions)
-                            .build();
-            return new GoogleSpringAiChatAdapter(chatModel, provider.getType().name(), model);
+            return new LangChainChatAdapter(
+                    request -> googleAiGeminiChatModel(apiKey, model, request),
+                    null,
+                    provider.getType().name(),
+                    model,
+                    true);
         }
 
-        private static String requireText(String value, String message) {
-            if (!StringUtils.isNotBlank(value)) {
-                throw new IllegalStateException(message);
+        private GoogleAiGeminiChatModel googleAiGeminiChatModel(String apiKey, String model, ChatRequest request) {
+            GoogleAiGeminiChatModel.GoogleAiGeminiChatModelBuilder builder = GoogleAiGeminiChatModel.builder()
+                    .apiKey(apiKey)
+                    .modelName(modelName(model, request));
+            if (request.temperature() != null) {
+                builder.temperature(request.temperature());
             }
-            return value;
+            if (request.topK() != null) {
+                builder.topK(request.topK());
+            }
+            if (request.topP() != null) {
+                builder.topP(request.topP());
+            }
+            if (request.maxOutputTokens() != null) {
+                builder.maxOutputTokens(request.maxOutputTokens());
+            }
+            if (!request.stopSequences().isEmpty()) {
+                builder.stopSequences(request.stopSequences());
+            }
+            return builder.build();
         }
+    }
 
+    private static String value(Environment env, String providerId, String studioLeaf, String studioValue, String springKey) {
+        return AiConfigurationMigration.studioOrSpringProviderValue(
+                env,
+                "studio.ai.providers." + providerId + "." + studioLeaf,
+                studioValue,
+                springKey,
+                log);
+    }
+
+    private static String requireText(String value, String message) {
+        if (!StringUtils.isNotBlank(value)) {
+            throw new IllegalStateException(message);
+        }
+        return value;
+    }
+
+    private static String modelName(String configuredModel, ChatRequest request) {
+        return StringUtils.isNotBlank(request.model()) ? request.model().trim() : configuredModel;
     }
 }

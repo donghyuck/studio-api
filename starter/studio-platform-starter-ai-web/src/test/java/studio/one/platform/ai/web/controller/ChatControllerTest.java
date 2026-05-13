@@ -164,7 +164,7 @@ class ChatControllerTest {
                         null,
                         null)));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ex.getReason()).contains("missing");
     }
 
@@ -185,7 +185,7 @@ class ChatControllerTest {
                         null,
                         null)));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ex.getReason()).contains("leading system messages");
     }
 
@@ -206,7 +206,7 @@ class ChatControllerTest {
                         null,
                         null), null));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ex.getReason()).contains("leading system messages");
     }
 
@@ -262,7 +262,7 @@ class ChatControllerTest {
                         null,
                         new ChatMemoryOptionsDto(true, "chat-1"))));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ex.getReason()).contains("not enabled");
         verifyNoInteractions(defaultChatPort);
     }
@@ -284,7 +284,7 @@ class ChatControllerTest {
                         null,
                         new ChatMemoryOptionsDto(true, "  "))));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ex.getReason()).contains("conversationId");
         verifyNoInteractions(defaultChatPort);
     }
@@ -512,7 +512,7 @@ class ChatControllerTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> controller.chat(memoryChat("chat-1", "hello"), () -> "  "));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(ex.getReason()).contains("Principal name");
         verifyNoInteractions(defaultChatPort);
     }
@@ -1380,7 +1380,7 @@ class ChatControllerTest {
                         null,
                         "123")));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(ragPipelineService);
     }
 
@@ -1403,7 +1403,7 @@ class ChatControllerTest {
                         "attachment",
                         null)));
 
-        assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(ex.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
         verifyNoInteractions(ragPipelineService);
     }
 

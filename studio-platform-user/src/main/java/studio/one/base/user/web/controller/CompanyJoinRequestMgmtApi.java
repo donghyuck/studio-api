@@ -1,6 +1,6 @@
 package studio.one.base.user.web.controller;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

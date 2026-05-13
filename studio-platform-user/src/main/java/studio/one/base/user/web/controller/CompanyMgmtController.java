@@ -1,10 +1,11 @@
 package studio.one.base.user.web.controller;
 
 import java.net.URI;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Optional;
 
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.env.Environment;
@@ -217,7 +218,7 @@ public class CompanyMgmtController {
                                     role.actions(),
                                     List.of(),
                                     role.override()))
-                            .toList(),
+                            .collect(Collectors.toList()),
                     actorUserId,
                     platformAdmin))));
         } catch (IllegalArgumentException ex) {
@@ -296,7 +297,7 @@ public class CompanyMgmtController {
                                 role.actions(),
                                 role.defaultActions(),
                                 role.override()))
-                        .toList());
+                        .collect(Collectors.toList()));
     }
 
     private Long actorUserId(UserDetails principal) {

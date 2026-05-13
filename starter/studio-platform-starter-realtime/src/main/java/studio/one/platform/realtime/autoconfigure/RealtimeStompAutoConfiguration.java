@@ -21,9 +21,10 @@
 
 package studio.one.platform.realtime.autoconfigure;
 
+import org.springframework.context.annotation.Configuration;
+
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -45,7 +46,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties(RealtimeStompProperties.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".realtime", name = "enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
