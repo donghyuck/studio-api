@@ -83,4 +83,48 @@ public class CompanyDto {
     public Map<String, String> properties() {
         return properties;
     }
+
+    public Long getCompanyId() {
+        return companyId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getDomainName() {
+        return domainName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public CompanyStatus getStatus() {
+        return status;
+    }
+
+    public Instant getArchivedAt() {
+        return archivedAt;
+    }
+
+    public Long getArchivedBy() {
+        return archivedBy;
+    }
+
+    public Instant getCreationDate() {
+        return creationDate;
+    }
+
+    public Instant getModifiedDate() {
+        return modifiedDate;
+    }
+
+    public Map<String, String> getProperties() {
+        return properties;
+    }
 }

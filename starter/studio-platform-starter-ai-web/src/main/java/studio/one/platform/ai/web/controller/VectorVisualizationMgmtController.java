@@ -127,7 +127,7 @@ public class VectorVisualizationMgmtController {
     public ResponseEntity<ApiResponse<VectorSearchVisualizationResponse>> searchVisualization(
             @Valid @RequestBody VectorSearchVisualizationRequest request) {
         if (searchVisualizationService == null) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Vector search visualization is not configured");
+            throw new StatusCodeResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Vector search visualization is not configured");
         }
         VectorSearchVisualizationResult result = searchVisualizationService.search(new VectorSearchVisualizationCommand(
                 request.projectionId(),
@@ -216,5 +216,15 @@ public class VectorVisualizationMgmtController {
                                 point.y(),
                                 point.similarity()))
                         .collect(java.util.stream.Collectors.toList()));
+    }
+    private static final class StatusCodeResponseStatusException extends ResponseStatusException {
+
+        private StatusCodeResponseStatusException(HttpStatus status, String reason) {
+            super(status, reason);
+        }
+
+        public HttpStatus getStatusCode() {
+            return getStatus();
+        }
     }
 }

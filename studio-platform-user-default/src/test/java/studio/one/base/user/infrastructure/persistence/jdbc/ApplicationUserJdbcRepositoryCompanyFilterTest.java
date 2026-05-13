@@ -1,9 +1,6 @@
 package studio.one.base.user.infrastructure.persistence.jdbc;
-
 import static org.assertj.core.api.Assertions.assertThat;
-
 import java.sql.SQLException;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
@@ -13,17 +10,13 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class ApplicationUserJdbcRepositoryCompanyFilterTest {
-
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
     private NamedParameterJdbcTemplate template;
     private DriverManagerDataSource dataSource;
     private ApplicationUserJdbcRepository repository;
-
     @BeforeEach
     void setUp() throws SQLException {
         dataSource = new DriverManagerDataSource(
@@ -34,41 +27,34 @@ class ApplicationUserJdbcRepositoryCompanyFilterTest {
         repository = new ApplicationUserJdbcRepository(template);
         recreateSchema();
     }
-
     @Test
     void findUsersByCompanyIdFiltersCompanyMembersAndAppliesAllowlistedSort() {
         var page = repository.findUsersByCompanyId(
                 10L,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "username")));
-
         assertThat(page.getContent())
                 .extracting(user -> user.getUsername())
                 .containsExactly("kim.viewer", "kim.owner");
     }
-
     @Test
     void searchByCompanyIdFiltersKeywordAndSortsByMappedColumn() {
         var page = repository.searchByCompanyId(
                 10L,
                 "owner",
                 PageRequest.of(0, 10, Sort.by("email")));
-
         assertThat(page.getContent())
                 .extracting(user -> user.getUsername())
                 .containsExactly("kim.owner");
     }
-
     @Test
     void findUsersByCompanyIdAllowsApplicationUserStateSorts() {
         var page = repository.findUsersByCompanyId(
                 10L,
                 PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "failedAttempts")));
-
         assertThat(page.getContent())
                 .extracting(user -> user.getUsername())
                 .containsExactly("kim.viewer", "kim.owner");
     }
-
     private void recreateSchema() throws SQLException {
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_USER_PROPERTY");
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY_MEMBERS");

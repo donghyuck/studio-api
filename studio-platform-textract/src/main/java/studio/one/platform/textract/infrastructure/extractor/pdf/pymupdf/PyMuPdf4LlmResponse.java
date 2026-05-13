@@ -6,6 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Value;
 import lombok.experimental.Accessors;
 
@@ -25,7 +29,19 @@ public class PyMuPdf4LlmResponse {
     Boolean ocrApplied;
 
 
-    public PyMuPdf4LlmResponse(String filename, String contentType, String markdown, List<Page> pages, List<Block> blocks, List<Table> tables, List<Image> images, Map<String, Object> metadata, List<Warning> warnings, Long elapsedMs, Boolean ocrApplied) {
+    @JsonCreator
+    public PyMuPdf4LlmResponse(
+            @JsonProperty("filename") String filename,
+            @JsonProperty("contentType") String contentType,
+            @JsonProperty("markdown") String markdown,
+            @JsonProperty("pages") List<Page> pages,
+            @JsonProperty("blocks") List<Block> blocks,
+            @JsonProperty("tables") List<Table> tables,
+            @JsonProperty("images") List<Image> images,
+            @JsonProperty("metadata") Map<String, Object> metadata,
+            @JsonProperty("warnings") List<Warning> warnings,
+            @JsonProperty("elapsedMs") Long elapsedMs,
+            @JsonProperty("ocrApplied") Boolean ocrApplied) {
         pages = copyList(pages);
         blocks = copyList(blocks);
         tables = copyList(tables);
@@ -77,7 +93,12 @@ public class PyMuPdf4LlmResponse {
         List<Block> blocks;
         Map<String, Object> metadata;
 
-        public Page(Integer pageNumber, String text, List<Block> blocks, Map<String, Object> metadata) {
+        @JsonCreator
+        public Page(
+                @JsonProperty("pageNumber") Integer pageNumber,
+                @JsonProperty("text") String text,
+                @JsonProperty("blocks") List<Block> blocks,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
             blocks = copyList(blocks);
             metadata = copyMap(metadata);
 
@@ -104,7 +125,16 @@ public class PyMuPdf4LlmResponse {
         List<Double> bbox;
         Map<String, Object> metadata;
 
-        public Block(String type, String text, Integer pageNumber, Integer order, Integer level, String sourceRef, List<Double> bbox, Map<String, Object> metadata) {
+        @JsonCreator
+        public Block(
+                @JsonProperty("type") String type,
+                @JsonProperty("text") String text,
+                @JsonProperty("pageNumber") Integer pageNumber,
+                @JsonProperty("order") Integer order,
+                @JsonProperty("level") Integer level,
+                @JsonProperty("sourceRef") String sourceRef,
+                @JsonProperty("bbox") List<Double> bbox,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
             bbox = copyList(bbox);
             metadata = copyMap(metadata);
 
@@ -139,7 +169,16 @@ public class PyMuPdf4LlmResponse {
         List<Double> bbox;
         Map<String, Object> metadata;
 
-        public Table(Integer pageNumber, String caption, List<String> headers, List<List<String>> rows, String markdown, String sourceRef, List<Double> bbox, Map<String, Object> metadata) {
+        @JsonCreator
+        public Table(
+                @JsonProperty("pageNumber") Integer pageNumber,
+                @JsonProperty("caption") String caption,
+                @JsonProperty("headers") List<String> headers,
+                @JsonProperty("rows") List<List<String>> rows,
+                @JsonProperty("markdown") String markdown,
+                @JsonProperty("sourceRef") String sourceRef,
+                @JsonProperty("bbox") List<Double> bbox,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
             headers = copyList(headers);
             rows = rows == null ? List.of() : rows.stream()
                     .map(PyMuPdf4LlmResponse::copyList)
@@ -182,7 +221,20 @@ public class PyMuPdf4LlmResponse {
         List<Double> bbox;
         Map<String, Object> metadata;
 
-        public Image(Integer pageNumber, String name, String mimeType, Integer width, Integer height, String sourceRef, String caption, String altText, String ocrText, Boolean ocrApplied, List<Double> bbox, Map<String, Object> metadata) {
+        @JsonCreator
+        public Image(
+                @JsonProperty("pageNumber") Integer pageNumber,
+                @JsonProperty("name") String name,
+                @JsonProperty("mimeType") String mimeType,
+                @JsonProperty("width") Integer width,
+                @JsonProperty("height") Integer height,
+                @JsonProperty("sourceRef") String sourceRef,
+                @JsonProperty("caption") String caption,
+                @JsonProperty("altText") String altText,
+                @JsonProperty("ocrText") String ocrText,
+                @JsonProperty("ocrApplied") Boolean ocrApplied,
+                @JsonProperty("bbox") List<Double> bbox,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
             bbox = copyList(bbox);
             metadata = copyMap(metadata);
 
@@ -221,7 +273,12 @@ public class PyMuPdf4LlmResponse {
         String sourceRef;
         Map<String, Object> metadata;
 
-        public Warning(String code, String message, String sourceRef, Map<String, Object> metadata) {
+        @JsonCreator
+        public Warning(
+                @JsonProperty("code") String code,
+                @JsonProperty("message") String message,
+                @JsonProperty("sourceRef") String sourceRef,
+                @JsonProperty("metadata") Map<String, Object> metadata) {
             metadata = copyMap(metadata);
 
             this.code = code;

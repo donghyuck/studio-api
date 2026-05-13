@@ -1,7 +1,5 @@
 package studio.one.platform.ai.adapters.vector;
-
 import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
@@ -22,17 +20,13 @@ import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
-
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class PgVectorStoreAdapterV2PostgresTest {
-
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
             DockerImageName.parse("pgvector/pgvector:pg16").asCompatibleSubstituteFor("postgres"));
-
     private PgVectorStoreAdapterV2 adapter;
     private JdbcTemplate jdbcTemplate;
-
     @BeforeEach
     void setUp() throws Exception {
         DataSource dataSource = new DriverManagerDataSource(
@@ -61,19 +55,16 @@ class PgVectorStoreAdapterV2PostgresTest {
                 document("chunk-2", "forums-post-attachment", "7", 0, "spring api", List.of(0.2, 0.3),
                         Map.of("topic", "api", "embeddingInputType", "TABLE_TEXT"))));
     }
-
     @Test
     void searchByObjectAllowsObjectTypeOnlyScopeWithNullObjectId() {
         List<VectorSearchResult> results = adapter.searchByObject(
                 "attachment",
                 null,
                 new VectorSearchRequest(List.of(0.1, 0.2), 10));
-
         assertThat(results).singleElement()
                 .extracting(result -> result.document().id())
                 .isEqualTo("chunk-1");
     }
-
     @Test
     void hybridSearchByObjectAllowsObjectTypeOnlyScopeWithNullObjectId() {
         List<VectorSearchResult> results = adapter.hybridSearchByObject(
@@ -83,41 +74,33 @@ class PgVectorStoreAdapterV2PostgresTest {
                 new VectorSearchRequest(List.of(0.1, 0.2), 10),
                 0.7,
                 0.3);
-
         assertThat(results).singleElement()
                 .extracting(result -> result.document().id())
                 .isEqualTo("chunk-1");
     }
-
     @Test
     void searchAppliesMetadataEqualsAndInCriteriaThroughMyBatis() {
         MetadataFilter filter = MetadataFilter.of(
                 Map.of("topic", "backend"),
                 Map.of("embeddingInputType", List.of("TEXT")),
                 Map.of());
-
         List<VectorSearchResult> results = adapter.search(new VectorSearchRequest(List.of(0.1, 0.2), 10, filter));
-
         assertThat(results).singleElement()
                 .extracting(result -> result.document().id())
                 .isEqualTo("chunk-1");
     }
-
     @Test
     @SuppressWarnings("deprecation")
     void legacyJdbcConstructorUsesDirectJdbcFallbackMapper() {
         PgVectorStoreAdapterV2 jdbcAdapter = new PgVectorStoreAdapterV2(jdbcTemplate);
-
         List<VectorSearchResult> results = jdbcAdapter.searchByObject(
                 "attachment",
                 null,
                 new VectorSearchRequest(List.of(0.1, 0.2), 10));
-
         assertThat(results).singleElement()
                 .extracting(result -> result.document().id())
                 .isEqualTo("chunk-1");
     }
-
     private static PgVectorMapper mapper(DataSource dataSource) throws Exception {
         SqlSessionFactoryBean factoryBean = new SqlSessionFactoryBean();
         factoryBean.setDataSource(dataSource);
@@ -126,7 +109,6 @@ class PgVectorStoreAdapterV2PostgresTest {
         SqlSessionFactory factory = factoryBean.getObject();
         return new SqlSessionTemplate(factory).getMapper(PgVectorMapper.class);
     }
-
     private static VectorDocument document(
             String id,
             String objectType,

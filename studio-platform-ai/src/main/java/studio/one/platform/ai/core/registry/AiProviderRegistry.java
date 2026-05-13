@@ -11,7 +11,7 @@ import java.util.Map;
 /**
  * Holds the available chat/embedding ports for each configured provider.
  */
-public final class AiProviderRegistry {
+public class AiProviderRegistry {
 
     private final Map<String, ChatPort> chatPorts;
     private final Map<String, EmbeddingPort> embeddingPorts;

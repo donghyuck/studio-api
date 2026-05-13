@@ -7,10 +7,13 @@ import javax.validation.constraints.Positive;
 import studio.one.base.user.domain.model.company.CompanyRole;
 
 public class CompanyMemberKeyCreateRequest {
-    private final CompanyRole role;
+    private CompanyRole role;
     @Future
-        private final Instant expiresAt;
-    @Positive private final Integer maxUses;
+        private Instant expiresAt;
+    @Positive private Integer maxUses;
+
+    public CompanyMemberKeyCreateRequest() {
+    }
 
     public CompanyMemberKeyCreateRequest(CompanyRole role, @Future
         Instant expiresAt, @Positive Integer maxUses) {
@@ -29,5 +32,29 @@ public class CompanyMemberKeyCreateRequest {
 
     public Integer maxUses() {
         return maxUses;
+    }
+
+    public CompanyRole getRole() {
+        return role;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public Integer getMaxUses() {
+        return maxUses;
+    }
+
+    public void setRole(CompanyRole role) {
+        this.role = role;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    public void setMaxUses(Integer maxUses) {
+        this.maxUses = maxUses;
     }
 }

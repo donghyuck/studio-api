@@ -82,7 +82,7 @@ class LangChainChatAdapterTest {
     }
 
     @Test
-    void shouldReturnExplicitErrorWhenStreamingIsUnsupported() {
+    void shouldFallbackToBlockingChatWhenStreamingIsUnsupported() {
         LangChainChatAdapter adapter = new LangChainChatAdapter(
                 messages -> Response.from(AiMessage.from("answer")),
                 "GOOGLE_AI_GEMINI",
@@ -93,9 +93,10 @@ class LangChainChatAdapterTest {
 
         List<ChatStreamEvent> events = adapter.stream(request).collect(Collectors.toList());
 
-        assertThat(events).hasSize(1);
-        assertThat(events.get(0).type()).isEqualTo(ChatStreamEventType.ERROR);
-        assertThat(events.get(0).errorMessage()).contains("streaming is not supported");
+        assertThat(events).extracting(ChatStreamEvent::type)
+                .containsExactly(ChatStreamEventType.DELTA, ChatStreamEventType.USAGE, ChatStreamEventType.COMPLETE);
+        assertThat(events.get(0).delta()).isEqualTo("answer");
+        assertThat(events.get(2).model()).isEqualTo("gemini-1.5-flash");
     }
 
     @Test

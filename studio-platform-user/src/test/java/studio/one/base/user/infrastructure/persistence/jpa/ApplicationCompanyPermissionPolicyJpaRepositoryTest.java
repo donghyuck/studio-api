@@ -1,7 +1,5 @@
 package studio.one.base.user.infrastructure.persistence.jpa;
-
 import static org.assertj.core.api.Assertions.assertThat;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -14,7 +12,6 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
 import studio.one.base.user.domain.model.company.CompanyRole;
 import studio.one.base.user.domain.model.company.CompanyStatus;
 import studio.one.base.user.domain.model.company.CompanyPermissionActions;
@@ -22,21 +19,16 @@ import studio.one.base.user.domain.model.ApplicationCompany;
 import studio.one.base.user.domain.model.ApplicationCompanyPermissionPolicy;
 import studio.one.base.user.domain.model.ApplicationCompanyPermissionPolicyId;
 import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
-
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class ApplicationCompanyPermissionPolicyJpaRepositoryTest {
-
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
     @Autowired
     TestEntityManager em;
-
     @Autowired
     ApplicationCompanyPermissionPolicyJpaRepository repository;
-
     @Test
     void storesListsAndDeletesPoliciesByCompany() {
         ApplicationCompany company = company();
@@ -47,18 +39,13 @@ class ApplicationCompanyPermissionPolicyJpaRepositoryTest {
         policyRepository.save(policy(company, CompanyRole.OWNER, CompanyPermissionActions.ARCHIVE, true));
         em.flush();
         em.clear();
-
         var policies = repository.findAllByCompanyId(company.getCompanyId());
-
         assertThat(policies).hasSize(3);
         assertThat(policies).extracting(policy -> policy.getId().getRole()).contains(CompanyRole.ADMIN, CompanyRole.OWNER);
-
         repository.deleteAllByCompanyId(company.getCompanyId());
         em.flush();
-
         assertThat(repository.findAllByCompanyId(company.getCompanyId())).isEmpty();
     }
-
     private ApplicationCompany company() {
         ApplicationCompany company = new ApplicationCompany();
         company.setName("policy-jpa");
@@ -66,7 +53,6 @@ class ApplicationCompanyPermissionPolicyJpaRepositoryTest {
         company.setStatus(CompanyStatus.ACTIVE);
         return company;
     }
-
     private ApplicationCompanyPermissionPolicy policy(
             ApplicationCompany company,
             CompanyRole role,
@@ -79,7 +65,6 @@ class ApplicationCompanyPermissionPolicyJpaRepositoryTest {
         policy.setUpdatedBy(99L);
         return policy;
     }
-
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EntityScan(basePackageClasses = ApplicationCompany.class)

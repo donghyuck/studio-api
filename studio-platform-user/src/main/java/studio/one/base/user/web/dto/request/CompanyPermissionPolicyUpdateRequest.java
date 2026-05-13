@@ -8,7 +8,10 @@ import javax.validation.constraints.NotNull;
 public class CompanyPermissionPolicyUpdateRequest {
     @NotNull
         @Valid
-        private final List<CompanyPermissionRolePolicyRequest> roles;
+        private List<CompanyPermissionRolePolicyRequest> roles;
+
+    public CompanyPermissionPolicyUpdateRequest() {
+    }
 
     public CompanyPermissionPolicyUpdateRequest(@NotNull
         @Valid
@@ -18,5 +21,13 @@ public class CompanyPermissionPolicyUpdateRequest {
 
     public List<CompanyPermissionRolePolicyRequest> roles() {
         return roles;
+    }
+
+    public List<CompanyPermissionRolePolicyRequest> getRoles() {
+        return roles;
+    }
+
+    public void setRoles(List<CompanyPermissionRolePolicyRequest> roles) {
+        this.roles = roles;
     }
 }

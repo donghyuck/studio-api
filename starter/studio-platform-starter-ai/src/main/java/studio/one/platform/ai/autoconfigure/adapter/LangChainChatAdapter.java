@@ -122,9 +122,7 @@ public class LangChainChatAdapter implements ChatPort {
     @Override
     public Stream<ChatStreamEvent> stream(ChatRequest request) {
         if (streamingChatModelFactory == null) {
-            return Stream.of(ChatStreamEvent.error(
-                    provider + " chat streaming is not supported by the configured LangChain4j provider artifact",
-                    ChatResponseMetadata.empty()));
+            return ChatPort.super.stream(request);
         }
 
         List<dev.langchain4j.data.message.ChatMessage> messages = toLangChainMessages(request);

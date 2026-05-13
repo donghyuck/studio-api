@@ -8,11 +8,14 @@ import studio.one.base.user.domain.model.company.CompanyRole;
 
 public class CompanyPermissionRolePolicyRequest {
     @NotNull
-        private final CompanyRole role;
+        private CompanyRole role;
     @NotNull
-        private final List<@NotBlank String> actions;
+        private List<@NotBlank String> actions;
     @NotNull
-        private final Boolean override;
+        private Boolean override;
+
+    public CompanyPermissionRolePolicyRequest() {
+    }
 
     public CompanyPermissionRolePolicyRequest(@NotNull
         CompanyRole role, @NotNull
@@ -33,5 +36,29 @@ public class CompanyPermissionRolePolicyRequest {
 
     public Boolean override() {
         return override;
+    }
+
+    public CompanyRole getRole() {
+        return role;
+    }
+
+    public List<String> getActions() {
+        return actions;
+    }
+
+    public Boolean getOverride() {
+        return override;
+    }
+
+    public void setRole(CompanyRole role) {
+        this.role = role;
+    }
+
+    public void setActions(List<String> actions) {
+        this.actions = actions;
+    }
+
+    public void setOverride(Boolean override) {
+        this.override = override;
     }
 }

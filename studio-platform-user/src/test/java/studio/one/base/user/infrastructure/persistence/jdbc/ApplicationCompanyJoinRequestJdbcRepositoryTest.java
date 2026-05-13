@@ -1,10 +1,7 @@
 package studio.one.base.user.infrastructure.persistence.jdbc;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import java.time.Instant;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,7 +11,6 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
 import studio.one.base.user.domain.model.company.CompanyJoinRequestStatus;
 import studio.one.base.user.domain.model.company.CompanyMemberKeyStatus;
 import studio.one.base.user.domain.model.company.CompanyMemberStatus;
@@ -23,18 +19,14 @@ import studio.one.base.user.domain.model.ApplicationCompanyJoinRequest;
 import studio.one.base.user.domain.model.ApplicationCompanyMember;
 import studio.one.base.user.domain.model.ApplicationCompanyMemberId;
 import studio.one.base.user.domain.model.ApplicationCompanyMemberKey;
-
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class ApplicationCompanyJoinRequestJdbcRepositoryTest {
-
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
     private NamedParameterJdbcTemplate template;
     private ApplicationCompanyMemberKeyJdbcRepository keyRepository;
     private ApplicationCompanyJoinRequestJdbcRepository requestRepository;
     private ApplicationCompanyMemberJdbcRepository memberRepository;
-
     @BeforeEach
     void setUp() {
         DriverManagerDataSource dataSource = new DriverManagerDataSource(
@@ -47,24 +39,19 @@ class ApplicationCompanyJoinRequestJdbcRepositoryTest {
         memberRepository = new ApplicationCompanyMemberJdbcRepository(template);
         recreateSchema();
     }
-
     @Test
     void storesLocksUpdatesAndQueriesMemberKeysAndJoinRequests() {
         ApplicationCompanyMemberKey key = key("b".repeat(64), 2);
-
         ApplicationCompanyMemberKey savedKey = keyRepository.save(key);
         savedKey = keyRepository.findByKeyHash("b".repeat(64)).orElseThrow();
         savedKey.setUsedCount(1);
         keyRepository.save(savedKey);
-
         assertThat(savedKey.getKeyId()).isPositive();
         assertThat(keyRepository.findByKeyHash("b".repeat(64))).isPresent();
         assertThat(keyRepository.findForUpdateByKeyHash("b".repeat(64))).isPresent();
         assertThat(keyRepository.findForUpdateById(savedKey.getKeyId()).orElseThrow().getUsedCount()).isEqualTo(1);
-
         ApplicationCompanyJoinRequest savedRequest = requestRepository.save(request(savedKey.getKeyId(), 7L, "joiner@example.com"));
         Long keyId = savedKey.getKeyId();
-
         assertThat(savedRequest.getRequestId()).isPositive();
         assertThat(requestRepository.findAllByCompanyId(10L, null, PageRequest.of(0, 10)).getContent()).hasSize(1);
         assertThat(requestRepository.findAllByCompanyId(10L, CompanyJoinRequestStatus.PENDING, PageRequest.of(0, 10)).getContent()).hasSize(1);
@@ -72,33 +59,26 @@ class ApplicationCompanyJoinRequestJdbcRepositoryTest {
         assertThat(requestRepository.existsPendingByKeyIdAndUserId(savedKey.getKeyId(), 7L)).isTrue();
         assertThat(requestRepository.existsPendingByCompanyIdAndUserId(10L, 7L)).isTrue();
         assertThat(requestRepository.countPendingByKeyId(savedKey.getKeyId())).isEqualTo(1);
-
         requestRepository.save(request(savedKey.getKeyId(), null, "deleted-user@example.com"));
         assertThat(requestRepository.countPendingByKeyId(savedKey.getKeyId())).isEqualTo(1);
-
         assertThatThrownBy(() -> requestRepository.save(request(keyId, 7L, "other@example.com")))
                 .isInstanceOf(DataIntegrityViolationException.class);
-
         savedRequest.setStatus(CompanyJoinRequestStatus.APPROVED);
         savedRequest.setDecidedAt(Instant.now());
         savedRequest.setDecidedBy(99L);
         requestRepository.save(savedRequest);
-
         assertThat(requestRepository.existsPendingByCompanyIdAndUserId(10L, 7L)).isFalse();
         assertThat(requestRepository.countPendingByKeyId(savedKey.getKeyId())).isZero();
     }
-
     @Test
     void countsCompanyMembersByRole() {
         memberRepository.save(member(1L, CompanyRole.OWNER));
         memberRepository.save(member(2L, CompanyRole.OWNER));
         memberRepository.save(member(3L, CompanyRole.ADMIN));
-
         assertThat(memberRepository.countByCompanyIdAndRole(10L, CompanyRole.OWNER)).isEqualTo(2);
         assertThat(memberRepository.countByCompanyIdAndRole(10L, CompanyRole.ADMIN)).isEqualTo(1);
         assertThat(memberRepository.countByCompanyIdAndRole(10L, CompanyRole.MEMBER)).isZero();
     }
-
     private ApplicationCompanyMemberKey key(String hash, Integer maxUses) {
         ApplicationCompanyMemberKey key = new ApplicationCompanyMemberKey();
         key.setCompanyId(10L);
@@ -111,7 +91,6 @@ class ApplicationCompanyJoinRequestJdbcRepositoryTest {
         key.setUpdatedBy(99L);
         return key;
     }
-
     private ApplicationCompanyJoinRequest request(Long keyId, Long userId, String email) {
         ApplicationCompanyJoinRequest request = new ApplicationCompanyJoinRequest();
         request.setCompanyId(10L);
@@ -125,7 +104,6 @@ class ApplicationCompanyJoinRequestJdbcRepositoryTest {
         request.setRequestedBy(userId);
         return request;
     }
-
     private ApplicationCompanyMember member(Long userId, CompanyRole role) {
         ApplicationCompanyMember member = new ApplicationCompanyMember();
         member.setId(new ApplicationCompanyMemberId(10L, userId));
@@ -135,7 +113,6 @@ class ApplicationCompanyJoinRequestJdbcRepositoryTest {
         member.setUpdatedBy(99L);
         return member;
     }
-
     private void recreateSchema() {
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY_JOIN_REQUEST");
         template.getJdbcTemplate().execute("drop table if exists TB_APPLICATION_COMPANY_MEMBER_KEY");

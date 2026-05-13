@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -214,6 +215,23 @@ public class ThumbnailServiceImpl implements ThumbnailService {
         private static AttachmentIdentity from(Attachment attachment) {
             return new AttachmentIdentity(attachment.getObjectType(), attachment.getAttachmentId());
         }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof AttachmentIdentity)) {
+                return false;
+            }
+            AttachmentIdentity that = (AttachmentIdentity) o;
+            return objectType == that.objectType && attachmentId == that.attachmentId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(objectType, attachmentId);
+        }
     }
 
     private static final class ThumbnailSourceKey {
@@ -238,6 +256,25 @@ public class ThumbnailServiceImpl implements ThumbnailService {
                     attachment.getObjectType(),
                     attachment.getAttachmentId(),
                     format == null ? "" : format.toLowerCase(java.util.Locale.ROOT));
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof ThumbnailSourceKey)) {
+                return false;
+            }
+            ThumbnailSourceKey that = (ThumbnailSourceKey) o;
+            return objectType == that.objectType
+                    && attachmentId == that.attachmentId
+                    && Objects.equals(format, that.format);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(objectType, attachmentId, format);
         }
     }
 

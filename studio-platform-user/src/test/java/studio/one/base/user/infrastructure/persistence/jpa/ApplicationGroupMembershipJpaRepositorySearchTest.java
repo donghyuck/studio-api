@@ -1,10 +1,7 @@
 package studio.one.base.user.infrastructure.persistence.jpa;
-
 import static org.assertj.core.api.Assertions.assertThat;
-
 import java.util.stream.Collectors;
 import java.util.List;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringBootConfiguration;
@@ -19,26 +16,20 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
-
 import studio.one.base.user.domain.model.ApplicationGroup;
 import studio.one.base.user.domain.model.ApplicationGroupMemberSummary;
 import studio.one.base.user.domain.model.ApplicationGroupMembership;
 import studio.one.base.user.domain.model.ApplicationUser;
-
 @DataJpaTest(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class ApplicationGroupMembershipJpaRepositorySearchTest {
-
     @Container
     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
-
     @Autowired
     TestEntityManager em;
-
     @Autowired
     ApplicationGroupMembershipJpaRepository repo;
-
     @Test
     void findMemberSummariesByGroupIdWithNullKeywordReturnsAllMembers() {
         ApplicationGroup group = group("summary-null");
@@ -46,14 +37,11 @@ class ApplicationGroupMembershipJpaRepositorySearchTest {
         ApplicationUser bob = user("bob-null", "Bob Lee", "bob.null@example.com");
         member(group, alice);
         member(group, bob);
-
         Page<ApplicationGroupMemberSummary> result = repo.findMemberSummariesByGroupId(
                 group.getGroupId(), null, PageRequest.of(0, 10));
-
         assertThat(result.getContent()).extracting(ApplicationGroupMemberSummary::getUsername)
                 .containsExactlyInAnyOrder("alice-null", "bob-null");
     }
-
     @Test
     void findMemberSummariesByGroupIdWithBlankKeywordReturnsAllMembers() {
         ApplicationGroup group = group("summary-blank");
@@ -61,14 +49,11 @@ class ApplicationGroupMembershipJpaRepositorySearchTest {
         ApplicationUser bob = user("bob-blank", "Bob Blank", "bob.blank@example.com");
         member(group, alice);
         member(group, bob);
-
         Page<ApplicationGroupMemberSummary> result = repo.findMemberSummariesByGroupId(
                 group.getGroupId(), "   ", PageRequest.of(0, 10));
-
         assertThat(result.getContent()).extracting(ApplicationGroupMemberSummary::getUsername)
                 .containsExactlyInAnyOrder("alice-blank", "bob-blank");
     }
-
     @Test
     void findMemberSummariesByGroupIdMatchesUsernameNameAndEmail() {
         ApplicationGroup group = group("summary-match");
@@ -80,14 +65,12 @@ class ApplicationGroupMembershipJpaRepositorySearchTest {
         member(group, nameMatch);
         member(group, emailMatch);
         member(group, other);
-
         List<String> usernameResults = usernames(
                 repo.findMemberSummariesByGroupId(group.getGroupId(), "ENGINEER", PageRequest.of(0, 10)));
         List<String> nameResults = usernames(
                 repo.findMemberSummariesByGroupId(group.getGroupId(), "platform", PageRequest.of(0, 10)));
         List<String> emailResults = usernames(
                 repo.findMemberSummariesByGroupId(group.getGroupId(), "OWNER@", PageRequest.of(0, 10)));
-
         assertThat(usernameResults)
                 .containsExactly("engineer-kim");
         assertThat(nameResults)
@@ -95,20 +78,17 @@ class ApplicationGroupMembershipJpaRepositorySearchTest {
         assertThat(emailResults)
                 .containsExactly("email-user");
     }
-
     private java.util.List<String> usernames(Page<ApplicationGroupMemberSummary> page) {
         return page.getContent().stream()
                 .map(ApplicationGroupMemberSummary::getUsername)
                 .collect(Collectors.toList());
     }
-
     private ApplicationGroup group(String name) {
         return em.persistAndFlush(ApplicationGroup.builder()
                 .name(name)
                 .description(name)
                 .build());
     }
-
     private ApplicationUser user(String username, String name, String email) {
         ApplicationUser user = new ApplicationUser();
         user.setUsername(username);
@@ -122,11 +102,9 @@ class ApplicationGroupMembershipJpaRepositorySearchTest {
         user.setFailedAttempts(0);
         return em.persistAndFlush(user);
     }
-
     private void member(ApplicationGroup group, ApplicationUser user) {
         em.persistAndFlush(ApplicationGroupMembership.of(group, user.getUserId(), "test"));
     }
-
     @SpringBootConfiguration
     @EnableAutoConfiguration
     @EntityScan(basePackageClasses = {

@@ -39,10 +39,7 @@ public class WikiAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean({
-            WikiPageJpaRepository.class,
-            WikiPageRevisionJpaRepository.class,
-            WorkspacePermissionService.class })
+    @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".wiki", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @ConditionalOnMissingBean
     WikiPageService wikiPageService(
             WikiPageJpaRepository pageRepository,
@@ -70,7 +67,6 @@ public class WikiAutoConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
-    @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnProperty(prefix = PropertyKeys.Features.PREFIX + ".wiki", name = "persistence", havingValue = "jpa", matchIfMissing = true)
     @EnableJpaRepositories(basePackageClasses = {
             WikiPageJpaRepository.class,

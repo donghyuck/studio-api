@@ -1,5 +1,7 @@
 package studio.one.platform.workspace.application.command;
 
+import java.util.Objects;
+
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
 
 public class WorkspaceMemberListQuery {
@@ -35,4 +37,22 @@ public static WorkspaceMemberListQuery all() {
         return normalizedKeyword() != null;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof WorkspaceMemberListQuery)) {
+            return false;
+        }
+        WorkspaceMemberListQuery that = (WorkspaceMemberListQuery) o;
+        return Objects.equals(keyword, that.keyword)
+                && role == that.role
+                && Objects.equals(inherited, that.inherited);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(keyword, role, inherited);
+    }
 }

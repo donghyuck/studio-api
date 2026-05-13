@@ -228,7 +228,7 @@ public class QueryRewriteController {
         if (value == null) {
             return fallback;
         }
-        String normalized = value.trim().replaceAll("\\s+", " ");
+        String normalized = value.replace("\\n", "\n").trim().replaceAll("\\s+", " ");
         return normalized.isBlank() ? fallback : normalized;
     }
 }
