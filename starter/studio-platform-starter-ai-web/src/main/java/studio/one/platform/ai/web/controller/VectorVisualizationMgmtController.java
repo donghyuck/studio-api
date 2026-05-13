@@ -93,7 +93,7 @@ public class VectorVisualizationMgmtController {
     }
 
     @GetMapping("/projections/{projectionId}/points")
-    @PreAuthorize("@endpointAuthz.can('services:ai_vector','admin')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
     public ResponseEntity<ApiResponse<ProjectionPointsResponse>> points(
             @PathVariable String projectionId,
             @RequestParam(required = false) String targetType,

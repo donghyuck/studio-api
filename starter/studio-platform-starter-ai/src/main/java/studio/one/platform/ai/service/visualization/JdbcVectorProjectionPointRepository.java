@@ -81,13 +81,14 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
         "SELECT COUNT(*)",
         "  FROM tb_ai_vector_projection_point p",
         "  JOIN tb_ai_document_chunk c",
-        "    ON p.vector_item_id = ") + pointJoinExpression() + "WHERE p.projection_id = :projectionId" + where, params, Long.class);
+        "    ON p.vector_item_id = ") + pointJoinExpression() + " WHERE p.projection_id = :projectionId" + where, params, Long.class);
         List<ProjectionPointView> items = jdbcTemplate.query(String.join("\n",
         "SELECT p.vector_item_id, c.object_type, c.object_id, c.text, c.metadata,",
         "       p.x, p.y, p.cluster_id",
         "  FROM tb_ai_vector_projection_point p",
         "  JOIN tb_ai_document_chunk c",
-        "    ON p.vector_item_id = ") + pointJoinExpression() + "WHERE p.projection_id = :projectionId" + where + "" + JdbcVectorProjectionSql.orderByDisplayOrderClause(postgres) + "LIMIT :limit OFFSET :offset", params, rowMapper);
+        "    ON p.vector_item_id = ") + pointJoinExpression() + " WHERE p.projection_id = :projectionId" + where
+                + JdbcVectorProjectionSql.orderByDisplayOrderClause(postgres) + " LIMIT :limit OFFSET :offset", params, rowMapper);
         return new ProjectionPointPage(total == null ? 0L : total, items);
     }
 
