@@ -23,6 +23,7 @@ package studio.one.platform.security.autoconfigure;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,8 +49,11 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder;
 import org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -233,6 +237,18 @@ public class SecurityAutoConfiguration {
 
         protected static final String FEATURE_NAME = "Security";
 
+        @Bean(name = "studioAuthenticationPrincipalWebMvcConfigurer")
+        @ConditionalOnClass(AuthenticationPrincipalArgumentResolver.class)
+        @ConditionalOnMissingBean(name = "studioAuthenticationPrincipalWebMvcConfigurer")
+        WebMvcConfigurer authenticationPrincipalWebMvcConfigurer() {
+                return new WebMvcConfigurer() {
+                        @Override
+                        public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+                                resolvers.add(new AuthenticationPrincipalArgumentResolver());
+                        }
+                };
+        }
+
         /**
          * PasswordEncoder 빈을 정의합니다.
          * <ul>
@@ -350,6 +366,7 @@ public class SecurityAutoConfiguration {
                                         cors.getMaxAge() != null ? cors.getMaxAge() : "-"));
                 }
                 config.setAllowedOrigins(cors.getAllowedOrigins());
+                config.setAllowedOriginPatterns(cors.getAllowedOriginPatterns());
                 config.setAllowedMethods(cors.getAllowedMethods());
                 config.setAllowedHeaders(cors.getAllowedHeaders());
                 config.setExposedHeaders(cors.getExposedHeaders());

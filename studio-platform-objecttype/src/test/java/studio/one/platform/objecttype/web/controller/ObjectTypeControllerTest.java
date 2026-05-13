@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
 
 import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeKeyRuntimeService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.objecttype.application.result.ObjectTypeView;
@@ -28,7 +29,7 @@ class ObjectTypeControllerTest {
     @Test
     void definitionMapsServiceViewToWebDto() {
         ObjectTypeRuntimeService runtimeService = mock(ObjectTypeRuntimeService.class);
-        ObjectTypeController controller = new ObjectTypeController(runtimeService);
+        ObjectTypeController controller = new ObjectTypeController(runtimeService, mock(ObjectTypeAdminService.class));
         OffsetDateTime createdAt = OffsetDateTime.parse("2026-03-30T01:02:03Z");
         OffsetDateTime updatedAt = OffsetDateTime.parse("2026-03-30T04:05:06Z");
 
@@ -50,7 +51,7 @@ class ObjectTypeControllerTest {
     @Test
     void validateUploadMapsCommandAndResponse() {
         ObjectTypeRuntimeService runtimeService = mock(ObjectTypeRuntimeService.class);
-        ObjectTypeController controller = new ObjectTypeController(runtimeService);
+        ObjectTypeController controller = new ObjectTypeController(runtimeService, mock(ObjectTypeAdminService.class));
         ValidateUploadRequest request = new ValidateUploadRequest("photo.png", "image/png", 1024L);
 
         when(runtimeService.validateUpload(eq(1200), eq(new ValidateUploadCommand("photo.png", "image/png", 1024L))))

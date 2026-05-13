@@ -110,14 +110,14 @@ public interface ApplicationUserRoleJpaRepository extends JpaRepository<Applicat
     List<Long> findUserIdsByRoleId(@Param("roleId") Long roleId);
 
     @Override
-    @Query("select u.userId from ApplicationUser u join ApplicationUserRole ur on ur.id.userId = u.userId where ur.id.roleId = :roleId and ( :q is null or lower(u.username) like lower(concat('%', CAST(:q AS String), '%')) or lower(u.name) like lower(concat('%', CAST(:q AS String), '%')) or lower(u.email) like lower(concat('%', CAST(:q AS String), '%')) )")
+    @Query("select u.userId from ApplicationUser u join ApplicationUserRole ur on ur.id.userId = u.userId where ur.id.roleId = :roleId and ( :q is null or lower(u.username) like lower(concat('%', :q, '%')) or lower(u.name) like lower(concat('%', :q, '%')) or lower(u.email) like lower(concat('%', :q, '%')) )")
     Page<Long> findUserIdsByRoleId(
             @Param("roleId") Long roleId,
             @Param("q") String q,
             Pageable pageable);
 
     @Override
-    @Query("select u.userId from ApplicationUser u join ApplicationGroupMembership gm on gm.id.userId = u.userId join ApplicationGroupRole gr       on gr.group = gm.group where gr.role.roleId = :roleId and ( :q is null or lower(u.username) like CAST(:q AS String) or lower(u.name)     like CAST(:q AS String) or lower(u.email)    like CAST(:q AS String) ) group by u.userId")
+    @Query("select u.userId from ApplicationUser u join ApplicationGroupMembership gm on gm.id.userId = u.userId join ApplicationGroupRole gr       on gr.group = gm.group where gr.role.roleId = :roleId and ( :q is null or lower(u.username) like lower(concat('%', :q, '%')) or lower(u.name)     like lower(concat('%', :q, '%')) or lower(u.email)    like lower(concat('%', :q, '%')) ) group by u.userId")
     Page<Long> findUserIdsByRoleIdViaGroup(@Param("roleId") Long roleId,
             @Param("q") String q,
             Pageable pageable);

@@ -20,7 +20,15 @@ public final class UserDto {
         return userId;
     }
 
+    public Long getUserId() {
+        return userId;
+    }
+
     public String username() {
+        return username;
+    }
+
+    public String getUsername() {
         return username;
     }
 

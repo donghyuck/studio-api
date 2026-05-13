@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -64,6 +65,8 @@ import studio.one.application.attachment.infrastructure.persistence.jpa.Attachme
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentDownloadAuditLogJpaRepository;
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentDownloadUrlIssueAuditLogJpaRepository;
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentJpaRepository;
+import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogQuery;
+import studio.one.application.attachment.application.command.AttachmentDownloadUrlIssueAuditLogQuery;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.application.service.AttachmentDownloadAuditLogServiceImpl;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
@@ -260,7 +263,6 @@ public class AttachmentAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(AttachmentDownloadUrlIssueAuditLogRepository.class)
     @ConditionalOnMissingBean(AttachmentDownloadUrlService.class)
     AttachmentDownloadUrlService attachmentDownloadUrlService(
             AttachmentProperties attachmentProperties,
@@ -274,7 +276,6 @@ public class AttachmentAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean(AttachmentDownloadUrlIssueAuditLogRepository.class)
     @ConditionalOnMissingBean(AttachmentDownloadUrlIssueAuditLogQueryService.class)
     AttachmentDownloadUrlIssueAuditLogQueryService attachmentDownloadUrlIssueAuditLogQueryService(
             AttachmentDownloadUrlIssueAuditLogRepository auditLogRepository) {
@@ -282,9 +283,6 @@ public class AttachmentAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean({
-            AttachmentDownloadAuditLogRepository.class,
-            AttachmentDownloadUrlIssueAuditLogRepository.class })
     @ConditionalOnMissingBean(AttachmentDownloadAuditLogService.class)
     AttachmentDownloadAuditLogService attachmentDownloadAuditLogService(
             AttachmentDownloadAuditLogRepository downloadLogRepository,
@@ -519,7 +517,6 @@ public class AttachmentAutoConfiguration {
 
     @Configuration(proxyBeanMethods = false)
     @AutoConfigureAfter(EntityScanConfig.class)
-    @ConditionalOnBean(EntityManagerFactory.class)
     @ConditionalOnAttachmentPersistence(PersistenceProperties.Type.jpa)
     @EnableJpaRepositories(basePackageClasses = {
             AttachmentJpaRepository.class,
@@ -554,6 +551,69 @@ public class AttachmentAutoConfiguration {
         AttachmentDownloadAuditLogRepository attachmentDownloadAuditLogRepository(
                 @Qualifier(ServiceNames.NAMED_JDBC_TEMPLATE) NamedParameterJdbcTemplate template) {
             return new JdbcAttachmentDownloadAuditLogRepository(template);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(
+                value = AttachmentDownloadUrlIssueAuditLogRepository.class,
+                name = ServiceNames.NAMED_JDBC_TEMPLATE)
+        AttachmentDownloadUrlIssueAuditLogRepository noopAttachmentDownloadUrlIssueAuditLogRepository() {
+            return new NoopAttachmentDownloadUrlIssueAuditLogRepository();
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(
+                value = AttachmentDownloadAuditLogRepository.class,
+                name = ServiceNames.NAMED_JDBC_TEMPLATE)
+        AttachmentDownloadAuditLogRepository noopAttachmentDownloadAuditLogRepository() {
+            return new NoopAttachmentDownloadAuditLogRepository();
+        }
+    }
+
+    private static final class NoopAttachmentDownloadUrlIssueAuditLogRepository
+            implements AttachmentDownloadUrlIssueAuditLogRepository {
+
+        @Override
+        public studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog save(
+                studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog log) {
+            return log;
+        }
+
+        @Override
+        public Optional<studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog> findByTokenHash(
+                String tokenHash) {
+            return Optional.empty();
+        }
+
+        @Override
+        public org.springframework.data.domain.Page<studio.one.application.attachment.domain.model.AttachmentDownloadUrlIssueAuditLog> search(
+                AttachmentDownloadUrlIssueAuditLogQuery query,
+                org.springframework.data.domain.Pageable pageable) {
+            return org.springframework.data.domain.Page.empty(pageable);
+        }
+    }
+
+    private static final class NoopAttachmentDownloadAuditLogRepository
+            implements AttachmentDownloadAuditLogRepository {
+
+        @Override
+        public studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog save(
+                studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog log) {
+            return log;
+        }
+
+        @Override
+        public org.springframework.data.domain.Page<studio.one.application.attachment.domain.model.AttachmentDownloadAuditLog> search(
+                AttachmentDownloadAuditLogQuery query,
+                org.springframework.data.domain.Pageable pageable) {
+            return org.springframework.data.domain.Page.empty(pageable);
+        }
+
+        @Override
+        public List<studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount> countByIssueLogIdsOrTokenHashes(
+                java.util.Collection<Long> issueLogIds,
+                java.util.Collection<String> tokenHashes) {
+            return List.of();
         }
     }
 }

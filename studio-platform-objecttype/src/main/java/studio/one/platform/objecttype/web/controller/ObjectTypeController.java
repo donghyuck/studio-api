@@ -3,6 +3,8 @@ package studio.one.platform.objecttype.web.controller;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 
+import java.util.stream.Collectors;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -11,9 +13,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeAdminService;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
 import studio.one.platform.objecttype.application.result.ObjectTypeView;
@@ -31,6 +35,20 @@ import studio.one.platform.web.dto.ApiResponse;
 public class ObjectTypeController {
 
     private final ObjectTypeRuntimeService runtimeService;
+    private final ObjectTypeAdminService adminService;
+
+    @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")
+    public ResponseEntity<ApiResponse<java.util.List<studio.one.platform.objecttype.web.dto.response.ObjectTypeDto>>> list(
+            @RequestParam(value = "domain", required = false) String domain,
+            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "q", required = false) String q) {
+        java.util.List<studio.one.platform.objecttype.web.dto.response.ObjectTypeDto> list = adminService.search(domain, status, q)
+                .stream()
+                .map(ObjectTypeController::toDto)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(ApiResponse.ok(list));
+    }
 
     @GetMapping("/{objectType}/definition")
     @PreAuthorize("@endpointAuthz.can('features:objecttype','read')")

@@ -95,7 +95,10 @@ import studio.one.platform.web.dto.ApiResponse;
  */
 
 @RestController
-@RequestMapping("${" + PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path:/api/mgmt/attachments}")
+@RequestMapping({
+        "${" + PropertyKeys.Features.PREFIX + ".attachment.web.mgmt-base-path:/api/mgmt/attachments}",
+        "/api/mgmt/files"
+})
 @RequiredArgsConstructor
 @Slf4j
 @Validated

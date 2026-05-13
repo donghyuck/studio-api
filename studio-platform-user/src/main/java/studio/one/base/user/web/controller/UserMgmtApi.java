@@ -10,6 +10,7 @@ import javax.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -38,7 +39,7 @@ public interface UserMgmtApi {
     default ResponseEntity<ApiResponse<Page<UserDto>>> list(
             @RequestParam(value = "q", required = false) Optional<String> q,
             @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
-            UserDetails principal,
+            @AuthenticationPrincipal UserDetails principal,
             Pageable pageable) {
         return list(q, pageable);
     }
@@ -50,7 +51,7 @@ public interface UserMgmtApi {
     default ResponseEntity<ApiResponse<Page<UserBasicDto>>> listBasic(
             @RequestParam(value = "q", required = false) Optional<String> q,
             @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
-            UserDetails principal,
+            @AuthenticationPrincipal UserDetails principal,
             Pageable pageable) {
         return listBasic(q, pageable);
     }
@@ -64,7 +65,7 @@ public interface UserMgmtApi {
             @RequestParam(value = "q", required = false) Optional<String> q,
             @RequestParam(value = "companyId", required = false) Optional<Long> companyId,
             @RequestParam(value = "requireQuery", required = false, defaultValue = "true") boolean requireQuery,
-            UserDetails principal,
+            @AuthenticationPrincipal UserDetails principal,
             Pageable pageable) {
         return find(q, requireQuery, pageable);
     }
@@ -82,16 +83,16 @@ public interface UserMgmtApi {
     ResponseEntity<ApiResponse<PasswordPolicyDto>> passwordPolicy();
 
     ResponseEntity<Void> passwordReset(Long id, @Valid @RequestBody ChangePasswordRequest req,
-            UserDetails actor);
+            @AuthenticationPrincipal UserDetails actor);
 
-    ResponseEntity<Void> enable(Long id, UserDetails actor);
+    ResponseEntity<Void> enable(Long id, @AuthenticationPrincipal UserDetails actor);
 
-    ResponseEntity<Void> disable(Long id, DisableUserRequest req, UserDetails actor);
+    ResponseEntity<Void> disable(Long id, DisableUserRequest req, @AuthenticationPrincipal UserDetails actor);
 
     ResponseEntity<ApiResponse<List<RoleDto>>> roles(Long id, String by);
 
     ResponseEntity<ApiResponse<Void>> updateUserRoles(Long id, @RequestBody UpdateRolesRequest req,
-            UserDetails actor);
+            @AuthenticationPrincipal UserDetails actor);
 
     // Properties
     ResponseEntity<ApiResponse<Map<String, String>>> getProperties(Long id);

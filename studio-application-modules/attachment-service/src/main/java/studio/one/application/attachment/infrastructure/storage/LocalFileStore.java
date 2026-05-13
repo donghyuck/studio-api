@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files; 
 import java.nio.file.Path;
+import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import studio.one.application.attachment.domain.model.Attachment;
 
@@ -27,8 +29,7 @@ public class LocalFileStore implements FileStorage {
     @Override
     public InputStream load(Attachment attachment) {
         try {
-            Path dir = Path.of(baseDir, String.valueOf(attachment.getObjectType()));
-            Path file = dir.resolve(attachment.getAttachmentId() + "");
+            Path file = resolvePath(attachment);
             return Files.newInputStream(file);
         } catch (IOException e) {
             throw new RuntimeException("File not found", e);
@@ -38,11 +39,45 @@ public class LocalFileStore implements FileStorage {
     @Override
     public void delete(Attachment attachment) {
         try {
-            Path dir = Path.of(baseDir, String.valueOf(attachment.getObjectType()));
-            Path file = dir.resolve(attachment.getAttachmentId() + "");
-            Files.deleteIfExists(file);
+            Path preferred = pathFor(attachment.getObjectType(), attachment.getAttachmentId());
+            Files.deleteIfExists(preferred);
+            Optional<Path> legacy = findByAttachmentId(attachment.getAttachmentId());
+            if (legacy.isPresent() && !legacy.get().equals(preferred)) {
+                Files.deleteIfExists(legacy.get());
+            }
         } catch (IOException e) {
             throw new RuntimeException("Delete failed", e);
+        }
+    }
+
+    private Path resolvePath(Attachment attachment) throws IOException {
+        Path preferred = pathFor(attachment.getObjectType(), attachment.getAttachmentId());
+        if (Files.isRegularFile(preferred)) {
+            return preferred;
+        }
+        Optional<Path> legacy = findByAttachmentId(attachment.getAttachmentId());
+        if (legacy.isPresent()) {
+            return legacy.get();
+        }
+        return preferred;
+    }
+
+    private Path pathFor(long objectType, long attachmentId) {
+        return Path.of(baseDir, String.valueOf(objectType)).resolve(String.valueOf(attachmentId));
+    }
+
+    private Optional<Path> findByAttachmentId(long attachmentId) throws IOException {
+        Path root = Path.of(baseDir);
+        if (!Files.isDirectory(root)) {
+            return Optional.empty();
+        }
+        String fileName = String.valueOf(attachmentId);
+        try (Stream<Path> children = Files.list(root)) {
+            return children
+                    .filter(Files::isDirectory)
+                    .map(dir -> dir.resolve(fileName))
+                    .filter(Files::isRegularFile)
+                    .findFirst();
         }
     }
 }

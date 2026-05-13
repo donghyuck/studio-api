@@ -30,6 +30,7 @@ import studio.one.platform.workspace.domain.model.WorkspaceRef;
 import studio.one.platform.workspace.domain.model.WorkspaceRole;
 import studio.one.platform.workspace.domain.model.WorkspaceTreeNode;
 import studio.one.platform.workspace.domain.model.WorkspacePermissionDefinition;
+import studio.one.platform.workspace.application.command.WorkspaceListQuery;
 import studio.one.platform.workspace.application.usecase.WorkspaceMemberService;
 import studio.one.platform.workspace.application.usecase.WorkspacePermissionService;
 import studio.one.platform.workspace.application.usecase.WorkspaceTreeService;
@@ -66,6 +67,21 @@ public class WorkspaceController extends WorkspaceControllerSupport {
             @PathVariable Long workspaceId,
             @Valid @RequestBody WorkspaceCreateRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(createChild(workspaceId, request, false)));
+    }
+
+    @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:workspace','read')")
+    public ResponseEntity<ApiResponse<Page<WorkspaceRef>>> list(
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "companyId", required = false) Long companyId,
+            @RequestParam(value = "parentId", required = false) Long parentId,
+            @RequestParam(value = "rootOnly", required = false) Boolean rootOnly,
+            @RequestParam(value = "archived", required = false) Boolean archived,
+            @PageableDefault(size = 20, sort = "path", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(list(
+                new WorkspaceListQuery(q, companyId, parentId, rootOnly, archived),
+                pageable,
+                false)));
     }
 
     @GetMapping("/{workspaceId:[\\p{Digit}]+}")

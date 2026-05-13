@@ -45,7 +45,7 @@ public class AiInfoController {
         this.vectorStorePort = vectorStorePort;
     }
 
-    @GetMapping("/providers")
+    @GetMapping({"", "/", "/providers", "/providers/"})
     @PreAuthorize("@endpointAuthz.can('services:ai_chat','read') || @endpointAuthz.can('services:ai_embedding','read')")
     public ResponseEntity<ApiResponse<AiInfoResponse>> providers() {
         List<ProviderInfo> providerInfos = new ArrayList<>();
