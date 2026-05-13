@@ -6,7 +6,7 @@
 
 - 텍스트와 normalized structured document를 위한 순수 chunking 구현체를 제공합니다.
 - 애플리케이션이 bean을 교체할 수 있도록 `@ConditionalOnMissingBean` 기반으로 등록합니다.
-- Spring AI, embedding, vector storage, web endpoint 책임을 포함하지 않습니다.
+- AI provider adapter, embedding, vector storage, web endpoint 책임을 포함하지 않습니다.
 - `starter:studio-platform-starter-ai-web`은 HTTP adapter, AI starter는 embedding/vector/RAG 소비자 역할로 남깁니다.
 
 ## 지원 전략

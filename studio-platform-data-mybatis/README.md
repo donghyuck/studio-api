@@ -1,6 +1,6 @@
 # Studio Platform Data MyBatis
 
-MyBatis 기반 SQL mapper 공통 convention 모듈이다. Spring Boot 3.5 / Java 17 환경에서는
+MyBatis 기반 SQL mapper 공통 convention 모듈이다. Spring Boot 2.7 / Java 11 환경에서는
 `starter:studio-platform-starter-mybatis`를 통해 mapper를 구성한다.
 
 ## Convention

@@ -25,7 +25,7 @@ Chunk 생성은 여러 종류의 Chunking Processor를 통해 수행된다. Text
 - 불변 chunking 요청/결과 모델을 정의합니다.
 - 전략 중립적인 chunking 확장 지점을 정의합니다.
 - 검색용 child chunk와 context 복구용 parent 관계를 모델링합니다.
-- Spring, Spring AI, JDBC, vector store 구현에 의존하지 않습니다.
+- Spring, AI provider SDK, JDBC, vector store 구현에 의존하지 않습니다.
 - embedding API 호출, vector DB 저장, LLM 호출, OCR 실행, 파일 parser 실행을 하지 않습니다.
 
 ## 핵심 타입
@@ -152,6 +152,6 @@ String answerContext = expansion.content();
 
 ## 의존성 경계
 
-이 모듈은 Spring, Spring AI, JDBC, pgvector, web module에 의존하지 않습니다.
+이 모듈은 Spring, AI provider SDK, JDBC, pgvector, web module에 의존하지 않습니다.
 전략 구현체와 auto-configuration은 starter module 책임입니다.
 이 모듈은 embedding API, vector store, LLM, OCR engine, file parser를 호출하지 않습니다.

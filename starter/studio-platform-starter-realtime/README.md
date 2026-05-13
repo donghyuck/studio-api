@@ -16,7 +16,7 @@ dependencies {
 ```
 
 ## 자동 구성
-`AutoConfiguration.imports`에 아래 구성이 등록된다.
+`META-INF/spring.factories`에 아래 구성이 등록된다.
 
 | 구성 | 역할 |
 |---|---|

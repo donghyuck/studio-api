@@ -7,7 +7,7 @@
 
 - 공식 모듈 기준은 `settings.gradle.kts`에 포함된 모듈이다.
 - 문서 인벤토리와 검색 검증에서 `.claude/`, `.omx/`, `build/`, `bin/` 산출물은 제외한다.
-- 실제 설정 값은 `@ConfigurationProperties`, `@ConditionalOnProperty`, `AutoConfiguration.imports`가 우선이다.
+- 실제 설정 값은 `@ConfigurationProperties`, `@ConditionalOnProperty`, `META-INF/spring.factories` 등록 정보가 우선이다.
 - Flyway 버전 범위는 `docs/flyway-versioning.md`를 기준으로 한다.
 
 ## 완료됨

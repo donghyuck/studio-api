@@ -2,7 +2,7 @@
 
 AI 공통 계약 계층이다. 챗 완성, 임베딩 생성, 벡터 스토어 접근을 포트 인터페이스로 정의하고,
 여러 모듈이 공유할 RAG 요청/응답 계약을 제공한다.
-Spring AI 기반 런타임 구현체와 RAG pipeline 구현은 `studio-platform-starter-ai`가 담당한다.
+LangChain4j 직접 adapter와 RAG pipeline 구현은 `studio-platform-starter-ai`가 담당한다.
 RAG indexing용 chunking 계약과 구현은 `studio-platform-chunking`과 `studio-platform-starter-chunking`을 사용한다.
 
 ## 요약

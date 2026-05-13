@@ -701,8 +701,7 @@ HTTP 응답 shape는 기존 `List<VectorSearchResultDto>`를 유지한다.
 `topK`/`minScore`를 생략하면 기존 `topK=5`, `minScore` 미적용 대신
 `studio.ai.rag.retrieval.top-k`, `studio.ai.rag.retrieval.min-score` 설정값을 사용한다.
 요청에 `embedding`을 직접 전달하면 provider 호출 없이 해당 벡터로 검색한다. `embedding` 없이 `query`만 전달하면
-검색 전에 configured `EmbeddingPort`가 호출되어 query embedding을 생성하므로 Spring AI/OpenAI 등 embedding
-provider quota를 사용한다. `hybrid=true`도 lexical score와 vector score를 함께 쓰기 때문에 query embedding이
+검색 전에 configured `EmbeddingPort`가 호출되어 query embedding을 생성하므로 LangChain4j 기반 provider quota를 사용한다. `hybrid=true`도 lexical score와 vector score를 함께 쓰기 때문에 query embedding이
 필요하며, 이 스타터는 별도 lexical-only debug search를 제공하지 않는다.
 query embedding 생성 중 provider quota/rate limit이 발생하면 HTTP 429 `ProblemDetails.detail`에
 `Embedding provider quota exceeded...` 메시지를 반환한다. 원시 chunk 확인이 목적이면 RAG chunk inspection API

@@ -1,6 +1,6 @@
 # Studio Platform Starter MyBatis
 
-Spring Boot 3.5 / Java 17 기준 MyBatis starter와 Studio mapper convention을 제공한다.
+Spring Boot 2.7 / Java 11 기준 MyBatis starter와 Studio mapper convention을 제공한다.
 
 ## Dependency
 

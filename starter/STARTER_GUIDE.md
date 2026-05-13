@@ -36,10 +36,12 @@ dependencies {
 
 ## 2) AutoConfiguration 작성
 - 패키지 규칙: `studio.one.platform.autoconfigure.<feature>`
+- 1.x는 Spring Boot 2.7 기준이므로 Boot 3 전용 `@AutoConfiguration`/`AutoConfiguration.imports`가 아니라
+  `@Configuration`과 `META-INF/spring.factories`를 사용한다.
 - 기본 스켈레톤
 
 ```java
-@AutoConfiguration
+@Configuration
 @EnableConfigurationProperties({ FeatureProperties.class })
 @ConditionalOnProperty(prefix = "studio.features.<feature>", name = "enabled", havingValue = "true")
 public class FeatureAutoConfiguration {
@@ -62,14 +64,15 @@ public class FeatureProperties extends FeatureToggle {
 
 ## 4) 상세 설정 프로퍼티
 - 기능 세부 설정은 `studio.<feature>.*` 별도 프로퍼티 클래스로 정의
-- `spring.*`가 이미 제공하는 provider SDK 값은 재정의하지 말고 그 값을 읽는다.
+- 외부 provider SDK 값은 module별 canonical `studio.*` namespace에 두고, legacy key는 migration note로만 문서화한다.
 - 예: `ObjectTypeProperties` (`studio.objecttype.*`), `PasswordPolicyProperties` (`studio.user.password-policy.*`), `RagPipelineProperties` (`studio.ai.rag.*`)
 
 ## 5) AutoConfiguration 등록
 - 파일 생성:
-  `starter/<starter-name>/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
+  `starter/<starter-name>/src/main/resources/META-INF/spring.factories`
 - 예시:
 ```
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
 studio.one.platform.autoconfigure.<feature>.<FeatureAutoConfiguration>
 ```
 
@@ -90,7 +93,7 @@ public @interface ConditionalOn<Feature>Persistence {
 - YAML/DB 구현을 함께 지원하려면:
   - `studio.<feature>.mode` (yaml|db)
   - `studio.features.<feature>.persistence` (jpa|jdbc)
-- provider SDK 값이 필요하면 `spring.*`를 우선 사용하고, `studio.<feature>.*`에는 routing, policy, cache, storage, rag 같은 runtime detail만 둔다.
+- provider SDK 값은 module별 canonical `studio.*` namespace를 우선 사용하고, legacy key는 migration fallback으로만 다룬다.
 
 ## 8) 문서/예시 원칙
 - README와 샘플 YAML은 가능한 새 키만 사용한다.
@@ -102,5 +105,5 @@ public @interface ConditionalOn<Feature>Persistence {
 - [ ] `build.gradle.kts` 작성
 - [ ] AutoConfiguration 작성
 - [ ] `@ConfigurationProperties` 추가
-- [ ] `AutoConfiguration.imports` 등록
+- [ ] `spring.factories` 등록
 - [ ] 프로퍼티 문서/README 업데이트
