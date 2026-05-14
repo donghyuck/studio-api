@@ -2,6 +2,7 @@ package studio.one.application.attachment.web.controller;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,12 +32,15 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogCommand;
 import studio.one.application.attachment.application.error.AttachmentDownloadUrlUnavailableException;
+import studio.one.application.attachment.application.result.AttachmentDownloadAuditResult;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrl;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.application.result.ThumbnailData;
+import studio.one.application.attachment.application.usecase.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
+import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.application.usecase.AttachmentObjectTypeResolver;
@@ -64,6 +69,7 @@ public class AttachmentMgmtController {
 
     private final AttachmentService attachmentService;
     private final AttachmentDownloadUrlService downloadUrlService;
+    private final AttachmentDownloadAuditLogService downloadAuditLogService;
     private final AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
     private final ObjectProvider<IdentityService> identityServiceProvider;
     private final ObjectProvider<PrincipalResolver> principalResolverProvider;
@@ -135,15 +141,62 @@ public class AttachmentMgmtController {
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")
     @PreAuthorize("@endpointAuthz.can('features:attachment','download')")
-    public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
+    public ResponseEntity<StreamingResponseBody> download(
+            @PathVariable("attachmentId") long attachmentId,
+            HttpServletRequest httpRequest)
             throws IOException, NotFoundException {
-        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        AttachmentAccessSupport.requireAttachmentAccess(
-                attachment, requirePrincipal(), ownerAccessAuthorizers, objectTypeResolver, AttachmentOwnerAccessAction.DOWNLOAD);
-        return AttachmentWebSupport.downloadResponse(
-                attachment,
-                attachmentService.getInputStream(attachment),
-                CacheControl.noCache());
+        Instant requestedAt = Instant.now();
+        AttachmentUrlIssueRequestDetails details = requestDetailsResolver.resolve(httpRequest);
+        Attachment attachment = null;
+        try {
+            attachment = attachmentService.getAttachmentById(attachmentId);
+            AttachmentAccessSupport.requireAttachmentAccess(
+                    attachment, requirePrincipal(), ownerAccessAuthorizers, objectTypeResolver, AttachmentOwnerAccessAction.DOWNLOAD);
+            return AttachmentWebSupport.auditedDownloadResponse(
+                    attachment,
+                    attachmentService.getInputStream(attachment),
+                    CacheControl.noCache(),
+                    "MGMT_DIRECT",
+                    requestedAt,
+                    details,
+                    this::recordDownloadAudit);
+        } catch (NotFoundException ex) {
+            recordDownloadAudit(AttachmentWebSupport.downloadAuditCommand(
+                    null,
+                    attachmentId,
+                    "MGMT_DIRECT",
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.NOT_FOUND.value(),
+                    null,
+                    details,
+                    "ATTACHMENT_NOT_FOUND"));
+            throw ex;
+        } catch (AccessDeniedException ex) {
+            recordDownloadAudit(AttachmentWebSupport.downloadAuditCommand(
+                    attachment,
+                    attachmentId,
+                    "MGMT_DIRECT",
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.FORBIDDEN.value(),
+                    null,
+                    details,
+                    "ACCESS_DENIED"));
+            throw ex;
+        } catch (IOException | RuntimeException ex) {
+            recordDownloadAudit(AttachmentWebSupport.downloadAuditCommand(
+                    attachment,
+                    attachmentId,
+                    "MGMT_DIRECT",
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    null,
+                    details,
+                    "STREAM_OPEN_FAILED"));
+            throw ex;
+        }
     }
 
     @PostMapping("/{attachmentId:[\\p{Digit}]+}/download-url")
@@ -320,5 +373,13 @@ public class AttachmentMgmtController {
 
     private AttachmentDto toDto(Attachment attachment) {
         return AttachmentWebSupport.toDto(attachment, identityServiceProvider);
+    }
+
+    private void recordDownloadAudit(AttachmentDownloadAuditLogCommand command) {
+        try {
+            downloadAuditLogService.record(command);
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record attachment management download audit log: {}", ex.getMessage());
+        }
     }
 }

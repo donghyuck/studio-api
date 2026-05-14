@@ -122,6 +122,7 @@ public class AttachmentEndpointAutoConfiguration {
         AttachmentMgmtController attachmentMgmtController(
                         AttachmentService attachmentService,
                         AttachmentDownloadUrlService downloadUrlService,
+                        AttachmentDownloadAuditLogService downloadAuditLogService,
                         AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver,
                         ObjectProvider<studio.one.platform.identity.IdentityService> identityServiceProvider,
                         ObjectProvider<PrincipalResolver> principalResolverProvider,
@@ -138,6 +139,7 @@ public class AttachmentEndpointAutoConfiguration {
                 return new AttachmentMgmtController(
                                 attachmentService,
                                 downloadUrlService,
+                                downloadAuditLogService,
                                 requestDetailsResolver,
                                 identityServiceProvider,
                                 principalResolverProvider,
