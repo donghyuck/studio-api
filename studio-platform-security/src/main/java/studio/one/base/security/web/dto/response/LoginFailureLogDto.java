@@ -26,4 +26,12 @@ public class LoginFailureLogDto {
     public String failureType() { return failureType; }
     public String message() { return message; }
     public String userAgent() { return userAgent; }
+
+    public Long getId() { return id; }
+    public OffsetDateTime getOccurredAt() { return occurredAt; }
+    public String getUsername() { return username; }
+    public String getRemoteIp() { return remoteIp; }
+    public String getFailureType() { return failureType; }
+    public String getMessage() { return message; }
+    public String getUserAgent() { return userAgent; }
 }
