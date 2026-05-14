@@ -1,6 +1,8 @@
 package studio.one.application.attachment.web.controller;
 
 import java.io.InputStream;
+import java.time.Instant;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +10,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -16,6 +19,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import studio.one.application.attachment.application.command.AttachmentDownloadAuditLogCommand;
+import studio.one.application.attachment.application.result.AttachmentDownloadAuditResult;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlIssueActor;
 import studio.one.application.attachment.web.dto.response.AttachmentDto;
@@ -60,6 +65,82 @@ final class AttachmentWebSupport {
                 in.transferTo(out);
             }
         };
+        return downloadResponse(attachment, body, cacheControl);
+    }
+
+    static ResponseEntity<StreamingResponseBody> auditedDownloadResponse(
+            Attachment attachment,
+            InputStream in,
+            CacheControl cacheControl,
+            String linkType,
+            Instant requestedAt,
+            AttachmentUrlIssueRequestDetails details,
+            Consumer<AttachmentDownloadAuditLogCommand> auditRecorder) {
+        StreamingResponseBody body = out -> {
+            long downloadedBytes = 0L;
+            byte[] buffer = new byte[8192];
+            try (in) {
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                    downloadedBytes += read;
+                }
+                auditRecorder.accept(downloadAuditCommand(
+                        attachment,
+                        attachment.getAttachmentId(),
+                        linkType,
+                        requestedAt,
+                        AttachmentDownloadAuditResult.SUCCEEDED,
+                        HttpStatus.OK.value(),
+                        downloadedBytes,
+                        details,
+                        null));
+            } catch (java.io.IOException | RuntimeException ex) {
+                auditRecorder.accept(downloadAuditCommand(
+                        attachment,
+                        attachment.getAttachmentId(),
+                        linkType,
+                        requestedAt,
+                        AttachmentDownloadAuditResult.FAILED,
+                        HttpStatus.OK.value(),
+                        downloadedBytes,
+                        details,
+                        "STREAM_FAILED"));
+                throw ex;
+            }
+        };
+        return downloadResponse(attachment, body, cacheControl);
+    }
+
+    static AttachmentDownloadAuditLogCommand downloadAuditCommand(
+            Attachment attachment,
+            Long fallbackAttachmentId,
+            String linkType,
+            Instant requestedAt,
+            AttachmentDownloadAuditResult result,
+            int httpStatus,
+            Long downloadedBytes,
+            AttachmentUrlIssueRequestDetails details,
+            String errorCode) {
+        return new AttachmentDownloadAuditLogCommand(
+                null,
+                attachment == null ? fallbackAttachmentId : attachment.getAttachmentId(),
+                attachment == null ? null : attachment.getObjectType(),
+                attachment == null ? null : attachment.getObjectId(),
+                linkType,
+                requestedAt,
+                result,
+                httpStatus,
+                downloadedBytes,
+                details == null ? null : details.clientIp(),
+                details == null ? null : details.userAgent(),
+                errorCode);
+    }
+
+    private static ResponseEntity<StreamingResponseBody> downloadResponse(
+            Attachment attachment,
+            StreamingResponseBody body,
+            CacheControl cacheControl) {
         HttpHeaders headers = new HttpHeaders();
         headers.setCacheControl(cacheControl.getHeaderValue());
         headers.setContentType(resolveMediaType(attachment.getContentType()));
