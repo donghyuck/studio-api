@@ -215,6 +215,37 @@ class AttachmentMgmtControllerAuthorizationTest {
                         && "JUnit".equals(command.userAgent())));
     }
 
+    @Test
+    void downloadRecordsAccessDeniedAuditLog() throws Exception {
+        AttachmentMgmtController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(7L, "USER"));
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.5", "JUnit"));
+        when(attachmentService.getAttachmentById(10L)).thenReturn(attachment);
+        when(attachment.getAttachmentId()).thenReturn(10L);
+        when(attachment.getObjectType()).thenReturn(20);
+        when(attachment.getObjectId()).thenReturn(30L);
+        when(attachment.getCreatedBy()).thenReturn(99L);
+
+        assertThrows(AccessDeniedException.class, () -> controller.download(10L, request));
+
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.FAILED
+                        && command.httpStatus() == 403
+                        && command.downloadedBytes() == null
+                        && command.tokenHash() == null
+                        && "MGMT_DIRECT".equals(command.linkType())
+                        && command.attachmentId() == 10L
+                        && command.objectType() == 20
+                        && command.objectId() == 30L
+                        && "10.0.0.5".equals(command.clientIp())
+                        && "JUnit".equals(command.userAgent())
+                        && "ACCESS_DENIED".equals(command.errorCode())));
+    }
+
     private AttachmentMgmtController controller() {
         return new AttachmentMgmtController(
                 attachmentService,
