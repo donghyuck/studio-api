@@ -28,6 +28,8 @@ Required environment variables:
 
 Optional environment variables:
   NEXUS_URL               Local Nexus base URL. Default: http://localhost:8081
+  NEXUS_RELEASES_URL      Releases repository URL. Overrides the default local URL.
+  NEXUS_SNAPSHOTS_URL     Snapshots repository URL. Overrides the default local URL.
 
 Examples:
   scripts/publish-local-nexus.sh
@@ -73,6 +75,16 @@ load_env_file() {
 
     export "${key}=${value}"
   done < "${env_file}"
+}
+
+nexus_base_url_from_repository_url() {
+  local repository_url="$1"
+
+  if [[ "${repository_url}" == */repository/* ]]; then
+    printf '%s\n' "${repository_url%%/repository/*}"
+  else
+    printf '%s\n' "${repository_url%/}"
+  fi
 }
 
 read_property() {
@@ -245,7 +257,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 load_env_file "${ENV_FILE}"
+LOCAL_NEXUS_RELEASES_URL="${NEXUS_RELEASES_URL:-${LOCAL_NEXUS_RELEASES_URL}}"
+LOCAL_NEXUS_SNAPSHOTS_URL="${NEXUS_SNAPSHOTS_URL:-${LOCAL_NEXUS_SNAPSHOTS_URL}}"
 LOCAL_NEXUS_BASE_URL="${NEXUS_URL:-${LOCAL_NEXUS_BASE_URL}}"
+if [[ -z "${NEXUS_URL:-}" && -n "${NEXUS_RELEASES_URL:-}" ]]; then
+  LOCAL_NEXUS_BASE_URL="$(nexus_base_url_from_repository_url "${NEXUS_RELEASES_URL}")"
+fi
 
 if [[ -z "${NEXUS_USERNAME:-}" ]]; then
   echo "[ERROR] NEXUS_USERNAME is required for local Nexus publish." >&2

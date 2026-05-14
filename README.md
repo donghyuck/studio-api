@@ -269,6 +269,9 @@ scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 이 스크립트는 기본적으로 `http://localhost:8081/repository/maven-releases/`와
 `http://localhost:8081/repository/maven-snapshots/`를 사용하며, repository URL과
 `nexus.allowInsecure=true` 값을 Gradle project property로 전달한다.
+로컬 `.env.local` 또는 셸 환경변수에 `NEXUS_RELEASES_URL`이 있으면 releases 배포 대상은
+해당 URL을 우선 사용한다. `NEXUS_URL`이 없으면 삭제 API 호출용 base URL도
+`NEXUS_RELEASES_URL`에서 추론한다. snapshots 배포 대상은 `NEXUS_SNAPSHOTS_URL`로 바꿀 수 있다.
 로컬 Nexus base URL이 다르면 `NEXUS_URL` 환경변수로 변경할 수 있다.
 다른 env 파일을 쓰려면 `--env-file <path>`를 전달한다.
 
@@ -290,7 +293,7 @@ scripts/publish-local-nexus.sh --delete-existing --module :studio-platform-user
 | `JASYPT_HTTP_TOKEN` | `studio-platform-starter-jasypt` | 내부 Jasypt HTTP 엔드포인트 보호 토큰으로 사용 |
 | `OPENAI_API_KEY` | `studio-platform-starter-ai` + OpenAI provider | OpenAI provider 활성화 시 기동 실패 |
 | `GOOGLE_API_KEY` | `studio-platform-starter-ai` + Google GenAI provider | Google provider 활성화 시 기동 실패 |
-| `NEXUS_USERNAME`, `NEXUS_PASSWORD`, `NEXUS_URL` | `scripts/publish-local-nexus.sh` | 로컬 Nexus 배포 스크립트 실패 |
+| `NEXUS_USERNAME`, `NEXUS_PASSWORD`, `NEXUS_URL`, `NEXUS_RELEASES_URL`, `NEXUS_SNAPSHOTS_URL` | `scripts/publish-local-nexus.sh` | 로컬 Nexus 배포 스크립트 실패 |
 
 ## 기본 설정 예시
 ```yaml
