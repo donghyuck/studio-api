@@ -137,6 +137,28 @@ class AttachmentControllerTest {
     }
 
     @Test
+    void downloadRecordsNotFoundAuditLog() throws Exception {
+        AttachmentController controller = controller();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.4", "JUnit"));
+        when(attachmentService.getAttachmentById(404L)).thenThrow(AttachmentNotFoundException.byId(404L));
+
+        assertThrows(AttachmentNotFoundException.class, () -> controller.download(404L, request));
+
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.FAILED
+                        && command.httpStatus() == 404
+                        && command.downloadedBytes() == null
+                        && command.tokenHash() == null
+                        && "SERVICE_DIRECT".equals(command.linkType())
+                        && command.attachmentId() == 404L
+                        && "10.0.0.4".equals(command.clientIp())
+                        && "JUnit".equals(command.userAgent())
+                        && "ATTACHMENT_NOT_FOUND".equals(command.errorCode())));
+    }
+
+    @Test
     void thumbnailReturnsSameResponseShape() throws Exception {
         AttachmentController controller = controller();
         Attachment attachment = mock(Attachment.class);
