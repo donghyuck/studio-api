@@ -52,8 +52,8 @@ table, image caption, OCR chunk는 각각 `TABLE_TEXT`, `IMAGE_CAPTION`, `OCR_TE
 | `AttachmentRagIndexJobSourceExecutor` | `sourceType=attachment` RAG index job을 기존 attachment 색인 흐름으로 실행 |
 | `FileContentExtractionService` | 파일 MIME 타입과 이름을 기반으로 텍스트 추출. 구현체는 `studio-platform-textract-starter`가 제공한다 |
 | `TextractNormalizedDocumentAdapter` | `ParsedFile`을 structure-based chunking 입력인 `NormalizedDocument`로 변환한다 |
-| `EmbeddingPort` | 텍스트 리스트를 받아 임베딩 벡터 반환. `studio-platform-ai` AI 어댑터(OpenAI 등)가 구현체를 제공한다 |
-| `VectorStorePort` | 벡터 문서 업서트/존재 확인/메타데이터 조회. 벡터 DB 어댑터가 구현체를 제공한다 |
+| `EmbeddingPort` | 텍스트 리스트를 받아 임베딩 벡터 반환. `starter:studio-platform-starter-ai`의 LangChain4j provider adapter가 구현체를 제공한다 |
+| `VectorStorePort` | 벡터 문서 업서트/존재 확인/메타데이터 조회. `starter:studio-platform-starter-ai`가 pgvector adapter를 제공한다 |
 | `RagPipelineService` | 텍스트 인덱싱 및 시맨틱 검색. RAG 파이프라인 스타터가 구현체를 제공한다 |
 
 ## 전제 조건 빈
@@ -62,8 +62,8 @@ table, image caption, OCR chunk는 각각 `TABLE_TEXT`, `IMAGE_CAPTION`, `OCR_TE
 |---------|----------|-----------------|
 | `AttachmentService` | 필수 | `:starter:studio-application-starter-attachment` |
 | `FileContentExtractionService` | 임베딩/텍스트 추출 시 필수 | `starter:studio-platform-textract-starter` |
-| `EmbeddingPort` | 임베딩 생성 시 필수 | `studio-platform-ai` AI 어댑터 (예: OpenAI 스타터) |
-| `VectorStorePort` | 벡터 저장 시 필수 | 벡터 DB 어댑터 (예: pgvector, Qdrant 스타터) |
+| `EmbeddingPort` | 임베딩 생성 시 필수 | `starter:studio-platform-starter-ai` |
+| `VectorStorePort` | 벡터 저장 시 필수 | `starter:studio-platform-starter-ai`의 pgvector adapter |
 | `RagPipelineService` | RAG 인덱싱/검색 시 필수 | RAG 파이프라인 스타터 |
 | `ChunkingOrchestrator` | RAG chunking 확장 시 선택 | `starter:studio-platform-starter-chunking` |
 | `TextractNormalizedDocumentAdapter` | 구조화 RAG 색인 시 선택 | `starter:studio-platform-starter-chunking` |
@@ -183,9 +183,8 @@ dependencies {
     implementation(project(":starter:studio-platform-textract-starter"))
     // AI 어댑터 (EmbeddingPort + VectorStorePort 제공)
     implementation(project(":starter:studio-platform-starter-ai"))
-    // provider 라이브러리는 직접 선언 (예: OpenAI)
-    implementation("org.springframework.ai:spring-ai-starter-model-openai")
-    // VectorStorePort는 JdbcTemplate이 컨텍스트에 있으면 studio-platform-starter-ai가 pgvector 기반으로 자동 구성
+    // OpenAI/Gemini/Ollama provider artifact는 AI 스타터가 포함한다.
+    // VectorStorePort는 JdbcTemplate이 컨텍스트에 있으면 AI 스타터가 pgvector 기반으로 자동 구성
 }
 ```
 

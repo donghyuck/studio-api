@@ -61,7 +61,7 @@ IMAP 계정/서버 설정은 `studio.mail.imap.*`를 기본으로 두고, 기존
 ## 의존성
 - `studio-application-modules:mail-service`
 - `studio-platform` / `studio-platform-autoconfigure` / `starter:studio-platform-starter`
-- JavaMail (jakarta.mail) 런타임
+- JavaMail (`javax.mail` API, `com.sun.mail:jakarta.mail` artifact) 런타임
 
 ## 저장소
 DB 저장소는 메일 메시지, 첨부, 동기화 로그 테이블을 사용한다.

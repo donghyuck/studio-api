@@ -1,12 +1,12 @@
 # Studio One Platform
 
-[![release](https://img.shields.io/badge/release-2.0.0-blue.svg)](https://github.com/metasfresh/metasfresh/releases/tag/5.175)
+[![release](https://img.shields.io/badge/release-1.1.0-blue.svg)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-APACHE-blue.svg)](https://github.com/metasfresh/metasfresh/blob/master/LICENSE.md)
 
-모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다. 설정은 `spring.*`, `studio.features.<module>.*`, `studio.<module>.*`의 3층 모델을 따른다.
+모듈화된 Spring Boot 기반 백엔드 플랫폼. 인증/인가, 사용자/그룹 관리, 파일·첨부 관리, 템플릿, 메일, 실시간 메시징, AI 임베딩/RAG 파이프라인을 공통 컴포넌트와 스타터로 제공한다. 설정은 `studio.features.<module>.*`, `studio.<module>.*`, `studio.ai.*`를 표준으로 사용하며, `spring.ai.*`는 1.x migration fallback으로만 읽는다.
 
 ## 빠른 시작
-1. JDK 17과 Gradle 실행 환경을 준비한다.
+1. JDK 11과 Gradle 실행 환경을 준비한다.
 2. 필요한 secret을 셸 환경변수 또는 로컬 전용 `~/.gradle/gradle.properties`에 넣는다.
 3. 루트에서 `./gradlew clean build`를 실행한다.
 4. 애플리케이션에서는 필요한 starter만 선택해 의존성에 추가한다.
@@ -20,9 +20,9 @@
 필수 secret 예시는 [.env.example](.env.example)에서 확인한다.
 
 ## 기술 기준
-- Java toolchain / source compatibility: `17`
-- Spring Boot: `3.5.9`
-- Spring Dependency Management Plugin: `1.1.7`
+- Java toolchain / source compatibility: `11`
+- Spring Boot: `2.7.18`
+- Spring Dependency Management Plugin: `1.1.4`
 - Build: `Gradle Wrapper`
 
 ## 레포지토리 구성
@@ -385,7 +385,7 @@ studio:
 - 애플리케이션 모듈 가이드: `studio-application-modules/README.md`
 - 사용자 계약: `studio-platform-user/README.md`
 - 사용자 기본 구현: `studio-platform-user-default/README.md`
-- 변경 이력: `CHANGELOG.md` (`2.x` 라인부터 새 기준으로 관리)
+- 변경 이력: `CHANGELOG.md` (`1.x` 라인 기준)
 - 보안 운영 규칙: `SECURITY.md`
 - 플랫폼 웹 규칙: `studio-platform/WEB_API_DEVELOPMENT_GUIDE.md`
 - 설정 네임스페이스 가이드: `CONFIGURATION_NAMESPACE_GUIDE.md`

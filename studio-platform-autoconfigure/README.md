@@ -9,7 +9,7 @@
 ## 설계
 - `CompositeAuditorAware`: security / header / fixed 전략을 순서대로 시도하는 합성 감사자
 - `JpaAuditingProperties`: 감사 활성화, 클럭 타임존, 감사자 전략(security|header|fixed|composite) 설정
-- `PersistenceProperties`: 플랫폼 전역 영속성 타입(`jpa` | `mybatis` | `jdbc`) 선택. `jdbc`는 기존 직접 JDBC 구현을 위한 2.x 호환 값이다.
+- `PersistenceProperties`: 플랫폼 전역 영속성 타입(`jpa` | `mybatis` | `jdbc`) 선택. `jdbc`는 기존 직접 JDBC 구현을 위한 호환 값이다.
 - `PersistenceTypeResolver`: 신규/전환된 MyBatis-aware 경로에서 사용할 normalize helper다. `studio.features.<feature>.persistence`를 우선하고, 없으면 `studio.persistence.type`을 사용한다. 이 resolver를 쓰는 경로에서 `jdbc`는 deprecated alias로 `mybatis`에 normalize된다.
 - `FeaturesProperties`: 피처 플래그(enabled, failIfMissing, persistence) 및 동적 `others` 맵 관리
 - `ConditionalOnProperties`: 여러 프로퍼티 조건을 AND로 결합하는 커스텀 `@Conditional` 어노테이션
