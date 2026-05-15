@@ -20,6 +20,7 @@ import studio.one.platform.web.dto.ProblemDetails;
         VectorVisualizationMgmtController.class,
         RagController.class,
         RagChunkPreviewController.class,
+        RagChunkingSimulationController.class,
         RagIndexJobController.class,
         QueryRewriteController.class,
         AiInfoController.class

@@ -48,6 +48,20 @@ class DefaultTokenizerResolverTest {
     }
 
     @Test
+    void metadataCanDisableAutoDetectForModelAndProviderMapping() {
+        DefaultTokenizerResolver resolver = resolver(new ChunkingProperties.TokenizerProperties());
+
+        var resolved = resolver.resolve(Map.of(
+                "embeddingProvider", "openai",
+                "embeddingModel", "text-embedding-3-small",
+                "tokenizerAutoDetect", false));
+
+        assertThat(resolved.provider()).isEqualTo("approximate");
+        assertThat(resolved.selectionSource()).isEqualTo("fallback");
+        assertThat(resolved.fallbackUsed()).isTrue();
+    }
+
+    @Test
     void unknownModelFallsBackToApproximateTokenizer() {
         DefaultTokenizerResolver resolver = resolver(new ChunkingProperties.TokenizerProperties());
 

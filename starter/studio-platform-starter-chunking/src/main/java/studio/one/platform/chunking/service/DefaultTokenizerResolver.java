@@ -17,6 +17,7 @@ public class DefaultTokenizerResolver implements TokenizerResolver {
 
     private static final String EMBEDDING_PROVIDER = "embeddingProvider";
     private static final String EMBEDDING_MODEL = "embeddingModel";
+    private static final String TOKENIZER_AUTO_DETECT = "tokenizerAutoDetect";
 
     private final ChunkingProperties.TokenizerProperties properties;
     private final Map<String, TokenizerPort> tokenizersByProvider;
@@ -45,11 +46,12 @@ public class DefaultTokenizerResolver implements TokenizerResolver {
         if (configured.isPresent()) {
             return configured.get();
         }
-        Optional<ResolvedTokenizer> modelMapping = modelMapping(model);
+        boolean autoDetect = autoDetectEnabled(values);
+        Optional<ResolvedTokenizer> modelMapping = modelMapping(model, autoDetect);
         if (modelMapping.isPresent()) {
             return modelMapping.get();
         }
-        Optional<ResolvedTokenizer> providerDefault = providerDefault(text(values.get(EMBEDDING_PROVIDER)));
+        Optional<ResolvedTokenizer> providerDefault = providerDefault(text(values.get(EMBEDDING_PROVIDER)), autoDetect);
         if (providerDefault.isPresent()) {
             return providerDefault.get();
         }
@@ -84,8 +86,8 @@ public class DefaultTokenizerResolver implements TokenizerResolver {
                 "explicit-config", "high"));
     }
 
-    private Optional<ResolvedTokenizer> modelMapping(String model) {
-        if (!properties.isAutoDetect() || model == null) {
+    private Optional<ResolvedTokenizer> modelMapping(String model, boolean autoDetect) {
+        if (!autoDetect || model == null) {
             return Optional.empty();
         }
         String normalized = model.toLowerCase(Locale.ROOT);
@@ -104,8 +106,8 @@ public class DefaultTokenizerResolver implements TokenizerResolver {
         return Optional.empty();
     }
 
-    private Optional<ResolvedTokenizer> providerDefault(String provider) {
-        if (!properties.isAutoDetect() || provider == null) {
+    private Optional<ResolvedTokenizer> providerDefault(String provider, boolean autoDetect) {
+        if (!autoDetect || provider == null) {
             return Optional.empty();
         }
         if (provider.equalsIgnoreCase("openai")) {
@@ -116,6 +118,17 @@ public class DefaultTokenizerResolver implements TokenizerResolver {
                     null, "provider-default"));
         }
         return Optional.empty();
+    }
+
+    private boolean autoDetectEnabled(Map<String, Object> metadata) {
+        Object value = metadata.get(TOKENIZER_AUTO_DETECT);
+        if (value instanceof Boolean bool) {
+            return properties.isAutoDetect() && bool;
+        }
+        if (value instanceof String text && !text.isBlank()) {
+            return properties.isAutoDetect() && Boolean.parseBoolean(text.trim());
+        }
+        return properties.isAutoDetect();
     }
 
     private ResolvedTokenizer resolve(
