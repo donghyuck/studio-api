@@ -57,6 +57,7 @@ import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagChunkPreviewController;
+import studio.one.platform.ai.web.controller.RagChunkingSimulationController;
 import studio.one.platform.ai.web.controller.RagController;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
@@ -305,6 +306,15 @@ public class AiWebAutoConfiguration {
                 ragPipelineProperties,
                 ragProperties,
                 environment);
+    }
+
+    @Bean
+    RagChunkingSimulationController ragChunkingSimulationController(
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            AiWebRagProperties ragProperties) {
+        return new RagChunkingSimulationController(
+                chunkingOrchestratorProvider.getIfAvailable(),
+                ragProperties);
     }
 
     @Bean(name = "ragIndexJobEndpointSecurity")

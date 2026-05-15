@@ -27,6 +27,8 @@ class AiEndpointMappingTest {
                 "${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/vectors");
         assertRequestMapping(RagController.class,
                 "${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/rag");
+        assertRequestMapping(RagChunkingSimulationController.class,
+                "${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/rag/simulations");
     }
 
     private void assertRequestMapping(Class<?> controllerType, String expectedPath) {

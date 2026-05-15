@@ -104,6 +104,7 @@ studio:
 | `GET` | `{mgmtBasePath}/rag/objects/{objectType}/{objectId}/metadata` | object scope 기준 RAG metadata 조회 | `services:ai_rag read` |
 | `POST` | `{mgmtBasePath}/rag/chunks/preview` | 색인 전 text chunk preview | `services:ai_rag read` |
 | `GET` | `{mgmtBasePath}/rag/chunks/config` | chunk/RAG 설정 조회 | `services:ai_rag read` |
+| `POST` | `{mgmtBasePath}/rag/simulations/chunking` | token-aware chunking simulation | `services:ai_rag read` |
 
 > `studio.ai.endpoints.enabled=false`이면 위 AI web endpoint 전체가 등록되지 않는다.
 
@@ -324,6 +325,32 @@ API key, raw environment 값, provider secret은 노출하지 않는다.
 `studio.chunking.strategy`가 `semantic` 또는 `llm-based`처럼 preview에서 실행하지 않는 전략이면
 config API는 원래 설정값을 `strategy`로 보여주되 `defaultStrategyPreviewSupported=false`를 반환하고,
 preview 요청에서 `strategy`를 생략하면 `400 Bad Request`가 반환된다.
+
+운영 화면이 tokenizer 선택과 token budget을 색인 전에 확인해야 할 때는
+`POST {mgmtBasePath}/rag/simulations/chunking`을 사용한다. 이 API는 `text`, `objectType`, `objectId`,
+`attachmentId`, `embeddingProvider`, `embeddingModel`, `chunkUnit`, `chunkSize`, `chunkOverlap`, `maxChunkSize`를 받아
+현재 `ChunkingOrchestrator`로 simulation을 실행하고 tokenizer 상태, chunk별 token count, token distribution,
+fallback 여부, warning을 반환한다. `ChunkingOrchestrator`가 없으면 `503 Service Unavailable`을 반환한다.
+
+```http
+POST /api/mgmt/ai/rag/simulations/chunking
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "text": "첫 번째 문단입니다.\n\n두 번째 문단입니다.",
+  "objectType": "attachment",
+  "objectId": "101",
+  "attachmentId": "101",
+  "embeddingProvider": "openai",
+  "embeddingModel": "text-embedding-3-small",
+  "tokenizerAutoDetect": true,
+  "chunkUnit": "token",
+  "chunkSize": 500,
+  "chunkOverlap": 80,
+  "maxChunkSize": 800
+}
+```
 
 Attachment 파일을 직접 읽어 `parseStructured` 결과를 preview하는 기능과 `NormalizedDocument` JSON preview는
 후속 PR 범위이다. 현재 attachment RAG 색인은 기존 attachment RAG index/job API를 사용한다.
