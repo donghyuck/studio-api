@@ -113,7 +113,10 @@ class RagChunkingSimulationControllerTest {
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 new CapturingOrchestrator(List.of(chunk("doc-0", "alpha", 0, 2))),
                 new AiWebRagProperties(),
-                environment());
+                environment(Map.of(
+                        "studio.chunking.max-size", "120",
+                        "studio.chunking.overlap", "12",
+                        "studio.chunking.unit", "token")));
 
         RagChunkingSimulationResponseDto body = controller.simulateChunking(new RagChunkingSimulationRequestDto(
                 "alpha",
@@ -130,6 +133,7 @@ class RagChunkingSimulationControllerTest {
 
         assertThat(body.tokenizer().chunkSize()).isEqualTo(120);
         assertThat(body.tokenizer().chunkOverlap()).isEqualTo(12);
+        assertThat(body.tokenizer().chunkUnit()).isEqualTo("token");
     }
 
     @Test
@@ -166,10 +170,14 @@ class RagChunkingSimulationControllerTest {
     }
 
     private StandardEnvironment environment() {
-        StandardEnvironment environment = new StandardEnvironment();
-        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+        return environment(Map.of(
                 "studio.chunking.max-size", "120",
-                "studio.chunking.overlap", "12")));
+                "studio.chunking.overlap", "12"));
+    }
+
+    private StandardEnvironment environment(Map<String, Object> properties) {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", properties));
         return environment;
     }
 

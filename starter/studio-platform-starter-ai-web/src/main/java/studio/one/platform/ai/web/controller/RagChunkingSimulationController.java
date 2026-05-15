@@ -8,9 +8,9 @@ import java.util.Objects;
 
 import jakarta.validation.Valid;
 
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.core.env.Environment;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -134,7 +134,7 @@ public class RagChunkingSimulationController {
                 text(metadata.get(ChunkMetadata.KEY_TOKENIZER_ENCODING)),
                 text(metadata.get(ChunkMetadata.KEY_TOKENIZER_SELECTION_SOURCE)),
                 text(metadata.get(ChunkMetadata.KEY_TOKENIZER_CONFIDENCE)),
-                context.unit().value(),
+                effectiveUnit(request, context),
                 effectiveSize(context.maxSize()),
                 effectiveOverlap(context.overlap()),
                 bool(metadata.get(ChunkMetadata.KEY_TOKENIZER_FALLBACK_USED)),
@@ -221,6 +221,15 @@ public class RagChunkingSimulationController {
         return value == ChunkingContext.USE_CONFIGURED_OVERLAP
                 ? environment.getProperty(CHUNKING_PREFIX + ".overlap", Integer.class, ChunkingContext.DEFAULT_OVERLAP)
                 : value;
+    }
+
+    private String effectiveUnit(RagChunkingSimulationRequestDto request, ChunkingContext context) {
+        if (!hasText(request.chunkUnit())
+                && context.maxSize() == ChunkingContext.USE_CONFIGURED_MAX_SIZE
+                && context.overlap() == ChunkingContext.USE_CONFIGURED_OVERLAP) {
+            return environment.getProperty(CHUNKING_PREFIX + ".unit", context.unit().value());
+        }
+        return context.unit().value();
     }
 
     private void put(Map<String, Object> metadata, String key, String value) {
