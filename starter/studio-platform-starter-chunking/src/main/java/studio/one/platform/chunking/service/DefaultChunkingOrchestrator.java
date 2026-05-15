@@ -55,6 +55,7 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
                 .strategy(ChunkingStrategyType.STRUCTURE_BASED)
                 .maxSize(properties.getMaxSize())
                 .overlap(properties.getOverlap())
+                .unit(properties.unitType())
                 .build();
         Chunker chunker = selectChunker(context);
         if (chunker instanceof NormalizedDocumentChunker normalizedDocumentChunker) {

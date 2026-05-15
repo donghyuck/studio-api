@@ -108,6 +108,30 @@ class DefaultChunkingOrchestratorTest {
     }
 
     @Test
+    void appliesConfiguredUnitToNormalizedDocumentChunking() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setUnit("token");
+        properties.setMaxSize(5);
+        properties.setOverlap(1);
+        RecursiveChunker recursiveChunker = new RecursiveChunker(80, 0);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(80, 0), recursiveChunker,
+                        new StructureBasedChunker(80, 0, recursiveChunker)));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(
+                        NormalizedBlock.builder(NormalizedBlockType.HEADING, "Title").order(0).build(),
+                        NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "한국어 English text").order(1).build()))
+                .build();
+
+        var chunks = orchestrator.chunk(document);
+
+        assertThat(chunks).isNotEmpty();
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_UNIT, "token");
+    }
+
+    @Test
     void returnsEmptyChunksForBlankNormalizedDocument() {
         ChunkingProperties properties = new ChunkingProperties();
         RecursiveChunker recursiveChunker = new RecursiveChunker(80, 0);
