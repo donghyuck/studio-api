@@ -110,14 +110,61 @@ public class AttachmentController {
 
     @GetMapping("/{attachmentId:[\\p{Digit}]+}/download")
     @PreAuthorize("@endpointAuthz.can('features:attachment','service-download')")
-    public ResponseEntity<StreamingResponseBody> download(@PathVariable("attachmentId") long attachmentId)
+    public ResponseEntity<StreamingResponseBody> download(
+            @PathVariable("attachmentId") long attachmentId,
+            HttpServletRequest httpRequest)
             throws IOException, NotFoundException {
-        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
-        requireAttachmentAccess(attachment, AttachmentOwnerAccessAction.DOWNLOAD);
-        return AttachmentWebSupport.downloadResponse(
-                attachment,
-                attachmentService.getInputStream(attachment),
-                CacheControl.noCache());
+        Instant requestedAt = Instant.now();
+        AttachmentUrlIssueRequestDetails details = requestDetailsResolver.resolve(httpRequest);
+        Attachment attachment = null;
+        try {
+            attachment = attachmentService.getAttachmentById(attachmentId);
+            requireAttachmentAccess(attachment, AttachmentOwnerAccessAction.DOWNLOAD);
+            return AttachmentWebSupport.auditedDownloadResponse(
+                    attachment,
+                    attachmentService.getInputStream(attachment),
+                    CacheControl.noCache(),
+                    "SERVICE_DIRECT",
+                    requestedAt,
+                    details,
+                    this::recordDownloadAudit);
+        } catch (NotFoundException ex) {
+            recordDownloadAudit(AttachmentWebSupport.downloadAuditCommand(
+                    null,
+                    attachmentId,
+                    "SERVICE_DIRECT",
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.NOT_FOUND.value(),
+                    null,
+                    details,
+                    "ATTACHMENT_NOT_FOUND"));
+            throw ex;
+        } catch (org.springframework.security.access.AccessDeniedException ex) {
+            recordDownloadAudit(AttachmentWebSupport.downloadAuditCommand(
+                    attachment,
+                    attachmentId,
+                    "SERVICE_DIRECT",
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.FORBIDDEN.value(),
+                    null,
+                    details,
+                    "ACCESS_DENIED"));
+            throw ex;
+        } catch (IOException | RuntimeException ex) {
+            recordDownloadAudit(AttachmentWebSupport.downloadAuditCommand(
+                    attachment,
+                    attachmentId,
+                    "SERVICE_DIRECT",
+                    requestedAt,
+                    AttachmentDownloadAuditResult.FAILED,
+                    HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    null,
+                    details,
+                    "STREAM_OPEN_FAILED"));
+            throw ex;
+        }
     }
 
     @PostMapping("/{attachmentId:[\\p{Digit}]+}/download-url")

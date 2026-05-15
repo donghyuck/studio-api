@@ -101,19 +101,61 @@ class AttachmentControllerTest {
     void downloadBuildsAttachmentHeaders() throws Exception {
         AttachmentController controller = controller();
         Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
 
         when(attachmentService.getAttachmentById(88L)).thenReturn(attachment);
         when(attachmentService.getInputStream(attachment)).thenReturn(new ByteArrayInputStream(new byte[] { 1, 2 }));
         when(attachment.getContentType()).thenReturn("application/pdf");
         when(attachment.getSize()).thenReturn(2L);
         when(attachment.getName()).thenReturn("report.pdf");
+        when(attachment.getAttachmentId()).thenReturn(88L);
+        when(attachment.getObjectType()).thenReturn(12);
+        when(attachment.getObjectId()).thenReturn(34L);
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.2", "JUnit"));
 
-        ResponseEntity<?> response = controller.download(88L);
+        ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> response =
+                controller.download(88L, request);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        response.getBody().writeTo(out);
 
         assertEquals("application/pdf", response.getHeaders().getContentType().toString());
         assertEquals(2L, response.getHeaders().getContentLength());
         assertEquals("attachment; filename=\"report.pdf\"",
                 response.getHeaders().getFirst("Content-Disposition"));
+        assertEquals(2, out.toByteArray().length);
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.SUCCEEDED
+                        && command.httpStatus() == 200
+                        && command.downloadedBytes() == 2L
+                        && command.tokenHash() == null
+                        && "SERVICE_DIRECT".equals(command.linkType())
+                        && command.attachmentId() == 88L
+                        && command.objectType() == 12
+                        && command.objectId() == 34L
+                        && "10.0.0.2".equals(command.clientIp())
+                        && "JUnit".equals(command.userAgent())));
+    }
+
+    @Test
+    void downloadRecordsNotFoundAuditLog() throws Exception {
+        AttachmentController controller = controller();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.4", "JUnit"));
+        when(attachmentService.getAttachmentById(404L)).thenThrow(AttachmentNotFoundException.byId(404L));
+
+        assertThrows(AttachmentNotFoundException.class, () -> controller.download(404L, request));
+
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.FAILED
+                        && command.httpStatus() == 404
+                        && command.downloadedBytes() == null
+                        && command.tokenHash() == null
+                        && "SERVICE_DIRECT".equals(command.linkType())
+                        && command.attachmentId() == 404L
+                        && "10.0.0.4".equals(command.clientIp())
+                        && "JUnit".equals(command.userAgent())
+                        && "ATTACHMENT_NOT_FOUND".equals(command.errorCode())));
     }
 
     @Test

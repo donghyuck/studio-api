@@ -1,10 +1,13 @@
 package studio.one.application.attachment.web.controller;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
 import java.util.Collections;
 import java.util.Set;
@@ -17,10 +20,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.application.attachment.application.result.AttachmentDownloadAuditResult;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
+import studio.one.application.attachment.application.usecase.AttachmentDownloadAuditLogService;
 import studio.one.application.attachment.application.result.AttachmentOwnerAccessAction;
 import studio.one.application.attachment.application.usecase.AttachmentOwnerAccessAuthorizer;
 import studio.one.application.attachment.application.usecase.AttachmentService;
@@ -40,6 +48,9 @@ class AttachmentMgmtControllerAuthorizationTest {
 
     @Mock
     private AttachmentDownloadUrlService downloadUrlService;
+
+    @Mock
+    private AttachmentDownloadAuditLogService downloadAuditLogService;
 
     @Mock
     private AttachmentUrlIssueRequestDetailsResolver requestDetailsResolver;
@@ -168,10 +179,78 @@ class AttachmentMgmtControllerAuthorizationTest {
         assertThrows(FileParseException.class, () -> controller.extractText(10L));
     }
 
+    @Test
+    void downloadRecordsManagementAuditLog() throws Exception {
+        AttachmentMgmtController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(1L, "ROLE_ADMIN"));
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.3", "JUnit"));
+        when(attachmentService.getAttachmentById(10L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment)).thenReturn(new ByteArrayInputStream(new byte[] { 1, 2, 3 }));
+        when(attachment.getAttachmentId()).thenReturn(10L);
+        when(attachment.getObjectType()).thenReturn(20);
+        when(attachment.getObjectId()).thenReturn(30L);
+        when(attachment.getContentType()).thenReturn("application/pdf");
+        when(attachment.getName()).thenReturn("report.pdf");
+        when(attachment.getSize()).thenReturn(3L);
+
+        ResponseEntity<StreamingResponseBody> response = controller.download(10L, request);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        response.getBody().writeTo(out);
+
+        assertEquals(3, out.toByteArray().length);
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.SUCCEEDED
+                        && command.httpStatus() == 200
+                        && command.downloadedBytes() == 3L
+                        && command.tokenHash() == null
+                        && "MGMT_DIRECT".equals(command.linkType())
+                        && command.attachmentId() == 10L
+                        && command.objectType() == 20
+                        && command.objectId() == 30L
+                        && "10.0.0.3".equals(command.clientIp())
+                        && "JUnit".equals(command.userAgent())));
+    }
+
+    @Test
+    void downloadRecordsAccessDeniedAuditLog() throws Exception {
+        AttachmentMgmtController controller = controller();
+        Attachment attachment = mock(Attachment.class);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        when(principalResolverProvider.getIfAvailable()).thenReturn(principalResolver);
+        when(principalResolver.currentOrNull()).thenReturn(principal(7L, "USER"));
+        when(requestDetailsResolver.resolve(request)).thenReturn(new AttachmentUrlIssueRequestDetails("10.0.0.5", "JUnit"));
+        when(attachmentService.getAttachmentById(10L)).thenReturn(attachment);
+        when(attachment.getAttachmentId()).thenReturn(10L);
+        when(attachment.getObjectType()).thenReturn(20);
+        when(attachment.getObjectId()).thenReturn(30L);
+        when(attachment.getCreatedBy()).thenReturn(99L);
+
+        assertThrows(AccessDeniedException.class, () -> controller.download(10L, request));
+
+        verify(downloadAuditLogService).record(org.mockito.ArgumentMatchers.argThat(command ->
+                command.result() == AttachmentDownloadAuditResult.FAILED
+                        && command.httpStatus() == 403
+                        && command.downloadedBytes() == null
+                        && command.tokenHash() == null
+                        && "MGMT_DIRECT".equals(command.linkType())
+                        && command.attachmentId() == 10L
+                        && command.objectType() == 20
+                        && command.objectId() == 30L
+                        && "10.0.0.5".equals(command.clientIp())
+                        && "JUnit".equals(command.userAgent())
+                        && "ACCESS_DENIED".equals(command.errorCode())));
+    }
+
     private AttachmentMgmtController controller() {
         return new AttachmentMgmtController(
                 attachmentService,
                 downloadUrlService,
+                downloadAuditLogService,
                 requestDetailsResolver,
                 identityServiceProvider,
                 principalResolverProvider,

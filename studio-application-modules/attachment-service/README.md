@@ -107,7 +107,7 @@ studio:
 - 응답 필드: `logId`, `attachmentId`, `objectType`, `objectId`, `endpointKind`, `issuedByUserId`, `issuedByPrincipalName`, `issuedAt`, `expiresAt`, `ttlSeconds`, `linkType`, `tokenHash`, `downloadCount`, `storageProviderId`, `bucket`, `objectKeyHash`, `clientIp`, `userAgent`.
 - signed URL, raw token, raw object key는 응답하지 않는다. 신규 application link는 `tokenHash`만 저장하고, `storageProviderId`/`bucket`/`objectKeyHash`는 legacy objectstorage presigned 로그 호환 필드다. 기본 정렬은 `issuedAt desc`, `logId desc`이다.
 - `downloadCount`는 해당 발급 로그의 실제 signed-download 접근 감사 로그 수다. `issueLogId`와 `tokenHash`를 기준으로 페이지 단위 bulk 집계하며, 접근 이력이 없으면 `0`을 반환한다.
-- `GET /attachment-downloads`: signed download URL 실제 접근 감사 로그를 페이지로 조회한다. 권한 `features:attachment_download_audit/read`.
+- `GET /attachment-downloads`: 실제 다운로드 접근 감사 로그를 페이지로 조회한다. signed download 접근과 `/api/mgmt/attachments/{attachmentId}/download`, `/api/attachments/{attachmentId}/download` 직접 다운로드 접근을 함께 조회한다. 권한 `features:attachment_download_audit/read`.
 - 필터: `attachmentId`, `objectType`, `objectId`, `tokenHash`, `result`(`SUCCEEDED`/`FAILED`/`EXPIRED`/`INVALID_TOKEN`), `from`, `to`, `clientIp`. `from`은 포함, `to`는 제외 기준으로 `requestedAt`에 적용한다.
 - 응답 필드: `downloadLogId`, `issueLogId`, `tokenHash`, `attachmentId`, `objectType`, `objectId`, `linkType`, `requestedAt`, `result`, `httpStatus`, `downloadedBytes`, `clientIp`, `userAgent`, `errorCode`.
 - signed download 접근 감사 로그도 raw token과 signed URL은 저장/응답하지 않는다. malformed token은 attachment/object 정보를 복원할 수 없어 nullable로 남을 수 있다. 기본 정렬은 `requestedAt desc`, `downloadLogId desc`이다.
