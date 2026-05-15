@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.core.env.Environment;
 import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -36,15 +37,20 @@ import studio.one.platform.web.dto.ApiResponse;
 @Validated
 public class RagChunkingSimulationController {
 
+    private static final String CHUNKING_PREFIX = "studio.chunking";
+
     @Nullable
     private final ChunkingOrchestrator chunkingOrchestrator;
     private final AiWebRagProperties ragProperties;
+    private final Environment environment;
 
     public RagChunkingSimulationController(
             @Nullable ChunkingOrchestrator chunkingOrchestrator,
-            AiWebRagProperties ragProperties) {
+            AiWebRagProperties ragProperties,
+            Environment environment) {
         this.chunkingOrchestrator = chunkingOrchestrator;
         this.ragProperties = Objects.requireNonNull(ragProperties, "ragProperties");
+        this.environment = Objects.requireNonNull(environment, "environment");
     }
 
     @PostMapping("/chunking")
@@ -206,11 +212,15 @@ public class RagChunkingSimulationController {
     }
 
     private int effectiveSize(int value) {
-        return value == ChunkingContext.USE_CONFIGURED_MAX_SIZE ? ChunkingContext.DEFAULT_MAX_SIZE : value;
+        return value == ChunkingContext.USE_CONFIGURED_MAX_SIZE
+                ? environment.getProperty(CHUNKING_PREFIX + ".max-size", Integer.class, ChunkingContext.DEFAULT_MAX_SIZE)
+                : value;
     }
 
     private int effectiveOverlap(int value) {
-        return value == ChunkingContext.USE_CONFIGURED_OVERLAP ? ChunkingContext.DEFAULT_OVERLAP : value;
+        return value == ChunkingContext.USE_CONFIGURED_OVERLAP
+                ? environment.getProperty(CHUNKING_PREFIX + ".overlap", Integer.class, ChunkingContext.DEFAULT_OVERLAP)
+                : value;
     }
 
     private void put(Map<String, Object> metadata, String key, String value) {

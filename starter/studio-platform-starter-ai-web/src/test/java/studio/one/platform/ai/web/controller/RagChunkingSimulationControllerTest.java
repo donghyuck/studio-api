@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.core.env.MapPropertySource;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,7 +32,8 @@ class RagChunkingSimulationControllerTest {
         CapturingOrchestrator orchestrator = new CapturingOrchestrator(List.of(chunk("doc-0", "alpha beta", 0, 6)));
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 orchestrator,
-                new AiWebRagProperties());
+                new AiWebRagProperties(),
+                environment());
 
         ResponseEntity<ApiResponse<RagChunkingSimulationResponseDto>> response = controller.simulateChunking(
                 new RagChunkingSimulationRequestDto(
@@ -82,7 +85,8 @@ class RagChunkingSimulationControllerTest {
                 .build());
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 new CapturingOrchestrator(List.of(fallbackChunk)),
-                new AiWebRagProperties());
+                new AiWebRagProperties(),
+                environment());
 
         RagChunkingSimulationResponseDto body = controller.simulateChunking(new RagChunkingSimulationRequestDto(
                 "oversized",
@@ -104,16 +108,42 @@ class RagChunkingSimulationControllerTest {
     }
 
     @Test
+    void reportsConfiguredChunkDefaultsWhenRequestOmitsSizeAndOverlap() {
+        RagChunkingSimulationController controller = new RagChunkingSimulationController(
+                new CapturingOrchestrator(List.of(chunk("doc-0", "alpha", 0, 2))),
+                new AiWebRagProperties(),
+                environment());
+
+        RagChunkingSimulationResponseDto body = controller.simulateChunking(new RagChunkingSimulationRequestDto(
+                "alpha",
+                null,
+                null,
+                null,
+                "openai",
+                "text-embedding-3-small",
+                true,
+                "token",
+                null,
+                null,
+                null)).getBody().getData();
+
+        assertThat(body.tokenizer().chunkSize()).isEqualTo(120);
+        assertThat(body.tokenizer().chunkOverlap()).isEqualTo(12);
+    }
+
+    @Test
     void rejectsInvalidRequestsWithStatusCodes() {
         RagChunkingSimulationController missingOrchestrator = new RagChunkingSimulationController(
                 null,
-                new AiWebRagProperties());
+                new AiWebRagProperties(),
+                environment());
         assertStatus(() -> missingOrchestrator.simulateChunking(new RagChunkingSimulationRequestDto(
                 "alpha", null, null, null, null, null, null, null, null, null, null)), 503);
 
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 new CapturingOrchestrator(List.of()),
-                new AiWebRagProperties());
+                new AiWebRagProperties(),
+                environment());
         assertStatus(() -> controller.simulateChunking(new RagChunkingSimulationRequestDto(
                 " ", null, null, null, null, null, null, null, null, null, null)), 400);
         assertStatus(() -> controller.simulateChunking(new RagChunkingSimulationRequestDto(
@@ -132,6 +162,14 @@ class RagChunkingSimulationControllerTest {
                         ChunkMetadata.KEY_TOKENIZER_CONFIDENCE, "high",
                         VectorRecord.KEY_EMBEDDING_MODEL, "text-embedding-3-small"))
                 .build());
+    }
+
+    private StandardEnvironment environment() {
+        StandardEnvironment environment = new StandardEnvironment();
+        environment.getPropertySources().addFirst(new MapPropertySource("test", Map.of(
+                "studio.chunking.max-size", "120",
+                "studio.chunking.overlap", "12")));
+        return environment;
     }
 
     private void assertStatus(Runnable action, int expectedStatus) {

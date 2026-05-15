@@ -311,10 +311,12 @@ public class AiWebAutoConfiguration {
     @Bean
     RagChunkingSimulationController ragChunkingSimulationController(
             ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
-            AiWebRagProperties ragProperties) {
+            AiWebRagProperties ragProperties,
+            Environment environment) {
         return new RagChunkingSimulationController(
                 chunkingOrchestratorProvider.getIfAvailable(),
-                ragProperties);
+                ragProperties,
+                environment);
     }
 
     @Bean(name = "ragIndexJobEndpointSecurity")
