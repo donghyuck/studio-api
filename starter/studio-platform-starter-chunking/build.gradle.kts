@@ -24,6 +24,8 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-autoconfigure")
     compileOnly("org.springframework:spring-context")
 
+    implementation("com.knuddels:jtokkit:${property("jtokkitVersion")}")
+
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("org.assertj:assertj-core")
     testImplementation(project(":studio-platform-textract"))

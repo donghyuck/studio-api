@@ -100,6 +100,55 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void searchAppliesConfiguredContextTokenBudget() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                new RagPipelineOptions(0.7d, 0.3d, 0.15d, 0.15d, false, false, 5, 20, 100, 10));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.1, 0.2)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(
+                        searchResult("doc-1", "first", 0.9d, 4),
+                        searchResult("doc-2", "second", 0.8d, 5),
+                        searchResult("doc-3", "third", 0.7d, 6)));
+
+        List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest("query", 5));
+
+        assertThat(results).hasSize(2);
+        assertThat(results).extracting(RagSearchResult::documentId).containsExactly("doc-1", "doc-2");
+        assertThat(results.get(1).metadata())
+                .containsEntry("contextBudgetUsedTokens", 9)
+                .containsEntry("contextBudgetMaxTokens", 10);
+    }
+
+    @Test
+    void searchExcludesSingleChunkLargerThanContextTokenBudget() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                new RagPipelineOptions(0.7d, 0.3d, 0.15d, 0.15d, false, false, 5, 20, 100, 5));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("query", List.of(0.1, 0.2)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(searchResult("doc-oversized", "oversized", 0.9d, 8)));
+
+        List<RagSearchResult> results = ragPipelineService.search(new RagSearchRequest("query", 5));
+
+        assertThat(results).isEmpty();
+    }
+
+    @Test
     void shouldIndexChunksAndPersistVectors() {
         RagIndexRequest request = new RagIndexRequest("doc-1", "hello world", Map.of("author", "test"));
         when(textChunker.chunk("doc-1", "hello world"))
@@ -185,6 +234,54 @@ class RagPipelineServiceTest {
                 .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001")
                 .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768)
                 .containsEntry(VectorRecord.KEY_EMBEDDING_INPUT_TYPE, "TABLE_TEXT");
+    }
+
+    @Test
+    void shouldPassResolvedEmbeddingMetadataToChunkingWhenRequestUsesProfileOnly() {
+        RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
+                embeddingPort,
+                selection.profileId(),
+                "openai",
+                "text-embedding-3-small",
+                1536,
+                selection.inputType());
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                chunkingOrchestrator,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                resolver);
+        when(chunkingOrchestrator.chunk(any(ChunkingContext.class)))
+                .thenReturn(List.of(Chunk.of(
+                        "doc-profile-0",
+                        "profile text",
+                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0).build())));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("doc-profile-0", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(new RagIndexRequest(
+                "doc-profile",
+                "profile text",
+                Map.of(),
+                List.of(),
+                false,
+                "retrieval-openai",
+                null,
+                null));
+
+        ArgumentCaptor<ChunkingContext> chunkingContext = ArgumentCaptor.forClass(ChunkingContext.class);
+        verify(chunkingOrchestrator).chunk(chunkingContext.capture());
+        assertThat(chunkingContext.getValue().metadata())
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROFILE_ID, "retrieval-openai")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "openai")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "text-embedding-3-small");
     }
 
     @Test
@@ -1469,5 +1566,13 @@ class RagPipelineServiceTest {
         private List<VectorDocument> upsertedDocuments() {
             return upsertedDocuments;
         }
+    }
+
+    private VectorSearchResult searchResult(String id, String content, double score, int tokenCount) {
+        return new VectorSearchResult(new VectorDocument(
+                id,
+                content,
+                Map.of(VectorRecord.KEY_CHUNK_TOKEN_COUNT, tokenCount),
+                List.of(0.1, 0.2)), score);
     }
 }

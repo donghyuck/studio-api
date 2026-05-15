@@ -258,7 +258,8 @@ public class RagPipelineConfiguration {
                                 retrieval.isSemanticFallbackEnabled(),
                                 retrieval.getTopK(),
                                 objectScope.getDefaultListLimit(),
-                                objectScope.getMaxListLimit());
+                                objectScope.getMaxListLimit(),
+                                retrieval.getMaxContextTokens());
         }
 
         private RagPipelineDiagnosticsOptions ragPipelineDiagnosticsOptions(RagPipelineProperties properties) {

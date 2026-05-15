@@ -184,6 +184,7 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
         private double minRelevanceScore = RagPipelineOptions.DEFAULT_MIN_RELEVANCE_SCORE;
         private boolean keywordFallbackEnabled = RagPipelineOptions.DEFAULT_KEYWORD_FALLBACK_ENABLED;
         private boolean semanticFallbackEnabled = RagPipelineOptions.DEFAULT_SEMANTIC_FALLBACK_ENABLED;
+        private int maxContextTokens = RagPipelineOptions.DEFAULT_MAX_CONTEXT_TOKENS;
         private final QueryExpansionProperties queryExpansion = new QueryExpansionProperties();
 
         public int getTopK() {
@@ -244,6 +245,14 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
 
         public QueryExpansionProperties getQueryExpansion() {
             return queryExpansion;
+        }
+
+        public int getMaxContextTokens() {
+            return maxContextTokens;
+        }
+
+        public void setMaxContextTokens(int maxContextTokens) {
+            this.maxContextTokens = maxContextTokens;
         }
     }
 

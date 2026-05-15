@@ -12,7 +12,11 @@ import org.springframework.context.annotation.Configuration;
 
 import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.core.TokenizerPort;
+import studio.one.platform.chunking.core.TokenizerResolver;
+import studio.one.platform.chunking.service.ApproximateTokenizer;
 import studio.one.platform.chunking.service.DefaultChunkingOrchestrator;
+import studio.one.platform.chunking.service.DefaultTokenizerResolver;
 import studio.one.platform.chunking.service.FixedSizeChunker;
 import studio.one.platform.chunking.service.HeadingChunkContextExpander;
 import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
@@ -20,6 +24,7 @@ import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.service.StructureBasedChunker;
 import studio.one.platform.chunking.service.TableChunkContextExpander;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
+import studio.one.platform.chunking.service.TokenBasedChunker;
 import studio.one.platform.chunking.service.WindowChunkContextExpander;
 
 @AutoConfiguration
@@ -45,6 +50,28 @@ public class ChunkingAutoConfiguration {
             ChunkingProperties properties,
             RecursiveChunker recursiveChunker) {
         return new StructureBasedChunker(properties.getMaxSize(), properties.getOverlap(), recursiveChunker);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public ApproximateTokenizer approximateTokenizer() {
+        return new ApproximateTokenizer();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public TokenizerResolver tokenizerResolver(
+            ChunkingProperties properties,
+            List<TokenizerPort> tokenizers) {
+        return new DefaultTokenizerResolver(properties.getTokenizer(), tokenizers);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public TokenBasedChunker tokenBasedChunker(
+            ChunkingProperties properties,
+            TokenizerResolver tokenizerResolver) {
+        return new TokenBasedChunker(properties.getMaxSize(), properties.getOverlap(), tokenizerResolver);
     }
 
     @Bean
@@ -75,9 +102,10 @@ public class ChunkingAutoConfiguration {
     @ConditionalOnMissingBean(ChunkingOrchestrator.class)
     public ChunkingOrchestrator chunkingOrchestrator(
             ChunkingProperties properties,
-            List<Chunker> chunkers) {
+            List<Chunker> chunkers,
+            TokenBasedChunker tokenBasedChunker) {
         properties.validate();
-        return new DefaultChunkingOrchestrator(properties, chunkers);
+        return new DefaultChunkingOrchestrator(properties, chunkers, tokenBasedChunker);
     }
 
     @Configuration(proxyBeanMethods = false)
