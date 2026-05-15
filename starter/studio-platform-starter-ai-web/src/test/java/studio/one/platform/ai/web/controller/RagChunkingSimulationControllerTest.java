@@ -56,7 +56,8 @@ class RagChunkingSimulationControllerTest {
         assertThat(orchestrator.context.metadata())
                 .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "openai")
                 .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "text-embedding-3-small")
-                .containsEntry("attachmentId", "att-1");
+                .containsEntry("attachmentId", "att-1")
+                .containsEntry("tokenizerAutoDetect", true);
 
         RagChunkingSimulationResponseDto body = response.getBody().getData();
         assertThat(body.totalChunks()).isEqualTo(1);
