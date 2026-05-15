@@ -60,6 +60,18 @@ public record ChunkMetadata(
     public static final String KEY_CHUNK_UNIT = "chunkUnit";
     public static final String KEY_MAX_SIZE = "maxSize";
     public static final String KEY_OVERLAP = "overlap";
+    public static final String KEY_ORIGINAL_TOKEN_COUNT = "originalTokenCount";
+    public static final String KEY_INDEXED_TOKEN_COUNT = "indexedTokenCount";
+    public static final String KEY_CHUNK_TOKEN_COUNT = "chunkTokenCount";
+    public static final String KEY_CHUNK_TOKEN_START = "chunkTokenStart";
+    public static final String KEY_CHUNK_TOKEN_END = "chunkTokenEnd";
+    public static final String KEY_TOKENIZER_PROVIDER = "tokenizerProvider";
+    public static final String KEY_TOKENIZER_ENCODING = "tokenizerEncoding";
+    public static final String KEY_TOKENIZER_MODEL = "tokenizerModel";
+    public static final String KEY_TOKENIZER_SELECTION_SOURCE = "tokenizerSelectionSource";
+    public static final String KEY_TOKENIZER_CONFIDENCE = "tokenizerConfidence";
+    public static final String KEY_TOKENIZER_FALLBACK_USED = "tokenizerFallbackUsed";
+    public static final String KEY_TOKENIZER_WARNINGS = "tokenizerWarnings";
 
     public ChunkMetadata {
         if (order < 0) {

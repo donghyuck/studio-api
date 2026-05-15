@@ -29,16 +29,30 @@ studio:
   chunking:
     enabled: true
     strategy: recursive
+    unit: character
     max-size: 800
     overlap: 100
+    tokenizer:
+      auto-detect: true
+      fallback: approximate
+      fail-on-unknown-model: false
+      mappings:
+        text-embedding-3-small:
+          provider: tiktoken
+          encoding: cl100k_base
 ```
 
 | Property | Default | 설명 |
 | --- | --- | --- |
 | `studio.chunking.enabled` | `true` | 기본 chunking bean 등록 여부입니다. |
 | `studio.chunking.strategy` | `recursive` | 기본 순수 chunking 전략입니다. 지원값: `recursive`, `fixed-size`, `structure-based`. |
-| `studio.chunking.max-size` | `800` | character 기준 최대 chunk size입니다. |
-| `studio.chunking.overlap` | `100` | 이전 chunk에서 이어받는 character overlap입니다. |
+| `studio.chunking.unit` | `character` | `max-size`와 `overlap` 해석 단위입니다. 지원값: `character`, `token`. |
+| `studio.chunking.max-size` | `800` | configured unit 기준 최대 chunk size입니다. |
+| `studio.chunking.overlap` | `100` | 이전 chunk에서 이어받는 configured unit 기준 overlap입니다. |
+| `studio.chunking.tokenizer.auto-detect` | `true` | embedding provider/model metadata로 tokenizer를 자동 선택합니다. |
+| `studio.chunking.tokenizer.fallback` | `approximate` | 정확한 tokenizer가 없을 때 사용할 fallback tokenizer입니다. |
+| `studio.chunking.tokenizer.fail-on-unknown-model` | `false` | 알 수 없는 model에서 fallback 대신 실패할지 결정합니다. |
+| `studio.chunking.tokenizer.mappings.*` | `{}` | model별 explicit tokenizer mapping입니다. |
 
 `max-size <= 0`, `overlap < 0`, `overlap >= max-size` 설정은 auto-configuration 단계에서 fail-fast 됩니다.
 
@@ -208,6 +222,8 @@ ChunkContextExpansion expansion = windowChunkContextExpander.expand(request);
 
 ## Size Policy
 
-기본 size 정책은 character 기준입니다.
-`ChunkUnit.TOKEN`은 외부 tokenizer를 호출하지 않고 compacted character length 기반 deterministic estimate를 사용합니다.
+기본 size 정책은 character 기준입니다. `studio.chunking.unit=token`을 설정하면 `DefaultChunkingOrchestrator`가
+tokenizer-aware chunker를 사용해 token 기준 `max-size`와 `overlap`을 적용합니다.
+OpenAI embedding/chat model은 `jtokkit` 기반 tiktoken-compatible adapter로 계산하고, 알 수 없는 model은
+`ApproximateTokenizer`를 사용하며 `tokenizerFallbackUsed`, `tokenizerWarnings` metadata를 남깁니다.
 structure-based overlap은 보수적으로 동작하며 heading, table, OCR, image-caption boundary는 overlap tail로 넘기지 않습니다.

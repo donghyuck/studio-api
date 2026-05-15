@@ -37,6 +37,19 @@ public final class VectorRecord {
     public static final String KEY_EMBEDDING_MODEL = "embeddingModel";
     public static final String KEY_EMBEDDING_DIMENSION = "embeddingDimension";
     public static final String KEY_EMBEDDING_INPUT_TYPE = "embeddingInputType";
+    public static final String KEY_ORIGINAL_TOKEN_COUNT = "originalTokenCount";
+    public static final String KEY_INDEXED_TOKEN_COUNT = "indexedTokenCount";
+    public static final String KEY_CHUNK_TOKEN_COUNT = "chunkTokenCount";
+    public static final String KEY_CHUNK_TOKEN_START = "chunkTokenStart";
+    public static final String KEY_CHUNK_TOKEN_END = "chunkTokenEnd";
+    public static final String KEY_TOKENIZER_PROVIDER = "tokenizerProvider";
+    public static final String KEY_TOKENIZER_ENCODING = "tokenizerEncoding";
+    public static final String KEY_TOKENIZER_MODEL = "tokenizerModel";
+    public static final String KEY_TOKENIZER_SELECTION_SOURCE = "tokenizerSelectionSource";
+    public static final String KEY_TOKENIZER_CONFIDENCE = "tokenizerConfidence";
+    public static final String KEY_TOKENIZER_FALLBACK_USED = "tokenizerFallbackUsed";
+    public static final String KEY_TOKENIZER_WARNINGS = "tokenizerWarnings";
+    public static final String KEY_CHUNKING_UNIT = "chunkingUnit";
     public static final String KEY_CREATED_AT = "createdAt";
     public static final String KEY_INDEXED_AT = "indexedAt";
 

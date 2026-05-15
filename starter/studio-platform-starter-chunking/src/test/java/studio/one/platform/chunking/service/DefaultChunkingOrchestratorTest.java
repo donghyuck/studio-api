@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.chunking.autoconfigure.ChunkingProperties;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
+import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
@@ -117,5 +118,34 @@ class DefaultChunkingOrchestratorTest {
 
         assertThat(orchestrator.chunk(NormalizedDocument.builder("doc").build())).isEmpty();
         assertThat(orchestrator.chunk((NormalizedDocument) null)).isEmpty();
+    }
+
+    @Test
+    void usesTokenBasedChunkerWhenConfiguredUnitIsToken() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setUnit("token");
+        properties.setMaxSize(4);
+        properties.setOverlap(1);
+        TokenBasedChunker tokenBasedChunker = new TokenBasedChunker(
+                4,
+                1,
+                new DefaultTokenizerResolver(properties.getTokenizer(), List.of(new ApproximateTokenizer())));
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(10, 0), new RecursiveChunker(10, 0),
+                        new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0))),
+                tokenBasedChunker);
+
+        var chunks = orchestrator.chunk(ChunkingContext.configuredDefaults("한국어 English 1234567890 text")
+                .sourceDocumentId("doc")
+                .metadata(java.util.Map.of("embeddingModel", "unknown-model"))
+                .build());
+
+        assertThat(chunks).isNotEmpty();
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_UNIT, "token")
+                .containsEntry(ChunkMetadata.KEY_TOKENIZER_PROVIDER, "approximate")
+                .containsEntry(ChunkMetadata.KEY_TOKENIZER_FALLBACK_USED, true);
+        assertThat(chunks.get(0).metadata().tokenCount()).isNotNull();
     }
 }

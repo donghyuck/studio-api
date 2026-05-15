@@ -228,7 +228,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
         TextCleaningResult cleaning = cleanText(request.text());
         String indexedText = cleaning.text() == null ? request.text() : cleaning.text();
         progress.onStep(RagIndexJobStep.CHUNKING);
-        List<RagPipelineChunk> chunks = chunk(indexedText, request);
+        RagIndexRequest chunkingRequest = withResolvedEmbeddingForChunking(request);
+        List<RagPipelineChunk> chunks = chunk(indexedText, chunkingRequest);
         progress.onChunkCount(chunks.size());
         List<VectorRecord> records = new ArrayList<>(chunks.size());
         List<String> documentKeywords = keywordOptions.scope().includesDocument()
@@ -317,6 +318,29 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return ragChunker.chunk(indexedText, request);
     }
 
+    private RagIndexRequest withResolvedEmbeddingForChunking(RagIndexRequest request) {
+        ResolvedRagEmbedding resolvedEmbedding = embeddingProfileResolver.resolve(new RagEmbeddingSelection(
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                EmbeddingInputType.TEXT));
+        Map<String, Object> metadata = new HashMap<>(request.metadata());
+        metadata.putAll(resolvedEmbedding.metadata());
+        return new RagIndexRequest(
+                request.documentId(),
+                request.text(),
+                metadata,
+                request.keywords(),
+                request.useLlmKeywordExtraction(),
+                firstText(request.embeddingProfileId(), resolvedEmbedding.profileId()),
+                firstText(request.embeddingProvider(), resolvedEmbedding.provider()),
+                firstText(request.embeddingModel(), resolvedEmbedding.model()));
+    }
+
+    private String firstText(String preferred, String fallback) {
+        return preferred == null || preferred.isBlank() ? fallback : preferred;
+    }
+
     private void mergeChunkMetadata(Map<String, Object> metadata, Map<String, Object> chunkMetadata) {
         chunkMetadata.forEach((key, value) -> {
             if (value != null && (!(value instanceof String text) || !text.isBlank())) {
@@ -403,7 +427,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 null,
                 request.requestedTopK(),
                 request.requestedMinScore());
-        return toRagSearchResults(results);
+        return toRagSearchResults(applyContextBudget(results));
     }
 
     @Override
@@ -441,7 +465,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 searchFilter.objectId(),
                 request.requestedTopK(),
                 request.requestedMinScore());
-        return toRagSearchResults(results);
+        return toRagSearchResults(applyContextBudget(results));
     }
 
     @Override
@@ -704,6 +728,57 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return results.stream()
                 .limit(Math.max(topK, 0))
                 .toList();
+    }
+
+    private List<VectorSearchResult> applyContextBudget(List<VectorSearchResult> results) {
+        if (options.maxContextTokens() <= 0 || results == null || results.isEmpty()) {
+            return results == null ? List.of() : results;
+        }
+        List<VectorSearchResult> budgeted = new ArrayList<>();
+        int usedTokens = 0;
+        for (VectorSearchResult result : results) {
+            int chunkTokens = chunkTokenCount(result);
+            if (chunkTokens <= 0) {
+                chunkTokens = estimateTokens(result.document().content());
+            }
+            if (chunkTokens > options.maxContextTokens() || usedTokens + chunkTokens > options.maxContextTokens()) {
+                continue;
+            }
+            usedTokens += chunkTokens;
+            budgeted.add(withBudgetMetadata(result, chunkTokens, usedTokens));
+        }
+        return budgeted;
+    }
+
+    private VectorSearchResult withBudgetMetadata(
+            VectorSearchResult result,
+            int chunkTokens,
+            int usedTokens) {
+        Map<String, Object> metadata = new HashMap<>(result.document().metadata());
+        metadata.put("contextBudgetUsedTokens", usedTokens);
+        metadata.put("contextBudgetMaxTokens", options.maxContextTokens());
+        metadata.put("contextBudgetChunkTokens", chunkTokens);
+        return new VectorSearchResult(new studio.one.platform.ai.core.vector.VectorDocument(
+                result.document().id(),
+                result.document().content(),
+                metadata,
+                result.document().embedding()), result.score());
+    }
+
+    private int chunkTokenCount(VectorSearchResult result) {
+        Object value = firstPresent(result.document().metadata(),
+                VectorRecord.KEY_CHUNK_TOKEN_COUNT,
+                ChunkMetadata.KEY_CHUNK_TOKEN_COUNT,
+                ChunkMetadata.KEY_TOKEN_COUNT);
+        Integer integer = integer(value);
+        return integer == null ? 0 : integer;
+    }
+
+    private int estimateTokens(String text) {
+        if (text == null || text.isBlank()) {
+            return 0;
+        }
+        return Math.max(1, (int) Math.ceil(text.replaceAll("\\s+", " ").trim().length() / 4.0d));
     }
 
     private RagSearchRequest withDefaults(RagSearchRequest request) {

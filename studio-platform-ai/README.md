@@ -83,6 +83,9 @@ Adapter는 아래 key를 `metadata` map에서 읽을 수 있어야 한다.
 | `chunkOrder` | legacy persisted chunk 순서 | 기존 pgvector schema와 chunking Phase 1 호환을 위해 유지한다. |
 | `chunkType` | `child`, `parent`, `table`, `ocr`, `image-caption` 등 chunk 역할 | retrieval hit와 context expansion strategy 선택에 사용한다. |
 | `chunkLength` | 개별 chunk content 길이 | starter-ai 기본 pipeline이 기록한다. |
+| `chunkingUnit` | chunk size/overlap 적용 단위 | `character` 또는 `token`이다. |
+| `chunkTokenCount` | chunk의 token 수 | token 기반 context budget 계산에 사용한다. |
+| `chunkTokenStart` / `chunkTokenEnd` | 원문 token 범위 | token 기반 chunking 경계 추적에 사용한다. |
 | `chunkCount` | 한 index 요청에서 생성된 chunk 수 | starter-ai 기본 pipeline이 기록한다. |
 
 신규 코드는 `chunkIndex`를 우선 기록한다.
@@ -114,6 +117,9 @@ Adapter는 아래 key를 `metadata` map에서 읽을 수 있어야 한다.
 | `embeddingModel` | embedding 생성 model 이름 | provider가 값을 제공하지 않으면 일부 pipeline은 `unknown` placeholder를 기록한다. |
 | `embeddingDimension` | embedding vector dimension | Java `Integer`로 저장될 수 있으나 adapter는 `Number`로 읽어야 한다. |
 | `embeddingInputType` | embedding 입력의 논리 유형 | `TEXT`, `TABLE_TEXT`, `IMAGE_CAPTION`, `OCR_TEXT` 중 하나다. 현재는 모두 텍스트 기반 embedding 입력이다. |
+| `tokenizerProvider` / `tokenizerEncoding` / `tokenizerModel` | chunk token 계산에 사용한 tokenizer 정보 | 운영 화면과 재색인 진단에서 사용한다. |
+| `tokenizerSelectionSource` / `tokenizerConfidence` | tokenizer 선택 출처와 신뢰도 | `explicit-config`, `model-mapping`, `provider-default`, `fallback` 등을 기록한다. |
+| `tokenizerFallbackUsed` / `tokenizerWarnings` | fallback 사용 여부와 경고 | 정확한 tokenizer가 없을 때 운영자가 확인할 수 있도록 기록한다. |
 | `createdAt` | record 생성 시각 | adapter 또는 pipeline이 필요할 때 기록한다. |
 | `indexedAt` | index 요청 처리 시각 | content pipeline 같은 조립 모듈이 기록한다. |
 

@@ -324,6 +324,7 @@ studio:
   chunking:
     enabled: true
     strategy: recursive
+    unit: character
     max-size: 800
     overlap: 100
 ```
@@ -332,8 +333,10 @@ studio:
 |---|---:|---|
 | `studio.chunking.enabled` | `true` | chunking starter 기본 bean 등록 여부 |
 | `studio.chunking.strategy` | `recursive` | Phase 1 전략. `recursive`, `fixed-size` 지원 |
-| `studio.chunking.max-size` | `800` | chunk 최대 문자 수 |
-| `studio.chunking.overlap` | `100` | 이전 chunk tail을 다음 chunk에 포함할 문자 수 |
+| `studio.chunking.unit` | `character` | chunk size/overlap 단위. `token`이면 tokenizer-aware chunking을 사용 |
+| `studio.chunking.max-size` | `800` | configured unit 기준 chunk 최대 크기 |
+| `studio.chunking.overlap` | `100` | 이전 chunk tail을 다음 chunk에 포함할 configured unit 수 |
+| `studio.ai.rag.retrieval.max-context-tokens` | `0` | `0`이면 비활성화. 양수이면 검색 결과를 token budget 이내로 제한 |
 
 기존 `studio.ai.pipeline.chunk-size`, `studio.ai.pipeline.chunk-overlap`는 deprecated legacy `TextChunker` fallback 설정이다.
 신규 `ChunkingOrchestrator` 경로에서는 `studio.chunking.*`가 기준이다.

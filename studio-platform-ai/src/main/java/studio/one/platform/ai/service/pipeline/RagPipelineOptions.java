@@ -14,7 +14,8 @@ public record RagPipelineOptions(
         boolean semanticFallbackEnabled,
         int topK,
         int defaultListLimit,
-        int maxListLimit) {
+        int maxListLimit,
+        int maxContextTokens) {
 
     public static final double DEFAULT_VECTOR_WEIGHT = 0.7;
     public static final double DEFAULT_LEXICAL_WEIGHT = 0.3;
@@ -26,6 +27,7 @@ public record RagPipelineOptions(
     public static final boolean DEFAULT_SEMANTIC_FALLBACK_ENABLED = true;
     public static final int DEFAULT_LIST_LIMIT = 20;
     public static final int DEFAULT_MAX_LIST_LIMIT = 200;
+    public static final int DEFAULT_MAX_CONTEXT_TOKENS = 0;
 
     public RagPipelineOptions {
         if (vectorWeight < 0.0d) {
@@ -58,6 +60,9 @@ public record RagPipelineOptions(
         if (defaultListLimit > maxListLimit) {
             throw new IllegalArgumentException("defaultListLimit must be less than or equal to maxListLimit");
         }
+        if (maxContextTokens < 0) {
+            throw new IllegalArgumentException("maxContextTokens must not be negative");
+        }
     }
 
     public static RagPipelineOptions defaults() {
@@ -70,7 +75,8 @@ public record RagPipelineOptions(
                 DEFAULT_SEMANTIC_FALLBACK_ENABLED,
                 DEFAULT_TOP_K,
                 DEFAULT_LIST_LIMIT,
-                DEFAULT_MAX_LIST_LIMIT);
+                DEFAULT_MAX_LIST_LIMIT,
+                DEFAULT_MAX_CONTEXT_TOKENS);
     }
 
     public RagPipelineOptions(
@@ -82,7 +88,22 @@ public record RagPipelineOptions(
             int defaultListLimit,
             int maxListLimit) {
         this(vectorWeight, lexicalWeight, minRelevanceScore, minRelevanceScore,
-                keywordFallbackEnabled, semanticFallbackEnabled, DEFAULT_TOP_K, defaultListLimit, maxListLimit);
+                keywordFallbackEnabled, semanticFallbackEnabled, DEFAULT_TOP_K, defaultListLimit, maxListLimit,
+                DEFAULT_MAX_CONTEXT_TOKENS);
+    }
+
+    public RagPipelineOptions(
+            double vectorWeight,
+            double lexicalWeight,
+            double minScore,
+            double minRelevanceScore,
+            boolean keywordFallbackEnabled,
+            boolean semanticFallbackEnabled,
+            int topK,
+            int defaultListLimit,
+            int maxListLimit) {
+        this(vectorWeight, lexicalWeight, minScore, minRelevanceScore, keywordFallbackEnabled, semanticFallbackEnabled,
+                topK, defaultListLimit, maxListLimit, DEFAULT_MAX_CONTEXT_TOKENS);
     }
 
     public int clampListLimit(Integer requestedLimit) {
