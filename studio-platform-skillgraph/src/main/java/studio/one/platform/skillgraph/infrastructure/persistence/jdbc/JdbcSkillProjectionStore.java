@@ -42,18 +42,25 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
     public List<SkillProjection> findProjectionPoints(String projectionId, String clusterId, int limit, int offset) {
         int max = limit <= 0 ? 100 : limit;
         int start = Math.max(0, offset);
-        return template.query("""
+        StringBuilder sql = new StringBuilder("""
                 SELECT *, ROW_NUMBER() OVER (ORDER BY created_at, skill_id) - 1 AS display_order
                 FROM tb_skill_projection
                 WHERE projection_id = :projectionId
-                  AND (:clusterId IS NULL OR cluster_id = :clusterId)
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("projectionId", projectionId)
+                .addValue("limit", max)
+                .addValue("offset", start);
+        String cluster = normalize(clusterId);
+        if (cluster != null) {
+            sql.append("  AND cluster_id = :clusterId\n");
+            params.addValue("clusterId", cluster);
+        }
+        sql.append("""
                 ORDER BY display_order
                 LIMIT :limit OFFSET :offset
-                """, new MapSqlParameterSource()
-                .addValue("projectionId", projectionId)
-                .addValue("clusterId", normalize(clusterId))
-                .addValue("limit", max)
-                .addValue("offset", start), this::mapProjection);
+                """);
+        return template.query(sql.toString(), params, this::mapProjection);
     }
 
     @Override

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,19 +14,34 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
+import studio.one.platform.skillgraph.domain.model.CourseSkillMapping;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
+import studio.one.platform.skillgraph.domain.model.SkillCategory;
+import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
+import studio.one.platform.skillgraph.domain.model.NcsSkillMapping;
+import studio.one.platform.skillgraph.domain.model.SkillProjection;
+import studio.one.platform.skillgraph.domain.model.SkillRelation;
+import studio.one.platform.skillgraph.domain.model.SkillRelationType;
 import studio.one.platform.skillgraph.domain.model.SkillSourceChunk;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillDictionaryStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillGraphStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillMappingStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillProjectionStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillTaxonomyStore;
 
 class JdbcSkillGraphStoreTest {
 
     private EmbeddedDatabase database;
     private JdbcSkillCandidateStore candidateStore;
     private JdbcSkillDictionaryStore dictionaryStore;
+    private JdbcSkillTaxonomyStore taxonomyStore;
+    private JdbcSkillGraphStore graphStore;
+    private JdbcSkillMappingStore mappingStore;
+    private JdbcSkillProjectionStore projectionStore;
 
     @BeforeEach
     void setUp() {
@@ -80,8 +96,67 @@ class JdbcSkillGraphStoreTest {
                     created_at TIMESTAMP NOT NULL
                 )
                 """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_category (
+                    category_id VARCHAR(100) PRIMARY KEY,
+                    parent_category_id VARCHAR(100),
+                    name VARCHAR(200) NOT NULL,
+                    display_order INT NOT NULL
+                )
+                """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_relation (
+                    relation_id VARCHAR(100) PRIMARY KEY,
+                    source_skill_id VARCHAR(100) NOT NULL,
+                    target_skill_id VARCHAR(100) NOT NULL,
+                    relation_type VARCHAR(40) NOT NULL,
+                    created_at TIMESTAMP NOT NULL
+                )
+                """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_ncs_mapping (
+                    mapping_id VARCHAR(100) PRIMARY KEY,
+                    ncs_unit_id VARCHAR(100) NOT NULL,
+                    skill_id VARCHAR(100) NOT NULL,
+                    weight DOUBLE NOT NULL,
+                    created_at TIMESTAMP NOT NULL
+                )
+                """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_course_mapping (
+                    mapping_id VARCHAR(100) PRIMARY KEY,
+                    course_id VARCHAR(100) NOT NULL,
+                    skill_id VARCHAR(100) NOT NULL,
+                    weight DOUBLE NOT NULL,
+                    created_at TIMESTAMP NOT NULL
+                )
+                """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_projection (
+                    projection_id VARCHAR(100) NOT NULL,
+                    skill_id VARCHAR(100) NOT NULL,
+                    x DOUBLE NOT NULL,
+                    y DOUBLE NOT NULL,
+                    cluster_id VARCHAR(100),
+                    created_at TIMESTAMP NOT NULL,
+                    PRIMARY KEY (projection_id, skill_id)
+                )
+                """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_cluster (
+                    cluster_id VARCHAR(100) PRIMARY KEY,
+                    label VARCHAR(200),
+                    algorithm VARCHAR(100) NOT NULL,
+                    item_count INT NOT NULL,
+                    created_at TIMESTAMP NOT NULL
+                )
+                """);
         candidateStore = new JdbcSkillCandidateStore(template);
         dictionaryStore = new JdbcSkillDictionaryStore(template);
+        taxonomyStore = new JdbcSkillTaxonomyStore(template);
+        graphStore = new JdbcSkillGraphStore(template);
+        mappingStore = new JdbcSkillMappingStore(template);
+        projectionStore = new JdbcSkillProjectionStore(template);
     }
 
     @AfterEach
@@ -140,5 +215,69 @@ class JdbcSkillGraphStoreTest {
 
         var skill = dictionaryStore.findByNormalizedAlias("스프링부트").orElseThrow();
         assertEquals("skill-1", skill.skillId());
+    }
+
+    @Test
+    void taxonomyStoreSearchesRootAndChildCategories() {
+        taxonomyStore.saveCategory(new SkillCategory("backend", null, "Backend", 1));
+        taxonomyStore.saveCategory(new SkillCategory("java", "backend", "Java", 1));
+
+        var roots = taxonomyStore.findCategories(null);
+        var children = taxonomyStore.findCategories("backend");
+
+        assertEquals(1, roots.size());
+        assertEquals("backend", roots.get(0).categoryId());
+        assertEquals(1, children.size());
+        assertEquals("java", children.get(0).categoryId());
+    }
+
+    @Test
+    void graphStoreSearchesRelationsWithOptionalFilters() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        graphStore.saveRelation(new SkillRelation("relation-1", "spring", "java",
+                SkillRelationType.PREREQUISITE, now));
+
+        var all = graphStore.findRelations(null, null);
+        var bySkill = graphStore.findRelations("spring", null);
+        var byType = graphStore.findRelations(null, SkillRelationType.PREREQUISITE);
+        var missing = graphStore.findRelations("python", SkillRelationType.PREREQUISITE);
+
+        assertEquals(1, all.size());
+        assertEquals("relation-1", bySkill.get(0).relationId());
+        assertEquals("relation-1", byType.get(0).relationId());
+        assertTrue(missing.isEmpty());
+    }
+
+    @Test
+    void mappingStoreSearchesWithOptionalFilters() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        mappingStore.saveNcsMapping(new NcsSkillMapping("ncs-1", "unit-1", "spring", 0.8d, now));
+        mappingStore.saveCourseMapping(new CourseSkillMapping("course-1", "course-a", "spring", 0.7d, now));
+
+        var allNcs = mappingStore.findNcsMappings(null);
+        var ncsByUnit = mappingStore.findNcsMappings("unit-1");
+        var allCourses = mappingStore.findCourseMappings(null);
+        var coursesById = mappingStore.findCourseMappings("course-a");
+
+        assertEquals(1, allNcs.size());
+        assertEquals("ncs-1", ncsByUnit.get(0).mappingId());
+        assertEquals(1, allCourses.size());
+        assertEquals("course-1", coursesById.get(0).mappingId());
+    }
+
+    @Test
+    void projectionStoreSearchesWithOptionalClusterFilter() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        projectionStore.replaceProjection("default", List.of(
+                new SkillProjection("default", "spring", 1.0d, 2.0d, "cluster-a", 0, now),
+                new SkillProjection("default", "java", 3.0d, 4.0d, "cluster-b", 0, now)),
+                List.of(new SkillCluster("cluster-a", "Backend", "manual", 1, now)));
+
+        var all = projectionStore.findProjectionPoints("default", null, 10, 0);
+        var byCluster = projectionStore.findProjectionPoints("default", "cluster-a", 10, 0);
+
+        assertEquals(2, all.size());
+        assertEquals(1, byCluster.size());
+        assertEquals("spring", byCluster.get(0).skillId());
     }
 }

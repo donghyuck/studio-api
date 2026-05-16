@@ -45,12 +45,19 @@ public class JdbcSkillTaxonomyStore implements SkillTaxonomyStore {
 
     @Override
     public List<SkillCategory> findCategories(String parentCategoryId) {
+        String parent = normalize(parentCategoryId);
+        if (parent == null) {
+            return template.query("""
+                    SELECT * FROM tb_skill_category
+                    WHERE parent_category_id IS NULL
+                    ORDER BY display_order, name
+                    """, Map.of(), this::map);
+        }
         return template.query("""
                 SELECT * FROM tb_skill_category
-                WHERE (:parentCategoryId IS NULL AND parent_category_id IS NULL)
-                   OR parent_category_id = :parentCategoryId
+                WHERE parent_category_id = :parentCategoryId
                 ORDER BY display_order, name
-                """, new MapSqlParameterSource("parentCategoryId", normalize(parentCategoryId)), this::map);
+                """, new MapSqlParameterSource("parentCategoryId", parent), this::map);
     }
 
     private MapSqlParameterSource params(SkillCategory category) {

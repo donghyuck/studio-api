@@ -51,14 +51,21 @@ public class JdbcSkillGraphStore implements SkillGraphStore {
     @Override
     public List<SkillRelation> findRelations(String skillId, SkillRelationType type) {
         String skill = normalize(skillId);
-        return template.query("""
+        StringBuilder sql = new StringBuilder("""
                 SELECT * FROM tb_skill_relation
-                WHERE (:skillId IS NULL OR source_skill_id = :skillId OR target_skill_id = :skillId)
-                  AND (:relationType IS NULL OR relation_type = :relationType)
-                ORDER BY created_at DESC
-                """, new MapSqlParameterSource()
-                .addValue("skillId", skill)
-                .addValue("relationType", type == null ? null : type.name()), this::map);
+                WHERE 1 = 1
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        if (skill != null) {
+            sql.append("  AND (source_skill_id = :skillId OR target_skill_id = :skillId)\n");
+            params.addValue("skillId", skill);
+        }
+        if (type != null) {
+            sql.append("  AND relation_type = :relationType\n");
+            params.addValue("relationType", type.name());
+        }
+        sql.append("ORDER BY created_at DESC\n");
+        return template.query(sql.toString(), params, this::map);
     }
 
     private MapSqlParameterSource params(SkillRelation relation) {
