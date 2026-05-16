@@ -52,7 +52,7 @@ class DefaultSkillExtractionServiceTest {
     }
 
     @Test
-    void duplicateNormalizedTermIncrementsOccurrence() {
+    void duplicateNormalizedTermIncrementsOccurrenceWithinSameSourceChunk() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
         DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
 
@@ -60,6 +60,20 @@ class DefaultSkillExtractionServiceTest {
         service.extract(new SkillExtractionCommand("course", "course-1", "chunk-2", "Spring Boot"));
 
         var candidates = store.searchCandidates(null, "spring boot", 10);
+        assertEquals(2, candidates.size());
+        assertEquals(1, candidates.get(0).occurrenceCount());
+        assertEquals(1, candidates.get(1).occurrenceCount());
+    }
+
+    @Test
+    void duplicateNormalizedTermIncrementsOccurrenceWithinSameChunk() {
+        InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
+        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+
+        service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Kubernetes"));
+        service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Kubernetes"));
+
+        var candidates = store.searchCandidates(null, "kubernetes", 10);
         assertEquals(1, candidates.size());
         assertEquals(2, candidates.get(0).occurrenceCount());
     }
@@ -130,10 +144,11 @@ class DefaultSkillExtractionServiceTest {
                 dictionaryStore);
         var result = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Kubernetes"));
 
-        reviewService.review(result.candidates().get(0).candidateId(),
+        var reviewed = reviewService.review(result.candidates().get(0).candidateId(),
                 new SkillCandidateReviewCommand(SkillCandidateStatus.APPROVED, null, "new skill"));
 
         assertFalse(dictionaryStore.findByNormalizedName("kubernetes").isEmpty());
+        assertFalse(reviewed.matchedSkillId().isBlank());
     }
 
     @Test

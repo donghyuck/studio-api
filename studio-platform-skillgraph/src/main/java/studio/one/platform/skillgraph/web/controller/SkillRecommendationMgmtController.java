@@ -5,6 +5,8 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,8 +36,8 @@ public class SkillRecommendationMgmtController {
     }
 
     public record CourseRecommendationRequest(
-            List<String> targetSkillIds,
-            List<String> ownedSkillIds,
+            @NotEmpty @Size(max = 100) List<@Size(max = 100) String> targetSkillIds,
+            @Size(max = 100) List<@Size(max = 100) String> ownedSkillIds,
             @Min(1) @Max(100) Integer limit) {
     }
 }

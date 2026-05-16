@@ -3,6 +3,8 @@ package studio.one.platform.skillgraph.web.controller;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
@@ -33,8 +35,11 @@ public class SkillGraphMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<List<SkillRelationView>>> list(
             @RequestParam(value = "skillId", required = false) @Size(max = 100) String skillId,
-            @RequestParam(value = "type", required = false) SkillRelationType type) {
-        return ResponseEntity.ok(ApiResponse.ok(service.findRelations(skillId, type)));
+            @RequestParam(value = "type", required = false) SkillRelationType type,
+            @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(service.findRelations(skillId, type).stream()
+                .limit(limit)
+                .toList()));
     }
 
     @PostMapping

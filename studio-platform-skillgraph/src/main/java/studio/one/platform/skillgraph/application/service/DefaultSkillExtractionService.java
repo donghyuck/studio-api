@@ -63,13 +63,17 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
                 command.sourceType(),
                 command.sourceId(),
                 command.chunkId(),
-                command.text(),
+                excerpt(command.text()),
                 now));
 
         List<SkillCandidateView> candidates = new ArrayList<>();
         for (SkillCandidateExtractor.ExtractedSkillTerm term : extractor.extract(command.text())) {
             String normalized = SkillCandidate.normalizeSkillTerm(term.term());
-            SkillCandidate candidate = store.findCandidateByNormalizedTerm(normalized)
+            SkillCandidate candidate = store.findCandidateBySourceAndNormalizedTerm(
+                    command.sourceType(),
+                    command.sourceId(),
+                    command.chunkId(),
+                    normalized)
                     .map(existing -> existing.incrementOccurrence(now))
                     .orElseGet(() -> newCandidate(command, sourceChunkId, term, normalized, now));
             candidates.add(SkillCandidateView.from(store.saveCandidate(candidate)));
@@ -131,5 +135,10 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
             return SkillCandidateStatus.MATCHED;
         }
         return SkillCandidateStatus.ALIAS_CANDIDATE;
+    }
+
+    private String excerpt(String text) {
+        int maxLength = 2048;
+        return text.length() <= maxLength ? text : text.substring(0, maxLength);
     }
 }

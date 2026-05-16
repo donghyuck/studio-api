@@ -31,6 +31,7 @@ public class SkillGraphProperties {
     public static class Matching {
         private double matchThreshold = 0.92d;
         private double aliasThreshold = 0.82d;
+        private boolean remoteEmbeddingEnabled = false;
     }
 
     @Getter

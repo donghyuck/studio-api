@@ -83,19 +83,56 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
     }
 
     @Override
+    public Optional<SkillCandidate> findCandidateBySourceAndNormalizedTerm(
+            String sourceType,
+            String sourceId,
+            String chunkId,
+            String normalizedTerm) {
+        List<SkillCandidate> results = template.query("""
+                SELECT * FROM tb_skill_candidate
+                WHERE normalized_term = :normalizedTerm
+                  AND COALESCE(source_type, '') = COALESCE(:sourceType, '')
+                  AND COALESCE(source_id, '') = COALESCE(:sourceId, '')
+                  AND COALESCE((SELECT chunk_id FROM tb_skill_source_chunk sc
+                                WHERE sc.source_chunk_id = tb_skill_candidate.source_chunk_id), '') = COALESCE(:chunkId, '')
+                ORDER BY created_at DESC
+                LIMIT 1
+                """, new MapSqlParameterSource()
+                .addValue("normalizedTerm", normalizedTerm)
+                .addValue("sourceType", sourceType)
+                .addValue("sourceId", sourceId)
+                .addValue("chunkId", chunkId), this::mapCandidate);
+        return results.stream().findFirst();
+    }
+
+    @Override
     public List<SkillCandidate> searchCandidates(SkillCandidateStatus status, String q, int limit) {
+        return searchCandidates(status, q, null, null, limit);
+    }
+
+    @Override
+    public List<SkillCandidate> searchCandidates(
+            SkillCandidateStatus status,
+            String q,
+            String sourceType,
+            String sourceId,
+            int limit) {
         String query = q == null ? "" : q.trim().toLowerCase();
         int max = limit <= 0 ? 100 : limit;
         return template.query("""
                 SELECT * FROM tb_skill_candidate
                 WHERE (:status IS NULL OR status = :status)
                   AND (:q = '' OR LOWER(term) LIKE :likeQ OR normalized_term LIKE :likeQ)
+                  AND (:sourceType IS NULL OR source_type = :sourceType)
+                  AND (:sourceId IS NULL OR source_id = :sourceId)
                 ORDER BY created_at DESC
                 LIMIT :limit
                 """, new MapSqlParameterSource()
                 .addValue("status", status == null ? null : status.name())
                 .addValue("q", query)
                 .addValue("likeQ", "%" + query + "%")
+                .addValue("sourceType", normalize(sourceType))
+                .addValue("sourceId", normalize(sourceId))
                 .addValue("limit", max), this::mapCandidate);
     }
 
@@ -140,5 +177,9 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
 
     private Instant instant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

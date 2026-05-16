@@ -19,5 +19,25 @@ public interface SkillCandidateStore {
 
     Optional<SkillCandidate> findCandidateByNormalizedTerm(String normalizedTerm);
 
+    default Optional<SkillCandidate> findCandidateBySourceAndNormalizedTerm(
+            String sourceType,
+            String sourceId,
+            String chunkId,
+            String normalizedTerm) {
+        return Optional.empty();
+    }
+
     List<SkillCandidate> searchCandidates(SkillCandidateStatus status, String q, int limit);
+
+    default List<SkillCandidate> searchCandidates(
+            SkillCandidateStatus status,
+            String q,
+            String sourceType,
+            String sourceId,
+            int limit) {
+        return searchCandidates(status, q, limit).stream()
+                .filter(candidate -> sourceType == null || sourceType.isBlank() || sourceType.trim().equals(candidate.sourceType()))
+                .filter(candidate -> sourceId == null || sourceId.isBlank() || sourceId.trim().equals(candidate.sourceId()))
+                .toList();
+    }
 }

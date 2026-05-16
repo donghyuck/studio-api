@@ -42,6 +42,10 @@ import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCand
 import studio.one.platform.skillgraph.infrastructure.clustering.DistanceThresholdSkillClusterer;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillDictionaryStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillGraphStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillMappingStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillProjectionStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillTaxonomyStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillGraphStore;
@@ -78,30 +82,6 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillClusterer skillClusterer(SkillGraphProperties properties) {
         return new DistanceThresholdSkillClusterer(properties.getClustering().getRadius());
-    }
-
-    @Bean(name = SkillProjectionStore.SERVICE_NAME)
-    @ConditionalOnMissingBean
-    public SkillProjectionStore skillProjectionStore() {
-        return new InMemorySkillProjectionStore();
-    }
-
-    @Bean(name = SkillTaxonomyStore.SERVICE_NAME)
-    @ConditionalOnMissingBean
-    public SkillTaxonomyStore skillTaxonomyStore() {
-        return new InMemorySkillTaxonomyStore();
-    }
-
-    @Bean(name = SkillGraphStore.SERVICE_NAME)
-    @ConditionalOnMissingBean
-    public SkillGraphStore skillGraphStore() {
-        return new InMemorySkillGraphStore();
-    }
-
-    @Bean(name = SkillMappingStore.SERVICE_NAME)
-    @ConditionalOnMissingBean
-    public SkillMappingStore skillMappingStore() {
-        return new InMemorySkillMappingStore();
     }
 
     @Bean(name = SkillExtractionService.SERVICE_NAME)
@@ -179,6 +159,30 @@ public class SkillGraphAutoConfiguration {
             return new InMemorySkillDictionaryStore();
         }
 
+        @Bean(name = SkillProjectionStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillProjectionStore skillProjectionStore() {
+            return new InMemorySkillProjectionStore();
+        }
+
+        @Bean(name = SkillTaxonomyStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillTaxonomyStore skillTaxonomyStore() {
+            return new InMemorySkillTaxonomyStore();
+        }
+
+        @Bean(name = SkillGraphStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillGraphStore skillGraphStore() {
+            return new InMemorySkillGraphStore();
+        }
+
+        @Bean(name = SkillMappingStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillMappingStore skillMappingStore() {
+            return new InMemorySkillMappingStore();
+        }
+
     }
 
     @Configuration
@@ -198,6 +202,30 @@ public class SkillGraphAutoConfiguration {
         @ConditionalOnMissingBean
         public SkillDictionaryStore skillDictionaryStore(NamedParameterJdbcTemplate template) {
             return new JdbcSkillDictionaryStore(template);
+        }
+
+        @Bean(name = SkillProjectionStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillProjectionStore skillProjectionStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillProjectionStore(template);
+        }
+
+        @Bean(name = SkillTaxonomyStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillTaxonomyStore skillTaxonomyStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillTaxonomyStore(template);
+        }
+
+        @Bean(name = SkillGraphStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillGraphStore skillGraphStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillGraphStore(template);
+        }
+
+        @Bean(name = SkillMappingStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillMappingStore skillMappingStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillMappingStore(template);
         }
     }
 }

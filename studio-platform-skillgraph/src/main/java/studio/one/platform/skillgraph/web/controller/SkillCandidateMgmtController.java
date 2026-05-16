@@ -35,12 +35,17 @@ public class SkillCandidateMgmtController {
     private final SkillCandidateReviewService reviewService;
 
     @GetMapping
-    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read') "
+            + "and (#sourceType == null or #sourceType.trim().isEmpty() or #sourceId == null or #sourceId.trim().isEmpty() "
+            + "or @endpointAuthz.can('objects:' + #sourceType.trim() + ':' + #sourceId.trim(),'read') "
+            + "or @endpointAuthz.can('objects:' + #sourceType.trim(),'read'))")
     public ResponseEntity<ApiResponse<List<SkillCandidateDto>>> search(
             @RequestParam(value = "status", required = false) SkillCandidateStatus status,
             @RequestParam(value = "q", required = false) @Size(max = 200) String q,
+            @RequestParam(value = "sourceType", required = false) @Size(max = 100) String sourceType,
+            @RequestParam(value = "sourceId", required = false) @Size(max = 200) String sourceId,
             @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit) {
-        return ResponseEntity.ok(ApiResponse.ok(reviewService.search(status, q, limit).stream()
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.search(status, q, sourceType, sourceId, limit).stream()
                 .map(SkillCandidateDto::from)
                 .toList()));
     }

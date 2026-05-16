@@ -3,6 +3,8 @@ package studio.one.platform.skillgraph.web.controller;
 import java.util.List;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.http.ResponseEntity;
@@ -33,8 +35,11 @@ public class SkillMappingMgmtController {
     @GetMapping("/ncs")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<List<NcsSkillMappingView>>> ncs(
-            @RequestParam(value = "ncsUnitId", required = false) @Size(max = 100) String ncsUnitId) {
-        return ResponseEntity.ok(ApiResponse.ok(service.findNcsMappings(ncsUnitId)));
+            @RequestParam(value = "ncsUnitId", required = false) @Size(max = 100) String ncsUnitId,
+            @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(service.findNcsMappings(ncsUnitId).stream()
+                .limit(limit)
+                .toList()));
     }
 
     @PostMapping("/ncs")
@@ -46,8 +51,11 @@ public class SkillMappingMgmtController {
     @GetMapping("/courses")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<List<CourseSkillMappingView>>> courses(
-            @RequestParam(value = "courseId", required = false) @Size(max = 100) String courseId) {
-        return ResponseEntity.ok(ApiResponse.ok(service.findCourseMappings(courseId)));
+            @RequestParam(value = "courseId", required = false) @Size(max = 100) String courseId,
+            @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(service.findCourseMappings(courseId).stream()
+                .limit(limit)
+                .toList()));
     }
 
     @PostMapping("/courses")

@@ -26,7 +26,9 @@ public class SkillExtractionJobMgmtController {
     private final SkillExtractionService extractionService;
 
     @PostMapping
-    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
+            + "and (@endpointAuthz.can('objects:' + #request.sourceType().trim() + ':' + #request.sourceId().trim(),'read') "
+            + "or @endpointAuthz.can('objects:' + #request.sourceType().trim(),'read'))")
     public ResponseEntity<ApiResponse<SkillExtractionResponse>> extract(@Valid @RequestBody SkillExtractionRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(SkillExtractionResponse.from(extractionService.extract(
                 new SkillExtractionCommand(request.sourceType(), request.sourceId(), request.chunkId(), request.text())))));

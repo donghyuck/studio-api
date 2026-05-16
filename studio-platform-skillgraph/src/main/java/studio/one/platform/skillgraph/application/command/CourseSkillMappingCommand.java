@@ -1,4 +1,13 @@
 package studio.one.platform.skillgraph.application.command;
 
-public record CourseSkillMappingCommand(String mappingId, String courseId, String skillId, double weight) {
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record CourseSkillMappingCommand(
+        @Size(max = 100) String mappingId,
+        @NotBlank @Size(max = 100) String courseId,
+        @NotBlank @Size(max = 100) String skillId,
+        @DecimalMin("0.0") @DecimalMax("1.0") double weight) {
 }

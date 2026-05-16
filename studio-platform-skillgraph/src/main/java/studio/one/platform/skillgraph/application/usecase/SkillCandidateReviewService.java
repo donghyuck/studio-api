@@ -12,6 +12,10 @@ public interface SkillCandidateReviewService {
 
     List<SkillCandidateView> search(SkillCandidateStatus status, String q, int limit);
 
+    default List<SkillCandidateView> search(SkillCandidateStatus status, String q, String sourceType, String sourceId, int limit) {
+        return search(status, q, limit);
+    }
+
     SkillCandidateView get(String candidateId);
 
     SkillCandidateView review(String candidateId, SkillCandidateReviewCommand command);

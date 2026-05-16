@@ -5,9 +5,9 @@ import jakarta.validation.constraints.Size;
 
 public record SkillExtractionRequest(
         @Size(max = 100)
-        String sourceType,
+        @NotBlank String sourceType,
         @Size(max = 200)
-        String sourceId,
+        @NotBlank String sourceId,
         @Size(max = 200)
         String chunkId,
         @Size(max = 200000)

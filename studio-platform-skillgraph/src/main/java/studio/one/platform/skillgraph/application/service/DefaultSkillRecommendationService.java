@@ -40,12 +40,17 @@ public class DefaultSkillRecommendationService implements SkillRecommendationSer
     }
 
     private CourseRecommendation recommend(String courseId, List<CourseSkillMapping> mappings, Set<String> missing) {
-        Set<String> matched = mappings.stream().map(CourseSkillMapping::skillId).collect(Collectors.toSet());
+        Map<String, Double> weightBySkill = mappings.stream()
+                .filter(mapping -> missing.contains(mapping.skillId()))
+                .collect(Collectors.toMap(
+                        CourseSkillMapping::skillId,
+                        CourseSkillMapping::weight,
+                        Math::max));
+        Set<String> matched = weightBySkill.keySet();
         Set<String> remaining = new HashSet<>(missing);
         remaining.removeAll(matched);
-        double matchedWeight = mappings.stream()
-                .filter(mapping -> missing.contains(mapping.skillId()))
-                .mapToDouble(CourseSkillMapping::weight)
+        double matchedWeight = weightBySkill.values().stream()
+                .mapToDouble(Double::doubleValue)
                 .sum();
         double score = missing.isEmpty() ? 0.0d : Math.min(1.0d, matchedWeight / missing.size());
         return new CourseRecommendation(courseId, score, List.copyOf(matched), List.copyOf(remaining));

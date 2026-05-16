@@ -19,6 +19,7 @@ public class AiSkillGraphEmbeddingAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnBean(EmbeddingPort.class)
+    @ConditionalOnProperty(prefix = "studio.skillgraph.matching", name = "remote-embedding-enabled", havingValue = "true")
     public SkillEmbeddingPort skillEmbeddingPort(EmbeddingPort embeddingPort) {
         return new AiSkillEmbeddingPort(embeddingPort);
     }

@@ -28,7 +28,12 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
 
     @Override
     public List<SkillCandidateView> search(SkillCandidateStatus status, String q, int limit) {
-        return store.searchCandidates(status, normalizeQuery(q), normalizeLimit(limit)).stream()
+        return search(status, q, null, null, limit);
+    }
+
+    @Override
+    public List<SkillCandidateView> search(SkillCandidateStatus status, String q, String sourceType, String sourceId, int limit) {
+        return store.searchCandidates(status, normalizeQuery(q), normalizeSource(sourceType), normalizeSource(sourceId), normalizeLimit(limit)).stream()
                 .map(SkillCandidateView::from)
                 .toList();
     }
@@ -46,7 +51,10 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
         SkillCandidate existing = find(candidateId);
         SkillCandidate candidate = existing
                 .withStatus(command.status(), command.matchedSkillId(), command.reviewerNote(), Instant.now());
-        reflectReview(candidate);
+        String matchedSkillId = reflectReview(candidate);
+        if (matchedSkillId != null && !matchedSkillId.equals(candidate.matchedSkillId())) {
+            candidate = candidate.withStatus(candidate.status(), matchedSkillId, candidate.reviewerNote(), Instant.now());
+        }
         return SkillCandidateView.from(store.saveCandidate(candidate));
     }
 
@@ -55,12 +63,12 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                 .orElseThrow(() -> new IllegalArgumentException("Unknown skill candidate: " + candidateId));
     }
 
-    private void reflectReview(SkillCandidate candidate) {
+    private String reflectReview(SkillCandidate candidate) {
         if (dictionaryStore == null) {
-            return;
+            return candidate.matchedSkillId();
         }
         if (candidate.status() == SkillCandidateStatus.APPROVED && candidate.matchedSkillId() == null) {
-            dictionaryStore.findByNormalizedName(candidate.normalizedTerm())
+            SkillDictionary skill = dictionaryStore.findByNormalizedName(candidate.normalizedTerm())
                     .orElseGet(() -> dictionaryStore.save(new SkillDictionary(
                             "skd_" + UUID.randomUUID(),
                             candidate.term(),
@@ -69,7 +77,7 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                             "ACTIVE",
                             candidate.createdAt(),
                             candidate.updatedAt())));
-            return;
+            return skill.skillId();
         }
         if (candidate.status() == SkillCandidateStatus.ALIAS_CANDIDATE && candidate.matchedSkillId() != null) {
             dictionaryStore.saveAlias(new SkillAlias(
@@ -79,6 +87,7 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                     candidate.normalizedTerm(),
                     candidate.updatedAt()));
         }
+        return candidate.matchedSkillId();
     }
 
     private int normalizeLimit(int limit) {
@@ -96,5 +105,12 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
         return trimmed.length() <= SkillGraphLimits.MAX_QUERY_LENGTH
                 ? trimmed
                 : trimmed.substring(0, SkillGraphLimits.MAX_QUERY_LENGTH);
+    }
+
+    private String normalizeSource(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }
