@@ -42,6 +42,7 @@ Use clear names that describe the actual schema change.
 | `pages` | `1200-1299` |
 | `workspace` | `1300-1399` |
 | `wiki` | `1400-1499` |
+| `skillgraph` | `1500-1599` |
 
 ## Adding a Migration
 
