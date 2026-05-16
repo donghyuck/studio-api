@@ -107,6 +107,22 @@ class JdbcSkillGraphStoreTest {
     }
 
     @Test
+    void candidateStoreSearchesWithOptionalFilters() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        candidateStore.saveSourceChunk(new SkillSourceChunk("source-1", "course", "course-1", "chunk-1", "Spring", now));
+        candidateStore.saveCandidate(new SkillCandidate("candidate-1", "source-1", "course", "course-1",
+                "Spring Boot", "spring boot", SkillCandidateStatus.PENDING, 0.9d, 1, null, null, now, now));
+
+        var all = candidateStore.searchCandidates(null, null, null, null, 10);
+        var filtered = candidateStore.searchCandidates(SkillCandidateStatus.PENDING, "spring", "course", "course-1", 10);
+        var missing = candidateStore.searchCandidates(SkillCandidateStatus.APPROVED, "spring", "course", "course-1", 10);
+
+        assertEquals(1, all.size());
+        assertEquals("candidate-1", filtered.get(0).candidateId());
+        assertTrue(missing.isEmpty());
+    }
+
+    @Test
     void dictionaryStorePersistsAndSearchesSkill() {
         Instant now = Instant.parse("2026-05-16T00:00:00Z");
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", "backend", "ACTIVE", now, now));

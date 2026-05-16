@@ -119,21 +119,35 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
             int limit) {
         String query = q == null ? "" : q.trim().toLowerCase();
         int max = limit <= 0 ? 100 : limit;
-        return template.query("""
+        StringBuilder sql = new StringBuilder("""
                 SELECT * FROM tb_skill_candidate
-                WHERE (:status IS NULL OR status = :status)
-                  AND (:q = '' OR LOWER(term) LIKE :likeQ OR normalized_term LIKE :likeQ)
-                  AND (:sourceType IS NULL OR source_type = :sourceType)
-                  AND (:sourceId IS NULL OR source_id = :sourceId)
+                WHERE 1 = 1
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        if (status != null) {
+            sql.append("  AND status = :status\n");
+            params.addValue("status", status.name());
+        }
+        if (!query.isBlank()) {
+            sql.append("  AND (LOWER(term) LIKE :likeQ OR normalized_term LIKE :likeQ)\n");
+            params.addValue("likeQ", "%" + query + "%");
+        }
+        String normalizedSourceType = normalize(sourceType);
+        if (normalizedSourceType != null) {
+            sql.append("  AND source_type = :sourceType\n");
+            params.addValue("sourceType", normalizedSourceType);
+        }
+        String normalizedSourceId = normalize(sourceId);
+        if (normalizedSourceId != null) {
+            sql.append("  AND source_id = :sourceId\n");
+            params.addValue("sourceId", normalizedSourceId);
+        }
+        sql.append("""
                 ORDER BY created_at DESC
                 LIMIT :limit
-                """, new MapSqlParameterSource()
-                .addValue("status", status == null ? null : status.name())
-                .addValue("q", query)
-                .addValue("likeQ", "%" + query + "%")
-                .addValue("sourceType", normalize(sourceType))
-                .addValue("sourceId", normalize(sourceId))
-                .addValue("limit", max), this::mapCandidate);
+                """);
+        params.addValue("limit", max);
+        return template.query(sql.toString(), params, this::mapCandidate);
     }
 
     private Optional<SkillCandidate> queryOne(String sql, Map<String, ?> params) {
