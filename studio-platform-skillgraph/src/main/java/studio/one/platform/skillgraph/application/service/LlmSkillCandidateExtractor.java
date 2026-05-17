@@ -9,8 +9,8 @@ import java.util.Set;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -25,11 +25,11 @@ import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 /**
  * LLM 응답을 스킬 후보 추천기로 사용하는 SkillExtractionService 구현체.
  */
+@Slf4j
 public class LlmSkillCandidateExtractor extends AbstractSkillCandidateExtractor {
 
     public static final String DEFAULT_PROMPT = "skill-extraction";
 
-    private static final Logger log = LoggerFactory.getLogger(LlmSkillCandidateExtractor.class);
     private static final double DEFAULT_CONFIDENCE = 0.75d;
 
     private final PromptRenderer promptRenderer;
@@ -90,7 +90,8 @@ public class LlmSkillCandidateExtractor extends AbstractSkillCandidateExtractor 
         try {
             List<Map<String, Object>> rows = objectMapper.readValue(
                     stripFence(raw.trim()),
-                    new TypeReference<List<Map<String, Object>>>() {});
+                    new TypeReference<List<Map<String, Object>>>() {
+                    });
             List<SkillCandidateExtractor.ExtractedSkillTerm> terms = new ArrayList<>();
             Set<String> seen = new LinkedHashSet<>();
             for (Map<String, Object> row : rows) {
