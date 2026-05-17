@@ -11,11 +11,7 @@ class PgVectorMapperXmlContractTest {
 
     @Test
     void objectScopedSearchCastsNullableScopeParametersForPostgres() throws Exception {
-        String mapper = new String(
-                Objects.requireNonNull(getClass().getClassLoader()
-                                .getResourceAsStream("mybatis/ai/PgVectorMapper.xml"))
-                        .readAllBytes(),
-                StandardCharsets.UTF_8);
+        String mapper = mapperXml();
 
         assertThat(mapper)
                 .contains("<select id=\"searchByObject\"")
@@ -28,5 +24,24 @@ class PgVectorMapperXmlContractTest {
                 "CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar)"),
                 -1))
                 .hasSize(3);
+    }
+
+    @Test
+    void listByObjectSelectsNullableDistanceForSharedResultMap() throws Exception {
+        String mapper = mapperXml();
+
+        assertThat(mapper)
+                .contains("<select id=\"listByObject\" resultMap=\"PgVectorSearchRowMap\">")
+                .contains("<select id=\"listByObjectPage\" resultMap=\"PgVectorSearchRowMap\">");
+        assertThat(mapper.split(Pattern.quote("NULL::double precision AS distance"), -1))
+                .hasSize(3);
+    }
+
+    private String mapperXml() throws Exception {
+        return new String(
+                Objects.requireNonNull(getClass().getClassLoader()
+                                .getResourceAsStream("mybatis/ai/PgVectorMapper.xml"))
+                        .readAllBytes(),
+                StandardCharsets.UTF_8);
     }
 }

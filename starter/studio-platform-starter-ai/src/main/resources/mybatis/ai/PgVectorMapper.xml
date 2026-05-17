@@ -121,7 +121,7 @@
   </select>
 
   <select id="listByObject" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata
+    SELECT object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
       AND object_id = #{objectId,jdbcType=VARCHAR}
@@ -130,7 +130,7 @@
   </select>
 
   <select id="listByObjectPage" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata
+    SELECT object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
       AND object_id = #{objectId,jdbcType=VARCHAR}
