@@ -27,6 +27,7 @@ import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.web.dto.request.SkillExtractionRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagChunkExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagDocumentExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillExtractionResponse;
@@ -121,6 +122,35 @@ public class SkillExtractionJobMgmtController {
             response = withMissingChunks(response, requestedChunkIds, byChunkId);
         }
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @PostMapping("/rag")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
+            + "and @endpointAuthz.can('services:ai_rag','read') "
+            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
+            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+    public ResponseEntity<ApiResponse<SkillRagBatchExtractionResponse>> extractRag(
+            @Valid @RequestBody SkillRagExtractionRequest request) {
+        String mode = normalize(request.mode());
+        if (mode == null || "ALL_CHUNKS".equalsIgnoreCase(mode)) {
+            return extractRagDocument(new SkillRagDocumentExtractionRequest(
+                    request.objectType(),
+                    request.objectId(),
+                    request.documentId(),
+                    "ALL_CHUNKS",
+                    request.limit()));
+        }
+        if ("SELECTED_CHUNKS".equalsIgnoreCase(mode)) {
+            if (request.chunkIds() == null || request.chunkIds().isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "chunkIds are required for SELECTED_CHUNKS");
+            }
+            return extractRagChunks(new SkillRagChunkExtractionRequest(
+                    request.objectType(),
+                    request.objectId(),
+                    request.documentId(),
+                    request.chunkIds()));
+        }
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported RAG extraction mode");
     }
 
     private SkillRagBatchExtractionResponse extractChunks(

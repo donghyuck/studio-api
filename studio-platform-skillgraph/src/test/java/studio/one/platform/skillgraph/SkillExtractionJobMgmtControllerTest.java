@@ -17,6 +17,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkReso
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
+import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagChunkExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagDocumentExtractionRequest;
 
@@ -54,6 +55,39 @@ class SkillExtractionJobMgmtControllerTest {
         assertEquals(1, response.succeededChunks());
         assertEquals(1, response.failedChunks());
         assertEquals("NOT_FOUND", response.items().get(1).status());
+    }
+
+    @Test
+    void extractsSelectedRagChunksThroughUnifiedRagEndpoint() {
+        InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
+        SkillExtractionJobMgmtController controller = controller(store, new FakeRagChunkResolver(List.of(
+                ragChunk("doc-1", "chunk-1", "Spring Boot 기술"))));
+
+        var response = controller.extractRag(new SkillRagExtractionRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "SELECTED_CHUNKS",
+                List.of("chunk-1"),
+                null)).getBody().getData();
+
+        assertEquals(1, response.succeededChunks());
+        assertEquals("chunk-1", store.sourceChunks().get(0).chunkId());
+    }
+
+    @Test
+    void rejectsUnifiedRagEndpointWithoutSelectedChunkIds() {
+        InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
+        SkillExtractionJobMgmtController controller = controller(store, new FakeRagChunkResolver(List.of(
+                ragChunk("doc-1", "chunk-1", "Spring Boot 기술"))));
+
+        assertThrows(RuntimeException.class, () -> controller.extractRag(new SkillRagExtractionRequest(
+                "attachment",
+                "42",
+                "doc-1",
+                "SELECTED_CHUNKS",
+                null,
+                null)));
     }
 
     @Test
