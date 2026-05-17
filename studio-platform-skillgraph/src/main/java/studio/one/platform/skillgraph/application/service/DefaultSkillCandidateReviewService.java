@@ -16,6 +16,37 @@ import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
+/**
+ * * 스킬 후보 검토 유스케이스 구현체.
+ *
+ * 주요 역할:
+ * - 추출된 SkillCandidate 조회
+ * - 후보 승인/거절 처리
+ * - 기존 Skill의 alias 등록
+ * - Skill Dictionary 품질 관리
+ *
+ * 핵심 처리 흐름:
+ * 1. 검토 대상 SkillCandidate 조회
+ * 2. 승인 시:
+ * - 신규 Skill 생성 또는
+ * - 기존 Skill alias 연결
+ * 3. 검토 상태(APPROVED/REJECTED) 저장
+ * 4. Skill Dictionary 반영
+ *
+ * 이 서비스는 자동 추출 결과를 사람이 검증하는 과정에서 사용되며, Skill Graph의 품질을 높이는 데 중요한 역할을 한다.
+ *
+ * @author donghyuck, son
+ * @since 2026-05-17
+ *
+ *        <pre>
+ *
+ * &lt;&lt; 개정이력(Modification Information) &gt;&gt;
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2026-05-17  donghyuck, son: 최초 생성.
+ *        </pre>
+ */
+
 @RequiredArgsConstructor
 public class DefaultSkillCandidateReviewService implements SkillCandidateReviewService {
 
@@ -32,8 +63,12 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
     }
 
     @Override
-    public List<SkillCandidateView> search(SkillCandidateStatus status, String q, String sourceType, String sourceId, int limit) {
-        return store.searchCandidates(status, normalizeQuery(q), normalizeSource(sourceType), normalizeSource(sourceId), normalizeLimit(limit)).stream()
+    public List<SkillCandidateView> search(SkillCandidateStatus status, String q, String sourceType, String sourceId,
+            int limit) {
+        return store
+                .searchCandidates(status, normalizeQuery(q), normalizeSource(sourceType), normalizeSource(sourceId),
+                        normalizeLimit(limit))
+                .stream()
                 .map(SkillCandidateView::from)
                 .toList();
     }
@@ -53,7 +88,8 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                 .withStatus(command.status(), command.matchedSkillId(), command.reviewerNote(), Instant.now());
         String matchedSkillId = reflectReview(candidate);
         if (matchedSkillId != null && !matchedSkillId.equals(candidate.matchedSkillId())) {
-            candidate = candidate.withStatus(candidate.status(), matchedSkillId, candidate.reviewerNote(), Instant.now());
+            candidate = candidate.withStatus(candidate.status(), matchedSkillId, candidate.reviewerNote(),
+                    Instant.now());
         }
         return SkillCandidateView.from(store.saveCandidate(candidate));
     }

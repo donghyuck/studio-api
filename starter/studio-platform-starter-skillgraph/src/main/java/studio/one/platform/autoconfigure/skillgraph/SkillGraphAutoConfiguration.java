@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
-import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillMappingService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRecommendationService;
@@ -92,7 +92,7 @@ public class SkillGraphAutoConfiguration {
             SkillCandidateExtractor extractor,
             SkillEmbeddingPort embeddingPort,
             SkillMatchPolicy matchPolicy) {
-        return new DefaultSkillExtractionService(candidateStore, dictionaryStore, extractor, embeddingPort, matchPolicy);
+        return new RegexSkillCandidateExtractor(candidateStore, dictionaryStore, extractor, embeddingPort, matchPolicy);
     }
 
     @Bean(name = SkillCandidateReviewService.SERVICE_NAME)

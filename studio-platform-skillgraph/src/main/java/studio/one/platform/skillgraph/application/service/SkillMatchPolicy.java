@@ -1,5 +1,8 @@
 package studio.one.platform.skillgraph.application.service;
 
+/**
+ * 스킬 매칭 정책을 정의하는 레코드.
+ */
 public record SkillMatchPolicy(
         double matchThreshold,
         double aliasThreshold) {

@@ -11,7 +11,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
-import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
@@ -116,7 +116,7 @@ class SkillExtractionJobMgmtControllerTest {
     private SkillExtractionJobMgmtController controller(
             InMemorySkillCandidateStore store,
             SkillGraphRagChunkResolver resolver) {
-        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(store,
+        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(store,
                 new PatternSkillCandidateExtractor());
         return new SkillExtractionJobMgmtController(
                 extractionService,

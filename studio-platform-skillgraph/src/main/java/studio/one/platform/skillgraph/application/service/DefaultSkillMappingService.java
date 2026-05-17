@@ -13,6 +13,22 @@ import studio.one.platform.skillgraph.domain.model.CourseSkillMapping;
 import studio.one.platform.skillgraph.domain.model.NcsSkillMapping;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 
+/**
+ * 스킬 매핑 관리 유스케이스 구현체.
+ *
+ * 주요 역할:
+ * - NCS 스킬 매핑 저장
+ * - 코스 스킬 매핑 저장
+ * - 스킬 매핑 조회
+ *
+ * 핵심 처리 흐름:
+ * 1. 입력 데이터 유효성 검증
+ * 2. 매핑 정보 저장
+ * 3. 저장된 매핑 정보 조회
+ *
+ * @author donghyuck, son
+ * @since 2026-05-17
+ */
 @RequiredArgsConstructor
 public class DefaultSkillMappingService implements SkillMappingService {
     private final SkillMappingStore store;

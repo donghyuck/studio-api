@@ -8,6 +8,36 @@ import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
+/**
+ * 스킬 사전 조회 유스케이스 구현체.
+ *
+ * 주요 역할:
+ * - Skill Dictionary 검색
+ * - Skill 상세 조회
+ * - alias 포함 검색 지원
+ * - category/taxonomy 기반 조회
+ *
+ * 핵심 처리 흐름:
+ * 1. 검색어 normalize
+ * 2. exact/alias 기준 검색
+ * 3. category/taxonomy 조건 적용
+ * 4. 결과 정렬 및 반환
+ *
+ * Skill Extraction, Recommendation, Mapping 기능의
+ * 기준 데이터 조회 계층으로 사용된다.
+ *
+ * @author donghyuck, son
+ * @since 2026-05-17
+ *
+ *        <pre>
+ *
+ * &lt;&lt; 개정이력(Modification Information) &gt;&gt;
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2026-05-17  donghyuck, son: 최초 생성.
+ *        </pre>
+ */
+
 @RequiredArgsConstructor
 public class DefaultSkillDictionaryService implements SkillDictionaryService {
 

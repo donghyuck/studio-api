@@ -20,6 +20,33 @@ import studio.one.platform.skillgraph.domain.port.SkillClusterer;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
 
+/**
+ * 스킬 시각화 유스케이스 구현체.
+ *
+ * 주요 역할:
+ * - 스킬 벡터 데이터를 2D 공간에 투영
+ * - 투영된 데이터 클러스터링
+ * - 시각화 결과 제공
+ *
+ * 핵심 처리 흐름:
+ * 1. Skill Dictionary에서 벡터 아이템 조회
+ * 2. UMAP 기반 2D 투영 생성
+ * 3. 투영 결과 클러스터링
+ * 4. Projection/Cluster 저장 및 반환
+ *
+ * 현재 구조는 단일 projectionId에 대해 전체 스킬을 투영하는 방식이지만, 향후 사용자별 맞춤 투영, 실시간 업데이트, 다양한 projection 알고리즘 지원 등으로 확장 가능하다.
+ *
+ * @author donghyuck, son
+ * @since 2026-05-17
+ *
+ *        <pre>
+ *
+ * &lt;&lt; 개정이력(Modification Information) &gt;&gt;
+ *   수정일        수정자           수정내용
+ *  ---------    --------    ---------------------------
+ * 2026-05-17  donghyuck, son: 최초 생성.
+ *        </pre>
+ */
 @RequiredArgsConstructor
 public class DefaultSkillVisualizationService implements SkillVisualizationService {
 
