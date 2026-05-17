@@ -82,6 +82,22 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
              ORDER BY chunk_index
              LIMIT :limit OFFSET :offset
             """;
+    private static final String LIST_BY_OBJECT_PAGE_FILTERED_SQL = """
+            SELECT object_id, text, metadata
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType AND object_id = :objectId
+               AND (:documentId IS NULL OR metadata->>'documentId' = :documentId)
+               AND (:query IS NULL OR (
+                    LOWER(text) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'chunkId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'documentId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'sourceDocumentId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'headingPath', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'section', '')) LIKE :queryPattern
+               ))
+             ORDER BY chunk_index
+             LIMIT :limit OFFSET :offset
+            """;
     private static final String METADATA_BY_OBJECT_SQL = """
             SELECT metadata
               FROM tb_ai_document_chunk
@@ -176,6 +192,22 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     }
 
     @Override
+    public List<PgVectorSearchRow> listByObjectPageFiltered(
+            String objectType,
+            String objectId,
+            String documentId,
+            String query,
+            int offset,
+            int limit) {
+        return jdbcTemplate.query(LIST_BY_OBJECT_PAGE_FILTERED_SQL, objectParams(objectType, objectId)
+                .addValue("documentId", normalize(documentId))
+                .addValue("query", normalize(query))
+                .addValue("queryPattern", queryPattern(query))
+                .addValue("offset", offset)
+                .addValue("limit", limit), ROW_MAPPER);
+    }
+
+    @Override
     public String metadataByObject(String objectType, String objectId) {
         List<String> rows = jdbcTemplate.query(
                 METADATA_BY_OBJECT_SQL,
@@ -198,6 +230,15 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
         return new MapSqlParameterSource()
                 .addValue("objectType", objectType)
                 .addValue("objectId", objectId);
+    }
+
+    private static String queryPattern(String query) {
+        String normalized = normalize(query);
+        return normalized == null ? null : "%" + normalized.toLowerCase(java.util.Locale.ROOT) + "%";
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static MapSqlParameterSource searchParams(PgVectorSearchParameter parameter) {

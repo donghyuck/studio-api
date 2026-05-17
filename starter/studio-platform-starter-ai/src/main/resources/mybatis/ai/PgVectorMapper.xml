@@ -40,6 +40,22 @@
     </where>
   </sql>
 
+  <sql id="listFilterConditions">
+    <if test="documentId != null">
+      AND (metadata -&gt;&gt; 'documentId') = #{documentId,jdbcType=VARCHAR}
+    </if>
+    <if test="query != null">
+      AND (
+        LOWER(text) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
+        OR LOWER(COALESCE(metadata -&gt;&gt; 'chunkId', '')) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
+        OR LOWER(COALESCE(metadata -&gt;&gt; 'documentId', '')) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
+        OR LOWER(COALESCE(metadata -&gt;&gt; 'sourceDocumentId', '')) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
+        OR LOWER(COALESCE(metadata -&gt;&gt; 'headingPath', '')) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
+        OR LOWER(COALESCE(metadata -&gt;&gt; 'section', '')) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
+      )
+    </if>
+  </sql>
+
   <insert id="upsertChunk" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorChunkParameter">
     INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
     VALUES (
@@ -121,7 +137,7 @@
   </select>
 
   <select id="listByObject" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata
+    SELECT object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
       AND object_id = #{objectId,jdbcType=VARCHAR}
@@ -130,10 +146,20 @@
   </select>
 
   <select id="listByObjectPage" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata
+    SELECT object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
       AND object_id = #{objectId,jdbcType=VARCHAR}
+    ORDER BY chunk_index
+    LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="listByObjectPageFiltered" resultMap="PgVectorSearchRowMap">
+    SELECT object_id, text, metadata, NULL::double precision AS distance
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND object_id = #{objectId,jdbcType=VARCHAR}
+      <include refid="listFilterConditions"/>
     ORDER BY chunk_index
     LIMIT #{limit} OFFSET #{offset}
   </select>

@@ -42,6 +42,16 @@ public interface RagPipelineService {
                 .toList();
     }
 
+    default List<RagSearchResult> listByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            String query,
+            int offset,
+            int limit) {
+        return listByObject(objectType, objectId, offset, limit);
+    }
+
     /**
      * Returns diagnostics for the most recent retrieval in the current thread.
      * Calling from a different thread than the one that executed search returns empty.

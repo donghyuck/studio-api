@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
-import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
@@ -26,7 +26,7 @@ class DefaultSkillExtractionServiceTest {
     @Test
     void extractsAndStoresCandidatesFromText() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(store, new PatternSkillCandidateExtractor());
 
         var result = service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
                 "Spring Boot와 OAuth2 인증 기술"));
@@ -38,7 +38,7 @@ class DefaultSkillExtractionServiceTest {
     @Test
     void dryRunExtractsCandidatesWithoutStoringSourceChunkOrCandidate() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(store, new PatternSkillCandidateExtractor());
 
         var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", "chunk-1",
                 "Spring Security와 JPA 기술"));
@@ -59,7 +59,7 @@ class DefaultSkillExtractionServiceTest {
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
                 Instant.now(), Instant.now()));
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(candidateStore, dictionaryStore,
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(candidateStore, dictionaryStore,
                 new PatternSkillCandidateExtractor(), text -> List.of(), SkillMatchPolicy.defaults());
 
         var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
@@ -72,7 +72,7 @@ class DefaultSkillExtractionServiceTest {
     @Test
     void reviewUpdatesCandidateStatus() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
-        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(store,
+        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(store,
                 new PatternSkillCandidateExtractor());
         DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(store);
         var result = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "JWT 기술"));
@@ -88,7 +88,7 @@ class DefaultSkillExtractionServiceTest {
     @Test
     void duplicateNormalizedTermIncrementsOccurrenceWithinSameSourceChunk() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(store, new PatternSkillCandidateExtractor());
 
         service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Spring Boot"));
         service.extract(new SkillExtractionCommand("course", "course-1", "chunk-2", "Spring Boot"));
@@ -102,7 +102,7 @@ class DefaultSkillExtractionServiceTest {
     @Test
     void duplicateNormalizedTermIncrementsOccurrenceWithinSameChunk() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(store, new PatternSkillCandidateExtractor());
 
         service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Kubernetes"));
         service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Kubernetes"));
@@ -115,7 +115,7 @@ class DefaultSkillExtractionServiceTest {
     @Test
     void rejectsOversizedExtractionText() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(store, new PatternSkillCandidateExtractor());
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "x".repeat(200_001))));
@@ -127,7 +127,7 @@ class DefaultSkillExtractionServiceTest {
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
                 Instant.now(), Instant.now()));
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(candidateStore, dictionaryStore,
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(candidateStore, dictionaryStore,
                 new PatternSkillCandidateExtractor(), text -> List.of(), SkillMatchPolicy.defaults());
 
         var result = service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "Spring Boot"));
@@ -143,7 +143,7 @@ class DefaultSkillExtractionServiceTest {
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
                 Instant.now(), Instant.now()));
         dictionaryStore.saveAlias(new SkillAlias("alias-1", "skill-1", "스프링부트", "스프링부트"));
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(candidateStore, dictionaryStore,
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(candidateStore, dictionaryStore,
                 new PatternSkillCandidateExtractor(), text -> List.of(), SkillMatchPolicy.defaults());
 
         var result = service.extract(new SkillExtractionCommand("course", "course-1", "chunk-1", "스프링부트 기술"));
@@ -158,7 +158,7 @@ class DefaultSkillExtractionServiceTest {
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
                 Instant.now(), Instant.now()), List.of(1.0d, 0.0d));
-        DefaultSkillExtractionService service = new DefaultSkillExtractionService(candidateStore, dictionaryStore,
+        RegexSkillCandidateExtractor service = new RegexSkillCandidateExtractor(candidateStore, dictionaryStore,
                 new PatternSkillCandidateExtractor(), text -> List.of(0.9d, 0.4d),
                 new SkillMatchPolicy(0.98d, 0.80d));
 
@@ -172,7 +172,7 @@ class DefaultSkillExtractionServiceTest {
     void approvingNewCandidateAddsDictionaryEntry() {
         InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
-        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(candidateStore,
                 dictionaryStore, new PatternSkillCandidateExtractor(), text -> List.of(), SkillMatchPolicy.defaults());
         DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
                 dictionaryStore);
@@ -191,7 +191,7 @@ class DefaultSkillExtractionServiceTest {
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
                 Instant.now(), Instant.now()));
-        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(candidateStore,
                 dictionaryStore, new PatternSkillCandidateExtractor(), text -> List.of(), SkillMatchPolicy.defaults());
         DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
                 dictionaryStore);

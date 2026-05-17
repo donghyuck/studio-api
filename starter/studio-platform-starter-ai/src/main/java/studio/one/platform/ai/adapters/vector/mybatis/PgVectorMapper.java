@@ -35,6 +35,14 @@ public interface PgVectorMapper {
             @Param("offset") int offset,
             @Param("limit") int limit);
 
+    List<PgVectorSearchRow> listByObjectPageFiltered(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId,
+            @Param("documentId") String documentId,
+            @Param("query") String query,
+            @Param("offset") int offset,
+            @Param("limit") int limit);
+
     String metadataByObject(
             @Param("objectType") String objectType,
             @Param("objectId") String objectId);

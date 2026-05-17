@@ -170,6 +170,28 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     }
 
     @Override
+    public List<VectorSearchResult> listByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            String query,
+            int offset,
+            int limit) {
+        int rowOffset = Math.max(0, offset);
+        int rowLimit = limit <= 0 ? 50 : limit;
+        return mapper.listByObjectPageFiltered(
+                        objectType,
+                        objectId,
+                        normalize(documentId),
+                        normalize(query),
+                        rowOffset,
+                        rowLimit)
+                .stream()
+                .map(PgVectorStoreAdapterV2::mapListRow)
+                .toList();
+    }
+
+    @Override
     public Map<String, Object> getMetadata(String objectType, String objectId) {
         String metadata = mapper.metadataByObject(objectType, objectId);
         if (metadata == null || metadata.isBlank()) {

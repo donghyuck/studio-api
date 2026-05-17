@@ -14,12 +14,30 @@ import studio.one.platform.skillgraph.domain.model.CourseRecommendation;
 import studio.one.platform.skillgraph.domain.model.CourseSkillMapping;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 
+/**
+ * 스킬 기반 코스 추천 유스케이스 구현체.
+ *
+ * 주요 역할:
+ * - 사용자의 보유 스킬과 목표 스킬을 기반으로 코스 추천
+ * - 추천 결과는 매칭된 스킬과 누락된 스킬, 그리고 추천 점수로 구성
+ *
+ * 핵심 처리 흐름:
+ * 1. 입력된 목표 스킬과 보유 스킬을 정규화하여 집합으로 변환
+ * 2. 목표 스킬에서 보유한 스킬을 제외하여 누락된 스킬 집합 생성
+ * 3. 누락된 스킬을 포함하는 코스 매핑 정보를 조회하여 코스별 매칭된 스킬과 가중치 계산
+ * 4. 매칭된 스킬의 가중치 합산을 통해 코스별 추천 점수 계산
+ * 5. 추천 점수를 기준으로 코스 목록 정렬 및 제한된 수 만큼 반환
+ *
+ * @author donghyuck, son
+ * @since 2026-05-17
+ */
 @RequiredArgsConstructor
 public class DefaultSkillRecommendationService implements SkillRecommendationService {
     private final SkillMappingStore store;
 
     @Override
-    public List<CourseRecommendationView> recommendCourses(List<String> targetSkillIds, List<String> ownedSkillIds, int limit) {
+    public List<CourseRecommendationView> recommendCourses(List<String> targetSkillIds, List<String> ownedSkillIds,
+            int limit) {
         Set<String> targets = normalize(targetSkillIds);
         Set<String> owned = normalize(ownedSkillIds);
         Set<String> missing = new HashSet<>(targets);
