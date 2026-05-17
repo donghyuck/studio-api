@@ -36,6 +36,40 @@ class DefaultSkillExtractionServiceTest {
     }
 
     @Test
+    void dryRunExtractsCandidatesWithoutStoringSourceChunkOrCandidate() {
+        InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
+        DefaultSkillExtractionService service = new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor());
+
+        var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", "chunk-1",
+                "Spring Security와 JPA 기술"));
+
+        assertFalse(result.candidates().isEmpty());
+        assertEquals(0, store.sourceChunks().size());
+        assertEquals(0, store.searchCandidates(null, null, 100).size());
+        assertEquals(null, result.sourceChunkId());
+        assertFalse(result.candidates().stream()
+                .filter(candidate -> candidate.normalizedTerm().contains("spring"))
+                .toList()
+                .isEmpty());
+    }
+
+    @Test
+    void dryRunAppliesDictionaryMatchWithoutStoringCandidate() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
+                Instant.now(), Instant.now()));
+        DefaultSkillExtractionService service = new DefaultSkillExtractionService(candidateStore, dictionaryStore,
+                new PatternSkillCandidateExtractor(), text -> List.of(), SkillMatchPolicy.defaults());
+
+        var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
+
+        assertEquals(SkillCandidateStatus.MATCHED, result.candidates().get(0).status());
+        assertEquals("skill-1", result.candidates().get(0).matchedSkillId());
+        assertEquals(0, candidateStore.searchCandidates(null, null, 100).size());
+    }
+
+    @Test
     void reviewUpdatesCandidateStatus() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
         DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(store,

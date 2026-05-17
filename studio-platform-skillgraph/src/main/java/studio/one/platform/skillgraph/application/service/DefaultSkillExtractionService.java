@@ -49,6 +49,15 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
 
     @Override
     public SkillExtractionResult extract(SkillExtractionCommand command) {
+        return extract(command, true);
+    }
+
+    @Override
+    public SkillExtractionResult dryRun(SkillExtractionCommand command) {
+        return extract(command, false);
+    }
+
+    private SkillExtractionResult extract(SkillExtractionCommand command, boolean persist) {
         if (command == null || command.text() == null || command.text().isBlank()) {
             throw new IllegalArgumentException("text must not be blank");
         }
@@ -57,26 +66,30 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
         }
 
         Instant now = Instant.now();
-        String sourceChunkId = "sch_" + UUID.randomUUID();
-        store.saveSourceChunk(new SkillSourceChunk(
-                sourceChunkId,
-                command.sourceType(),
-                command.sourceId(),
-                command.chunkId(),
-                excerpt(command.text()),
-                now));
+        String sourceChunkId = persist ? "sch_" + UUID.randomUUID() : null;
+        if (persist) {
+            store.saveSourceChunk(new SkillSourceChunk(
+                    sourceChunkId,
+                    command.sourceType(),
+                    command.sourceId(),
+                    command.chunkId(),
+                    excerpt(command.text()),
+                    now));
+        }
 
         List<SkillCandidateView> candidates = new ArrayList<>();
         for (SkillCandidateExtractor.ExtractedSkillTerm term : extractor.extract(command.text())) {
             String normalized = SkillCandidate.normalizeSkillTerm(term.term());
-            SkillCandidate candidate = store.findCandidateBySourceAndNormalizedTerm(
-                    command.sourceType(),
-                    command.sourceId(),
-                    command.chunkId(),
-                    normalized)
-                    .map(existing -> existing.incrementOccurrence(now))
-                    .orElseGet(() -> newCandidate(command, sourceChunkId, term, normalized, now));
-            candidates.add(SkillCandidateView.from(store.saveCandidate(candidate)));
+            SkillCandidate candidate = persist
+                    ? store.findCandidateBySourceAndNormalizedTerm(
+                            command.sourceType(),
+                            command.sourceId(),
+                            command.chunkId(),
+                            normalized)
+                            .map(existing -> existing.incrementOccurrence(now))
+                            .orElseGet(() -> newCandidate(command, sourceChunkId, term, normalized, now))
+                    : newCandidate(command, sourceChunkId, term, normalized, now);
+            candidates.add(SkillCandidateView.from(persist ? store.saveCandidate(candidate) : candidate));
         }
         return new SkillExtractionResult(sourceChunkId, candidates.size(), candidates);
     }
