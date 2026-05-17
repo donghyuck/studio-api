@@ -69,21 +69,21 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
              WHERE object_type = :objectType AND object_id = :objectId
             """;
     private static final String LIST_BY_OBJECT_SQL = """
-            SELECT object_id, text, metadata
+            SELECT object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
              ORDER BY chunk_index
              LIMIT :limit
             """;
     private static final String LIST_BY_OBJECT_PAGE_SQL = """
-            SELECT object_id, text, metadata
+            SELECT object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
              ORDER BY chunk_index
              LIMIT :limit OFFSET :offset
             """;
     private static final String LIST_BY_OBJECT_PAGE_FILTERED_SQL = """
-            SELECT object_id, text, metadata
+            SELECT object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
                AND (:documentId IS NULL OR metadata->>'documentId' = :documentId)
