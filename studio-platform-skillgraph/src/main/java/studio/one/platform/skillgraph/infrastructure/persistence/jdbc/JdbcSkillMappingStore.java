@@ -57,20 +57,34 @@ public class JdbcSkillMappingStore implements SkillMappingStore {
 
     @Override
     public List<NcsSkillMapping> findNcsMappings(String ncsUnitId) {
+        String ncsUnit = normalize(ncsUnitId);
+        if (ncsUnit == null) {
+            return template.query("""
+                    SELECT * FROM tb_skill_ncs_mapping
+                    ORDER BY created_at DESC
+                    """, new MapSqlParameterSource(), this::mapNcs);
+        }
         return template.query("""
                 SELECT * FROM tb_skill_ncs_mapping
-                WHERE (:ncsUnitId IS NULL OR ncs_unit_id = :ncsUnitId)
+                WHERE ncs_unit_id = :ncsUnitId
                 ORDER BY created_at DESC
-                """, new MapSqlParameterSource("ncsUnitId", normalize(ncsUnitId)), this::mapNcs);
+                """, new MapSqlParameterSource("ncsUnitId", ncsUnit), this::mapNcs);
     }
 
     @Override
     public List<CourseSkillMapping> findCourseMappings(String courseId) {
+        String course = normalize(courseId);
+        if (course == null) {
+            return template.query("""
+                    SELECT * FROM tb_skill_course_mapping
+                    ORDER BY created_at DESC
+                    """, new MapSqlParameterSource(), this::mapCourse);
+        }
         return template.query("""
                 SELECT * FROM tb_skill_course_mapping
-                WHERE (:courseId IS NULL OR course_id = :courseId)
+                WHERE course_id = :courseId
                 ORDER BY created_at DESC
-                """, new MapSqlParameterSource("courseId", normalize(courseId)), this::mapCourse);
+                """, new MapSqlParameterSource("courseId", course), this::mapCourse);
     }
 
     @Override
