@@ -18,6 +18,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 
 dependencies {
     api(project(":studio-platform"))
+    api("com.fasterxml.jackson.core:jackson-databind")
     compileOnly(project(":studio-platform-ai"))
     compileOnly(project(":studio-platform-chunking"))
     compileOnly("org.springframework.boot:spring-boot-starter")

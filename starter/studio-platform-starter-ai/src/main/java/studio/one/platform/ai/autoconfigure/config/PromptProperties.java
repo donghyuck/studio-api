@@ -20,6 +20,7 @@ public class PromptProperties {
         defaults.put("keyword-extraction", "classpath:/prompts/keyword-extraction.v1.prompt");
         defaults.put("query-rewrite", "classpath:/prompts/query-rewrite.v1.prompt");
         defaults.put("rag-cleaner", "classpath:/prompts/rag-cleaner.v1.prompt");
+        defaults.put("skill-extraction", "classpath:/prompts/skill-extraction.v1.prompt");
         defaults.put("summarization", "classpath:/prompts/summarization.v1.prompt");
         return defaults;
     }
