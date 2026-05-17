@@ -28,6 +28,8 @@ dependencies {
 
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-chunking"))
+    testImplementation("com.fasterxml.jackson.core:jackson-annotations")
+    testImplementation("org.springframework:spring-web")
     testImplementation("org.springframework:spring-jdbc")
     testRuntimeOnly("com.h2database:h2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")

@@ -2,10 +2,15 @@ package studio.one.platform.autoconfigure.skillgraph;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
+import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
@@ -31,6 +36,18 @@ public class SkillGraphWebAutoConfiguration {
     @ConditionalOnBean(name = SkillExtractionService.SERVICE_NAME)
     @Import(SkillExtractionJobMgmtController.class)
     static class SkillExtractionWebConfig {
+    }
+
+    @Configuration
+    @ConditionalOnClass(name = "studio.one.platform.ai.service.pipeline.RagPipelineService")
+    static class SkillGraphRagExtractionConfig {
+
+        @Bean
+        @ConditionalOnBean(RagPipelineService.class)
+        @ConditionalOnMissingBean(SkillGraphRagChunkResolver.class)
+        SkillGraphRagChunkResolver skillGraphRagChunkResolver(RagPipelineService ragPipelineService) {
+            return new RagPipelineSkillGraphRagChunkResolver(ragPipelineService);
+        }
     }
 
     @Configuration
