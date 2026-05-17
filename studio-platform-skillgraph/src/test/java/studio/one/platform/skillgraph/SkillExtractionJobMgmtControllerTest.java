@@ -11,15 +11,21 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
 import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagChunkExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagDocumentExtractionRequest;
+import studio.one.platform.skillgraph.web.dto.response.SkillRagBatchExtractionResponse;
+import studio.one.platform.web.dto.ApiResponse;
 
 class SkillExtractionJobMgmtControllerTest {
 
@@ -33,9 +39,8 @@ class SkillExtractionJobMgmtControllerTest {
         var response = controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
                 "attachment", "42", "doc-1", "ALL_CHUNKS", null)).getBody().getData();
 
-        assertEquals(1, response.resolvedChunks());
-        assertEquals(1, response.succeededChunks());
-        assertEquals(0, response.failedChunks());
+        assertEquals("RUNNING", response.status());
+        assertEquals(1000, response.requestedChunks());
         assertEquals("RAG_CHUNK", store.sourceChunks().get(0).sourceType());
         assertEquals("doc-1", store.sourceChunks().get(0).sourceId());
         assertEquals("chunk-1", store.sourceChunks().get(0).chunkId());
@@ -63,13 +68,14 @@ class SkillExtractionJobMgmtControllerTest {
         SkillExtractionJobMgmtController controller = controller(store, new FakeRagChunkResolver(List.of(
                 ragChunk("doc-1", "chunk-1", "Spring Boot 기술"))));
 
-        var response = controller.extractRag(new SkillRagExtractionRequest(
+        var body = (ApiResponse<?>) controller.extractRag(new SkillRagExtractionRequest(
                 "attachment",
                 "42",
                 "doc-1",
                 "SELECTED_CHUNKS",
                 List.of("chunk-1"),
-                null)).getBody().getData();
+                null)).getBody();
+        var response = (SkillRagBatchExtractionResponse) body.getData();
 
         assertEquals(1, response.succeededChunks());
         assertEquals("chunk-1", store.sourceChunks().get(0).chunkId());
@@ -104,7 +110,8 @@ class SkillExtractionJobMgmtControllerTest {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
         SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
                 new FailingSkillExtractionService(),
-                resolverProvider(new FakeRagChunkResolver(List.of(ragChunk("doc-1", "chunk-1", "Spring Boot")))));
+                resolverProvider(new FakeRagChunkResolver(List.of(ragChunk("doc-1", "chunk-1", "Spring Boot")))),
+                jobServiceProvider(null));
 
         var response = controller.extractRagChunks(new SkillRagChunkExtractionRequest(
                 "attachment", "42", null, List.of("chunk-1"))).getBody().getData();
@@ -120,7 +127,13 @@ class SkillExtractionJobMgmtControllerTest {
                 new PatternSkillCandidateExtractor());
         return new SkillExtractionJobMgmtController(
                 extractionService,
-                resolverProvider(resolver));
+                resolverProvider(resolver),
+                jobServiceProvider(resolver == null ? null : new DefaultSkillRagExtractionJobService(
+                        extractionService,
+                        resolver,
+                        new InMemorySkillRagExtractionJobStore(),
+                        Runnable::run,
+                        new SkillRagExtractionJobSettings(20, 1000, 1_000_000))));
     }
 
     private org.springframework.beans.factory.ObjectProvider<SkillGraphRagChunkResolver> resolverProvider(
@@ -130,6 +143,15 @@ class SkillExtractionJobMgmtControllerTest {
             beanFactory.addBean("skillGraphRagChunkResolver", resolver);
         }
         return beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class);
+    }
+
+    private org.springframework.beans.factory.ObjectProvider<SkillRagExtractionJobService> jobServiceProvider(
+            SkillRagExtractionJobService service) {
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        if (service != null) {
+            beanFactory.addBean("skillRagExtractionJobService", service);
+        }
+        return beanFactory.getBeanProvider(SkillRagExtractionJobService.class);
     }
 
     private static ResolvedRagChunk ragChunk(String documentId, String chunkId, String content) {
