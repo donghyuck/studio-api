@@ -6,6 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
+import studio.one.platform.ai.core.chat.ChatMessage;
+import studio.one.platform.ai.core.chat.ChatPort;
+import studio.one.platform.ai.core.chat.ChatResponse;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.skillgraph.application.service.LlmSkillCandidateExtractor;
+import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
@@ -19,6 +25,9 @@ import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillGraphStore;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
+
+import java.util.List;
+import java.util.Map;
 
 class SkillGraphAutoConfigurationTest {
 
@@ -41,7 +50,29 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).hasSingleBean(SkillGraphService.class);
             assertThat(context).hasSingleBean(SkillMappingService.class);
             assertThat(context).hasSingleBean(SkillRecommendationService.class);
+            assertThat(context).getBean(SkillExtractionService.class)
+                    .isInstanceOf(RegexSkillCandidateExtractor.class);
         });
+    }
+
+    @Test
+    void createsLlmSkillExtractionServiceWhenEnabled() {
+        contextRunner
+                .withPropertyValues("studio.skillgraph.extraction.mode=llm")
+                .withBean(PromptRenderer.class, FakePromptRenderer::new)
+                .withBean(ChatPort.class, () -> request -> new ChatResponse(
+                        List.of(ChatMessage.assistant("[{\"term\":\"Spring Boot\",\"confidence\":0.9}]")),
+                        "test",
+                        Map.of()))
+                .run(context -> assertThat(context).getBean(SkillExtractionService.class)
+                        .isInstanceOf(LlmSkillCandidateExtractor.class));
+    }
+
+    @Test
+    void failsLlmSkillExtractionServiceWhenAiBeansAreMissing() {
+        contextRunner
+                .withPropertyValues("studio.skillgraph.extraction.mode=llm")
+                .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
@@ -49,5 +80,18 @@ class SkillGraphAutoConfigurationTest {
         contextRunner
                 .withPropertyValues("studio.features.skillgraph.enabled=false")
                 .run(context -> assertThat(context).doesNotHaveBean(SkillExtractionService.class));
+    }
+
+    private static final class FakePromptRenderer implements PromptRenderer {
+
+        @Override
+        public String render(String name, Map<String, Object> params) {
+            return "prompt";
+        }
+
+        @Override
+        public String getRawPrompt(String name) {
+            return "prompt";
+        }
     }
 }

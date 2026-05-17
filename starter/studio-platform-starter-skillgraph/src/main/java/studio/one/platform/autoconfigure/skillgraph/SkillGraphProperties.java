@@ -24,6 +24,22 @@ public class SkillGraphProperties {
     @Setter
     public static class Extraction {
         private int maxTerms = 50;
+        private Mode mode = Mode.regex;
+        private Llm llm = new Llm();
+    }
+
+    public enum Mode {
+        regex,
+        llm
+    }
+
+    @Getter
+    @Setter
+    public static class Llm {
+        private String prompt = "skill-extraction";
+        private int maxInputChars = 4000;
+        private Integer maxOutputTokens = 1024;
+        private Double temperature = 0.0d;
     }
 
     @Getter

@@ -29,6 +29,7 @@ dependencies {
     compileOnly("org.springframework:spring-jdbc")
 
     testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-skillgraph"))
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework:spring-jdbc")

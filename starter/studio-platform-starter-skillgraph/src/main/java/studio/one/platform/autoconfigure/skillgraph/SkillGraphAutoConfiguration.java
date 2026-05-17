@@ -3,6 +3,7 @@ package studio.one.platform.autoconfigure.skillgraph;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -10,10 +11,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.ai.core.chat.ChatPort;
+import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
+import studio.one.platform.skillgraph.application.service.LlmSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillMappingService;
@@ -86,7 +91,8 @@ public class SkillGraphAutoConfiguration {
 
     @Bean(name = SkillExtractionService.SERVICE_NAME)
     @ConditionalOnMissingBean
-    public SkillExtractionService skillExtractionService(
+    @ConditionalOnProperty(prefix = "studio.skillgraph.extraction", name = "mode", havingValue = "regex", matchIfMissing = true)
+    public SkillExtractionService regexSkillExtractionService(
             SkillCandidateStore candidateStore,
             SkillDictionaryStore dictionaryStore,
             SkillCandidateExtractor extractor,
@@ -141,6 +147,58 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillRecommendationService skillRecommendationService(SkillMappingStore mappingStore) {
         return new DefaultSkillRecommendationService(mappingStore);
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "studio.skillgraph.extraction", name = "mode", havingValue = "llm")
+    @ConditionalOnClass(name = {
+            "studio.one.platform.ai.core.chat.ChatPort",
+            "studio.one.platform.ai.service.prompt.PromptRenderer"
+    })
+    static class LlmExtractionConfig {
+
+        @Bean(name = SkillExtractionService.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillExtractionService llmSkillExtractionService(
+                SkillCandidateStore candidateStore,
+                SkillDictionaryStore dictionaryStore,
+                SkillEmbeddingPort embeddingPort,
+                SkillMatchPolicy matchPolicy,
+                PromptRenderer promptRenderer,
+                ChatPort chatPort,
+                SkillGraphProperties properties) {
+            SkillGraphProperties.Extraction extraction = properties.getExtraction();
+            SkillGraphProperties.Llm llm = extraction.getLlm();
+            return new LlmSkillCandidateExtractor(
+                    candidateStore,
+                    dictionaryStore,
+                    embeddingPort,
+                    matchPolicy,
+                    promptRenderer,
+                    chatPort,
+                    new ObjectMapper(),
+                    llm.getPrompt(),
+                    extraction.getMaxTerms(),
+                    llm.getMaxInputChars(),
+                    llm.getMaxOutputTokens(),
+                    llm.getTemperature());
+        }
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "studio.skillgraph.extraction", name = "mode", havingValue = "llm")
+    @ConditionalOnMissingClass({
+            "studio.one.platform.ai.core.chat.ChatPort",
+            "studio.one.platform.ai.service.prompt.PromptRenderer"
+    })
+    static class MissingLlmExtractionConfig {
+
+        @Bean(name = SkillExtractionService.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillExtractionService missingLlmSkillExtractionService() {
+            throw new IllegalStateException(
+                    "studio.skillgraph.extraction.mode=llm requires studio-platform-ai ChatPort and PromptRenderer");
+        }
     }
 
     @Configuration
