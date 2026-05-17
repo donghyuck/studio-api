@@ -46,19 +46,24 @@ class SkillGraphExtractionSourceMgmtControllerTest {
 
     @Test
     void filtersRagChunkPreviewByQueryAndDocument() {
-        SkillGraphExtractionSourceMgmtController controller = controller(List.of(
+        FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0),
                 chunk("doc-2", "chunk-2", "JPA content", 1),
                 chunk("doc-2", "chunk-3", "Security content", 2)));
+        SkillGraphExtractionSourceMgmtController controller = controller(resolver);
 
         var page = controller.ragChunks("attachment", "42", "doc-2", "security", 0, 10, null)
                 .getBody()
                 .getData();
 
-        assertEquals(1, page.total());
+        assertEquals(null, page.total());
         assertFalse(page.hasMore());
         assertEquals("chunk-3", page.items().get(0).chunkId());
         assertEquals("WARNING", page.items().get(0).warningStatus());
+        assertEquals("doc-2", resolver.documentId);
+        assertEquals("security", resolver.query);
+        assertEquals(0, resolver.offset);
+        assertEquals(11, resolver.limit);
     }
 
     @Test
@@ -72,8 +77,12 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     private SkillGraphExtractionSourceMgmtController controller(List<ResolvedRagChunk> chunks) {
+        return controller(new FakeRagChunkResolver(chunks));
+    }
+
+    private SkillGraphExtractionSourceMgmtController controller(FakeRagChunkResolver resolver) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
-        beanFactory.addBean("skillGraphRagChunkResolver", new FakeRagChunkResolver(chunks));
+        beanFactory.addBean("skillGraphRagChunkResolver", resolver);
         return new SkillGraphExtractionSourceMgmtController(
                 beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class));
     }
@@ -86,6 +95,10 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     private static final class FakeRagChunkResolver implements SkillGraphRagChunkResolver {
 
         private final List<ResolvedRagChunk> chunks;
+        private String documentId;
+        private String query;
+        private int offset;
+        private int limit;
 
         private FakeRagChunkResolver(List<ResolvedRagChunk> chunks) {
             this.chunks = chunks;
@@ -102,6 +115,27 @@ class SkillGraphExtractionSourceMgmtControllerTest {
             int start = Math.max(0, offset);
             int end = Math.min(chunks.size(), start + Math.max(0, limit));
             return start >= end ? List.of() : chunks.subList(start, end);
+        }
+
+        @Override
+        public List<ResolvedRagChunk> listByObject(
+                String objectType,
+                String objectId,
+                String documentId,
+                String query,
+                int offset,
+                int limit) {
+            this.documentId = documentId;
+            this.query = query;
+            this.offset = offset;
+            this.limit = limit;
+            int start = Math.max(0, offset);
+            List<ResolvedRagChunk> filtered = chunks.stream()
+                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
+                    .filter(chunk -> query == null || chunk.content().toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+            int end = Math.min(filtered.size(), start + Math.max(0, limit));
+            return start >= end ? List.of() : filtered.subList(start, end);
         }
     }
 }

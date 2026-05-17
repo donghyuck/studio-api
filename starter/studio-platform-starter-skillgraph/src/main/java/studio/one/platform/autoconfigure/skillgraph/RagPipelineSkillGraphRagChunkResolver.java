@@ -29,6 +29,19 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
                 .toList();
     }
 
+    @Override
+    public List<ResolvedRagChunk> listByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            String query,
+            int offset,
+            int limit) {
+        return ragPipelineService.listByObject(objectType, objectId, documentId, query, offset, limit).stream()
+                .map(this::toChunk)
+                .toList();
+    }
+
     private ResolvedRagChunk toChunk(RagSearchResult result) {
         Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
         String documentId = text(firstPresent(metadata, VectorRecord.KEY_DOCUMENT_ID, "documentId", "sourceDocumentId"));

@@ -1,7 +1,6 @@
 package studio.one.platform.skillgraph.web.controller;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 
 import org.springframework.beans.factory.ObjectProvider;
@@ -28,7 +27,6 @@ public class SkillGraphExtractionSourceMgmtController {
 
     private static final int DEFAULT_LIMIT = 50;
     private static final int MAX_LIMIT = 200;
-    private static final int MAX_FILTER_FETCH_LIMIT = 5000;
     private static final int PREVIEW_LENGTH = 240;
 
     private final ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider;
@@ -62,17 +60,17 @@ public class SkillGraphExtractionSourceMgmtController {
         Integer total = null;
         boolean hasMore;
         if (query != null || normalizedDocumentId != null) {
-            filtered = resolver.listByObject(normalizedObjectType, normalizedObjectId, MAX_FILTER_FETCH_LIMIT).stream()
-                    .filter(chunk -> matchesDocument(chunk, normalizedDocumentId))
-                    .filter(chunk -> matchesQuery(chunk, query))
+            List<ResolvedRagChunk> fetched = resolver.listByObject(
+                    normalizedObjectType,
+                    normalizedObjectId,
+                    normalizedDocumentId,
+                    query,
+                    boundedOffset,
+                    boundedLimit + 1).stream()
                     .sorted((left, right) -> compare(left, right, sort))
                     .toList();
-            total = filtered.size();
-            hasMore = boundedOffset + boundedLimit < filtered.size();
-            filtered = filtered.stream()
-                    .skip(boundedOffset)
-                    .limit(boundedLimit)
-                    .toList();
+            hasMore = fetched.size() > boundedLimit;
+            filtered = hasMore ? fetched.subList(0, boundedLimit) : fetched;
         } else {
             List<ResolvedRagChunk> fetched = resolver.listByObject(
                     normalizedObjectType,
@@ -119,21 +117,6 @@ public class SkillGraphExtractionSourceMgmtController {
                 chunk.tokenCount(),
                 content.length(),
                 chunk.warningStatus());
-    }
-
-    private boolean matchesDocument(ResolvedRagChunk chunk, String documentId) {
-        return documentId == null || documentId.equals(chunk.documentId());
-    }
-
-    private boolean matchesQuery(ResolvedRagChunk chunk, String q) {
-        if (q == null) {
-            return true;
-        }
-        String haystack = (String.valueOf(chunk.chunkId()) + " "
-                + String.valueOf(chunk.documentId()) + " "
-                + String.valueOf(chunk.section()) + " "
-                + String.valueOf(chunk.content())).toLowerCase(Locale.ROOT);
-        return haystack.contains(q.toLowerCase(Locale.ROOT));
     }
 
     private int compare(ResolvedRagChunk left, ResolvedRagChunk right, String sort) {

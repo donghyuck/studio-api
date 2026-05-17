@@ -32,9 +32,22 @@ class PgVectorMapperXmlContractTest {
 
         assertThat(mapper)
                 .contains("<select id=\"listByObject\" resultMap=\"PgVectorSearchRowMap\">")
-                .contains("<select id=\"listByObjectPage\" resultMap=\"PgVectorSearchRowMap\">");
+                .contains("<select id=\"listByObjectPage\" resultMap=\"PgVectorSearchRowMap\">")
+                .contains("<select id=\"listByObjectPageFiltered\" resultMap=\"PgVectorSearchRowMap\">");
         assertThat(mapper.split(Pattern.quote("NULL::double precision AS distance"), -1))
-                .hasSize(3);
+                .hasSize(4);
+    }
+
+    @Test
+    void filteredListByObjectPushesPreviewFiltersIntoSql() throws Exception {
+        String mapper = mapperXml();
+
+        assertThat(mapper)
+                .contains("<sql id=\"listFilterConditions\">")
+                .contains("metadata -&gt;&gt; 'documentId'")
+                .contains("metadata -&gt;&gt; 'chunkId'")
+                .contains("metadata -&gt;&gt; 'headingPath'")
+                .contains("LIMIT #{limit} OFFSET #{offset}");
     }
 
     private String mapperXml() throws Exception {
