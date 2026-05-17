@@ -23,6 +23,7 @@ import studio.one.platform.skillgraph.web.controller.SkillCandidateMgmtControlle
 import studio.one.platform.skillgraph.web.controller.SkillDictionaryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillGraphMgmtController;
+import studio.one.platform.skillgraph.web.controller.SkillGraphSimulationMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillMappingMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillRecommendationMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillTaxonomyMgmtController;
@@ -34,7 +35,7 @@ public class SkillGraphWebAutoConfiguration {
 
     @Configuration
     @ConditionalOnBean(name = SkillExtractionService.SERVICE_NAME)
-    @Import(SkillExtractionJobMgmtController.class)
+    @Import({SkillExtractionJobMgmtController.class, SkillGraphSimulationMgmtController.class})
     static class SkillExtractionWebConfig {
     }
 

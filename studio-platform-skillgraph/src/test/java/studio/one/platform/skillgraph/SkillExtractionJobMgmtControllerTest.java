@@ -8,8 +8,11 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
+import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
+import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
@@ -66,9 +69,7 @@ class SkillExtractionJobMgmtControllerTest {
     void hidesUnexpectedExtractionFailureDetails() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
         SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
-                command -> {
-                    throw new IllegalStateException("database password leaked");
-                },
+                new FailingSkillExtractionService(),
                 resolverProvider(new FakeRagChunkResolver(List.of(ragChunk("doc-1", "chunk-1", "Spring Boot")))));
 
         var response = controller.extractRagChunks(new SkillRagChunkExtractionRequest(
@@ -113,6 +114,19 @@ class SkillExtractionJobMgmtControllerTest {
         public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int limit) {
             int max = limit <= 0 ? chunks.size() : Math.min(limit, chunks.size());
             return chunks.subList(0, max);
+        }
+    }
+
+    private static final class FailingSkillExtractionService implements SkillExtractionService {
+
+        @Override
+        public SkillExtractionResult extract(SkillExtractionCommand command) {
+            throw new IllegalStateException("database password leaked");
+        }
+
+        @Override
+        public SkillExtractionResult dryRun(SkillExtractionCommand command) {
+            throw new IllegalStateException("database password leaked");
         }
     }
 }
