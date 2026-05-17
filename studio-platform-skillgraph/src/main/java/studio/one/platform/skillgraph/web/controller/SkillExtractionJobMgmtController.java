@@ -160,7 +160,7 @@ public class SkillExtractionJobMgmtController {
                         null,
                         0,
                         "FAILED",
-                        ex.getMessage()));
+                        failureMessage(ex)));
             }
         }
         return new SkillRagBatchExtractionResponse(
@@ -249,6 +249,13 @@ public class SkillExtractionJobMgmtController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
         }
         return normalized;
+    }
+
+    private String failureMessage(RuntimeException ex) {
+        if (ex instanceof IllegalArgumentException && ex.getMessage() != null && !ex.getMessage().isBlank()) {
+            return ex.getMessage();
+        }
+        return "Skill extraction failed";
     }
 
 }

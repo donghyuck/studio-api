@@ -62,18 +62,39 @@ class SkillExtractionJobMgmtControllerTest {
                 new SkillRagDocumentExtractionRequest("attachment", "42", null, "ALL_CHUNKS", null)));
     }
 
+    @Test
+    void hidesUnexpectedExtractionFailureDetails() {
+        InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
+        SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
+                command -> {
+                    throw new IllegalStateException("database password leaked");
+                },
+                resolverProvider(new FakeRagChunkResolver(List.of(ragChunk("doc-1", "chunk-1", "Spring Boot")))));
+
+        var response = controller.extractRagChunks(new SkillRagChunkExtractionRequest(
+                "attachment", "42", null, List.of("chunk-1"))).getBody().getData();
+
+        assertEquals(1, response.failedChunks());
+        assertEquals("Skill extraction failed", response.items().get(0).error());
+    }
+
     private SkillExtractionJobMgmtController controller(
             InMemorySkillCandidateStore store,
             SkillGraphRagChunkResolver resolver) {
         DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(store,
                 new PatternSkillCandidateExtractor());
+        return new SkillExtractionJobMgmtController(
+                extractionService,
+                resolverProvider(resolver));
+    }
+
+    private org.springframework.beans.factory.ObjectProvider<SkillGraphRagChunkResolver> resolverProvider(
+            SkillGraphRagChunkResolver resolver) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         if (resolver != null) {
             beanFactory.addBean("skillGraphRagChunkResolver", resolver);
         }
-        return new SkillExtractionJobMgmtController(
-                extractionService,
-                beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class));
+        return beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class);
     }
 
     private static ResolvedRagChunk ragChunk(String documentId, String chunkId, String content) {
