@@ -30,6 +30,8 @@ import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJobService {
 
     private static final String RAG_CHUNK_SOURCE_TYPE = "RAG_CHUNK";
+    private static final int DEFAULT_JOB_LIMIT = 50;
+    private static final int MAX_JOB_LIMIT = 200;
     private static final int DEFAULT_ITEM_LIMIT = 100;
     private static final int MAX_ITEM_LIMIT = 500;
 
@@ -97,6 +99,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     public SkillRagExtractionJob getJob(String jobId) {
         return store.findJob(required(jobId, "jobId"))
                 .orElseThrow(() -> new IllegalArgumentException("RAG extraction job not found: " + jobId));
+    }
+
+    @Override
+    public List<SkillRagExtractionJob> listJobs(
+            String status,
+            String objectType,
+            String objectId,
+            String documentId,
+            int offset,
+            int limit) {
+        return store.listJobs(parseStatus(status), normalize(objectType), normalize(objectId), normalize(documentId),
+                Math.max(0, offset), boundedJobLimit(limit));
     }
 
     @Override
@@ -250,6 +264,13 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         return Math.min(limit, settings.maxChunks());
     }
 
+    private int boundedJobLimit(int limit) {
+        if (limit <= 0) {
+            return DEFAULT_JOB_LIMIT;
+        }
+        return Math.min(limit, MAX_JOB_LIMIT);
+    }
+
     private int boundedItemLimit(int limit) {
         if (limit <= 0) {
             return DEFAULT_ITEM_LIMIT;
@@ -274,5 +295,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
 
     private String normalize(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private SkillRagExtractionJobStatus parseStatus(String status) {
+        String normalized = normalize(status);
+        return normalized == null ? null : SkillRagExtractionJobStatus.valueOf(normalized.toUpperCase(java.util.Locale.ROOT));
     }
 }

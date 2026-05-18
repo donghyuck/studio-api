@@ -13,6 +13,14 @@ public interface SkillRagExtractionJobService {
 
     SkillRagExtractionJob getJob(String jobId);
 
+    List<SkillRagExtractionJob> listJobs(
+            String status,
+            String objectType,
+            String objectId,
+            String documentId,
+            int offset,
+            int limit);
+
     List<SkillRagExtractionJobItem> listItems(String jobId, int offset, int limit);
 
     SkillRagExtractionJob retryFailed(String jobId);

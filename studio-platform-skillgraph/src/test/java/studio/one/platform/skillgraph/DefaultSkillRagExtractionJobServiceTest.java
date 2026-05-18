@@ -87,6 +87,26 @@ class DefaultSkillRagExtractionJobServiceTest {
                 service.listItems(job.jobId(), 0, 10).get(0).error());
     }
 
+    @Test
+    void listsJobsWithStatusAndObjectFilters() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                new PagingResolver(List.of(chunk("doc-1", "chunk-1", "Spring Boot"))),
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(20, 10, 1_000_000));
+
+        service.submitAllChunks("attachment", "42", "doc-1", null);
+        service.submitAllChunks("attachment", "43", "doc-2", null);
+
+        var jobs = service.listJobs("COMPLETED", "attachment", "42", "doc-1", 0, 10);
+
+        assertEquals(1, jobs.size());
+        assertEquals("42", jobs.get(0).objectId());
+        assertEquals("doc-1", jobs.get(0).documentId());
+    }
+
     private static ResolvedRagChunk chunk(String documentId, String chunkId, String content) {
         return new ResolvedRagChunk(chunkId, documentId, content);
     }

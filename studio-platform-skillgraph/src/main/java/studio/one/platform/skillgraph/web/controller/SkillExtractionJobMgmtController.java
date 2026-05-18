@@ -38,6 +38,7 @@ import studio.one.platform.skillgraph.web.dto.response.SkillExtractionResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagBatchExtractionResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkExtractionItemDto;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobItemPageResponse;
+import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobPageResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -154,6 +155,29 @@ public class SkillExtractionJobMgmtController {
                     request.chunkIds()));
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported RAG extraction mode");
+    }
+
+    @GetMapping
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<SkillRagExtractionJobPageResponse>> listRagExtractionJobs(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String objectType,
+            @RequestParam(required = false) String objectId,
+            @RequestParam(required = false) String documentId,
+            @RequestParam(defaultValue = "0") int offset,
+            @RequestParam(defaultValue = "50") int limit) {
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = limit <= 0 ? 50 : Math.min(limit, 200);
+        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobPageResponse.from(
+                safeOffset,
+                safeLimit,
+                ragExtractionJobService().listJobs(
+                        status,
+                        objectType,
+                        objectId,
+                        documentId,
+                        safeOffset,
+                        safeLimit + 1))));
     }
 
     @GetMapping("/{jobId}")

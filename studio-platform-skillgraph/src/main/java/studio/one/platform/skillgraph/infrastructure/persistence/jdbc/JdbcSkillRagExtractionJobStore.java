@@ -61,6 +61,44 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
     }
 
     @Override
+    public List<SkillRagExtractionJob> listJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId,
+            int offset,
+            int limit) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT * FROM tb_skill_rag_extraction_job
+                WHERE 1 = 1
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        if (status != null) {
+            sql.append("  AND status = :status\n");
+            params.addValue("status", status.name());
+        }
+        if (objectType != null) {
+            sql.append("  AND object_type = :objectType\n");
+            params.addValue("objectType", objectType);
+        }
+        if (objectId != null) {
+            sql.append("  AND object_id = :objectId\n");
+            params.addValue("objectId", objectId);
+        }
+        if (documentId != null) {
+            sql.append("  AND document_id = :documentId\n");
+            params.addValue("documentId", documentId);
+        }
+        sql.append("""
+                ORDER BY updated_at DESC, created_at DESC, job_id DESC
+                LIMIT :limit OFFSET :offset
+                """);
+        params.addValue("offset", Math.max(0, offset));
+        params.addValue("limit", limit <= 0 ? 50 : limit);
+        return template.query(sql.toString(), params, this::mapJob);
+    }
+
+    @Override
     public SkillRagExtractionJobItem saveItem(SkillRagExtractionJobItem item) {
         int updated = template.update("""
                 UPDATE tb_skill_rag_extraction_job_item
