@@ -38,6 +38,16 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
     }
 
     @Override
+    public SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
+        SkillDictionary skill = findById(skillId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown skill: " + skillId));
+        if (embedding != null && !embedding.isEmpty()) {
+            embeddingsBySkillId.put(skill.skillId(), List.copyOf(embedding));
+        }
+        return skill;
+    }
+
+    @Override
     public Optional<SkillDictionary> findById(String skillId) {
         return Optional.ofNullable(skills.get(skillId));
     }
@@ -105,6 +115,17 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
                         embeddingsBySkillId.get(skill.skillId()),
                         null,
                         skill.createdAt()))
+                .toList();
+    }
+
+    @Override
+    public List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
+        int max = limit <= 0 ? 100 : limit;
+        return skills.values().stream()
+                .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
+                .filter(skill -> !embeddingsBySkillId.containsKey(skill.skillId()))
+                .sorted(Comparator.comparing(SkillDictionary::name))
+                .limit(max)
                 .toList();
     }
 

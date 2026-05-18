@@ -44,6 +44,14 @@ public interface SkillDictionaryStore {
         return List.of();
     }
 
+    default List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
+        return List.of();
+    }
+
+    default SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
+        throw new UnsupportedOperationException("Skill embedding persistence is not implemented");
+    }
+
     List<SkillDictionary> search(String q, int limit);
 
     default List<SkillDictionary> search(String q, int offset, int limit) {

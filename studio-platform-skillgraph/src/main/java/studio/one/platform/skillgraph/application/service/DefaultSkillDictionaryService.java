@@ -4,14 +4,16 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
+import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 
 /**
  * 스킬 사전 조회 유스케이스 구현체.
@@ -43,10 +45,19 @@ import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
  *        </pre>
  */
 
-@RequiredArgsConstructor
 public class DefaultSkillDictionaryService implements SkillDictionaryService {
 
     private final SkillDictionaryStore store;
+    private final SkillEmbeddingPort embeddingPort;
+
+    public DefaultSkillDictionaryService(SkillDictionaryStore store) {
+        this(store, new NoOpSkillEmbeddingPort());
+    }
+
+    public DefaultSkillDictionaryService(SkillDictionaryStore store, SkillEmbeddingPort embeddingPort) {
+        this.store = store;
+        this.embeddingPort = embeddingPort == null ? new NoOpSkillEmbeddingPort() : embeddingPort;
+    }
 
     @Override
     public List<SkillDictionaryView> search(String q, int limit) {
@@ -91,6 +102,29 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
         return store.findById(skillId)
                 .map(SkillDictionaryView::from)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown skill: " + skillId));
+    }
+
+    @Override
+    public SkillDictionaryEmbeddingResult embedMissing(int limit) {
+        int max = normalizeLimit(limit);
+        List<SkillDictionary> missing = store.findMissingEmbeddingSkills(max);
+        int processed = 0;
+        int failed = 0;
+        for (SkillDictionary skill : missing) {
+            List<Double> embedding = embeddingPort.embedSkill(skill.name());
+            if (embedding == null || embedding.isEmpty()) {
+                failed++;
+                continue;
+            }
+            store.saveEmbedding(skill.skillId(), embedding, null);
+            processed++;
+        }
+        return new SkillDictionaryEmbeddingResult(
+                missing.size(),
+                processed,
+                Math.max(0, max - missing.size()),
+                failed,
+                null);
     }
 
     private int normalizeLimit(int limit) {

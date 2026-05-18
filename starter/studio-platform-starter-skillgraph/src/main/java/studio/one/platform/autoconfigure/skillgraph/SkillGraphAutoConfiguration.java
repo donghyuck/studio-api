@@ -21,6 +21,7 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
@@ -29,6 +30,7 @@ import studio.one.platform.skillgraph.application.service.DefaultSkillRecommenda
 import studio.one.platform.skillgraph.application.service.DefaultSkillTaxonomyService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizationService;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
@@ -118,8 +120,10 @@ public class SkillGraphAutoConfiguration {
 
     @Bean(name = SkillDictionaryService.SERVICE_NAME)
     @ConditionalOnMissingBean
-    public SkillDictionaryService skillDictionaryService(SkillDictionaryStore dictionaryStore) {
-        return new DefaultSkillDictionaryService(dictionaryStore);
+    public SkillDictionaryService skillDictionaryService(
+            SkillDictionaryStore dictionaryStore,
+            SkillEmbeddingPort embeddingPort) {
+        return new DefaultSkillDictionaryService(dictionaryStore, embeddingPort);
     }
 
     @Bean(name = SkillVisualizationService.SERVICE_NAME)
@@ -136,6 +140,15 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillTaxonomyService skillTaxonomyService(SkillTaxonomyStore taxonomyStore) {
         return new DefaultSkillTaxonomyService(taxonomyStore);
+    }
+
+    @Bean(name = SkillCategoryDraftService.SERVICE_NAME)
+    @ConditionalOnMissingBean
+    public SkillCategoryDraftService skillCategoryDraftService(
+            SkillProjectionStore projectionStore,
+            SkillDictionaryStore dictionaryStore,
+            SkillTaxonomyStore taxonomyStore) {
+        return new DefaultSkillCategoryDraftService(projectionStore, dictionaryStore, taxonomyStore);
     }
 
     @Bean(name = SkillGraphService.SERVICE_NAME)

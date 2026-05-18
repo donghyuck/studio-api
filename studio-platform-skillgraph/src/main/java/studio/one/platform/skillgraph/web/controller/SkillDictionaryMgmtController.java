@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.service.DuplicateSkillDictionaryException;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.web.dto.request.CreateSkillDictionaryRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillDictionaryEmbeddingRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillDictionaryDto;
 import studio.one.platform.skillgraph.web.dto.response.SkillDictionaryPageResponse;
 import studio.one.platform.web.dto.ApiResponse;
@@ -58,6 +59,14 @@ public class SkillDictionaryMgmtController {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }
+    }
+
+    @PostMapping("/embeddings/missing")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<?>> embedMissing(
+            @Valid @RequestBody(required = false) SkillDictionaryEmbeddingRequest request) {
+        int limit = request == null || request.limit() == null ? 500 : request.limit();
+        return ResponseEntity.ok(ApiResponse.ok(dictionaryService.embedMissing(limit)));
     }
 
     @GetMapping("/{skillId}")

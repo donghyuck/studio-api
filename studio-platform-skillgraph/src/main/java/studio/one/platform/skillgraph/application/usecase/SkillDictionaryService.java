@@ -3,6 +3,7 @@ package studio.one.platform.skillgraph.application.usecase;
 import java.util.List;
 
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryView;
 
 public interface SkillDictionaryService {
@@ -14,6 +15,8 @@ public interface SkillDictionaryService {
     List<SkillDictionaryView> search(String q, int offset, int limit);
 
     SkillDictionaryView create(CreateSkillDictionaryCommand command);
+
+    SkillDictionaryEmbeddingResult embedMissing(int limit);
 
     SkillDictionaryView get(String skillId);
 }

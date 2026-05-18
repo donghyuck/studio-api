@@ -15,6 +15,7 @@ import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtract
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
@@ -25,6 +26,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.web.controller.SkillCandidateMgmtController;
+import studio.one.platform.skillgraph.web.controller.SkillCategoryDraftMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillDictionaryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillGraphExtractionSourceMgmtController;
@@ -108,6 +110,12 @@ public class SkillGraphWebAutoConfiguration {
     @ConditionalOnBean(name = SkillTaxonomyService.SERVICE_NAME)
     @Import(SkillTaxonomyMgmtController.class)
     static class SkillTaxonomyWebConfig {
+    }
+
+    @Configuration
+    @ConditionalOnBean(name = SkillCategoryDraftService.SERVICE_NAME)
+    @Import(SkillCategoryDraftMgmtController.class)
+    static class SkillCategoryDraftWebConfig {
     }
 
     @Configuration

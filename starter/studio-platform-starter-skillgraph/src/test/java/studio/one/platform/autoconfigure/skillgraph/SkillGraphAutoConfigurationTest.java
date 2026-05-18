@@ -17,6 +17,7 @@ import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
@@ -50,6 +51,7 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).hasSingleBean(SkillExtractionService.class);
             assertThat(context).hasSingleBean(SkillCandidateReviewService.class);
             assertThat(context).hasSingleBean(SkillDictionaryService.class);
+            assertThat(context).hasSingleBean(SkillCategoryDraftService.class);
             assertThat(context).hasSingleBean(SkillTaxonomyStore.class);
             assertThat(context).hasSingleBean(SkillGraphStore.class);
             assertThat(context).hasSingleBean(SkillMappingStore.class);
