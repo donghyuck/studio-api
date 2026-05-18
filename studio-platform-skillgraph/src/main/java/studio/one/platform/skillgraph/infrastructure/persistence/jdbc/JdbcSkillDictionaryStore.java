@@ -156,6 +156,16 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 """, Map.of("limit", max), this::mapSkill);
     }
 
+    @Override
+    public int countMissingEmbeddingSkills() {
+        Integer count = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM tb_skill_dictionary
+                WHERE status = 'ACTIVE' AND embedding IS NULL
+                """, Map.of(), Integer.class);
+        return count == null ? 0 : count;
+    }
+
     private Optional<SkillDictionary> queryOne(String sql, Map<String, ?> params) {
         return template.query(sql, params, this::mapSkill).stream().findFirst();
     }

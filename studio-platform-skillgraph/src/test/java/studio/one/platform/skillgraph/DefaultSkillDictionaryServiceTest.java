@@ -86,11 +86,32 @@ class DefaultSkillDictionaryServiceTest {
         var first = service.embedMissing(10);
         var second = service.embedMissing(10);
 
+        assertEquals(2, first.totalMissingCount());
         assertEquals(2, first.requestedCount());
         assertEquals(2, first.processedCount());
+        assertEquals(0, first.skippedCount());
         assertEquals(0, first.failedCount());
         assertEquals(2, store.findVectorItems(10).size());
+        assertEquals(0, second.totalMissingCount());
         assertEquals(0, second.requestedCount());
         assertEquals(0, second.processedCount());
+    }
+
+    @Test
+    void embeddingResultSeparatesTotalMissingFromBatchSize() {
+        InMemorySkillDictionaryStore store = new InMemorySkillDictionaryStore();
+        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(
+                store,
+                text -> List.of(1.0d, 0.0d, 0.5d));
+        service.create(new CreateSkillDictionaryCommand("Spring Security JWT 인증 구성", null, null, null, null));
+        service.create(new CreateSkillDictionaryCommand("Vue 컴포넌트 개발", null, null, null, null));
+        service.create(new CreateSkillDictionaryCommand("PostgreSQL 벡터 검색 구현", null, null, null, null));
+
+        var result = service.embedMissing(1);
+
+        assertEquals(3, result.totalMissingCount());
+        assertEquals(1, result.requestedCount());
+        assertEquals(1, result.processedCount());
+        assertEquals(2, result.skippedCount());
     }
 }

@@ -48,6 +48,10 @@ public interface SkillDictionaryStore {
         return List.of();
     }
 
+    default int countMissingEmbeddingSkills() {
+        return findMissingEmbeddingSkills(Integer.MAX_VALUE).size();
+    }
+
     default SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
         throw new UnsupportedOperationException("Skill embedding persistence is not implemented");
     }

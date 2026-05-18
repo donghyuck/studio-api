@@ -129,6 +129,14 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
                 .toList();
     }
 
+    @Override
+    public int countMissingEmbeddingSkills() {
+        return (int) skills.values().stream()
+                .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
+                .filter(skill -> !embeddingsBySkillId.containsKey(skill.skillId()))
+                .count();
+    }
+
     private double cosine(List<Double> left, List<Double> right) {
         int size = Math.min(left.size(), right.size());
         if (size == 0) {

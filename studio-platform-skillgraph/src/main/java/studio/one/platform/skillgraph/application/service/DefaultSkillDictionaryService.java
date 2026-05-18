@@ -107,6 +107,7 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
     @Override
     public SkillDictionaryEmbeddingResult embedMissing(int limit) {
         int max = normalizeLimit(limit);
+        int totalMissing = store.countMissingEmbeddingSkills();
         List<SkillDictionary> missing = store.findMissingEmbeddingSkills(max);
         int processed = 0;
         int failed = 0;
@@ -120,9 +121,10 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
             processed++;
         }
         return new SkillDictionaryEmbeddingResult(
+                totalMissing,
                 missing.size(),
                 processed,
-                Math.max(0, max - missing.size()),
+                Math.max(0, totalMissing - missing.size()),
                 failed,
                 null);
     }
