@@ -1,4 +1,4 @@
-package studio.one.platform.skillgraph.application.service;
+package studio.one.platform.skillgraph.infrastructure.extraction;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -11,22 +11,22 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.extern.slf4j.Slf4j;
-
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateExtractor;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 
 /**
- * LLM 응답을 스킬 후보 추천기로 사용하는 SkillExtractionService 구현체.
+ * LLM 응답을 스킬 후보 추출기.
  */
 @Slf4j
-public class LlmSkillCandidateExtractor extends AbstractSkillCandidateExtractor {
+public class LlmSkillCandidateExtractor implements SkillCandidateExtractor{
 
     public static final String DEFAULT_PROMPT = "skill-extraction";
 
@@ -53,8 +53,7 @@ public class LlmSkillCandidateExtractor extends AbstractSkillCandidateExtractor 
             int maxTerms,
             int maxInputChars,
             Integer maxOutputTokens,
-            Double temperature) {
-        super(store, dictionaryStore, embeddingPort, matchPolicy);
+            Double temperature) { 
         this.promptRenderer = Objects.requireNonNull(promptRenderer, "promptRenderer");
         this.chatPort = Objects.requireNonNull(chatPort, "chatPort");
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
@@ -66,7 +65,7 @@ public class LlmSkillCandidateExtractor extends AbstractSkillCandidateExtractor 
     }
 
     @Override
-    protected List<SkillCandidateExtractor.ExtractedSkillTerm> recommendTerms(String text) {
+    public List<ExtractedSkillTerm> extract(String text) {
         try {
             String prompt = promptRenderer.render(promptName, Map.of(
                     "text", trimToLength(text, maxInputChars),
@@ -146,17 +145,23 @@ public class LlmSkillCandidateExtractor extends AbstractSkillCandidateExtractor 
     }
 
     private double confidence(Object value) {
+        double confidence;
         if (value instanceof Number number) {
-            return number.doubleValue();
+            confidence = number.doubleValue();
+        } else {
+            String text = text(value);
+            if (text == null) {
+                confidence = DEFAULT_CONFIDENCE;
+            } else {
+                try {
+                    confidence = Double.parseDouble(text);
+                } catch (NumberFormatException ex) {
+                    confidence = DEFAULT_CONFIDENCE;
+                }
+            }
         }
-        String text = text(value);
-        if (text == null) {
-            return DEFAULT_CONFIDENCE;
-        }
-        try {
-            return Double.parseDouble(text);
-        } catch (NumberFormatException ex) {
-            return DEFAULT_CONFIDENCE;
-        }
+        return Math.max(0.0d, Math.min(1.0d, confidence));
     }
+
+
 }

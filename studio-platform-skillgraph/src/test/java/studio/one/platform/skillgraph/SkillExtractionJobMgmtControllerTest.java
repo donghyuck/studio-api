@@ -13,7 +13,7 @@ import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
-import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
+import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
@@ -88,7 +88,7 @@ class SkillExtractionJobMgmtControllerTest {
         SkillGraphRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
                 ragChunk("doc-1", "chunk-1", "Spring Boot 기술"),
                 ragChunk("doc-2", "chunk-2", "Kubernetes 기술")));
-        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(candidateStore,
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
                 new PatternSkillCandidateExtractor());
         SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
                 extractionService,
@@ -155,7 +155,7 @@ class SkillExtractionJobMgmtControllerTest {
     private SkillExtractionJobMgmtController controller(
             InMemorySkillCandidateStore store,
             SkillGraphRagChunkResolver resolver) {
-        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(store,
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(store,
                 new PatternSkillCandidateExtractor());
         return new SkillExtractionJobMgmtController(
                 extractionService,

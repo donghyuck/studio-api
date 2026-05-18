@@ -15,10 +15,14 @@ import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
-import studio.one.platform.skillgraph.application.service.LlmSkillCandidateExtractor;
+import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
+import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
+import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
+import studio.one.platform.skillgraph.infrastructure.extraction.LlmSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
 
@@ -35,9 +39,9 @@ class LlmSkillCandidateExtractorTest {
                   {"term":"Kubernetes","confidence":"0.7"}
                 ]
                 """);
-        LlmSkillCandidateExtractor extractor = extractor(promptRenderer, chatPort, 2);
+        SkillExtractionService service = service(promptRenderer, chatPort, 2);
 
-        var result = extractor.dryRun(new SkillExtractionCommand("simulation", "sample", null,
+        var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", null,
                 "Spring Boot, JPA, Kubernetes"));
 
         assertEquals(2, result.extractedCount());
@@ -54,10 +58,10 @@ class LlmSkillCandidateExtractorTest {
 
     @Test
     void returnsEmptyCandidatesWhenLlmResponseIsMalformed() {
-        LlmSkillCandidateExtractor extractor = extractor(new CapturingPromptRenderer(),
+        SkillExtractionService service = service(new CapturingPromptRenderer(),
                 new CapturingChatPort("not-json"), 10);
 
-        var result = extractor.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
+        var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
 
         assertEquals(0, result.extractedCount());
     }
@@ -68,21 +72,20 @@ class LlmSkillCandidateExtractorTest {
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
         dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot", null, "ACTIVE",
                 Instant.now(), Instant.now()));
-        LlmSkillCandidateExtractor extractor = new LlmSkillCandidateExtractor(
+        LlmSkillCandidateExtractor extractor = extractor(
                 candidateStore,
                 dictionaryStore,
-                text -> List.of(),
-                SkillMatchPolicy.defaults(),
                 new CapturingPromptRenderer(),
                 new CapturingChatPort("[{\"term\":\"Spring Boot\",\"confidence\":0.9}]"),
-                new ObjectMapper(),
-                "skill-extraction",
-                10,
-                4000,
-                128,
-                0.0d);
+                10);
+        SkillExtractionService service = new DefaultSkillExtractionService(
+                candidateStore,
+                dictionaryStore,
+                extractor,
+                text -> List.of(),
+                SkillMatchPolicy.defaults());
 
-        var result = extractor.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
+        var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
 
         assertEquals(SkillCandidateStatus.MATCHED, result.candidates().get(0).status());
         assertEquals("skill-1", result.candidates().get(0).matchedSkillId());
@@ -90,13 +93,28 @@ class LlmSkillCandidateExtractorTest {
         assertEquals(0, candidateStore.searchCandidates(null, null, 100).size());
     }
 
+    private SkillExtractionService service(
+            PromptRenderer promptRenderer,
+            ChatPort chatPort,
+            int maxTerms) {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        return new DefaultSkillExtractionService(
+                candidateStore,
+                null,
+                extractor(candidateStore, null, promptRenderer, chatPort, maxTerms),
+                text -> List.of(),
+                SkillMatchPolicy.defaults());
+    }
+
     private LlmSkillCandidateExtractor extractor(
+            SkillCandidateStore candidateStore,
+            SkillDictionaryStore dictionaryStore,
             PromptRenderer promptRenderer,
             ChatPort chatPort,
             int maxTerms) {
         return new LlmSkillCandidateExtractor(
-                new InMemorySkillCandidateStore(),
-                null,
+                candidateStore,
+                dictionaryStore,
                 text -> List.of(),
                 SkillMatchPolicy.defaults(),
                 promptRenderer,

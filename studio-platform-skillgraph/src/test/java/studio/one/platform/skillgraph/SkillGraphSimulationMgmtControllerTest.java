@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import org.junit.jupiter.api.Test;
 
-import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
+import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.web.controller.SkillGraphSimulationMgmtController;
@@ -17,7 +17,7 @@ class SkillGraphSimulationMgmtControllerTest {
     void simulationExtractionDoesNotPersistCandidates() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
         SkillGraphSimulationMgmtController controller = new SkillGraphSimulationMgmtController(
-                new RegexSkillCandidateExtractor(store, new PatternSkillCandidateExtractor()));
+                new DefaultSkillExtractionService(store, new PatternSkillCandidateExtractor()));
 
         var response = controller.simulateExtraction(new SkillExtractionSimulationRequest(
                 null,

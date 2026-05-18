@@ -22,8 +22,7 @@ import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
-import studio.one.platform.skillgraph.application.service.LlmSkillCandidateExtractor;
-import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
+import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillMappingService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRecommendationService;
@@ -48,6 +47,7 @@ import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
 import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
+import studio.one.platform.skillgraph.infrastructure.extraction.LlmSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.clustering.DistanceThresholdSkillClusterer;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillCandidateStore;
@@ -105,7 +105,7 @@ public class SkillGraphAutoConfiguration {
             SkillCandidateExtractor extractor,
             SkillEmbeddingPort embeddingPort,
             SkillMatchPolicy matchPolicy) {
-        return new RegexSkillCandidateExtractor(candidateStore, dictionaryStore, extractor, embeddingPort, matchPolicy);
+        return new DefaultSkillExtractionService(candidateStore, dictionaryStore, extractor, embeddingPort, matchPolicy);
     }
 
     @Bean(name = SkillCandidateReviewService.SERVICE_NAME)
@@ -195,7 +195,7 @@ public class SkillGraphAutoConfiguration {
                 SkillGraphProperties properties) {
             SkillGraphProperties.Extraction extraction = properties.getExtraction();
             SkillGraphProperties.Llm llm = extraction.getLlm();
-            return new LlmSkillCandidateExtractor(
+            SkillCandidateExtractor extractor = new LlmSkillCandidateExtractor(
                     candidateStore,
                     dictionaryStore,
                     embeddingPort,
@@ -208,6 +208,12 @@ public class SkillGraphAutoConfiguration {
                     llm.getMaxInputChars(),
                     llm.getMaxOutputTokens(),
                     llm.getTemperature());
+            return new DefaultSkillExtractionService(
+                    candidateStore,
+                    dictionaryStore,
+                    extractor,
+                    embeddingPort,
+                    matchPolicy);
         }
     }
 
