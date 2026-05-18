@@ -98,6 +98,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     @Override
     public SkillRagExtractionJob getJob(String jobId) {
         return store.findJob(required(jobId, "jobId"))
+                .map(this::reconcileCompletedActiveJob)
                 .orElseThrow(() -> new IllegalArgumentException("RAG extraction job not found: " + jobId));
     }
 
@@ -109,8 +110,12 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String documentId,
             int offset,
             int limit) {
-        return store.listJobs(parseStatus(status), normalize(objectType), normalize(objectId), normalize(documentId),
-                Math.max(0, offset), boundedJobLimit(limit));
+        SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
+        return store.listJobs(null, normalize(objectType), normalize(objectId), normalize(documentId),
+                Math.max(0, offset), boundedJobLimit(limit)).stream()
+                .map(this::reconcileCompletedActiveJob)
+                .filter(job -> parsedStatus == null || job.status() == parsedStatus)
+                .toList();
     }
 
     @Override
@@ -255,6 +260,23 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             return SkillRagExtractionJobStatus.FAILED;
         }
         return SkillRagExtractionJobStatus.COMPLETED;
+    }
+
+    private SkillRagExtractionJob reconcileCompletedActiveJob(SkillRagExtractionJob job) {
+        if (job.status() != SkillRagExtractionJobStatus.RUNNING && job.status() != SkillRagExtractionJobStatus.READY) {
+            return job;
+        }
+        if (job.totalChunks() <= 0 || job.processedChunks() < job.totalChunks()) {
+            return job;
+        }
+        SkillRagExtractionJobStatus status = finalStatus(
+                job.processedChunks(),
+                job.succeededChunks(),
+                job.failedChunks());
+        if (status == job.status()) {
+            return job;
+        }
+        return store.saveJob(job.withStatus(status, null, clock.instant()));
     }
 
     private int boundedLimit(Integer limit) {

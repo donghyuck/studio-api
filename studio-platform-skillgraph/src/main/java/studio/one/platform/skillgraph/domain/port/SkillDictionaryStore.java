@@ -45,4 +45,13 @@ public interface SkillDictionaryStore {
     }
 
     List<SkillDictionary> search(String q, int limit);
+
+    default List<SkillDictionary> search(String q, int offset, int limit) {
+        int safeOffset = Math.max(0, offset);
+        int safeLimit = limit <= 0 ? 100 : limit;
+        return search(q, safeOffset + safeLimit).stream()
+                .skip(safeOffset)
+                .limit(safeLimit)
+                .toList();
+    }
 }

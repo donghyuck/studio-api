@@ -2,6 +2,7 @@ package studio.one.platform.skillgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
@@ -105,6 +107,71 @@ class DefaultSkillRagExtractionJobServiceTest {
         assertEquals(1, jobs.size());
         assertEquals("42", jobs.get(0).objectId());
         assertEquals("doc-1", jobs.get(0).documentId());
+    }
+
+    @Test
+    void getJobReconcilesCompletedRunningJob() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                new PagingResolver(List.of()),
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(20, 10, 1_000_000));
+        Instant now = Instant.now();
+        store.saveJob(new SkillRagExtractionJob(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                SkillRagExtractionJobStatus.RUNNING,
+                10,
+                2,
+                2,
+                2,
+                0,
+                2,
+                null,
+                now,
+                now));
+
+        var job = service.getJob("job-1");
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, store.findJob("job-1").orElseThrow().status());
+    }
+
+    @Test
+    void listJobsReconcilesPartialRunningJobBeforeFiltering() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                new PagingResolver(List.of()),
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(20, 10, 1_000_000));
+        Instant now = Instant.now();
+        store.saveJob(new SkillRagExtractionJob(
+                "job-1",
+                "attachment",
+                "42",
+                "doc-1",
+                SkillRagExtractionJobStatus.RUNNING,
+                10,
+                2,
+                2,
+                1,
+                1,
+                1,
+                null,
+                now,
+                now));
+
+        var jobs = service.listJobs("PARTIAL", "attachment", "42", "doc-1", 0, 10);
+
+        assertEquals(1, jobs.size());
+        assertEquals(SkillRagExtractionJobStatus.PARTIAL, jobs.get(0).status());
+        assertEquals(SkillRagExtractionJobStatus.PARTIAL, store.findJob("job-1").orElseThrow().status());
     }
 
     private static ResolvedRagChunk chunk(String documentId, String chunkId, String content) {

@@ -75,6 +75,11 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillDictionary> search(String q, int limit) {
+        return search(q, 0, limit);
+    }
+
+    @Override
+    public List<SkillDictionary> search(String q, int offset, int limit) {
         String query = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
         int max = limit <= 0 ? 100 : limit;
         return skills.values().stream()
@@ -82,6 +87,7 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
                         || skill.normalizedName().contains(query)
                         || skill.name().toLowerCase(Locale.ROOT).contains(query))
                 .sorted(Comparator.comparing(SkillDictionary::name))
+                .skip(Math.max(0, offset))
                 .limit(max)
                 .toList();
     }
