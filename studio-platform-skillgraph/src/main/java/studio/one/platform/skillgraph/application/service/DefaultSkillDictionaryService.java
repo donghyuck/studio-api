@@ -1,11 +1,16 @@
 package studio.one.platform.skillgraph.application.service;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
+import studio.one.platform.skillgraph.domain.model.SkillCandidate;
+import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
 /**
@@ -51,6 +56,32 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
     }
 
     @Override
+    public SkillDictionaryView create(CreateSkillDictionaryCommand command) {
+        if (command == null) {
+            throw new IllegalArgumentException("request must not be null");
+        }
+        String name = requireText(command.name(), "name");
+        String normalizedName = SkillCandidate.normalizeSkillTerm(
+                command.normalizedName() == null || command.normalizedName().isBlank()
+                        ? name
+                        : command.normalizedName());
+        store.findByNormalizedName(normalizedName)
+                .ifPresent(existing -> {
+                    throw new DuplicateSkillDictionaryException(normalizedName);
+                });
+        Instant now = Instant.now();
+        SkillDictionary skill = new SkillDictionary(
+                "skill_" + UUID.randomUUID(),
+                name,
+                normalizedName,
+                normalize(command.categoryId()),
+                normalize(command.status()),
+                now,
+                now);
+        return SkillDictionaryView.from(store.save(skill));
+    }
+
+    @Override
     public SkillDictionaryView get(String skillId) {
         return store.findById(skillId)
                 .map(SkillDictionaryView::from)
@@ -72,5 +103,19 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
         return trimmed.length() <= SkillGraphLimits.MAX_QUERY_LENGTH
                 ? trimmed
                 : trimmed.substring(0, SkillGraphLimits.MAX_QUERY_LENGTH);
+    }
+
+    private String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        return value.trim();
     }
 }
