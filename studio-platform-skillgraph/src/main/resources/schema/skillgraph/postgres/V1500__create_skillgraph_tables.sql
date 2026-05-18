@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS tb_skill_dictionary (
     normalized_name VARCHAR(300) NOT NULL,
     category_id VARCHAR(100),
     status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
-    embedding VECTOR(1536),
+    embedding VECTOR,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now(),
     CONSTRAINT uk_skill_dictionary_normalized_name UNIQUE (normalized_name)
@@ -26,9 +26,6 @@ CREATE TABLE IF NOT EXISTS tb_skill_dictionary (
 
 CREATE INDEX IF NOT EXISTS idx_skill_dictionary_status
     ON tb_skill_dictionary(status, name);
-
-CREATE INDEX IF NOT EXISTS idx_skill_dictionary_embedding
-    ON tb_skill_dictionary USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE IF NOT EXISTS tb_skill_candidate (
     candidate_id VARCHAR(100) PRIMARY KEY,
@@ -42,7 +39,7 @@ CREATE TABLE IF NOT EXISTS tb_skill_candidate (
     occurrence_count INT NOT NULL DEFAULT 1,
     matched_skill_id VARCHAR(100),
     reviewer_note TEXT,
-    embedding VECTOR(1536),
+    embedding VECTOR,
     created_at TIMESTAMP NOT NULL DEFAULT now(),
     updated_at TIMESTAMP NOT NULL DEFAULT now()
 );
@@ -52,9 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_skill_candidate_status
 
 CREATE INDEX IF NOT EXISTS idx_skill_candidate_normalized
     ON tb_skill_candidate(normalized_term);
-
-CREATE INDEX IF NOT EXISTS idx_skill_candidate_embedding
-    ON tb_skill_candidate USING hnsw (embedding vector_cosine_ops);
 
 CREATE TABLE IF NOT EXISTS tb_skill_alias (
     alias_id VARCHAR(100) PRIMARY KEY,
