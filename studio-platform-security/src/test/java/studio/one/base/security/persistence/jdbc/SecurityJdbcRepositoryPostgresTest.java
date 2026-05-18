@@ -30,7 +30,7 @@ import studio.one.base.security.jwt.refresh.infrastructure.persistence.jdbc.Refr
 import studio.one.base.security.jwt.reset.domain.model.PasswordResetToken;
 import studio.one.base.security.jwt.reset.infrastructure.persistence.jdbc.PasswordResetTokenJdbcRepositoryV2;
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 class SecurityJdbcRepositoryPostgresTest {
 
     @Container

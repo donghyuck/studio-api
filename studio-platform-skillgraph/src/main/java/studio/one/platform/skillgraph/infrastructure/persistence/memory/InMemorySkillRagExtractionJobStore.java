@@ -9,6 +9,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 
 public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJobStore {
@@ -25,6 +26,26 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
     @Override
     public Optional<SkillRagExtractionJob> findJob(String jobId) {
         return Optional.ofNullable(jobs.get(jobId));
+    }
+
+    @Override
+    public List<SkillRagExtractionJob> listJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId,
+            int offset,
+            int limit) {
+        return jobs.values().stream()
+                .filter(job -> status == null || job.status() == status)
+                .filter(job -> objectType == null || objectType.equals(job.objectType()))
+                .filter(job -> objectId == null || objectId.equals(job.objectId()))
+                .filter(job -> documentId == null || documentId.equals(job.documentId()))
+                .sorted(Comparator.comparing(SkillRagExtractionJob::updatedAt).reversed()
+                        .thenComparing(SkillRagExtractionJob::createdAt, Comparator.reverseOrder()))
+                .skip(Math.max(0, offset))
+                .limit(limit <= 0 ? 50 : limit)
+                .toList();
     }
 
     @Override

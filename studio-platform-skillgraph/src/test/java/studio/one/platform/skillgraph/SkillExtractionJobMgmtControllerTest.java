@@ -82,6 +82,38 @@ class SkillExtractionJobMgmtControllerTest {
     }
 
     @Test
+    void listsRagExtractionJobsWithFilters() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillRagExtractionJobStore jobStore = new InMemorySkillRagExtractionJobStore();
+        SkillGraphRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
+                ragChunk("doc-1", "chunk-1", "Spring Boot 기술"),
+                ragChunk("doc-2", "chunk-2", "Kubernetes 기술")));
+        RegexSkillCandidateExtractor extractionService = new RegexSkillCandidateExtractor(candidateStore,
+                new PatternSkillCandidateExtractor());
+        SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
+                extractionService,
+                resolverProvider(resolver),
+                jobServiceProvider(new DefaultSkillRagExtractionJobService(
+                        extractionService,
+                        resolver,
+                        jobStore,
+                        Runnable::run,
+                        new SkillRagExtractionJobSettings(20, 1000, 1_000_000))));
+        controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
+                "attachment", "42", "doc-1", "ALL_CHUNKS", null));
+        controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
+                "attachment", "43", "doc-2", "ALL_CHUNKS", null));
+
+        var response = controller.listRagExtractionJobs(
+                "COMPLETED", "attachment", "42", "doc-1", 0, 1).getBody().getData();
+
+        assertEquals(1, response.returned());
+        assertEquals(false, response.hasMore());
+        assertEquals("42", response.items().get(0).objectId());
+        assertEquals("doc-1", response.items().get(0).documentId());
+    }
+
+    @Test
     void rejectsUnifiedRagEndpointWithoutSelectedChunkIds() {
         InMemorySkillCandidateStore store = new InMemorySkillCandidateStore();
         SkillExtractionJobMgmtController controller = controller(store, new FakeRagChunkResolver(List.of(

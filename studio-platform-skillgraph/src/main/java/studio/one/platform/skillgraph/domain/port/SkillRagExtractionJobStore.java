@@ -6,6 +6,7 @@ import java.util.Optional;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
 
 public interface SkillRagExtractionJobStore {
 
@@ -14,6 +15,14 @@ public interface SkillRagExtractionJobStore {
     SkillRagExtractionJob saveJob(SkillRagExtractionJob job);
 
     Optional<SkillRagExtractionJob> findJob(String jobId);
+
+    List<SkillRagExtractionJob> listJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId,
+            int offset,
+            int limit);
 
     SkillRagExtractionJobItem saveItem(SkillRagExtractionJobItem item);
 
