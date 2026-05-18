@@ -9,7 +9,12 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatResponse;
+import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
+import studio.one.platform.ai.core.rag.RagSearchRequest;
+import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
+import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.skillgraph.application.service.LlmSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
@@ -18,16 +23,19 @@ import studio.one.platform.skillgraph.application.usecase.SkillExtractionService
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateExtractor;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillGraphStore;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
+import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 class SkillGraphAutoConfigurationTest {
 
@@ -46,6 +54,7 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).hasSingleBean(SkillTaxonomyStore.class);
             assertThat(context).hasSingleBean(SkillGraphStore.class);
             assertThat(context).hasSingleBean(SkillMappingStore.class);
+            assertThat(context).hasSingleBean(SkillRagExtractionJobStore.class);
             assertThat(context).hasSingleBean(SkillTaxonomyService.class);
             assertThat(context).hasSingleBean(SkillGraphService.class);
             assertThat(context).hasSingleBean(SkillMappingService.class);
@@ -53,6 +62,23 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).getBean(SkillExtractionService.class)
                     .isInstanceOf(RegexSkillCandidateExtractor.class);
         });
+    }
+
+    @Test
+    void createsRagExtractionJobServiceAfterWebRagResolverIsAvailable() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        SkillGraphAutoConfiguration.class,
+                        SkillGraphWebAutoConfiguration.SkillGraphRagExtractionConfig.class))
+                .withBean(RagPipelineService.class, FakeRagPipelineService::new)
+                .withPropertyValues(
+                        "studio.features.skillgraph.web.enabled=true",
+                        "studio.skillgraph.extraction.rag-job.batch-size=10",
+                        "studio.skillgraph.extraction.rag-job.worker-count=1",
+                        "studio.skillgraph.extraction.rag-job.queue-capacity=2",
+                        "studio.skillgraph.extraction.rag-job.max-chunks=100",
+                        "studio.skillgraph.extraction.rag-job.max-text-bytes-per-batch=20000")
+                .run(context -> assertThat(context).hasSingleBean(SkillRagExtractionJobService.class));
     }
 
     @Test
@@ -92,6 +118,33 @@ class SkillGraphAutoConfigurationTest {
         @Override
         public String getRawPrompt(String name) {
             return "prompt";
+        }
+    }
+
+    private static final class FakeRagPipelineService implements RagPipelineService {
+
+        @Override
+        public void index(RagIndexRequest request) {
+        }
+
+        @Override
+        public List<RagSearchResult> search(RagSearchRequest request) {
+            return List.of();
+        }
+
+        @Override
+        public List<RagSearchResult> searchByObject(RagSearchRequest request, String objectType, String objectId) {
+            return List.of();
+        }
+
+        @Override
+        public List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit) {
+            return List.of(new RagSearchResult("doc-1", "Spring Boot", Map.of("chunkId", "chunk-1"), 1.0d));
+        }
+
+        @Override
+        public Optional<RagRetrievalDiagnostics> latestDiagnostics() {
+            return Optional.empty();
         }
     }
 }

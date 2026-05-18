@@ -9,7 +9,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
+import java.util.concurrent.Executor;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
@@ -17,8 +20,10 @@ import studio.one.platform.skillgraph.application.usecase.SkillExtractionService
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
+import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.web.controller.SkillCandidateMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillDictionaryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
@@ -53,6 +58,31 @@ public class SkillGraphWebAutoConfiguration {
         @ConditionalOnMissingBean(SkillGraphRagChunkResolver.class)
         SkillGraphRagChunkResolver skillGraphRagChunkResolver(RagPipelineService ragPipelineService) {
             return new RagPipelineSkillGraphRagChunkResolver(ragPipelineService);
+        }
+
+        @Bean(name = SkillRagExtractionJobService.SERVICE_NAME)
+        @ConditionalOnBean({
+                SkillExtractionService.class,
+                SkillGraphRagChunkResolver.class,
+                SkillRagExtractionJobStore.class
+        })
+        @ConditionalOnMissingBean
+        SkillRagExtractionJobService skillRagExtractionJobService(
+                SkillExtractionService extractionService,
+                SkillGraphRagChunkResolver ragChunkResolver,
+                SkillRagExtractionJobStore jobStore,
+                Executor skillRagExtractionJobExecutor,
+                SkillGraphProperties properties) {
+            SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
+            return new DefaultSkillRagExtractionJobService(
+                    extractionService,
+                    ragChunkResolver,
+                    jobStore,
+                    skillRagExtractionJobExecutor,
+                    new SkillRagExtractionJobSettings(
+                            ragJob.getBatchSize(),
+                            ragJob.getMaxChunks(),
+                            ragJob.getMaxTextBytesPerBatch()));
         }
     }
 

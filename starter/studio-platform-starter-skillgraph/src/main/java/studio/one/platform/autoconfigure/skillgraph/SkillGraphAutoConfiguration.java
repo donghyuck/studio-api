@@ -12,6 +12,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
@@ -39,6 +43,7 @@ import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillGraphStore;
+import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
@@ -50,12 +55,14 @@ import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillD
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillGraphStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillMappingStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillProjectionStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillTaxonomyStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillGraphStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillMappingStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillProjectionStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillTaxonomyStore;
 
 @AutoConfiguration
@@ -147,6 +154,25 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillRecommendationService skillRecommendationService(SkillMappingStore mappingStore) {
         return new DefaultSkillRecommendationService(mappingStore);
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(name = "skillRagExtractionJobExecutor")
+    public ThreadPoolExecutor skillRagExtractionJobExecutor(SkillGraphProperties properties) {
+        SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
+        int workers = Math.max(1, ragJob.getWorkerCount());
+        return new ThreadPoolExecutor(
+                workers,
+                workers,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(Math.max(1, ragJob.getQueueCapacity())),
+                runnable -> {
+                    Thread thread = new Thread(runnable, "skill-rag-extraction-worker");
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     @Configuration
@@ -241,6 +267,12 @@ public class SkillGraphAutoConfiguration {
             return new InMemorySkillMappingStore();
         }
 
+        @Bean(name = SkillRagExtractionJobStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillRagExtractionJobStore skillRagExtractionJobStore() {
+            return new InMemorySkillRagExtractionJobStore();
+        }
+
     }
 
     @Configuration
@@ -284,6 +316,12 @@ public class SkillGraphAutoConfiguration {
         @ConditionalOnMissingBean
         public SkillMappingStore skillMappingStore(NamedParameterJdbcTemplate template) {
             return new JdbcSkillMappingStore(template);
+        }
+
+        @Bean(name = SkillRagExtractionJobStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillRagExtractionJobStore skillRagExtractionJobStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillRagExtractionJobStore(template);
         }
     }
 }

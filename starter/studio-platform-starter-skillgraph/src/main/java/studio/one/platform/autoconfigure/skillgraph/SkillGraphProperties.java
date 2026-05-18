@@ -26,6 +26,7 @@ public class SkillGraphProperties {
         private int maxTerms = 50;
         private Mode mode = Mode.regex;
         private Llm llm = new Llm();
+        private RagJob ragJob = new RagJob();
     }
 
     public enum Mode {
@@ -40,6 +41,16 @@ public class SkillGraphProperties {
         private int maxInputChars = 4000;
         private Integer maxOutputTokens = 1024;
         private Double temperature = 0.0d;
+    }
+
+    @Getter
+    @Setter
+    public static class RagJob {
+        private int batchSize = 20;
+        private int workerCount = 2;
+        private int queueCapacity = 100;
+        private int maxChunks = 5000;
+        private int maxTextBytesPerBatch = 1_000_000;
     }
 
     @Getter
