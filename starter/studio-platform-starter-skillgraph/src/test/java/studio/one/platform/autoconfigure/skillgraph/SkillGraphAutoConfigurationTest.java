@@ -15,8 +15,7 @@ import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
-import studio.one.platform.skillgraph.application.service.LlmSkillCandidateExtractor;
-import studio.one.platform.skillgraph.application.service.RegexSkillCandidateExtractor;
+import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
@@ -60,7 +59,7 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).hasSingleBean(SkillMappingService.class);
             assertThat(context).hasSingleBean(SkillRecommendationService.class);
             assertThat(context).getBean(SkillExtractionService.class)
-                    .isInstanceOf(RegexSkillCandidateExtractor.class);
+                    .isInstanceOf(DefaultSkillExtractionService.class);
         });
     }
 
@@ -91,7 +90,7 @@ class SkillGraphAutoConfigurationTest {
                         "test",
                         Map.of()))
                 .run(context -> assertThat(context).getBean(SkillExtractionService.class)
-                        .isInstanceOf(LlmSkillCandidateExtractor.class));
+                        .isInstanceOf(DefaultSkillExtractionService.class));
     }
 
     @Test
