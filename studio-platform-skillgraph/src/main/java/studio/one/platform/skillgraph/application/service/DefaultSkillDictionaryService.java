@@ -50,7 +50,12 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
 
     @Override
     public List<SkillDictionaryView> search(String q, int limit) {
-        return store.search(normalizeQuery(q), normalizeLimit(limit)).stream()
+        return search(q, 0, limit);
+    }
+
+    @Override
+    public List<SkillDictionaryView> search(String q, int offset, int limit) {
+        return store.search(normalizeQuery(q), Math.max(0, offset), normalizeLimit(limit)).stream()
                 .map(SkillDictionaryView::from)
                 .toList();
     }

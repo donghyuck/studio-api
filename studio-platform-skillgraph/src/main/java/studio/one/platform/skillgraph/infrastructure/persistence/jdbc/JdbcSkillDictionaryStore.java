@@ -88,14 +88,23 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillDictionary> search(String q, int limit) {
+        return search(q, 0, limit);
+    }
+
+    @Override
+    public List<SkillDictionary> search(String q, int offset, int limit) {
         String query = q == null ? "" : q.trim().toLowerCase();
         int max = limit <= 0 ? 100 : limit;
         return template.query("""
                 SELECT * FROM tb_skill_dictionary
                 WHERE (:q = '' OR LOWER(name) LIKE :likeQ OR normalized_name LIKE :likeQ)
                 ORDER BY name
-                LIMIT :limit
-                """, Map.of("q", query, "likeQ", "%" + query + "%", "limit", max), this::mapSkill);
+                LIMIT :limit OFFSET :offset
+                """, Map.of(
+                "q", query,
+                "likeQ", "%" + query + "%",
+                "limit", max,
+                "offset", Math.max(0, offset)), this::mapSkill);
     }
 
     private Optional<SkillDictionary> queryOne(String sql, Map<String, ?> params) {

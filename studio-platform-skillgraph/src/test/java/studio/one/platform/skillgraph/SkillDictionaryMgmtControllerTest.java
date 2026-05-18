@@ -23,14 +23,34 @@ class SkillDictionaryMgmtControllerTest {
                 "backend",
                 null,
                 "server framework")).getBody().getData();
-        var list = controller.search("spring", 10).getBody().getData();
+        var page = controller.search("spring", 0, 10).getBody().getData();
 
         assertEquals("Spring Boot", response.name());
         assertEquals("spring boot", response.normalizedName());
         assertEquals("backend", response.categoryId());
         assertEquals("ACTIVE", response.status());
-        assertEquals(1, list.size());
-        assertEquals(response.skillId(), list.get(0).skillId());
+        assertEquals(0, page.offset());
+        assertEquals(10, page.limit());
+        assertEquals(1, page.returned());
+        assertEquals(false, page.hasMore());
+        assertEquals(response.skillId(), page.items().get(0).skillId());
+    }
+
+    @Test
+    void searchesDictionarySkillsWithPaging() {
+        SkillDictionaryMgmtController controller = controller();
+        controller.create(new CreateSkillDictionaryRequest("Backend REST API 설계", null, null, null, null));
+        controller.create(new CreateSkillDictionaryRequest("Frontend Vue 컴포넌트 개발", null, null, null, null));
+        controller.create(new CreateSkillDictionaryRequest("Spring Security JWT 인증 구성", null, null, null, null));
+
+        var firstPage = controller.search(null, 0, 2).getBody().getData();
+        var secondPage = controller.search(null, 2, 2).getBody().getData();
+
+        assertEquals(2, firstPage.returned());
+        assertEquals(true, firstPage.hasMore());
+        assertEquals(1, secondPage.returned());
+        assertEquals(false, secondPage.hasMore());
+        assertEquals(2, secondPage.offset());
     }
 
     @Test

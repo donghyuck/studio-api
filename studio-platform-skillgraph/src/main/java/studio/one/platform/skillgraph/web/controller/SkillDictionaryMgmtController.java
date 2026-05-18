@@ -1,7 +1,5 @@
 package studio.one.platform.skillgraph.web.controller;
 
-import java.util.List;
-
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -25,6 +23,7 @@ import studio.one.platform.skillgraph.application.service.DuplicateSkillDictiona
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.web.dto.request.CreateSkillDictionaryRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillDictionaryDto;
+import studio.one.platform.skillgraph.web.dto.response.SkillDictionaryPageResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -37,12 +36,14 @@ public class SkillDictionaryMgmtController {
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
-    public ResponseEntity<ApiResponse<List<SkillDictionaryDto>>> search(
+    public ResponseEntity<ApiResponse<SkillDictionaryPageResponse>> search(
             @RequestParam(value = "q", required = false) @Size(max = 200) String q,
+            @RequestParam(value = "offset", required = false, defaultValue = "0") @Min(0) int offset,
             @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit) {
-        return ResponseEntity.ok(ApiResponse.ok(dictionaryService.search(q, limit).stream()
-                .map(SkillDictionaryDto::from)
-                .toList()));
+        return ResponseEntity.ok(ApiResponse.ok(SkillDictionaryPageResponse.from(
+                offset,
+                limit,
+                dictionaryService.search(q, offset, limit + 1))));
     }
 
     @PostMapping

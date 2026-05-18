@@ -11,6 +11,8 @@ public interface SkillDictionaryService {
 
     List<SkillDictionaryView> search(String q, int limit);
 
+    List<SkillDictionaryView> search(String q, int offset, int limit);
+
     SkillDictionaryView create(CreateSkillDictionaryCommand command);
 
     SkillDictionaryView get(String skillId);

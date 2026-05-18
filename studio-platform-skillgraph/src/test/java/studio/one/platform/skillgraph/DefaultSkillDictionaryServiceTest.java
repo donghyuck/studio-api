@@ -57,4 +57,18 @@ class DefaultSkillDictionaryServiceTest {
         assertEquals("spring boot", created.normalizedName());
         assertEquals("DRAFT", created.status());
     }
+
+    @Test
+    void searchesWithOffsetAndLimit() {
+        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(new InMemorySkillDictionaryStore());
+        service.create(new CreateSkillDictionaryCommand("Backend REST API 설계", null, null, null, null));
+        service.create(new CreateSkillDictionaryCommand("Frontend Vue 컴포넌트 개발", null, null, null, null));
+        service.create(new CreateSkillDictionaryCommand("Spring Security JWT 인증 구성", null, null, null, null));
+
+        var page = service.search(null, 1, 2);
+
+        assertEquals(2, page.size());
+        assertEquals("Frontend Vue 컴포넌트 개발", page.get(0).name());
+        assertEquals("Spring Security JWT 인증 구성", page.get(1).name());
+    }
 }
