@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -14,6 +15,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
 @RequiredArgsConstructor
@@ -66,6 +68,25 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
     }
 
     @Override
+    public SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
+        SkillDictionary skill = findById(skillId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown skill: " + skillId));
+        if (embedding == null || embedding.isEmpty()) {
+            return skill;
+        }
+        template.update("""
+                UPDATE tb_skill_dictionary
+                SET embedding = CAST(:embedding AS vector),
+                    updated_at = :updatedAt
+                WHERE skill_id = :skillId
+                """, new MapSqlParameterSource()
+                .addValue("skillId", skillId)
+                .addValue("embedding", vectorLiteral(embedding))
+                .addValue("updatedAt", Timestamp.from(Instant.now())));
+        return findById(skillId).orElse(skill);
+    }
+
+    @Override
     public SkillAlias saveAlias(SkillAlias alias) {
         int updated = template.update("""
                 UPDATE tb_skill_alias
@@ -107,6 +128,44 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 "offset", Math.max(0, offset)), this::mapSkill);
     }
 
+    @Override
+    public List<SkillVectorItem> findVectorItems(int limit) {
+        int max = limit <= 0 ? 1000 : limit;
+        return template.query("""
+                SELECT skill_id, name, embedding::text AS embedding_text, created_at
+                FROM tb_skill_dictionary
+                WHERE status = 'ACTIVE' AND embedding IS NOT NULL
+                ORDER BY name
+                LIMIT :limit
+                """, Map.of("limit", max), (rs, rowNum) -> new SkillVectorItem(
+                rs.getString("skill_id"),
+                rs.getString("name"),
+                parseVector(rs.getString("embedding_text")),
+                null,
+                instant(rs.getTimestamp("created_at"))));
+    }
+
+    @Override
+    public List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
+        int max = limit <= 0 ? 100 : limit;
+        return template.query("""
+                SELECT * FROM tb_skill_dictionary
+                WHERE status = 'ACTIVE' AND embedding IS NULL
+                ORDER BY name
+                LIMIT :limit
+                """, Map.of("limit", max), this::mapSkill);
+    }
+
+    @Override
+    public int countMissingEmbeddingSkills() {
+        Integer count = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM tb_skill_dictionary
+                WHERE status = 'ACTIVE' AND embedding IS NULL
+                """, Map.of(), Integer.class);
+        return count == null ? 0 : count;
+    }
+
     private Optional<SkillDictionary> queryOne(String sql, Map<String, ?> params) {
         return template.query(sql, params, this::mapSkill).stream().findFirst();
     }
@@ -140,6 +199,28 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 rs.getString("status"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
+    }
+
+    private String vectorLiteral(List<Double> embedding) {
+        return embedding.toString();
+    }
+
+    private List<Double> parseVector(String value) {
+        if (value == null || value.isBlank()) {
+            return List.of();
+        }
+        String stripped = value.trim()
+                .replace("[", "")
+                .replace("]", "");
+        if (stripped.isBlank()) {
+            return List.of();
+        }
+        String[] parts = stripped.split(",");
+        List<Double> vector = new ArrayList<>(parts.length);
+        for (String part : parts) {
+            vector.add(Double.parseDouble(part.trim()));
+        }
+        return vector;
     }
 
     private Instant instant(Timestamp timestamp) {
