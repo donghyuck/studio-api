@@ -2,9 +2,16 @@ package studio.one.platform.skillgraph.application.service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
@@ -49,14 +56,24 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
 
     private final SkillDictionaryStore store;
     private final SkillEmbeddingPort embeddingPort;
+    private final Executor embeddingJobExecutor;
+    private final Map<String, SkillDictionaryEmbeddingJob> embeddingJobs = new ConcurrentHashMap<>();
 
     public DefaultSkillDictionaryService(SkillDictionaryStore store) {
         this(store, new NoOpSkillEmbeddingPort());
     }
 
     public DefaultSkillDictionaryService(SkillDictionaryStore store, SkillEmbeddingPort embeddingPort) {
+        this(store, embeddingPort, Runnable::run);
+    }
+
+    public DefaultSkillDictionaryService(
+            SkillDictionaryStore store,
+            SkillEmbeddingPort embeddingPort,
+            Executor embeddingJobExecutor) {
         this.store = store;
         this.embeddingPort = embeddingPort == null ? new NoOpSkillEmbeddingPort() : embeddingPort;
+        this.embeddingJobExecutor = embeddingJobExecutor == null ? Runnable::run : embeddingJobExecutor;
     }
 
     @Override
@@ -109,24 +126,116 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
         int max = normalizeLimit(limit);
         int totalMissing = store.countMissingEmbeddingSkills();
         List<SkillDictionary> missing = store.findMissingEmbeddingSkills(max);
-        int processed = 0;
-        int failed = 0;
-        for (SkillDictionary skill : missing) {
-            List<Double> embedding = embeddingPort.embedSkill(skill.name());
-            if (embedding == null || embedding.isEmpty()) {
-                failed++;
-                continue;
-            }
-            store.saveEmbedding(skill.skillId(), embedding, null);
-            processed++;
-        }
-        return new SkillDictionaryEmbeddingResult(
+        String jobId = "skill_dictionary_embedding_" + UUID.randomUUID();
+        Instant now = Instant.now();
+        SkillDictionaryEmbeddingJob job = new SkillDictionaryEmbeddingJob(
+                jobId,
+                SkillDictionaryEmbeddingJobStatus.READY,
                 totalMissing,
                 missing.size(),
-                processed,
+                0,
+                0,
                 Math.max(0, totalMissing - missing.size()),
-                failed,
-                null);
+                now,
+                now,
+                null,
+                "Embedding job is queued");
+        embeddingJobs.put(jobId, job);
+        try {
+            embeddingJobExecutor.execute(() -> runEmbeddingJob(jobId, missing, totalMissing));
+        } catch (RejectedExecutionException ex) {
+            Instant failedAt = Instant.now();
+            SkillDictionaryEmbeddingJob failedJob = job.withProgress(
+                    SkillDictionaryEmbeddingJobStatus.FAILED,
+                    0,
+                    missing.size(),
+                    Math.max(0, totalMissing - missing.size()),
+                    failedAt,
+                    failedAt,
+                    "Embedding job queue is full");
+            embeddingJobs.put(jobId, failedJob);
+            return resultFrom(failedJob);
+        }
+        return resultFrom(currentJob(jobId).orElse(job));
+    }
+
+    @Override
+    public SkillDictionaryEmbeddingJob getEmbeddingJob(String jobId) {
+        String normalizedJobId = requireText(jobId, "jobId");
+        return currentJob(normalizedJobId)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown embedding job: " + normalizedJobId));
+    }
+
+    private void runEmbeddingJob(String jobId, List<SkillDictionary> missing, int totalMissing) {
+        Instant startedAt = Instant.now();
+        embeddingJobs.computeIfPresent(jobId,
+                (ignored, job) -> job.withStatus(SkillDictionaryEmbeddingJobStatus.RUNNING,
+                        "Embedding job is running", startedAt));
+        int processed = 0;
+        int failed = 0;
+        int skipped = Math.max(0, totalMissing - missing.size());
+        String lastFailureMessage = null;
+        for (SkillDictionary skill : missing) {
+            try {
+                List<Double> embedding = embeddingPort.embedSkill(skill.name());
+                if (embedding == null || embedding.isEmpty()) {
+                    failed++;
+                    lastFailureMessage = "Embedding provider returned an empty vector";
+                    updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, lastFailureMessage);
+                    continue;
+                }
+                store.saveEmbedding(skill.skillId(), embedding, null);
+                processed++;
+                updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, null);
+            } catch (RuntimeException ex) {
+                failed++;
+                lastFailureMessage = ex.getMessage();
+                updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, lastFailureMessage);
+            }
+        }
+        SkillDictionaryEmbeddingJobStatus status = failed == 0
+                ? SkillDictionaryEmbeddingJobStatus.COMPLETED
+                : processed > 0 ? SkillDictionaryEmbeddingJobStatus.PARTIAL : SkillDictionaryEmbeddingJobStatus.FAILED;
+        Instant completedAt = Instant.now();
+        String message = failed == 0 ? "Embedding job completed"
+                : "Embedding job completed with failures"
+                        + (lastFailureMessage == null || lastFailureMessage.isBlank() ? "" : ": " + lastFailureMessage);
+        int finalProcessed = processed;
+        int finalFailed = failed;
+        embeddingJobs.computeIfPresent(jobId,
+                (ignored, job) -> job.withProgress(status, finalProcessed, finalFailed, skipped, completedAt,
+                        completedAt, message));
+    }
+
+    private void updateEmbeddingJob(
+            String jobId,
+            List<SkillDictionary> missing,
+            int totalMissing,
+            int processed,
+            int failed,
+            String message) {
+        Instant now = Instant.now();
+        int skipped = Math.max(0, totalMissing - missing.size());
+        embeddingJobs.computeIfPresent(jobId,
+                (ignored, job) -> job.withProgress(SkillDictionaryEmbeddingJobStatus.RUNNING, processed, failed,
+                        skipped, now, null,
+                        message == null || message.isBlank() ? "Embedding job is running" : message));
+    }
+
+    private Optional<SkillDictionaryEmbeddingJob> currentJob(String jobId) {
+        return Optional.ofNullable(embeddingJobs.get(jobId));
+    }
+
+    private SkillDictionaryEmbeddingResult resultFrom(SkillDictionaryEmbeddingJob job) {
+        return new SkillDictionaryEmbeddingResult(
+                job.totalCount(),
+                job.requestedCount(),
+                job.processedCount(),
+                job.skippedCount(),
+                job.failedCount(),
+                job.jobId(),
+                job.status(),
+                job.message());
     }
 
     private int normalizeLimit(int limit) {

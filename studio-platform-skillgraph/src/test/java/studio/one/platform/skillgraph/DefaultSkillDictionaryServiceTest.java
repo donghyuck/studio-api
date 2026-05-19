@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
 import studio.one.platform.skillgraph.application.service.DuplicateSkillDictionaryException;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
@@ -91,6 +92,8 @@ class DefaultSkillDictionaryServiceTest {
         assertEquals(2, first.processedCount());
         assertEquals(0, first.skippedCount());
         assertEquals(0, first.failedCount());
+        assertEquals(SkillDictionaryEmbeddingJobStatus.COMPLETED, first.status());
+        assertFalse(first.jobId().isBlank());
         assertEquals(2, store.findVectorItems(10).size());
         assertEquals(0, second.totalMissingCount());
         assertEquals(0, second.requestedCount());
@@ -113,5 +116,43 @@ class DefaultSkillDictionaryServiceTest {
         assertEquals(1, result.requestedCount());
         assertEquals(1, result.processedCount());
         assertEquals(2, result.skippedCount());
+    }
+
+    @Test
+    void embeddingJobCanBeQueriedByJobId() {
+        InMemorySkillDictionaryStore store = new InMemorySkillDictionaryStore();
+        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(
+                store,
+                text -> List.of(1.0d, 0.0d, 0.5d));
+        service.create(new CreateSkillDictionaryCommand("Spring Security JWT 인증 구성", null, null, null, null));
+
+        var result = service.embedMissing(10);
+        var job = service.getEmbeddingJob(result.jobId());
+
+        assertEquals(result.jobId(), job.jobId());
+        assertEquals(SkillDictionaryEmbeddingJobStatus.COMPLETED, job.status());
+        assertEquals(1, job.totalCount());
+        assertEquals(1, job.requestedCount());
+        assertEquals(1, job.processedCount());
+        assertEquals(0, job.failedCount());
+        assertEquals(0, job.skippedCount());
+    }
+
+    @Test
+    void embeddingJobReportsProviderFailureMessage() {
+        InMemorySkillDictionaryStore store = new InMemorySkillDictionaryStore();
+        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(
+                store,
+                text -> List.of());
+        service.create(new CreateSkillDictionaryCommand("Spring Security JWT 인증 구성", null, null, null, null));
+
+        var result = service.embedMissing(10);
+        var job = service.getEmbeddingJob(result.jobId());
+
+        assertEquals(SkillDictionaryEmbeddingJobStatus.FAILED, result.status());
+        assertEquals(SkillDictionaryEmbeddingJobStatus.FAILED, job.status());
+        assertEquals(0, job.processedCount());
+        assertEquals(1, job.failedCount());
+        assertEquals("Embedding job completed with failures: Embedding provider returned an empty vector", job.message());
     }
 }

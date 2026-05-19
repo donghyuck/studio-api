@@ -69,6 +69,16 @@ public class SkillDictionaryMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(dictionaryService.embedMissing(limit)));
     }
 
+    @GetMapping("/embeddings/jobs/{jobId}")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<?>> getEmbeddingJob(@PathVariable @Size(max = 120) String jobId) {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(dictionaryService.getEmbeddingJob(jobId)));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ex.getMessage(), ex);
+        }
+    }
+
     @GetMapping("/{skillId}")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<SkillDictionaryDto>> get(@PathVariable @Size(max = 100) String skillId) {

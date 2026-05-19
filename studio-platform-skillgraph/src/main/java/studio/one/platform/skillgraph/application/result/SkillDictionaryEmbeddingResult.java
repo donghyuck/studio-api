@@ -6,5 +6,7 @@ public record SkillDictionaryEmbeddingResult(
         int processedCount,
         int skippedCount,
         int failedCount,
-        String jobId) {
+        String jobId,
+        SkillDictionaryEmbeddingJobStatus status,
+        String message) {
 }
