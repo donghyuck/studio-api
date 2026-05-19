@@ -275,9 +275,15 @@ class JdbcSkillGraphStoreTest {
 
         var all = projectionStore.findProjectionPoints("default", null, 10, 0);
         var byCluster = projectionStore.findProjectionPoints("default", "cluster-a", 10, 0);
+        var summaries = projectionStore.listProjections(10, 0);
 
         assertEquals(2, all.size());
         assertEquals(1, byCluster.size());
         assertEquals("spring", byCluster.get(0).skillId());
+        assertEquals(1, summaries.size());
+        assertEquals("default", summaries.get(0).projectionId());
+        assertEquals(2, summaries.get(0).itemCount());
+        assertEquals(2, summaries.get(0).clusterCount());
+        assertEquals("manual", summaries.get(0).algorithm());
     }
 }

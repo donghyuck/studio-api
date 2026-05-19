@@ -22,6 +22,7 @@ import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.web.dto.request.SkillProjectionRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillClusterDto;
+import studio.one.platform.skillgraph.web.dto.response.SkillProjectionPageResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillProjectionPointDto;
 import studio.one.platform.skillgraph.web.dto.response.SkillProjectionResponse;
 import studio.one.platform.web.dto.ApiResponse;
@@ -40,6 +41,17 @@ public class SkillVisualizationMgmtController {
         int limit = request.limit() == null ? 1000 : request.limit();
         return ResponseEntity.ok(ApiResponse.ok(SkillProjectionResponse.from(
                 visualizationService.generateProjection(request.projectionId(), limit))));
+    }
+
+    @GetMapping("/projections")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<SkillProjectionPageResponse>> projections(
+            @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit,
+            @RequestParam(value = "offset", required = false, defaultValue = "0") @Min(0) int offset) {
+        return ResponseEntity.ok(ApiResponse.ok(SkillProjectionPageResponse.from(
+                offset,
+                limit,
+                visualizationService.listProjections(limit + 1, offset))));
     }
 
     @GetMapping("/projections/{projectionId}/points")
