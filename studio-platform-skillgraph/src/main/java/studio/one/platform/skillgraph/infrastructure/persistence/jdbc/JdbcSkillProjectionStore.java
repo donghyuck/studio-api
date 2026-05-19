@@ -14,6 +14,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
+import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
 
 @RequiredArgsConstructor
@@ -36,6 +37,25 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 saveCluster(cluster);
             }
         }
+    }
+
+    @Override
+    public List<SkillProjectionSummary> listProjections(int limit, int offset) {
+        int max = limit <= 0 ? 100 : limit;
+        int start = Math.max(0, offset);
+        return template.query("""
+                SELECT p.projection_id,
+                       COUNT(*) AS item_count,
+                       COUNT(DISTINCT p.cluster_id) AS cluster_count,
+                       MIN(c.algorithm) AS algorithm,
+                       MIN(p.created_at) AS created_at,
+                       MAX(p.created_at) AS updated_at
+                FROM tb_skill_projection p
+                LEFT JOIN tb_skill_cluster c ON c.cluster_id = p.cluster_id
+                GROUP BY p.projection_id
+                ORDER BY MAX(p.created_at) DESC, p.projection_id
+                LIMIT :limit OFFSET :offset
+                """, Map.of("limit", max, "offset", start), this::mapProjectionSummary);
     }
 
     @Override
@@ -140,6 +160,16 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 rs.getString("algorithm"),
                 rs.getInt("item_count"),
                 instant(rs.getTimestamp("created_at")));
+    }
+
+    private SkillProjectionSummary mapProjectionSummary(ResultSet rs, int rowNum) throws SQLException {
+        return new SkillProjectionSummary(
+                rs.getString("projection_id"),
+                rs.getInt("item_count"),
+                rs.getInt("cluster_count"),
+                rs.getString("algorithm"),
+                instant(rs.getTimestamp("created_at")),
+                instant(rs.getTimestamp("updated_at")));
     }
 
     private Instant instant(Timestamp timestamp) {

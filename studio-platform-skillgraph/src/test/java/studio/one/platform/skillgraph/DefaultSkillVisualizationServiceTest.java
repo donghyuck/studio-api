@@ -38,6 +38,11 @@ class DefaultSkillVisualizationServiceTest {
         assertFalse(result.points().isEmpty());
         assertFalse(result.clusters().isEmpty());
         assertEquals(3, service.findProjectionPoints("projection-1", null, 100, 0).size());
+        var projections = service.listProjections(10, 0);
+        assertEquals(1, projections.size());
+        assertEquals("projection-1", projections.get(0).projectionId());
+        assertEquals(3, projections.get(0).itemCount());
+        assertEquals(result.clusterCount(), projections.get(0).clusterCount());
     }
 
     @Test
@@ -54,5 +59,6 @@ class DefaultSkillVisualizationServiceTest {
 
         assertEquals(0, result.itemCount());
         assertEquals(0, result.clusterCount());
+        assertEquals(0, service.listProjections(10, 0).size());
     }
 }

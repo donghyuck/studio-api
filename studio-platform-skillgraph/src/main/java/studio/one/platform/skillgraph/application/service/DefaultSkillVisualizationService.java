@@ -12,6 +12,7 @@ import studio.one.platform.ai.core.vector.visualization.VectorProjectionPoint;
 import studio.one.platform.skillgraph.application.result.SkillClusterView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionPointView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
+import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
@@ -92,6 +93,13 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                 clustered.clusters().size(),
                 clustered.projections().stream().map(SkillProjectionPointView::from).toList(),
                 clustered.clusters().stream().map(SkillClusterView::from).toList());
+    }
+
+    @Override
+    public List<SkillProjectionSummaryView> listProjections(int limit, int offset) {
+        return projectionStore.listProjections(normalizeLimit(limit, 100), Math.max(0, offset)).stream()
+                .map(SkillProjectionSummaryView::from)
+                .toList();
     }
 
     @Override
