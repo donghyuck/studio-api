@@ -1,5 +1,11 @@
 package studio.one.platform.autoconfigure.skillgraph;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -12,10 +18,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
@@ -122,8 +124,9 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillDictionaryService skillDictionaryService(
             SkillDictionaryStore dictionaryStore,
-            SkillEmbeddingPort embeddingPort) {
-        return new DefaultSkillDictionaryService(dictionaryStore, embeddingPort);
+            SkillEmbeddingPort embeddingPort,
+            @Qualifier("skillRagExtractionJobExecutor") Executor embeddingJobExecutor) {
+        return new DefaultSkillDictionaryService(dictionaryStore, embeddingPort, embeddingJobExecutor);
     }
 
     @Bean(name = SkillVisualizationService.SERVICE_NAME)
