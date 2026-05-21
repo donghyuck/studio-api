@@ -9,6 +9,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
@@ -21,6 +24,7 @@ import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
+import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
 
 /**
  * 스킬 사전 조회 유스케이스 구현체.
@@ -55,6 +59,7 @@ import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 public class DefaultSkillDictionaryService implements SkillDictionaryService {
 
     private final SkillDictionaryStore store;
+    private final SkillTaxonomyStore taxonomyStore;
     private final SkillEmbeddingPort embeddingPort;
     private final Executor embeddingJobExecutor;
     private final Map<String, SkillDictionaryEmbeddingJob> embeddingJobs = new ConcurrentHashMap<>();
@@ -64,28 +69,31 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
     }
 
     public DefaultSkillDictionaryService(SkillDictionaryStore store, SkillEmbeddingPort embeddingPort) {
-        this(store, embeddingPort, Runnable::run);
+        this(store, null, embeddingPort, Runnable::run);
     }
 
     public DefaultSkillDictionaryService(
             SkillDictionaryStore store,
             SkillEmbeddingPort embeddingPort,
             Executor embeddingJobExecutor) {
+        this(store, null, embeddingPort, embeddingJobExecutor);
+    }
+
+    public DefaultSkillDictionaryService(
+            SkillDictionaryStore store,
+            SkillTaxonomyStore taxonomyStore,
+            SkillEmbeddingPort embeddingPort,
+            Executor embeddingJobExecutor) {
         this.store = store;
+        this.taxonomyStore = taxonomyStore;
         this.embeddingPort = embeddingPort == null ? new NoOpSkillEmbeddingPort() : embeddingPort;
         this.embeddingJobExecutor = embeddingJobExecutor == null ? Runnable::run : embeddingJobExecutor;
     }
 
     @Override
-    public List<SkillDictionaryView> search(String q, int limit) {
-        return search(q, 0, limit);
-    }
-
-    @Override
-    public List<SkillDictionaryView> search(String q, int offset, int limit) {
-        return store.search(normalizeQuery(q), Math.max(0, offset), normalizeLimit(limit)).stream()
-                .map(SkillDictionaryView::from)
-                .toList();
+    public Page<SkillDictionaryView> search(String q, Pageable pageable) {
+        return store.search(q, pageable)
+                .map(this::toView);
     }
 
     @Override
@@ -111,13 +119,13 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
                 normalize(command.status()),
                 now,
                 now);
-        return SkillDictionaryView.from(store.save(skill));
+        return toView(store.save(skill));
     }
 
     @Override
     public SkillDictionaryView get(String skillId) {
         return store.findById(skillId)
-                .map(SkillDictionaryView::from)
+                .map(this::toView)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown skill: " + skillId));
     }
 
@@ -236,6 +244,14 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
                 job.jobId(),
                 job.status(),
                 job.message());
+    }
+
+    private SkillDictionaryView toView(SkillDictionary skill) {
+        String categoryName = skill.categoryId() == null || taxonomyStore == null ? null
+                : taxonomyStore.findCategory(skill.categoryId())
+                        .map(category -> category.name())
+                        .orElse(null);
+        return SkillDictionaryView.from(skill, categoryName);
     }
 
     private int normalizeLimit(int limit) {

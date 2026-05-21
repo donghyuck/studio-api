@@ -8,11 +8,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
+import studio.one.platform.skillgraph.domain.model.SkillCandidateStats;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.domain.model.SkillSourceChunk;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
@@ -83,6 +87,24 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
     }
 
     @Override
+    public List<SkillCandidateStats> findCandidateStatsBySkillIds(List<String> skillIds) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return List.of();
+        }
+        return template.query("""
+                SELECT matched_skill_id AS skill_id,
+                       COALESCE(SUM(occurrence_count), 0) AS occurrence_count,
+                       COALESCE(MAX(confidence), 0) AS confidence_score
+                FROM tb_skill_candidate
+                WHERE matched_skill_id IN (:skillIds)
+                GROUP BY matched_skill_id
+                """, Map.of("skillIds", skillIds), (rs, rowNum) -> new SkillCandidateStats(
+                rs.getString("skill_id"),
+                rs.getInt("occurrence_count"),
+                rs.getDouble("confidence_score")));
+    }
+
+    @Override
     public Optional<SkillCandidate> findCandidateBySourceAndNormalizedTerm(
             String sourceType,
             String sourceId,
@@ -106,21 +128,17 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
     }
 
     @Override
-    public List<SkillCandidate> searchCandidates(SkillCandidateStatus status, String q, int limit) {
-        return searchCandidates(status, q, null, null, limit);
-    }
-
-    @Override
-    public List<SkillCandidate> searchCandidates(
+    public Page<SkillCandidate> searchCandidates(
             SkillCandidateStatus status,
             String q,
             String sourceType,
             String sourceId,
-            int limit) {
+            Pageable pageable) {
         String query = q == null ? "" : q.trim().toLowerCase();
-        int max = limit <= 0 ? 100 : limit;
+        int limit = pageable.getPageSize();
+        long offset = pageable.getOffset();
         StringBuilder sql = new StringBuilder("""
-                SELECT * FROM tb_skill_candidate
+                FROM tb_skill_candidate
                 WHERE 1 = 1
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource();
@@ -142,12 +160,20 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
             sql.append("  AND source_id = :sourceId\n");
             params.addValue("sourceId", normalizedSourceId);
         }
-        sql.append("""
+        params.addValue("limit", limit)
+                .addValue("offset", offset);
+        List<SkillCandidate> content = template.query("""
+                SELECT *
+                """ + sql + """
                 ORDER BY created_at DESC
-                LIMIT :limit
-                """);
-        params.addValue("limit", max);
-        return template.query(sql.toString(), params, this::mapCandidate);
+                LIMIT :limit OFFSET :offset
+                """, params, this::mapCandidate);
+        Long total = template.queryForObject("""
+                SELECT COUNT(*)
+                """ + sql,
+                params,
+                Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
     private Optional<SkillCandidate> queryOne(String sql, Map<String, ?> params) {

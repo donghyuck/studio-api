@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizationService;
@@ -37,12 +38,14 @@ class DefaultSkillVisualizationServiceTest {
         assertEquals(3, result.itemCount());
         assertFalse(result.points().isEmpty());
         assertFalse(result.clusters().isEmpty());
-        assertEquals(3, service.findProjectionPoints("projection-1", null, 100, 0).size());
-        var projections = service.listProjections(10, 0);
-        assertEquals(1, projections.size());
-        assertEquals("projection-1", projections.get(0).projectionId());
-        assertEquals(3, projections.get(0).itemCount());
-        assertEquals(result.clusterCount(), projections.get(0).clusterCount());
+        assertEquals(3, service.findProjectionPoints("projection-1", null, PageRequest.of(0, 100))
+                .getContent()
+                .size());
+        var projections = service.listProjections(PageRequest.of(0, 10));
+        assertEquals(1, projections.getContent().size());
+        assertEquals("projection-1", projections.getContent().get(0).projectionId());
+        assertEquals(3, projections.getContent().get(0).itemCount());
+        assertEquals(result.clusterCount(), projections.getContent().get(0).clusterCount());
     }
 
     @Test
@@ -59,6 +62,6 @@ class DefaultSkillVisualizationServiceTest {
 
         assertEquals(0, result.itemCount());
         assertEquals(0, result.clusterCount());
-        assertEquals(0, service.listProjections(10, 0).size());
+        assertEquals(0, service.listProjections(PageRequest.of(0, 10)).getContent().size());
     }
 }

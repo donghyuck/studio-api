@@ -2,6 +2,9 @@ package studio.one.platform.skillgraph.application.usecase;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.application.result.SkillClusterView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionPointView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
@@ -13,9 +16,9 @@ public interface SkillVisualizationService {
 
     SkillProjectionResult generateProjection(String projectionId, int limit);
 
-    List<SkillProjectionSummaryView> listProjections(int limit, int offset);
+    Page<SkillProjectionSummaryView> listProjections(Pageable pageable);
 
-    List<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId, int limit, int offset);
+    Page<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId, Pageable pageable);
 
     List<SkillClusterView> findClusters(String projectionId);
 }

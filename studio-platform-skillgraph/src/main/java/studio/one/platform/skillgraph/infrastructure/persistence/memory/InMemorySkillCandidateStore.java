@@ -9,7 +9,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
+import studio.one.platform.skillgraph.domain.model.SkillCandidateStats;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.domain.model.SkillSourceChunk;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
@@ -52,6 +57,27 @@ public class InMemorySkillCandidateStore implements SkillCandidateStore {
     }
 
     @Override
+    public List<SkillCandidateStats> findCandidateStatsBySkillIds(List<String> skillIds) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return List.of();
+        }
+        return skillIds.stream()
+                .map(skillId -> {
+                    List<SkillCandidate> matched = candidates.values().stream()
+                            .filter(candidate -> skillId.equals(candidate.matchedSkillId()))
+                            .toList();
+                    int occurrences = matched.stream().mapToInt(SkillCandidate::occurrenceCount).sum();
+                    double confidence = matched.stream()
+                            .mapToDouble(SkillCandidate::confidence)
+                            .max()
+                            .orElse(0.0d);
+                    return new SkillCandidateStats(skillId, occurrences, confidence);
+                })
+                .filter(stats -> stats.occurrenceCount() > 0 || stats.confidenceScore() > 0)
+                .toList();
+    }
+
+    @Override
     public Optional<SkillCandidate> findCandidateBySourceAndNormalizedTerm(
             String sourceType,
             String sourceId,
@@ -66,20 +92,14 @@ public class InMemorySkillCandidateStore implements SkillCandidateStore {
     }
 
     @Override
-    public List<SkillCandidate> searchCandidates(SkillCandidateStatus status, String q, int limit) {
-        return searchCandidates(status, q, null, null, limit);
-    }
-
-    @Override
-    public List<SkillCandidate> searchCandidates(
+    public Page<SkillCandidate> searchCandidates(
             SkillCandidateStatus status,
             String q,
             String sourceType,
             String sourceId,
-            int limit) {
+            Pageable pageable) {
         String query = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
-        int max = limit <= 0 ? 100 : limit;
-        return candidates.values().stream()
+        List<SkillCandidate> filtered = candidates.values().stream()
                 .filter(candidate -> status == null || candidate.status() == status)
                 .filter(candidate -> sourceType == null || sourceType.isBlank() || sourceType.trim().equals(candidate.sourceType()))
                 .filter(candidate -> sourceId == null || sourceId.isBlank() || sourceId.trim().equals(candidate.sourceId()))
@@ -87,8 +107,10 @@ public class InMemorySkillCandidateStore implements SkillCandidateStore {
                         || candidate.normalizedTerm().contains(query)
                         || candidate.term().toLowerCase(Locale.ROOT).contains(query))
                 .sorted(Comparator.comparing(SkillCandidate::createdAt).reversed())
-                .limit(max)
                 .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
     }
 
     public List<SkillSourceChunk> sourceChunks() {

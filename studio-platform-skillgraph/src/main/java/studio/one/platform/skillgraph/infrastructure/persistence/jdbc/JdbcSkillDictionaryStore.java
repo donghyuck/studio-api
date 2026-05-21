@@ -9,6 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -108,24 +111,59 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
     }
 
     @Override
-    public List<SkillDictionary> search(String q, int limit) {
-        return search(q, 0, limit);
+    public Page<SkillDictionary> search(String q, Pageable pageable) {
+        String query = q == null ? "" : q.trim().toLowerCase();
+        int limit = pageable.getPageSize();
+        long offset = pageable.getOffset();
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("q", query)
+                .addValue("likeQ", "%" + query + "%")
+                .addValue("limit", limit)
+                .addValue("offset", offset);
+
+        String whereSql = """
+                WHERE (:q = '' OR LOWER(name) LIKE :likeQ OR normalized_name LIKE :likeQ)
+                """;
+
+        List<SkillDictionary> content = template.query("""
+                SELECT * FROM tb_skill_dictionary
+                """ + whereSql + """
+                ORDER BY name
+                LIMIT :limit OFFSET :offset
+                """, params, this::mapSkill);
+
+        Long total = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM tb_skill_dictionary
+                """ + whereSql,
+                params,
+                Long.class);
+
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
     @Override
-    public List<SkillDictionary> search(String q, int offset, int limit) {
-        String query = q == null ? "" : q.trim().toLowerCase();
+    public List<SkillDictionary> findByCategoryId(String categoryId, int limit) {
         int max = limit <= 0 ? 100 : limit;
         return template.query("""
                 SELECT * FROM tb_skill_dictionary
-                WHERE (:q = '' OR LOWER(name) LIKE :likeQ OR normalized_name LIKE :likeQ)
+                WHERE category_id = :categoryId
                 ORDER BY name
-                LIMIT :limit OFFSET :offset
-                """, Map.of(
-                "q", query,
-                "likeQ", "%" + query + "%",
-                "limit", max,
-                "offset", Math.max(0, offset)), this::mapSkill);
+                LIMIT :limit
+                """, new MapSqlParameterSource()
+                .addValue("categoryId", categoryId)
+                .addValue("limit", max), this::mapSkill);
+    }
+
+    @Override
+    public int countByCategoryId(String categoryId) {
+        Integer count = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM tb_skill_dictionary
+                WHERE category_id = :categoryId
+                """, Map.of("categoryId", categoryId), Integer.class);
+        return count == null ? 0 : count;
     }
 
     @Override
@@ -164,6 +202,54 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 WHERE status = 'ACTIVE' AND embedding IS NULL
                 """, Map.of(), Integer.class);
         return count == null ? 0 : count;
+    }
+
+    @Override
+    public int updateCategory(List<String> skillIds, String categoryId) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return 0;
+        }
+        return template.update("""
+                UPDATE tb_skill_dictionary
+                SET category_id = :categoryId,
+                    updated_at = :updatedAt
+                WHERE skill_id IN (:skillIds)
+                """, new MapSqlParameterSource()
+                .addValue("skillIds", skillIds)
+                .addValue("categoryId", categoryId)
+                .addValue("updatedAt", Timestamp.from(Instant.now())));
+    }
+
+    @Override
+    public int updateCategoryByCategoryIds(List<String> sourceCategoryIds, String targetCategoryId) {
+        if (sourceCategoryIds == null || sourceCategoryIds.isEmpty()) {
+            return 0;
+        }
+        return template.update("""
+                UPDATE tb_skill_dictionary
+                SET category_id = :targetCategoryId,
+                    updated_at = :updatedAt
+                WHERE category_id IN (:sourceCategoryIds)
+                """, new MapSqlParameterSource()
+                .addValue("sourceCategoryIds", sourceCategoryIds)
+                .addValue("targetCategoryId", targetCategoryId)
+                .addValue("updatedAt", Timestamp.from(Instant.now())));
+    }
+
+    @Override
+    public int updateStatus(List<String> skillIds, String status) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return 0;
+        }
+        return template.update("""
+                UPDATE tb_skill_dictionary
+                SET status = :status,
+                    updated_at = :updatedAt
+                WHERE skill_id IN (:skillIds)
+                """, new MapSqlParameterSource()
+                .addValue("skillIds", skillIds)
+                .addValue("status", status)
+                .addValue("updatedAt", Timestamp.from(Instant.now())));
     }
 
     private Optional<SkillDictionary> queryOne(String sql, Map<String, ?> params) {

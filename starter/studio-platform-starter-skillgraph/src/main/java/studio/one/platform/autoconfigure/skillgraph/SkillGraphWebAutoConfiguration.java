@@ -16,6 +16,7 @@ import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobS
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
+import studio.one.platform.skillgraph.application.usecase.SkillCategoryRelationService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
@@ -26,7 +27,9 @@ import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.web.controller.SkillCandidateMgmtController;
+import studio.one.platform.skillgraph.web.controller.SkillCategoryHistoryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillCategoryDraftMgmtController;
+import studio.one.platform.skillgraph.web.controller.SkillCategoryRelationMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillDictionaryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillGraphExtractionSourceMgmtController;
@@ -108,8 +111,17 @@ public class SkillGraphWebAutoConfiguration {
 
     @Configuration
     @ConditionalOnBean(name = SkillTaxonomyService.SERVICE_NAME)
-    @Import(SkillTaxonomyMgmtController.class)
+    @Import({
+            SkillTaxonomyMgmtController.class,
+            SkillCategoryHistoryMgmtController.class
+    })
     static class SkillTaxonomyWebConfig {
+    }
+
+    @Configuration
+    @ConditionalOnBean(name = SkillCategoryRelationService.SERVICE_NAME)
+    @Import(SkillCategoryRelationMgmtController.class)
+    static class SkillCategoryRelationWebConfig {
     }
 
     @Configuration

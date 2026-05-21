@@ -6,6 +6,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
@@ -32,28 +36,26 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
     }
 
     @Override
-    public List<SkillProjectionSummary> listProjections(int limit, int offset) {
-        int max = limit <= 0 ? 100 : limit;
-        int start = Math.max(0, offset);
-        return projectionsByProjectionId.entrySet().stream()
+    public Page<SkillProjectionSummary> listProjections(Pageable pageable) {
+        List<SkillProjectionSummary> filtered = projectionsByProjectionId.entrySet().stream()
                 .map(entry -> summary(entry.getKey(), entry.getValue().values().stream().toList()))
                 .sorted(Comparator.comparing(SkillProjectionSummary::updatedAt).reversed()
                         .thenComparing(SkillProjectionSummary::projectionId))
-                .skip(start)
-                .limit(max)
                 .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
     }
 
     @Override
-    public List<SkillProjection> findProjectionPoints(String projectionId, String clusterId, int limit, int offset) {
-        int max = limit <= 0 ? 100 : limit;
-        int start = Math.max(0, offset);
-        return projectionsByProjectionId.getOrDefault(projectionId, Map.of()).values().stream()
+    public Page<SkillProjection> findProjectionPoints(String projectionId, String clusterId, Pageable pageable) {
+        List<SkillProjection> filtered = projectionsByProjectionId.getOrDefault(projectionId, Map.of()).values().stream()
                 .filter(point -> clusterId == null || clusterId.isBlank() || clusterId.equals(point.clusterId()))
                 .sorted(Comparator.comparingInt(SkillProjection::displayOrder))
-                .skip(start)
-                .limit(max)
                 .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
     }
 
     @Override

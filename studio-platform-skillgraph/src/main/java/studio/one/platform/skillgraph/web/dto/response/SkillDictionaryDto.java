@@ -9,12 +9,13 @@ public record SkillDictionaryDto(
         String name,
         String normalizedName,
         String categoryId,
+        String categoryName,
         String status,
         Instant createdAt,
         Instant updatedAt) {
 
     public static SkillDictionaryDto from(SkillDictionaryView view) {
         return new SkillDictionaryDto(view.skillId(), view.name(), view.normalizedName(),
-                view.categoryId(), view.status(), view.createdAt(), view.updatedAt());
+                view.categoryId(), view.categoryName(), view.status(), view.createdAt(), view.updatedAt());
     }
 }

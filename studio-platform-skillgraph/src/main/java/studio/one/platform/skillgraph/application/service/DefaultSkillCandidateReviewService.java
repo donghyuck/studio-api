@@ -1,8 +1,10 @@
 package studio.one.platform.skillgraph.application.service;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
@@ -58,19 +60,16 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
     }
 
     @Override
-    public List<SkillCandidateView> search(SkillCandidateStatus status, String q, int limit) {
-        return search(status, q, null, null, limit);
-    }
-
-    @Override
-    public List<SkillCandidateView> search(SkillCandidateStatus status, String q, String sourceType, String sourceId,
-            int limit) {
+    public Page<SkillCandidateView> search(
+            SkillCandidateStatus status,
+            String q,
+            String sourceType,
+            String sourceId,
+            Pageable pageable) {
         return store
                 .searchCandidates(status, normalizeQuery(q), normalizeSource(sourceType), normalizeSource(sourceId),
-                        normalizeLimit(limit))
-                .stream()
-                .map(SkillCandidateView::from)
-                .toList();
+                        pageable)
+                .map(SkillCandidateView::from);
     }
 
     @Override
@@ -124,13 +123,6 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                     candidate.updatedAt()));
         }
         return candidate.matchedSkillId();
-    }
-
-    private int normalizeLimit(int limit) {
-        if (limit <= 0) {
-            return 100;
-        }
-        return Math.min(limit, SkillGraphLimits.MAX_SEARCH_LIMIT);
     }
 
     private String normalizeQuery(String q) {

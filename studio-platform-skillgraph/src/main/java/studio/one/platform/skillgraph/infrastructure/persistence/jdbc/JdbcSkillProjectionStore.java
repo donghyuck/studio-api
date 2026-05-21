@@ -8,6 +8,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -40,10 +43,11 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
     }
 
     @Override
-    public List<SkillProjectionSummary> listProjections(int limit, int offset) {
-        int max = limit <= 0 ? 100 : limit;
-        int start = Math.max(0, offset);
-        return template.query("""
+    public Page<SkillProjectionSummary> listProjections(Pageable pageable) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("limit", pageable.getPageSize())
+                .addValue("offset", pageable.getOffset());
+        List<SkillProjectionSummary> content = template.query("""
                 SELECT p.projection_id,
                        COUNT(*) AS item_count,
                        COUNT(DISTINCT p.cluster_id) AS cluster_count,
@@ -55,32 +59,45 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 GROUP BY p.projection_id
                 ORDER BY MAX(p.created_at) DESC, p.projection_id
                 LIMIT :limit OFFSET :offset
-                """, Map.of("limit", max, "offset", start), this::mapProjectionSummary);
+                """, params, this::mapProjectionSummary);
+        Long total = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM (
+                    SELECT projection_id
+                    FROM tb_skill_projection
+                    GROUP BY projection_id
+                ) projection_summary
+                """, Map.of(), Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
     @Override
-    public List<SkillProjection> findProjectionPoints(String projectionId, String clusterId, int limit, int offset) {
-        int max = limit <= 0 ? 100 : limit;
-        int start = Math.max(0, offset);
+    public Page<SkillProjection> findProjectionPoints(String projectionId, String clusterId, Pageable pageable) {
         StringBuilder sql = new StringBuilder("""
-                SELECT *, ROW_NUMBER() OVER (ORDER BY created_at, skill_id) - 1 AS display_order
                 FROM tb_skill_projection
                 WHERE projection_id = :projectionId
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("projectionId", projectionId)
-                .addValue("limit", max)
-                .addValue("offset", start);
+                .addValue("limit", pageable.getPageSize())
+                .addValue("offset", pageable.getOffset());
         String cluster = normalize(clusterId);
         if (cluster != null) {
             sql.append("  AND cluster_id = :clusterId\n");
             params.addValue("clusterId", cluster);
         }
-        sql.append("""
+        List<SkillProjection> content = template.query("""
+                SELECT *, ROW_NUMBER() OVER (ORDER BY created_at, skill_id) - 1 AS display_order
+                """ + sql + """
                 ORDER BY display_order
                 LIMIT :limit OFFSET :offset
-                """);
-        return template.query(sql.toString(), params, this::mapProjection);
+                """, params, this::mapProjection);
+        Long total = template.queryForObject("""
+                SELECT COUNT(*)
+                """ + sql,
+                params,
+                Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 
     @Override

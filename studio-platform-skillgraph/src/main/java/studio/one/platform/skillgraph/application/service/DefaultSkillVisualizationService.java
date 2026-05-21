@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
@@ -96,17 +99,16 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     }
 
     @Override
-    public List<SkillProjectionSummaryView> listProjections(int limit, int offset) {
-        return projectionStore.listProjections(normalizeLimit(limit, 100), Math.max(0, offset)).stream()
-                .map(SkillProjectionSummaryView::from)
-                .toList();
+    public Page<SkillProjectionSummaryView> listProjections(Pageable pageable) {
+        return projectionStore.listProjections(pageable)
+                .map(SkillProjectionSummaryView::from);
     }
 
     @Override
-    public List<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId, int limit, int offset) {
-        return projectionStore.findProjectionPoints(projectionId, clusterId, normalizeLimit(limit, 100), Math.max(0, offset)).stream()
-                .map(SkillProjectionPointView::from)
-                .toList();
+    public Page<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId,
+            Pageable pageable) {
+        return projectionStore.findProjectionPoints(projectionId, clusterId, pageable)
+                .map(SkillProjectionPointView::from);
     }
 
     @Override

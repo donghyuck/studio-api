@@ -6,6 +6,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
@@ -84,22 +87,40 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
     }
 
     @Override
-    public List<SkillDictionary> search(String q, int limit) {
-        return search(q, 0, limit);
-    }
-
-    @Override
-    public List<SkillDictionary> search(String q, int offset, int limit) {
+    public Page<SkillDictionary> search(String q, Pageable pageable) {
         String query = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
-        int max = limit <= 0 ? 100 : limit;
-        return skills.values().stream()
+        List<SkillDictionary> filtered = skills.values().stream()
                 .filter(skill -> query.isBlank()
                         || skill.normalizedName().contains(query)
                         || skill.name().toLowerCase(Locale.ROOT).contains(query))
                 .sorted(Comparator.comparing(SkillDictionary::name))
-                .skip(Math.max(0, offset))
+                .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(
+                filtered.subList(start, end),
+                pageable,
+                filtered.size()
+
+        );
+
+    }
+
+    @Override
+    public List<SkillDictionary> findByCategoryId(String categoryId, int limit) {
+        int max = limit <= 0 ? 100 : limit;
+        return skills.values().stream()
+                .filter(skill -> java.util.Objects.equals(categoryId, skill.categoryId()))
+                .sorted(Comparator.comparing(SkillDictionary::name))
                 .limit(max)
                 .toList();
+    }
+
+    @Override
+    public int countByCategoryId(String categoryId) {
+        return (int) skills.values().stream()
+                .filter(skill -> java.util.Objects.equals(categoryId, skill.categoryId()))
+                .count();
     }
 
     @Override
@@ -135,6 +156,50 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
                 .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
                 .filter(skill -> !embeddingsBySkillId.containsKey(skill.skillId()))
                 .count();
+    }
+
+    @Override
+    public int updateCategory(List<String> skillIds, String categoryId) {
+        int affected = 0;
+        for (String skillId : skillIds) {
+            SkillDictionary skill = skills.get(skillId);
+            if (skill == null) {
+                continue;
+            }
+            save(new SkillDictionary(skill.skillId(), skill.name(), skill.normalizedName(), categoryId,
+                    skill.status(), skill.createdAt(), java.time.Instant.now()));
+            affected++;
+        }
+        return affected;
+    }
+
+    @Override
+    public int updateCategoryByCategoryIds(List<String> sourceCategoryIds, String targetCategoryId) {
+        List<String> sources = sourceCategoryIds == null ? List.of() : sourceCategoryIds;
+        int affected = 0;
+        for (SkillDictionary skill : List.copyOf(skills.values())) {
+            if (sources.contains(skill.categoryId())) {
+                save(new SkillDictionary(skill.skillId(), skill.name(), skill.normalizedName(), targetCategoryId,
+                        skill.status(), skill.createdAt(), java.time.Instant.now()));
+                affected++;
+            }
+        }
+        return affected;
+    }
+
+    @Override
+    public int updateStatus(List<String> skillIds, String status) {
+        int affected = 0;
+        for (String skillId : skillIds) {
+            SkillDictionary skill = skills.get(skillId);
+            if (skill == null) {
+                continue;
+            }
+            save(new SkillDictionary(skill.skillId(), skill.name(), skill.normalizedName(), skill.categoryId(),
+                    status, skill.createdAt(), java.time.Instant.now()));
+            affected++;
+        }
+        return affected;
     }
 
     private double cosine(List<Double> left, List<Double> right) {
