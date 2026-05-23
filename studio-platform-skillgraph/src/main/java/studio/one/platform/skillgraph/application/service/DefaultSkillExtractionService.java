@@ -13,10 +13,12 @@ import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.result.SkillMatchedDictionaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
+import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatchType;
 import studio.one.platform.skillgraph.domain.model.SkillSourceChunk;
@@ -139,7 +141,7 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
                             .map(existing -> existing.incrementOccurrence(now))
                             .orElseGet(() -> newCandidate(command, sourceChunkId, term, normalized, now))
                     : newCandidate(command, sourceChunkId, term, normalized, now);
-            candidates.add(SkillCandidateView.from(persist ? store.saveCandidate(candidate) : candidate));
+            candidates.add(toView(persist ? store.saveCandidate(candidate) : candidate));
         }
         return new SkillExtractionResult(sourceChunkId, candidates.size(), candidates);
     }
@@ -207,6 +209,27 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
             return SkillCandidateStatus.MATCHED;
         }
         return SkillCandidateStatus.ALIAS_CANDIDATE;
+    }
+
+    private SkillCandidateView toView(SkillCandidate candidate) {
+        return SkillCandidateView.from(candidate, matchedSkill(candidate));
+    }
+
+    private SkillMatchedDictionaryView matchedSkill(SkillCandidate candidate) {
+        if (dictionaryStore == null || candidate.matchedSkillId() == null) {
+            return null;
+        }
+        SkillDictionary skill = dictionaryStore.findById(candidate.matchedSkillId()).orElse(null);
+        if (skill == null) {
+            return null;
+        }
+        SkillDictionaryMatch match = findDictionaryMatch(candidate.term(), candidate.normalizedTerm())
+                .filter(result -> result.skill().skillId().equals(candidate.matchedSkillId()))
+                .orElse(null);
+        return SkillMatchedDictionaryView.from(
+                skill,
+                match == null ? SkillDictionaryMatchType.SIMILARITY : match.type(),
+                match == null ? 1.0d : match.score());
     }
 
     private String excerpt(String text) {

@@ -1,5 +1,6 @@
 package studio.one.platform.skillgraph.web.controller;
 
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.validation.Valid;
@@ -21,10 +22,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.skillgraph.application.command.SkillCandidateAutoApproveCommand;
+import studio.one.platform.skillgraph.application.command.SkillCandidateBulkReviewCommand;
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
+import studio.one.platform.skillgraph.application.result.SkillCandidateAutoApproveResult;
 import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
+import studio.one.platform.skillgraph.web.dto.request.SkillCandidateAutoApproveRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillCandidateBulkReviewRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillCandidateReviewRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillCandidateDto;
 import studio.one.platform.web.dto.ApiResponse;
@@ -63,6 +69,32 @@ public class SkillCandidateMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<SkillCandidateDto>> get(@PathVariable @Size(max = 100) String candidateId) {
         return ResponseEntity.ok(ApiResponse.ok(SkillCandidateDto.from(reviewService.get(candidateId))));
+    }
+
+    @PatchMapping("/reviews")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<List<SkillCandidateDto>>> reviewAll(
+            @Valid @RequestBody SkillCandidateBulkReviewRequest request) {
+        List<SkillCandidateDto> reviewed = reviewService.reviewAll(new SkillCandidateBulkReviewCommand(
+                request.candidateIds(),
+                request.status(),
+                request.generateEmbedding(),
+                request.reviewerNote())).stream()
+                .map(SkillCandidateDto::from)
+                .toList();
+        return ResponseEntity.ok(ApiResponse.ok(reviewed));
+    }
+
+    @PatchMapping("/auto-approve")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<SkillCandidateAutoApproveResult>> autoApprove(
+            @Valid @RequestBody SkillCandidateAutoApproveRequest request) {
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.autoApprove(new SkillCandidateAutoApproveCommand(
+                request.candidateIds(),
+                request.minConfidence(),
+                request.minSimilarityScore(),
+                request.generateEmbedding(),
+                request.reviewerNote()))));
     }
 
     @PatchMapping("/{candidateId}")

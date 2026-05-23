@@ -17,7 +17,6 @@ import studio.one.platform.skillgraph.application.result.SkillProjectionPointVie
 import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
 import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
-import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillClusterer;
@@ -69,7 +68,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     @Override
     public SkillProjectionResult generateProjection(String projectionId, int limit) {
         String resolvedProjectionId = normalizeProjectionId(projectionId);
-        int max = normalizeLimit(limit, 1000);
+        int max = normalizeLimit(limit);
         Instant now = Instant.now();
         List<SkillVectorItem> skillItems = dictionaryStore.findVectorItems(max);
         List<VectorItem> vectorItems = skillItems.stream()
@@ -136,10 +135,10 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return projectionId.trim();
     }
 
-    private int normalizeLimit(int limit, int defaultLimit) {
+    private int normalizeLimit(int limit) {
         if (limit <= 0) {
-            return defaultLimit;
+            return 0;
         }
-        return Math.min(limit, SkillGraphLimits.MAX_PROJECTION_ITEMS);
+        return limit;
     }
 }

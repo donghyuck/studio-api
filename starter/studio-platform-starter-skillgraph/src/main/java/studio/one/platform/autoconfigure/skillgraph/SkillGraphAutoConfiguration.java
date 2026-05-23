@@ -122,8 +122,9 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillCandidateReviewService skillCandidateReviewService(
             SkillCandidateStore candidateStore,
-            SkillDictionaryStore dictionaryStore) {
-        return new DefaultSkillCandidateReviewService(candidateStore, dictionaryStore);
+            SkillDictionaryStore dictionaryStore,
+            SkillEmbeddingPort embeddingPort) {
+        return new DefaultSkillCandidateReviewService(candidateStore, dictionaryStore, embeddingPort);
     }
 
     @Bean(name = SkillDictionaryService.SERVICE_NAME)

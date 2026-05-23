@@ -43,7 +43,7 @@ public class SkillVisualizationMgmtController {
     @PostMapping("/projections")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillProjectionResponse>> generate(@Valid @RequestBody SkillProjectionRequest request) {
-        int limit = request.limit() == null ? 1000 : request.limit();
+        int limit = request.limit() == null ? 0 : request.limit();
         return ResponseEntity.ok(ApiResponse.ok(SkillProjectionResponse.from(
                 visualizationService.generateProjection(request.projectionId(), limit))));
     }

@@ -75,4 +75,32 @@ class DefaultSkillCategoryRelationServiceTest {
         assertEquals(1, listed.size());
         assertEquals("security", listed.get(0).sourceCategoryId());
     }
+
+    @Test
+    void savingSameCategoryRelationWithoutIdUpdatesExistingRelation() {
+        InMemorySkillTaxonomyStore taxonomyStore = new InMemorySkillTaxonomyStore();
+        DefaultSkillCategoryRelationService service = new DefaultSkillCategoryRelationService(
+                taxonomyStore,
+                new InMemorySkillDictionaryStore(),
+                new InMemorySkillCategoryRelationStore());
+        taxonomyStore.saveCategory(new SkillCategory("backend", null, "Backend", 1));
+        taxonomyStore.saveCategory(new SkillCategory("security", null, "Security", 2));
+
+        var command = new SaveSkillCategoryRelationsCommand(List.of(
+                new SaveSkillCategoryRelationsCommand.SaveSkillCategoryRelationItem(
+                        null,
+                        "security",
+                        "backend",
+                        SkillCategoryRelationType.RELATED,
+                        0.72d,
+                        0.8d,
+                        "인증 보안과 백엔드 API가 함께 사용됩니다.")));
+
+        var first = service.saveRelations(command);
+        var second = service.saveRelations(command);
+        var listed = service.findRelations(List.of("backend"));
+
+        assertEquals(first.get(0).relationId(), second.get(0).relationId());
+        assertEquals(1, listed.size());
+    }
 }

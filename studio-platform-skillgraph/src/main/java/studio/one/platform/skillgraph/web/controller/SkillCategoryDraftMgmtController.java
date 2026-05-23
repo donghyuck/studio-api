@@ -19,10 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.command.GenerateSkillCategoryDraftCommand;
+import studio.one.platform.skillgraph.application.command.ReconcileSkillCategoryDraftCommand;
 import studio.one.platform.skillgraph.application.command.SaveAndAssignSkillCategoryDraftCommand;
 import studio.one.platform.skillgraph.application.command.SaveSkillCategoryDraftCommand;
 import studio.one.platform.skillgraph.application.result.SkillCategoryDraftAssignmentResult;
 import studio.one.platform.skillgraph.application.result.SkillCategoryDraftResult;
+import studio.one.platform.skillgraph.application.result.SkillCategoryReconcileResult;
 import studio.one.platform.skillgraph.application.result.SkillCategoryView;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.web.dto.ApiResponse;
@@ -64,6 +66,13 @@ public class SkillCategoryDraftMgmtController {
                         command.includeNoise(),
                         useLlm);
         return ResponseEntity.ok(ApiResponse.ok(service.generateDrafts(effectiveCommand)));
+    }
+
+    @PostMapping("/reconcile")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<SkillCategoryReconcileResult>> reconcile(
+            @Valid @RequestBody ReconcileSkillCategoryDraftCommand command) {
+        return ResponseEntity.ok(ApiResponse.ok(service.reconcileDrafts(command)));
     }
 
     @PostMapping("/save")

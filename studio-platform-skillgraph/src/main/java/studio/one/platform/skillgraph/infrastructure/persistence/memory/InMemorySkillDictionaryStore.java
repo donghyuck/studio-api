@@ -125,11 +125,10 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillVectorItem> findVectorItems(int limit) {
-        int max = limit <= 0 ? 1000 : limit;
         return skills.values().stream()
                 .filter(skill -> embeddingsBySkillId.containsKey(skill.skillId()))
                 .sorted(Comparator.comparing(SkillDictionary::name))
-                .limit(max)
+                .limit(limit <= 0 ? Long.MAX_VALUE : limit)
                 .map(skill -> new SkillVectorItem(
                         skill.skillId(),
                         skill.name(),

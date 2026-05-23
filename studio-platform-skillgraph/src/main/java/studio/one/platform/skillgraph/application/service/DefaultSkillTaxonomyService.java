@@ -80,25 +80,25 @@ public class DefaultSkillTaxonomyService implements SkillTaxonomyService {
                 command.displayOrder()));
         saveHistory(saved.categoryId(), null, existing == null ? "CREATE" : "UPDATE",
                 existing == null ? null : existing.parentCategoryId(), saved.parentCategoryId(), saved.name());
-        return SkillCategoryView.from(saved);
+        return categoryView(saved);
     }
 
     @Override
     public List<SkillCategoryView> findCategories(String parentCategoryId) {
         return store.findCategories(parentCategoryId).stream()
-                .map(SkillCategoryView::from)
+                .map(this::categoryView)
                 .toList();
     }
 
     @Override
     public Page<SkillCategoryView> searchCategories(String q, String parentCategoryId, Pageable pageable) {
         return store.searchCategories(q, parentCategoryId, pageable)
-                .map(SkillCategoryView::from);
+                .map(this::categoryView);
     }
 
     @Override
     public SkillCategoryView getCategory(String categoryId) {
-        return SkillCategoryView.from(requireCategory(categoryId));
+        return categoryView(requireCategory(categoryId));
     }
 
     @Override
@@ -130,7 +130,7 @@ public class DefaultSkillTaxonomyService implements SkillTaxonomyService {
                 command.displayOrder()));
         saveHistory(moved.categoryId(), null, "MOVE", category.parentCategoryId(), moved.parentCategoryId(),
                 "displayOrder=" + moved.displayOrder());
-        return SkillCategoryView.from(moved);
+        return categoryView(moved);
     }
 
     @Override
@@ -234,6 +234,11 @@ public class DefaultSkillTaxonomyService implements SkillTaxonomyService {
         String id = required(categoryId, "categoryId");
         return store.findCategory(id)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown category: " + id));
+    }
+
+    private SkillCategoryView categoryView(SkillCategory category) {
+        int skillCount = dictionaryStore == null ? 0 : dictionaryStore.countByCategoryId(category.categoryId());
+        return SkillCategoryView.from(category, skillCount);
     }
 
     private SkillDictionaryStore dictionaryStore() {

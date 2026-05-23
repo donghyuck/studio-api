@@ -1,5 +1,6 @@
 package studio.one.platform.skillgraph.application.service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -126,11 +127,16 @@ public class DefaultSkillCategoryRelationService implements SkillCategoryRelatio
                     }
                     requireCategory(sourceCategoryId);
                     requireCategory(targetCategoryId);
+                    SkillCategoryRelationType relationType = item.relationType() == null
+                            ? SkillCategoryRelationType.RELATED
+                            : item.relationType();
                     SkillCategoryRelation relation = new SkillCategoryRelation(
-                            normalize(item.relationId()) == null ? "scr_" + UUID.randomUUID().toString().replace("-", "") : item.relationId(),
+                            normalize(item.relationId()) == null
+                                    ? stableRelationId(sourceCategoryId, targetCategoryId, relationType)
+                                    : item.relationId(),
                             sourceCategoryId,
                             targetCategoryId,
-                            item.relationType() == null ? SkillCategoryRelationType.RELATED : item.relationType(),
+                            relationType,
                             clamp(item.score() == null ? 0.0d : item.score()),
                             clamp(item.confidence() == null ? 0.0d : item.confidence()),
                             normalize(item.reason()),
@@ -139,6 +145,16 @@ public class DefaultSkillCategoryRelationService implements SkillCategoryRelatio
                     return SkillCategoryRelationView.from(relationStore.save(relation));
                 })
                 .toList();
+    }
+
+    private String stableRelationId(
+            String sourceCategoryId,
+            String targetCategoryId,
+            SkillCategoryRelationType relationType) {
+        String key = sourceCategoryId + ":" + targetCategoryId + ":" + relationType.name();
+        return "scr_" + UUID.nameUUIDFromBytes(key.getBytes(StandardCharsets.UTF_8))
+                .toString()
+                .replace("-", "");
     }
 
     @Override

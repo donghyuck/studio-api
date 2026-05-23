@@ -16,6 +16,7 @@ import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.skillgraph.application.command.GenerateSkillCategoryDraftCommand;
+import studio.one.platform.skillgraph.application.command.ReconcileSkillCategoryDraftCommand;
 import studio.one.platform.skillgraph.application.command.SaveAndAssignSkillCategoryDraftCommand;
 import studio.one.platform.skillgraph.application.command.SaveSkillCategoryDraftCommand;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCategoryDraftService;
@@ -209,6 +210,47 @@ class DefaultSkillCategoryDraftServiceTest {
         assertEquals("auth-security", dictionaryStore.findById("skill-1").orElseThrow().categoryId());
         assertEquals("auth-security", dictionaryStore.findById("skill-2").orElseThrow().categoryId());
         assertEquals(3, taxonomyStore.findCategoryHistory("auth-security", PageRequest.of(0, 10)).getTotalElements());
+    }
+
+    @Test
+    void reconcilesUncategorizedSkillsAgainstExistingCategoriesAndNewClusters() {
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillProjectionStore projectionStore = new InMemorySkillProjectionStore();
+        InMemorySkillTaxonomyStore taxonomyStore = new InMemorySkillTaxonomyStore();
+        Instant now = Instant.now();
+        taxonomyStore.saveCategory(new studio.one.platform.skillgraph.domain.model.SkillCategory(
+                "backend",
+                null,
+                "백엔드 API",
+                0));
+        dictionaryStore.save(new SkillDictionary("skill-backend", "Spring Boot API", null, "backend", "ACTIVE",
+                now, now), List.of(1.0d, 0.0d));
+        dictionaryStore.save(new SkillDictionary("skill-new-backend", "Spring MVC Controller", null, null, "ACTIVE",
+                now, now), List.of(0.95d, 0.05d));
+        dictionaryStore.save(new SkillDictionary("skill-k8s", "Kubernetes 운영", null, null, "ACTIVE",
+                now, now), List.of(0.0d, 1.0d));
+        dictionaryStore.save(new SkillDictionary("skill-docker", "Docker 배포", null, null, "ACTIVE",
+                now, now), List.of(0.05d, 0.95d));
+        DefaultSkillCategoryDraftService service = new DefaultSkillCategoryDraftService(
+                projectionStore,
+                dictionaryStore,
+                taxonomyStore);
+
+        var result = service.reconcileDrafts(new ReconcileSkillCategoryDraftCommand(
+                10,
+                0.9d,
+                0.9d,
+                2,
+                5,
+                false));
+
+        assertEquals(3, result.scannedCount());
+        assertEquals(1, result.matchedExistingCount());
+        assertEquals("skill-new-backend", result.matchedExisting().get(0).skillId());
+        assertEquals("backend", result.matchedExisting().get(0).categoryId());
+        assertEquals(1, result.newCategoryDraftCount());
+        assertEquals(List.of("skill-docker", "skill-k8s"),
+                result.newCategoryDrafts().get(0).representativeSkillIds().stream().sorted().toList());
     }
 
     private static final class CapturingPromptRenderer implements PromptRenderer {

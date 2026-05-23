@@ -168,14 +168,14 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillVectorItem> findVectorItems(int limit) {
-        int max = limit <= 0 ? 1000 : limit;
+        String limitClause = limit <= 0 ? "" : "LIMIT :limit";
         return template.query("""
                 SELECT skill_id, name, embedding::text AS embedding_text, created_at
                 FROM tb_skill_dictionary
                 WHERE status = 'ACTIVE' AND embedding IS NOT NULL
                 ORDER BY name
-                LIMIT :limit
-                """, Map.of("limit", max), (rs, rowNum) -> new SkillVectorItem(
+                %s
+                """.formatted(limitClause), limit <= 0 ? Map.of() : Map.of("limit", limit), (rs, rowNum) -> new SkillVectorItem(
                 rs.getString("skill_id"),
                 rs.getString("name"),
                 parseVector(rs.getString("embedding_text")),
