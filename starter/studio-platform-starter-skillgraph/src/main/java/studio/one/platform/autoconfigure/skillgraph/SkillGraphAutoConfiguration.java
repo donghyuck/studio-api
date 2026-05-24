@@ -33,6 +33,8 @@ import studio.one.platform.skillgraph.application.service.DefaultSkillMappingSer
 import studio.one.platform.skillgraph.application.service.DefaultSkillRecommendationService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillTaxonomyService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizationService;
+import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
+import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobWorker;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryRelationService;
@@ -48,6 +50,7 @@ import studio.one.platform.skillgraph.domain.port.SkillCategoryRelationStore;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateExtractor;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
+import studio.one.platform.skillgraph.domain.port.SkillDatasetImportJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillGraphStore;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
@@ -74,6 +77,11 @@ import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemory
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillProjectionStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillTaxonomyStore;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDatasetImporter;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDatasetStore;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.ncs.NcsExcelDatasetImporter;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.persistence.JdbcSkillDatasetImportJobStore;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.persistence.JdbcSkillDatasetStore;
 
 @AutoConfiguration
 @EnableConfigurationProperties({ SkillGraphFeatureProperties.class, SkillGraphProperties.class })
@@ -227,6 +235,70 @@ public class SkillGraphAutoConfiguration {
                     return thread;
                 },
                 new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    @Bean(name = "skillDatasetImportJobExecutor", destroyMethod = "shutdown")
+    @ConditionalOnMissingBean(name = "skillDatasetImportJobExecutor")
+    @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import", name = "enabled", havingValue = "true")
+    public ThreadPoolExecutor skillDatasetImportJobExecutor(SkillGraphProperties properties) {
+        SkillGraphProperties.DatasetImport datasetImport = properties.getDatasetImport();
+        int workers = Math.max(1, datasetImport.getWorkerCount());
+        return new ThreadPoolExecutor(
+                workers,
+                workers,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(Math.max(1, datasetImport.getQueueCapacity())),
+                runnable -> {
+                    Thread thread = new Thread(runnable, "skill-dataset-import-worker");
+                    thread.setDaemon(true);
+                    return thread;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean({
+            SkillDatasetImportJobStore.class,
+            SkillDatasetImporter.class
+    })
+    @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import", name = "enabled", havingValue = "true")
+    public SkillDatasetImportJobWorker skillDatasetImportJobWorker(
+            SkillDatasetImportJobStore jobStore,
+            ObjectProvider<SkillDatasetImporter> importers) {
+        return new SkillDatasetImportJobWorker(jobStore, importers.orderedStream().toList());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(SkillDatasetImportJobWorker.class)
+    @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import", name = "enabled", havingValue = "true")
+    public SkillDatasetImportJobService skillDatasetImportJobService(
+            SkillDatasetImportJobStore jobStore,
+            SkillDatasetImportJobWorker worker,
+            @Qualifier("skillDatasetImportJobExecutor") Executor executor) {
+        return new SkillDatasetImportJobService(jobStore, worker, executor);
+    }
+
+    @Configuration
+    @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import.ncs", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnClass(name = "org.apache.poi.ss.usermodel.WorkbookFactory")
+    static class NcsDatasetImportConfig {
+
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnBean(SkillDatasetStore.class)
+        @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import", name = "enabled", havingValue = "true")
+        public SkillDatasetImporter ncsExcelDatasetImporter(
+                SkillDatasetStore datasetStore,
+                ObjectProvider<ObjectMapper> objectMapper,
+                SkillGraphProperties properties) {
+            return new NcsExcelDatasetImporter(
+                    datasetStore,
+                    objectMapper.getIfAvailable(ObjectMapper::new),
+                    properties.getDatasetImport().getNcs().getMaxByteArraySize());
+        }
     }
 
     @Configuration
@@ -394,6 +466,20 @@ public class SkillGraphAutoConfiguration {
         @ConditionalOnMissingBean
         public SkillRagExtractionJobStore skillRagExtractionJobStore(NamedParameterJdbcTemplate template) {
             return new JdbcSkillRagExtractionJobStore(template);
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import", name = "enabled", havingValue = "true")
+        public SkillDatasetStore skillDatasetStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillDatasetStore(template.getJdbcTemplate());
+        }
+
+        @Bean(name = SkillDatasetImportJobStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "studio.skillgraph.dataset-import", name = "enabled", havingValue = "true")
+        public SkillDatasetImportJobStore skillDatasetImportJobStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillDatasetImportJobStore(template.getJdbcTemplate());
         }
     }
 }

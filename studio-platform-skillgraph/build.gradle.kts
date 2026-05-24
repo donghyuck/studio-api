@@ -28,6 +28,9 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework:spring-jdbc")
 
+    compileOnly("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    compileOnly("org.apache.poi:poi:${property("apachePoiVersion")}")
+
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-chunking"))
     testImplementation("com.fasterxml.jackson.core:jackson-annotations")

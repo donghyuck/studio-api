@@ -116,6 +116,22 @@ subprojects {
 	}
 	tasks.withType<Test> {
         useJUnitPlatform()
+        if ((findProperty("runDbTests") as String?)?.toBoolean() != true) {
+            exclude(
+                "**/PgVectorStoreAdapterV2PostgresTest.class",
+                "**/SecurityJdbcRepositoryPostgresTest.class",
+                "**/ApplicationUserJdbcRepositoryCompanyFilterTest.class",
+                "**/ApplicationUserJpaRepositoryCompanyFilterTest.class",
+                "**/ApplicationUserRoleJpaRepositoryNullSearchTest.class",
+                "**/ApplicationCompanyPermissionPolicyJdbcRepositoryTest.class",
+                "**/ApplicationCompanyJoinRequestJdbcRepositoryTest.class",
+                "**/ApplicationGroupMembershipJpaRepositorySearchTest.class",
+                "**/ApplicationCompanyPermissionPolicyJpaRepositoryTest.class",
+                "**/ApplicationGroupRoleJpaRepositoryNullSearchTest.class",
+                "**/ApplicationCompanyJoinRequestJpaRepositoryTest.class",
+                "**/ApplicationCompanyServiceImplJpaTest.class"
+            )
+        }
     }
 	val publishable = true // 필요 시 특정 모듈만 배포하려면 여기서 조건부로 조정
     if (publishable) {

@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 import java.util.concurrent.Executor;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
@@ -30,6 +31,7 @@ import studio.one.platform.skillgraph.web.controller.SkillCandidateMgmtControlle
 import studio.one.platform.skillgraph.web.controller.SkillCategoryHistoryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillCategoryDraftMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillCategoryRelationMgmtController;
+import studio.one.platform.skillgraph.web.controller.SkillDatasetImportMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillDictionaryMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillExtractionJobMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillGraphExtractionSourceMgmtController;
@@ -146,5 +148,11 @@ public class SkillGraphWebAutoConfiguration {
     @ConditionalOnBean(name = SkillRecommendationService.SERVICE_NAME)
     @Import(SkillRecommendationMgmtController.class)
     static class SkillRecommendationWebConfig {
+    }
+
+    @Configuration
+    @ConditionalOnBean(SkillDatasetImportJobService.class)
+    @Import(SkillDatasetImportMgmtController.class)
+    static class SkillDatasetImportWebConfig {
     }
 }

@@ -1,14 +1,13 @@
 package studio.one.application.attachment.domain.port;
 
-import studio.one.application.attachment.domain.model.AttachmentDownloadAuditLogCount;
-import studio.one.application.attachment.domain.model.*;
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import studio.one.application.attachment.domain.model.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.Attachment;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 
 public interface AttachmentRepository {
 
