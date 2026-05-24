@@ -27,11 +27,15 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework:spring-jdbc")
+    compileOnly("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    compileOnly("org.apache.poi:poi:${property("apachePoiVersion")}")
 
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-skillgraph"))
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework:spring-jdbc")
+    testImplementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    testImplementation("org.apache.poi:poi:${property("apachePoiVersion")}")
     testRuntimeOnly("com.h2database:h2")
 }

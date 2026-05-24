@@ -3,6 +3,9 @@ package studio.one.platform.skillgraph.domain.port;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
@@ -18,6 +21,16 @@ public interface SkillDictionaryStore {
     Optional<SkillDictionary> findById(String skillId);
 
     Optional<SkillDictionary> findByNormalizedName(String normalizedName);
+
+    Page<SkillDictionary> search(String q, Pageable pageable);
+
+    default List<SkillDictionary> findByCategoryId(String categoryId, int limit) {
+        return List.of();
+    }
+
+    default int countByCategoryId(String categoryId) {
+        return findByCategoryId(categoryId, Integer.MAX_VALUE).size();
+    }
 
     default Optional<SkillDictionaryMatch> findMatchByNormalizedTerm(String normalizedTerm) {
         Optional<SkillDictionary> exact = findByNormalizedName(normalizedTerm);
@@ -56,14 +69,21 @@ public interface SkillDictionaryStore {
         throw new UnsupportedOperationException("Skill embedding persistence is not implemented");
     }
 
-    List<SkillDictionary> search(String q, int limit);
-
-    default List<SkillDictionary> search(String q, int offset, int limit) {
-        int safeOffset = Math.max(0, offset);
-        int safeLimit = limit <= 0 ? 100 : limit;
-        return search(q, safeOffset + safeLimit).stream()
-                .skip(safeOffset)
-                .limit(safeLimit)
-                .toList();
+    default int updateCategory(List<String> skillIds, String categoryId) {
+        throw new UnsupportedOperationException("Skill category assignment is not implemented");
     }
+
+    default int updateCategoryByCategoryIds(List<String> sourceCategoryIds, String targetCategoryId) {
+        throw new UnsupportedOperationException("Skill category merge is not implemented");
+    }
+
+    default int updateStatus(List<String> skillIds, String status) {
+        throw new UnsupportedOperationException("Skill status bulk update is not implemented");
+    }
+
+    @Deprecated(forRemoval = true)
+    default List<SkillDictionary> search(String q, int limit) {
+        return search(q, Pageable.ofSize(limit <= 0 ? 100 : limit)).getContent();
+    }
+
 }

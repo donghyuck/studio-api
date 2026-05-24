@@ -16,6 +16,8 @@ import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
+import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobWorker;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
@@ -28,14 +30,22 @@ import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateExtractor;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
+import studio.one.platform.skillgraph.domain.port.SkillDatasetImportJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillGraphStore;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
+import studio.one.platform.skillgraph.domain.model.SkillDatasetImportJob;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillConcept;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDataset;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDatasetImporter;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDatasetStore;
+import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillRelation;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 class SkillGraphAutoConfigurationTest {
 
@@ -109,6 +119,42 @@ class SkillGraphAutoConfigurationTest {
                 .run(context -> assertThat(context).doesNotHaveBean(SkillExtractionService.class));
     }
 
+    @Test
+    void doesNotCreateDatasetImportBeansByDefault() {
+        contextRunner.run(context -> {
+            assertThat(context).doesNotHaveBean(SkillDatasetImporter.class);
+            assertThat(context).doesNotHaveBean(SkillDatasetImportJobWorker.class);
+            assertThat(context).doesNotHaveBean(SkillDatasetImportJobService.class);
+        });
+    }
+
+    @Test
+    void createsDatasetImportBeansWhenEnabledAndStoresAreAvailable() {
+        contextRunner
+                .withPropertyValues("studio.skillgraph.dataset-import.enabled=true")
+                .withBean(SkillDatasetStore.class, FakeSkillDatasetStore::new)
+                .withBean(SkillDatasetImportJobStore.class, FakeSkillDatasetImportJobStore::new)
+                .run(context -> {
+                    assertThat(context).hasSingleBean(SkillDatasetImporter.class);
+                    assertThat(context).hasSingleBean(SkillDatasetImportJobWorker.class);
+                    assertThat(context).hasSingleBean(SkillDatasetImportJobService.class);
+                });
+    }
+
+    @Test
+    void disablesNcsDatasetImporterWhenConfigured() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.skillgraph.dataset-import.enabled=true",
+                        "studio.skillgraph.dataset-import.ncs.enabled=false")
+                .withBean(SkillDatasetStore.class, FakeSkillDatasetStore::new)
+                .withBean(SkillDatasetImportJobStore.class, FakeSkillDatasetImportJobStore::new)
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(SkillDatasetImporter.class);
+                    assertThat(context).doesNotHaveBean(SkillDatasetImportJobService.class);
+                });
+    }
+
     private static final class FakePromptRenderer implements PromptRenderer {
 
         @Override
@@ -119,6 +165,87 @@ class SkillGraphAutoConfigurationTest {
         @Override
         public String getRawPrompt(String name) {
             return "prompt";
+        }
+    }
+
+    private static final class FakeSkillDatasetImportJobStore implements SkillDatasetImportJobStore {
+
+        private final Map<String, SkillDatasetImportJob> jobs = new ConcurrentHashMap<>();
+
+        @Override
+        public SkillDatasetImportJob save(SkillDatasetImportJob job) {
+            jobs.put(job.jobId(), job);
+            return job;
+        }
+
+        @Override
+        public Optional<SkillDatasetImportJob> findById(String jobId) {
+            return Optional.ofNullable(jobs.get(jobId));
+        }
+
+        @Override
+        public List<SkillDatasetImportJob> findRecent(int limit) {
+            return List.copyOf(jobs.values());
+        }
+    }
+
+    private static final class FakeSkillDatasetStore implements SkillDatasetStore {
+
+        private final Map<String, SkillDataset> datasets = new ConcurrentHashMap<>();
+        private final Map<String, SkillConcept> concepts = new ConcurrentHashMap<>();
+        private final Map<String, SkillRelation> relations = new ConcurrentHashMap<>();
+
+        @Override
+        public void saveDataset(SkillDataset dataset) {
+            datasets.put(dataset.datasetId(), dataset);
+        }
+
+        @Override
+        public void upsertConcept(SkillConcept concept) {
+            concepts.put(concept.conceptId(), concept);
+        }
+
+        @Override
+        public void upsertRelation(SkillRelation relation) {
+            relations.put(relation.relationId(), relation);
+        }
+
+        @Override
+        public void upsertConcepts(List<SkillConcept> concepts) {
+            concepts.forEach(this::upsertConcept);
+        }
+
+        @Override
+        public void upsertRelations(List<SkillRelation> relations) {
+            relations.forEach(this::upsertRelation);
+        }
+
+        @Override
+        public Optional<SkillDataset> findDataset(String datasetId) {
+            return Optional.ofNullable(datasets.get(datasetId));
+        }
+
+        @Override
+        public Optional<SkillConcept> findConcept(String conceptId) {
+            return Optional.ofNullable(concepts.get(conceptId));
+        }
+
+        @Override
+        public List<SkillConcept> findConcepts(String datasetId, String conceptType, int limit) {
+            return concepts.values().stream()
+                    .filter(concept -> concept.datasetId().equals(datasetId))
+                    .filter(concept -> conceptType == null || concept.conceptType().equals(conceptType))
+                    .limit(limit <= 0 ? 100 : limit)
+                    .toList();
+        }
+
+        @Override
+        public List<SkillRelation> findRelations(String datasetId, String relationType, int limit) {
+            return relations.values().stream()
+                    .filter(relation -> relation.datasetId().equals(datasetId))
+                    .filter(relation -> relationType == null || relation.relationType().equals(relationType))
+                    .limit(limit <= 0 ? 100 : limit)
+                    .toList();
         }
     }
 

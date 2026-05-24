@@ -25,5 +25,6 @@ public class SkillGraphFeatureProperties {
         private String graphBasePath = "/api/mgmt/skillgraph/relations";
         private String mappingBasePath = "/api/mgmt/skillgraph/mappings";
         private String recommendationBasePath = "/api/mgmt/skillgraph/recommendations";
+        private String importJobsBasePath = "/api/mgmt/skillgraph/datasets";
     }
 }

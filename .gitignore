@@ -36,3 +36,4 @@ replay_pid*
 FAILURE
 *.back
 .policy-backup-*/
+.omx/ 

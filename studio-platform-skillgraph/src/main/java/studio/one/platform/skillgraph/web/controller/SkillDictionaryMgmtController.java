@@ -1,10 +1,11 @@
 package studio.one.platform.skillgraph.web.controller;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.Size;
+import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,13 +19,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryView;
 import studio.one.platform.skillgraph.application.service.DuplicateSkillDictionaryException;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.web.dto.request.CreateSkillDictionaryRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillDictionaryEmbeddingRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillDictionaryDto;
-import studio.one.platform.skillgraph.web.dto.response.SkillDictionaryPageResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -37,14 +40,15 @@ public class SkillDictionaryMgmtController {
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
-    public ResponseEntity<ApiResponse<SkillDictionaryPageResponse>> search(
-            @RequestParam(value = "q", required = false) @Size(max = 200) String q,
-            @RequestParam(value = "offset", required = false, defaultValue = "0") @Min(0) int offset,
-            @RequestParam(value = "limit", required = false, defaultValue = "100") @Min(1) @Max(500) int limit) {
-        return ResponseEntity.ok(ApiResponse.ok(SkillDictionaryPageResponse.from(
-                offset,
-                limit,
-                dictionaryService.search(q, offset, limit + 1))));
+    public ResponseEntity<ApiResponse<Page<SkillDictionaryView>>> search(
+            @RequestParam(value = "q", required = false) Optional<String> q,
+            @PageableDefault(size = 15, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
+        Page<SkillDictionaryView> page = dictionaryService.search(
+                q.map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .orElse(null),
+                pageable);
+        return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
     @PostMapping

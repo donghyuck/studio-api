@@ -5,6 +5,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
@@ -14,7 +17,6 @@ import studio.one.platform.skillgraph.application.result.SkillProjectionPointVie
 import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
 import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
-import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillClusterer;
@@ -66,7 +68,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     @Override
     public SkillProjectionResult generateProjection(String projectionId, int limit) {
         String resolvedProjectionId = normalizeProjectionId(projectionId);
-        int max = normalizeLimit(limit, 1000);
+        int max = normalizeLimit(limit);
         Instant now = Instant.now();
         List<SkillVectorItem> skillItems = dictionaryStore.findVectorItems(max);
         List<VectorItem> vectorItems = skillItems.stream()
@@ -96,17 +98,16 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     }
 
     @Override
-    public List<SkillProjectionSummaryView> listProjections(int limit, int offset) {
-        return projectionStore.listProjections(normalizeLimit(limit, 100), Math.max(0, offset)).stream()
-                .map(SkillProjectionSummaryView::from)
-                .toList();
+    public Page<SkillProjectionSummaryView> listProjections(Pageable pageable) {
+        return projectionStore.listProjections(pageable)
+                .map(SkillProjectionSummaryView::from);
     }
 
     @Override
-    public List<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId, int limit, int offset) {
-        return projectionStore.findProjectionPoints(projectionId, clusterId, normalizeLimit(limit, 100), Math.max(0, offset)).stream()
-                .map(SkillProjectionPointView::from)
-                .toList();
+    public Page<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId,
+            Pageable pageable) {
+        return projectionStore.findProjectionPoints(projectionId, clusterId, pageable)
+                .map(SkillProjectionPointView::from);
     }
 
     @Override
@@ -134,10 +135,10 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return projectionId.trim();
     }
 
-    private int normalizeLimit(int limit, int defaultLimit) {
+    private int normalizeLimit(int limit) {
         if (limit <= 0) {
-            return defaultLimit;
+            return 0;
         }
-        return Math.min(limit, SkillGraphLimits.MAX_PROJECTION_ITEMS);
+        return limit;
     }
 }

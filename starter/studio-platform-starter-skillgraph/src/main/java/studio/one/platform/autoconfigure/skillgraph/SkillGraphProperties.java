@@ -14,6 +14,7 @@ public class SkillGraphProperties {
     private Extraction extraction = new Extraction();
     private Matching matching = new Matching();
     private Clustering clustering = new Clustering();
+    private DatasetImport datasetImport = new DatasetImport();
 
     public enum Persistence {
         memory,
@@ -65,5 +66,21 @@ public class SkillGraphProperties {
     @Setter
     public static class Clustering {
         private double radius = 0.24d;
+    }
+
+    @Getter
+    @Setter
+    public static class DatasetImport {
+        private boolean enabled = false;
+        private int workerCount = 1;
+        private int queueCapacity = 10;
+        private Ncs ncs = new Ncs();
+    }
+
+    @Getter
+    @Setter
+    public static class Ncs {
+        private boolean enabled = true;
+        private int maxByteArraySize = 256_000_000;
     }
 }

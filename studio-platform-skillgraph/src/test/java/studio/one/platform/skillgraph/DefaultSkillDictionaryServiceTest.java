@@ -3,22 +3,32 @@ package studio.one.platform.skillgraph;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
+import studio.one.platform.skillgraph.application.command.SkillCategoryCommand;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillTaxonomyService;
 import studio.one.platform.skillgraph.application.service.DuplicateSkillDictionaryException;
+import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillTaxonomyStore;
 
 class DefaultSkillDictionaryServiceTest {
 
     @Test
     void createsDictionarySkillAndSearchesIt() {
-        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(new InMemorySkillDictionaryStore());
+        InMemorySkillTaxonomyStore taxonomyStore = new InMemorySkillTaxonomyStore();
+        new DefaultSkillTaxonomyService(taxonomyStore).saveCategory(new SkillCategoryCommand("backend", null,
+                "Backend", 1));
+        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(new InMemorySkillDictionaryStore(),
+                taxonomyStore, null, null);
 
         var created = service.create(new CreateSkillDictionaryCommand(
                 "Spring Boot",
@@ -26,15 +36,20 @@ class DefaultSkillDictionaryServiceTest {
                 "backend",
                 null,
                 null));
-        var searched = service.search("spring", 10);
+
+        var searched = service.search("spring", PageRequest.of(0, 10));
 
         assertFalse(created.skillId().isBlank());
         assertEquals("Spring Boot", created.name());
         assertEquals("spring boot", created.normalizedName());
         assertEquals("backend", created.categoryId());
+        assertEquals("Backend", created.categoryName());
         assertEquals("ACTIVE", created.status());
-        assertEquals(1, searched.size());
-        assertEquals(created.skillId(), searched.get(0).skillId());
+
+        assertEquals(1, searched.getTotalElements());
+        assertEquals(1, searched.getContent().size());
+        assertEquals(created.skillId(), searched.getContent().get(0).skillId());
+        assertEquals("Backend", searched.getContent().get(0).categoryName());
     }
 
     @Test
@@ -62,17 +77,21 @@ class DefaultSkillDictionaryServiceTest {
     }
 
     @Test
-    void searchesWithOffsetAndLimit() {
-        DefaultSkillDictionaryService service = new DefaultSkillDictionaryService(new InMemorySkillDictionaryStore());
-        service.create(new CreateSkillDictionaryCommand("Backend REST API 설계", null, null, null, null));
-        service.create(new CreateSkillDictionaryCommand("Frontend Vue 컴포넌트 개발", null, null, null, null));
-        service.create(new CreateSkillDictionaryCommand("Spring Security JWT 인증 구성", null, null, null, null));
+    void searchesWithPageAndSize() {
+        SkillDictionaryService service = new DefaultSkillDictionaryService(new InMemorySkillDictionaryStore());
 
-        var page = service.search(null, 1, 2);
+        service.create(new CreateSkillDictionaryCommand("A Skill", null, null, null, null));
+        service.create(new CreateSkillDictionaryCommand("B Skill", null, null, null, null));
+        service.create(new CreateSkillDictionaryCommand("C Skill", null, null, null, null));
 
-        assertEquals(2, page.size());
-        assertEquals("Frontend Vue 컴포넌트 개발", page.get(0).name());
-        assertEquals("Spring Security JWT 인증 구성", page.get(1).name());
+        var firstPage = service.search(null, PageRequest.of(0, 2));
+        var secondPage = service.search(null, PageRequest.of(1, 2));
+
+        assertEquals(2, firstPage.getNumberOfElements());
+        assertTrue(firstPage.hasNext());
+
+        assertEquals(1, secondPage.getNumberOfElements());
+        assertFalse(secondPage.hasNext());
     }
 
     @Test
@@ -153,6 +172,7 @@ class DefaultSkillDictionaryServiceTest {
         assertEquals(SkillDictionaryEmbeddingJobStatus.FAILED, job.status());
         assertEquals(0, job.processedCount());
         assertEquals(1, job.failedCount());
-        assertEquals("Embedding job completed with failures: Embedding provider returned an empty vector", job.message());
+        assertEquals("Embedding job completed with failures: Embedding provider returned an empty vector",
+                job.message());
     }
 }

@@ -1,6 +1,7 @@
 package studio.one.platform.skillgraph.application.usecase;
 
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.application.command.CreateSkillDictionaryCommand;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
@@ -11,9 +12,7 @@ public interface SkillDictionaryService {
 
     String SERVICE_NAME = "skillDictionaryService";
 
-    List<SkillDictionaryView> search(String q, int limit);
-
-    List<SkillDictionaryView> search(String q, int offset, int limit);
+    Page<SkillDictionaryView> search(String q, Pageable pageable);
 
     SkillDictionaryView create(CreateSkillDictionaryCommand command);
 

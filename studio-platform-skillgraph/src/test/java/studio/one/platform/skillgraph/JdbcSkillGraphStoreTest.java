@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
@@ -273,17 +274,17 @@ class JdbcSkillGraphStoreTest {
                 new SkillProjection("default", "java", 3.0d, 4.0d, "cluster-b", 0, now)),
                 List.of(new SkillCluster("cluster-a", "Backend", "manual", 1, now)));
 
-        var all = projectionStore.findProjectionPoints("default", null, 10, 0);
-        var byCluster = projectionStore.findProjectionPoints("default", "cluster-a", 10, 0);
-        var summaries = projectionStore.listProjections(10, 0);
+        var all = projectionStore.findProjectionPoints("default", null, PageRequest.of(0, 10));
+        var byCluster = projectionStore.findProjectionPoints("default", "cluster-a", PageRequest.of(0, 10));
+        var summaries = projectionStore.listProjections(PageRequest.of(0, 10));
 
-        assertEquals(2, all.size());
-        assertEquals(1, byCluster.size());
-        assertEquals("spring", byCluster.get(0).skillId());
-        assertEquals(1, summaries.size());
-        assertEquals("default", summaries.get(0).projectionId());
-        assertEquals(2, summaries.get(0).itemCount());
-        assertEquals(2, summaries.get(0).clusterCount());
-        assertEquals("manual", summaries.get(0).algorithm());
+        assertEquals(2, all.getContent().size());
+        assertEquals(1, byCluster.getContent().size());
+        assertEquals("spring", byCluster.getContent().get(0).skillId());
+        assertEquals(1, summaries.getContent().size());
+        assertEquals("default", summaries.getContent().get(0).projectionId());
+        assertEquals(2, summaries.getContent().get(0).itemCount());
+        assertEquals(2, summaries.getContent().get(0).clusterCount());
+        assertEquals("manual", summaries.getContent().get(0).algorithm());
     }
 }
