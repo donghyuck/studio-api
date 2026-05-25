@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.ai.core.chat.ChatMessage;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -25,6 +28,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillExtractionService
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
+import studio.one.platform.skillgraph.application.usecase.SkillReferenceDatasetService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateExtractor;
@@ -125,6 +129,7 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).doesNotHaveBean(SkillDatasetImporter.class);
             assertThat(context).doesNotHaveBean(SkillDatasetImportJobWorker.class);
             assertThat(context).doesNotHaveBean(SkillDatasetImportJobService.class);
+            assertThat(context).doesNotHaveBean(SkillReferenceDatasetService.class);
         });
     }
 
@@ -135,6 +140,7 @@ class SkillGraphAutoConfigurationTest {
                 .withBean(SkillDatasetStore.class, FakeSkillDatasetStore::new)
                 .withBean(SkillDatasetImportJobStore.class, FakeSkillDatasetImportJobStore::new)
                 .run(context -> {
+                    assertThat(context).hasSingleBean(SkillReferenceDatasetService.class);
                     assertThat(context).hasSingleBean(SkillDatasetImporter.class);
                     assertThat(context).hasSingleBean(SkillDatasetImportJobWorker.class);
                     assertThat(context).hasSingleBean(SkillDatasetImportJobService.class);
@@ -226,8 +232,20 @@ class SkillGraphAutoConfigurationTest {
         }
 
         @Override
+        public Page<SkillDataset> findDatasets(Pageable pageable) {
+            List<SkillDataset> found = List.copyOf(datasets.values());
+            return new PageImpl<>(found, pageable, found.size());
+        }
+
+        @Override
         public Optional<SkillConcept> findConcept(String conceptId) {
             return Optional.ofNullable(concepts.get(conceptId));
+        }
+
+        @Override
+        public Optional<SkillConcept> findConcept(String datasetId, String conceptId) {
+            return Optional.ofNullable(concepts.get(conceptId))
+                    .filter(concept -> concept.datasetId().equals(datasetId));
         }
 
         @Override
@@ -240,9 +258,69 @@ class SkillGraphAutoConfigurationTest {
         }
 
         @Override
+        public Page<SkillConcept> findConcepts(String datasetId, String conceptType, Pageable pageable) {
+            List<SkillConcept> found = findConcepts(datasetId, conceptType, Integer.MAX_VALUE);
+            return new PageImpl<>(found, pageable, found.size());
+        }
+
+        @Override
+        public List<SkillConcept> searchConcepts(String datasetId, String conceptType, String query, int limit) {
+            String keyword = query == null ? "" : query.toLowerCase();
+            return concepts.values().stream()
+                    .filter(concept -> datasetId == null || concept.datasetId().equals(datasetId))
+                    .filter(concept -> conceptType == null || concept.conceptType().equals(conceptType))
+                    .filter(concept -> concept.preferredLabel().toLowerCase().contains(keyword))
+                    .limit(limit <= 0 ? 100 : limit)
+                    .toList();
+        }
+
+        @Override
+        public Page<SkillConcept> searchConcepts(String datasetId, String conceptType, String query, Pageable pageable) {
+            List<SkillConcept> found = searchConcepts(datasetId, conceptType, query, Integer.MAX_VALUE);
+            return new PageImpl<>(found, pageable, found.size());
+        }
+
+        @Override
+        public List<SkillConcept> findChildConcepts(String datasetId, String conceptId, String relationType, int limit) {
+            return relations.values().stream()
+                    .filter(relation -> relation.datasetId().equals(datasetId))
+                    .filter(relation -> relation.sourceConceptId().equals(conceptId))
+                    .filter(relation -> relationType == null || relation.relationType().equals(relationType))
+                    .map(SkillRelation::targetConceptId)
+                    .map(concepts::get)
+                    .filter(concept -> concept != null)
+                    .limit(limit <= 0 ? 100 : limit)
+                    .toList();
+        }
+
+        @Override
+        public Page<SkillConcept> findChildConcepts(String datasetId, String conceptId, String relationType, Pageable pageable) {
+            List<SkillConcept> found = findChildConcepts(datasetId, conceptId, relationType, Integer.MAX_VALUE);
+            return new PageImpl<>(found, pageable, found.size());
+        }
+
+        @Override
+        public List<SkillConcept> findConceptsByIds(String datasetId, List<String> conceptIds) {
+            return conceptIds.stream()
+                    .map(concepts::get)
+                    .filter(concept -> concept != null && concept.datasetId().equals(datasetId))
+                    .toList();
+        }
+
+        @Override
         public List<SkillRelation> findRelations(String datasetId, String relationType, int limit) {
             return relations.values().stream()
                     .filter(relation -> relation.datasetId().equals(datasetId))
+                    .filter(relation -> relationType == null || relation.relationType().equals(relationType))
+                    .limit(limit <= 0 ? 100 : limit)
+                    .toList();
+        }
+
+        @Override
+        public List<SkillRelation> findOutgoingRelations(String datasetId, String sourceConceptId, String relationType, int limit) {
+            return relations.values().stream()
+                    .filter(relation -> relation.datasetId().equals(datasetId))
+                    .filter(relation -> relation.sourceConceptId().equals(sourceConceptId))
                     .filter(relation -> relationType == null || relation.relationType().equals(relationType))
                     .limit(limit <= 0 ? 100 : limit)
                     .toList();

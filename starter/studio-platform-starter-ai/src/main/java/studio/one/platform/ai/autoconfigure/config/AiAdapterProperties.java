@@ -75,6 +75,7 @@ public class AiAdapterProperties {
     public enum ProviderType {
         OPENAI,
         OLLAMA,
+        TEI,
         GOOGLE_AI_GEMINI
     }
 }

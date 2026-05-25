@@ -1,0 +1,20 @@
+services:
+  kure-embedding:
+    image: ghcr.io/huggingface/text-embeddings-inference:${KURE_TEI_IMAGE_TAG:-cpu-arm64-latest}
+    command:
+      - --model-id
+      - nlpai-lab/KURE-v1
+      - --port
+      - "80"
+      - --max-batch-tokens
+      - "${KURE_TEI_MAX_BATCH_TOKENS:-512}"
+      - --max-client-batch-size
+      - "${KURE_TEI_MAX_CLIENT_BATCH_SIZE:-4}"
+    ports:
+      - "${KURE_TEI_PORT:-8080}:80"
+    volumes:
+      - kure-tei-data:/data
+    restart: unless-stopped
+
+volumes:
+  kure-tei-data:

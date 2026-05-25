@@ -173,6 +173,64 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
+    void validateAllowsConfiguredTeiEmbeddingProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultChatProvider("google");
+        properties.setDefaultEmbeddingProvider("kure");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.TEI);
+        provider.setBaseUrl("http://localhost:18080");
+        provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setModel("nlpai-lab/KURE-v1");
+        properties.getProviders().put("kure", provider);
+
+        AiSecretPresenceGuard guard = guard(properties, environment());
+
+        assertDoesNotThrow(guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingBaseUrlForTeiEmbeddingProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultChatProvider("google");
+        properties.setDefaultEmbeddingProvider("kure");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.TEI);
+        provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setModel("nlpai-lab/KURE-v1");
+        properties.getProviders().put("kure", provider);
+
+        AiSecretPresenceGuard guard = guard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
+    void validateRejectsMissingModelForTeiEmbeddingProvider() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setEnabled(true);
+        properties.setDefaultChatProvider("google");
+        properties.setDefaultEmbeddingProvider("kure");
+
+        Provider provider = new Provider();
+        provider.setEnabled(true);
+        provider.setType(ProviderType.TEI);
+        provider.setBaseUrl("http://localhost:18080");
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("kure", provider);
+
+        AiSecretPresenceGuard guard = guard(properties, environment());
+
+        assertThrows(IllegalStateException.class, guard::validate);
+    }
+
+    @Test
     void validateAllowsConfiguredSpringAiPropertiesForGoogleEmbedding() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setEnabled(true);

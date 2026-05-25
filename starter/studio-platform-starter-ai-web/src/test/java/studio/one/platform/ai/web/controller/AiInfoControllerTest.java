@@ -77,6 +77,35 @@ class AiInfoControllerTest {
     }
 
     @Test
+    void exposesTeiProviderFromStudioProviderProperties() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultChatProvider("google-ai-gemini");
+        properties.setDefaultEmbeddingProvider("kure");
+
+        AiAdapterProperties.Provider tei = new AiAdapterProperties.Provider();
+        tei.setType(AiAdapterProperties.ProviderType.TEI);
+        tei.setBaseUrl("http://localhost:18080");
+        tei.getEmbedding().setEnabled(true);
+        tei.getEmbedding().setModel("nlpai-lab/KURE-v1");
+        properties.getProviders().put("kure", tei);
+
+        AiInfoController controller = new AiInfoController(
+                properties,
+                new AiWebChatProperties(),
+                new MockEnvironment(),
+                null);
+
+        ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
+
+        assertThat(body.getData().defaultEmbeddingProvider()).isEqualTo("kure");
+        AiInfoController.ProviderInfo teiInfo = body.getData().providers().get(0);
+        assertThat(teiInfo.type()).isEqualTo(AiAdapterProperties.ProviderType.TEI);
+        assertThat(teiInfo.baseUrl()).isEqualTo("http://localhost:18080");
+        assertThat(teiInfo.chat().model()).isNull();
+        assertThat(teiInfo.embedding().model()).isEqualTo("nlpai-lab/KURE-v1");
+    }
+
+    @Test
     void skipsProvidersWithoutType() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("google-ai-gemini");

@@ -31,6 +31,7 @@ import studio.one.platform.skillgraph.application.service.DefaultSkillExtraction
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillMappingService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRecommendationService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillReferenceDatasetService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillTaxonomyService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizationService;
 import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
@@ -43,6 +44,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillExtractionService
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
+import studio.one.platform.skillgraph.application.usecase.SkillReferenceDatasetService;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.domain.port.SkillClusterer;
@@ -216,6 +218,15 @@ public class SkillGraphAutoConfiguration {
     @ConditionalOnMissingBean
     public SkillRecommendationService skillRecommendationService(SkillMappingStore mappingStore) {
         return new DefaultSkillRecommendationService(mappingStore);
+    }
+
+    @Bean(name = SkillReferenceDatasetService.SERVICE_NAME)
+    @ConditionalOnMissingBean
+    @ConditionalOnBean(SkillDatasetStore.class)
+    public SkillReferenceDatasetService skillReferenceDatasetService(
+            SkillDatasetStore datasetStore,
+            SkillEmbeddingPort embeddingPort) {
+        return new DefaultSkillReferenceDatasetService(datasetStore, embeddingPort);
     }
 
     @Bean(destroyMethod = "shutdown")
