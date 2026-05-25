@@ -23,6 +23,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillExtractionService
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
+import studio.one.platform.skillgraph.application.usecase.SkillReferenceDatasetService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
@@ -39,6 +40,7 @@ import studio.one.platform.skillgraph.web.controller.SkillGraphMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillGraphSimulationMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillMappingMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillRecommendationMgmtController;
+import studio.one.platform.skillgraph.web.controller.SkillReferenceDatasetMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillTaxonomyMgmtController;
 import studio.one.platform.skillgraph.web.controller.SkillVisualizationMgmtController;
 
@@ -154,5 +156,11 @@ public class SkillGraphWebAutoConfiguration {
     @ConditionalOnBean(SkillDatasetImportJobService.class)
     @Import(SkillDatasetImportMgmtController.class)
     static class SkillDatasetImportWebConfig {
+    }
+
+    @Configuration
+    @ConditionalOnBean(name = SkillReferenceDatasetService.SERVICE_NAME)
+    @Import(SkillReferenceDatasetMgmtController.class)
+    static class SkillReferenceDatasetWebConfig {
     }
 }

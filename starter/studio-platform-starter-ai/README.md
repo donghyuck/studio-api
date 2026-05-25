@@ -2,7 +2,7 @@
 
 AI 서비스(채팅, 임베딩, 벡터 스토어, RAG 파이프라인)를 자동 구성하는 스타터이다.
 애플리케이션 모듈은 이 스타터가 제공하는 포트와 `RagPipelineService`를 통해 공통 AI 기능을 재사용할 수 있다.
-멀티 프로바이더 팩토리 패턴을 통해 OpenAI, Google AI Gemini, Ollama 등 여러 LLM 프로바이더를
+멀티 프로바이더 팩토리 패턴을 통해 OpenAI, Google AI Gemini, Ollama, TEI 등 여러 LLM 프로바이더를
 동시에 등록하고, 기본 `ChatPort` / `EmbeddingPort` 빈을 노출한다. 기본 chat provider와 embedding provider는
 같은 provider를 쓰거나 별도 provider로 분리할 수 있다.
 JdbcTemplate이 컨텍스트에 있으면 pgvector 기반 `VectorStorePort`도 자동으로 생성된다.
@@ -71,7 +71,7 @@ studio:
       default-embedding-provider: openai # 기본 EmbeddingPort provider ID
     providers:
       <provider-id>:
-        type: OPENAI            # OPENAI | GOOGLE_AI_GEMINI | OLLAMA
+        type: OPENAI            # OPENAI | GOOGLE_AI_GEMINI | OLLAMA | TEI
         enabled: true
         chat:
           enabled: true
@@ -209,6 +209,41 @@ spring:
       embedding:
         options:
           model: nomic-embed-text
+```
+
+### 로컬 KURE/TEI embedding 예시
+
+KURE-v1은 Docker 기반 Hugging Face Text Embeddings Inference 서버로 실행하고,
+Studio에서는 `TEI` provider를 embedding 전용으로 등록한다.
+서버 실행과 운영 절차는 [`로컬 KURE embedding 서버`](../../docs/dev/local-kure-embedding.md)를 따른다.
+
+```yaml
+studio:
+  ai:
+    routing:
+      default-chat-provider: gemini
+      default-embedding-provider: kure
+    providers:
+      gemini:
+        type: GOOGLE_AI_GEMINI
+        enabled: true
+        chat:
+          enabled: true
+      kure:
+        type: TEI
+        enabled: true
+        base-url: http://localhost:8080
+        embedding:
+          enabled: true
+          model: nlpai-lab/KURE-v1
+    rag:
+      default-embedding-profile: retrieval-ko-kure
+      embedding-profiles:
+        retrieval-ko-kure:
+          provider: kure
+          model: nlpai-lab/KURE-v1
+          dimension: 1024
+          supported-input-types: [TEXT, TABLE_TEXT, IMAGE_CAPTION, OCR_TEXT]
 ```
 
 ### 엔드포인트 기본 경로 (선택)

@@ -43,6 +43,7 @@ public class AiSecretPresenceGuard {
                 case OPENAI -> validateOpenAiProvider(provider);
                 case GOOGLE_AI_GEMINI -> validateGoogleProvider(providerId, provider);
                 case OLLAMA -> validateOllamaProvider(providerId, provider);
+                case TEI -> validateTeiProvider(providerId, provider);
                 default -> {
                 }
             }
@@ -130,6 +131,15 @@ public class AiSecretPresenceGuard {
                             provider.getEmbedding().getModel(),
                             log),
                     "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
+        }
+    }
+
+    private void validateTeiProvider(String providerId, AiAdapterProperties.Provider provider) {
+        if (provider.getEmbedding().isEnabled()) {
+            requireText(provider.getBaseUrl(),
+                    "studio.ai.providers." + providerId + ".base-url must be configured for TEI embedding provider");
+            requireText(provider.getEmbedding().getModel(),
+                    "studio.ai.providers." + providerId + ".embedding.model must be configured for TEI embedding provider");
         }
     }
 

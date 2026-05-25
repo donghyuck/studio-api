@@ -16,6 +16,7 @@ import studio.one.platform.ai.autoconfigure.config.PromptConfiguration;
 import studio.one.platform.ai.autoconfigure.config.ProviderChatConfiguration;
 import studio.one.platform.ai.autoconfigure.config.ProviderEmbeddingConfiguration;
 import studio.one.platform.ai.autoconfigure.config.RagPipelineConfiguration;
+import studio.one.platform.ai.autoconfigure.config.TeiPortFactoryConfiguration;
 import studio.one.platform.ai.autoconfigure.config.VectorStoreConfiguration;
 import studio.one.platform.ai.core.chat.ChatPort;
 
@@ -28,6 +29,7 @@ import studio.one.platform.ai.core.chat.ChatPort;
                 GoogleGenAiChatPortFactoryConfiguration.class,
                 GoogleGenAiEmbeddingPortFactoryConfiguration.class,
                 OllamaPortFactoryConfiguration.class,
+                TeiPortFactoryConfiguration.class,
                 ProviderEmbeddingConfiguration.class,
                 ProviderChatConfiguration.class,
                 AiProviderRegistryConfiguration.class,

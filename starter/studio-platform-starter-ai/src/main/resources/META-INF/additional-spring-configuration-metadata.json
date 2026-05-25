@@ -37,7 +37,12 @@
     {
       "name": "studio.ai.providers.*.type",
       "type": "studio.one.platform.ai.autoconfigure.config.AiAdapterProperties$ProviderType",
-      "description": "Provider type for a named AI provider."
+      "description": "Provider type for a named AI provider. Supported values: OPENAI, GOOGLE_AI_GEMINI, OLLAMA, TEI."
+    },
+    {
+      "name": "studio.ai.providers.*.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL for providers that require an explicit HTTP endpoint, such as OLLAMA or TEI."
     },
     {
       "name": "studio.ai.providers.*.enabled",
@@ -56,6 +61,11 @@
       "type": "java.lang.Boolean",
       "defaultValue": false,
       "description": "Enable embedding support for a named AI provider."
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.model",
+      "type": "java.lang.String",
+      "description": "Embedding model name for provider metadata or non-Spring AI providers such as TEI."
     },
     {
       "name": "studio.ai.providers.*.google-embedding.task-type",

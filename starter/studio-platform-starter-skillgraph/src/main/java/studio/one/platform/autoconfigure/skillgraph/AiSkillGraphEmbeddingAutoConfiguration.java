@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 import studio.one.platform.skillgraph.infrastructure.embedding.AiSkillEmbeddingPort;
 
@@ -18,9 +19,11 @@ public class AiSkillGraphEmbeddingAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    @ConditionalOnBean(EmbeddingPort.class)
+    @ConditionalOnBean({EmbeddingPort.class, AiProviderRegistry.class})
     @ConditionalOnProperty(prefix = "studio.skillgraph.matching", name = "remote-embedding-enabled", havingValue = "true")
-    public SkillEmbeddingPort skillEmbeddingPort(EmbeddingPort embeddingPort) {
-        return new AiSkillEmbeddingPort(embeddingPort);
+    public SkillEmbeddingPort skillEmbeddingPort(
+            EmbeddingPort embeddingPort,
+            AiProviderRegistry providerRegistry) {
+        return new AiSkillEmbeddingPort(embeddingPort, providerRegistry);
     }
 }
