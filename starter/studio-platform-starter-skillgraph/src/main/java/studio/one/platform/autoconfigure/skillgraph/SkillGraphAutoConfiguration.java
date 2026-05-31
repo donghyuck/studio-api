@@ -24,10 +24,12 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.skillgraph.application.service.SkillMatchPolicy;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateRecommendationService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCategoryRelationService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillGraphBatchJobService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillMappingService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRecommendationService;
@@ -37,10 +39,13 @@ import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizat
 import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
 import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobWorker;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.usecase.SkillCandidateRecommendationService;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryRelationService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
+import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
+import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
@@ -54,30 +59,36 @@ import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillDatasetImportJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
+import studio.one.platform.skillgraph.domain.port.SkillGraphBatchJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillGraphStore;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillMappingStore;
 import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
+import studio.one.platform.skillgraph.domain.port.SkillRecommendationStore;
 import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
 import studio.one.platform.skillgraph.infrastructure.extraction.LlmSkillCandidateExtractor;
 import studio.one.platform.skillgraph.infrastructure.extraction.PatternSkillCandidateExtractor;
-import studio.one.platform.skillgraph.infrastructure.clustering.DistanceThresholdSkillClusterer;
+import studio.one.platform.skillgraph.infrastructure.clustering.HdbscanSkillClusterer;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillCategoryRelationStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillDictionaryStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillGraphBatchJobStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillGraphStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillMappingStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillProjectionStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillRagExtractionJobStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillRecommendationStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.jdbc.JdbcSkillTaxonomyStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCategoryRelationStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillGraphBatchJobStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillGraphStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillMappingStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillProjectionStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillRagExtractionJobStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillRecommendationStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillTaxonomyStore;
 import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDatasetImporter;
 import studio.one.platform.skillgraph.infrastructure.skilldataset.SkillDatasetStore;
@@ -113,7 +124,7 @@ public class SkillGraphAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public SkillClusterer skillClusterer(SkillGraphProperties properties) {
-        return new DistanceThresholdSkillClusterer(properties.getClustering().getRadius());
+        return new HdbscanSkillClusterer(properties.getClustering().getMinPoints(), properties.getClustering().getRadius());
     }
 
     @Bean(name = SkillExtractionService.SERVICE_NAME)
@@ -133,8 +144,32 @@ public class SkillGraphAutoConfiguration {
     public SkillCandidateReviewService skillCandidateReviewService(
             SkillCandidateStore candidateStore,
             SkillDictionaryStore dictionaryStore,
-            SkillEmbeddingPort embeddingPort) {
-        return new DefaultSkillCandidateReviewService(candidateStore, dictionaryStore, embeddingPort);
+            SkillEmbeddingPort embeddingPort,
+            SkillGraphBatchJobStore batchJobStore,
+            ObjectProvider<SkillGraphBatchJobNotifier> batchJobNotifierProvider,
+            @Qualifier("skillRagExtractionJobExecutor") Executor embeddingJobExecutor) {
+        return new DefaultSkillCandidateReviewService(candidateStore, dictionaryStore, embeddingPort, embeddingJobExecutor,
+                batchJobStore, batchJobNotifierProvider.getIfAvailable(() -> SkillGraphBatchJobNotifier.NOOP));
+    }
+
+    @Bean(name = SkillCandidateRecommendationService.SERVICE_NAME)
+    @ConditionalOnMissingBean
+    public SkillCandidateRecommendationService skillCandidateRecommendationService(
+            SkillRecommendationStore recommendationStore,
+            SkillCandidateStore candidateStore,
+            SkillDictionaryStore dictionaryStore,
+            SkillCandidateReviewService reviewService,
+            SkillGraphBatchJobStore batchJobStore,
+            ObjectProvider<SkillGraphBatchJobNotifier> batchJobNotifierProvider,
+            @Qualifier("skillRagExtractionJobExecutor") Executor jobExecutor) {
+        return new DefaultSkillCandidateRecommendationService(
+                recommendationStore,
+                candidateStore,
+                dictionaryStore,
+                reviewService,
+                jobExecutor,
+                batchJobStore,
+                batchJobNotifierProvider.getIfAvailable(() -> SkillGraphBatchJobNotifier.NOOP));
     }
 
     @Bean(name = SkillDictionaryService.SERVICE_NAME)
@@ -143,8 +178,17 @@ public class SkillGraphAutoConfiguration {
             SkillDictionaryStore dictionaryStore,
             SkillTaxonomyStore taxonomyStore,
             SkillEmbeddingPort embeddingPort,
+            SkillGraphBatchJobStore batchJobStore,
+            ObjectProvider<SkillGraphBatchJobNotifier> batchJobNotifierProvider,
             @Qualifier("skillRagExtractionJobExecutor") Executor embeddingJobExecutor) {
-        return new DefaultSkillDictionaryService(dictionaryStore, taxonomyStore, embeddingPort, embeddingJobExecutor);
+        return new DefaultSkillDictionaryService(dictionaryStore, taxonomyStore, embeddingPort, embeddingJobExecutor,
+                batchJobStore, batchJobNotifierProvider.getIfAvailable(() -> SkillGraphBatchJobNotifier.NOOP));
+    }
+
+    @Bean(name = SkillGraphBatchJobService.SERVICE_NAME)
+    @ConditionalOnMissingBean
+    public SkillGraphBatchJobService skillGraphBatchJobService(SkillGraphBatchJobStore batchJobStore) {
+        return new DefaultSkillGraphBatchJobService(batchJobStore);
     }
 
     @Bean(name = SkillVisualizationService.SERVICE_NAME)
@@ -153,8 +197,17 @@ public class SkillGraphAutoConfiguration {
     public SkillVisualizationService skillVisualizationService(
             SkillDictionaryStore dictionaryStore,
             SkillProjectionStore projectionStore,
-            SkillClusterer clusterer) {
-        return new DefaultSkillVisualizationService(dictionaryStore, projectionStore, clusterer);
+            SkillClusterer clusterer,
+            SkillGraphBatchJobStore batchJobStore,
+            ObjectProvider<SkillGraphBatchJobNotifier> batchJobNotifierProvider,
+            @Qualifier("skillRagExtractionJobExecutor") Executor jobExecutor) {
+        return new DefaultSkillVisualizationService(
+                dictionaryStore,
+                projectionStore,
+                clusterer,
+                jobExecutor,
+                batchJobStore,
+                batchJobNotifierProvider.getIfAvailable(() -> SkillGraphBatchJobNotifier.NOOP));
     }
 
     @Bean(name = SkillTaxonomyService.SERVICE_NAME)
@@ -422,6 +475,18 @@ public class SkillGraphAutoConfiguration {
             return new InMemorySkillRagExtractionJobStore();
         }
 
+        @Bean(name = SkillRecommendationStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillRecommendationStore skillRecommendationStore() {
+            return new InMemorySkillRecommendationStore();
+        }
+
+        @Bean(name = SkillGraphBatchJobStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillGraphBatchJobStore skillGraphBatchJobStore() {
+            return new InMemorySkillGraphBatchJobStore();
+        }
+
     }
 
     @Configuration
@@ -477,6 +542,18 @@ public class SkillGraphAutoConfiguration {
         @ConditionalOnMissingBean
         public SkillRagExtractionJobStore skillRagExtractionJobStore(NamedParameterJdbcTemplate template) {
             return new JdbcSkillRagExtractionJobStore(template);
+        }
+
+        @Bean(name = SkillRecommendationStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillRecommendationStore skillRecommendationStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillRecommendationStore(template);
+        }
+
+        @Bean(name = SkillGraphBatchJobStore.SERVICE_NAME)
+        @ConditionalOnMissingBean
+        public SkillGraphBatchJobStore skillGraphBatchJobStore(NamedParameterJdbcTemplate template) {
+            return new JdbcSkillGraphBatchJobStore(template);
         }
 
         @Bean

@@ -10,6 +10,7 @@ import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatchType;
+import studio.one.platform.skillgraph.domain.model.SkillEmbeddingMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 
 public interface SkillDictionaryStore {
@@ -22,7 +23,11 @@ public interface SkillDictionaryStore {
 
     Optional<SkillDictionary> findByNormalizedName(String normalizedName);
 
-    Page<SkillDictionary> search(String q, Pageable pageable);
+    default Page<SkillDictionary> search(String q, Pageable pageable) {
+        return search(q, null, null, pageable);
+    }
+
+    Page<SkillDictionary> search(String q, String status, String categoryId, Pageable pageable);
 
     default List<SkillDictionary> findByCategoryId(String categoryId, int limit) {
         return List.of();
@@ -57,16 +62,48 @@ public interface SkillDictionaryStore {
         return List.of();
     }
 
+    default List<SkillVectorItem> findVectorItems(
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            int limit) {
+        return findVectorItems(limit);
+    }
+
     default List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
         return List.of();
+    }
+
+    default List<SkillDictionary> findMissingEmbeddingSkills(String embeddingProvider, String embeddingModel, int limit) {
+        return findMissingEmbeddingSkills(limit);
     }
 
     default int countMissingEmbeddingSkills() {
         return findMissingEmbeddingSkills(Integer.MAX_VALUE).size();
     }
 
+    default int countMissingEmbeddingSkills(String embeddingProvider, String embeddingModel) {
+        return findMissingEmbeddingSkills(embeddingProvider, embeddingModel, Integer.MAX_VALUE).size();
+    }
+
     default SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
         throw new UnsupportedOperationException("Skill embedding persistence is not implemented");
+    }
+
+    default SkillDictionary saveEmbedding(
+            String skillId,
+            String embeddingProvider,
+            String embeddingModel,
+            List<Double> embedding) {
+        return saveEmbedding(skillId, embedding, embeddingModel);
+    }
+
+    default Optional<SkillEmbeddingMetadata> findEmbeddingMetadata(String skillId) {
+        return findEmbeddingMetadataList(skillId).stream().findFirst();
+    }
+
+    default List<SkillEmbeddingMetadata> findEmbeddingMetadataList(String skillId) {
+        return List.of();
     }
 
     default int updateCategory(List<String> skillIds, String categoryId) {

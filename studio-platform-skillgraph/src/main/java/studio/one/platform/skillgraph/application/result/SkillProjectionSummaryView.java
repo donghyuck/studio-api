@@ -9,6 +9,10 @@ public record SkillProjectionSummaryView(
         int itemCount,
         int clusterCount,
         String algorithm,
+        String reductionAlgorithm,
+        String embeddingProvider,
+        String embeddingModel,
+        Integer embeddingDimension,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -18,6 +22,10 @@ public record SkillProjectionSummaryView(
                 summary.itemCount(),
                 summary.clusterCount(),
                 summary.algorithm(),
+                summary.reductionAlgorithm(),
+                summary.embeddingProvider(),
+                summary.embeddingModel(),
+                summary.embeddingDimension(),
                 summary.createdAt(),
                 summary.updatedAt());
     }

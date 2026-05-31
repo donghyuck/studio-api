@@ -21,14 +21,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.skillgraph.application.command.GenerateSkillProjectionCommand;
 import studio.one.platform.skillgraph.application.result.SkillClusterView;
+import studio.one.platform.skillgraph.application.result.SkillGraphBatchJobView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionPointView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
 import studio.one.platform.skillgraph.application.result.SkillClusterRepresentativeView;
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.web.dto.request.SkillProjectionRequest;
-import studio.one.platform.skillgraph.web.dto.response.SkillProjectionResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -42,12 +43,24 @@ public class SkillVisualizationMgmtController {
 
     @PostMapping("/projections")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
-    public ResponseEntity<ApiResponse<SkillProjectionResponse>> generate(@Valid @RequestBody SkillProjectionRequest request) {
+    public ResponseEntity<ApiResponse<SkillGraphBatchJobView>> generate(@Valid @RequestBody SkillProjectionRequest request) {
         int limit = request.limit() == null ? 0 : request.limit();
-        return ResponseEntity.ok(ApiResponse.ok(SkillProjectionResponse.from(
-                visualizationService.generateProjection(request.projectionId(), limit))));
+        return ResponseEntity.ok(ApiResponse.ok(
+                visualizationService.generateProjectionJob(new GenerateSkillProjectionCommand(
+                        request.projectionId(),
+                        limit,
+                        request.reductionAlgorithm(),
+                        request.clusteringAlgorithm(),
+                        request.embeddingProvider(),
+                        request.embeddingModel(),
+                        request.embeddingDimension()))));
     }
 
+    /**
+     * List projections with pagination and sorting.
+     * @param pageable
+     * @return
+     */
     @GetMapping("/projections")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<Page<SkillProjectionSummaryView>>> projections(
@@ -55,6 +68,13 @@ public class SkillVisualizationMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(visualizationService.listProjections(pageable)));
     }
 
+    /**
+     * Fetch points for a specific projection, optionally filtered by clusterId.
+     * @param projectionId
+     * @param clusterId
+     * @param pageable
+     * @return
+     */
     @GetMapping("/projections/{projectionId}/points")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<Page<SkillProjectionPointView>>> points(

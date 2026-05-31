@@ -10,6 +10,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
@@ -68,11 +69,27 @@ class JdbcSkillGraphStoreTest {
                     source_id VARCHAR(200),
                     term VARCHAR(300) NOT NULL,
                     normalized_term VARCHAR(300) NOT NULL,
+                    search_text CLOB,
+                    skill_type VARCHAR(40),
+                    action VARCHAR(200),
+                    technology CLOB,
+                    target CLOB,
+                    evidence_text CLOB,
+                    context CLOB,
+                    difficulty VARCHAR(40),
+                    extraction_method VARCHAR(80),
+                    confidence_detail CLOB,
+                    source_position CLOB,
+                    normalization_info CLOB,
+                    mapping_candidates CLOB,
+                    review_status VARCHAR(40),
+                    feedback CLOB,
                     status VARCHAR(40) NOT NULL,
                     confidence DOUBLE NOT NULL,
                     occurrence_count INT NOT NULL,
                     matched_skill_id VARCHAR(100),
                     reviewer_note CLOB,
+                    embedding CLOB,
                     created_at TIMESTAMP NOT NULL,
                     updated_at TIMESTAMP NOT NULL
                 )
@@ -139,6 +156,11 @@ class JdbcSkillGraphStoreTest {
                     x DOUBLE NOT NULL,
                     y DOUBLE NOT NULL,
                     cluster_id VARCHAR(100),
+                    reduction_algorithm VARCHAR(30),
+                    clustering_algorithm VARCHAR(30),
+                    embedding_provider VARCHAR(100),
+                    embedding_model VARCHAR(200),
+                    embedding_dimension INT,
                     created_at TIMESTAMP NOT NULL,
                     PRIMARY KEY (projection_id, skill_id)
                 )
@@ -187,7 +209,11 @@ class JdbcSkillGraphStoreTest {
         Instant now = Instant.parse("2026-05-16T00:00:00Z");
         candidateStore.saveSourceChunk(new SkillSourceChunk("source-1", "course", "course-1", "chunk-1", "Spring", now));
         candidateStore.saveCandidate(new SkillCandidate("candidate-1", "source-1", "course", "course-1",
-                "Spring Boot", "spring boot", SkillCandidateStatus.PENDING, 0.9d, 1, null, null, now, now));
+                "Spring Boot", "spring boot", "Spring Boot REST API 구현", "TECH_SKILL", "구현",
+                List.of("Spring Boot"), "REST API", "Spring Boot API", "backend", "INTERMEDIATE",
+                "test", null, null, null, null, null, null,
+                false,
+                SkillCandidateStatus.PENDING, 0.9d, 1, null, null, now, now));
 
         var all = candidateStore.searchCandidates(null, null, null, null, 10);
         var filtered = candidateStore.searchCandidates(SkillCandidateStatus.PENDING, "spring", "course", "course-1", 10);
@@ -195,6 +221,8 @@ class JdbcSkillGraphStoreTest {
 
         assertEquals(1, all.size());
         assertEquals("candidate-1", filtered.get(0).candidateId());
+        assertEquals("Spring Boot REST API 구현", filtered.get(0).searchText());
+        assertEquals(List.of("Spring Boot"), filtered.get(0).technology());
         assertTrue(missing.isEmpty());
     }
 
@@ -206,6 +234,26 @@ class JdbcSkillGraphStoreTest {
         var skill = dictionaryStore.findByNormalizedName("spring boot").orElseThrow();
         assertEquals("skill-1", skill.skillId());
         assertEquals(1, dictionaryStore.search("spring", 10).size());
+    }
+
+    @Test
+    void dictionaryStoreSearchesWithFiltersAndSort() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        dictionaryStore.save(new SkillDictionary("skill-1", "Alpha API", "alpha api", "backend", "ACTIVE", now, now));
+        dictionaryStore.save(new SkillDictionary("skill-2", "Zulu API", "zulu api", "backend", "ACTIVE", now, now));
+        dictionaryStore.save(new SkillDictionary("skill-3", "Beta API", "beta api", "frontend", "ACTIVE", now, now));
+        dictionaryStore.save(new SkillDictionary("skill-4", "Legacy API", "legacy api", "backend", "INACTIVE", now, now));
+
+        var page = dictionaryStore.search(
+                "api",
+                "ACTIVE",
+                "backend",
+                PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "name")));
+
+        assertEquals(2, page.getTotalElements());
+        assertEquals(List.of("Zulu API", "Alpha API"), page.getContent().stream()
+                .map(SkillDictionary::name)
+                .toList());
     }
 
     @Test

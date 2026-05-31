@@ -66,6 +66,7 @@ public class SkillGraphProperties {
     @Setter
     public static class Clustering {
         private double radius = 0.24d;
+        private int minPoints = 5;
     }
 
     @Getter

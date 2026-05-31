@@ -7,6 +7,10 @@ public record SkillProjectionSummary(
         int itemCount,
         int clusterCount,
         String algorithm,
+        String reductionAlgorithm,
+        String embeddingProvider,
+        String embeddingModel,
+        Integer embeddingDimension,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -15,6 +19,9 @@ public record SkillProjectionSummary(
         itemCount = Math.max(0, itemCount);
         clusterCount = Math.max(0, clusterCount);
         algorithm = normalize(algorithm);
+        reductionAlgorithm = normalize(reductionAlgorithm);
+        embeddingProvider = normalize(embeddingProvider);
+        embeddingModel = normalize(embeddingModel);
         createdAt = createdAt == null ? Instant.now() : createdAt;
         updatedAt = updatedAt == null ? createdAt : updatedAt;
     }

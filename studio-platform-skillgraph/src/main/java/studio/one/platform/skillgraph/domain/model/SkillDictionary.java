@@ -8,8 +8,20 @@ public record SkillDictionary(
         String normalizedName,
         String categoryId,
         String status,
+        boolean embedded,
         Instant createdAt,
         Instant updatedAt) {
+
+    public SkillDictionary(
+            String skillId,
+            String name,
+            String normalizedName,
+            String categoryId,
+            String status,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(skillId, name, normalizedName, categoryId, status, false, createdAt, updatedAt);
+    }
 
     public SkillDictionary {
         skillId = requireText(skillId, "skillId");

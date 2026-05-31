@@ -1,3 +1,4 @@
 studio.one.platform.autoconfigure.skillgraph.AiSkillGraphEmbeddingAutoConfiguration
 studio.one.platform.autoconfigure.skillgraph.SkillGraphAutoConfiguration
+studio.one.platform.autoconfigure.skillgraph.SkillGraphRealtimeAutoConfiguration
 studio.one.platform.autoconfigure.skillgraph.SkillGraphWebAutoConfiguration

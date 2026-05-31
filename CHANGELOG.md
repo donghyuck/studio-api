@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### 변경됨
+- 이슈 #505 대응으로 SkillGraph 스킬 후보 자동 분석 및 추천 결과 일괄 승인 기능을 추가했다. 동일 embedding provider/model/dimension의 `tb_skill_embedding` 벡터만 비교해 신규 스킬 후보와 기존 스킬 매칭 추천 결과를 저장하고, 일괄 승인 시 기존 후보 approve/review 로직을 재사용해 신규 사전 등록 또는 기존 스킬 연결만 적용한다.
+- 이슈 #505 대응으로 SkillGraph 스킬 후보 추출 결과를 구조화했다. LLM prompt와 parser가 `searchText`, `skillType`, `action`, `technology`, `target`, `evidenceText`, `context`, `difficulty`를 처리하고, `tb_skill_candidate` 확장 컬럼 및 공통 `tb_skill_embedding` 테이블 migration을 추가했으며 dictionary embedding 유사도 매칭은 `searchText`를 우선 사용한다.
 - 로컬 KURE embedding 운영을 위해 `starter-ai`에 Hugging Face Text Embeddings Inference(TEI) embedding provider를 추가했다. `tools/kure-embedding-server/compose.yaml`로 `nlpai-lab/KURE-v1` 서버를 실행하고, `studio.ai.providers.<id>.type=TEI`와 `base-url` 설정으로 Gemini 대신 KURE embedding을 사용할 수 있다.
 - NCS/Skill reference dataset의 concept embedding 저장 테이블과 관리용 vectorize/vector-search API를 추가했다. 임포트된 `tb_skill_dataset_concept` 데이터를 `SkillEmbeddingPort`로 벡터화해 `tb_skill_dataset_concept_embedding`에 분리 저장하고, 동일 embedding provider/model/text type 기준의 pgvector cosine similarity 검색을 제공한다.
 - NCS reference embedding 생성 시 요청의 `embeddingProvider`/`embeddingModel`을 실제 AI provider 선택에 사용하도록 수정하고, 대량 concept 조회가 `dataset_id`, `provider`, `concept_type`, `concept_id` 순서로 빠르게 스캔되도록 PostgreSQL 복합 인덱스를 추가했다.

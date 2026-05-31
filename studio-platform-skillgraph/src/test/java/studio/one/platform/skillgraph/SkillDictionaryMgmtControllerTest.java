@@ -30,6 +30,8 @@ class SkillDictionaryMgmtControllerTest {
 
         var page = controller.search(
                 Optional.of("spring"),
+                Optional.empty(),
+                Optional.empty(),
                 PageRequest.of(0, 10)).getBody().getData();
 
         assertEquals("Spring Boot", response.name());
@@ -72,9 +74,13 @@ class SkillDictionaryMgmtControllerTest {
 
         var firstPage = controller.search(
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 PageRequest.of(0, 2)).getBody().getData();
 
         var secondPage = controller.search(
+                Optional.empty(),
+                Optional.empty(),
                 Optional.empty(),
                 PageRequest.of(1, 2)).getBody().getData();
 

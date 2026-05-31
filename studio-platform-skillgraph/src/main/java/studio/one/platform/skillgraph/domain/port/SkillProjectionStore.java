@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
+import studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
 
 public interface SkillProjectionStore {
@@ -15,6 +16,14 @@ public interface SkillProjectionStore {
     String SERVICE_NAME = "skillProjectionStore";
 
     void replaceProjection(String projectionId, List<SkillProjection> projections, List<SkillCluster> clusters);
+
+    default void replaceProjection(
+            String projectionId,
+            List<SkillProjection> projections,
+            List<SkillCluster> clusters,
+            SkillProjectionMetadata metadata) {
+        replaceProjection(projectionId, projections, clusters);
+    }
 
     Page<SkillProjectionSummary> listProjections(Pageable pageable);
 

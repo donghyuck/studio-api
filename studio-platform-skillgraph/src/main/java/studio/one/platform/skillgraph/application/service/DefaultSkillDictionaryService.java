@@ -2,10 +2,8 @@ package studio.one.platform.skillgraph.application.service;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -18,13 +16,19 @@ import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddin
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
+import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJob;
+import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobStatus;
+import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobType;
 import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
+import studio.one.platform.skillgraph.domain.port.SkillGraphBatchJobStore;
 import studio.one.platform.skillgraph.domain.port.SkillTaxonomyStore;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillGraphBatchJobStore;
 
 /**
  * 스킬 사전 조회 유스케이스 구현체.
@@ -62,7 +66,8 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
     private final SkillTaxonomyStore taxonomyStore;
     private final SkillEmbeddingPort embeddingPort;
     private final Executor embeddingJobExecutor;
-    private final Map<String, SkillDictionaryEmbeddingJob> embeddingJobs = new ConcurrentHashMap<>();
+    private final SkillGraphBatchJobStore jobStore;
+    private final SkillGraphBatchJobNotifier jobNotifier;
 
     public DefaultSkillDictionaryService(SkillDictionaryStore store) {
         this(store, new NoOpSkillEmbeddingPort());
@@ -84,15 +89,28 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
             SkillTaxonomyStore taxonomyStore,
             SkillEmbeddingPort embeddingPort,
             Executor embeddingJobExecutor) {
+        this(store, taxonomyStore, embeddingPort, embeddingJobExecutor,
+                new InMemorySkillGraphBatchJobStore(), SkillGraphBatchJobNotifier.NOOP);
+    }
+
+    public DefaultSkillDictionaryService(
+            SkillDictionaryStore store,
+            SkillTaxonomyStore taxonomyStore,
+            SkillEmbeddingPort embeddingPort,
+            Executor embeddingJobExecutor,
+            SkillGraphBatchJobStore jobStore,
+            SkillGraphBatchJobNotifier jobNotifier) {
         this.store = store;
         this.taxonomyStore = taxonomyStore;
         this.embeddingPort = embeddingPort == null ? new NoOpSkillEmbeddingPort() : embeddingPort;
         this.embeddingJobExecutor = embeddingJobExecutor == null ? Runnable::run : embeddingJobExecutor;
+        this.jobStore = jobStore == null ? new InMemorySkillGraphBatchJobStore() : jobStore;
+        this.jobNotifier = jobNotifier == null ? SkillGraphBatchJobNotifier.NOOP : jobNotifier;
     }
 
     @Override
-    public Page<SkillDictionaryView> search(String q, Pageable pageable) {
-        return store.search(q, pageable)
+    public Page<SkillDictionaryView> search(String q, String status, String categoryId, Pageable pageable) {
+        return store.search(q, status, categoryId, pageable)
                 .map(this::toView);
     }
 
@@ -130,69 +148,96 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
     }
 
     @Override
-    public SkillDictionaryEmbeddingResult embedMissing(int limit) {
+    public SkillDictionaryEmbeddingResult embedMissing(
+            String embeddingProvider,
+            String embeddingModel,
+            int embeddingDimension,
+            int limit) {
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? null : embeddingProvider.trim();
+        String model = embeddingModel == null || embeddingModel.isBlank() ? null : embeddingModel.trim();
+        int dimension = embeddingDimension <= 0 ? 0 : embeddingDimension;
         int max = normalizeLimit(limit);
-        int totalMissing = store.countMissingEmbeddingSkills();
-        List<SkillDictionary> missing = store.findMissingEmbeddingSkills(max);
+        int totalMissing = store.countMissingEmbeddingSkills(provider, model);
+        List<SkillDictionary> missing = store.findMissingEmbeddingSkills(provider, model, max);
         String jobId = "skill_dictionary_embedding_" + UUID.randomUUID();
         Instant now = Instant.now();
-        SkillDictionaryEmbeddingJob job = new SkillDictionaryEmbeddingJob(
+        SkillGraphBatchJob job = new SkillGraphBatchJob(
                 jobId,
-                SkillDictionaryEmbeddingJobStatus.READY,
+                SkillGraphBatchJobType.DICTIONARY_EMBEDDING,
+                SkillGraphBatchJobStatus.CREATED,
                 totalMissing,
                 missing.size(),
                 0,
                 0,
+                0,
                 Math.max(0, totalMissing - missing.size()),
-                now,
+                provider,
+                model,
+                dimension,
+                "{\"limit\":" + max + "}",
+                "Dictionary embedding job is queued",
+                null,
                 now,
                 null,
-                "Embedding job is queued");
-        embeddingJobs.put(jobId, job);
+                now,
+                null);
+        saveJob(job);
         try {
-            embeddingJobExecutor.execute(() -> runEmbeddingJob(jobId, missing, totalMissing));
+            embeddingJobExecutor.execute(() -> runEmbeddingJob(jobId, missing, totalMissing, provider, model, dimension));
         } catch (RejectedExecutionException ex) {
             Instant failedAt = Instant.now();
-            SkillDictionaryEmbeddingJob failedJob = job.withProgress(
-                    SkillDictionaryEmbeddingJobStatus.FAILED,
+            SkillGraphBatchJob failedJob = job.withProgress(
+                    SkillGraphBatchJobStatus.FAILED,
+                    0,
                     0,
                     missing.size(),
                     Math.max(0, totalMissing - missing.size()),
+                    "Embedding job queue is full",
                     failedAt,
-                    failedAt,
-                    "Embedding job queue is full");
-            embeddingJobs.put(jobId, failedJob);
-            return resultFrom(failedJob);
+                    failedAt);
+            saveJob(failedJob);
+            return resultFrom(toEmbeddingJob(failedJob));
         }
-        return resultFrom(currentJob(jobId).orElse(job));
+        return resultFrom(toEmbeddingJob(currentJob(jobId).orElse(job)));
     }
 
     @Override
     public SkillDictionaryEmbeddingJob getEmbeddingJob(String jobId) {
         String normalizedJobId = requireText(jobId, "jobId");
         return currentJob(normalizedJobId)
+                .map(this::toEmbeddingJob)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown embedding job: " + normalizedJobId));
     }
 
-    private void runEmbeddingJob(String jobId, List<SkillDictionary> missing, int totalMissing) {
+    private void runEmbeddingJob(
+            String jobId,
+            List<SkillDictionary> missing,
+            int totalMissing,
+            String provider,
+            String model,
+            int dimension) {
         Instant startedAt = Instant.now();
-        embeddingJobs.computeIfPresent(jobId,
-                (ignored, job) -> job.withStatus(SkillDictionaryEmbeddingJobStatus.RUNNING,
-                        "Embedding job is running", startedAt));
+        currentJob(jobId)
+                .map(job -> job.markStarted(startedAt, "Dictionary embedding job is running"))
+                .ifPresent(this::saveJob);
         int processed = 0;
         int failed = 0;
         int skipped = Math.max(0, totalMissing - missing.size());
         String lastFailureMessage = null;
         for (SkillDictionary skill : missing) {
             try {
-                List<Double> embedding = embeddingPort.embedSkill(skill.name());
+                List<Double> embedding = embeddingPort.embedSkill(skill.name(), provider, model);
                 if (embedding == null || embedding.isEmpty()) {
                     failed++;
                     lastFailureMessage = "Embedding provider returned an empty vector";
                     updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, lastFailureMessage);
                     continue;
                 }
-                store.saveEmbedding(skill.skillId(), embedding, null);
+                if (dimension > 0 && embedding.size() != dimension) {
+                    throw new IllegalStateException("Embedding dimension " + embedding.size()
+                            + " does not match requested dimension " + dimension);
+                }
+                store.saveEmbedding(skill.skillId(), provider, model, embedding);
                 processed++;
                 updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, null);
             } catch (RuntimeException ex) {
@@ -201,18 +246,19 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
                 updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, lastFailureMessage);
             }
         }
-        SkillDictionaryEmbeddingJobStatus status = failed == 0
-                ? SkillDictionaryEmbeddingJobStatus.COMPLETED
-                : processed > 0 ? SkillDictionaryEmbeddingJobStatus.PARTIAL : SkillDictionaryEmbeddingJobStatus.FAILED;
+        SkillGraphBatchJobStatus status = failed == 0
+                ? SkillGraphBatchJobStatus.COMPLETED
+                : processed > 0 ? SkillGraphBatchJobStatus.PARTIAL : SkillGraphBatchJobStatus.FAILED;
         Instant completedAt = Instant.now();
         String message = failed == 0 ? "Embedding job completed"
                 : "Embedding job completed with failures"
                         + (lastFailureMessage == null || lastFailureMessage.isBlank() ? "" : ": " + lastFailureMessage);
         int finalProcessed = processed;
         int finalFailed = failed;
-        embeddingJobs.computeIfPresent(jobId,
-                (ignored, job) -> job.withProgress(status, finalProcessed, finalFailed, skipped, completedAt,
-                        completedAt, message));
+        currentJob(jobId)
+                .map(job -> job.withProgress(status, finalProcessed, 0, finalFailed, skipped, message, completedAt,
+                        completedAt))
+                .ifPresent(this::saveJob);
     }
 
     private void updateEmbeddingJob(
@@ -224,14 +270,48 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
             String message) {
         Instant now = Instant.now();
         int skipped = Math.max(0, totalMissing - missing.size());
-        embeddingJobs.computeIfPresent(jobId,
-                (ignored, job) -> job.withProgress(SkillDictionaryEmbeddingJobStatus.RUNNING, processed, failed,
-                        skipped, now, null,
-                        message == null || message.isBlank() ? "Embedding job is running" : message));
+        currentJob(jobId)
+                .map(job -> job.withProgress(SkillGraphBatchJobStatus.RUNNING, processed, 0, failed,
+                        skipped,
+                        message == null || message.isBlank() ? "Embedding job is running" : message,
+                        now,
+                        null))
+                .ifPresent(this::saveJob);
     }
 
-    private Optional<SkillDictionaryEmbeddingJob> currentJob(String jobId) {
-        return Optional.ofNullable(embeddingJobs.get(jobId));
+    private Optional<SkillGraphBatchJob> currentJob(String jobId) {
+        return jobStore.findById(jobId);
+    }
+
+    private SkillGraphBatchJob saveJob(SkillGraphBatchJob job) {
+        SkillGraphBatchJob saved = jobStore.save(job);
+        jobNotifier.notifyJob(saved);
+        return saved;
+    }
+
+    private SkillDictionaryEmbeddingJob toEmbeddingJob(SkillGraphBatchJob job) {
+        return new SkillDictionaryEmbeddingJob(
+                job.jobId(),
+                toEmbeddingStatus(job.status()),
+                Math.toIntExact(job.totalCount()),
+                Math.toIntExact(job.requestedCount()),
+                Math.toIntExact(job.processedCount()),
+                Math.toIntExact(job.failedCount()),
+                Math.toIntExact(job.skippedCount()),
+                job.startedAt() == null ? job.createdAt() : job.startedAt(),
+                job.updatedAt(),
+                job.completedAt(),
+                job.errorMessage());
+    }
+
+    private SkillDictionaryEmbeddingJobStatus toEmbeddingStatus(SkillGraphBatchJobStatus status) {
+        return switch (status) {
+            case COMPLETED -> SkillDictionaryEmbeddingJobStatus.COMPLETED;
+            case PARTIAL -> SkillDictionaryEmbeddingJobStatus.PARTIAL;
+            case FAILED, CANCELED -> SkillDictionaryEmbeddingJobStatus.FAILED;
+            case RUNNING, VALIDATING -> SkillDictionaryEmbeddingJobStatus.RUNNING;
+            case CREATED -> SkillDictionaryEmbeddingJobStatus.READY;
+        };
     }
 
     private SkillDictionaryEmbeddingResult resultFrom(SkillDictionaryEmbeddingJob job) {
@@ -251,7 +331,7 @@ public class DefaultSkillDictionaryService implements SkillDictionaryService {
                 : taxonomyStore.findCategory(skill.categoryId())
                         .map(category -> category.name())
                         .orElse(null);
-        return SkillDictionaryView.from(skill, categoryName);
+        return SkillDictionaryView.from(skill, categoryName, store.findEmbeddingMetadataList(skill.skillId()));
     }
 
     private int normalizeLimit(int limit) {

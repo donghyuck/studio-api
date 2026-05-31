@@ -9,11 +9,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatchType;
+import studio.one.platform.skillgraph.domain.model.SkillEmbeddingMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
@@ -24,6 +26,7 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
     private final Map<String, String> skillIdByNormalizedAlias = new ConcurrentHashMap<>();
     private final Map<String, SkillAlias> aliases = new ConcurrentHashMap<>();
     private final Map<String, List<Double>> embeddingsBySkillId = new ConcurrentHashMap<>();
+    private final Map<String, SkillEmbeddingMetadata> embeddingMetadataByKey = new ConcurrentHashMap<>();
 
     @Override
     public SkillDictionary save(SkillDictionary skill) {
@@ -36,16 +39,46 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
         save(skill);
         if (embedding != null && !embedding.isEmpty()) {
             embeddingsBySkillId.put(skill.skillId(), List.copyOf(embedding));
+            embeddingMetadataByKey.put(embeddingKey(skill.skillId(), "unknown", "unknown"), new SkillEmbeddingMetadata(
+                    "unknown",
+                    "unknown",
+                    embedding.size(),
+                    java.time.Instant.now()));
         }
         return skill;
     }
 
     @Override
+    public List<SkillEmbeddingMetadata> findEmbeddingMetadataList(String skillId) {
+        String prefix = normalize(skillId) + "|";
+        return embeddingMetadataByKey.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(prefix))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
+    @Override
     public SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
+        return saveEmbedding(skillId, null, embeddingModel, embedding);
+    }
+
+    @Override
+    public SkillDictionary saveEmbedding(
+            String skillId,
+            String embeddingProvider,
+            String embeddingModel,
+            List<Double> embedding) {
         SkillDictionary skill = findById(skillId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown skill: " + skillId));
         if (embedding != null && !embedding.isEmpty()) {
             embeddingsBySkillId.put(skill.skillId(), List.copyOf(embedding));
+            String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider;
+            String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel;
+            embeddingMetadataByKey.put(embeddingKey(skill.skillId(), provider, model), new SkillEmbeddingMetadata(
+                    provider,
+                    model,
+                    embedding.size(),
+                    java.time.Instant.now()));
         }
         return skill;
     }
@@ -87,13 +120,17 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
     }
 
     @Override
-    public Page<SkillDictionary> search(String q, Pageable pageable) {
+    public Page<SkillDictionary> search(String q, String status, String categoryId, Pageable pageable) {
         String query = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
+        String statusFilter = status == null ? "" : status.trim();
+        String categoryFilter = categoryId == null ? "" : categoryId.trim();
         List<SkillDictionary> filtered = skills.values().stream()
                 .filter(skill -> query.isBlank()
                         || skill.normalizedName().contains(query)
                         || skill.name().toLowerCase(Locale.ROOT).contains(query))
-                .sorted(Comparator.comparing(SkillDictionary::name))
+                .filter(skill -> statusFilter.isBlank() || statusFilter.equals(skill.status()))
+                .filter(skill -> categoryFilter.isBlank() || categoryFilter.equals(skill.categoryId()))
+                .sorted(dictionaryComparator(pageable.getSort()))
                 .toList();
         int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
         int end = Math.min(start + pageable.getPageSize(), filtered.size());
@@ -104,6 +141,40 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
 
         );
 
+    }
+
+    private Comparator<SkillDictionary> dictionaryComparator(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return Comparator.comparing(SkillDictionary::name, Comparator.nullsLast(String::compareToIgnoreCase));
+        }
+        Comparator<SkillDictionary> comparator = null;
+        for (Sort.Order order : sort) {
+            Comparator<SkillDictionary> next = comparatorFor(order.getProperty());
+            if (next == null) {
+                continue;
+            }
+            if (order.isDescending()) {
+                next = next.reversed();
+            }
+            comparator = comparator == null ? next : comparator.thenComparing(next);
+        }
+        return comparator == null
+                ? Comparator.comparing(SkillDictionary::name, Comparator.nullsLast(String::compareToIgnoreCase))
+                : comparator;
+    }
+
+    private Comparator<SkillDictionary> comparatorFor(String property) {
+        Comparator<String> strings = Comparator.nullsLast(String::compareToIgnoreCase);
+        return switch (property) {
+            case "skillId", "skill_id" -> Comparator.comparing(SkillDictionary::skillId, strings);
+            case "name", "skillName", "skill_name" -> Comparator.comparing(SkillDictionary::name, strings);
+            case "normalizedName", "normalized_name" -> Comparator.comparing(SkillDictionary::normalizedName, strings);
+            case "status" -> Comparator.comparing(SkillDictionary::status, strings);
+            case "categoryId", "category_id" -> Comparator.comparing(SkillDictionary::categoryId, strings);
+            case "createdAt", "created_at" -> Comparator.comparing(SkillDictionary::createdAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            case "updatedAt", "updated_at" -> Comparator.comparing(SkillDictionary::updatedAt, Comparator.nullsLast(Comparator.naturalOrder()));
+            default -> null;
+        };
     }
 
     @Override
@@ -125,25 +196,40 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillVectorItem> findVectorItems(int limit) {
+        return findVectorItems(null, null, null, limit);
+    }
+
+    @Override
+    public List<SkillVectorItem> findVectorItems(String embeddingProvider, String embeddingModel, Integer embeddingDimension, int limit) {
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? null : embeddingProvider.trim();
+        String model = embeddingModel == null || embeddingModel.isBlank() ? null : embeddingModel.trim();
         return skills.values().stream()
-                .filter(skill -> embeddingsBySkillId.containsKey(skill.skillId()))
+                .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
+                .filter(skill -> hasEmbedding(skill.skillId(), provider, model, embeddingDimension))
                 .sorted(Comparator.comparing(SkillDictionary::name))
                 .limit(limit <= 0 ? Long.MAX_VALUE : limit)
                 .map(skill -> new SkillVectorItem(
                         skill.skillId(),
                         skill.name(),
-                        embeddingsBySkillId.get(skill.skillId()),
-                        null,
+                        embeddingFor(skill.skillId(), provider, model),
+                        model,
                         skill.createdAt()))
                 .toList();
     }
 
     @Override
     public List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
+        return findMissingEmbeddingSkills(null, null, limit);
+    }
+
+    @Override
+    public List<SkillDictionary> findMissingEmbeddingSkills(String embeddingProvider, String embeddingModel, int limit) {
         int max = limit <= 0 ? 100 : limit;
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider;
+        String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel;
         return skills.values().stream()
                 .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
-                .filter(skill -> !embeddingsBySkillId.containsKey(skill.skillId()))
+                .filter(skill -> !embeddingMetadataByKey.containsKey(embeddingKey(skill.skillId(), provider, model)))
                 .sorted(Comparator.comparing(SkillDictionary::name))
                 .limit(max)
                 .toList();
@@ -151,10 +237,12 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public int countMissingEmbeddingSkills() {
-        return (int) skills.values().stream()
-                .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
-                .filter(skill -> !embeddingsBySkillId.containsKey(skill.skillId()))
-                .count();
+        return countMissingEmbeddingSkills(null, null);
+    }
+
+    @Override
+    public int countMissingEmbeddingSkills(String embeddingProvider, String embeddingModel) {
+        return findMissingEmbeddingSkills(embeddingProvider, embeddingModel, Integer.MAX_VALUE).size();
     }
 
     @Override
@@ -220,5 +308,32 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
             return 0.0d;
         }
         return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+    }
+
+    private String embeddingKey(String skillId, String provider, String model) {
+        return normalize(skillId) + "|" + normalize(provider) + "|" + normalize(model);
+    }
+
+    private boolean hasEmbedding(String skillId, String provider, String model, Integer dimension) {
+        if (!embeddingsBySkillId.containsKey(skillId)) {
+            return false;
+        }
+        if (provider == null && model == null && (dimension == null || dimension <= 0)) {
+            return true;
+        }
+        return embeddingMetadataByKey.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(normalize(skillId) + "|"))
+                .map(Map.Entry::getValue)
+                .anyMatch(metadata -> (provider == null || provider.equals(metadata.embeddingProvider()))
+                        && (model == null || model.equals(metadata.embeddingModel()))
+                        && (dimension == null || dimension <= 0 || dimension.equals(metadata.embeddingDimension())));
+    }
+
+    private List<Double> embeddingFor(String skillId, String provider, String model) {
+        return embeddingsBySkillId.getOrDefault(skillId, List.of());
+    }
+
+    private String normalize(String value) {
+        return value == null ? "" : value.trim();
     }
 }
