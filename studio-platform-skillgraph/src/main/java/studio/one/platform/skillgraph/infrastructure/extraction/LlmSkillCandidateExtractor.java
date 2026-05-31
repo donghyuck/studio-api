@@ -98,10 +98,27 @@ public class LlmSkillCandidateExtractor implements SkillCandidateExtractor{
                     break;
                 }
                 String term = text(row.get("term"));
-                if (term == null || !seen.add(term.toLowerCase(java.util.Locale.ROOT))) {
+                if (term == null) {
                     continue;
                 }
-                terms.add(new SkillCandidateExtractor.ExtractedSkillTerm(term, confidence(row.get("confidence"))));
+                double confidence = confidence(row.get("confidence"));
+                if (confidence < 0.5d) {
+                    continue;
+                }
+                if (!seen.add(term.toLowerCase(java.util.Locale.ROOT))) {
+                    continue;
+                }
+                terms.add(new SkillCandidateExtractor.ExtractedSkillTerm(
+                        term,
+                        text(row.get("searchText")),
+                        text(row.get("skillType")),
+                        text(row.get("action")),
+                        textList(row.get("technology")),
+                        text(row.get("target")),
+                        text(row.get("evidenceText")),
+                        text(row.get("context")),
+                        text(row.get("difficulty")),
+                        confidence));
             }
             return terms;
         } catch (Exception ex) {
@@ -161,6 +178,20 @@ public class LlmSkillCandidateExtractor implements SkillCandidateExtractor{
             }
         }
         return Math.max(0.0d, Math.min(1.0d, confidence));
+    }
+
+    private List<String> textList(Object value) {
+        if (value == null) {
+            return List.of();
+        }
+        if (value instanceof List<?> list) {
+            return list.stream()
+                    .map(this::text)
+                    .filter(item -> item != null)
+                    .toList();
+        }
+        String text = text(value);
+        return text == null ? List.of() : List.of(text);
     }
 
 

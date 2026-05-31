@@ -17,6 +17,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
+import studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
 
@@ -27,13 +28,27 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
 
     @Override
     public void replaceProjection(String projectionId, List<SkillProjection> projections, List<SkillCluster> clusters) {
+        replaceProjection(projectionId, projections, clusters, null);
+    }
+
+    @Override
+    public void replaceProjection(String projectionId, List<SkillProjection> projections, List<SkillCluster> clusters,
+            SkillProjectionMetadata metadata) {
         template.update("DELETE FROM tb_skill_projection WHERE projection_id = :projectionId",
                 Map.of("projectionId", projectionId));
         for (SkillProjection projection : projections) {
             template.update("""
-                    INSERT INTO tb_skill_projection(projection_id, skill_id, x, y, cluster_id, created_at)
-                    VALUES(:projectionId, :skillId, :x, :y, :clusterId, :createdAt)
-                    """, projectionParams(projection));
+                    INSERT INTO tb_skill_projection(
+                        projection_id, skill_id, x, y, cluster_id,
+                        reduction_algorithm, clustering_algorithm,
+                        embedding_provider, embedding_model, embedding_dimension,
+                        created_at)
+                    VALUES(
+                        :projectionId, :skillId, :x, :y, :clusterId,
+                        :reductionAlgorithm, :clusteringAlgorithm,
+                        :embeddingProvider, :embeddingModel, :embeddingDimension,
+                        :createdAt)
+                    """, projectionParams(projection, metadata));
         }
         if (clusters != null) {
             for (SkillCluster cluster : clusters) {
@@ -51,7 +66,11 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 SELECT p.projection_id,
                        COUNT(*) AS item_count,
                        COUNT(DISTINCT p.cluster_id) AS cluster_count,
-                       MIN(c.algorithm) AS algorithm,
+                       COALESCE(MIN(p.clustering_algorithm), MIN(c.algorithm)) AS algorithm,
+                       MIN(p.reduction_algorithm) AS reduction_algorithm,
+                       MIN(p.embedding_provider) AS embedding_provider,
+                       MIN(p.embedding_model) AS embedding_model,
+                       MIN(p.embedding_dimension) AS embedding_dimension,
                        MIN(p.created_at) AS created_at,
                        MAX(p.created_at) AS updated_at
                 FROM tb_skill_projection p
@@ -140,13 +159,18 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
         }
     }
 
-    private MapSqlParameterSource projectionParams(SkillProjection projection) {
+    private MapSqlParameterSource projectionParams(SkillProjection projection, SkillProjectionMetadata metadata) {
         return new MapSqlParameterSource()
                 .addValue("projectionId", projection.projectionId())
                 .addValue("skillId", projection.skillId())
                 .addValue("x", projection.x())
                 .addValue("y", projection.y())
                 .addValue("clusterId", projection.clusterId())
+                .addValue("reductionAlgorithm", metadata == null ? null : metadata.reductionAlgorithm())
+                .addValue("clusteringAlgorithm", metadata == null ? null : metadata.clusteringAlgorithm())
+                .addValue("embeddingProvider", metadata == null ? null : metadata.embeddingProvider())
+                .addValue("embeddingModel", metadata == null ? null : metadata.embeddingModel())
+                .addValue("embeddingDimension", metadata == null ? null : metadata.embeddingDimension())
                 .addValue("createdAt", Timestamp.from(projection.createdAt()));
     }
 
@@ -185,6 +209,10 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 rs.getInt("item_count"),
                 rs.getInt("cluster_count"),
                 rs.getString("algorithm"),
+                rs.getString("reduction_algorithm"),
+                rs.getString("embedding_provider"),
+                rs.getString("embedding_model"),
+                (Integer) rs.getObject("embedding_dimension"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
     }

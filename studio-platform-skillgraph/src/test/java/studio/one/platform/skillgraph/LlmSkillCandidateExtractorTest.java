@@ -34,7 +34,7 @@ class LlmSkillCandidateExtractorTest {
         CapturingChatPort chatPort = new CapturingChatPort("""
                 [
                   {"term":"Spring Boot","confidence":0.93},
-                  {"term":"JPA","confidence":1.2},
+                  {"term":"JPA","searchText":"JPA ORM 매핑 구현","skillType":"TECH_SKILL","action":"구현","technology":["JPA"],"target":"ORM 매핑","evidenceText":"JPA","context":"backend","difficulty":"INTERMEDIATE","confidence":1.2},
                   {"term":"spring boot","confidence":0.4},
                   {"term":"Kubernetes","confidence":"0.7"}
                 ]
@@ -48,6 +48,9 @@ class LlmSkillCandidateExtractorTest {
         assertEquals("Spring Boot", result.candidates().get(0).term());
         assertEquals(0.93d, result.candidates().get(0).confidence());
         assertEquals("JPA", result.candidates().get(1).term());
+        assertEquals("JPA ORM 매핑 구현", result.candidates().get(1).searchText());
+        assertEquals("TECH_SKILL", result.candidates().get(1).skillType());
+        assertEquals(List.of("JPA"), result.candidates().get(1).technology());
         assertEquals(1.0d, result.candidates().get(1).confidence());
         assertEquals("skill-extraction", promptRenderer.name);
         assertEquals(2, promptRenderer.params.get("maxTerms"));

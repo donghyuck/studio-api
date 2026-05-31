@@ -12,12 +12,14 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.model.SkillEmbeddingMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
@@ -72,6 +74,15 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public SkillDictionary saveEmbedding(String skillId, List<Double> embedding, String embeddingModel) {
+        return saveEmbedding(skillId, null, embeddingModel, embedding);
+    }
+
+    @Override
+    public SkillDictionary saveEmbedding(
+            String skillId,
+            String embeddingProvider,
+            String embeddingModel,
+            List<Double> embedding) {
         SkillDictionary skill = findById(skillId)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown skill: " + skillId));
         if (embedding == null || embedding.isEmpty()) {
@@ -86,7 +97,53 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 .addValue("skillId", skillId)
                 .addValue("embedding", vectorLiteral(embedding))
                 .addValue("updatedAt", Timestamp.from(Instant.now())));
+        saveEmbeddingMetadata(skillId, embeddingProvider, embeddingModel, embedding);
         return findById(skillId).orElse(skill);
+    }
+
+    private void saveEmbeddingMetadata(
+            String skillId,
+            String embeddingProvider,
+            String embeddingModel,
+            List<Double> embedding) {
+        String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel.trim();
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
+        template.update("""
+                INSERT INTO tb_skill_embedding
+                    (embedding_id, source_type, source_id, embedding_provider, embedding_model,
+                     embedding_dimension, embedding_text, embedding, created_at)
+                VALUES
+                    (:embeddingId, 'SKILL_DICTIONARY', :skillId, :embeddingProvider, :embeddingModel,
+                     :embeddingDimension, :embeddingText, CAST(:embedding AS vector), :createdAt)
+                ON CONFLICT (source_type, source_id, embedding_provider, embedding_model)
+                DO UPDATE SET
+                    embedding_dimension = EXCLUDED.embedding_dimension,
+                    embedding_text = EXCLUDED.embedding_text,
+                    embedding = EXCLUDED.embedding,
+                    created_at = EXCLUDED.created_at
+                """, new MapSqlParameterSource()
+                .addValue("embeddingId", "skill_dictionary_embedding_" + skillId + "_" + Integer.toHexString(model.hashCode()))
+                .addValue("skillId", skillId)
+                .addValue("embeddingProvider", provider)
+                .addValue("embeddingModel", model)
+                .addValue("embeddingDimension", embedding.size())
+                .addValue("embeddingText", skillId)
+                .addValue("embedding", vectorLiteral(embedding))
+                .addValue("createdAt", Timestamp.from(Instant.now())));
+    }
+
+    @Override
+    public List<SkillEmbeddingMetadata> findEmbeddingMetadataList(String skillId) {
+        return template.query("""
+                SELECT embedding_provider, embedding_model, embedding_dimension, created_at
+                FROM tb_skill_embedding
+                WHERE source_type = 'SKILL_DICTIONARY' AND source_id = :skillId
+                ORDER BY created_at DESC
+                """, Map.of("skillId", skillId), (rs, rowNum) -> new SkillEmbeddingMetadata(
+                rs.getString("embedding_provider"),
+                rs.getString("embedding_model"),
+                rs.getInt("embedding_dimension"),
+                instant(rs.getTimestamp("created_at"))));
     }
 
     @Override
@@ -111,25 +168,32 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
     }
 
     @Override
-    public Page<SkillDictionary> search(String q, Pageable pageable) {
+    public Page<SkillDictionary> search(String q, String status, String categoryId, Pageable pageable) {
         String query = q == null ? "" : q.trim().toLowerCase();
+        String statusFilter = status == null ? "" : status.trim();
+        String categoryFilter = categoryId == null ? "" : categoryId.trim();
         int limit = pageable.getPageSize();
         long offset = pageable.getOffset();
 
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("q", query)
                 .addValue("likeQ", "%" + query + "%")
+                .addValue("status", statusFilter)
+                .addValue("categoryId", categoryFilter)
                 .addValue("limit", limit)
                 .addValue("offset", offset);
 
         String whereSql = """
                 WHERE (:q = '' OR LOWER(name) LIKE :likeQ OR normalized_name LIKE :likeQ)
+                  AND (:status = '' OR status = :status)
+                  AND (:categoryId = '' OR category_id = :categoryId)
                 """;
+        String orderSql = dictionaryOrderBy(pageable.getSort());
 
         List<SkillDictionary> content = template.query("""
                 SELECT * FROM tb_skill_dictionary
                 """ + whereSql + """
-                ORDER BY name
+                """ + orderSql + """
                 LIMIT :limit OFFSET :offset
                 """, params, this::mapSkill);
 
@@ -141,6 +205,36 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 Long.class);
 
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    }
+
+    private String dictionaryOrderBy(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return "ORDER BY name ASC\n";
+        }
+        List<String> orders = new ArrayList<>();
+        sort.forEach(order -> {
+            String column = dictionarySortColumn(order.getProperty());
+            if (column != null) {
+                orders.add(column + (order.isDescending() ? " DESC" : " ASC"));
+            }
+        });
+        if (orders.isEmpty()) {
+            return "ORDER BY name ASC\n";
+        }
+        return "ORDER BY " + String.join(", ", orders) + "\n";
+    }
+
+    private String dictionarySortColumn(String property) {
+        return switch (property) {
+            case "skillId", "skill_id" -> "skill_id";
+            case "name", "skillName", "skill_name" -> "name";
+            case "normalizedName", "normalized_name" -> "normalized_name";
+            case "status" -> "status";
+            case "categoryId", "category_id" -> "category_id";
+            case "createdAt", "created_at" -> "created_at";
+            case "updatedAt", "updated_at" -> "updated_at";
+            default -> null;
+        };
     }
 
     @Override
@@ -168,39 +262,109 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillVectorItem> findVectorItems(int limit) {
+        return findVectorItems(null, null, null, limit);
+    }
+
+    @Override
+    public List<SkillVectorItem> findVectorItems(
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            int limit) {
         String limitClause = limit <= 0 ? "" : "LIMIT :limit";
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        StringBuilder filters = new StringBuilder();
+        if (embeddingProvider != null && !embeddingProvider.isBlank()) {
+            filters.append(" AND e.embedding_provider = :embeddingProvider\n");
+            params.addValue("embeddingProvider", embeddingProvider.trim());
+        }
+        if (embeddingModel != null && !embeddingModel.isBlank()) {
+            filters.append(" AND e.embedding_model = :embeddingModel\n");
+            params.addValue("embeddingModel", embeddingModel.trim());
+        }
+        if (embeddingDimension != null && embeddingDimension > 0) {
+            filters.append(" AND e.embedding_dimension = :embeddingDimension\n");
+            params.addValue("embeddingDimension", embeddingDimension);
+        }
+        if (limit > 0) {
+            params.addValue("limit", limit);
+        }
         return template.query("""
-                SELECT skill_id, name, embedding::text AS embedding_text, created_at
-                FROM tb_skill_dictionary
-                WHERE status = 'ACTIVE' AND embedding IS NOT NULL
-                ORDER BY name
+                SELECT d.skill_id,
+                       d.name,
+                       e.embedding::text AS embedding_text,
+                       e.embedding_model,
+                       e.created_at
+                FROM tb_skill_dictionary d
+                JOIN tb_skill_embedding e
+                  ON e.source_type = 'SKILL_DICTIONARY'
+                 AND e.source_id = d.skill_id
+                WHERE d.status = 'ACTIVE'
                 %s
-                """.formatted(limitClause), limit <= 0 ? Map.of() : Map.of("limit", limit), (rs, rowNum) -> new SkillVectorItem(
+                ORDER BY d.name
+                %s
+                """.formatted(filters, limitClause), params, (rs, rowNum) -> new SkillVectorItem(
                 rs.getString("skill_id"),
                 rs.getString("name"),
                 parseVector(rs.getString("embedding_text")),
-                null,
+                rs.getString("embedding_model"),
                 instant(rs.getTimestamp("created_at"))));
     }
 
     @Override
     public List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
+        return findMissingEmbeddingSkills(null, null, limit);
+    }
+
+    @Override
+    public List<SkillDictionary> findMissingEmbeddingSkills(String embeddingProvider, String embeddingModel, int limit) {
         int max = limit <= 0 ? 100 : limit;
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
+        String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel.trim();
         return template.query("""
-                SELECT * FROM tb_skill_dictionary
-                WHERE status = 'ACTIVE' AND embedding IS NULL
-                ORDER BY name
+                SELECT d.*
+                FROM tb_skill_dictionary d
+                WHERE d.status = 'ACTIVE'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM tb_skill_embedding e
+                      WHERE e.source_type = 'SKILL_DICTIONARY'
+                        AND e.source_id = d.skill_id
+                        AND e.embedding_provider = :embeddingProvider
+                        AND e.embedding_model = :embeddingModel
+                  )
+                ORDER BY d.name
                 LIMIT :limit
-                """, Map.of("limit", max), this::mapSkill);
+                """, new MapSqlParameterSource()
+                .addValue("embeddingProvider", provider)
+                .addValue("embeddingModel", model)
+                .addValue("limit", max), this::mapSkill);
     }
 
     @Override
     public int countMissingEmbeddingSkills() {
+        return countMissingEmbeddingSkills(null, null);
+    }
+
+    @Override
+    public int countMissingEmbeddingSkills(String embeddingProvider, String embeddingModel) {
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
+        String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel.trim();
         Integer count = template.queryForObject("""
                 SELECT COUNT(*)
-                FROM tb_skill_dictionary
-                WHERE status = 'ACTIVE' AND embedding IS NULL
-                """, Map.of(), Integer.class);
+                FROM tb_skill_dictionary d
+                WHERE d.status = 'ACTIVE'
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM tb_skill_embedding e
+                      WHERE e.source_type = 'SKILL_DICTIONARY'
+                        AND e.source_id = d.skill_id
+                        AND e.embedding_provider = :embeddingProvider
+                        AND e.embedding_model = :embeddingModel
+                  )
+                """, new MapSqlParameterSource()
+                .addValue("embeddingProvider", provider)
+                .addValue("embeddingModel", model), Integer.class);
         return count == null ? 0 : count;
     }
 
@@ -283,8 +447,19 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 rs.getString("normalized_name"),
                 rs.getString("category_id"),
                 rs.getString("status"),
+                hasColumn(rs, "embedding") && rs.getObject("embedding") != null,
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
+    }
+
+    private boolean hasColumn(ResultSet rs, String column) throws SQLException {
+        int count = rs.getMetaData().getColumnCount();
+        for (int index = 1; index <= count; index++) {
+            if (column.equalsIgnoreCase(rs.getMetaData().getColumnLabel(index))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String vectorLiteral(List<Double> embedding) {

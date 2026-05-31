@@ -42,9 +42,17 @@ public class SkillDictionaryMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
     public ResponseEntity<ApiResponse<Page<SkillDictionaryView>>> search(
             @RequestParam(value = "q", required = false) Optional<String> q,
+            @RequestParam(value = "status", required = false) Optional<String> status,
+            @RequestParam(value = "categoryId", required = false) Optional<String> categoryId,
             @PageableDefault(size = 15, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
         Page<SkillDictionaryView> page = dictionaryService.search(
                 q.map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .orElse(null),
+                status.map(String::trim)
+                        .filter(value -> !value.isBlank())
+                        .orElse(null),
+                categoryId.map(String::trim)
                         .filter(value -> !value.isBlank())
                         .orElse(null),
                 pageable);
@@ -70,7 +78,11 @@ public class SkillDictionaryMgmtController {
     public ResponseEntity<ApiResponse<?>> embedMissing(
             @Valid @RequestBody(required = false) SkillDictionaryEmbeddingRequest request) {
         int limit = request == null || request.limit() == null ? 500 : request.limit();
-        return ResponseEntity.ok(ApiResponse.ok(dictionaryService.embedMissing(limit)));
+        return ResponseEntity.ok(ApiResponse.ok(dictionaryService.embedMissing(
+                request == null ? null : request.embeddingProvider(),
+                request == null ? null : request.embeddingModel(),
+                request == null || request.embeddingDim() == null ? 0 : request.embeddingDim(),
+                limit)));
     }
 
     @GetMapping("/embeddings/jobs/{jobId}")

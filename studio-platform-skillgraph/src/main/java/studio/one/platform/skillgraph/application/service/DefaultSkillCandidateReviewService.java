@@ -4,7 +4,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -14,9 +17,13 @@ import studio.one.platform.skillgraph.application.command.SkillCandidateBulkRevi
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
 import studio.one.platform.skillgraph.application.result.SkillCandidateAutoApproveResult;
 import studio.one.platform.skillgraph.application.result.SkillCandidateAutoApproveSkip;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillMatchedDictionaryView;
 import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
+import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
 import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillAlias;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
@@ -24,10 +31,15 @@ import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatchType;
+import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJob;
+import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobStatus;
+import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobType;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
+import studio.one.platform.skillgraph.domain.port.SkillGraphBatchJobStore;
 import studio.one.platform.skillgraph.domain.port.NoOpSkillEmbeddingPort;
+import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillGraphBatchJobStore;
 
 /**
  * * 스킬 후보 검토 유스케이스 구현체.
@@ -65,6 +77,9 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
     private final SkillCandidateStore store;
     private final SkillDictionaryStore dictionaryStore;
     private final SkillEmbeddingPort embeddingPort;
+    private final Executor embeddingJobExecutor;
+    private final SkillGraphBatchJobStore jobStore;
+    private final SkillGraphBatchJobNotifier jobNotifier;
 
     public DefaultSkillCandidateReviewService(SkillCandidateStore store) {
         this(store, null, new NoOpSkillEmbeddingPort());
@@ -78,9 +93,31 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
             SkillCandidateStore store,
             SkillDictionaryStore dictionaryStore,
             SkillEmbeddingPort embeddingPort) {
+        this(store, dictionaryStore, embeddingPort, Runnable::run);
+    }
+
+    public DefaultSkillCandidateReviewService(
+            SkillCandidateStore store,
+            SkillDictionaryStore dictionaryStore,
+            SkillEmbeddingPort embeddingPort,
+            Executor embeddingJobExecutor) {
+        this(store, dictionaryStore, embeddingPort, embeddingJobExecutor,
+                new InMemorySkillGraphBatchJobStore(), SkillGraphBatchJobNotifier.NOOP);
+    }
+
+    public DefaultSkillCandidateReviewService(
+            SkillCandidateStore store,
+            SkillDictionaryStore dictionaryStore,
+            SkillEmbeddingPort embeddingPort,
+            Executor embeddingJobExecutor,
+            SkillGraphBatchJobStore jobStore,
+            SkillGraphBatchJobNotifier jobNotifier) {
         this.store = store;
         this.dictionaryStore = dictionaryStore;
         this.embeddingPort = embeddingPort == null ? new NoOpSkillEmbeddingPort() : embeddingPort;
+        this.embeddingJobExecutor = embeddingJobExecutor == null ? Runnable::run : embeddingJobExecutor;
+        this.jobStore = jobStore == null ? new InMemorySkillGraphBatchJobStore() : jobStore;
+        this.jobNotifier = jobNotifier == null ? SkillGraphBatchJobNotifier.NOOP : jobNotifier;
     }
 
     @Override
@@ -173,6 +210,186 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                 skipped);
     }
 
+    @Override
+    public SkillDictionaryEmbeddingResult embedMissing(
+            String embeddingProvider,
+            String embeddingModel,
+            int embeddingDimension,
+            int limit) {
+        String provider = requireText(embeddingProvider, "embeddingProvider");
+        String model = requireText(embeddingModel, "embeddingModel");
+        int dimension = embeddingDimension <= 0 ? 768 : embeddingDimension;
+        int max = normalizeLimit(limit);
+        int totalMissing = store.countMissingEmbeddings(provider, model);
+        List<SkillCandidate> missing = store.findMissingEmbeddings(provider, model, max);
+        String jobId = "skill_candidate_embedding_" + UUID.randomUUID();
+        Instant now = Instant.now();
+        SkillGraphBatchJob job = new SkillGraphBatchJob(
+                jobId,
+                SkillGraphBatchJobType.CANDIDATE_EMBEDDING,
+                SkillGraphBatchJobStatus.CREATED,
+                totalMissing,
+                missing.size(),
+                0,
+                0,
+                0,
+                Math.max(0, totalMissing - missing.size()),
+                provider,
+                model,
+                dimension,
+                "{\"limit\":" + max + "}",
+                "Candidate embedding job is queued",
+                null,
+                now,
+                null,
+                now,
+                null);
+        saveJob(job);
+        try {
+            embeddingJobExecutor.execute(() -> runEmbeddingJob(jobId, missing, totalMissing, provider, model, dimension));
+        } catch (RejectedExecutionException ex) {
+            Instant failedAt = Instant.now();
+            SkillGraphBatchJob failedJob = job.withProgress(
+                    SkillGraphBatchJobStatus.FAILED,
+                    0,
+                    0,
+                    missing.size(),
+                    Math.max(0, totalMissing - missing.size()),
+                    "Embedding job queue is full",
+                    failedAt,
+                    failedAt);
+            saveJob(failedJob);
+            return resultFrom(toEmbeddingJob(failedJob));
+        }
+        return resultFrom(toEmbeddingJob(currentJob(jobId).orElse(job)));
+    }
+
+    @Override
+    public SkillDictionaryEmbeddingJob getEmbeddingJob(String jobId) {
+        String normalizedJobId = requireText(jobId, "jobId");
+        return currentJob(normalizedJobId)
+                .map(this::toEmbeddingJob)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown embedding job: " + normalizedJobId));
+    }
+
+    private void runEmbeddingJob(
+            String jobId,
+            List<SkillCandidate> missing,
+            int totalMissing,
+            String provider,
+            String model,
+            int dimension) {
+        Instant startedAt = Instant.now();
+        currentJob(jobId)
+                .map(job -> job.markStarted(startedAt, "Candidate embedding job is running"))
+                .ifPresent(this::saveJob);
+        int processed = 0;
+        int failed = 0;
+        int skipped = Math.max(0, totalMissing - missing.size());
+        String lastFailureMessage = null;
+        for (SkillCandidate candidate : missing) {
+            try {
+                String embeddingText = candidate.embeddingText();
+                List<Double> embedding = embeddingPort.embedSkill(embeddingText, provider, model);
+                if (embedding == null || embedding.isEmpty()) {
+                    failed++;
+                    lastFailureMessage = "Embedding provider returned an empty vector";
+                    updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, lastFailureMessage);
+                    continue;
+                }
+                if (embedding.size() != dimension) {
+                    throw new IllegalStateException("Embedding dimension " + embedding.size()
+                            + " does not match requested dimension " + dimension);
+                }
+                store.saveEmbedding(candidate.candidateId(), provider, model, dimension, embeddingText, embedding);
+                processed++;
+                updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, null);
+            } catch (RuntimeException ex) {
+                failed++;
+                lastFailureMessage = ex.getMessage();
+                updateEmbeddingJob(jobId, missing, totalMissing, processed, failed, lastFailureMessage);
+            }
+        }
+        SkillGraphBatchJobStatus status = failed == 0
+                ? SkillGraphBatchJobStatus.COMPLETED
+                : processed > 0 ? SkillGraphBatchJobStatus.PARTIAL : SkillGraphBatchJobStatus.FAILED;
+        Instant completedAt = Instant.now();
+        String message = failed == 0 ? "Candidate embedding job completed"
+                : "Candidate embedding job completed with failures"
+                        + (lastFailureMessage == null || lastFailureMessage.isBlank() ? "" : ": " + lastFailureMessage);
+        int finalProcessed = processed;
+        int finalFailed = failed;
+        currentJob(jobId)
+                .map(job -> job.withProgress(status, finalProcessed, 0, finalFailed, skipped, message, completedAt,
+                        completedAt))
+                .ifPresent(this::saveJob);
+    }
+
+    private void updateEmbeddingJob(
+            String jobId,
+            List<SkillCandidate> missing,
+            int totalMissing,
+            int processed,
+            int failed,
+            String message) {
+        Instant now = Instant.now();
+        int skipped = Math.max(0, totalMissing - missing.size());
+        currentJob(jobId)
+                .map(job -> job.withProgress(SkillGraphBatchJobStatus.RUNNING, processed, 0, failed,
+                        skipped,
+                        message == null || message.isBlank() ? "Candidate embedding job is running" : message,
+                        now,
+                        null))
+                .ifPresent(this::saveJob);
+    }
+
+    private Optional<SkillGraphBatchJob> currentJob(String jobId) {
+        return jobStore.findById(jobId);
+    }
+
+    private SkillGraphBatchJob saveJob(SkillGraphBatchJob job) {
+        SkillGraphBatchJob saved = jobStore.save(job);
+        jobNotifier.notifyJob(saved);
+        return saved;
+    }
+
+    private SkillDictionaryEmbeddingJob toEmbeddingJob(SkillGraphBatchJob job) {
+        return new SkillDictionaryEmbeddingJob(
+                job.jobId(),
+                toEmbeddingStatus(job.status()),
+                Math.toIntExact(job.totalCount()),
+                Math.toIntExact(job.requestedCount()),
+                Math.toIntExact(job.processedCount()),
+                Math.toIntExact(job.failedCount()),
+                Math.toIntExact(job.skippedCount()),
+                job.startedAt() == null ? job.createdAt() : job.startedAt(),
+                job.updatedAt(),
+                job.completedAt(),
+                job.errorMessage());
+    }
+
+    private SkillDictionaryEmbeddingJobStatus toEmbeddingStatus(SkillGraphBatchJobStatus status) {
+        return switch (status) {
+            case COMPLETED -> SkillDictionaryEmbeddingJobStatus.COMPLETED;
+            case PARTIAL -> SkillDictionaryEmbeddingJobStatus.PARTIAL;
+            case FAILED, CANCELED -> SkillDictionaryEmbeddingJobStatus.FAILED;
+            case RUNNING, VALIDATING -> SkillDictionaryEmbeddingJobStatus.RUNNING;
+            case CREATED -> SkillDictionaryEmbeddingJobStatus.READY;
+        };
+    }
+
+    private SkillDictionaryEmbeddingResult resultFrom(SkillDictionaryEmbeddingJob job) {
+        return new SkillDictionaryEmbeddingResult(
+                job.totalCount(),
+                job.requestedCount(),
+                job.processedCount(),
+                job.skippedCount(),
+                job.failedCount(),
+                job.jobId(),
+                job.status(),
+                job.message());
+    }
+
     private SkillCandidateView approve(SkillCandidate candidate, String reviewerNote, boolean generateEmbedding) {
         SkillCandidate approved = candidate.withStatus(
                 SkillCandidateStatus.APPROVED,
@@ -237,7 +454,8 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
     }
 
     private SkillCandidateView toView(SkillCandidate candidate) {
-        return SkillCandidateView.from(candidate, matchedSkill(candidate));
+        return SkillCandidateView.from(candidate, matchedSkill(candidate),
+                store.findEmbeddingMetadataList(candidate.candidateId()));
     }
 
     private SkillMatchedDictionaryView matchedSkill(SkillCandidate candidate) {
@@ -328,6 +546,20 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
     private String normalizeSource(String value) {
         if (value == null || value.isBlank()) {
             return null;
+        }
+        return value.trim();
+    }
+
+    private int normalizeLimit(int limit) {
+        if (limit <= 0) {
+            return 100;
+        }
+        return Math.min(limit, 2000);
+    }
+
+    private String requireText(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be blank");
         }
         return value.trim();
     }

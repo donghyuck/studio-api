@@ -10,6 +10,8 @@ import studio.one.platform.skillgraph.application.command.SkillCandidateBulkRevi
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
 import studio.one.platform.skillgraph.application.result.SkillCandidateAutoApproveResult;
 import studio.one.platform.skillgraph.application.result.SkillCandidateView;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 
 public interface SkillCandidateReviewService {
@@ -30,4 +32,16 @@ public interface SkillCandidateReviewService {
     List<SkillCandidateView> reviewAll(SkillCandidateBulkReviewCommand command);
 
     SkillCandidateAutoApproveResult autoApprove(SkillCandidateAutoApproveCommand command);
+
+    default SkillDictionaryEmbeddingResult embedMissing(
+            String embeddingProvider,
+            String embeddingModel,
+            int embeddingDimension,
+            int limit) {
+        throw new UnsupportedOperationException("Skill candidate embedding is not implemented");
+    }
+
+    default SkillDictionaryEmbeddingJob getEmbeddingJob(String jobId) {
+        throw new UnsupportedOperationException("Skill candidate embedding job lookup is not implemented");
+    }
 }

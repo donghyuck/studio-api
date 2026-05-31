@@ -12,11 +12,23 @@ public interface SkillDictionaryService {
 
     String SERVICE_NAME = "skillDictionaryService";
 
-    Page<SkillDictionaryView> search(String q, Pageable pageable);
+    default Page<SkillDictionaryView> search(String q, Pageable pageable) {
+        return search(q, null, null, pageable);
+    }
+
+    Page<SkillDictionaryView> search(String q, String status, String categoryId, Pageable pageable);
 
     SkillDictionaryView create(CreateSkillDictionaryCommand command);
 
-    SkillDictionaryEmbeddingResult embedMissing(int limit);
+    default SkillDictionaryEmbeddingResult embedMissing(int limit) {
+        return embedMissing(null, null, 0, limit);
+    }
+
+    SkillDictionaryEmbeddingResult embedMissing(
+            String embeddingProvider,
+            String embeddingModel,
+            int embeddingDimension,
+            int limit);
 
     SkillDictionaryEmbeddingJob getEmbeddingJob(String jobId);
 

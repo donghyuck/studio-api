@@ -12,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
+import studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
 import studio.one.platform.skillgraph.domain.port.SkillProjectionStore;
 
@@ -19,12 +20,20 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
 
     private final Map<String, Map<String, SkillProjection>> projectionsByProjectionId = new ConcurrentHashMap<>();
     private final Map<String, List<SkillCluster>> clustersByProjectionId = new ConcurrentHashMap<>();
+    private final Map<String, SkillProjectionMetadata> metadataByProjectionId = new ConcurrentHashMap<>();
 
     @Override
     public void replaceProjection(String projectionId, List<SkillProjection> projections, List<SkillCluster> clusters) {
+        replaceProjection(projectionId, projections, clusters, null);
+    }
+
+    @Override
+    public void replaceProjection(String projectionId, List<SkillProjection> projections, List<SkillCluster> clusters,
+            SkillProjectionMetadata metadata) {
         if (projections == null || projections.isEmpty()) {
             projectionsByProjectionId.remove(projectionId);
             clustersByProjectionId.remove(projectionId);
+            metadataByProjectionId.remove(projectionId);
             return;
         }
         Map<String, SkillProjection> points = new ConcurrentHashMap<>();
@@ -33,6 +42,9 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
         }
         projectionsByProjectionId.put(projectionId, points);
         clustersByProjectionId.put(projectionId, clusters == null ? List.of() : List.copyOf(clusters));
+        if (metadata != null) {
+            metadataByProjectionId.put(projectionId, metadata);
+        }
     }
 
     @Override
@@ -70,6 +82,7 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
 
     private SkillProjectionSummary summary(String projectionId, List<SkillProjection> projections) {
         List<SkillCluster> clusters = clustersByProjectionId.getOrDefault(projectionId, List.of());
+        SkillProjectionMetadata metadata = metadataByProjectionId.get(projectionId);
         return new SkillProjectionSummary(
                 projectionId,
                 projections.size(),
@@ -83,6 +96,10 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
                         .filter(algorithm -> algorithm != null && !algorithm.isBlank())
                         .findFirst()
                         .orElse(null),
+                metadata == null ? null : metadata.reductionAlgorithm(),
+                metadata == null ? null : metadata.embeddingProvider(),
+                metadata == null ? null : metadata.embeddingModel(),
+                metadata == null ? null : metadata.embeddingDimension(),
                 projections.stream()
                         .map(SkillProjection::createdAt)
                         .min(Comparator.naturalOrder())

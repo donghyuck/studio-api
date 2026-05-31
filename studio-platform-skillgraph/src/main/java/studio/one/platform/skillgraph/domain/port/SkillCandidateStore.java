@@ -9,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStats;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
+import studio.one.platform.skillgraph.domain.model.SkillEmbeddingMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillSourceChunk;
 
 public interface SkillCandidateStore {
@@ -25,6 +26,35 @@ public interface SkillCandidateStore {
 
     default List<SkillCandidateStats> findCandidateStatsBySkillIds(List<String> skillIds) {
         return List.of();
+    }
+
+    default List<SkillCandidate> findMissingEmbeddings(
+            String embeddingProvider,
+            String embeddingModel,
+            int limit) {
+        return List.of();
+    }
+
+    default int countMissingEmbeddings(String embeddingProvider, String embeddingModel) {
+        return findMissingEmbeddings(embeddingProvider, embeddingModel, Integer.MAX_VALUE).size();
+    }
+
+    default Optional<SkillEmbeddingMetadata> findEmbeddingMetadata(String candidateId) {
+        return findEmbeddingMetadataList(candidateId).stream().findFirst();
+    }
+
+    default List<SkillEmbeddingMetadata> findEmbeddingMetadataList(String candidateId) {
+        return List.of();
+    }
+
+    default SkillCandidate saveEmbedding(
+            String candidateId,
+            String embeddingProvider,
+            String embeddingModel,
+            int embeddingDimension,
+            String embeddingText,
+            List<Double> embedding) {
+        throw new UnsupportedOperationException("Skill candidate embedding persistence is not implemented");
     }
 
     default Optional<SkillCandidate> findCandidateBySourceAndNormalizedTerm(

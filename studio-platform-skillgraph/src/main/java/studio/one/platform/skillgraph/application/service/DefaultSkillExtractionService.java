@@ -161,7 +161,7 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
             SkillCandidateExtractor.ExtractedSkillTerm term,
             String normalized,
             Instant now) {
-        Optional<SkillDictionaryMatch> match = findDictionaryMatch(term.term(), normalized);
+        Optional<SkillDictionaryMatch> match = findDictionaryMatch(term.term(), normalized, term.searchText());
         SkillCandidateStatus status = match
                 .map(this::statusFor)
                 .orElse(SkillCandidateStatus.PENDING);
@@ -177,6 +177,22 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
                 command.sourceId(),
                 term.term(),
                 normalized,
+                term.searchText(),
+                term.skillType(),
+                term.action(),
+                term.technology(),
+                term.target(),
+                term.evidenceText(),
+                term.context(),
+                term.difficulty(),
+                extractor.getClass().getSimpleName(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
                 status,
                 term.confidence(),
                 1,
@@ -186,7 +202,7 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
                 now);
     }
 
-    private Optional<SkillDictionaryMatch> findDictionaryMatch(String term, String normalized) {
+    private Optional<SkillDictionaryMatch> findDictionaryMatch(String term, String normalized, String searchText) {
         if (dictionaryStore == null) {
             return Optional.empty();
         }
@@ -194,7 +210,7 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
         if (exactOrAlias.isPresent()) {
             return exactOrAlias;
         }
-        List<Double> embedding = embeddingPort.embedSkill(term);
+        List<Double> embedding = embeddingPort.embedSkill(embeddingText(term, searchText));
         if (embedding.isEmpty()) {
             return Optional.empty();
         }
@@ -223,7 +239,7 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
         if (skill == null) {
             return null;
         }
-        SkillDictionaryMatch match = findDictionaryMatch(candidate.term(), candidate.normalizedTerm())
+        SkillDictionaryMatch match = findDictionaryMatch(candidate.term(), candidate.normalizedTerm(), candidate.searchText())
                 .filter(result -> result.skill().skillId().equals(candidate.matchedSkillId()))
                 .orElse(null);
         return SkillMatchedDictionaryView.from(
@@ -235,6 +251,10 @@ public class DefaultSkillExtractionService implements SkillExtractionService {
     private String excerpt(String text) {
         int maxLength = 2048;
         return text.length() <= maxLength ? text : text.substring(0, maxLength);
+    }
+
+    private String embeddingText(String term, String searchText) {
+        return searchText == null || searchText.isBlank() ? term : searchText;
     }
 
 }

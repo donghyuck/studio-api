@@ -16,6 +16,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -31,6 +32,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewSe
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.web.dto.request.SkillCandidateAutoApproveRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillCandidateBulkReviewRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillCandidateEmbeddingRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillCandidateReviewRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillCandidateDto;
 import studio.one.platform.web.dto.ApiResponse;
@@ -53,12 +55,17 @@ public class SkillCandidateMgmtController {
             @RequestParam(value = "q", required = false) Optional<@Size(max = 200) String> q,
             @RequestParam(value = "sourceType", required = false) @Size(max = 100) String sourceType,
             @RequestParam(value = "sourceId", required = false) @Size(max = 200) String sourceId,
+            @RequestParam(value = "skillType", required = false) @Size(max = 100) String skillType,
             @PageableDefault(size = 15, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        String query = q.map(String::trim)
+                .filter(value -> !value.isBlank())
+                .orElse(null);
+        if (skillType != null && !skillType.isBlank()) {
+            query = query == null ? "skillType:" + skillType.trim() : query + " skillType:" + skillType.trim();
+        }
         Page<SkillCandidateView> page = reviewService.search(
                 status,
-                q.map(String::trim)
-                        .filter(value -> !value.isBlank())
-                        .orElse(null),
+                query,
                 sourceType,
                 sourceId,
                 pageable);
@@ -95,6 +102,25 @@ public class SkillCandidateMgmtController {
                 request.minSimilarityScore(),
                 request.generateEmbedding(),
                 request.reviewerNote()))));
+    }
+
+    @PostMapping("/embeddings/missing")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<?>> embedMissing(
+            @Valid @RequestBody SkillCandidateEmbeddingRequest request) {
+        int limit = request.limit() == null ? 500 : request.limit();
+        int embeddingDim = request.embeddingDim() == null ? 768 : request.embeddingDim();
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.embedMissing(
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                embeddingDim,
+                limit)));
+    }
+
+    @GetMapping("/embeddings/jobs/{jobId}")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<?>> getEmbeddingJob(@PathVariable @Size(max = 120) String jobId) {
+        return ResponseEntity.ok(ApiResponse.ok(reviewService.getEmbeddingJob(jobId)));
     }
 
     @PatchMapping("/{candidateId}")

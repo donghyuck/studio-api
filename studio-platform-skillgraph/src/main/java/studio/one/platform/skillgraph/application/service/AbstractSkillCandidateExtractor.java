@@ -102,7 +102,7 @@ public abstract class AbstractSkillCandidateExtractor implements SkillExtraction
             SkillCandidateExtractor.ExtractedSkillTerm term,
             String normalized,
             Instant now) {
-        Optional<SkillDictionaryMatch> match = findDictionaryMatch(term.term(), normalized);
+        Optional<SkillDictionaryMatch> match = findDictionaryMatch(term.term(), normalized, term.searchText());
         SkillCandidateStatus status = match
                 .map(this::statusFor)
                 .orElse(SkillCandidateStatus.PENDING);
@@ -118,6 +118,22 @@ public abstract class AbstractSkillCandidateExtractor implements SkillExtraction
                 command.sourceId(),
                 term.term(),
                 normalized,
+                term.searchText(),
+                term.skillType(),
+                term.action(),
+                term.technology(),
+                term.target(),
+                term.evidenceText(),
+                term.context(),
+                term.difficulty(),
+                getClass().getSimpleName(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
                 status,
                 term.confidence(),
                 1,
@@ -127,7 +143,7 @@ public abstract class AbstractSkillCandidateExtractor implements SkillExtraction
                 now);
     }
 
-    private Optional<SkillDictionaryMatch> findDictionaryMatch(String term, String normalized) {
+    private Optional<SkillDictionaryMatch> findDictionaryMatch(String term, String normalized, String searchText) {
         if (dictionaryStore == null) {
             return Optional.empty();
         }
@@ -135,7 +151,7 @@ public abstract class AbstractSkillCandidateExtractor implements SkillExtraction
         if (exactOrAlias.isPresent()) {
             return exactOrAlias;
         }
-        List<Double> embedding = embeddingPort.embedSkill(term);
+        List<Double> embedding = embeddingPort.embedSkill(searchText == null || searchText.isBlank() ? term : searchText);
         if (embedding.isEmpty()) {
             return Optional.empty();
         }
