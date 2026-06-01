@@ -39,7 +39,7 @@ public record SkillProjectionSummary(
         itemCount = Math.max(0, itemCount);
         clusterCount = Math.max(0, clusterCount);
         algorithm = normalize(algorithm);
-        skillType = SkillType.normalizeName(skillType);
+        skillType = SkillType.normalizeNameOrNull(skillType);
         jobId = normalize(jobId);
         projectionType = normalize(projectionType);
         reductionAlgorithm = normalize(reductionAlgorithm);

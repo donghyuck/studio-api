@@ -24,7 +24,7 @@ public record SkillProjectionMetadata(
 
     public SkillProjectionMetadata {
         jobId = normalize(jobId);
-        skillType = SkillType.normalizeName(skillType);
+        skillType = SkillType.normalizeNameOrNull(skillType);
         projectionType = normalize(projectionType);
         reductionAlgorithm = normalize(reductionAlgorithm);
         projectionDimension = projectionDimension == null || projectionDimension <= 0 ? null : projectionDimension;

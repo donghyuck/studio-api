@@ -14,6 +14,8 @@ import java.util.concurrent.RejectedExecutionException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGenerator;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionPoint;
@@ -26,6 +28,7 @@ import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
 import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
+import studio.one.platform.skillgraph.domain.constants.SkillGraphLimits;
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillClusterMember;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJob;
@@ -69,6 +72,7 @@ import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemory
  *        </pre>
  */
 public class DefaultSkillVisualizationService implements SkillVisualizationService {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final SkillDictionaryStore dictionaryStore;
     private final SkillProjectionStore projectionStore;
@@ -203,7 +207,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                 embeddingModel,
                 embeddingDimension,
                 parameters,
-                clustered.projections().stream().map(SkillProjectionPointView::from).toList(),
+                artifacts.projections().stream().map(SkillProjectionPointView::from).toList(),
                 artifacts.clusters().stream().map(SkillClusterView::from).toList());
     }
 
@@ -514,18 +518,21 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
             Integer projectionDimension,
             String clusteringAlgorithm,
             String parameters) {
-        return """
-                {"skillType":"%s","embeddingProvider":"%s","embeddingModel":"%s","embeddingDimension":%d,"projectionAlgorithm":"%s","projectionType":"%s","projectionDimension":%d,"clusteringAlgorithm":"%s","parameters":%s}
-                """.formatted(
-                escapeJson(skillType),
-                escapeJson(embeddingProvider),
-                escapeJson(embeddingModel),
-                embeddingDimension == null ? 0 : embeddingDimension,
-                reductionAlgorithm == null ? "" : reductionAlgorithm,
-                projectionType == null ? "" : projectionType,
-                projectionDimension == null ? 0 : projectionDimension,
-                clusteringAlgorithm == null ? "" : clusteringAlgorithm,
-                jsonString(parameters)).trim();
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("skillType", skillType);
+        payload.put("embeddingProvider", embeddingProvider);
+        payload.put("embeddingModel", embeddingModel);
+        payload.put("embeddingDimension", embeddingDimension);
+        payload.put("projectionAlgorithm", reductionAlgorithm);
+        payload.put("projectionType", projectionType);
+        payload.put("projectionDimension", projectionDimension);
+        payload.put("clusteringAlgorithm", clusteringAlgorithm);
+        payload.put("parameters", parameters);
+        try {
+            return OBJECT_MAPPER.writeValueAsString(payload);
+        } catch (JsonProcessingException ex) {
+            return "{}";
+        }
     }
 
     private String jsonString(String value) {
@@ -533,10 +540,6 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
             return "null";
         }
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-    }
-
-    private String escapeJson(String value) {
-        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private String scopedClusterId(String projectionId, String clusterId) {
@@ -652,7 +655,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         if (limit <= 0) {
             return 0;
         }
-        return limit;
+        return Math.min(limit, SkillGraphLimits.MAX_PROJECTION_ITEMS);
     }
 
     private String normalizeReductionAlgorithm(String algorithm) {

@@ -6,16 +6,16 @@ ALTER TABLE tb_skill_projection
     ADD COLUMN IF NOT EXISTS job_id VARCHAR(120),
     ADD COLUMN IF NOT EXISTS projection_type VARCHAR(40),
     ADD COLUMN IF NOT EXISTS projection_dimension INT,
-    ADD COLUMN IF NOT EXISTS metadata JSON;
+    ADD COLUMN IF NOT EXISTS metadata TEXT;
 
 ALTER TABLE tb_skill_cluster
     ADD COLUMN IF NOT EXISTS skill_type VARCHAR(40),
     ADD COLUMN IF NOT EXISTS job_id VARCHAR(120),
     ADD COLUMN IF NOT EXISTS cluster_label INT,
-    ADD COLUMN IF NOT EXISTS representative_skill_ids JSON,
+    ADD COLUMN IF NOT EXISTS representative_skill_ids TEXT,
     ADD COLUMN IF NOT EXISTS centroid_projection_id VARCHAR(120),
     ADD COLUMN IF NOT EXISTS confidence DECIMAL(5, 4),
-    ADD COLUMN IF NOT EXISTS metadata JSON;
+    ADD COLUMN IF NOT EXISTS metadata TEXT;
 
 CREATE TABLE IF NOT EXISTS tb_skill_cluster_member (
     cluster_id VARCHAR(100) NOT NULL,
