@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.application.result.SkillClusterView;
 import studio.one.platform.skillgraph.application.command.GenerateSkillProjectionCommand;
+import studio.one.platform.skillgraph.application.result.SkillClusterMemberView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionPointView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
 import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
@@ -31,4 +32,8 @@ public interface SkillVisualizationService {
     Page<SkillProjectionPointView> findProjectionPoints(String projectionId, String clusterId, Pageable pageable);
 
     List<SkillClusterView> findClusters(String projectionId);
+
+    default Page<SkillClusterMemberView> findClusterMembers(String projectionId, String clusterId, Pageable pageable) {
+        throw new UnsupportedOperationException("Cluster member lookup is not implemented");
+    }
 }

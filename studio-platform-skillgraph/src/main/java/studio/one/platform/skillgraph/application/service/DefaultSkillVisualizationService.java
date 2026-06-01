@@ -2,6 +2,8 @@ package studio.one.platform.skillgraph.application.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,6 +18,7 @@ import studio.one.platform.ai.core.vector.visualization.UmapVectorProjectionGene
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjectionPoint;
 import studio.one.platform.skillgraph.application.command.GenerateSkillProjectionCommand;
+import studio.one.platform.skillgraph.application.result.SkillClusterMemberView;
 import studio.one.platform.skillgraph.application.result.SkillClusterView;
 import studio.one.platform.skillgraph.application.result.SkillGraphBatchJobView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionPointView;
@@ -23,11 +26,14 @@ import studio.one.platform.skillgraph.application.result.SkillProjectionResult;
 import studio.one.platform.skillgraph.application.result.SkillProjectionSummaryView;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
+import studio.one.platform.skillgraph.domain.model.SkillCluster;
+import studio.one.platform.skillgraph.domain.model.SkillClusterMember;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJob;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobStatus;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobType;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata;
+import studio.one.platform.skillgraph.domain.model.SkillType;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillClusterer;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
@@ -126,12 +132,17 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         String resolvedProjectionId = normalizeProjectionId(command == null ? null : command.projectionId());
         int max = normalizeLimit(command == null ? 0 : command.limit());
         String reductionAlgorithm = normalizeReductionAlgorithm(command == null ? null : command.reductionAlgorithm());
+        String skillType = normalizeSkillType(command == null ? null : command.skillType());
+        String projectionType = normalizeProjectionType(command == null ? null : command.projectionType());
+        Integer projectionDimension = normalizeDimension(command == null ? null : command.projectionDimension());
         String clusteringAlgorithm = normalizeClusteringAlgorithm(command == null ? null : command.clusteringAlgorithm());
         String embeddingProvider = normalizeText(command == null ? null : command.embeddingProvider());
         String embeddingModel = normalizeText(command == null ? null : command.embeddingModel());
         Integer embeddingDimension = command == null ? null : normalizeDimension(command.embeddingDimension());
+        String parameters = normalizeText(command == null ? null : command.parameters());
         Instant now = Instant.now();
-        List<SkillVectorItem> skillItems = dictionaryStore.findVectorItems(embeddingProvider, embeddingModel, embeddingDimension, max);
+        List<SkillVectorItem> skillItems = dictionaryStore.findVectorItems(skillType, embeddingProvider, embeddingModel,
+                embeddingDimension, max);
         List<VectorItem> vectorItems = skillItems.stream()
                 .map(item -> new VectorItem(
                         item.skillId(),
@@ -142,36 +153,62 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                         item.embedding(),
                         item.embeddingModel(),
                         item.embedding().size(),
-                        Map.of("skillId", item.skillId()),
+                        Map.of("skillId", item.skillId(), "skillType", item.skillType()),
                         item.createdAt()))
                 .toList();
         List<SkillProjection> points = project(resolvedProjectionId, vectorItems, reductionAlgorithm, now);
         SkillClusterer.SkillClusteringResult clustered = clusterer.cluster(resolvedProjectionId, points);
-        SkillProjectionMetadata metadata = new SkillProjectionMetadata(
-                reductionAlgorithm,
+        ClusterRunArtifacts artifacts = buildClusterRunArtifacts(
+                resolvedProjectionId,
+                skillType,
+                null,
                 clusteringAlgorithm,
+                reductionAlgorithm,
+                projectionType,
+                projectionDimension,
                 embeddingProvider,
                 embeddingModel,
-                embeddingDimension);
-        projectionStore.replaceProjection(resolvedProjectionId, clustered.projections(), clustered.clusters(), metadata);
-        return new SkillProjectionResult(
-                resolvedProjectionId,
-                clustered.projections().size(),
-                clustered.clusters().size(),
+                embeddingDimension,
+                parameters,
+                clustered.projections(),
+                clustered.clusters(),
+                skillItems);
+        SkillProjectionMetadata metadata = new SkillProjectionMetadata(
+                null,
+                skillType,
+                projectionType,
                 reductionAlgorithm,
+                projectionDimension,
                 clusteringAlgorithm,
                 embeddingProvider,
                 embeddingModel,
                 embeddingDimension,
+                parameters);
+        projectionStore.replaceProjection(resolvedProjectionId, clustered.projections(), artifacts.clusters(),
+                artifacts.members(), metadata);
+        return new SkillProjectionResult(
+                resolvedProjectionId,
+                clustered.projections().size(),
+                clustered.clusters().size(),
+                skillType,
+                projectionType,
+                reductionAlgorithm,
+                projectionDimension,
+                clusteringAlgorithm,
+                embeddingProvider,
+                embeddingModel,
+                embeddingDimension,
+                parameters,
                 clustered.projections().stream().map(SkillProjectionPointView::from).toList(),
-                clustered.clusters().stream().map(SkillClusterView::from).toList());
+                artifacts.clusters().stream().map(SkillClusterView::from).toList());
     }
 
     @Override
     public SkillGraphBatchJobView generateProjectionJob(GenerateSkillProjectionCommand command) {
         GenerateSkillProjectionCommand normalized = normalizeCommand(command);
-        String jobId = "skill_cluster_generation_" + UUID.randomUUID();
+        String jobId = "projection_generation_" + UUID.randomUUID();
         int total = dictionaryStore.findVectorItems(
+                normalized.skillType(),
                 normalized.embeddingProvider(),
                 normalized.embeddingModel(),
                 normalized.embeddingDimension(),
@@ -179,7 +216,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         Instant now = Instant.now();
         SkillGraphBatchJob job = new SkillGraphBatchJob(
                 jobId,
-                SkillGraphBatchJobType.SKILL_CLUSTER_GENERATION,
+                SkillGraphBatchJobType.PROJECTION_GENERATION,
                 SkillGraphBatchJobStatus.CREATED,
                 total,
                 total,
@@ -234,6 +271,12 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return projectionStore.findClusters(projectionId).stream()
                 .map(SkillClusterView::from)
                 .toList();
+    }
+
+    @Override
+    public Page<SkillClusterMemberView> findClusterMembers(String projectionId, String clusterId, Pageable pageable) {
+        return projectionStore.findClusterMembers(projectionId, clusterId, pageable)
+                .map(SkillClusterMemberView::from);
     }
 
     private SkillProjection toSkillProjection(VectorProjectionPoint point) {
@@ -296,11 +339,15 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return new GenerateSkillProjectionCommand(
                 projectionId,
                 normalizeLimit(command == null ? 0 : command.limit()),
+                normalizeSkillType(command == null ? null : command.skillType()),
+                normalizeProjectionType(command == null ? null : command.projectionType()),
                 normalizeReductionAlgorithm(command == null ? null : command.reductionAlgorithm()),
+                normalizeDimension(command == null ? null : command.projectionDimension()),
                 normalizeClusteringAlgorithm(command == null ? null : command.clusteringAlgorithm()),
                 normalizeText(command == null ? null : command.embeddingProvider()),
                 normalizeText(command == null ? null : command.embeddingModel()),
-                command == null ? null : normalizeDimension(command.embeddingDimension()));
+                command == null ? null : normalizeDimension(command.embeddingDimension()),
+                normalizeText(command == null ? null : command.parameters()));
     }
 
     private Optional<SkillGraphBatchJob> currentJob(String jobId) {
@@ -315,14 +362,158 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
 
     private String requestSnapshot(GenerateSkillProjectionCommand command) {
         return """
-                {"projectionId":"%s","reductionAlgorithm":"%s","clusteringAlgorithm":"%s","embeddingProvider":"%s","embeddingModel":"%s","embeddingDimension":%d}
+                {"projectionId":"%s","skillType":"%s","projectionType":"%s","reductionAlgorithm":"%s","projectionDimension":%d,"clusteringAlgorithm":"%s","embeddingProvider":"%s","embeddingModel":"%s","embeddingDimension":%d}
                 """.formatted(
                 command.projectionId(),
+                command.skillType(),
+                command.projectionType(),
                 command.reductionAlgorithm(),
+                command.projectionDimension() == null ? 0 : command.projectionDimension(),
                 command.clusteringAlgorithm(),
                 command.embeddingProvider() == null ? "" : command.embeddingProvider(),
                 command.embeddingModel() == null ? "" : command.embeddingModel(),
                 command.embeddingDimension() == null ? 0 : command.embeddingDimension()).trim();
+    }
+
+    private ClusterRunArtifacts buildClusterRunArtifacts(
+            String projectionId,
+            String skillType,
+            String jobId,
+            String clusteringAlgorithm,
+            String reductionAlgorithm,
+            String projectionType,
+            Integer projectionDimension,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            String parameters,
+            List<SkillProjection> projections,
+            List<SkillCluster> clusters,
+            List<SkillVectorItem> skillItems) {
+        Map<String, SkillVectorItem> itemById = new HashMap<>();
+        for (SkillVectorItem item : skillItems) {
+            itemById.put(item.skillId(), item);
+        }
+        Map<String, List<SkillProjection>> byCluster = new HashMap<>();
+        for (SkillProjection projection : projections) {
+            if (projection.clusterId() != null && !projection.clusterId().isBlank()) {
+                byCluster.computeIfAbsent(projection.clusterId(), ignored -> new ArrayList<>()).add(projection);
+            }
+        }
+        List<SkillClusterMember> members = new ArrayList<>();
+        List<SkillCluster> enriched = new ArrayList<>();
+        for (SkillCluster cluster : clusters) {
+            List<SkillProjection> clusterPoints = byCluster.getOrDefault(cluster.clusterId(), List.of());
+            Centroid centroid = centroid(clusterPoints);
+            List<SkillProjectionDistance> ranked = clusterPoints.stream()
+                    .map(point -> new SkillProjectionDistance(point, distance(point, centroid)))
+                    .sorted(Comparator.comparingDouble(SkillProjectionDistance::distance)
+                            .thenComparing(item -> itemById.getOrDefault(item.projection().skillId(),
+                                    new SkillVectorItem(item.projection().skillId(), item.projection().skillId(),
+                                            List.of(), null, null)).label()))
+                    .toList();
+            List<String> representatives = ranked.stream()
+                    .limit(5)
+                    .map(item -> item.projection().skillId())
+                    .toList();
+            String centroidProjectionId = representatives.isEmpty() ? null : representatives.get(0);
+            for (SkillProjectionDistance item : ranked) {
+                members.add(new SkillClusterMember(
+                        cluster.clusterId(),
+                        item.projection().skillId(),
+                        null,
+                        projectionId,
+                        1.0d,
+                        item.distance(),
+                        representatives.contains(item.projection().skillId())));
+            }
+            enriched.add(new SkillCluster(
+                    cluster.clusterId(),
+                    cluster.label(),
+                    cluster.algorithm(),
+                    cluster.itemCount(),
+                    skillType,
+                    jobId,
+                    parseClusterLabel(cluster.clusterId()),
+                    representatives,
+                    centroidProjectionId,
+                    confidence(clusterPoints.size(), projections.size()),
+                    clusterMetadata(skillType, embeddingProvider, embeddingModel, embeddingDimension, reductionAlgorithm,
+                            projectionType, projectionDimension, clusteringAlgorithm, parameters),
+                    cluster.createdAt()));
+        }
+        return new ClusterRunArtifacts(enriched, members);
+    }
+
+    private Centroid centroid(List<SkillProjection> projections) {
+        if (projections == null || projections.isEmpty()) {
+            return new Centroid(0.0d, 0.0d);
+        }
+        double x = 0.0d;
+        double y = 0.0d;
+        for (SkillProjection projection : projections) {
+            x += projection.x();
+            y += projection.y();
+        }
+        return new Centroid(x / projections.size(), y / projections.size());
+    }
+
+    private double distance(SkillProjection projection, Centroid centroid) {
+        double x = projection.x() - centroid.x();
+        double y = projection.y() - centroid.y();
+        return Math.sqrt((x * x) + (y * y));
+    }
+
+    private Double confidence(int memberCount, int totalCount) {
+        if (memberCount <= 0 || totalCount <= 0) {
+            return 0.0d;
+        }
+        return Math.min(1.0d, memberCount / (double) totalCount);
+    }
+
+    private Integer parseClusterLabel(String clusterId) {
+        String normalized = normalizeText(clusterId);
+        if (normalized == null) {
+            return null;
+        }
+        int index = normalized.lastIndexOf('-');
+        String value = index < 0 ? normalized : normalized.substring(index + 1);
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String clusterMetadata(
+            String skillType,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            String reductionAlgorithm,
+            String projectionType,
+            Integer projectionDimension,
+            String clusteringAlgorithm,
+            String parameters) {
+        return """
+                {"skillType":"%s","embeddingProvider":"%s","embeddingModel":"%s","embeddingDimension":%d,"projectionAlgorithm":"%s","projectionType":"%s","projectionDimension":%d,"clusteringAlgorithm":"%s","parameters":%s}
+                """.formatted(
+                skillType,
+                embeddingProvider == null ? "" : embeddingProvider,
+                embeddingModel == null ? "" : embeddingModel,
+                embeddingDimension == null ? 0 : embeddingDimension,
+                reductionAlgorithm == null ? "" : reductionAlgorithm,
+                projectionType == null ? "" : projectionType,
+                projectionDimension == null ? 0 : projectionDimension,
+                clusteringAlgorithm == null ? "" : clusteringAlgorithm,
+                jsonString(parameters)).trim();
+    }
+
+    private String jsonString(String value) {
+        if (value == null) {
+            return "null";
+        }
+        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
     }
 
     private List<SkillProjection> projectWithPca(String projectionId, List<VectorItem> vectorItems, Instant now) {
@@ -460,7 +651,25 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return dimension == null || dimension <= 0 ? null : dimension;
     }
 
+    private String normalizeSkillType(String value) {
+        return SkillType.normalizeName(value);
+    }
+
+    private String normalizeProjectionType(String value) {
+        String normalized = normalizeText(value);
+        return normalized == null ? "VISUALIZATION" : normalized.toUpperCase();
+    }
+
     private String normalizeText(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private record ClusterRunArtifacts(List<SkillCluster> clusters, List<SkillClusterMember> members) {
+    }
+
+    private record Centroid(double x, double y) {
+    }
+
+    private record SkillProjectionDistance(SkillProjection projection, double distance) {
     }
 }

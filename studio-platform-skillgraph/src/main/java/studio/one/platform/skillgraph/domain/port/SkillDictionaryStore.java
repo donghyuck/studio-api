@@ -70,6 +70,15 @@ public interface SkillDictionaryStore {
         return findVectorItems(limit);
     }
 
+    default List<SkillVectorItem> findVectorItems(
+            String skillType,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            int limit) {
+        return findVectorItems(embeddingProvider, embeddingModel, embeddingDimension, limit);
+    }
+
     default List<SkillDictionary> findMissingEmbeddingSkills(int limit) {
         return List.of();
     }

@@ -100,6 +100,7 @@ class JdbcSkillGraphStoreTest {
                     name VARCHAR(300) NOT NULL,
                     normalized_name VARCHAR(300) NOT NULL,
                     category_id VARCHAR(100),
+                    skill_type VARCHAR(40) NOT NULL DEFAULT 'UNKNOWN',
                     status VARCHAR(30) NOT NULL,
                     created_at TIMESTAMP NOT NULL,
                     updated_at TIMESTAMP NOT NULL
@@ -156,11 +157,16 @@ class JdbcSkillGraphStoreTest {
                     x DOUBLE NOT NULL,
                     y DOUBLE NOT NULL,
                     cluster_id VARCHAR(100),
+                    skill_type VARCHAR(40),
+                    job_id VARCHAR(120),
+                    projection_type VARCHAR(40),
                     reduction_algorithm VARCHAR(30),
+                    projection_dimension INT,
                     clustering_algorithm VARCHAR(30),
                     embedding_provider VARCHAR(100),
                     embedding_model VARCHAR(200),
                     embedding_dimension INT,
+                    metadata TEXT,
                     created_at TIMESTAMP NOT NULL,
                     PRIMARY KEY (projection_id, skill_id)
                 )
@@ -171,7 +177,26 @@ class JdbcSkillGraphStoreTest {
                     label VARCHAR(200),
                     algorithm VARCHAR(100) NOT NULL,
                     item_count INT NOT NULL,
+                    skill_type VARCHAR(40),
+                    job_id VARCHAR(120),
+                    cluster_label INT,
+                    representative_skill_ids TEXT,
+                    centroid_projection_id VARCHAR(120),
+                    confidence DOUBLE,
+                    metadata TEXT,
                     created_at TIMESTAMP NOT NULL
+                )
+                """);
+        template.getJdbcTemplate().execute("""
+                CREATE TABLE tb_skill_cluster_member (
+                    cluster_id VARCHAR(100) NOT NULL,
+                    skill_id VARCHAR(100) NOT NULL,
+                    embedding_id VARCHAR(120),
+                    projection_id VARCHAR(100) NOT NULL,
+                    membership_score DOUBLE NOT NULL,
+                    distance_to_centroid DOUBLE NOT NULL,
+                    is_representative BOOLEAN NOT NULL,
+                    PRIMARY KEY (projection_id, cluster_id, skill_id)
                 )
                 """);
         candidateStore = new JdbcSkillCandidateStore(template);
@@ -334,5 +359,45 @@ class JdbcSkillGraphStoreTest {
         assertEquals(2, summaries.getContent().get(0).itemCount());
         assertEquals(2, summaries.getContent().get(0).clusterCount());
         assertEquals("manual", summaries.getContent().get(0).algorithm());
+    }
+
+    @Test
+    void projectionStorePersistsClusterRunMetadataAndMembers() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        var metadata = new studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata(
+                "job-1",
+                "TASK_SKILL",
+                "CLUSTERING",
+                "PCA",
+                2,
+                "HDBSCAN",
+                "kure",
+                "KURE-v1",
+                1024,
+                "{\"minClusterSize\":2}");
+        projectionStore.replaceProjection("typed", List.of(
+                new SkillProjection("typed", "spring", 1.0d, 2.0d, "cluster-a", 0, now),
+                new SkillProjection("typed", "java", 3.0d, 4.0d, "cluster-a", 1, now)),
+                List.of(new SkillCluster("cluster-a", "Backend", "HDBSCAN", 2, "TASK_SKILL", "job-1", 1,
+                        List.of("spring"), "spring", 0.9d, "{\"skillType\":\"TASK_SKILL\"}", now)),
+                List.of(
+                        new studio.one.platform.skillgraph.domain.model.SkillClusterMember(
+                                "cluster-a", "spring", null, "typed", 1.0d, 0.1d, true),
+                        new studio.one.platform.skillgraph.domain.model.SkillClusterMember(
+                                "cluster-a", "java", null, "typed", 1.0d, 0.2d, false)),
+                metadata);
+
+        var summary = projectionStore.listProjections(PageRequest.of(0, 10)).getContent().get(0);
+        assertEquals("TASK_SKILL", summary.skillType());
+        assertEquals("job-1", summary.jobId());
+        assertEquals("CLUSTERING", summary.projectionType());
+        assertEquals(2, summary.projectionDimension());
+        var cluster = projectionStore.findClusters("typed").get(0);
+        assertEquals(List.of("spring"), cluster.representativeSkillIds());
+        assertEquals("spring", cluster.centroidProjectionId());
+        var members = projectionStore.findClusterMembers("typed", "cluster-a", PageRequest.of(0, 10));
+        assertEquals(2, members.getTotalElements());
+        assertEquals("spring", members.getContent().get(0).skillId());
+        assertTrue(members.getContent().get(0).representative());
     }
 }

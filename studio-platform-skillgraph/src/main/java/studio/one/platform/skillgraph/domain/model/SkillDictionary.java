@@ -7,6 +7,7 @@ public record SkillDictionary(
         String name,
         String normalizedName,
         String categoryId,
+        String skillType,
         String status,
         boolean embedded,
         Instant createdAt,
@@ -20,7 +21,19 @@ public record SkillDictionary(
             String status,
             Instant createdAt,
             Instant updatedAt) {
-        this(skillId, name, normalizedName, categoryId, status, false, createdAt, updatedAt);
+        this(skillId, name, normalizedName, categoryId, null, status, false, createdAt, updatedAt);
+    }
+
+    public SkillDictionary(
+            String skillId,
+            String name,
+            String normalizedName,
+            String categoryId,
+            String skillType,
+            String status,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(skillId, name, normalizedName, categoryId, skillType, status, false, createdAt, updatedAt);
     }
 
     public SkillDictionary {
@@ -28,6 +41,7 @@ public record SkillDictionary(
         name = requireText(name, "name");
         normalizedName = SkillCandidate.normalizeSkillTerm(normalizedName == null ? name : normalizedName);
         categoryId = normalize(categoryId);
+        skillType = SkillType.normalizeName(skillType);
         status = normalize(status) == null ? "ACTIVE" : status.trim();
         createdAt = createdAt == null ? Instant.now() : createdAt;
         updatedAt = updatedAt == null ? createdAt : updatedAt;

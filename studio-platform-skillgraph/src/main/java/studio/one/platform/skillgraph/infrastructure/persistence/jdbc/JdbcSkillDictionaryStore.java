@@ -35,6 +35,7 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 SET name = :name,
                     normalized_name = :normalizedName,
                     category_id = :categoryId,
+                    skill_type = :skillType,
                     status = :status,
                     updated_at = :updatedAt
                 WHERE skill_id = :skillId
@@ -44,9 +45,9 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
         }
         template.update("""
                 INSERT INTO tb_skill_dictionary
-                    (skill_id, name, normalized_name, category_id, status, created_at, updated_at)
+                    (skill_id, name, normalized_name, category_id, skill_type, status, created_at, updated_at)
                 VALUES
-                    (:skillId, :name, :normalizedName, :categoryId, :status, :createdAt, :updatedAt)
+                    (:skillId, :name, :normalizedName, :categoryId, :skillType, :status, :createdAt, :updatedAt)
                 """, skillParams(skill));
         return skill;
     }
@@ -271,9 +272,23 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
             String embeddingModel,
             Integer embeddingDimension,
             int limit) {
+        return findVectorItems(null, embeddingProvider, embeddingModel, embeddingDimension, limit);
+    }
+
+    @Override
+    public List<SkillVectorItem> findVectorItems(
+            String skillType,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            int limit) {
         String limitClause = limit <= 0 ? "" : "LIMIT :limit";
         MapSqlParameterSource params = new MapSqlParameterSource();
         StringBuilder filters = new StringBuilder();
+        if (skillType != null && !skillType.isBlank()) {
+            filters.append(" AND COALESCE(d.skill_type, 'UNKNOWN') = :skillType\n");
+            params.addValue("skillType", studio.one.platform.skillgraph.domain.model.SkillType.normalizeName(skillType));
+        }
         if (embeddingProvider != null && !embeddingProvider.isBlank()) {
             filters.append(" AND e.embedding_provider = :embeddingProvider\n");
             params.addValue("embeddingProvider", embeddingProvider.trim());
@@ -292,6 +307,7 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
         return template.query("""
                 SELECT d.skill_id,
                        d.name,
+                       d.skill_type,
                        e.embedding::text AS embedding_text,
                        e.embedding_model,
                        e.created_at
@@ -306,6 +322,7 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 """.formatted(filters, limitClause), params, (rs, rowNum) -> new SkillVectorItem(
                 rs.getString("skill_id"),
                 rs.getString("name"),
+                rs.getString("skill_type"),
                 parseVector(rs.getString("embedding_text")),
                 rs.getString("embedding_model"),
                 instant(rs.getTimestamp("created_at"))));
@@ -426,6 +443,7 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 .addValue("name", skill.name())
                 .addValue("normalizedName", skill.normalizedName())
                 .addValue("categoryId", skill.categoryId())
+                .addValue("skillType", skill.skillType())
                 .addValue("status", skill.status())
                 .addValue("createdAt", Timestamp.from(skill.createdAt()))
                 .addValue("updatedAt", Timestamp.from(skill.updatedAt()));
@@ -446,6 +464,7 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
                 rs.getString("name"),
                 rs.getString("normalized_name"),
                 rs.getString("category_id"),
+                hasColumn(rs, "skill_type") ? rs.getString("skill_type") : null,
                 rs.getString("status"),
                 hasColumn(rs, "embedding") && rs.getObject("embedding") != null,
                 instant(rs.getTimestamp("created_at")),
