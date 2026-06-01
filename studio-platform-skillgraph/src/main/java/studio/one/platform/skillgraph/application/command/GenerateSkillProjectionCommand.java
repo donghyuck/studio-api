@@ -1,7 +1,5 @@
 package studio.one.platform.skillgraph.application.command;
 
-import studio.one.platform.skillgraph.domain.model.SkillType;
-
 public record GenerateSkillProjectionCommand(
         String projectionId,
         int limit,
@@ -27,7 +25,4 @@ public record GenerateSkillProjectionCommand(
                 embeddingModel, embeddingDimension, null);
     }
 
-    public GenerateSkillProjectionCommand {
-        skillType = SkillType.normalizeName(skillType);
-    }
 }

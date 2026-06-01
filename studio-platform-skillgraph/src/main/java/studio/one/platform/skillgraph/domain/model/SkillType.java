@@ -29,4 +29,11 @@ public enum SkillType {
     public static String normalizeName(String value) {
         return from(value).name();
     }
+
+    public static String normalizeNameOrNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return from(value).name();
+    }
 }

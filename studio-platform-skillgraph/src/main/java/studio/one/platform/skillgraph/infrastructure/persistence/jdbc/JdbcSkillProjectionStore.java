@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
@@ -39,6 +40,7 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
     }
 
     @Override
+    @Transactional
     public void replaceProjection(
             String projectionId,
             List<SkillProjection> projections,

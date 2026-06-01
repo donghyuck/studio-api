@@ -129,6 +129,10 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
 
     @Override
     public SkillProjectionResult generateProjection(GenerateSkillProjectionCommand command) {
+        return generateProjection(command, null);
+    }
+
+    private SkillProjectionResult generateProjection(GenerateSkillProjectionCommand command, String jobId) {
         String resolvedProjectionId = normalizeProjectionId(command == null ? null : command.projectionId());
         int max = normalizeLimit(command == null ? 0 : command.limit());
         String reductionAlgorithm = normalizeReductionAlgorithm(command == null ? null : command.reductionAlgorithm());
@@ -161,7 +165,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         ClusterRunArtifacts artifacts = buildClusterRunArtifacts(
                 resolvedProjectionId,
                 skillType,
-                null,
+                jobId,
                 clusteringAlgorithm,
                 reductionAlgorithm,
                 projectionType,
@@ -174,7 +178,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                 clustered.clusters(),
                 skillItems);
         SkillProjectionMetadata metadata = new SkillProjectionMetadata(
-                null,
+                jobId,
                 skillType,
                 projectionType,
                 reductionAlgorithm,
@@ -184,7 +188,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                 embeddingModel,
                 embeddingDimension,
                 parameters);
-        projectionStore.replaceProjection(resolvedProjectionId, clustered.projections(), artifacts.clusters(),
+        projectionStore.replaceProjection(resolvedProjectionId, artifacts.projections(), artifacts.clusters(),
                 artifacts.members(), metadata);
         return new SkillProjectionResult(
                 resolvedProjectionId,
@@ -305,7 +309,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                 .map(job -> job.markStarted(startedAt, "Skill vectors are being projected"))
                 .ifPresent(this::saveJob);
         try {
-            SkillProjectionResult result = generateProjection(command);
+            SkillProjectionResult result = generateProjection(command, jobId);
             Instant completedAt = Instant.now();
             currentJob(jobId)
                     .map(job -> job.withProgress(
@@ -394,8 +398,22 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         for (SkillVectorItem item : skillItems) {
             itemById.put(item.skillId(), item);
         }
+        Map<String, String> scopedClusterIdByRaw = new HashMap<>();
+        for (SkillCluster cluster : clusters) {
+            scopedClusterIdByRaw.put(cluster.clusterId(), scopedClusterId(projectionId, cluster.clusterId()));
+        }
+        List<SkillProjection> scopedProjections = projections.stream()
+                .map(projection -> {
+                    String rawClusterId = projection.clusterId();
+                    if (rawClusterId == null || rawClusterId.isBlank()) {
+                        return projection;
+                    }
+                    String scoped = scopedClusterIdByRaw.getOrDefault(rawClusterId, scopedClusterId(projectionId, rawClusterId));
+                    return projection.withClusterId(scoped);
+                })
+                .toList();
         Map<String, List<SkillProjection>> byCluster = new HashMap<>();
-        for (SkillProjection projection : projections) {
+        for (SkillProjection projection : scopedProjections) {
             if (projection.clusterId() != null && !projection.clusterId().isBlank()) {
                 byCluster.computeIfAbsent(projection.clusterId(), ignored -> new ArrayList<>()).add(projection);
             }
@@ -403,7 +421,8 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         List<SkillClusterMember> members = new ArrayList<>();
         List<SkillCluster> enriched = new ArrayList<>();
         for (SkillCluster cluster : clusters) {
-            List<SkillProjection> clusterPoints = byCluster.getOrDefault(cluster.clusterId(), List.of());
+            String scopedClusterId = scopedClusterIdByRaw.getOrDefault(cluster.clusterId(), cluster.clusterId());
+            List<SkillProjection> clusterPoints = byCluster.getOrDefault(scopedClusterId, List.of());
             Centroid centroid = centroid(clusterPoints);
             List<SkillProjectionDistance> ranked = clusterPoints.stream()
                     .map(point -> new SkillProjectionDistance(point, distance(point, centroid)))
@@ -419,7 +438,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
             String centroidProjectionId = representatives.isEmpty() ? null : representatives.get(0);
             for (SkillProjectionDistance item : ranked) {
                 members.add(new SkillClusterMember(
-                        cluster.clusterId(),
+                        scopedClusterId,
                         item.projection().skillId(),
                         null,
                         projectionId,
@@ -428,7 +447,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                         representatives.contains(item.projection().skillId())));
             }
             enriched.add(new SkillCluster(
-                    cluster.clusterId(),
+                    scopedClusterId,
                     cluster.label(),
                     cluster.algorithm(),
                     cluster.itemCount(),
@@ -437,12 +456,12 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
                     parseClusterLabel(cluster.clusterId()),
                     representatives,
                     centroidProjectionId,
-                    confidence(clusterPoints.size(), projections.size()),
+                    confidence(clusterPoints.size(), scopedProjections.size()),
                     clusterMetadata(skillType, embeddingProvider, embeddingModel, embeddingDimension, reductionAlgorithm,
                             projectionType, projectionDimension, clusteringAlgorithm, parameters),
                     cluster.createdAt()));
         }
-        return new ClusterRunArtifacts(enriched, members);
+        return new ClusterRunArtifacts(enriched, members, scopedProjections);
     }
 
     private Centroid centroid(List<SkillProjection> projections) {
@@ -498,9 +517,9 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return """
                 {"skillType":"%s","embeddingProvider":"%s","embeddingModel":"%s","embeddingDimension":%d,"projectionAlgorithm":"%s","projectionType":"%s","projectionDimension":%d,"clusteringAlgorithm":"%s","parameters":%s}
                 """.formatted(
-                skillType,
-                embeddingProvider == null ? "" : embeddingProvider,
-                embeddingModel == null ? "" : embeddingModel,
+                escapeJson(skillType),
+                escapeJson(embeddingProvider),
+                escapeJson(embeddingModel),
                 embeddingDimension == null ? 0 : embeddingDimension,
                 reductionAlgorithm == null ? "" : reductionAlgorithm,
                 projectionType == null ? "" : projectionType,
@@ -514,6 +533,14 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
             return "null";
         }
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+    }
+
+    private String escapeJson(String value) {
+        return value == null ? "" : value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    private String scopedClusterId(String projectionId, String clusterId) {
+        return projectionId + "::" + clusterId;
     }
 
     private List<SkillProjection> projectWithPca(String projectionId, List<VectorItem> vectorItems, Instant now) {
@@ -652,7 +679,7 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     }
 
     private String normalizeSkillType(String value) {
-        return SkillType.normalizeName(value);
+        return SkillType.normalizeNameOrNull(value);
     }
 
     private String normalizeProjectionType(String value) {
@@ -664,7 +691,10 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
         return value == null || value.isBlank() ? null : value.trim();
     }
 
-    private record ClusterRunArtifacts(List<SkillCluster> clusters, List<SkillClusterMember> members) {
+    private record ClusterRunArtifacts(
+            List<SkillCluster> clusters,
+            List<SkillClusterMember> members,
+            List<SkillProjection> projections) {
     }
 
     private record Centroid(double x, double y) {
