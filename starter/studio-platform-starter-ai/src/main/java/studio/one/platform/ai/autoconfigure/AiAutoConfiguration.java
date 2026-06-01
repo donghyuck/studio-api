@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
+import studio.one.platform.ai.autoconfigure.config.AiEmbeddingOptionCatalogConfiguration;
+import studio.one.platform.ai.autoconfigure.config.AiProviderEndpointConfiguration;
 import studio.one.platform.ai.autoconfigure.config.AiProviderRegistryConfiguration;
 import studio.one.platform.ai.autoconfigure.config.GoogleGenAiChatPortFactoryConfiguration;
 import studio.one.platform.ai.autoconfigure.config.GoogleGenAiEmbeddingPortFactoryConfiguration;
@@ -33,6 +35,8 @@ import studio.one.platform.ai.core.chat.ChatPort;
                 ProviderEmbeddingConfiguration.class,
                 ProviderChatConfiguration.class,
                 AiProviderRegistryConfiguration.class,
+                AiEmbeddingOptionCatalogConfiguration.class,
+                AiProviderEndpointConfiguration.class,
                 RagPipelineConfiguration.class,
                 VectorStoreConfiguration.class,
                 PromptConfiguration.class,

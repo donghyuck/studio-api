@@ -256,6 +256,11 @@ studio:
       base-path: /api/ai   # 기본값
 ```
 
+활성화하면 `GET /api/ai/embedding-options`가 등록된 embedding provider와
+`studio.ai.rag.embedding-profiles`를 함께 반환한다. RAG 클라이언트는 이 응답의
+`profileId`, `provider`, `model`, `dimension`, `supportedInputTypes` 값을 사용해
+index/search 요청의 `embeddingProfileId`, `embeddingProvider`, `embeddingModel`을 선택할 수 있다.
+
 ## 4) 자동 구성되는 주요 빈
 
 | 빈 타입 | 설명 |

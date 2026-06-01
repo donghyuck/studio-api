@@ -68,10 +68,27 @@
       "description": "Embedding model name for provider metadata or non-Spring AI providers such as TEI."
     },
     {
+      "name": "studio.ai.providers.*.embedding.dimension",
+      "type": "java.lang.Integer",
+      "description": "Embedding vector dimension metadata exposed through AI embedding option discovery."
+    },
+    {
       "name": "studio.ai.providers.*.google-embedding.task-type",
       "type": "java.lang.String",
       "defaultValue": "RETRIEVAL_DOCUMENT",
       "description": "Google embedding task type fallback."
+    },
+    {
+      "name": "studio.ai.endpoints.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable AI metadata endpoints such as GET /api/ai/embedding-options."
+    },
+    {
+      "name": "studio.ai.endpoints.base-path",
+      "type": "java.lang.String",
+      "defaultValue": "/api/ai",
+      "description": "Base path for AI metadata endpoints."
     },
     {
       "name": "studio.ai.rag.default-embedding-profile",

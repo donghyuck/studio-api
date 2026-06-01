@@ -63,6 +63,7 @@ public class AiAdapterProperties {
     public static final class Channel {
         private boolean enabled = false;
         private String model;
+        private Integer dimension;
     }
 
     @Getter
