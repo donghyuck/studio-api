@@ -7,7 +7,6 @@ import java.util.Optional;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -28,7 +27,6 @@ public class UserBootstrapInitializer implements ApplicationRunner {
     private final ApplicationUserService<ApplicationUser, ApplicationRole> userService;
 
     @Override
-    @Transactional
     public void run(ApplicationArguments args) {
         log.info("Starting user bootstrap initialization... {}", properties.isEnabled() ? "enabled" : "disabled");
         if (!properties.isEnabled()) {
@@ -60,8 +58,11 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 ? definition.getDescription().trim()
                 : roleName);
         log.info("Creating bootstrap role: {}", roleName);
-        roleService.createRole(role);
-        log.info("Created bootstrap role: {}", roleName);
+        ApplicationRole saved = roleService.createRole(role);
+        if (saved.getRoleId() == null) {
+            throw new IllegalStateException("Bootstrap role was not persisted: " + roleName);
+        }
+        log.info("Created bootstrap role: name={}, id={}", roleName, saved.getRoleId());
     }
 
     private void ensureAdminUser(UserBootstrapProperties.Admin admin) {
@@ -96,8 +97,11 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 .build();
         log.info("Creating bootstrap admin user: {}", username);
         ApplicationUser saved = userService.create(user);
+        if (saved.getUserId() == null) {
+            throw new IllegalStateException("Bootstrap admin user was not persisted: " + username);
+        }
         assignAdminRoles(saved, admin.getRoles());
-        log.info("Created bootstrap admin user: {}", username);
+        log.info("Created bootstrap admin user: username={}, id={}", username, saved.getUserId());
     }
 
     private void assignAdminRoles(ApplicationUser user, List<String> roleNames) {
