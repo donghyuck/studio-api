@@ -17,6 +17,7 @@ import studio.one.base.user.domain.port.ApplicationCompanyJoinRequestRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyRepository;
 import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
 import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
 import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
@@ -44,6 +45,7 @@ class UserServicesAutoConfigurationTest {
             .withBean(ApplicationGroupService.class, () -> stub(ApplicationGroupService.class))
             .withBean(ApplicationRoleService.class, () -> stub(ApplicationRoleService.class))
             .withBean(ApplicationRoleRepository.class, () -> stub(ApplicationRoleRepository.class))
+            .withBean(ApplicationUserRepository.class, () -> stub(ApplicationUserRepository.class))
             .withPropertyValues("studio.features.user.enabled=true");
 
     @Test

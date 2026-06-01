@@ -4,9 +4,11 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -15,6 +17,8 @@ import studio.one.base.user.application.usecase.ApplicationRoleService;
 import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.base.user.domain.model.ApplicationRole;
 import studio.one.base.user.domain.model.ApplicationUser;
+import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -25,6 +29,9 @@ public class UserBootstrapInitializer implements ApplicationRunner {
     private final UserBootstrapProperties properties;
     private final ApplicationRoleService<ApplicationRole, ?> roleService;
     private final ApplicationUserService<ApplicationUser, ApplicationRole> userService;
+    private final ApplicationRoleRepository roleRepository;
+    private final ApplicationUserRepository userRepository;
+    private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -48,7 +55,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
 
     private void ensureRole(UserBootstrapProperties.RoleDefinition definition) {
         String roleName = definition.getName().trim();
-        if (roleService.findRoleByName(roleName).isPresent()) {
+        if (roleRepository.findByName(roleName).isPresent()) {
             log.info("Bootstrap role already exists: {}", roleName);
             return;
         }
@@ -58,7 +65,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 ? definition.getDescription().trim()
                 : roleName);
         log.info("Creating bootstrap role: {}", roleName);
-        ApplicationRole saved = roleService.createRole(role);
+        ApplicationRole saved = roleRepository.save(role);
         if (saved.getRoleId() == null) {
             throw new IllegalStateException("Bootstrap role was not persisted: " + roleName);
         }
@@ -73,30 +80,32 @@ public class UserBootstrapInitializer implements ApplicationRunner {
             log.warn("Bootstrap admin user is enabled but no password was provided.");
             return;
         }
-        long userCount = userService.findAll(PageRequest.of(0, 1)).getTotalElements();
+        long userCount = userRepository.findAll(PageRequest.of(0, 1)).getTotalElements();
         if (userCount > 0) {
             log.info("Bootstrap admin user skipped because users already exist: count={}", userCount);
             return;
         }
         String username = StringUtils.hasText(admin.getUsername()) ? admin.getUsername().trim() : "local-admin";
-        Optional<ApplicationUser> existing = userService.findByUsername(username);
+        Optional<ApplicationUser> existing = userRepository.findByUsername(username);
         if (existing.isPresent()) {
             log.info("Bootstrap admin user already exists: {}", username);
             return;
         }
 
+        PasswordEncoder passwordEncoder = Objects.requireNonNull(passwordEncoderProvider.getIfAvailable(),
+                "PasswordEncoder is required for bootstrap admin user");
         ApplicationUser user = ApplicationUser.builder()
                 .username(username)
                 .email(StringUtils.hasText(admin.getEmail()) ? admin.getEmail().trim() : username + "@example.local")
                 .name(StringUtils.hasText(admin.getName()) ? admin.getName().trim() : username)
-                .password(admin.getPassword())
+                .password(passwordEncoder.encode(admin.getPassword()))
                 .enabled(true)
                 .external(false)
                 .nameVisible(true)
                 .emailVisible(true)
                 .build();
         log.info("Creating bootstrap admin user: {}", username);
-        ApplicationUser saved = userService.create(user);
+        ApplicationUser saved = userRepository.save(user);
         if (saved.getUserId() == null) {
             throw new IllegalStateException("Bootstrap admin user was not persisted: " + username);
         }
@@ -111,7 +120,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
         roleNames.stream()
                 .filter(StringUtils::hasText)
                 .map(String::trim)
-                .map(roleService::findRoleByName)
+                .map(roleRepository::findByName)
                 .flatMap(Optional::stream)
                 .forEach(role -> {
                     userService.assignRole(user.getUserId(), role.getRoleId(), ACTOR);

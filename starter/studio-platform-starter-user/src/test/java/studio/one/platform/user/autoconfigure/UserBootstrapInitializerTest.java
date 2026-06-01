@@ -10,12 +10,16 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import studio.one.base.user.application.usecase.ApplicationRoleService;
 import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.base.user.domain.model.ApplicationRole;
 import studio.one.base.user.domain.model.ApplicationUser;
+import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
 
 class UserBootstrapInitializerTest {
 
@@ -24,7 +28,8 @@ class UserBootstrapInitializerTest {
         UserBootstrapProperties properties = properties("local-password");
         Recorder recorder = new Recorder();
 
-        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService()).run(null);
+        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService(), recorder.roleRepository(),
+                recorder.userRepository(), passwordEncoder()).run(null);
 
         assertThat(recorder.createdRoles).extracting(ApplicationRole::getName)
                 .containsExactly("ROLE_ADMIN", "ROLE_USER");
@@ -38,7 +43,8 @@ class UserBootstrapInitializerTest {
         UserBootstrapProperties properties = properties(null);
         Recorder recorder = new Recorder();
 
-        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService()).run(null);
+        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService(), recorder.roleRepository(),
+                recorder.userRepository(), passwordEncoder()).run(null);
 
         assertThat(recorder.createdRoles).extracting(ApplicationRole::getName)
                 .containsExactly("ROLE_ADMIN", "ROLE_USER");
@@ -54,12 +60,48 @@ class UserBootstrapInitializerTest {
         recorder.roles.put("ROLE_USER", role(11L, "ROLE_USER"));
         recorder.existingUsers.add(ApplicationUser.builder().username("existing").build());
 
-        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService()).run(null);
+        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService(), recorder.roleRepository(),
+                recorder.userRepository(), passwordEncoder()).run(null);
 
         assertThat(recorder.createdRoles).isEmpty();
         assertThat(recorder.createdUsers).isEmpty();
         assertThat(recorder.findByUsernameCalls).isEqualTo(0);
         assertThat(recorder.assignedRoles).isEmpty();
+    }
+
+    private static ObjectProvider<PasswordEncoder> passwordEncoder() {
+        PasswordEncoder encoder = new PasswordEncoder() {
+            @Override
+            public String encode(CharSequence rawPassword) {
+                return "{test}" + rawPassword;
+            }
+
+            @Override
+            public boolean matches(CharSequence rawPassword, String encodedPassword) {
+                return encodedPassword.equals(encode(rawPassword));
+            }
+        };
+        return new ObjectProvider<>() {
+            @Override
+            public PasswordEncoder getObject(Object... args) {
+                return encoder;
+            }
+
+            @Override
+            public PasswordEncoder getIfAvailable() {
+                return encoder;
+            }
+
+            @Override
+            public PasswordEncoder getIfUnique() {
+                return encoder;
+            }
+
+            @Override
+            public PasswordEncoder getObject() {
+                return encoder;
+            }
+        };
     }
 
     private static UserBootstrapProperties properties(String password) {
@@ -101,6 +143,17 @@ class UserBootstrapInitializerTest {
                     });
         }
 
+        ApplicationRoleRepository roleRepository() {
+            return (ApplicationRoleRepository) Proxy.newProxyInstance(
+                    getClass().getClassLoader(),
+                    new Class<?>[] { ApplicationRoleRepository.class },
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "findByName" -> Optional.ofNullable(roles.get((String) args[0]));
+                        case "save" -> createRole((ApplicationRole) args[0]);
+                        default -> throw new UnsupportedOperationException(method.getName());
+                    });
+        }
+
         @SuppressWarnings("unchecked")
         ApplicationUserService<ApplicationUser, ApplicationRole> userService() {
             return (ApplicationUserService<ApplicationUser, ApplicationRole>) Proxy.newProxyInstance(
@@ -117,6 +170,21 @@ class UserBootstrapInitializerTest {
                             assignedRoles.add(args[0] + ":" + args[1] + ":" + args[2]);
                             yield null;
                         }
+                        default -> throw new UnsupportedOperationException(method.getName());
+                    });
+        }
+
+        ApplicationUserRepository userRepository() {
+            return (ApplicationUserRepository) Proxy.newProxyInstance(
+                    getClass().getClassLoader(),
+                    new Class<?>[] { ApplicationUserRepository.class },
+                    (proxy, method, args) -> switch (method.getName()) {
+                        case "findAll" -> new PageImpl<>(existingUsers);
+                        case "findByUsername" -> {
+                            findByUsernameCalls++;
+                            yield Optional.empty();
+                        }
+                        case "save" -> createUser((ApplicationUser) args[0]);
                         default -> throw new UnsupportedOperationException(method.getName());
                     });
         }
