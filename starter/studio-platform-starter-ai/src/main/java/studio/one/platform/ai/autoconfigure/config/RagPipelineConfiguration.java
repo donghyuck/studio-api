@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -57,7 +58,7 @@ import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration(afterName = "studio.one.platform.chunking.autoconfigure.ChunkingAutoConfiguration")
-@EnableConfigurationProperties({RagPipelineProperties.class, RagEmbeddingProperties.class})
+@EnableConfigurationProperties({RagPipelineProperties.class, RagEmbeddingProperties.class, AiAdapterProperties.class})
 @RequiredArgsConstructor
 @Slf4j
 @SuppressWarnings("deprecation")
@@ -144,7 +145,9 @@ public class RagPipelineConfiguration {
         RagEmbeddingProfileResolver ragEmbeddingProfileResolver(
                         EmbeddingPort embeddingPort,
                         ObjectProvider<AiProviderRegistry> providerRegistryProvider,
-                        RagEmbeddingProperties properties) {
+                        RagEmbeddingProperties properties,
+                        AiAdapterProperties aiProperties,
+                        Environment environment) {
                 AiProviderRegistry providerRegistry = providerRegistryProvider.getIfAvailable();
                 if (providerRegistry == null) {
                         return new SinglePortRagEmbeddingProfileResolver(embeddingPort);
@@ -153,7 +156,7 @@ public class RagPipelineConfiguration {
                                 embeddingPort,
                                 providerRegistry,
                                 properties.getDefaultEmbeddingProfile(),
-                                ragEmbeddingProfiles(properties));
+                                ragEmbeddingProfiles(properties, aiProperties, environment));
         }
 
         @Bean
@@ -206,22 +209,106 @@ public class RagPipelineConfiguration {
                                 cleaner.isFailOpen());
         }
 
-        private Map<String, RagEmbeddingProfile> ragEmbeddingProfiles(RagEmbeddingProperties properties) {
+        private Map<String, RagEmbeddingProfile> ragEmbeddingProfiles(
+                        RagEmbeddingProperties properties,
+                        AiAdapterProperties aiProperties,
+                        Environment environment) {
                 Map<String, RagEmbeddingProfile> profiles = new LinkedHashMap<>();
                 properties.getEmbeddingProfiles().forEach((profileId, profile) -> {
                         String normalizedId = normalize(profileId);
                         if (normalizedId == null) {
                                 return;
                         }
+                        String providerId = normalize(profile.getProvider());
+                        AiAdapterProperties.Provider provider = providerId == null
+                                        ? null
+                                        : aiProperties.getProviders().get(providerId);
                         profiles.put(normalizedId.toLowerCase(Locale.ROOT), new RagEmbeddingProfile(
                                         normalizedId,
-                                        profile.getProvider(),
-                                        profile.getModel(),
-                                        profile.getDimension(),
+                                        providerId,
+                                        firstText(profile.getModel(), embeddingModel(providerId, provider, environment)),
+                                        firstInteger(profile.getDimension(), embeddingDimension(providerId, provider, environment)),
                                         embeddingInputTypes(profile.getSupportedInputTypes()),
                                         profile.getMetadata()));
                 });
                 return profiles;
+        }
+
+        private String embeddingModel(
+                        String providerId,
+                        AiAdapterProperties.Provider provider,
+                        Environment environment) {
+                String providerModelKey = providerId == null
+                                ? null
+                                : "studio.ai.providers." + providerId + ".embedding.model";
+                return switch (providerType(provider)) {
+                        case "OPENAI" -> firstText(
+                                        property(environment, "spring.ai.openai.embedding.options.model"),
+                                        property(environment, providerModelKey),
+                                        provider == null ? null : provider.getEmbedding().getModel());
+                        case "GOOGLE_AI_GEMINI" -> firstText(
+                                        property(environment, "spring.ai.google.genai.embedding.text.options.model"),
+                                        property(environment, providerModelKey),
+                                        provider == null ? null : provider.getEmbedding().getModel());
+                        case "OLLAMA" -> firstText(
+                                        property(environment, "spring.ai.ollama.embedding.options.model"),
+                                        property(environment, providerModelKey),
+                                        provider == null ? null : provider.getEmbedding().getModel());
+                        default -> firstText(
+                                        property(environment, providerModelKey),
+                                        provider == null ? null : provider.getEmbedding().getModel());
+                };
+        }
+
+        private Integer embeddingDimension(
+                        String providerId,
+                        AiAdapterProperties.Provider provider,
+                        Environment environment) {
+                String providerDimensionKey = providerId == null
+                                ? null
+                                : "studio.ai.providers." + providerId + ".embedding.dimension";
+                Integer dimension = integerProperty(environment, providerDimensionKey);
+                if (dimension != null) {
+                        return dimension;
+                }
+                if ("GOOGLE_AI_GEMINI".equals(providerType(provider))) {
+                        dimension = integerProperty(environment, "spring.ai.google.genai.embedding.text.options.dimensions");
+                        if (dimension != null) {
+                                return dimension;
+                        }
+                }
+                return provider == null ? null : provider.getEmbedding().getDimension();
+        }
+
+        private String providerType(AiAdapterProperties.Provider provider) {
+                return provider == null || provider.getType() == null ? "" : provider.getType().name();
+        }
+
+        private String property(Environment environment, String key) {
+                return environment == null || key == null ? null : environment.getProperty(key);
+        }
+
+        private Integer integerProperty(Environment environment, String key) {
+                return environment == null || key == null ? null : environment.getProperty(key, Integer.class);
+        }
+
+        private String firstText(String... values) {
+                for (String value : values) {
+                        String normalized = normalize(value);
+                        if (normalized != null) {
+                                return normalized;
+                        }
+                }
+                return null;
+        }
+
+        private Integer firstInteger(Integer... values) {
+                for (Integer value : values) {
+                        if (value != null) {
+                                return value;
+                        }
+                }
+                return null;
         }
 
         private List<EmbeddingInputType> embeddingInputTypes(List<String> values) {
