@@ -141,18 +141,6 @@ public class UserServicesAutoConfiguration {
                 return new PasswordPolicyValidator(propertiesProvider.getIfAvailable(), i18nProvider.getIfAvailable());
         }
 
-        @Bean
-        @ConditionalOnClass({ ApplicationUser.class, ApplicationRole.class })
-        @ConditionalOnProperty(prefix = "studio.bootstrap.user", name = "enabled", havingValue = "true")
-        @ConditionalOnBean({ ApplicationUserService.class, ApplicationRoleService.class })
-        @ConditionalOnMissingBean(UserBootstrapInitializer.class)
-        public UserBootstrapInitializer userBootstrapInitializer(
-                        UserBootstrapProperties properties,
-                        ApplicationRoleService<ApplicationRole, ?> roleService,
-                        ApplicationUserService<ApplicationUser, ApplicationRole> userService) {
-                return new UserBootstrapInitializer(properties, roleService, userService);
-        }
-
         @Bean(name = ApplicationGroupService.SERVICE_NAME)
         @ConditionalOnMissingBean(ApplicationGroupService.class)
         @ConditionalOnClass({ ApplicationGroupRepository.class })
@@ -187,6 +175,17 @@ public class UserServicesAutoConfiguration {
                                 LogUtils.red(State.CREATED.toString())));
                 return new ApplicationRoleServiceImpl(roleRepo, groupRoleRepo, userRoleRepo, jdbcTemplate,
                                 domainEventsProvider, i18nProvider);
+        }
+
+        @Bean
+        @ConditionalOnClass({ ApplicationUser.class, ApplicationRole.class })
+        @ConditionalOnProperty(prefix = "studio.bootstrap.user", name = "enabled", havingValue = "true")
+        @ConditionalOnMissingBean(UserBootstrapInitializer.class)
+        public UserBootstrapInitializer userBootstrapInitializer(
+                        UserBootstrapProperties properties,
+                        ApplicationRoleService<ApplicationRole, ?> roleService,
+                        ApplicationUserService<ApplicationUser, ApplicationRole> userService) {
+                return new UserBootstrapInitializer(properties, roleService, userService);
         }
 
         @Bean(name = ApplicationCompanyService.SERVICE_NAME)
