@@ -1,6 +1,7 @@
 package studio.one.application.attachment.infrastructure.storage;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,7 +46,10 @@ class JpaFileStoreTest {
     void loadReadsStoredBlob() throws Exception {
         JpaFileStore store = new JpaFileStore(attachmentDataRepository);
         ApplicationAttachment attachment = attachment(91L);
-        Blob blob = new SerialBlob(new byte[] { 4, 5, 6 });
+        Blob blob = org.mockito.Mockito.mock(Blob.class);
+
+        when(blob.length()).thenReturn(3L);
+        when(blob.getBytes(1, 3)).thenReturn(new byte[] { 4, 5, 6 });
 
         when(attachmentDataRepository.findById(91L))
                 .thenReturn(Optional.of(new ApplicationAttachmentData(91L, blob)));
@@ -53,6 +57,7 @@ class JpaFileStoreTest {
         try (var in = store.load(attachment)) {
             assertArrayEquals(new byte[] { 4, 5, 6 }, in.readAllBytes());
         }
+        verify(blob, never()).getBinaryStream();
     }
 
     private ApplicationAttachment attachment(long attachmentId) {

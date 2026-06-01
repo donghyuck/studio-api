@@ -2,6 +2,7 @@ package studio.one.application.attachment.infrastructure.storage;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.sql.Types;
 import java.util.List;
 import java.util.Map;
@@ -47,12 +48,12 @@ public class JdbcFileStore implements FileStorage {
     @Override
     public InputStream load(Attachment attachment) {
         String sql = "select ATTACHMENT_DATA from %s where ATTACHMENT_ID = :id".formatted(TABLE);
-        List<InputStream> streams = template.query(sql, Map.of("id", attachment.getAttachmentId()),
-                (rs, rowNum) -> lobHandler.getBlobAsBinaryStream(rs, "ATTACHMENT_DATA"));
-        if (streams.isEmpty() || streams.get(0) == null) {
+        List<byte[]> payloads = template.query(sql, Map.of("id", attachment.getAttachmentId()),
+                (rs, rowNum) -> lobHandler.getBlobAsBytes(rs, "ATTACHMENT_DATA"));
+        if (payloads.isEmpty() || payloads.get(0) == null) {
             throw new RuntimeException("Attachment data not found");
         }
-        return streams.get(0);
+        return new ByteArrayInputStream(payloads.get(0));
     }
 
     @Override
