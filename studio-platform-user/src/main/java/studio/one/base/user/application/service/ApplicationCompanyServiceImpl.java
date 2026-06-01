@@ -71,7 +71,7 @@ public class ApplicationCompanyServiceImpl implements ApplicationCompanyService 
             if (memberService == null) {
                 throw new IllegalStateException("ApplicationCompanyMemberService is required to create company with actor");
             }
-            memberService.addMember(saved.getCompanyId(), actorUserId, CompanyRole.OWNER, actorUserId);
+            memberService.addMember(saved.getCompanyId(), actorUserId, CompanyRole.OWNER, actorUserId, true);
         }
         return saved;
     }
