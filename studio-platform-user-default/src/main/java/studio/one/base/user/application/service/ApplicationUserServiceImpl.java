@@ -98,6 +98,7 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
                 LogUtils.green(encoder.getClass(), true)));
         if (passwordEncoderProvider.getIfAvailable() == null)
             log.warn(LogUtils.red("ApplicationUserService - No PasswordEncoder bean not found."));
+        log.info("ApplicationUserService repository: {}", userRepo.getClass().getName());
 
         log.info(LogUtils.format(i18n, "autoconfig.feature.service.details", "User",
                 LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZED.toString())));
@@ -172,8 +173,9 @@ public class ApplicationUserServiceImpl implements ApplicationUserService<Applic
         if (userMutator.isEnabled(user)) {
             userMutator.setEnabled(user, true);
         }
+        log.info("Creating application user: username={}", username);
         ApplicationUser saved = userRepo.save(user);
-        log.debug("User created: id={}, username={}", saved.getUserId(), saved.getUsername());
+        log.info("Created application user: id={}, username={}", saved.getUserId(), saved.getUsername());
         return saved;
     }
 

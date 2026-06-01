@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
+import studio.one.platform.skillgraph.domain.model.SkillClusterMember;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
@@ -20,6 +21,7 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
 
     private final Map<String, Map<String, SkillProjection>> projectionsByProjectionId = new ConcurrentHashMap<>();
     private final Map<String, List<SkillCluster>> clustersByProjectionId = new ConcurrentHashMap<>();
+    private final Map<String, List<SkillClusterMember>> membersByProjectionId = new ConcurrentHashMap<>();
     private final Map<String, SkillProjectionMetadata> metadataByProjectionId = new ConcurrentHashMap<>();
 
     @Override
@@ -30,9 +32,20 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
     @Override
     public void replaceProjection(String projectionId, List<SkillProjection> projections, List<SkillCluster> clusters,
             SkillProjectionMetadata metadata) {
+        replaceProjection(projectionId, projections, clusters, List.of(), metadata);
+    }
+
+    @Override
+    public void replaceProjection(
+            String projectionId,
+            List<SkillProjection> projections,
+            List<SkillCluster> clusters,
+            List<SkillClusterMember> members,
+            SkillProjectionMetadata metadata) {
         if (projections == null || projections.isEmpty()) {
             projectionsByProjectionId.remove(projectionId);
             clustersByProjectionId.remove(projectionId);
+            membersByProjectionId.remove(projectionId);
             metadataByProjectionId.remove(projectionId);
             return;
         }
@@ -42,6 +55,7 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
         }
         projectionsByProjectionId.put(projectionId, points);
         clustersByProjectionId.put(projectionId, clusters == null ? List.of() : List.copyOf(clusters));
+        membersByProjectionId.put(projectionId, members == null ? List.of() : List.copyOf(members));
         if (metadata != null) {
             metadataByProjectionId.put(projectionId, metadata);
         }
@@ -76,6 +90,20 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
     }
 
     @Override
+    public Page<SkillClusterMember> findClusterMembers(String projectionId, String clusterId, Pageable pageable) {
+        List<SkillClusterMember> filtered = membersByProjectionId.getOrDefault(projectionId, List.of()).stream()
+                .filter(member -> clusterId == null || clusterId.isBlank() || clusterId.equals(member.clusterId()))
+                .sorted(Comparator.comparing(SkillClusterMember::clusterId)
+                        .thenComparing(Comparator.comparing(SkillClusterMember::representative).reversed())
+                        .thenComparingDouble(SkillClusterMember::distanceToCentroid)
+                        .thenComparing(SkillClusterMember::skillId))
+                .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
+    }
+
+    @Override
     public Optional<SkillProjection> findProjectionPoint(String projectionId, String skillId) {
         return Optional.ofNullable(projectionsByProjectionId.getOrDefault(projectionId, Map.of()).get(skillId));
     }
@@ -96,10 +124,15 @@ public class InMemorySkillProjectionStore implements SkillProjectionStore {
                         .filter(algorithm -> algorithm != null && !algorithm.isBlank())
                         .findFirst()
                         .orElse(null),
+                metadata == null ? null : metadata.skillType(),
+                metadata == null ? null : metadata.jobId(),
+                metadata == null ? null : metadata.projectionType(),
                 metadata == null ? null : metadata.reductionAlgorithm(),
+                metadata == null ? null : metadata.projectionDimension(),
                 metadata == null ? null : metadata.embeddingProvider(),
                 metadata == null ? null : metadata.embeddingModel(),
                 metadata == null ? null : metadata.embeddingDimension(),
+                metadata == null ? null : metadata.parameters(),
                 projections.stream()
                         .map(SkillProjection::createdAt)
                         .min(Comparator.naturalOrder())

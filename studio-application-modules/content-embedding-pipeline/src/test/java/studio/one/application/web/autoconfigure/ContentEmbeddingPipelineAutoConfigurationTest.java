@@ -9,6 +9,7 @@ import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.web.controller.AttachmentEmbeddingPipelineController;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
@@ -29,6 +30,7 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
                     assertThat(context).hasSingleBean(AttachmentRagIndexService.class);
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceExecutor.class);
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceNameResolver.class);
+                    assertThat(context).hasSingleBean(AttachmentEmbeddingPipelineController.class);
                 });
     }
 
@@ -109,6 +111,7 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
             assertThat(context).doesNotHaveBean(AttachmentRagIndexService.class);
             assertThat(context).doesNotHaveBean(AttachmentRagIndexJobSourceExecutor.class);
             assertThat(context).doesNotHaveBean(AttachmentRagIndexJobSourceNameResolver.class);
+            assertThat(context).doesNotHaveBean(AttachmentEmbeddingPipelineController.class);
         });
     }
 }

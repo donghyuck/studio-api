@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.skillgraph.application.service.DefaultSkillVisualizationService;
+import studio.one.platform.skillgraph.application.command.GenerateSkillProjectionCommand;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.infrastructure.clustering.DistanceThresholdSkillClusterer;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
@@ -63,5 +64,49 @@ class DefaultSkillVisualizationServiceTest {
         assertEquals(0, result.itemCount());
         assertEquals(0, result.clusterCount());
         assertEquals(0, service.listProjections(PageRequest.of(0, 10)).getContent().size());
+    }
+
+    @Test
+    void separatesProjectionBySkillTypeAndStoresClusterMembers() {
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        Instant now = Instant.now();
+        dictionaryStore.save(new SkillDictionary("task-1", "REST API 구현", "rest api 구현", null, "TASK_SKILL",
+                "ACTIVE", now, now), List.of(1.0d, 0.0d, 0.0d));
+        dictionaryStore.save(new SkillDictionary("task-2", "JWT 인증 구현", "jwt 인증 구현", null, "TASK_SKILL",
+                "ACTIVE", now, now), List.of(0.9d, 0.1d, 0.0d));
+        dictionaryStore.save(new SkillDictionary("tech-1", "Spring Boot", "spring boot", null, "TECH_SKILL",
+                "ACTIVE", now, now), List.of(0.0d, 1.0d, 0.0d));
+        InMemorySkillProjectionStore projectionStore = new InMemorySkillProjectionStore();
+        DefaultSkillVisualizationService service = new DefaultSkillVisualizationService(
+                dictionaryStore,
+                projectionStore,
+                new DistanceThresholdSkillClusterer(0.5d));
+
+        var result = service.generateProjection(new GenerateSkillProjectionCommand(
+                "projection-task",
+                100,
+                "TASK_SKILL",
+                "CLUSTERING",
+                "PCA",
+                2,
+                "HDBSCAN",
+                null,
+                null,
+                null,
+                "{\"minClusterSize\":2}"));
+
+        assertEquals(2, result.itemCount());
+        assertEquals("TASK_SKILL", result.skillType());
+        assertEquals("CLUSTERING", result.projectionType());
+        var summary = service.listProjections(PageRequest.of(0, 10)).getContent().get(0);
+        assertEquals("TASK_SKILL", summary.skillType());
+        assertEquals("CLUSTERING", summary.projectionType());
+        assertEquals(2, summary.projectionDimension());
+        var cluster = service.findClusters("projection-task").get(0);
+        assertEquals("TASK_SKILL", cluster.skillType());
+        assertFalse(cluster.representativeSkillIds().isEmpty());
+        var members = service.findClusterMembers("projection-task", cluster.clusterId(), PageRequest.of(0, 10));
+        assertEquals(2, members.getTotalElements());
+        assertEquals(2, members.getContent().stream().filter(item -> item.representative()).count());
     }
 }

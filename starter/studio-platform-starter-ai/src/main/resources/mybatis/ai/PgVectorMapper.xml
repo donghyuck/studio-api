@@ -13,6 +13,7 @@
   </resultMap>
 
   <sql id="metadataConditions">
+    AND embedding_dimension = #{embeddingDimension}
     <if test="metadataObjectType != null">
       AND object_type = #{metadataObjectType,jdbcType=VARCHAR}
     </if>
@@ -57,20 +58,22 @@
   </sql>
 
   <insert id="upsertChunk" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorChunkParameter">
-    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
+    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
     VALUES (
       #{objectType,jdbcType=VARCHAR},
       #{objectId,jdbcType=VARCHAR},
       #{chunkIndex},
       #{text,jdbcType=VARCHAR},
       CAST(#{metadata,jdbcType=VARCHAR} AS jsonb),
-      #{embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}
+      #{embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler},
+      #{embeddingDimension}
     )
     ON CONFLICT (object_type, object_id, chunk_index)
     DO UPDATE SET
       text = EXCLUDED.text,
       metadata = EXCLUDED.metadata,
-      embedding = EXCLUDED.embedding
+      embedding = EXCLUDED.embedding,
+      embedding_dimension = EXCLUDED.embedding_dimension
   </insert>
 
   <select id="search" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"

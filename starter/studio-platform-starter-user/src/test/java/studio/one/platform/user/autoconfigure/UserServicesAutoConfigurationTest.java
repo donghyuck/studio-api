@@ -10,13 +10,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import studio.one.platform.constant.ServiceNames;
 import studio.one.base.user.domain.port.ApplicationCompanyMemberRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyMemberKeyRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyJoinRequestRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyPermissionPolicyRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyRepository;
 import studio.one.base.user.domain.port.ApplicationRoleRepository;
+import studio.one.base.user.domain.port.ApplicationUserRepository;
 import studio.one.base.user.application.usecase.ApplicationCompanyMemberService;
 import studio.one.base.user.application.usecase.ApplicationCompanyPermissionService;
 import studio.one.base.user.application.usecase.ApplicationCompanyJoinRequestService;
@@ -44,6 +47,8 @@ class UserServicesAutoConfigurationTest {
             .withBean(ApplicationGroupService.class, () -> stub(ApplicationGroupService.class))
             .withBean(ApplicationRoleService.class, () -> stub(ApplicationRoleService.class))
             .withBean(ApplicationRoleRepository.class, () -> stub(ApplicationRoleRepository.class))
+            .withBean(ApplicationUserRepository.class, () -> stub(ApplicationUserRepository.class))
+            .withBean(ServiceNames.JDBC_TEMPLATE, JdbcTemplate.class, UserServicesAutoConfigurationTest::jdbcTemplate)
             .withPropertyValues("studio.features.user.enabled=true");
 
     @Test
@@ -129,6 +134,16 @@ class UserServicesAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(UserMutator.class);
                     assertThat(context).doesNotHaveBean(PasswordPolicyService.class);
                 });
+    }
+
+    @Test
+    void registersUserBootstrapInitializerOnlyWhenEnabled() {
+        contextRunner
+                .run(context -> assertThat(context).doesNotHaveBean(UserBootstrapInitializer.class));
+
+        contextRunner
+                .withPropertyValues("studio.bootstrap.user.enabled=true")
+                .run(context -> assertThat(context).hasSingleBean(UserBootstrapInitializer.class));
     }
 
     @Test
@@ -309,5 +324,14 @@ class UserServicesAutoConfigurationTest {
                     }
                     throw new UnsupportedOperationException(method.getName());
                 });
+    }
+
+    private static JdbcTemplate jdbcTemplate() {
+        return new JdbcTemplate() {
+            @Override
+            public void afterPropertiesSet() {
+                // no datasource is required for auto-configuration wiring tests
+            }
+        };
     }
 }

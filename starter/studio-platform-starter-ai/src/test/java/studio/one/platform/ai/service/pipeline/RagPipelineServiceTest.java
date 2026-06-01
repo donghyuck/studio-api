@@ -624,6 +624,29 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldStreamLargeObjectScopedIndexInBatches() {
+        RagIndexRequest request = new RagIndexRequest("doc-large", "large text", Map.of(
+                "objectType", "attachment",
+                "objectId", "99"));
+        List<TextChunk> chunks = new ArrayList<>();
+        for (int i = 0; i < 65; i++) {
+            chunks.add(new TextChunk("doc-large-" + i, "chunk-" + i));
+        }
+        when(textChunker.chunk("doc-large", "large text")).thenReturn(chunks);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+
+        ragPipelineService.index(request);
+
+        verify(vectorStorePort).deleteByObject("attachment", "99");
+        verify(vectorStorePort, never()).replaceRecordsByObject(anyString(), anyString(), any());
+        verify(vectorStorePort, times(2)).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getAllValues()).hasSize(2);
+        assertThat(recordsCaptor.getAllValues().get(0)).hasSize(64);
+        assertThat(recordsCaptor.getAllValues().get(1)).hasSize(1);
+    }
+
+    @Test
     void shouldIgnoreCallerKeywordsWhenScopeIsChunk() {
         ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,

@@ -2,6 +2,7 @@ package studio.one.application.attachment.infrastructure.storage;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.ByteArrayInputStream;
 import java.sql.Blob;
 import java.sql.SQLException;
 
@@ -36,7 +37,7 @@ public class JpaFileStore implements FileStorage {
     public InputStream load(Attachment attachment) {
         return attachmentDataRepository.findById(attachment.getAttachmentId())
                 .map(ApplicationAttachmentData::getBlob)
-                .map(this::asStream)
+                .map(this::asByteArrayStream)
                 .orElseThrow(() -> new RuntimeException("Attachment data not found"));
     }
 
@@ -45,9 +46,13 @@ public class JpaFileStore implements FileStorage {
         attachmentDataRepository.deleteById(attachment.getAttachmentId());
     }
 
-    private InputStream asStream(Blob blob) {
+    private InputStream asByteArrayStream(Blob blob) {
         try {
-            return blob.getBinaryStream();
+            long length = blob.length();
+            if (length > Integer.MAX_VALUE) {
+                throw new RuntimeException("Attachment data is too large to read");
+            }
+            return new ByteArrayInputStream(blob.getBytes(1, (int) length));
         } catch (SQLException e) {
             throw new RuntimeException("Failed to read attachment data", e);
         }

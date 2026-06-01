@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
+import studio.one.platform.skillgraph.domain.model.SkillClusterMember;
 import studio.one.platform.skillgraph.domain.model.SkillProjection;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionMetadata;
 import studio.one.platform.skillgraph.domain.model.SkillProjectionSummary;
@@ -23,6 +24,15 @@ public interface SkillProjectionStore {
             List<SkillCluster> clusters,
             SkillProjectionMetadata metadata) {
         replaceProjection(projectionId, projections, clusters);
+    }
+
+    default void replaceProjection(
+            String projectionId,
+            List<SkillProjection> projections,
+            List<SkillCluster> clusters,
+            List<SkillClusterMember> members,
+            SkillProjectionMetadata metadata) {
+        replaceProjection(projectionId, projections, clusters, metadata);
     }
 
     Page<SkillProjectionSummary> listProjections(Pageable pageable);
@@ -44,6 +54,10 @@ public interface SkillProjectionStore {
     }
 
     List<SkillCluster> findClusters(String projectionId);
+
+    default Page<SkillClusterMember> findClusterMembers(String projectionId, String clusterId, Pageable pageable) {
+        return Page.empty(pageable);
+    }
 
     Optional<SkillProjection> findProjectionPoint(String projectionId, String skillId);
 }

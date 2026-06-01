@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.command.GenerateSkillProjectionCommand;
+import studio.one.platform.skillgraph.application.result.SkillClusterMemberView;
 import studio.one.platform.skillgraph.application.result.SkillClusterView;
 import studio.one.platform.skillgraph.application.result.SkillGraphBatchJobView;
 import studio.one.platform.skillgraph.application.result.SkillProjectionPointView;
@@ -49,11 +50,15 @@ public class SkillVisualizationMgmtController {
                 visualizationService.generateProjectionJob(new GenerateSkillProjectionCommand(
                         request.projectionId(),
                         limit,
+                        request.skillType(),
+                        request.projectionType(),
                         request.reductionAlgorithm(),
+                        request.projectionDimension(),
                         request.clusteringAlgorithm(),
                         request.embeddingProvider(),
                         request.embeddingModel(),
-                        request.embeddingDimension()))));
+                        request.embeddingDimension(),
+                        request.parameters()))));
     }
 
     /**
@@ -90,6 +95,19 @@ public class SkillVisualizationMgmtController {
     public ResponseEntity<ApiResponse<List<SkillClusterView>>> clusters(
             @PathVariable @Size(max = 100) String projectionId) {
         return ResponseEntity.ok(ApiResponse.ok(visualizationService.findClusters(projectionId)));
+    }
+
+    @GetMapping("/projections/{projectionId}/clusters/{clusterId}/members")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<Page<SkillClusterMemberView>>> members(
+            @PathVariable @Size(max = 100) String projectionId,
+            @PathVariable @Size(max = 100) String clusterId,
+            @PageableDefault(size = 50, sort = "distanceToCentroid",
+                    direction = org.springframework.data.domain.Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(visualizationService.findClusterMembers(
+                projectionId,
+                clusterId,
+                pageable)));
     }
 
     @GetMapping("/projections/{projectionId}/clusters/{clusterId}/representatives")

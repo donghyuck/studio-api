@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.web.controller.AttachmentEmbeddingPipelineController;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
@@ -22,7 +23,10 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 @AutoConfigureAfter(name = "studio.one.application.attachment.autoconfigure.AttachmentAutoConfiguration")
 @ConditionalOnClass({AttachmentService.class, RagPipelineService.class})
 @ConditionalOnBean(AttachmentService.class)
-@Import(ContentEmbeddingPipelineStructuredRagAutoConfiguration.class)
+@Import({
+        AttachmentEmbeddingPipelineController.class,
+        ContentEmbeddingPipelineStructuredRagAutoConfiguration.class
+})
 public class ContentEmbeddingPipelineAutoConfiguration {
 
     @Bean

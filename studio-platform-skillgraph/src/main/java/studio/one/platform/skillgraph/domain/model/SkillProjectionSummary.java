@@ -7,21 +7,46 @@ public record SkillProjectionSummary(
         int itemCount,
         int clusterCount,
         String algorithm,
+        String skillType,
+        String jobId,
+        String projectionType,
         String reductionAlgorithm,
+        Integer projectionDimension,
         String embeddingProvider,
         String embeddingModel,
         Integer embeddingDimension,
+        String metadata,
         Instant createdAt,
         Instant updatedAt) {
+
+    public SkillProjectionSummary(
+            String projectionId,
+            int itemCount,
+            int clusterCount,
+            String algorithm,
+            String reductionAlgorithm,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(projectionId, itemCount, clusterCount, algorithm, null, null, null, reductionAlgorithm, null,
+                embeddingProvider, embeddingModel, embeddingDimension, null, createdAt, updatedAt);
+    }
 
     public SkillProjectionSummary {
         projectionId = requireText(projectionId, "projectionId");
         itemCount = Math.max(0, itemCount);
         clusterCount = Math.max(0, clusterCount);
         algorithm = normalize(algorithm);
+        skillType = SkillType.normalizeNameOrNull(skillType);
+        jobId = normalize(jobId);
+        projectionType = normalize(projectionType);
         reductionAlgorithm = normalize(reductionAlgorithm);
+        projectionDimension = projectionDimension == null || projectionDimension <= 0 ? null : projectionDimension;
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
+        metadata = normalize(metadata);
         createdAt = createdAt == null ? Instant.now() : createdAt;
         updatedAt = updatedAt == null ? createdAt : updatedAt;
     }

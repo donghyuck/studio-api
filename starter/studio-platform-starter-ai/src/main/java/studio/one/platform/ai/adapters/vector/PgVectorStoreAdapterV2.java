@@ -71,7 +71,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                     resolveChunkIndex(metadata),
                     document.content(),
                     Json.write(metadata),
-                    toPgVector(document.embedding())));
+                    toPgVector(document.embedding()),
+                    document.embedding().size()));
         }
     }
 
@@ -228,6 +229,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         MetadataFilter filter = request.metadataFilter();
         return new PgVectorSearchParameter(
                 toPgVector(request.embedding()),
+                request.embedding().size(),
                 request.topK(),
                 objectType,
                 objectId,
@@ -248,6 +250,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         MetadataFilter filter = request.metadataFilter();
         return new PgVectorHybridSearchParameter(
                 toPgVector(request.embedding()),
+                request.embedding().size(),
                 request.topK(),
                 objectType,
                 objectId,

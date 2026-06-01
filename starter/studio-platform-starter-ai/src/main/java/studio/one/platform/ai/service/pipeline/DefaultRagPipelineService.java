@@ -44,6 +44,8 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 @SuppressWarnings("deprecation")
 public class DefaultRagPipelineService implements RagPipelineService {
 
+    private static final int INDEX_UPSERT_BATCH_SIZE = 64;
+
     private final EmbeddingPort embeddingPort;
     private final RagEmbeddingProfileResolver embeddingProfileResolver;
     private final VectorStorePort vectorStorePort;
@@ -231,7 +233,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
         RagIndexRequest chunkingRequest = withResolvedEmbeddingForChunking(request);
         List<RagPipelineChunk> chunks = chunk(indexedText, chunkingRequest);
         progress.onChunkCount(chunks.size());
-        List<VectorRecord> records = new ArrayList<>(chunks.size());
         List<String> documentKeywords = keywordOptions.scope().includesDocument()
                 ? resolveDocumentKeywords(request, indexedText)
                 : List.of();
@@ -245,43 +246,94 @@ public class DefaultRagPipelineService implements RagPipelineService {
             baseMetadata.put("keywords", documentKeywords);
             baseMetadata.put("keywordsText", String.join(" ", documentKeywords));
         }
-        int order = 0;
-        progress.onStep(RagIndexJobStep.EMBEDDING);
-        for (RagPipelineChunk chunk : chunks) {
-            ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request, chunk);
-            List<Double> embedding = embedWithCache(chunk.content(), resolvedEmbedding);
-            Map<String, Object> metadata = new HashMap<>(baseMetadata);
-            mergeChunkMetadata(metadata, chunk.metadata());
-            metadata.putAll(resolvedEmbedding.metadata());
-            List<String> chunkKeywords = keywordOptions.scope().includesChunk()
-                    ? resolveChunkKeywords(request, chunk.content())
-                    : List.of();
-            if (!chunkKeywords.isEmpty()) {
-                metadata.put("chunkKeywords", chunkKeywords);
-                metadata.put("chunkKeywordsText", String.join(" ", chunkKeywords));
-            }
-            metadata.put("documentId", request.documentId());
-            metadata.put("chunkId", chunk.id());
-            metadata.put("chunkOrder", order);
-            metadata.put(VectorRecord.KEY_CHUNK_INDEX, order);
-            metadata.put("chunkLength", chunk.content().length());
-            records.add(vectorRecord(request.documentId(), chunk, metadata, embedding));
-            progress.onEmbeddedCount(records.size());
-            order++;
-        }
         String objectType = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectType"));
         String objectId = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectId"));
-        progress.onStep(RagIndexJobStep.INDEXING);
-        if (objectType != null && objectId != null) {
-            if (records.isEmpty()) {
-                vectorStorePort.deleteByObject(objectType, objectId);
-            } else {
-                vectorStorePort.replaceRecordsByObject(objectType, objectId, records);
-            }
-        } else if (!records.isEmpty()) {
-            vectorStorePort.upsertAll(records);
+        if (objectType != null && objectId != null && chunks.isEmpty()) {
+            progress.onStep(RagIndexJobStep.INDEXING);
+            vectorStorePort.deleteByObject(objectType, objectId);
+            progress.onIndexedCount(0);
+            return;
         }
-        progress.onIndexedCount(records.size());
+        if (objectType != null && objectId != null && chunks.size() <= INDEX_UPSERT_BATCH_SIZE) {
+            List<VectorRecord> records = embedRecords(request, chunks, baseMetadata, progress);
+            vectorStorePort.replaceRecordsByObject(objectType, objectId, records);
+            progress.onIndexedCount(records.size());
+            return;
+        }
+        if (objectType != null && objectId != null) {
+            vectorStorePort.deleteByObject(objectType, objectId);
+        }
+        int indexed = embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
+        progress.onIndexedCount(indexed);
+    }
+
+    private List<VectorRecord> embedRecords(
+            RagIndexRequest request,
+            List<RagPipelineChunk> chunks,
+            Map<String, Object> baseMetadata,
+            RagIndexProgressListener progress) {
+        progress.onStep(RagIndexJobStep.EMBEDDING);
+        List<VectorRecord> records = new ArrayList<>(chunks.size());
+        for (int order = 0; order < chunks.size(); order++) {
+            records.add(embedRecord(request, chunks.get(order), baseMetadata, order));
+            progress.onEmbeddedCount(records.size());
+        }
+        progress.onStep(RagIndexJobStep.INDEXING);
+        return records;
+    }
+
+    private int embedAndUpsertInBatches(
+            RagIndexRequest request,
+            List<RagPipelineChunk> chunks,
+            Map<String, Object> baseMetadata,
+            RagIndexProgressListener progress) {
+        progress.onStep(RagIndexJobStep.EMBEDDING);
+        List<VectorRecord> batch = new ArrayList<>(Math.min(INDEX_UPSERT_BATCH_SIZE, chunks.size()));
+        int embedded = 0;
+        int indexed = 0;
+        for (int order = 0; order < chunks.size(); order++) {
+            batch.add(embedRecord(request, chunks.get(order), baseMetadata, order));
+            embedded++;
+            progress.onEmbeddedCount(embedded);
+            if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
+                progress.onStep(RagIndexJobStep.INDEXING);
+                vectorStorePort.upsertAll(List.copyOf(batch));
+                indexed += batch.size();
+                batch.clear();
+                progress.onStep(RagIndexJobStep.EMBEDDING);
+            }
+        }
+        if (!batch.isEmpty()) {
+            progress.onStep(RagIndexJobStep.INDEXING);
+            vectorStorePort.upsertAll(List.copyOf(batch));
+            indexed += batch.size();
+        }
+        return indexed;
+    }
+
+    private VectorRecord embedRecord(
+            RagIndexRequest request,
+            RagPipelineChunk chunk,
+            Map<String, Object> baseMetadata,
+            int order) {
+        ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request, chunk);
+        List<Double> embedding = embedForIndex(chunk.content(), resolvedEmbedding);
+        Map<String, Object> metadata = new HashMap<>(baseMetadata);
+        mergeChunkMetadata(metadata, chunk.metadata());
+        metadata.putAll(resolvedEmbedding.metadata());
+        List<String> chunkKeywords = keywordOptions.scope().includesChunk()
+                ? resolveChunkKeywords(request, chunk.content())
+                : List.of();
+        if (!chunkKeywords.isEmpty()) {
+            metadata.put("chunkKeywords", chunkKeywords);
+            metadata.put("chunkKeywordsText", String.join(" ", chunkKeywords));
+        }
+        metadata.put("documentId", request.documentId());
+        metadata.put("chunkId", chunk.id());
+        metadata.put("chunkOrder", order);
+        metadata.put(VectorRecord.KEY_CHUNK_INDEX, order);
+        metadata.put("chunkLength", chunk.content().length());
+        return vectorRecord(request.documentId(), chunk, metadata, embedding);
     }
 
     private VectorRecord vectorRecord(
@@ -561,6 +613,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
         List<Double> values = List.copyOf(vector.values());
         embeddingCache.put(cacheKey, values);
         return values;
+    }
+
+    private List<Double> embedForIndex(String text, ResolvedRagEmbedding resolvedEmbedding) {
+        EmbeddingResponse response = executeEmbedding(List.of(text), resolvedEmbedding);
+        EmbeddingVector vector = response.vectors().get(0);
+        return List.copyOf(vector.values());
     }
 
     private EmbeddingResponse executeEmbedding(List<String> texts, ResolvedRagEmbedding resolvedEmbedding) {

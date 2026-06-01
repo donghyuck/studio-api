@@ -10,6 +10,7 @@ public final class PgVectorChunkParameter {
     private final String text;
     private final String metadata;
     private final PGvector embedding;
+    private final int embeddingDimension;
 
     public PgVectorChunkParameter(
             String objectType,
@@ -17,13 +18,15 @@ public final class PgVectorChunkParameter {
             int chunkIndex,
             String text,
             String metadata,
-            PGvector embedding) {
+            PGvector embedding,
+            int embeddingDimension) {
         this.objectType = objectType;
         this.objectId = objectId;
         this.chunkIndex = chunkIndex;
         this.text = text;
         this.metadata = metadata;
         this.embedding = embedding;
+        this.embeddingDimension = embeddingDimension;
     }
 
     public String getObjectType() {
@@ -48,5 +51,9 @@ public final class PgVectorChunkParameter {
 
     public PGvector getEmbedding() {
         return embedding;
+    }
+
+    public int getEmbeddingDimension() {
+        return embeddingDimension;
     }
 }

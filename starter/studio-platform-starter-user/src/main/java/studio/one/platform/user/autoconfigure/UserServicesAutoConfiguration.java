@@ -51,6 +51,8 @@ import studio.one.base.user.application.service.ApplicationUserMutator;
 import studio.one.base.user.application.service.PasswordPolicyValidator;
 import studio.one.base.user.application.service.ApplicationUserServiceImpl;
 import studio.one.base.user.application.config.PasswordPolicyProperties;
+import studio.one.base.user.domain.model.ApplicationRole;
+import studio.one.base.user.domain.model.ApplicationUser;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
@@ -65,7 +67,8 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class, PasswordPolicyProperties.class })
+@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class, PasswordPolicyProperties.class,
+                UserBootstrapProperties.class })
 @AutoConfigureAfter(UserEntityAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @Slf4j
@@ -172,6 +175,24 @@ public class UserServicesAutoConfiguration {
                                 LogUtils.red(State.CREATED.toString())));
                 return new ApplicationRoleServiceImpl(roleRepo, groupRoleRepo, userRoleRepo, jdbcTemplate,
                                 domainEventsProvider, i18nProvider);
+        }
+
+        @Bean
+        @ConditionalOnClass({ ApplicationUser.class, ApplicationRole.class })
+        @ConditionalOnProperty(prefix = "studio.bootstrap.user", name = "enabled", havingValue = "true")
+        @ConditionalOnMissingBean(UserBootstrapInitializer.class)
+        public UserBootstrapInitializer userBootstrapInitializer(
+                        UserBootstrapProperties properties,
+                        ApplicationRoleRepository roleRepository,
+                        ApplicationUserRepository userRepository,
+                        ObjectProvider<PasswordEncoder> passwordEncoderProvider,
+                        @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate) {
+                I18n i18n = I18nUtils.resolve(i18nProvider);
+                log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
+                                LogUtils.blue(UserBootstrapInitializer.class, true),
+                                LogUtils.red(State.CREATED.toString())));
+                return new UserBootstrapInitializer(properties, roleRepository, userRepository, passwordEncoderProvider,
+                                jdbcTemplate);
         }
 
         @Bean(name = ApplicationCompanyService.SERVICE_NAME)
