@@ -166,11 +166,11 @@ class UserBootstrapInitializerTest {
                     if (createdRoles.size() < 2) {
                         String roleName = insertRoleIndex++ == 0 ? "ROLE_ADMIN" : "ROLE_USER";
                         ApplicationRole role = createRole(role(null, roleName));
-                        generatedKeyHolder.getKeyList().add(Map.of("ROLE_ID", role.getRoleId()));
+                        generatedKeyHolder.getKeyList().add(Map.of("role_id", role.getRoleId()));
                     } else {
                         ApplicationUser user = ApplicationUser.builder().username("local-admin").build();
                         createUser(user);
-                        generatedKeyHolder.getKeyList().add(Map.of("USER_ID", user.getUserId()));
+                        generatedKeyHolder.getKeyList().add(Map.of("user_id", user.getUserId()));
                     }
                     return 1;
                 }

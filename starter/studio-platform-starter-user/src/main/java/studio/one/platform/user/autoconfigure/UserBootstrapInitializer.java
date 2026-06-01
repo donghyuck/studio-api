@@ -133,9 +133,9 @@ public class UserBootstrapInitializer implements ApplicationRunner {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             var ps = connection.prepareStatement("""
-                    insert into TB_APPLICATION_ROLE (NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE)
+                    insert into tb_application_role (name, description, creation_date, modified_date)
                     values (?, ?, current_timestamp, current_timestamp)
-                    """, new String[] { "ROLE_ID" });
+                    """, new String[] { "role_id" });
             ps.setString(1, role.getName());
             ps.setString(2, role.getDescription());
             return ps;
@@ -148,11 +148,11 @@ public class UserBootstrapInitializer implements ApplicationRunner {
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             var ps = connection.prepareStatement("""
-                    insert into TB_APPLICATION_USER
-                        (USERNAME, NAME, EMAIL, PASSWORD_HASH, NAME_VISIBLE, EMAIL_VISIBLE,
-                         USER_ENABLED, USER_EXTERNAL, FAILED_ATTEMPTS, CREATION_DATE, MODIFIED_DATE)
+                    insert into tb_application_user
+                        (username, name, email, password_hash, name_visible, email_visible,
+                         user_enabled, user_external, failed_attempts, creation_date, modified_date)
                     values (?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp, current_timestamp)
-                    """, new String[] { "USER_ID" });
+                    """, new String[] { "user_id" });
             ps.setString(1, user.getUsername());
             ps.setString(2, user.getName());
             ps.setString(3, user.getEmail());
@@ -170,7 +170,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
 
     private void insertUserRole(Long userId, Long roleId) {
         jdbcTemplate.update("""
-                insert into TB_APPLICATION_USER_ROLES (USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)
+                insert into tb_application_user_roles (user_id, role_id, assigned_at, assigned_by)
                 values (?, ?, current_timestamp, ?)
                 """, userId, roleId, ACTOR);
     }
