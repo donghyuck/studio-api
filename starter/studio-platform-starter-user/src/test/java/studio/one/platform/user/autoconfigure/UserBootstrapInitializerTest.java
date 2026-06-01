@@ -12,10 +12,11 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.PreparedStatementCreator;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import studio.one.base.user.application.usecase.ApplicationRoleService;
-import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.base.user.domain.model.ApplicationRole;
 import studio.one.base.user.domain.model.ApplicationUser;
 import studio.one.base.user.domain.port.ApplicationRoleRepository;
@@ -28,8 +29,8 @@ class UserBootstrapInitializerTest {
         UserBootstrapProperties properties = properties("local-password");
         Recorder recorder = new Recorder();
 
-        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService(), recorder.roleRepository(),
-                recorder.userRepository(), passwordEncoder()).run(null);
+        new UserBootstrapInitializer(properties, recorder.roleRepository(), recorder.userRepository(), passwordEncoder(),
+                recorder.jdbcTemplate()).run(null);
 
         assertThat(recorder.createdRoles).extracting(ApplicationRole::getName)
                 .containsExactly("ROLE_ADMIN", "ROLE_USER");
@@ -43,8 +44,8 @@ class UserBootstrapInitializerTest {
         UserBootstrapProperties properties = properties(null);
         Recorder recorder = new Recorder();
 
-        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService(), recorder.roleRepository(),
-                recorder.userRepository(), passwordEncoder()).run(null);
+        new UserBootstrapInitializer(properties, recorder.roleRepository(), recorder.userRepository(), passwordEncoder(),
+                recorder.jdbcTemplate()).run(null);
 
         assertThat(recorder.createdRoles).extracting(ApplicationRole::getName)
                 .containsExactly("ROLE_ADMIN", "ROLE_USER");
@@ -60,8 +61,8 @@ class UserBootstrapInitializerTest {
         recorder.roles.put("ROLE_USER", role(11L, "ROLE_USER"));
         recorder.existingUsers.add(ApplicationUser.builder().username("existing").build());
 
-        new UserBootstrapInitializer(properties, recorder.roleService(), recorder.userService(), recorder.roleRepository(),
-                recorder.userRepository(), passwordEncoder()).run(null);
+        new UserBootstrapInitializer(properties, recorder.roleRepository(), recorder.userRepository(), passwordEncoder(),
+                recorder.jdbcTemplate()).run(null);
 
         assertThat(recorder.createdRoles).isEmpty();
         assertThat(recorder.createdUsers).isEmpty();
@@ -129,19 +130,8 @@ class UserBootstrapInitializerTest {
         private final List<ApplicationUser> createdUsers = new ArrayList<>();
         private final List<String> assignedRoles = new ArrayList<>();
         private int nextRoleId = 10;
+        private int insertRoleIndex;
         private int findByUsernameCalls;
-
-        @SuppressWarnings("unchecked")
-        ApplicationRoleService<ApplicationRole, ?> roleService() {
-            return (ApplicationRoleService<ApplicationRole, ?>) Proxy.newProxyInstance(
-                    getClass().getClassLoader(),
-                    new Class<?>[] { ApplicationRoleService.class },
-                    (proxy, method, args) -> switch (method.getName()) {
-                        case "findRoleByName" -> Optional.ofNullable(roles.get((String) args[0]));
-                        case "createRole" -> createRole((ApplicationRole) args[0]);
-                        default -> throw new UnsupportedOperationException(method.getName());
-                    });
-        }
 
         ApplicationRoleRepository roleRepository() {
             return (ApplicationRoleRepository) Proxy.newProxyInstance(
@@ -150,26 +140,6 @@ class UserBootstrapInitializerTest {
                     (proxy, method, args) -> switch (method.getName()) {
                         case "findByName" -> Optional.ofNullable(roles.get((String) args[0]));
                         case "save" -> createRole((ApplicationRole) args[0]);
-                        default -> throw new UnsupportedOperationException(method.getName());
-                    });
-        }
-
-        @SuppressWarnings("unchecked")
-        ApplicationUserService<ApplicationUser, ApplicationRole> userService() {
-            return (ApplicationUserService<ApplicationUser, ApplicationRole>) Proxy.newProxyInstance(
-                    getClass().getClassLoader(),
-                    new Class<?>[] { ApplicationUserService.class },
-                    (proxy, method, args) -> switch (method.getName()) {
-                        case "findAll" -> new PageImpl<>(existingUsers);
-                        case "findByUsername" -> {
-                            findByUsernameCalls++;
-                            yield Optional.empty();
-                        }
-                        case "create" -> createUser((ApplicationUser) args[0]);
-                        case "assignRole" -> {
-                            assignedRoles.add(args[0] + ":" + args[1] + ":" + args[2]);
-                            yield null;
-                        }
                         default -> throw new UnsupportedOperationException(method.getName());
                     });
         }
@@ -187,6 +157,30 @@ class UserBootstrapInitializerTest {
                         case "save" -> createUser((ApplicationUser) args[0]);
                         default -> throw new UnsupportedOperationException(method.getName());
                     });
+        }
+
+        JdbcTemplate jdbcTemplate() {
+            return new JdbcTemplate() {
+                @Override
+                public int update(PreparedStatementCreator psc, KeyHolder generatedKeyHolder) {
+                    if (createdRoles.size() < 2) {
+                        String roleName = insertRoleIndex++ == 0 ? "ROLE_ADMIN" : "ROLE_USER";
+                        ApplicationRole role = createRole(role(null, roleName));
+                        generatedKeyHolder.getKeyList().add(Map.of("ROLE_ID", role.getRoleId()));
+                    } else {
+                        ApplicationUser user = ApplicationUser.builder().username("local-admin").build();
+                        createUser(user);
+                        generatedKeyHolder.getKeyList().add(Map.of("USER_ID", user.getUserId()));
+                    }
+                    return 1;
+                }
+
+                @Override
+                public int update(String sql, Object... args) {
+                    assignedRoles.add(args[0] + ":" + args[1] + ":user-bootstrap");
+                    return 1;
+                }
+            };
         }
 
         private ApplicationRole createRole(ApplicationRole role) {

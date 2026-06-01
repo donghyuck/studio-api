@@ -8,13 +8,14 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import studio.one.base.user.application.usecase.ApplicationRoleService;
-import studio.one.base.user.application.usecase.ApplicationUserService;
 import studio.one.base.user.domain.model.ApplicationRole;
 import studio.one.base.user.domain.model.ApplicationUser;
 import studio.one.base.user.domain.port.ApplicationRoleRepository;
@@ -27,11 +28,10 @@ public class UserBootstrapInitializer implements ApplicationRunner {
     private static final String ACTOR = "user-bootstrap";
 
     private final UserBootstrapProperties properties;
-    private final ApplicationRoleService<ApplicationRole, ?> roleService;
-    private final ApplicationUserService<ApplicationUser, ApplicationRole> userService;
     private final ApplicationRoleRepository roleRepository;
     private final ApplicationUserRepository userRepository;
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(ApplicationArguments args) {
@@ -65,11 +65,11 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 ? definition.getDescription().trim()
                 : roleName);
         log.info("Creating bootstrap role: {}", roleName);
-        ApplicationRole saved = roleRepository.save(role);
-        if (saved.getRoleId() == null) {
+        Long roleId = insertRole(role);
+        if (roleId == null) {
             throw new IllegalStateException("Bootstrap role was not persisted: " + roleName);
         }
-        log.info("Created bootstrap role: name={}, id={}", roleName, saved.getRoleId());
+        log.info("Created bootstrap role: name={}, id={}", roleName, roleId);
     }
 
     private void ensureAdminUser(UserBootstrapProperties.Admin admin) {
@@ -105,12 +105,13 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 .emailVisible(true)
                 .build();
         log.info("Creating bootstrap admin user: {}", username);
-        ApplicationUser saved = userRepository.save(user);
-        if (saved.getUserId() == null) {
+        Long userId = insertUser(user);
+        if (userId == null) {
             throw new IllegalStateException("Bootstrap admin user was not persisted: " + username);
         }
-        assignAdminRoles(saved, admin.getRoles());
-        log.info("Created bootstrap admin user: username={}, id={}", username, saved.getUserId());
+        user.setUserId(userId);
+        assignAdminRoles(user, admin.getRoles());
+        log.info("Created bootstrap admin user: username={}, id={}", username, userId);
     }
 
     private void assignAdminRoles(ApplicationUser user, List<String> roleNames) {
@@ -123,8 +124,54 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 .map(roleRepository::findByName)
                 .flatMap(Optional::stream)
                 .forEach(role -> {
-                    userService.assignRole(user.getUserId(), role.getRoleId(), ACTOR);
+                    insertUserRole(user.getUserId(), role.getRoleId());
                     log.info("Assigned bootstrap role to user: userId={}, role={}", user.getUserId(), role.getName());
                 });
+    }
+
+    private Long insertRole(ApplicationRole role) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            var ps = connection.prepareStatement("""
+                    insert into TB_APPLICATION_ROLE (NAME, DESCRIPTION, CREATION_DATE, MODIFIED_DATE)
+                    values (?, ?, current_timestamp, current_timestamp)
+                    """, new String[] { "ROLE_ID" });
+            ps.setString(1, role.getName());
+            ps.setString(2, role.getDescription());
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        return key == null ? null : key.longValue();
+    }
+
+    private Long insertUser(ApplicationUser user) {
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            var ps = connection.prepareStatement("""
+                    insert into TB_APPLICATION_USER
+                        (USERNAME, NAME, EMAIL, PASSWORD_HASH, NAME_VISIBLE, EMAIL_VISIBLE,
+                         USER_ENABLED, USER_EXTERNAL, FAILED_ATTEMPTS, CREATION_DATE, MODIFIED_DATE)
+                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, current_timestamp, current_timestamp)
+                    """, new String[] { "USER_ID" });
+            ps.setString(1, user.getUsername());
+            ps.setString(2, user.getName());
+            ps.setString(3, user.getEmail());
+            ps.setString(4, user.getPassword());
+            ps.setBoolean(5, user.isNameVisible());
+            ps.setBoolean(6, user.isEmailVisible());
+            ps.setBoolean(7, user.isEnabled());
+            ps.setBoolean(8, user.isExternal());
+            ps.setInt(9, user.getFailedAttempts());
+            return ps;
+        }, keyHolder);
+        Number key = keyHolder.getKey();
+        return key == null ? null : key.longValue();
+    }
+
+    private void insertUserRole(Long userId, Long roleId) {
+        jdbcTemplate.update("""
+                insert into TB_APPLICATION_USER_ROLES (USER_ID, ROLE_ID, ASSIGNED_AT, ASSIGNED_BY)
+                values (?, ?, current_timestamp, ?)
+                """, userId, roleId, ACTOR);
     }
 }

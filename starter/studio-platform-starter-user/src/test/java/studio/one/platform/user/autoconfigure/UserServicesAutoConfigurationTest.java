@@ -10,7 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import studio.one.platform.constant.ServiceNames;
 import studio.one.base.user.domain.port.ApplicationCompanyMemberRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyMemberKeyRepository;
 import studio.one.base.user.domain.port.ApplicationCompanyJoinRequestRepository;
@@ -46,6 +48,7 @@ class UserServicesAutoConfigurationTest {
             .withBean(ApplicationRoleService.class, () -> stub(ApplicationRoleService.class))
             .withBean(ApplicationRoleRepository.class, () -> stub(ApplicationRoleRepository.class))
             .withBean(ApplicationUserRepository.class, () -> stub(ApplicationUserRepository.class))
+            .withBean(ServiceNames.JDBC_TEMPLATE, JdbcTemplate.class, UserServicesAutoConfigurationTest::jdbcTemplate)
             .withPropertyValues("studio.features.user.enabled=true");
 
     @Test
@@ -321,5 +324,14 @@ class UserServicesAutoConfigurationTest {
                     }
                     throw new UnsupportedOperationException(method.getName());
                 });
+    }
+
+    private static JdbcTemplate jdbcTemplate() {
+        return new JdbcTemplate() {
+            @Override
+            public void afterPropertiesSet() {
+                // no datasource is required for auto-configuration wiring tests
+            }
+        };
     }
 }

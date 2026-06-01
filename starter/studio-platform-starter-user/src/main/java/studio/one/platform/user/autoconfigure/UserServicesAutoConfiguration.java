@@ -183,17 +183,16 @@ public class UserServicesAutoConfiguration {
         @ConditionalOnMissingBean(UserBootstrapInitializer.class)
         public UserBootstrapInitializer userBootstrapInitializer(
                         UserBootstrapProperties properties,
-                        ApplicationRoleService<ApplicationRole, ?> roleService,
-                        ApplicationUserService<ApplicationUser, ApplicationRole> userService,
                         ApplicationRoleRepository roleRepository,
                         ApplicationUserRepository userRepository,
-                        ObjectProvider<PasswordEncoder> passwordEncoderProvider) {
+                        ObjectProvider<PasswordEncoder> passwordEncoderProvider,
+                        @Qualifier(ServiceNames.JDBC_TEMPLATE) JdbcTemplate jdbcTemplate) {
                 I18n i18n = I18nUtils.resolve(i18nProvider);
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                                 LogUtils.blue(UserBootstrapInitializer.class, true),
                                 LogUtils.red(State.CREATED.toString())));
-                return new UserBootstrapInitializer(properties, roleService, userService, roleRepository, userRepository,
-                                passwordEncoderProvider);
+                return new UserBootstrapInitializer(properties, roleRepository, userRepository, passwordEncoderProvider,
+                                jdbcTemplate);
         }
 
         @Bean(name = ApplicationCompanyService.SERVICE_NAME)
