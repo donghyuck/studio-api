@@ -132,6 +132,16 @@ class UserServicesAutoConfigurationTest {
     }
 
     @Test
+    void registersUserBootstrapInitializerOnlyWhenEnabled() {
+        contextRunner
+                .run(context -> assertThat(context).doesNotHaveBean(UserBootstrapInitializer.class));
+
+        contextRunner
+                .withPropertyValues("studio.bootstrap.user.enabled=true")
+                .run(context -> assertThat(context).hasSingleBean(UserBootstrapInitializer.class));
+    }
+
+    @Test
     void passwordPolicyValidatorBacksOffForCustomPasswordPolicyService() {
         PasswordPolicyService customPolicy = new PasswordPolicyService() {
             @Override

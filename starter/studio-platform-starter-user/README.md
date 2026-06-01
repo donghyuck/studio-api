@@ -146,6 +146,37 @@ studio:
 - `/api/self`
 - `/api/self/company-join-requests`
 
+## 로컬 사용자 Bootstrap
+
+기본 구현은 운영 안전성을 위해 최초 실행 시 계정이나 role을 자동 생성하지 않는다.
+로컬/개발 DB 초기화가 필요하면 명시적으로 bootstrap을 켠다.
+
+```yaml
+studio:
+  bootstrap:
+    user:
+      enabled: true
+      roles:
+        - name: ROLE_ADMIN
+          description: Platform administrator
+        - name: ROLE_USER
+          description: Default user
+      admin:
+        enabled: true
+        username: local-admin
+        email: local-admin@example.local
+        name: Local Admin
+        password: ${STUDIO_BOOTSTRAP_ADMIN_PASSWORD:}
+        roles:
+          - ROLE_ADMIN
+```
+
+동작 정책:
+- `studio.bootstrap.user.enabled=true`일 때만 실행된다.
+- role은 이름 기준으로 없을 때만 생성한다.
+- admin user는 `admin.enabled=true`, 비밀번호가 제공됨, 기존 사용자가 0명인 경우에만 생성한다.
+- 비밀번호는 로그에 출력하지 않으며, 로컬 환경변수나 secret store로 주입한다.
+
 기본 `UserMgmtController`의 `GET /api/mgmt/users`는 `q`, `companyId`, pagination, sort를 함께 지원한다.
 `companyId`를 지정하면 `TB_APPLICATION_COMPANY_MEMBERS` 기준으로 해당 Company 멤버 사용자만 반환하고,
 `q`가 함께 있으면 그 Company 범위 안에서 `username`, `name`, `email`을 검색한다.

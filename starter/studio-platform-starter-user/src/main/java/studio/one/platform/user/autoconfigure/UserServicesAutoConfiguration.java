@@ -51,6 +51,8 @@ import studio.one.base.user.application.service.ApplicationUserMutator;
 import studio.one.base.user.application.service.PasswordPolicyValidator;
 import studio.one.base.user.application.service.ApplicationUserServiceImpl;
 import studio.one.base.user.application.config.PasswordPolicyProperties;
+import studio.one.base.user.domain.model.ApplicationRole;
+import studio.one.base.user.domain.model.ApplicationUser;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.autoconfigure.PersistenceProperties;
 import studio.one.platform.component.State;
@@ -65,7 +67,8 @@ import studio.one.platform.util.LogUtils;
 
 @AutoConfiguration
 @RequiredArgsConstructor
-@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class, PasswordPolicyProperties.class })
+@EnableConfigurationProperties({ PersistenceProperties.class, UserFeatureProperties.class, PasswordPolicyProperties.class,
+                UserBootstrapProperties.class })
 @AutoConfigureAfter(UserEntityAutoConfiguration.class)
 @ConditionalOnProperty(prefix = PropertyKeys.Features.User.PREFIX, name = "enabled", havingValue = "true")
 @Slf4j
@@ -136,6 +139,18 @@ public class UserServicesAutoConfiguration {
                                 LogUtils.blue(PasswordPolicyValidator.class, true),
                                 LogUtils.red(State.CREATED.toString())));                
                 return new PasswordPolicyValidator(propertiesProvider.getIfAvailable(), i18nProvider.getIfAvailable());
+        }
+
+        @Bean
+        @ConditionalOnClass({ ApplicationUser.class, ApplicationRole.class })
+        @ConditionalOnProperty(prefix = "studio.bootstrap.user", name = "enabled", havingValue = "true")
+        @ConditionalOnBean({ ApplicationUserService.class, ApplicationRoleService.class })
+        @ConditionalOnMissingBean(UserBootstrapInitializer.class)
+        public UserBootstrapInitializer userBootstrapInitializer(
+                        UserBootstrapProperties properties,
+                        ApplicationRoleService<ApplicationRole, ?> roleService,
+                        ApplicationUserService<ApplicationUser, ApplicationRole> userService) {
+                return new UserBootstrapInitializer(properties, roleService, userService);
         }
 
         @Bean(name = ApplicationGroupService.SERVICE_NAME)
