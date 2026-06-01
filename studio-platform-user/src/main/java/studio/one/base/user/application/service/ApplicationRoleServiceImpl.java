@@ -54,6 +54,7 @@ public class ApplicationRoleServiceImpl
         I18n i18n = I18nUtils.resolve(i18nProvider);
         log.info(LogUtils.format(i18n, "autoconfig.feature.service.details", "User",
                 LogUtils.blue(getClass(), true), LogUtils.red(State.INITIALIZED.toString())));
+        log.info("ApplicationRoleService repository: {}", roleRepo.getClass().getName());
     }
 
     @Transactional(Transactional.TxType.SUPPORTS)
@@ -92,7 +93,9 @@ public class ApplicationRoleServiceImpl
     public ApplicationRole createRole(ApplicationRole role) {
         if (!role.getName().startsWith("ROLE_"))
             throw new IllegalArgumentException("Role name must start with 'ROLE_'.");
+        log.info("Creating application role: {}", role.getName());
         ApplicationRole saved = roleRepo.save(role);
+        log.info("Created application role: name={}, id={}", saved.getName(), saved.getRoleId());
         publishEvent(RoleUpdatedEvent.Action.CREATED, saved.getName(), null);
         return saved;
     }
