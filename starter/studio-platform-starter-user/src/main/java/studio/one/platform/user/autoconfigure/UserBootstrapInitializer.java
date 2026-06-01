@@ -30,6 +30,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
+        log.info("Starting user bootstrap initialization... {}", properties.isEnabled() ? "enabled" : "disabled");
         if (!properties.isEnabled()) {
             return;
         }
@@ -50,6 +51,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
     private void ensureRole(UserBootstrapProperties.RoleDefinition definition) {
         String roleName = definition.getName().trim();
         if (roleService.findRoleByName(roleName).isPresent()) {
+            log.info("Bootstrap role already exists: {}", roleName);
             return;
         }
         ApplicationRole role = new ApplicationRole();
@@ -57,6 +59,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
         role.setDescription(StringUtils.hasText(definition.getDescription())
                 ? definition.getDescription().trim()
                 : roleName);
+        log.info("Creating bootstrap role: {}", roleName);
         roleService.createRole(role);
         log.info("Created bootstrap role: {}", roleName);
     }
@@ -69,8 +72,9 @@ public class UserBootstrapInitializer implements ApplicationRunner {
             log.warn("Bootstrap admin user is enabled but no password was provided.");
             return;
         }
-        if (userService.findAll(PageRequest.of(0, 1)).getTotalElements() > 0) {
-            log.info("Bootstrap admin user skipped because users already exist.");
+        long userCount = userService.findAll(PageRequest.of(0, 1)).getTotalElements();
+        if (userCount > 0) {
+            log.info("Bootstrap admin user skipped because users already exist: count={}", userCount);
             return;
         }
         String username = StringUtils.hasText(admin.getUsername()) ? admin.getUsername().trim() : "local-admin";
@@ -90,6 +94,7 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 .nameVisible(true)
                 .emailVisible(true)
                 .build();
+        log.info("Creating bootstrap admin user: {}", username);
         ApplicationUser saved = userService.create(user);
         assignAdminRoles(saved, admin.getRoles());
         log.info("Created bootstrap admin user: {}", username);
@@ -104,6 +109,9 @@ public class UserBootstrapInitializer implements ApplicationRunner {
                 .map(String::trim)
                 .map(roleService::findRoleByName)
                 .flatMap(Optional::stream)
-                .forEach(role -> userService.assignRole(user.getUserId(), role.getRoleId(), ACTOR));
+                .forEach(role -> {
+                    userService.assignRole(user.getUserId(), role.getRoleId(), ACTOR);
+                    log.info("Assigned bootstrap role to user: userId={}, role={}", user.getUserId(), role.getName());
+                });
     }
 }
