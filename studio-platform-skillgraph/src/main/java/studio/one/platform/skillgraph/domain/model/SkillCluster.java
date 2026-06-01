@@ -26,7 +26,7 @@ public record SkillCluster(
         label = normalize(label);
         algorithm = requireText(algorithm, "algorithm");
         itemCount = Math.max(0, itemCount);
-        skillType = SkillType.normalizeName(skillType);
+        skillType = SkillType.normalizeNameOrNull(skillType);
         jobId = normalize(jobId);
         representativeSkillIds = representativeSkillIds == null ? List.of() : representativeSkillIds.stream()
                 .map(SkillCluster::normalize)

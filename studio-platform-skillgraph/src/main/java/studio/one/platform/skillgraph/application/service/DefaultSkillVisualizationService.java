@@ -1,6 +1,7 @@
 package studio.one.platform.skillgraph.application.service;
 
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -543,7 +544,8 @@ public class DefaultSkillVisualizationService implements SkillVisualizationServi
     }
 
     private String scopedClusterId(String projectionId, String clusterId) {
-        return projectionId + "::" + clusterId;
+        String seed = projectionId + "::" + clusterId;
+        return "cl_" + UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString().replace("-", "");
     }
 
     private List<SkillProjection> projectWithPca(String projectionId, List<VectorItem> vectorItems, Instant now) {
