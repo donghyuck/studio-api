@@ -281,6 +281,8 @@ index/search 요청의 `embeddingProfileId`, `embeddingProvider`, `embeddingMode
 `RagPipelineService`는 문서/파일/도메인 객체별 텍스트를 chunk로 나누고, 임베딩과 메타데이터를 벡터 스토어에 저장한다.
 기본 구현은 RAG chunk 저장 모델로 `VectorRecord.builder()`를 사용하고, 기존 `VectorDocument` 기반
 store 구현은 `VectorStorePort`의 default adapter를 통해 계속 호환된다.
+대용량 색인은 chunk 임베딩 결과를 검색 cache에 남기지 않으며, 64개 chunk 단위로 batch upsert해서
+전체 vector record 목록을 한 번에 메모리에 보관하지 않는다.
 `embeddingModel` metadata가 없으면 core 필수 필드 호환을 위해 `unknown` placeholder가 기록된다.
 RAG embedding profile 또는 요청 단위 embedding 선택이 사용되면 `embeddingProvider`,
 `embeddingModel`, `embeddingDimension`, `embeddingProfileId`, `embeddingInputType` metadata가 가능한 범위에서

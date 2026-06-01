@@ -48,6 +48,8 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 })
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
+    private static final int INDEX_UPSERT_BATCH_SIZE = 64;
+
     private final ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider;
     private final ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider;
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
@@ -124,60 +126,137 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             return true;
         }
 
-        progress.onStep(RagIndexJobStep.EMBEDDING);
-        List<VectorRecord> records = new ArrayList<>(chunks.size());
-        for (int i = 0; i < chunks.size(); i++) {
-            Chunk chunk = chunks.get(i);
-            Map<String, Object> standardChunkMetadata = chunk.metadata().toMap();
-            Map<String, Object> chunkMetadata = new HashMap<>(metadata);
-            chunkMetadata.remove(ChunkMetadata.KEY_CHUNK_ORDER);
-            mergeChunkMetadata(chunkMetadata, standardChunkMetadata);
-            ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(embeddingPort, chunkMetadata, chunk);
-            chunkMetadata.putAll(resolvedEmbedding.metadata());
-            chunkMetadata.put(VectorRecord.KEY_DOCUMENT_ID, documentId);
-            chunkMetadata.put(VectorRecord.KEY_CHUNK_ID, chunk.id());
-            chunkMetadata.put("chunkLength", chunk.content().length());
-            Object chunkOrder = standardChunkMetadata.get(ChunkMetadata.KEY_CHUNK_ORDER);
-            if (chunkOrder != null) {
-                chunkMetadata.put(VectorRecord.KEY_CHUNK_INDEX, chunkOrder);
-            }
-            chunkMetadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
-            chunkMetadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
-            EmbeddingVector vector = resolvedEmbedding.embeddingPort()
-                    .embed(resolvedEmbedding.request(List.of(chunk.content())))
-                    .vectors()
-                    .get(0);
-            progress.onEmbeddedCount(i + 1);
-            List<Double> embedding = List.copyOf(vector.values());
-            records.add(VectorRecord.builder()
-                    .id(chunk.id())
-                    .documentId(documentId)
-                    .chunkId(chunk.id())
-                    .parentChunkId(text(chunkMetadata.get(VectorRecord.KEY_PARENT_CHUNK_ID)))
-                    .contentHash(contentHash(chunk.content()))
-                    .text(chunk.content())
-                    .embedding(embedding)
-                    .embeddingModel(embeddingModel(chunkMetadata))
-                    .embeddingDimension(embedding.size())
-                    .chunkType(text(standardChunkMetadata.get(VectorRecord.KEY_CHUNK_TYPE)))
-                    .headingPath(text(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_HEADING_PATH)))
-                    .sourceRef(text(firstPresent(standardChunkMetadata, chunkMetadata,
-                            VectorRecord.KEY_SOURCE_REF,
-                            ChunkMetadata.KEY_SOURCE_REF,
-                            ChunkMetadata.KEY_SOURCE_REFS)))
-                    .page(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_PAGE)))
-                    .slide(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_SLIDE)))
-                    .metadata(chunkMetadata)
-                    .build());
+        int vectorCount;
+        if (chunks.size() <= INDEX_UPSERT_BATCH_SIZE) {
+            List<VectorRecord> records = embedRecords(
+                    documentId,
+                    objectType,
+                    objectId,
+                    metadata,
+                    embeddingPort,
+                    chunks,
+                    progress);
+            progress.onStep(RagIndexJobStep.INDEXING);
+            vectorStore.replaceRecordsByObject(objectType, objectId, records);
+            vectorCount = records.size();
+        } else {
+            vectorCount = embedAndUpsertInBatches(
+                    documentId,
+                    objectType,
+                    objectId,
+                    metadata,
+                    embeddingPort,
+                    chunks,
+                    vectorStore,
+                    progress);
         }
-        progress.onStep(RagIndexJobStep.INDEXING);
-        vectorStore.replaceRecordsByObject(objectType, objectId, records);
-        progress.onIndexedCount(records.size());
+        progress.onIndexedCount(vectorCount);
         latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(
                 parsedFile.blocks().size(),
                 chunks.size(),
-                records.size()));
+                vectorCount));
         return true;
+    }
+
+    private List<VectorRecord> embedRecords(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            EmbeddingPort embeddingPort,
+            List<Chunk> chunks,
+            RagIndexProgressListener progress) {
+        progress.onStep(RagIndexJobStep.EMBEDDING);
+        List<VectorRecord> records = new ArrayList<>(chunks.size());
+        for (int i = 0; i < chunks.size(); i++) {
+            records.add(embedRecord(documentId, objectType, objectId, metadata, embeddingPort, chunks.get(i)));
+            progress.onEmbeddedCount(i + 1);
+        }
+        return records;
+    }
+
+    private int embedAndUpsertInBatches(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            EmbeddingPort embeddingPort,
+            List<Chunk> chunks,
+            VectorStorePort vectorStore,
+            RagIndexProgressListener progress) {
+        progress.onStep(RagIndexJobStep.INDEXING);
+        vectorStore.deleteByObject(objectType, objectId);
+        progress.onStep(RagIndexJobStep.EMBEDDING);
+        List<VectorRecord> batch = new ArrayList<>(Math.min(INDEX_UPSERT_BATCH_SIZE, chunks.size()));
+        int embedded = 0;
+        int indexed = 0;
+        for (Chunk chunk : chunks) {
+            batch.add(embedRecord(documentId, objectType, objectId, metadata, embeddingPort, chunk));
+            embedded++;
+            progress.onEmbeddedCount(embedded);
+            if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
+                progress.onStep(RagIndexJobStep.INDEXING);
+                vectorStore.upsertAll(List.copyOf(batch));
+                indexed += batch.size();
+                batch.clear();
+                progress.onStep(RagIndexJobStep.EMBEDDING);
+            }
+        }
+        if (!batch.isEmpty()) {
+            progress.onStep(RagIndexJobStep.INDEXING);
+            vectorStore.upsertAll(List.copyOf(batch));
+            indexed += batch.size();
+        }
+        return indexed;
+    }
+
+    private VectorRecord embedRecord(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            EmbeddingPort embeddingPort,
+            Chunk chunk) {
+        Map<String, Object> standardChunkMetadata = chunk.metadata().toMap();
+        Map<String, Object> chunkMetadata = new HashMap<>(metadata);
+        chunkMetadata.remove(ChunkMetadata.KEY_CHUNK_ORDER);
+        mergeChunkMetadata(chunkMetadata, standardChunkMetadata);
+        ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(embeddingPort, chunkMetadata, chunk);
+        chunkMetadata.putAll(resolvedEmbedding.metadata());
+        chunkMetadata.put(VectorRecord.KEY_DOCUMENT_ID, documentId);
+        chunkMetadata.put(VectorRecord.KEY_CHUNK_ID, chunk.id());
+        chunkMetadata.put("chunkLength", chunk.content().length());
+        Object chunkOrder = standardChunkMetadata.get(ChunkMetadata.KEY_CHUNK_ORDER);
+        if (chunkOrder != null) {
+            chunkMetadata.put(VectorRecord.KEY_CHUNK_INDEX, chunkOrder);
+        }
+        chunkMetadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
+        chunkMetadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
+        EmbeddingVector vector = resolvedEmbedding.embeddingPort()
+                .embed(resolvedEmbedding.request(List.of(chunk.content())))
+                .vectors()
+                .get(0);
+        List<Double> embedding = List.copyOf(vector.values());
+        return VectorRecord.builder()
+                .id(chunk.id())
+                .documentId(documentId)
+                .chunkId(chunk.id())
+                .parentChunkId(text(chunkMetadata.get(VectorRecord.KEY_PARENT_CHUNK_ID)))
+                .contentHash(contentHash(chunk.content()))
+                .text(chunk.content())
+                .embedding(embedding)
+                .embeddingModel(embeddingModel(chunkMetadata))
+                .embeddingDimension(embedding.size())
+                .chunkType(text(standardChunkMetadata.get(VectorRecord.KEY_CHUNK_TYPE)))
+                .headingPath(text(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_HEADING_PATH)))
+                .sourceRef(text(firstPresent(standardChunkMetadata, chunkMetadata,
+                        VectorRecord.KEY_SOURCE_REF,
+                        ChunkMetadata.KEY_SOURCE_REF,
+                        ChunkMetadata.KEY_SOURCE_REFS)))
+                .page(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_PAGE)))
+                .slide(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_SLIDE)))
+                .metadata(chunkMetadata)
+                .build();
     }
 
     @Override

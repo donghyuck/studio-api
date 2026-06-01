@@ -36,7 +36,8 @@ EmbeddingPort.embed()                 ← studio-platform-ai 어댑터 제공
 
 RAG 색인은 `TextractNormalizedDocumentAdapter`, `ChunkingOrchestrator`, `EmbeddingPort`, `VectorStorePort`가 모두 있으면
 구조화 문서 청킹 경로를 자동 사용한다. 구조화 경로는 `VectorRecord.builder()`로 chunk 저장 단위를 만든 뒤
-`VectorStorePort.replaceRecordsByObject()`를 호출한다. 하나라도 없으면 기존 `RagPipelineService.index()` 경로로 fallback한다.
+작은 문서는 `VectorStorePort.replaceRecordsByObject()`를 호출한다. 대용량 문서는 64개 chunk 단위로 batch upsert해
+전체 vector record 목록을 한 번에 메모리에 보관하지 않는다. 하나라도 없으면 기존 `RagPipelineService.index()` 경로로 fallback한다.
 `studio.ai.rag.cleaner.enabled=true`이면 `RagPipelineService`가 chunking 전에 추출 텍스트를 정제한다.
 요청에 `embeddingProfileId`, `embeddingProvider`, `embeddingModel`이 있으면 structured path와 fallback path 모두에 전달된다.
 request-level embedding field는 같은 이름의 caller metadata보다 우선한다.
