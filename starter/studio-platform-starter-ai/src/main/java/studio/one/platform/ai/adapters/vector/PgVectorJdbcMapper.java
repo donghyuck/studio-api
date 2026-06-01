@@ -20,10 +20,13 @@ import studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchRow;
 public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     private static final String UPSERT_CHUNK_SQL = """
-            INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
-            VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding)
+            INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
+            VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding, :embeddingDimension)
             ON CONFLICT (object_type, object_id, chunk_index)
-            DO UPDATE SET text = EXCLUDED.text, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding
+            DO UPDATE SET text = EXCLUDED.text,
+                          metadata = EXCLUDED.metadata,
+                          embedding = EXCLUDED.embedding,
+                          embedding_dimension = EXCLUDED.embedding_dimension
             """;
     private static final String SEARCH_SQL = """
             SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
@@ -223,7 +226,8 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 .addValue("chunkIndex", parameter.getChunkIndex())
                 .addValue("text", parameter.getText())
                 .addValue("metadata", parameter.getMetadata())
-                .addValue("embedding", parameter.getEmbedding());
+                .addValue("embedding", parameter.getEmbedding())
+                .addValue("embeddingDimension", parameter.getEmbeddingDimension());
     }
 
     private static MapSqlParameterSource objectParams(String objectType, String objectId) {
@@ -244,6 +248,7 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     private static MapSqlParameterSource searchParams(PgVectorSearchParameter parameter) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("vector", parameter.getVector())
+                .addValue("embeddingDimension", parameter.getEmbeddingDimension())
                 .addValue("limit", parameter.getLimit())
                 .addValue("objectType", parameter.getObjectType())
                 .addValue("objectId", parameter.getObjectId());
@@ -296,6 +301,7 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     private static List<String> metadataConditions(PgVectorSearchParameter parameter) {
         List<String> conditions = new ArrayList<>();
+        conditions.add("embedding_dimension = :embeddingDimension");
         if (parameter.getMetadataObjectType() != null) {
             conditions.add("object_type = :metadataObjectType");
         }

@@ -50,7 +50,8 @@ class PgVectorStoreAdapterV2PostgresTest {
                     chunk_index INTEGER NOT NULL,
                     text TEXT NOT NULL,
                     metadata JSONB NOT NULL,
-                    embedding vector(2) NOT NULL,
+                    embedding vector NOT NULL,
+                    embedding_dimension INTEGER NOT NULL,
                     CONSTRAINT uq_test_chunk UNIQUE (object_type, object_id, chunk_index)
                 )
                 """);
@@ -102,6 +103,25 @@ class PgVectorStoreAdapterV2PostgresTest {
         assertThat(results).singleElement()
                 .extracting(result -> result.document().id())
                 .isEqualTo("chunk-1");
+    }
+
+    @Test
+    void searchOnlyComparesRowsWithTheSameEmbeddingDimension() {
+        adapter.upsert(List.of(
+                document("chunk-3", "attachment", "8", 0, "kure document", List.of(0.1, 0.2, 0.3),
+                        Map.of("topic", "kure", "embeddingInputType", "TEXT"))));
+
+        List<VectorSearchResult> twoDimensionalResults = adapter.search(
+                new VectorSearchRequest(List.of(0.1, 0.2), 10));
+        List<VectorSearchResult> threeDimensionalResults = adapter.search(
+                new VectorSearchRequest(List.of(0.1, 0.2, 0.3), 10));
+
+        assertThat(twoDimensionalResults)
+                .extracting(result -> result.document().id())
+                .containsExactlyInAnyOrder("chunk-1", "chunk-2");
+        assertThat(threeDimensionalResults).singleElement()
+                .extracting(result -> result.document().id())
+                .isEqualTo("chunk-3");
     }
 
     @Test
