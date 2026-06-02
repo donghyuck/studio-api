@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
@@ -198,6 +199,29 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     }
 
     @Override
+    public Optional<RagEmbeddingSelectionInfo> getEmbeddingSelection(String jobId) {
+        StoredRequest storedRequest = requests.get(jobId);
+        if (storedRequest == null) {
+            return Optional.empty();
+        }
+        RagIndexJobCreateRequest request = storedRequest.request();
+        if (request.indexRequest() != null) {
+            return selection(
+                    request.indexRequest().embeddingProfileId(),
+                    request.indexRequest().embeddingProvider(),
+                    request.indexRequest().embeddingModel());
+        }
+        RagIndexJobSourceRequest sourceRequest = storedRequest.sourceRequest();
+        if (sourceRequest == null) {
+            return Optional.empty();
+        }
+        return selection(
+                sourceRequest.embeddingProfileId(),
+                sourceRequest.embeddingProvider(),
+                sourceRequest.embeddingModel());
+    }
+
+    @Override
     public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
         return repository.findAll(filter, pageable);
     }
@@ -233,6 +257,17 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     private RagIndexJob requireJob(String jobId) {
         return repository.findById(jobId)
                 .orElseThrow(() -> new NoSuchElementException("RAG index job not found: " + jobId));
+    }
+
+    private Optional<RagEmbeddingSelectionInfo> selection(
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
+                embeddingProfileId,
+                embeddingProvider,
+                embeddingModel);
+        return selection.empty() ? Optional.empty() : Optional.of(selection);
     }
 
     private RagIndexJobLog log(

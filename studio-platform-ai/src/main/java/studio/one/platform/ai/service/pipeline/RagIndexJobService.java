@@ -10,6 +10,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSort;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 
 public interface RagIndexJobService {
 
@@ -30,6 +31,10 @@ public interface RagIndexJobService {
     RagIndexJob retryJob(String jobId);
 
     Optional<RagIndexJob> getJob(String jobId);
+
+    default Optional<RagEmbeddingSelectionInfo> getEmbeddingSelection(String jobId) {
+        return Optional.empty();
+    }
 
     RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable);
 

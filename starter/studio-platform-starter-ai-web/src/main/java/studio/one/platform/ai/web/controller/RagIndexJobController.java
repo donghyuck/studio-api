@@ -30,6 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import studio.one.platform.ai.core.rag.RagIndexJob;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
@@ -126,7 +127,7 @@ public class RagIndexJobController {
                         RagIndexJobSort.Field.from(sort),
                         RagIndexJobSort.Direction.from(direction)));
         return ResponseEntity.ok(ApiResponse.ok(new RagIndexJobListResponseDto(
-                page.jobs().stream().map(RagIndexJobDto::from).toList(),
+                page.jobs().stream().map(this::toJobDto).toList(),
                 page.total(),
                 page.offset(),
                 page.limit())));
@@ -135,7 +136,7 @@ public class RagIndexJobController {
     @GetMapping("/jobs/{jobId}")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> getJob(@PathVariable("jobId") String jobId) {
-        return ResponseEntity.ok(ApiResponse.ok(RagIndexJobDto.from(requireJob(jobId))));
+        return ResponseEntity.ok(ApiResponse.ok(toJobDto(requireJob(jobId))));
     }
 
     @PostMapping("/jobs")
@@ -149,7 +150,7 @@ public class RagIndexJobController {
                 ? jobService.createJob(command.request())
                 : jobService.createJob(command.request(), command.sourceRequest());
         dispatch(job.jobId(), () -> jobService.startJob(job.jobId()));
-        return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(job)));
+        return ResponseEntity.accepted().body(ApiResponse.ok(toJobDto(job)));
     }
 
     @PostMapping("/jobs/{jobId}/retry")
@@ -162,7 +163,7 @@ public class RagIndexJobController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "RAG index job is still active");
         }
         dispatch(jobId, () -> jobService.retryJob(jobId));
-        return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(requireJob(jobId))));
+        return ResponseEntity.accepted().body(ApiResponse.ok(toJobDto(requireJob(jobId))));
     }
 
     @PostMapping("/jobs/{jobId}/cancel")
@@ -173,7 +174,7 @@ public class RagIndexJobController {
         requireJob(jobId);
         try {
             RagIndexJob cancelled = jobService.cancelJob(jobId);
-            return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(cancelled)));
+            return ResponseEntity.accepted().body(ApiResponse.ok(toJobDto(cancelled)));
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "RAG index job cancel is not supported", ex);
         } catch (IllegalStateException ex) {
@@ -320,6 +321,30 @@ public class RagIndexJobController {
                         "RAG index object cannot be deleted while job is active: "
                                 + activeJob.get().jobId());
             }
+        }
+    }
+
+    private RagIndexJobDto toJobDto(RagIndexJob job) {
+        return RagIndexJobDto.from(job, embeddingSelection(job).orElse(null));
+    }
+
+    private Optional<RagEmbeddingSelectionInfo> embeddingSelection(RagIndexJob job) {
+        Optional<RagEmbeddingSelectionInfo> requestSelection = jobService.getEmbeddingSelection(job.jobId());
+        if (requestSelection.isPresent()) {
+            return requestSelection;
+        }
+        if (vectorStorePort == null || job.objectType() == null || job.objectId() == null) {
+            return Optional.empty();
+        }
+        try {
+            Map<String, Object> metadata = vectorStorePort.getMetadata(job.objectType(), job.objectId());
+            RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
+                    text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
+                    text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
+                    text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)));
+            return selection.empty() ? Optional.empty() : Optional.of(selection);
+        } catch (UnsupportedOperationException ex) {
+            return Optional.empty();
         }
     }
 

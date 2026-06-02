@@ -2,6 +2,7 @@ package studio.one.platform.ai.web.dto;
 
 import java.time.Instant;
 
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
@@ -13,6 +14,9 @@ public record RagIndexJobDto(
         String documentId,
         String sourceType,
         String sourceName,
+        String embeddingProfileId,
+        String embeddingProvider,
+        String embeddingModel,
         RagIndexJobStatus status,
         RagIndexJobStep currentStep,
         int chunkCount,
@@ -26,6 +30,10 @@ public record RagIndexJobDto(
         Long durationMs) {
 
     public static RagIndexJobDto from(RagIndexJob job) {
+        return from(job, null);
+    }
+
+    public static RagIndexJobDto from(RagIndexJob job, RagEmbeddingSelectionInfo embeddingSelection) {
         return new RagIndexJobDto(
                 job.jobId(),
                 job.objectType(),
@@ -33,6 +41,9 @@ public record RagIndexJobDto(
                 job.documentId(),
                 job.sourceType(),
                 sourceName(job),
+                embeddingSelection == null ? null : embeddingSelection.embeddingProfileId(),
+                embeddingSelection == null ? null : embeddingSelection.embeddingProvider(),
+                embeddingSelection == null ? null : embeddingSelection.embeddingModel(),
                 job.status(),
                 job.currentStep(),
                 job.chunkCount(),

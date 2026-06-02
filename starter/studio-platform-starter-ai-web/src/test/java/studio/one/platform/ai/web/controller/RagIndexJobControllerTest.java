@@ -31,6 +31,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
@@ -379,6 +380,49 @@ class RagIndexJobControllerTest {
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+    }
+
+    @Test
+    void jobDetailIncludesEmbeddingSelectionFromStoredRequest() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+        jobService.createdSourceRequest = new RagIndexJobSourceRequest(
+                Map.of(),
+                List.of(),
+                false,
+                "retrieval-ko-kure",
+                null,
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.getJob("job-1");
+
+        RagIndexJobDto dto = response.getBody().getData();
+        assertThat(dto.embeddingProfileId()).isEqualTo("retrieval-ko-kure");
+        assertThat(dto.embeddingProvider()).isNull();
+        assertThat(dto.embeddingModel()).isNull();
+    }
+
+    @Test
+    void jobDetailFallsBackToVectorMetadataEmbeddingSelection() {
+        CapturingJobService jobService = new CapturingJobService();
+        VectorStorePort vectorStorePort = mock(VectorStorePort.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                vectorStorePort);
+        when(vectorStorePort.getMetadata("attachment", "42")).thenReturn(Map.of(
+                "embeddingProvider", "kure",
+                "embeddingModel", "nlpai-lab/KURE-v1"));
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.getJob("job-1");
+
+        RagIndexJobDto dto = response.getBody().getData();
+        assertThat(dto.embeddingProfileId()).isNull();
+        assertThat(dto.embeddingProvider()).isEqualTo("kure");
+        assertThat(dto.embeddingModel()).isEqualTo("nlpai-lab/KURE-v1");
     }
 
     @Test
@@ -1012,6 +1056,23 @@ class RagIndexJobControllerTest {
         }
 
         @Override
+        public Optional<RagEmbeddingSelectionInfo> getEmbeddingSelection(String jobId) {
+            if (createdRequest != null && createdRequest.indexRequest() != null) {
+                return selection(
+                        createdRequest.indexRequest().embeddingProfileId(),
+                        createdRequest.indexRequest().embeddingProvider(),
+                        createdRequest.indexRequest().embeddingModel());
+            }
+            if (createdSourceRequest != null) {
+                return selection(
+                        createdSourceRequest.embeddingProfileId(),
+                        createdSourceRequest.embeddingProvider(),
+                        createdSourceRequest.embeddingModel());
+            }
+            return Optional.empty();
+        }
+
+        @Override
         public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
             this.pageRequest = pageable;
             return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
@@ -1049,6 +1110,11 @@ class RagIndexJobControllerTest {
         @Override
         public RagIndexProgressListener progressListener(String jobId) {
             return RagIndexProgressListener.noop();
+        }
+
+        private Optional<RagEmbeddingSelectionInfo> selection(String profileId, String provider, String model) {
+            RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(profileId, provider, model);
+            return selection.empty() ? Optional.empty() : Optional.of(selection);
         }
     }
 }
