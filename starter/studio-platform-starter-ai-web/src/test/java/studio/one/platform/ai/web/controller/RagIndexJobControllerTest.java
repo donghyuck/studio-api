@@ -53,7 +53,6 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
-import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.platform.web.dto.PageDto;
@@ -365,14 +364,24 @@ class RagIndexJobControllerTest {
                 mock(RagPipelineService.class),
                 null);
 
-        ResponseEntity<ApiResponse<RagIndexJobListResponseDto>> listResponse =
-                controller.listJobs(RagIndexJobStatus.PENDING, "attachment", "42", null, 0, 10, "createdAt", "desc");
+        ResponseEntity<ApiResponse<PageDto<RagIndexJobDto>>> listResponse =
+                controller.listJobs(
+                        RagIndexJobStatus.PENDING,
+                        "attachment",
+                        "42",
+                        null,
+                        PageRequest.of(0, 10),
+                        "createdAt",
+                        "desc");
         ResponseEntity<ApiResponse<RagIndexJobDto>> detailResponse = controller.getJob("job-1");
         ResponseEntity<ApiResponse<RagIndexJobDto>> retryResponse = controller.retryJob("job-1");
         ResponseEntity<ApiResponse<List<RagIndexJobLogDto>>> logsResponse = controller.getLogs("job-1");
 
-        assertThat(listResponse.getBody().getData().items()).hasSize(1);
-        assertThat(listResponse.getBody().getData().items().get(0).sourceName()).isEqualTo("sample.pdf");
+        assertThat(listResponse.getBody().getData().getContent()).hasSize(1);
+        assertThat(listResponse.getBody().getData().getContent().get(0).sourceName()).isEqualTo("sample.pdf");
+        assertThat(listResponse.getBody().getData().getPage()).isZero();
+        assertThat(listResponse.getBody().getData().getSize()).isEqualTo(10);
+        assertThat(listResponse.getBody().getData().getTotalElements()).isEqualTo(1);
         assertThat(detailResponse.getBody().getData().jobId()).isEqualTo("job-1");
         assertThat(detailResponse.getBody().getData().sourceName()).isEqualTo("sample.pdf");
         assertThat(retryResponse.getStatusCode().value()).isEqualTo(202);
@@ -382,6 +391,8 @@ class RagIndexJobControllerTest {
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+        assertThat(jobService.pageRequest.offset()).isZero();
+        assertThat(jobService.pageRequest.limit()).isEqualTo(10);
     }
 
     @Test
@@ -459,7 +470,7 @@ class RagIndexJobControllerTest {
                 mock(RagPipelineService.class),
                 null);
 
-        controller.listJobs(null, null, null, null, 0, 10, " document-id ", "sideways");
+        controller.listJobs(null, null, null, null, PageRequest.of(0, 10), " document-id ", "sideways");
 
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
@@ -471,14 +482,21 @@ class RagIndexJobControllerTest {
         MockMvc mockMvc = jobControllerMockMvc(jobService);
 
         mockMvc.perform(get("/api/mgmt/ai/rag/jobs")
+                        .param("page", "2")
+                        .param("size", "25")
                         .param("sort", " document-id ")
                         .param("direction", "sideways"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].jobId").value("job-1"))
-                .andExpect(jsonPath("$.data.items[0].sourceName").value("sample.pdf"));
+                .andExpect(jsonPath("$.data.content[0].jobId").value("job-1"))
+                .andExpect(jsonPath("$.data.content[0].sourceName").value("sample.pdf"))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(25))
+                .andExpect(jsonPath("$.data.totalElements").value(51));
 
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+        assertThat(jobService.pageRequest.offset()).isEqualTo(50);
+        assertThat(jobService.pageRequest.limit()).isEqualTo(25);
     }
 
     @Test
@@ -1084,7 +1102,7 @@ class RagIndexJobControllerTest {
         @Override
         public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
             this.pageRequest = pageable;
-            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+            return new RagIndexJobPage(List.of(job), pageable.offset() + 1L, pageable.offset(), pageable.limit());
         }
 
         @Override
@@ -1094,7 +1112,7 @@ class RagIndexJobControllerTest {
                 RagIndexJobSort sort) {
             this.pageRequest = pageable;
             this.sort = sort;
-            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+            return new RagIndexJobPage(List.of(job), pageable.offset() + 1L, pageable.offset(), pageable.limit());
         }
 
         @Override

@@ -52,7 +52,6 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
-import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -64,6 +63,8 @@ import studio.one.platform.web.dto.PageDto;
 public class RagIndexJobController {
 
     private static final Logger log = LoggerFactory.getLogger(RagIndexJobController.class);
+    private static final int DEFAULT_JOB_PAGE_SIZE = 50;
+    private static final int MAX_JOB_PAGE_SIZE = 200;
     private static final int DEFAULT_CHUNK_LIMIT = 200;
 
     private final RagIndexJobService jobService;
@@ -115,26 +116,25 @@ public class RagIndexJobController {
 
     @GetMapping("/jobs")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
-    public ResponseEntity<ApiResponse<RagIndexJobListResponseDto>> listJobs(
+    public ResponseEntity<ApiResponse<PageDto<RagIndexJobDto>>> listJobs(
             @RequestParam(name = "status", required = false) RagIndexJobStatus status,
             @RequestParam(name = "objectType", required = false) String objectType,
             @RequestParam(name = "objectId", required = false) String objectId,
             @RequestParam(name = "documentId", required = false) String documentId,
-            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "50") int limit,
+            @PageableDefault(size = DEFAULT_JOB_PAGE_SIZE) Pageable pageable,
             @RequestParam(name = "sort", required = false) String sort,
             @RequestParam(name = "direction", required = false) String direction) {
+        Pageable boundedPageable = boundedJobPageable(pageable);
         RagIndexJobPage page = jobService.listJobs(
                 new RagIndexJobFilter(status, objectType, objectId, documentId),
-                new RagIndexJobPageRequest(offset, limit),
+                new RagIndexJobPageRequest(pageOffset(boundedPageable), boundedPageable.getPageSize()),
                 new RagIndexJobSort(
                         RagIndexJobSort.Field.from(sort),
                         RagIndexJobSort.Direction.from(direction)));
-        return ResponseEntity.ok(ApiResponse.ok(new RagIndexJobListResponseDto(
+        return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new PageImpl<>(
                 page.jobs().stream().map(this::toJobDto).toList(),
-                page.total(),
-                page.offset(),
-                page.limit())));
+                boundedPageable,
+                page.total()))));
     }
 
     @GetMapping("/jobs/{jobId}")
@@ -249,21 +249,13 @@ public class RagIndexJobController {
                 .listByObject(
                         objectType,
                         objectId,
-                        chunkOffset(boundedPageable),
+                        pageOffset(boundedPageable),
                         boundedPageable.getPageSize())
                 .stream()
                 .map(this::toChunkDto)
                 .toList();
         long total = ragPipelineService.countByObject(objectType, objectId);
         return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new PageImpl<>(items, boundedPageable, total))));
-    }
-
-    private int chunkOffset(Pageable pageable) {
-        long offset = pageable.getOffset();
-        if (offset > Integer.MAX_VALUE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page offset is too large");
-        }
-        return (int) offset;
     }
 
     @DeleteMapping("/objects/{objectType}/{objectId}")
@@ -474,6 +466,24 @@ public class RagIndexJobController {
     private RagIndexJob requireJob(String jobId) {
         return jobService.getJob(jobId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG index job not found"));
+    }
+
+    private Pageable boundedJobPageable(Pageable pageable) {
+        Pageable source = pageable == null || pageable.isUnpaged()
+                ? PageRequest.of(0, DEFAULT_JOB_PAGE_SIZE)
+                : pageable;
+        int page = Math.max(0, source.getPageNumber());
+        int requestedSize = source.getPageSize() <= 0 ? DEFAULT_JOB_PAGE_SIZE : source.getPageSize();
+        int size = Math.min(requestedSize, MAX_JOB_PAGE_SIZE);
+        return PageRequest.of(page, size, source.getSort());
+    }
+
+    private int pageOffset(Pageable pageable) {
+        long offset = pageable.getOffset();
+        if (offset > Integer.MAX_VALUE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page offset is too large");
+        }
+        return (int) offset;
     }
 
     private Pageable boundedChunkPageable(Pageable pageable) {
