@@ -193,6 +193,11 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     }
 
     @Override
+    public long countByObject(String objectType, String objectId) {
+        return mapper.countByObject(objectType, objectId);
+    }
+
+    @Override
     public Map<String, Object> getMetadata(String objectType, String objectId) {
         String metadata = mapper.metadataByObject(objectType, objectId);
         if (metadata == null || metadata.isBlank()) {

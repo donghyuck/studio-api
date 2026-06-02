@@ -71,6 +71,11 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
             """;
+    private static final String COUNT_BY_OBJECT_SQL = """
+            SELECT COUNT(*)
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType AND object_id = :objectId
+            """;
     private static final String LIST_BY_OBJECT_SQL = """
             SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
@@ -179,6 +184,12 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     public int exists(String objectType, String objectId) {
         Integer count = jdbcTemplate.queryForObject(EXISTS_SQL, objectParams(objectType, objectId), Integer.class);
         return count == null ? 0 : count;
+    }
+
+    @Override
+    public long countByObject(String objectType, String objectId) {
+        Long count = jdbcTemplate.queryForObject(COUNT_BY_OBJECT_SQL, objectParams(objectType, objectId), Long.class);
+        return count == null ? 0L : count;
     }
 
     @Override

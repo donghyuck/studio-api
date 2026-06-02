@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -49,12 +51,12 @@ import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
-import studio.one.platform.ai.web.dto.RagIndexChunkPageResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
 import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.web.dto.ApiResponse;
+import studio.one.platform.web.dto.PageDto;
 
 class RagIndexJobControllerTest {
 
@@ -611,7 +613,7 @@ class RagIndexJobControllerTest {
         RagIndexJobService jobService = new CapturingJobService();
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagIndexJobController controller = new RagIndexJobController(jobService, ragPipelineService, null);
-        when(ragPipelineService.listByObject("attachment", "42", 0, 26))
+        when(ragPipelineService.listByObject("attachment", "42", 0, 25))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "chunk text", Map.of(
                         VectorRecord.KEY_CHUNK_ID, "chunk-1",
                         VectorRecord.KEY_DOCUMENT_ID, "doc-1",
@@ -622,21 +624,23 @@ class RagIndexJobControllerTest {
                         VectorRecord.KEY_PAGE, 1,
                         "chunkOrder", 7,
                         "indexedAt", "2026-04-26T00:00:00Z"), 0.8d)));
+        when(ragPipelineService.countByObject("attachment", "42")).thenReturn(1L);
 
-        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
-                controller.objectChunks("attachment", "42", 0, 25);
+        ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> response =
+                controller.objectChunks("attachment", "42", PageRequest.of(0, 25));
 
-        RagIndexChunkPageResponseDto page = response.getBody().getData();
-        assertThat(page.offset()).isEqualTo(0);
-        assertThat(page.limit()).isEqualTo(25);
-        assertThat(page.returned()).isEqualTo(1);
-        assertThat(page.hasMore()).isFalse();
-        RagIndexChunkDto chunk = page.items().get(0);
+        PageDto<RagIndexChunkDto> page = response.getBody().getData();
+        assertThat(page.getPage()).isZero();
+        assertThat(page.getSize()).isEqualTo(25);
+        assertThat(page.getTotalElements()).isEqualTo(1);
+        assertThat(page.isHasNext()).isFalse();
+        RagIndexChunkDto chunk = page.getContent().get(0);
         assertThat(chunk.chunkId()).isEqualTo("chunk-1");
         assertThat(chunk.parentChunkId()).isEqualTo("parent-1");
         assertThat(chunk.headingPath()).isEqualTo("Intro > Details");
         assertThat(chunk.indexedAt()).isEqualTo(java.time.Instant.parse("2026-04-26T00:00:00Z"));
-        verify(ragPipelineService).listByObject("attachment", "42", 0, 26);
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 25);
+        verify(ragPipelineService).countByObject("attachment", "42");
     }
 
     @Test
@@ -646,22 +650,24 @@ class RagIndexJobControllerTest {
                 new CapturingJobService(),
                 ragPipelineService,
                 null);
-        when(ragPipelineService.listByObject("attachment", "42", 10, 3))
+        when(ragPipelineService.listByObject("attachment", "42", 10, 2))
                 .thenReturn(List.of(
                         new RagSearchResult("doc-1", "chunk 1", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-1"), 1.0d),
-                        new RagSearchResult("doc-1", "chunk 2", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-2"), 1.0d),
-                        new RagSearchResult("doc-1", "chunk 3", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-3"), 1.0d)));
+                        new RagSearchResult("doc-1", "chunk 2", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-2"), 1.0d)));
 
-        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
-                controller.objectChunksPage("attachment", "42", 10, 2);
+        when(ragPipelineService.countByObject("attachment", "42")).thenReturn(13L);
 
-        RagIndexChunkPageResponseDto page = response.getBody().getData();
-        assertThat(page.offset()).isEqualTo(10);
-        assertThat(page.limit()).isEqualTo(2);
-        assertThat(page.returned()).isEqualTo(2);
-        assertThat(page.hasMore()).isTrue();
-        assertThat(page.items()).extracting(RagIndexChunkDto::chunkId).containsExactly("chunk-1", "chunk-2");
-        verify(ragPipelineService).listByObject("attachment", "42", 10, 3);
+        ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> response =
+                controller.objectChunksPage("attachment", "42", PageRequest.of(5, 2));
+
+        PageDto<RagIndexChunkDto> page = response.getBody().getData();
+        assertThat(page.getPage()).isEqualTo(5);
+        assertThat(page.getSize()).isEqualTo(2);
+        assertThat(page.getTotalElements()).isEqualTo(13);
+        assertThat(page.isHasNext()).isTrue();
+        assertThat(page.getContent()).extracting(RagIndexChunkDto::chunkId).containsExactly("chunk-1", "chunk-2");
+        verify(ragPipelineService).listByObject("attachment", "42", 10, 2);
+        verify(ragPipelineService).countByObject("attachment", "42");
     }
 
     @Test
@@ -673,23 +679,25 @@ class RagIndexJobControllerTest {
                 null,
                 Runnable::run,
                 25);
-        when(ragPipelineService.listByObject("attachment", "42", 0, 26))
-                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 26)
+        when(ragPipelineService.listByObject("attachment", "42", 0, 25))
+                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 25)
                         .mapToObj(index -> new RagSearchResult(
                                 "doc-1",
                                 "chunk " + index,
                                 Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-" + index),
                                 1.0d))
                         .toList());
+        when(ragPipelineService.countByObject("attachment", "42")).thenReturn(26L);
 
-        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
-                controller.objectChunksPage("attachment", "42", 0, 200);
+        ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> response =
+                controller.objectChunksPage("attachment", "42", PageRequest.of(0, 200));
 
-        RagIndexChunkPageResponseDto page = response.getBody().getData();
-        assertThat(page.limit()).isEqualTo(25);
-        assertThat(page.returned()).isEqualTo(25);
-        assertThat(page.hasMore()).isTrue();
-        verify(ragPipelineService).listByObject("attachment", "42", 0, 26);
+        PageDto<RagIndexChunkDto> page = response.getBody().getData();
+        assertThat(page.getSize()).isEqualTo(25);
+        assertThat(page.getContent()).hasSize(25);
+        assertThat(page.isHasNext()).isTrue();
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 25);
+        verify(ragPipelineService).countByObject("attachment", "42");
     }
 
     @Test
@@ -860,6 +868,7 @@ class RagIndexJobControllerTest {
                         Jackson2ObjectMapperBuilder.json()
                                 .modules(new JavaTimeModule())
                                 .build()))
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setControllerAdvice(new AiWebExceptionHandler())
                 .build();
     }

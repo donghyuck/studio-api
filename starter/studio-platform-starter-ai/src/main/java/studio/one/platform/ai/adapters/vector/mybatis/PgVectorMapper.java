@@ -24,6 +24,10 @@ public interface PgVectorMapper {
             @Param("objectType") String objectType,
             @Param("objectId") String objectId);
 
+    long countByObject(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId);
+
     List<PgVectorSearchRow> listByObject(
             @Param("objectType") String objectType,
             @Param("objectId") String objectId,

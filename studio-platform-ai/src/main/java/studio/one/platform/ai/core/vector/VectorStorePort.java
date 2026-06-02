@@ -201,6 +201,10 @@ public interface VectorStorePort {
         return listByObject(objectType, objectId, offset, limit);
     }
 
+    default long countByObject(String objectType, String objectId) {
+        return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
+    }
+
     /**
      * objectType/objectId에 대한 메타데이터를 조회한다.
      * 구현체는 필요한 경우 chunk_index 순으로 첫 번째 레코드를 사용하거나 통합 메타를 반환한다.
