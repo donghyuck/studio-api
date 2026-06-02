@@ -36,17 +36,23 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
     @Override
     public List<AiEmbeddingOption> options() {
         Map<String, AiEmbeddingOption> options = new LinkedHashMap<>();
-        registry.availableEmbeddingPorts().keySet().forEach(providerId -> {
-            AiAdapterProperties.Provider provider = provider(providerId);
-            options.put(providerKey(providerId), providerOption(providerId, provider));
-        });
+        List<String> profileSignatures = new ArrayList<>();
         ragProperties.getEmbeddingProfiles().forEach((profileId, profile) -> {
             String providerId = normalize(profile.getProvider());
             if (providerId == null) {
                 providerId = registry.defaultEmbeddingProvider();
             }
             AiAdapterProperties.Provider provider = provider(providerId);
-            options.put(profileKey(profileId), profileOption(profileId, providerId, provider, profile));
+            AiEmbeddingOption option = profileOption(profileId, providerId, provider, profile);
+            options.put(profileKey(profileId), option);
+            profileSignatures.add(optionSignature(option));
+        });
+        registry.availableEmbeddingPorts().keySet().forEach(providerId -> {
+            AiAdapterProperties.Provider provider = provider(providerId);
+            AiEmbeddingOption option = providerOption(providerId, provider);
+            if (!profileSignatures.contains(optionSignature(option))) {
+                options.put(providerKey(providerId), option);
+            }
         });
         return new ArrayList<>(options.values());
     }
@@ -173,6 +179,10 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
 
     private static String profileKey(String profileId) {
         return "profile:" + normalize(profileId);
+    }
+
+    private static String optionSignature(AiEmbeddingOption option) {
+        return normalize(option.provider()) + "|" + normalize(option.model()) + "|" + option.dimension();
     }
 
     private static String normalize(String value) {

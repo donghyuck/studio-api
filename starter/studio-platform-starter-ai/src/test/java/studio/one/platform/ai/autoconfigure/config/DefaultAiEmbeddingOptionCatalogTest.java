@@ -52,6 +52,8 @@ class DefaultAiEmbeddingOptionCatalogTest {
         AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
         provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
         provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setModel("text-embedding-004");
+        provider.getEmbedding().setDimension(768);
         properties.getProviders().put("google", provider);
 
         RagEmbeddingProperties ragProperties = new RagEmbeddingProperties();
@@ -76,8 +78,8 @@ class DefaultAiEmbeddingOptionCatalogTest {
                 new MockEnvironment());
 
         assertThat(catalog.options())
-                .hasSize(2)
-                .anySatisfy(option -> {
+                .singleElement()
+                .satisfies(option -> {
                     assertThat(option.profileId()).isEqualTo("retrieval-ko");
                     assertThat(option.provider()).isEqualTo("google");
                     assertThat(option.model()).isEqualTo("text-embedding-004");

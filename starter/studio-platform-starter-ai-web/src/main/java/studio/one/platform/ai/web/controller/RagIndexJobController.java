@@ -196,14 +196,15 @@ public class RagIndexJobController {
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
             + " or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> getJobChunks(
+    public ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> getJobChunks(
             @PathVariable("jobId") String jobId,
+            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
             @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
         RagIndexJob job = requireJob(jobId);
         if (job.objectType() == null || job.objectId() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "job has no object scope");
         }
-        return objectChunks(job.objectType(), job.objectId(), limit);
+        return objectChunks(job.objectType(), job.objectId(), offset, limit);
     }
 
     @GetMapping("/jobs/{jobId}/chunks/page")
@@ -225,15 +226,12 @@ public class RagIndexJobController {
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
             + " or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> objectChunks(
+    public ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> objectChunks(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId,
+            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
             @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
-        int boundedLimit = boundedChunkLimit(limit);
-        List<RagIndexChunkDto> chunks = ragPipelineService.listByObject(objectType, objectId, boundedLimit).stream()
-                .map(this::toChunkDto)
-                .toList();
-        return ResponseEntity.ok(ApiResponse.ok(chunks));
+        return objectChunksPage(objectType, objectId, offset, limit);
     }
 
     @GetMapping("/objects/{objectType}/{objectId}/chunks/page")

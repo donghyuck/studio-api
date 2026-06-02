@@ -567,7 +567,7 @@ class RagIndexJobControllerTest {
         RagIndexJobService jobService = new CapturingJobService();
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagIndexJobController controller = new RagIndexJobController(jobService, ragPipelineService, null);
-        when(ragPipelineService.listByObject("attachment", "42", 25))
+        when(ragPipelineService.listByObject("attachment", "42", 0, 26))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "chunk text", Map.of(
                         VectorRecord.KEY_CHUNK_ID, "chunk-1",
                         VectorRecord.KEY_DOCUMENT_ID, "doc-1",
@@ -579,15 +579,20 @@ class RagIndexJobControllerTest {
                         "chunkOrder", 7,
                         "indexedAt", "2026-04-26T00:00:00Z"), 0.8d)));
 
-        ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> response =
-                controller.objectChunks("attachment", "42", 25);
+        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
+                controller.objectChunks("attachment", "42", 0, 25);
 
-        RagIndexChunkDto chunk = response.getBody().getData().get(0);
+        RagIndexChunkPageResponseDto page = response.getBody().getData();
+        assertThat(page.offset()).isEqualTo(0);
+        assertThat(page.limit()).isEqualTo(25);
+        assertThat(page.returned()).isEqualTo(1);
+        assertThat(page.hasMore()).isFalse();
+        RagIndexChunkDto chunk = page.items().get(0);
         assertThat(chunk.chunkId()).isEqualTo("chunk-1");
         assertThat(chunk.parentChunkId()).isEqualTo("parent-1");
         assertThat(chunk.headingPath()).isEqualTo("Intro > Details");
         assertThat(chunk.indexedAt()).isEqualTo(java.time.Instant.parse("2026-04-26T00:00:00Z"));
-        verify(ragPipelineService).listByObject("attachment", "42", 25);
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 26);
     }
 
     @Test
