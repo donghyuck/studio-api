@@ -540,6 +540,53 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     @Test
+    void ragIndexJobUsesAttachmentScopeEvenWhenRequestContainsBusinessObjectScope() throws Exception {
+        RagIndexJobService jobService = mock(RagIndexJobService.class);
+        configureMockMvc(null, false, jobService);
+        when(jobService.createJob(any(RagIndexJobCreateRequest.class), any(RagIndexJobSourceRequest.class)))
+                .thenReturn(RagIndexJob.pending(
+                        "job-1",
+                        "attachment",
+                        "1",
+                        "1",
+                        "attachment",
+                        java.time.Instant.parse("2026-04-26T00:00:00Z")));
+        when(jobService.progressListener("job-1")).thenReturn(RagIndexProgressListener.noop());
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "objectType": "2103",
+                                  "objectId": "2",
+                                  "metadata": {
+                                    "objectType": "2103",
+                                    "objectId": "2"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+
+        ArgumentCaptor<RagIndexJobCreateRequest> jobCaptor = ArgumentCaptor.forClass(RagIndexJobCreateRequest.class);
+        verify(jobService).createJob(jobCaptor.capture(), any(RagIndexJobSourceRequest.class));
+        assertThat(jobCaptor.getValue().objectType()).isEqualTo("attachment");
+        assertThat(jobCaptor.getValue().objectId()).isEqualTo("1");
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
+                        "attachment".equals(request.metadata().get("objectType"))
+                                && "1".equals(request.metadata().get("objectId"))),
+                any(RagIndexProgressListener.class));
+    }
+
+    @Test
     void ragIndexDoesNotExposeDiagnosticsHeadersUnlessDebugIsRequested() throws Exception {
         configureMockMvc(null, true);
         Attachment attachment = mock(Attachment.class);

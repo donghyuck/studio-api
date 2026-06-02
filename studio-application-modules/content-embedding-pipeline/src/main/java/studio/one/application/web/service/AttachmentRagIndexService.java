@@ -42,8 +42,8 @@ public class AttachmentRagIndexService {
             String embeddingModel) {
         return new AttachmentRagIndexCommand(
                 hasText(documentId) ? documentId.trim() : String.valueOf(attachmentId),
-                hasText(objectType) ? objectType.trim() : "attachment",
-                hasText(objectId) ? objectId.trim() : String.valueOf(attachmentId),
+                "attachment",
+                String.valueOf(attachmentId),
                 metadata,
                 keywords,
                 Boolean.TRUE.equals(useLlmKeywordExtraction),
@@ -136,8 +136,8 @@ public class AttachmentRagIndexService {
 
     private Map<String, Object> buildMetadata(AttachmentRagIndexCommand command, Attachment attachment) {
         Map<String, Object> metadata = new HashMap<>(command.metadata());
-        metadata.putIfAbsent("objectType", command.objectType());
-        metadata.putIfAbsent("objectId", command.objectId());
+        metadata.put("objectType", command.objectType());
+        metadata.put("objectId", command.objectId());
         metadata.putIfAbsent("attachmentId", attachment.getAttachmentId());
         metadata.putIfAbsent("name", attachment.getName());
         metadata.putIfAbsent("filename", attachment.getName());
