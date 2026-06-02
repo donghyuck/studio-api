@@ -50,7 +50,9 @@ import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
@@ -648,6 +650,90 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     @Test
+    void structuredIndexerRetriesTransientEmbeddingFailure() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        Attachment attachment = mock(Attachment.class);
+        ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "structured text", "sample.txt");
+        NormalizedDocument normalizedDocument = NormalizedDocument.builder("doc-1")
+                .plainText("structured text")
+                .build();
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
+        when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class)))
+                .thenReturn(List.of(structuredChunk("doc-1#0", "first", 0, Map.of())));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenThrow(new IllegalStateException("temporary TEI failure"))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))));
+
+        boolean indexed = indexer.index(
+                attachment,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                extractionService,
+                new ByteArrayInputStream("content".getBytes(StandardCharsets.UTF_8)));
+
+        org.assertj.core.api.Assertions.assertThat(indexed).isTrue();
+        verify(embeddingPort, times(2)).embed(any(EmbeddingRequest.class));
+        verify(vectorStore).replaceRecordsByObject(
+                argThat("attachment"::equals),
+                argThat("1"::equals),
+                argThat(records -> records.size() == 1));
+    }
+
+    @Test
+    void structuredIndexerSkipsAlreadyIndexedLargeBatchChunksWithSameEmbeddingSelection() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        Attachment attachment = mock(Attachment.class);
+        ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "structured text", "sample.txt");
+        NormalizedDocument normalizedDocument = NormalizedDocument.builder("doc-1")
+                .plainText("structured text")
+                .build();
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
+        when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class))).thenReturn(numberedChunks(65));
+        when(vectorStore.listByObject("attachment", "1", Integer.MAX_VALUE))
+                .thenReturn(existingChunkResults(64));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("64", List.of(0.1d, 0.2d)))));
+
+        boolean indexed = indexer.index(
+                attachment,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                extractionService,
+                new ByteArrayInputStream("content".getBytes(StandardCharsets.UTF_8)));
+
+        org.assertj.core.api.Assertions.assertThat(indexed).isTrue();
+        verify(vectorStore, never()).deleteByObject("attachment", "1");
+        verify(embeddingPort, times(1)).embed(any(EmbeddingRequest.class));
+        verify(vectorStore).upsertAll(argThat(records ->
+                records.size() == 1
+                        && Integer.valueOf(64).equals(records.get(0).toMetadata().get("chunkIndex"))));
+    }
+
+    @Test
     void structuredIndexerFallsBackWithoutReplacingWhenObjectScopeIsMissing() throws Exception {
         VectorStorePort vectorStore = mock(VectorStorePort.class);
         ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
@@ -704,5 +790,25 @@ class AttachmentEmbeddingPipelineControllerTest {
                         .objectId("1")
                         .attributes(new java.util.HashMap<>(metadata))
                         .build());
+    }
+
+    private List<Chunk> numberedChunks(int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(index -> structuredChunk("doc-1#" + index, "chunk " + index, index, Map.of()))
+                .toList();
+    }
+
+    private List<VectorSearchResult> existingChunkResults(int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(index -> {
+                    Map<String, Object> metadata = Map.of(
+                            "chunkIndex", index,
+                            "embeddingProvider", "kure",
+                            "embeddingModel", "nlpai-lab/KURE-v1");
+                    return new VectorSearchResult(
+                            new VectorDocument("doc-1#" + index, "chunk " + index, metadata, List.of()),
+                            1.0d);
+                })
+                .toList();
     }
 }

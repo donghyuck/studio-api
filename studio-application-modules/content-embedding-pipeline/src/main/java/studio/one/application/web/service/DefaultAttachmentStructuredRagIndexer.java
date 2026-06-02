@@ -8,10 +8,12 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -21,9 +23,11 @@ import org.springframework.stereotype.Component;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
+import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
@@ -49,6 +53,8 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
     private static final int INDEX_UPSERT_BATCH_SIZE = 64;
+    private static final int EMBEDDING_MAX_ATTEMPTS = 3;
+    private static final long EMBEDDING_RETRY_BACKOFF_MS = 1_000L;
 
     private final ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider;
     private final ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider;
@@ -185,12 +191,21 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             VectorStorePort vectorStore,
             RagIndexProgressListener progress) {
         progress.onStep(RagIndexJobStep.INDEXING);
-        vectorStore.deleteByObject(objectType, objectId);
+        Set<Integer> completedChunkIndexes = completedChunkIndexes(vectorStore, objectType, objectId, metadata);
+        if (completedChunkIndexes.isEmpty()) {
+            vectorStore.deleteByObject(objectType, objectId);
+        }
         progress.onStep(RagIndexJobStep.EMBEDDING);
         List<VectorRecord> batch = new ArrayList<>(Math.min(INDEX_UPSERT_BATCH_SIZE, chunks.size()));
         int embedded = 0;
-        int indexed = 0;
+        int indexed = completedChunkIndexes.size();
         for (Chunk chunk : chunks) {
+            if (completedChunkIndexes.contains(chunkIndex(chunk))) {
+                embedded++;
+                progress.onEmbeddedCount(embedded);
+                progress.onIndexedCount(indexed);
+                continue;
+            }
             batch.add(embedRecord(documentId, objectType, objectId, metadata, embeddingPort, chunk));
             embedded++;
             progress.onEmbeddedCount(embedded);
@@ -199,6 +214,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 vectorStore.upsertAll(List.copyOf(batch));
                 indexed += batch.size();
                 batch.clear();
+                progress.onIndexedCount(indexed);
                 progress.onStep(RagIndexJobStep.EMBEDDING);
             }
         }
@@ -206,6 +222,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             progress.onStep(RagIndexJobStep.INDEXING);
             vectorStore.upsertAll(List.copyOf(batch));
             indexed += batch.size();
+            progress.onIndexedCount(indexed);
         }
         return indexed;
     }
@@ -232,8 +249,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
         chunkMetadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
         chunkMetadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
-        EmbeddingVector vector = resolvedEmbedding.embeddingPort()
-                .embed(resolvedEmbedding.request(List.of(chunk.content())))
+        EmbeddingVector vector = embedWithRetry(resolvedEmbedding, chunk.content())
                 .vectors()
                 .get(0);
         List<Double> embedding = List.copyOf(vector.values());
@@ -257,6 +273,32 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 .slide(integer(firstPresent(standardChunkMetadata, chunkMetadata, VectorRecord.KEY_SLIDE)))
                 .metadata(chunkMetadata)
                 .build();
+    }
+
+    private EmbeddingResponse embedWithRetry(ResolvedRagEmbedding resolvedEmbedding, String content) {
+        RuntimeException lastFailure = null;
+        for (int attempt = 1; attempt <= EMBEDDING_MAX_ATTEMPTS; attempt++) {
+            try {
+                return resolvedEmbedding.embeddingPort()
+                        .embed(resolvedEmbedding.request(List.of(content)));
+            } catch (RuntimeException ex) {
+                lastFailure = ex;
+                if (attempt == EMBEDDING_MAX_ATTEMPTS) {
+                    break;
+                }
+                sleepBeforeRetry();
+            }
+        }
+        throw lastFailure;
+    }
+
+    private void sleepBeforeRetry() {
+        try {
+            Thread.sleep(EMBEDDING_RETRY_BACKOFF_MS);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting to retry embedding", ex);
+        }
     }
 
     @Override
@@ -296,6 +338,50 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 selection.model(),
                 null,
                 selection.inputType());
+    }
+
+    private Set<Integer> completedChunkIndexes(
+            VectorStorePort vectorStore,
+            String objectType,
+            String objectId,
+            Map<String, Object> expectedMetadata) {
+        if (!hasEmbeddingSelection(expectedMetadata)) {
+            return Set.of();
+        }
+        try {
+            Set<Integer> completed = new HashSet<>();
+            for (VectorSearchResult result : vectorStore.listByObject(objectType, objectId, Integer.MAX_VALUE)) {
+                Map<String, Object> metadata = result.document().metadata();
+                if (!sameEmbeddingSelection(expectedMetadata, metadata)) {
+                    continue;
+                }
+                Integer chunkIndex = integer(metadata.get(VectorRecord.KEY_CHUNK_INDEX));
+                if (chunkIndex != null) {
+                    completed.add(chunkIndex);
+                }
+            }
+            return completed;
+        } catch (UnsupportedOperationException ex) {
+            return Set.of();
+        }
+    }
+
+    private boolean hasEmbeddingSelection(Map<String, Object> metadata) {
+        return text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)) != null
+                || text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)) != null
+                || text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)) != null;
+    }
+
+    private boolean sameEmbeddingSelection(Map<String, Object> expected, Map<String, Object> actual) {
+        return Objects.equals(
+                text(expected.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
+                text(actual.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)))
+                && Objects.equals(
+                        text(expected.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
+                        text(actual.get(VectorRecord.KEY_EMBEDDING_PROVIDER)))
+                && Objects.equals(
+                        text(expected.get(VectorRecord.KEY_EMBEDDING_MODEL)),
+                        text(actual.get(VectorRecord.KEY_EMBEDDING_MODEL)));
     }
 
     private EmbeddingInputType embeddingInputType(ChunkType chunkType) {
@@ -439,5 +525,9 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException("SHA-256 digest is not available", ex);
         }
+    }
+
+    private Integer chunkIndex(Chunk chunk) {
+        return integer(chunk.metadata().toMap().get(ChunkMetadata.KEY_CHUNK_ORDER));
     }
 }
