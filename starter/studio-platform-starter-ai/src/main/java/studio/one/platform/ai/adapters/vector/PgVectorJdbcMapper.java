@@ -307,7 +307,11 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
         String head = orderByIndex < 0 ? sql : sql.substring(0, orderByIndex);
         String tail = orderByIndex < 0 ? "" : sql.substring(orderByIndex);
         String conjunction = head.toLowerCase(java.util.Locale.ROOT).contains(" where ") ? " AND " : " WHERE ";
-        return head + conjunction + String.join(" AND ", conditions) + tail;
+        return head.stripTrailing()
+                + conjunction
+                + String.join(" AND ", conditions)
+                + System.lineSeparator()
+                + tail.stripLeading();
     }
 
     private static List<String> metadataConditions(PgVectorSearchParameter parameter) {
