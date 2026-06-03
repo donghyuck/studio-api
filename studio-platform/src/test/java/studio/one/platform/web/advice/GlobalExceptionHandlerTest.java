@@ -5,11 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.service.I18n;
@@ -55,5 +57,18 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().getStatus()).isEqualTo(501);
         assertThat(response.getBody().getDetail()).isEqualTo("Company-scoped user listing is not supported");
+    }
+
+    @Test
+    void returnsNotFoundForNoResource() {
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/mgmt/attachments/6/rag/index");
+
+        var response = handler.handleNoResource(
+                new NoResourceFoundException(HttpMethod.POST, "/api/mgmt/attachments/6/rag/index"),
+                request);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(404);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getStatus()).isEqualTo(404);
     }
 }
