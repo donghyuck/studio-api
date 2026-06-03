@@ -3,6 +3,7 @@ package studio.one.platform.skillgraph.web.controller;
 import java.util.List;
 import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +45,7 @@ public class SkillGraphExtractionSourceMgmtController {
         this(ragChunkResolverProvider, null);
     }
 
+    @Autowired
     public SkillGraphExtractionSourceMgmtController(
             ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider,
             ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
