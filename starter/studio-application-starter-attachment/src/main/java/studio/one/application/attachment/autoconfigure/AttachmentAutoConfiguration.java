@@ -49,6 +49,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.util.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -143,6 +144,7 @@ public class AttachmentAutoConfiguration {
             ObjectProvider<I18n> i18nProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            ObjectProvider<PlatformTransactionManager> transactionManagerProvider,
             ObjectProvider<ObjectStorageRegistry> objectStorageRegistryProvider,
             PersistenceProperties persistenceProperties) {
         AttachmentProperties.Storage storage = properties.storage(environment, log);
@@ -154,6 +156,7 @@ public class AttachmentAutoConfiguration {
                     repositoryProvider.getIfAvailable(),
                     dataRepositoryProvider,
                     templateProvider,
+                    transactionManagerProvider,
                     resolveAttachmentPersistence(featureProperties, persistenceProperties),
                     i18n);
         }
@@ -221,6 +224,7 @@ public class AttachmentAutoConfiguration {
             ObjectProvider<Repository> repositoryProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            ObjectProvider<PlatformTransactionManager> transactionManagerProvider,
             PersistenceProperties persistenceProperties,
             ObjectProvider<I18n> i18nProvider) {
         AttachmentProperties.Storage storage = properties.storage(environment, log);
@@ -231,6 +235,7 @@ public class AttachmentAutoConfiguration {
                         repositoryProvider.getIfAvailable(),
                         dataRepositoryProvider,
                         templateProvider,
+                        transactionManagerProvider,
                         resolveAttachmentPersistence(featureProperties, persistenceProperties),
                         I18nUtils.resolve(i18nProvider)));
     }
@@ -246,6 +251,7 @@ public class AttachmentAutoConfiguration {
             ObjectProvider<Repository> repositoryProvider,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            ObjectProvider<PlatformTransactionManager> transactionManagerProvider,
             PersistenceProperties persistenceProperties,
             ObjectProvider<I18n> i18nProvider) {
         AttachmentProperties.Storage storage = properties.storage(environment, log);
@@ -256,6 +262,7 @@ public class AttachmentAutoConfiguration {
                         repositoryProvider.getIfAvailable(),
                         dataRepositoryProvider,
                         templateProvider,
+                        transactionManagerProvider,
                         resolveAttachmentPersistence(featureProperties, persistenceProperties),
                         I18nUtils.resolve(i18nProvider)));
     }
@@ -403,6 +410,7 @@ public class AttachmentAutoConfiguration {
             Repository repository,
             ObjectProvider<AttachmentDataJpaRepository> dataRepositoryProvider,
             ObjectProvider<NamedParameterJdbcTemplate> templateProvider,
+            ObjectProvider<PlatformTransactionManager> transactionManagerProvider,
             PersistenceProperties.Type persistenceType,
             I18n i18n) {
         FileStorage dbStore;
@@ -411,7 +419,7 @@ public class AttachmentAutoConfiguration {
             if (repo == null) {
                 throw new IllegalStateException("AttachmentDataJpaRepository is required for database storage (JPA)");
             }
-            dbStore = new JpaFileStore(repo);
+            dbStore = new JpaFileStore(repo, transactionManagerProvider.getIfAvailable());
             if (!storage.isCacheEnabled()) {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                         LogUtils.blue(JpaFileStore.class, true), LogUtils.red(State.CREATED.toString())));

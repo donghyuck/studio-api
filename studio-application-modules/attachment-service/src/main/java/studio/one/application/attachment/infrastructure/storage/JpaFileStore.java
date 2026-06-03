@@ -8,16 +8,27 @@ import java.sql.SQLException;
 
 import javax.sql.rowset.serial.SerialBlob;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import studio.one.application.attachment.domain.model.ApplicationAttachmentData;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentDataJpaRepository;
 
-@RequiredArgsConstructor
 public class JpaFileStore implements FileStorage {
 
     private final AttachmentDataJpaRepository attachmentDataRepository;
+    private final TransactionTemplate transactionTemplate;
+
+    public JpaFileStore(AttachmentDataJpaRepository attachmentDataRepository) {
+        this(attachmentDataRepository, null);
+    }
+
+    public JpaFileStore(
+            AttachmentDataJpaRepository attachmentDataRepository,
+            PlatformTransactionManager transactionManager) {
+        this.attachmentDataRepository = attachmentDataRepository;
+        this.transactionTemplate = transactionManager == null ? null : readOnlyTemplate(transactionManager);
+    }
 
     @Override
     public String save(Attachment attachment, InputStream input) {
@@ -35,8 +46,14 @@ public class JpaFileStore implements FileStorage {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public InputStream load(Attachment attachment) {
+        if (transactionTemplate != null) {
+            return transactionTemplate.execute(status -> loadInternal(attachment));
+        }
+        return loadInternal(attachment);
+    }
+
+    private InputStream loadInternal(Attachment attachment) {
         return attachmentDataRepository.findById(attachment.getAttachmentId())
                 .map(ApplicationAttachmentData::getBlob)
                 .map(this::asByteArrayStream)
@@ -58,5 +75,11 @@ public class JpaFileStore implements FileStorage {
         } catch (SQLException e) {
             throw new RuntimeException("Failed to read attachment data", e);
         }
+    }
+
+    private TransactionTemplate readOnlyTemplate(PlatformTransactionManager transactionManager) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setReadOnly(true);
+        return template;
     }
 }
