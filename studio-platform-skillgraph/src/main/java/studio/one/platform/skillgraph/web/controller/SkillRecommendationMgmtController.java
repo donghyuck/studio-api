@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.command.SkillCandidateRecommendationJobCommand;
@@ -47,21 +49,25 @@ public class SkillRecommendationMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillRecommendationJobView>> createJob(
             @Valid @RequestBody SkillCandidateRecommendationJobRequest request) {
-        return ResponseEntity.ok(ApiResponse.ok(service.createJob(new SkillCandidateRecommendationJobCommand(
-                request.targetScope(),
-                request.candidateIds(),
-                request.status(),
-                request.keyword(),
-                request.sourceType(),
-                request.sourceId(),
-                request.embeddingProvider(),
-                request.embeddingModel(),
-                request.embeddingDimension(),
-                request.targetTypes(),
-                request.topK(),
-                request.minScore(),
-                request.newSkillMinConfidence(),
-                request.existingSkillMinScore()))));
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(service.createJob(new SkillCandidateRecommendationJobCommand(
+                    request.targetScope(),
+                    request.candidateIds(),
+                    request.status(),
+                    request.keyword(),
+                    request.sourceType(),
+                    request.sourceId(),
+                    request.embeddingProvider(),
+                    request.embeddingModel(),
+                    request.embeddingDimension(),
+                    request.targetTypes(),
+                    request.topK(),
+                    request.minScore(),
+                    request.newSkillMinConfidence(),
+                    request.existingSkillMinScore()))));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     @GetMapping("/recommendations/jobs")
