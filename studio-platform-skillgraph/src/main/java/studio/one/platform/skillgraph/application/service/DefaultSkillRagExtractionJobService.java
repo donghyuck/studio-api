@@ -160,7 +160,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         }
         List<SkillRagExtractionJobItem> failedItems = store.listItemsByStatus(
                 job.jobId(), SkillRagExtractionItemStatus.FAILED, settings.maxChunks());
-        if (failedItems.isEmpty()) {
+        if (failedItems.isEmpty() && job.status() != SkillRagExtractionJobStatus.FAILED) {
             return job;
         }
         Set<String> chunkIds = new HashSet<>();
