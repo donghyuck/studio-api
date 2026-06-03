@@ -2,6 +2,7 @@ package studio.one.platform.ai.service.pipeline;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -175,7 +176,8 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             if (current.status() == RagIndexJobStatus.PENDING || current.status() == RagIndexJobStatus.RUNNING) {
                 throw new IllegalStateException("RAG index job cannot be retried while active: " + jobId);
             }
-            if (!requests.containsKey(jobId)) {
+            StoredRequest storedRequest = requests.computeIfAbsent(jobId, ignored -> restoredSourceRequest(current));
+            if (storedRequest == null) {
                 throw new IllegalStateException("RAG index job request is no longer available for retry: " + jobId);
             }
             RagIndexJob job = current.resetForRetry(Instant.now());
@@ -191,6 +193,35 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         } finally {
             runningJobs.remove(jobId);
         }
+    }
+
+    private StoredRequest restoredSourceRequest(RagIndexJob job) {
+        if (job.sourceType() == null || job.objectType() == null || job.objectId() == null) {
+            return null;
+        }
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                job.objectType(),
+                job.objectId(),
+                job.documentId() == null ? job.objectId() : job.documentId(),
+                job.sourceType(),
+                true,
+                null,
+                job.sourceName());
+        Map<String, Object> metadata = "attachment".equalsIgnoreCase(job.sourceType())
+                ? Map.of(
+                        "objectType", job.objectType(),
+                        "objectId", job.objectId(),
+                        "sourceType", job.sourceType(),
+                        "attachmentId", job.objectId())
+                : Map.of(
+                        "objectType", job.objectType(),
+                        "objectId", job.objectId(),
+                        "sourceType", job.sourceType());
+        RagIndexJobSourceRequest sourceRequest = new RagIndexJobSourceRequest(metadata, List.of(), false);
+        if (sourceExecutor(request, sourceRequest).isEmpty()) {
+            return null;
+        }
+        return new StoredRequest(request, sourceRequest);
     }
 
     @Override
