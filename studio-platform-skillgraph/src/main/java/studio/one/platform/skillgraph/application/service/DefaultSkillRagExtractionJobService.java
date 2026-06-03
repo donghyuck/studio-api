@@ -34,6 +34,8 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private static final int MAX_JOB_LIMIT = 200;
     private static final int DEFAULT_ITEM_LIMIT = 100;
     private static final int MAX_ITEM_LIMIT = 500;
+    private static final String LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE = "2001";
+    private static final String ATTACHMENT_OBJECT_TYPE = "attachment";
 
     private final SkillExtractionService extractionService;
     private final SkillGraphRagChunkResolver ragChunkResolver;
@@ -72,7 +74,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         Instant now = clock.instant();
         SkillRagExtractionJob job = new SkillRagExtractionJob(
                 "srj_" + UUID.randomUUID().toString().replace("-", ""),
-                required(objectType, "objectType"),
+                normalizeRagObjectType(objectType),
                 required(objectId, "objectId"),
                 normalize(documentId),
                 SkillRagExtractionJobStatus.RUNNING,
@@ -161,7 +163,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         try {
             while (processed < job.requestedChunks()) {
                 List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                        job.objectType(), job.objectId(), offset, settings.batchSize());
+                        normalizeRagObjectType(job.objectType()), job.objectId(), offset, settings.batchSize());
                 if (fetched.isEmpty()) {
                     break;
                 }
@@ -313,6 +315,11 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             throw new IllegalArgumentException(field + " is required");
         }
         return normalized;
+    }
+
+    private String normalizeRagObjectType(String objectType) {
+        String normalized = required(objectType, "objectType");
+        return LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized) ? ATTACHMENT_OBJECT_TYPE : normalized;
     }
 
     private String normalize(String value) {

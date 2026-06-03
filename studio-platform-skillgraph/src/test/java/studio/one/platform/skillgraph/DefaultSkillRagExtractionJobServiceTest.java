@@ -46,6 +46,73 @@ class DefaultSkillRagExtractionJobServiceTest {
     }
 
     @Test
+    void normalizesGenericAttachmentObjectTypeForRagChunkLookup() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+
+        var submitted = service.submitAllChunks("2001", "42", "doc-1", null);
+        var job = service.getJob(submitted.jobId());
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
+        assertEquals("attachment", job.objectType());
+        assertEquals("attachment", resolver.objectTypes.get(0));
+        assertEquals("42", resolver.objectIds.get(0));
+    }
+
+    @Test
+    void normalizesExistingGenericAttachmentJobForRagChunkLookup() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+        Instant now = Instant.now();
+        store.saveJob(new SkillRagExtractionJob(
+                "job-legacy",
+                "2001",
+                "42",
+                "doc-1",
+                SkillRagExtractionJobStatus.FAILED,
+                10,
+                1,
+                1,
+                0,
+                1,
+                0,
+                null,
+                now,
+                now));
+        store.saveItem(new studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem(
+                "job-legacy",
+                "chunk-1",
+                "doc-1",
+                "doc-1",
+                null,
+                0,
+                studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus.FAILED,
+                "failed",
+                now,
+                now));
+
+        var retried = service.retryFailed("job-legacy");
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, service.getJob(retried.jobId()).status());
+        assertEquals("attachment", resolver.objectTypes.get(0));
+        assertEquals("42", resolver.objectIds.get(0));
+    }
+
+    @Test
     void recordsPartialJobWhenChunkFails() {
         InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
         DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
@@ -182,6 +249,8 @@ class DefaultSkillRagExtractionJobServiceTest {
 
         private final List<ResolvedRagChunk> chunks;
         private final List<Integer> offsets = new ArrayList<>();
+        private final List<String> objectTypes = new ArrayList<>();
+        private final List<String> objectIds = new ArrayList<>();
 
         private PagingResolver(List<ResolvedRagChunk> chunks) {
             this.chunks = chunks;
@@ -194,6 +263,8 @@ class DefaultSkillRagExtractionJobServiceTest {
 
         @Override
         public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int offset, int limit) {
+            objectTypes.add(objectType);
+            objectIds.add(objectId);
             offsets.add(offset);
             int from = Math.min(offset, chunks.size());
             int to = Math.min(from + limit, chunks.size());
