@@ -23,6 +23,11 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
     }
 
     @Override
+    public long countByObject(String objectType, String objectId) {
+        return ragPipelineService.countByObject(objectType, objectId);
+    }
+
+    @Override
     public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int offset, int limit) {
         return ragPipelineService.listByObject(objectType, objectId, offset, limit).stream()
                 .map(this::toChunk)

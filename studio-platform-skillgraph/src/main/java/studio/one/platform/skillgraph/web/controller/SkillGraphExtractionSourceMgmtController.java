@@ -4,6 +4,10 @@ import java.util.List;
 import java.util.Objects;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,9 +20,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
-import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkPageResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkPreviewDto;
 import studio.one.platform.web.dto.ApiResponse;
+import studio.one.platform.web.dto.PageDto;
 
 @RestController
 @RequestMapping("${studio.features.skillgraph.web.extraction-source-base-path:/api/mgmt/skillgraph/extraction-sources}")
@@ -41,46 +45,45 @@ public class SkillGraphExtractionSourceMgmtController {
             + "and @endpointAuthz.can('services:ai_rag','read') "
             + "and (@endpointAuthz.can('objects:' + #objectType.trim() + ':' + #objectId.trim(),'read') "
             + "or @endpointAuthz.can('objects:' + #objectType.trim(),'read'))")
-    public ResponseEntity<ApiResponse<SkillRagChunkPageResponse>> ragChunks(
+    public ResponseEntity<ApiResponse<PageDto<SkillRagChunkPreviewDto>>> ragChunks(
             @RequestParam("objectType") String objectType,
             @RequestParam("objectId") String objectId,
             @RequestParam(name = "documentId", required = false) String documentId,
             @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "50") int limit,
+            @RequestParam(name = "offset", required = false) Integer offset,
+            @RequestParam(name = "limit", required = false) Integer limit,
+            @PageableDefault(size = DEFAULT_LIMIT) Pageable pageable,
             @RequestParam(name = "sort", required = false) String sort) {
         SkillGraphRagChunkResolver resolver = requireResolver();
         String normalizedObjectType = required(objectType, "objectType");
         String normalizedObjectId = required(objectId, "objectId");
         String normalizedDocumentId = normalize(documentId);
         String query = normalize(q);
-        int boundedOffset = Math.max(0, offset);
-        int boundedLimit = boundedLimit(limit);
+        Pageable boundedPageable = boundedPageable(pageable, offset, limit);
+        int boundedOffset = pageOffset(boundedPageable);
+        int boundedLimit = boundedPageable.getPageSize();
         List<ResolvedRagChunk> filtered;
-        Integer total = null;
-        boolean hasMore;
+        long total;
         if (query != null || normalizedDocumentId != null) {
-            List<ResolvedRagChunk> fetched = resolver.listByObject(
+            filtered = resolver.listByObject(
                     normalizedObjectType,
                     normalizedObjectId,
                     normalizedDocumentId,
                     query,
                     boundedOffset,
-                    boundedLimit + 1).stream()
+                    boundedLimit).stream()
                     .sorted((left, right) -> compare(left, right, sort))
                     .toList();
-            hasMore = fetched.size() > boundedLimit;
-            filtered = hasMore ? fetched.subList(0, boundedLimit) : fetched;
+            total = resolver.countByObject(normalizedObjectType, normalizedObjectId, normalizedDocumentId, query);
         } else {
-            List<ResolvedRagChunk> fetched = resolver.listByObject(
+            filtered = resolver.listByObject(
                     normalizedObjectType,
                     normalizedObjectId,
                     boundedOffset,
-                    boundedLimit + 1).stream()
+                    boundedLimit).stream()
                     .sorted((left, right) -> compare(left, right, sort))
                     .toList();
-            hasMore = fetched.size() > boundedLimit;
-            filtered = hasMore ? fetched.subList(0, boundedLimit) : fetched;
+            total = resolver.countByObject(normalizedObjectType, normalizedObjectId);
         }
         if (boundedOffset == 0 && filtered.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG chunks not found");
@@ -88,13 +91,7 @@ public class SkillGraphExtractionSourceMgmtController {
         List<SkillRagChunkPreviewDto> items = filtered.stream()
                 .map(this::toPreview)
                 .toList();
-        return ResponseEntity.ok(ApiResponse.ok(new SkillRagChunkPageResponse(
-                items,
-                boundedOffset,
-                boundedLimit,
-                items.size(),
-                total,
-                hasMore)));
+        return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new PageImpl<>(items, boundedPageable, total))));
     }
 
     private SkillGraphRagChunkResolver requireResolver() {
@@ -133,6 +130,22 @@ public class SkillGraphExtractionSourceMgmtController {
     private int boundedLimit(int limit) {
         int requested = limit <= 0 ? DEFAULT_LIMIT : limit;
         return Math.min(requested, MAX_LIMIT);
+    }
+
+    private Pageable boundedPageable(Pageable pageable, Integer offset, Integer limit) {
+        if (offset != null || limit != null) {
+            int boundedLimit = boundedLimit(limit == null ? DEFAULT_LIMIT : limit);
+            int boundedOffset = Math.max(0, offset == null ? 0 : offset);
+            return PageRequest.of(boundedOffset / boundedLimit, boundedLimit, pageable.getSort());
+        }
+        Pageable requested = pageable == null ? PageRequest.of(0, DEFAULT_LIMIT) : pageable;
+        int boundedSize = boundedLimit(requested.getPageSize());
+        return PageRequest.of(Math.max(0, requested.getPageNumber()), boundedSize, requested.getSort());
+    }
+
+    private int pageOffset(Pageable pageable) {
+        long offset = pageable.getOffset();
+        return offset > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) offset;
     }
 
     private String preview(String content) {

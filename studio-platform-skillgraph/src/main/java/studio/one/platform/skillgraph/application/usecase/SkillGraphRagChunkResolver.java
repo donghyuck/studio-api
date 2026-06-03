@@ -9,6 +9,10 @@ public interface SkillGraphRagChunkResolver {
 
     List<ResolvedRagChunk> listByObject(String objectType, String objectId, int limit);
 
+    default long countByObject(String objectType, String objectId) {
+        return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
+    }
+
     default List<ResolvedRagChunk> listByObject(String objectType, String objectId, int offset, int limit) {
         int safeOffset = Math.max(0, offset);
         int safeLimit = limit <= 0 ? 50 : limit;
@@ -33,6 +37,14 @@ public interface SkillGraphRagChunkResolver {
                 .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
                 .filter(chunk -> matchesQuery(chunk, query))
                 .toList();
+    }
+
+    default long countByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            String query) {
+        return listByObject(objectType, objectId, documentId, query, 0, Integer.MAX_VALUE).size();
     }
 
     private static boolean matchesQuery(ResolvedRagChunk chunk, String query) {
