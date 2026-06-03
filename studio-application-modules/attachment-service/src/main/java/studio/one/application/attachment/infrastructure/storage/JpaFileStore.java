@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import javax.sql.rowset.serial.SerialBlob;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.transaction.annotation.Transactional;
 import studio.one.application.attachment.domain.model.ApplicationAttachmentData;
 import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.infrastructure.persistence.jpa.AttachmentDataJpaRepository;
@@ -34,6 +35,7 @@ public class JpaFileStore implements FileStorage {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public InputStream load(Attachment attachment) {
         return attachmentDataRepository.findById(attachment.getAttachmentId())
                 .map(ApplicationAttachmentData::getBlob)
