@@ -5,12 +5,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import java.util.concurrent.Executor;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
@@ -83,7 +85,8 @@ public class SkillGraphWebAutoConfiguration {
                 SkillGraphRagChunkResolver ragChunkResolver,
                 SkillRagExtractionJobStore jobStore,
                 Executor skillRagExtractionJobExecutor,
-                SkillGraphProperties properties) {
+                SkillGraphProperties properties,
+                ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
             SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
             return new DefaultSkillRagExtractionJobService(
                     extractionService,
@@ -93,7 +96,8 @@ public class SkillGraphWebAutoConfiguration {
                     new SkillRagExtractionJobSettings(
                             ragJob.getBatchSize(),
                             ragJob.getMaxChunks(),
-                            ragJob.getMaxTextBytesPerBatch()));
+                            ragJob.getMaxTextBytesPerBatch()),
+                    objectTypeRuntimeServiceProvider.getIfAvailable());
         }
     }
 

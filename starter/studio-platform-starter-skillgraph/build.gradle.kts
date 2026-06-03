@@ -22,6 +22,7 @@ dependencies {
     api(project(":studio-platform-skillgraph"))
     compileOnly(project(":studio-platform-ai"))
     compileOnly(project(":studio-platform-chunking"))
+    compileOnly(project(":studio-platform-objecttype"))
     compileOnly(project(":studio-platform-realtime"))
     compileOnly("org.springframework.boot:spring-boot-starter")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
@@ -33,6 +34,7 @@ dependencies {
 
     testImplementation(project(":studio-platform"))
     testImplementation(project(":studio-platform-ai"))
+    testImplementation(project(":studio-platform-objecttype"))
     testImplementation(project(":studio-platform-skillgraph"))
     testImplementation(project(":studio-platform-realtime"))
     testImplementation("org.springframework.boot:spring-boot-test")

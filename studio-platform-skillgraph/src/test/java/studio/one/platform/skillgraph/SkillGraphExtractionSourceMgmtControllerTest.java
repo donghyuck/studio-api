@@ -13,6 +13,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
 import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.result.ObjectTypeView;
 import studio.one.platform.objecttype.application.result.ValidateUploadResult;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
@@ -87,12 +88,12 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     @Test
-    void resolvesObjectTypeCodeBeforeRagChunkNormalization() {
+    void resolvesNumericObjectTypeToCodeBeforeRagChunkNormalization() {
         FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
-        SkillGraphExtractionSourceMgmtController controller = controller(resolver, objectTypeService("attachment", 2001));
+        SkillGraphExtractionSourceMgmtController controller = controller(resolver, objectTypeService(2001, "attachment"));
 
-        var page = controller.ragChunks("attachment", "42", null, null, null, null, PageRequest.of(0, 10), null)
+        var page = controller.ragChunks("2001", "42", null, null, null, null, PageRequest.of(0, 10), null)
                 .getBody()
                 .getData();
 
@@ -137,16 +138,31 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         return new ResolvedRagChunk(chunkId, documentId, content, order, order + 1, "Section", 10, warningStatus);
     }
 
-    private static ObjectTypeRuntimeService objectTypeService(String key, int objectType) {
+    private static ObjectTypeRuntimeService objectTypeService(int objectType, String code) {
         return new ObjectTypeRuntimeService() {
             @Override
-            public ObjectTypeDefinition definition(int objectType) {
-                throw new UnsupportedOperationException();
+            public ObjectTypeDefinition definition(int requestedObjectType) {
+                if (objectType != requestedObjectType) {
+                    throw new IllegalArgumentException(String.valueOf(requestedObjectType));
+                }
+                return new ObjectTypeDefinition(new ObjectTypeView(
+                        objectType,
+                        code,
+                        code,
+                        null,
+                        "ACTIVE",
+                        null,
+                        null,
+                        0L,
+                        null,
+                        null,
+                        0L,
+                        null), null);
             }
 
             @Override
             public int objectTypeByKey(String requestedKey) {
-                if (key.equals(requestedKey)) {
+                if (code.equals(requestedKey)) {
                     return objectType;
                 }
                 throw new IllegalArgumentException(requestedKey);

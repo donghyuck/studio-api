@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
@@ -177,14 +178,11 @@ public class SkillGraphExtractionSourceMgmtController {
     private String normalizeRagObjectType(String objectType) {
         String normalized = required(objectType, "objectType");
         normalized = resolveObjectTypeCode(normalized);
-        if (LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized)) {
-            return ATTACHMENT_OBJECT_TYPE;
-        }
-        return normalized;
+        return LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized) ? ATTACHMENT_OBJECT_TYPE : normalized;
     }
 
     private String resolveObjectTypeCode(String objectType) {
-        if (isInteger(objectType) || objectTypeRuntimeServiceProvider == null) {
+        if (objectTypeRuntimeServiceProvider == null) {
             return objectType;
         }
         ObjectTypeRuntimeService service = objectTypeRuntimeServiceProvider.getIfAvailable();
@@ -192,7 +190,15 @@ public class SkillGraphExtractionSourceMgmtController {
             return objectType;
         }
         try {
-            return String.valueOf(service.objectTypeByKey(objectType));
+            if (isInteger(objectType)) {
+                ObjectTypeDefinition definition = service.definition(Integer.parseInt(objectType));
+                if (definition == null || definition.type() == null) {
+                    return objectType;
+                }
+                String code = normalize(definition.type().code());
+                return code == null ? objectType : code;
+            }
+            return objectType;
         } catch (RuntimeException ex) {
             return objectType;
         }

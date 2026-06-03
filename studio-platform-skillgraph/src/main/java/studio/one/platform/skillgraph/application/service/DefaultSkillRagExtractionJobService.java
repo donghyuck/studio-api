@@ -14,6 +14,8 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
@@ -43,6 +45,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private final Executor executor;
     private final SkillRagExtractionJobSettings settings;
     private final Clock clock;
+    private final ObjectTypeRuntimeService objectTypeRuntimeService;
 
     public DefaultSkillRagExtractionJobService(
             SkillExtractionService extractionService,
@@ -50,7 +53,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             SkillRagExtractionJobStore store,
             Executor executor,
             SkillRagExtractionJobSettings settings) {
-        this(extractionService, ragChunkResolver, store, executor, settings, Clock.systemUTC());
+        this(extractionService, ragChunkResolver, store, executor, settings, Clock.systemUTC(), null);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            ObjectTypeRuntimeService objectTypeRuntimeService) {
+        this(extractionService, ragChunkResolver, store, executor, settings, Clock.systemUTC(),
+                objectTypeRuntimeService);
     }
 
     public DefaultSkillRagExtractionJobService(
@@ -60,12 +74,24 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             Executor executor,
             SkillRagExtractionJobSettings settings,
             Clock clock) {
+        this(extractionService, ragChunkResolver, store, executor, settings, clock, null);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            Clock clock,
+            ObjectTypeRuntimeService objectTypeRuntimeService) {
         this.extractionService = Objects.requireNonNull(extractionService, "extractionService");
         this.ragChunkResolver = Objects.requireNonNull(ragChunkResolver, "ragChunkResolver");
         this.store = Objects.requireNonNull(store, "store");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.objectTypeRuntimeService = objectTypeRuntimeService;
     }
 
     @Override
@@ -319,7 +345,37 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
 
     private String normalizeRagObjectType(String objectType) {
         String normalized = required(objectType, "objectType");
+        if (isInteger(normalized)) {
+            String code = resolveObjectTypeCode(Integer.parseInt(normalized));
+            if (code != null) {
+                return code;
+            }
+        }
         return LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized) ? ATTACHMENT_OBJECT_TYPE : normalized;
+    }
+
+    private String resolveObjectTypeCode(int objectType) {
+        if (objectTypeRuntimeService == null) {
+            return null;
+        }
+        try {
+            ObjectTypeDefinition definition = objectTypeRuntimeService.definition(objectType);
+            if (definition == null || definition.type() == null) {
+                return null;
+            }
+            return normalize(definition.type().code());
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private boolean isInteger(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String normalize(String value) {

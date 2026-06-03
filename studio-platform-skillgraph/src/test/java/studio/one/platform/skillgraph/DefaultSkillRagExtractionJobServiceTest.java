@@ -8,6 +8,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.result.ObjectTypeView;
+import studio.one.platform.objecttype.application.result.ValidateUploadResult;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
@@ -55,7 +60,8 @@ class DefaultSkillRagExtractionJobServiceTest {
                 resolver,
                 store,
                 Runnable::run,
-                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000),
+                objectTypeService(2001, "attachment"));
 
         var submitted = service.submitAllChunks("2001", "42", "doc-1", null);
         var job = service.getJob(submitted.jobId());
@@ -243,6 +249,35 @@ class DefaultSkillRagExtractionJobServiceTest {
 
     private static ResolvedRagChunk chunk(String documentId, String chunkId, String content) {
         return new ResolvedRagChunk(chunkId, documentId, content);
+    }
+
+    private static ObjectTypeRuntimeService objectTypeService(int objectType, String code) {
+        return new ObjectTypeRuntimeService() {
+            @Override
+            public ObjectTypeDefinition definition(int requestedObjectType) {
+                if (objectType != requestedObjectType) {
+                    throw new IllegalArgumentException(String.valueOf(requestedObjectType));
+                }
+                return new ObjectTypeDefinition(new ObjectTypeView(
+                        objectType,
+                        code,
+                        code,
+                        null,
+                        "ACTIVE",
+                        null,
+                        null,
+                        0L,
+                        null,
+                        null,
+                        0L,
+                        null), null);
+            }
+
+            @Override
+            public ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request) {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     private static final class PagingResolver implements SkillGraphRagChunkResolver {
