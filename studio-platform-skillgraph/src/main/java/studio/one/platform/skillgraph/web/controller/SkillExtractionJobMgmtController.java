@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
@@ -184,8 +185,7 @@ public class SkillExtractionJobMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> getRagExtractionJob(
             @PathVariable String jobId) {
-        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobResponse.from(
-                ragExtractionJobService().getJob(jobId))));
+        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobResponse.from(getJobOrNotFound(jobId))));
     }
 
     @GetMapping("/{jobId}/items")
@@ -196,6 +196,7 @@ public class SkillExtractionJobMgmtController {
             @RequestParam(defaultValue = "100") int limit) {
         int safeOffset = Math.max(0, offset);
         int safeLimit = limit <= 0 ? 100 : Math.min(limit, 500);
+        getJobOrNotFound(jobId);
         return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobItemPageResponse.from(
                 jobId,
                 safeOffset,
@@ -207,6 +208,7 @@ public class SkillExtractionJobMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> retryFailedRagExtractionJob(
             @PathVariable String jobId) {
+        getJobOrNotFound(jobId);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(
                         ragExtractionJobService().retryFailed(jobId))));
@@ -319,6 +321,17 @@ public class SkillExtractionJobMgmtController {
                     "RAG extraction job service is not configured");
         }
         return service;
+    }
+
+    private SkillRagExtractionJob getJobOrNotFound(String jobId) {
+        try {
+            return ragExtractionJobService().getJob(jobId);
+        } catch (IllegalArgumentException ex) {
+            if (ex.getMessage() != null && ex.getMessage().startsWith("RAG extraction job not found:")) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG extraction job not found", ex);
+            }
+            throw ex;
+        }
     }
 
     private Map<String, String> normalizedChunkIds(List<String> chunkIds) {

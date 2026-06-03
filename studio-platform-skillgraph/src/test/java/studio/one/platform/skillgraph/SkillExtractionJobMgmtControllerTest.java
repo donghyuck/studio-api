@@ -7,6 +7,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
@@ -111,6 +113,29 @@ class SkillExtractionJobMgmtControllerTest {
         assertEquals(false, response.hasMore());
         assertEquals("42", response.items().get(0).objectId());
         assertEquals("doc-1", response.items().get(0).documentId());
+    }
+
+    @Test
+    void returnsNotFoundForUnknownRagExtractionJobDetail() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillRagExtractionJobStore jobStore = new InMemorySkillRagExtractionJobStore();
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        SkillGraphRagChunkResolver resolver = new FakeRagChunkResolver(List.of());
+        SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
+                extractionService,
+                resolverProvider(resolver),
+                jobServiceProvider(new DefaultSkillRagExtractionJobService(
+                        extractionService,
+                        resolver,
+                        jobStore,
+                        Runnable::run,
+                        new SkillRagExtractionJobSettings(20, 1000, 1_000_000))));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.getRagExtractionJob("srj_missing"));
+
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
     }
 
     @Test
