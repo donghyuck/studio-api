@@ -32,6 +32,8 @@ public class SkillGraphExtractionSourceMgmtController {
     private static final int DEFAULT_LIMIT = 50;
     private static final int MAX_LIMIT = 200;
     private static final int PREVIEW_LENGTH = 240;
+    private static final String LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE = "2001";
+    private static final String ATTACHMENT_OBJECT_TYPE = "attachment";
 
     private final ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider;
 
@@ -55,7 +57,7 @@ public class SkillGraphExtractionSourceMgmtController {
             @PageableDefault(size = DEFAULT_LIMIT) Pageable pageable,
             @RequestParam(name = "sort", required = false) String sort) {
         SkillGraphRagChunkResolver resolver = requireResolver();
-        String normalizedObjectType = required(objectType, "objectType");
+        String normalizedObjectType = normalizeRagObjectType(objectType);
         String normalizedObjectId = required(objectId, "objectId");
         String normalizedDocumentId = normalize(documentId);
         String query = normalize(q);
@@ -157,6 +159,14 @@ public class SkillGraphExtractionSourceMgmtController {
         String normalized = normalize(value);
         if (normalized == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
+        }
+        return normalized;
+    }
+
+    private String normalizeRagObjectType(String objectType) {
+        String normalized = required(objectType, "objectType");
+        if (LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized)) {
+            return ATTACHMENT_OBJECT_TYPE;
         }
         return normalized;
     }

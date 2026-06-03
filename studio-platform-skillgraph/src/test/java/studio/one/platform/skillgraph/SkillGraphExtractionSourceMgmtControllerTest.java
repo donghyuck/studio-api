@@ -68,6 +68,21 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     @Test
+    void normalizesLegacyGenericAttachmentObjectTypeForRagChunks() {
+        FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
+        SkillGraphExtractionSourceMgmtController controller = controller(resolver);
+
+        var page = controller.ragChunks("2001", "42", null, null, null, null, PageRequest.of(0, 10), null)
+                .getBody()
+                .getData();
+
+        assertEquals(1, page.getTotalElements());
+        assertEquals("attachment", resolver.objectType);
+        assertEquals("42", resolver.objectId);
+    }
+
+    @Test
     void rejectsRagChunkPreviewWhenResolverIsUnavailable() {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         SkillGraphExtractionSourceMgmtController controller = new SkillGraphExtractionSourceMgmtController(
@@ -96,6 +111,8 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     private static final class FakeRagChunkResolver implements SkillGraphRagChunkResolver {
 
         private final List<ResolvedRagChunk> chunks;
+        private String objectType;
+        private String objectId;
         private String documentId;
         private String query;
         private int offset;
@@ -107,6 +124,8 @@ class SkillGraphExtractionSourceMgmtControllerTest {
 
         @Override
         public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int limit) {
+            this.objectType = objectType;
+            this.objectId = objectId;
             int max = limit <= 0 ? chunks.size() : Math.min(limit, chunks.size());
             return chunks.subList(0, max);
         }
@@ -118,6 +137,8 @@ class SkillGraphExtractionSourceMgmtControllerTest {
 
         @Override
         public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int offset, int limit) {
+            this.objectType = objectType;
+            this.objectId = objectId;
             int start = Math.max(0, offset);
             int end = Math.min(chunks.size(), start + Math.max(0, limit));
             return start >= end ? List.of() : chunks.subList(start, end);
@@ -131,6 +152,8 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 String query,
                 int offset,
                 int limit) {
+            this.objectType = objectType;
+            this.objectId = objectId;
             this.documentId = documentId;
             this.query = query;
             this.offset = offset;
