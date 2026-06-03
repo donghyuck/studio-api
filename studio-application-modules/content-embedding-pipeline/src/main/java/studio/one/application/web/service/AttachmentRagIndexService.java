@@ -139,6 +139,7 @@ public class AttachmentRagIndexService {
         metadata.put("objectType", command.objectType());
         metadata.put("objectId", command.objectId());
         metadata.putIfAbsent("attachmentId", attachment.getAttachmentId());
+        putOwnerScope(metadata, attachment);
         metadata.putIfAbsent("name", attachment.getName());
         metadata.putIfAbsent("filename", attachment.getName());
         metadata.putIfAbsent("sourceType", "attachment");
@@ -149,6 +150,15 @@ public class AttachmentRagIndexService {
         metadata.putIfAbsent("contentType", attachment.getContentType());
         metadata.putIfAbsent("size", attachment.getSize());
         return metadata;
+    }
+
+    private void putOwnerScope(Map<String, Object> metadata, Attachment attachment) {
+        String ownerObjectType = String.valueOf(attachment.getObjectType());
+        String ownerObjectId = String.valueOf(attachment.getObjectId());
+        metadata.put("parentObjectType", ownerObjectType);
+        metadata.put("parentObjectId", ownerObjectId);
+        metadata.put("ownerObjectType", ownerObjectType);
+        metadata.put("ownerObjectId", ownerObjectId);
     }
 
     private void putIfPresent(Map<String, Object> metadata, String key, String value) {

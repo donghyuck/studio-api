@@ -240,6 +240,8 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(attachmentService.getInputStream(attachment))
                 .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
         when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(34L);
         when(attachment.getContentType()).thenReturn("text/plain");
         when(attachment.getName()).thenReturn("sample.txt");
         when(attachment.getSize()).thenReturn(5L);
@@ -266,6 +268,10 @@ class AttachmentEmbeddingPipelineControllerTest {
                     && "attachment".equals(metadata.get("objectType"))
                     && "1".equals(metadata.get("objectId"))
                     && Long.valueOf(1L).equals(metadata.get("attachmentId"))
+                    && "2103".equals(metadata.get("parentObjectType"))
+                    && "34".equals(metadata.get("parentObjectId"))
+                    && "2103".equals(metadata.get("ownerObjectType"))
+                    && "34".equals(metadata.get("ownerObjectId"))
                     && "sample.txt".equals(metadata.get("name"))
                     && "text/plain".equals(metadata.get("contentType"))
                     && Long.valueOf(5L).equals(metadata.get("size"));
@@ -523,6 +529,8 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(attachmentService.getInputStream(attachment))
                 .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
         when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
         when(attachment.getContentType()).thenReturn("text/plain");
         when(attachment.getName()).thenReturn("sample.txt");
         when(attachment.getSize()).thenReturn(5L);
@@ -557,6 +565,8 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(attachmentService.getInputStream(attachment))
                 .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
         when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
         when(attachment.getContentType()).thenReturn("text/plain");
         when(attachment.getName()).thenReturn("sample.txt");
         when(attachment.getSize()).thenReturn(5L);
@@ -582,7 +592,11 @@ class AttachmentEmbeddingPipelineControllerTest {
         assertThat(jobCaptor.getValue().objectId()).isEqualTo("1");
         verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
                         "attachment".equals(request.metadata().get("objectType"))
-                                && "1".equals(request.metadata().get("objectId"))),
+                                && "1".equals(request.metadata().get("objectId"))
+                                && "2103".equals(request.metadata().get("parentObjectType"))
+                                && "1".equals(request.metadata().get("parentObjectId"))
+                                && "2103".equals(request.metadata().get("ownerObjectType"))
+                                && "1".equals(request.metadata().get("ownerObjectId"))),
                 any(RagIndexProgressListener.class));
     }
 
