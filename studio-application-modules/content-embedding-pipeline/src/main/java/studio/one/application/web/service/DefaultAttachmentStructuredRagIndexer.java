@@ -25,6 +25,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.core.vector.VectorSearchResult;
@@ -52,7 +53,7 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 })
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
-    private static final int INDEX_UPSERT_BATCH_SIZE = 64;
+    private static final int INDEX_UPSERT_BATCH_SIZE = 10;
     private static final int EMBEDDING_MAX_ATTEMPTS = 3;
     private static final long EMBEDDING_RETRY_BACKOFF_MS = 1_000L;
 
@@ -211,7 +212,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             progress.onEmbeddedCount(embedded);
             if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
                 progress.onStep(RagIndexJobStep.INDEXING);
-                vectorStore.upsertAll(List.copyOf(batch));
+                upsertBatch(vectorStore, batch, indexed, progress);
                 indexed += batch.size();
                 batch.clear();
                 progress.onIndexedCount(indexed);
@@ -220,11 +221,32 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
         if (!batch.isEmpty()) {
             progress.onStep(RagIndexJobStep.INDEXING);
-            vectorStore.upsertAll(List.copyOf(batch));
+            upsertBatch(vectorStore, batch, indexed, progress);
             indexed += batch.size();
             progress.onIndexedCount(indexed);
         }
         return indexed;
+    }
+
+    private void upsertBatch(
+            VectorStorePort vectorStore,
+            List<VectorRecord> batch,
+            int indexedBeforeBatch,
+            RagIndexProgressListener progress) {
+        int fromChunkIndex = chunkIndex(batch.get(0), indexedBeforeBatch);
+        int toChunkIndex = chunkIndex(batch.get(batch.size() - 1), indexedBeforeBatch + batch.size() - 1);
+        try {
+            vectorStore.upsertAll(List.copyOf(batch));
+        } catch (RuntimeException ex) {
+            String detail = "chunkRange=%d-%d, batchSize=%d, configuredBatchSize=%d, error=%s"
+                    .formatted(fromChunkIndex, toChunkIndex, batch.size(), INDEX_UPSERT_BATCH_SIZE, ex.getMessage());
+            progress.onError(
+                    RagIndexJobStep.INDEXING,
+                    RagIndexJobLogCode.VECTOR_UPSERT_FAILED,
+                    "Attachment RAG vector upsert failed",
+                    detail);
+            throw ex;
+        }
     }
 
     private VectorRecord embedRecord(
@@ -529,5 +551,10 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
 
     private Integer chunkIndex(Chunk chunk) {
         return integer(chunk.metadata().toMap().get(ChunkMetadata.KEY_CHUNK_ORDER));
+    }
+
+    private int chunkIndex(VectorRecord record, int fallback) {
+        Integer chunkIndex = integer(record.metadata().get(VectorRecord.KEY_CHUNK_INDEX));
+        return chunkIndex == null ? fallback : chunkIndex;
     }
 }

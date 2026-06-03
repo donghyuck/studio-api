@@ -24,6 +24,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.embedding.EmbeddingVector;
+import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
@@ -43,8 +44,6 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 @Slf4j
 @SuppressWarnings("deprecation")
 public class DefaultRagPipelineService implements RagPipelineService {
-
-    private static final int INDEX_UPSERT_BATCH_SIZE = 64;
 
     private final EmbeddingPort embeddingPort;
     private final RagEmbeddingProfileResolver embeddingProfileResolver;
@@ -254,14 +253,19 @@ public class DefaultRagPipelineService implements RagPipelineService {
             progress.onIndexedCount(0);
             return;
         }
-        if (objectType != null && objectId != null && chunks.size() <= INDEX_UPSERT_BATCH_SIZE) {
+        int indexUpsertBatchSize = options.indexUpsertBatchSize();
+        if (objectType != null && objectId != null && chunks.size() <= indexUpsertBatchSize) {
             List<VectorRecord> records = embedRecords(request, chunks, baseMetadata, progress);
             vectorStorePort.replaceRecordsByObject(objectType, objectId, records);
             progress.onIndexedCount(records.size());
             return;
         }
         if (objectType != null && objectId != null) {
-            vectorStorePort.deleteByObject(objectType, objectId);
+            progress.onInfo(
+                    RagIndexJobStep.INDEXING,
+                    "RAG index will resume with object-scoped upserts",
+                    "objectType=%s, objectId=%s, chunkCount=%d, upsertBatchSize=%d"
+                            .formatted(objectType, objectId, chunks.size(), indexUpsertBatchSize));
         }
         int indexed = embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
         progress.onIndexedCount(indexed);
@@ -288,16 +292,17 @@ public class DefaultRagPipelineService implements RagPipelineService {
             Map<String, Object> baseMetadata,
             RagIndexProgressListener progress) {
         progress.onStep(RagIndexJobStep.EMBEDDING);
-        List<VectorRecord> batch = new ArrayList<>(Math.min(INDEX_UPSERT_BATCH_SIZE, chunks.size()));
+        int upsertBatchSize = options.indexUpsertBatchSize();
+        List<VectorRecord> batch = new ArrayList<>(Math.min(upsertBatchSize, chunks.size()));
         int embedded = 0;
         int indexed = 0;
         for (int order = 0; order < chunks.size(); order++) {
             batch.add(embedRecord(request, chunks.get(order), baseMetadata, order));
             embedded++;
             progress.onEmbeddedCount(embedded);
-            if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
+            if (batch.size() >= upsertBatchSize) {
                 progress.onStep(RagIndexJobStep.INDEXING);
-                vectorStorePort.upsertAll(List.copyOf(batch));
+                upsertBatch(batch, indexed, upsertBatchSize, progress);
                 indexed += batch.size();
                 batch.clear();
                 progress.onStep(RagIndexJobStep.EMBEDDING);
@@ -305,10 +310,46 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
         if (!batch.isEmpty()) {
             progress.onStep(RagIndexJobStep.INDEXING);
-            vectorStorePort.upsertAll(List.copyOf(batch));
+            upsertBatch(batch, indexed, upsertBatchSize, progress);
             indexed += batch.size();
         }
         return indexed;
+    }
+
+    private void upsertBatch(
+            List<VectorRecord> batch,
+            int indexedBeforeBatch,
+            int upsertBatchSize,
+            RagIndexProgressListener progress) {
+        int fromChunkIndex = chunkIndex(batch.get(0), indexedBeforeBatch);
+        int toChunkIndex = chunkIndex(batch.get(batch.size() - 1), indexedBeforeBatch + batch.size() - 1);
+        try {
+            vectorStorePort.upsertAll(List.copyOf(batch));
+        } catch (RuntimeException ex) {
+            String detail = "chunkRange=%d-%d, batchSize=%d, configuredBatchSize=%d, error=%s"
+                    .formatted(fromChunkIndex, toChunkIndex, batch.size(), upsertBatchSize, ex.getMessage());
+            progress.onError(
+                    RagIndexJobStep.INDEXING,
+                    RagIndexJobLogCode.VECTOR_UPSERT_FAILED,
+                    "RAG vector upsert failed",
+                    detail);
+            throw ex;
+        }
+    }
+
+    private int chunkIndex(VectorRecord record, int fallback) {
+        Object value = record.metadata().get(VectorRecord.KEY_CHUNK_INDEX);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException ignored) {
+                return fallback;
+            }
+        }
+        return fallback;
     }
 
     private VectorRecord embedRecord(

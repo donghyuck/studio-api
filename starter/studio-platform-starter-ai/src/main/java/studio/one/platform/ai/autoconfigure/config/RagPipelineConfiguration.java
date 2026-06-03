@@ -336,6 +336,7 @@ public class RagPipelineConfiguration {
         private RagPipelineOptions ragPipelineOptions(RagPipelineProperties properties) {
                 RagPipelineProperties.RetrievalProperties retrieval = properties.getRetrieval();
                 RagPipelineProperties.ObjectScopeProperties objectScope = properties.getObjectScope();
+                RagPipelineProperties.IndexingProperties indexing = properties.getIndexing();
                 return new RagPipelineOptions(
                                 retrieval.getVectorWeight(),
                                 retrieval.getLexicalWeight(),
@@ -346,7 +347,8 @@ public class RagPipelineConfiguration {
                                 retrieval.getTopK(),
                                 objectScope.getDefaultListLimit(),
                                 objectScope.getMaxListLimit(),
-                                retrieval.getMaxContextTokens());
+                                retrieval.getMaxContextTokens(),
+                                indexing.getUpsertBatchSize());
         }
 
         private RagPipelineDiagnosticsOptions ragPipelineDiagnosticsOptions(RagPipelineProperties properties) {

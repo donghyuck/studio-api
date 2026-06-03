@@ -638,12 +638,12 @@ class RagPipelineServiceTest {
 
         ragPipelineService.index(request);
 
-        verify(vectorStorePort).deleteByObject("attachment", "99");
+        verify(vectorStorePort, never()).deleteByObject("attachment", "99");
         verify(vectorStorePort, never()).replaceRecordsByObject(anyString(), anyString(), any());
-        verify(vectorStorePort, times(2)).upsertAll(recordsCaptor.capture());
-        assertThat(recordsCaptor.getAllValues()).hasSize(2);
-        assertThat(recordsCaptor.getAllValues().get(0)).hasSize(64);
-        assertThat(recordsCaptor.getAllValues().get(1)).hasSize(1);
+        verify(vectorStorePort, times(7)).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getAllValues()).hasSize(7);
+        assertThat(recordsCaptor.getAllValues().subList(0, 6)).allSatisfy(batch -> assertThat(batch).hasSize(10));
+        assertThat(recordsCaptor.getAllValues().get(6)).hasSize(5);
     }
 
     @Test
