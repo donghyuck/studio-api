@@ -11,6 +11,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
+import studio.one.platform.objecttype.application.command.ValidateUploadCommand;
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.result.ValidateUploadResult;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.web.controller.SkillGraphExtractionSourceMgmtController;
@@ -83,6 +87,21 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     @Test
+    void resolvesObjectTypeCodeBeforeRagChunkNormalization() {
+        FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
+        SkillGraphExtractionSourceMgmtController controller = controller(resolver, objectTypeService("attachment", 2001));
+
+        var page = controller.ragChunks("attachment", "42", null, null, null, null, PageRequest.of(0, 10), null)
+                .getBody()
+                .getData();
+
+        assertEquals(1, page.getTotalElements());
+        assertEquals("attachment", resolver.objectType);
+        assertEquals("42", resolver.objectId);
+    }
+
+    @Test
     void rejectsRagChunkPreviewWhenResolverIsUnavailable() {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         SkillGraphExtractionSourceMgmtController controller = new SkillGraphExtractionSourceMgmtController(
@@ -97,15 +116,47 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     private SkillGraphExtractionSourceMgmtController controller(FakeRagChunkResolver resolver) {
+        return controller(resolver, null);
+    }
+
+    private SkillGraphExtractionSourceMgmtController controller(
+            FakeRagChunkResolver resolver,
+            ObjectTypeRuntimeService objectTypeRuntimeService) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
         beanFactory.addBean("skillGraphRagChunkResolver", resolver);
+        if (objectTypeRuntimeService != null) {
+            beanFactory.addBean("objectTypeRuntimeService", objectTypeRuntimeService);
+        }
         return new SkillGraphExtractionSourceMgmtController(
-                beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class));
+                beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class),
+                beanFactory.getBeanProvider(ObjectTypeRuntimeService.class));
     }
 
     private static ResolvedRagChunk chunk(String documentId, String chunkId, String content, int order) {
         String warningStatus = "chunk-3".equals(chunkId) ? "WARNING" : null;
         return new ResolvedRagChunk(chunkId, documentId, content, order, order + 1, "Section", 10, warningStatus);
+    }
+
+    private static ObjectTypeRuntimeService objectTypeService(String key, int objectType) {
+        return new ObjectTypeRuntimeService() {
+            @Override
+            public ObjectTypeDefinition definition(int objectType) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public int objectTypeByKey(String requestedKey) {
+                if (key.equals(requestedKey)) {
+                    return objectType;
+                }
+                throw new IllegalArgumentException(requestedKey);
+            }
+
+            @Override
+            public ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request) {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     private static final class FakeRagChunkResolver implements SkillGraphRagChunkResolver {

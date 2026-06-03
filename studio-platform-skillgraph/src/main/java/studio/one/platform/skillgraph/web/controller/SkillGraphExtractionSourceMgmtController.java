@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkPreviewDto;
@@ -36,10 +37,18 @@ public class SkillGraphExtractionSourceMgmtController {
     private static final String ATTACHMENT_OBJECT_TYPE = "attachment";
 
     private final ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider;
+    private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
 
     public SkillGraphExtractionSourceMgmtController(
             ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider) {
+        this(ragChunkResolverProvider, null);
+    }
+
+    public SkillGraphExtractionSourceMgmtController(
+            ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider,
+            ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
         this.ragChunkResolverProvider = Objects.requireNonNull(ragChunkResolverProvider, "ragChunkResolverProvider");
+        this.objectTypeRuntimeServiceProvider = objectTypeRuntimeServiceProvider;
     }
 
     @GetMapping("/rag/chunks")
@@ -165,10 +174,35 @@ public class SkillGraphExtractionSourceMgmtController {
 
     private String normalizeRagObjectType(String objectType) {
         String normalized = required(objectType, "objectType");
+        normalized = resolveObjectTypeCode(normalized);
         if (LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized)) {
             return ATTACHMENT_OBJECT_TYPE;
         }
         return normalized;
+    }
+
+    private String resolveObjectTypeCode(String objectType) {
+        if (isInteger(objectType) || objectTypeRuntimeServiceProvider == null) {
+            return objectType;
+        }
+        ObjectTypeRuntimeService service = objectTypeRuntimeServiceProvider.getIfAvailable();
+        if (service == null) {
+            return objectType;
+        }
+        try {
+            return String.valueOf(service.objectTypeByKey(objectType));
+        } catch (RuntimeException ex) {
+            return objectType;
+        }
+    }
+
+    private boolean isInteger(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String normalize(String value) {

@@ -22,6 +22,7 @@ dependencies {
     api("org.springframework.data:spring-data-commons")
     compileOnly(project(":studio-platform-ai"))
     compileOnly(project(":studio-platform-chunking"))
+    compileOnly(project(":studio-platform-objecttype"))
     compileOnly("org.springframework.boot:spring-boot-starter")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
@@ -33,6 +34,7 @@ dependencies {
 
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-chunking"))
+    testImplementation(project(":studio-platform-objecttype"))
     testImplementation("com.fasterxml.jackson.core:jackson-annotations")
     testImplementation("org.springframework:spring-web")
     testImplementation("org.springframework:spring-jdbc")
