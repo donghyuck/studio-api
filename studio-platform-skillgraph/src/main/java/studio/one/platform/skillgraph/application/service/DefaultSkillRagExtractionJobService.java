@@ -217,17 +217,24 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String embeddingModel,
             Integer embeddingDimension) {
         SkillRagExtractionJob job = getJob(jobId);
+        String ragObjectType = normalizeRagObjectType(job.objectType());
         Set<String> alreadyExtracted = excludeExtracted ? successfulChunkIds(job) : Set.of();
         int offset = 0;
-        int total = retryChunkIds.isEmpty() ? 0 : job.totalChunks();
+        int total = retryChunkIds.isEmpty()
+                ? effectiveTargetChunks(ragObjectType, job.objectId(), job.requestedChunks(), alreadyExtracted)
+                : job.totalChunks();
         int processed = retryChunkIds.isEmpty() ? 0 : job.processedChunks() - retryChunkIds.size();
         int succeeded = retryChunkIds.isEmpty() ? 0 : job.succeededChunks();
         int failed = retryChunkIds.isEmpty() ? 0 : Math.max(0, job.failedChunks() - retryChunkIds.size());
         int extracted = retryChunkIds.isEmpty() ? 0 : job.extractedCount();
         try {
-            while (processed < job.requestedChunks()) {
-                List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                        normalizeRagObjectType(job.objectType()), job.objectId(), offset, settings.batchSize());
+            if (retryChunkIds.isEmpty()) {
+                store.saveJob(job.withProgress(SkillRagExtractionJobStatus.RUNNING, total, processed, succeeded,
+                        failed, extracted, null, clock.instant()));
+            }
+            while (processed < total) {
+                List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(ragObjectType, job.objectId(), offset,
+                        settings.batchSize());
                 if (fetched.isEmpty()) {
                     break;
                 }
@@ -237,10 +244,9 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     break;
                 }
                 for (ResolvedRagChunk chunk : batch) {
-                    if (processed >= job.requestedChunks()) {
+                    if (processed >= total) {
                         break;
                     }
-                    total = retryChunkIds.isEmpty() ? total + 1 : total;
                     SkillRagExtractionJobItem item = extract(job, chunk);
                     processed++;
                     if (item.status() == SkillRagExtractionItemStatus.SUCCEEDED) {
@@ -263,7 +269,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     break;
                 }
             }
-            SkillRagExtractionJobStatus status = processed == 0 && excludeExtracted
+            SkillRagExtractionJobStatus status = total == 0 && excludeExtracted
                     ? SkillRagExtractionJobStatus.COMPLETED
                     : finalStatus(processed, succeeded, failed);
             store.saveJob(job.withProgress(status, total, processed, succeeded, failed, extracted, null, clock.instant()));
@@ -275,6 +281,17 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             store.saveJob(job.withProgress(SkillRagExtractionJobStatus.FAILED, total, processed, succeeded, failed,
                     extracted, "RAG extraction job failed", clock.instant()));
         }
+    }
+
+    private int effectiveTargetChunks(
+            String objectType,
+            String objectId,
+            int requestedChunks,
+            Set<String> alreadyExtracted) {
+        long available = Math.max(0L, ragChunkResolver.countByObject(objectType, objectId) - alreadyExtracted.size());
+        long requested = Math.max(0, requestedChunks);
+        long target = Math.min(available, requested);
+        return target > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) target;
     }
 
     private List<ResolvedRagChunk> eligibleBatch(

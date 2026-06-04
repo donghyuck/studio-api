@@ -70,7 +70,7 @@ class DefaultSkillRagExtractionJobServiceTest {
 
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
         assertNull(job.objectId());
-        assertEquals(Arrays.asList(null, null), resolver.objectIds);
+        assertEquals(Arrays.asList((String) null), resolver.objectIds);
         var items = service.listItems(job.jobId(), 0, 10);
         assertEquals("doc-1", items.get(0).sourceId());
         assertEquals("doc-2", items.get(1).sourceId());
@@ -324,6 +324,11 @@ class DefaultSkillRagExtractionJobServiceTest {
         @Override
         public List<ResolvedRagChunk> listByObject(String objectType, String objectId, int limit) {
             return listByObject(objectType, objectId, 0, limit);
+        }
+
+        @Override
+        public long countByObject(String objectType, String objectId) {
+            return chunks.size();
         }
 
         @Override
