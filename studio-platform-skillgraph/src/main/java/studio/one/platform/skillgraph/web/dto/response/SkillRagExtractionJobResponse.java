@@ -17,6 +17,12 @@ public record SkillRagExtractionJobResponse(
         int failedChunks,
         int extractedCount,
         String error,
+        boolean generateEmbeddings,
+        String embeddingProvider,
+        String embeddingModel,
+        Integer embeddingDimension,
+        String embeddingJobId,
+        String embeddingStatus,
         Instant createdAt,
         Instant updatedAt) {
 
@@ -34,6 +40,12 @@ public record SkillRagExtractionJobResponse(
                 job.failedChunks(),
                 job.extractedCount(),
                 job.error(),
+                job.generateEmbeddings(),
+                job.embeddingProvider(),
+                job.embeddingModel(),
+                job.embeddingDimension(),
+                job.embeddingJobId(),
+                job.embeddingStatus(),
                 job.createdAt(),
                 job.updatedAt());
     }

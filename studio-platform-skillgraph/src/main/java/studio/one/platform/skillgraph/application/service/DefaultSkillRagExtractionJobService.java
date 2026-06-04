@@ -18,6 +18,9 @@ import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
@@ -140,6 +143,12 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 0,
                 0,
                 null,
+                generateEmbeddings,
+                normalize(embeddingProvider),
+                normalize(embeddingModel),
+                embeddingDimension,
+                null,
+                null,
                 now,
                 now);
         store.saveJob(job);
@@ -156,7 +165,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     @Override
     public SkillRagExtractionJob getJob(String jobId) {
         return store.findJob(required(jobId, "jobId"))
-                .map(this::reconcileCompletedActiveJob)
+                .map(this::reconcileJob)
                 .orElseThrow(() -> new IllegalArgumentException("RAG extraction job not found: " + jobId));
     }
 
@@ -171,7 +180,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
         return store.listJobs(null, normalize(objectType), normalize(objectId), normalize(documentId),
                 Math.max(0, offset), boundedJobLimit(limit)).stream()
-                .map(this::reconcileCompletedActiveJob)
+                .map(this::reconcileJob)
                 .filter(job -> parsedStatus == null || job.status() == parsedStatus)
                 .toList();
     }
@@ -272,9 +281,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             SkillRagExtractionJobStatus status = total == 0 && excludeExtracted
                     ? SkillRagExtractionJobStatus.COMPLETED
                     : finalStatus(processed, succeeded, failed);
-            store.saveJob(job.withProgress(status, total, processed, succeeded, failed, extracted, null, clock.instant()));
-            if (generateEmbeddings) {
-                generateCandidateEmbeddings(embeddingProvider, embeddingModel, embeddingDimension);
+            SkillRagExtractionJob completed = store.saveJob(job.withProgress(status, total, processed, succeeded,
+                    failed, extracted, null, clock.instant()));
+            if (status == SkillRagExtractionJobStatus.COMPLETED && completed.generateEmbeddings()) {
+                startCandidateEmbedding(completed);
             }
         } catch (RuntimeException ex) {
             log.warn("SkillGraph RAG extraction job failed: {}", jobId, ex);
@@ -373,20 +383,54 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         return SkillRagExtractionJobStatus.COMPLETED;
     }
 
-    private void generateCandidateEmbeddings(
-            String embeddingProvider,
-            String embeddingModel,
-            Integer embeddingDimension) {
+    private void startCandidateEmbedding(SkillRagExtractionJob job) {
         if (candidateReviewService == null) {
             return;
         }
-        String provider = normalize(embeddingProvider);
-        String model = normalize(embeddingModel);
+        String provider = normalize(job.embeddingProvider());
+        String model = normalize(job.embeddingModel());
         if (provider == null || model == null) {
             return;
         }
-        candidateReviewService.embedMissing(provider, model, embeddingDimension == null ? 0 : embeddingDimension,
-                settings.maxChunks());
+        try {
+            SkillDictionaryEmbeddingResult result = candidateReviewService.embedMissing(provider, model,
+                    job.embeddingDimension() == null ? 0 : job.embeddingDimension(), settings.maxChunks());
+            SkillRagExtractionJobStatus status = switch (result.status()) {
+                case FAILED -> SkillRagExtractionJobStatus.FAILED;
+                case PARTIAL -> SkillRagExtractionJobStatus.PARTIAL;
+                case COMPLETED -> SkillRagExtractionJobStatus.COMPLETED;
+                case READY, RUNNING -> SkillRagExtractionJobStatus.RUNNING;
+            };
+            store.saveJob(job.withEmbeddingJob(status, result.jobId(), result.status().name(), result.message(),
+                    clock.instant()));
+        } catch (RuntimeException ex) {
+            store.saveJob(job.withEmbeddingJob(SkillRagExtractionJobStatus.FAILED, null, "FAILED",
+                    failureMessage(ex), clock.instant()));
+        }
+    }
+
+    private SkillRagExtractionJob reconcileJob(SkillRagExtractionJob job) {
+        SkillRagExtractionJob reconciled = reconcileCompletedActiveJob(job);
+        if (reconciled.embeddingJobId() == null || candidateReviewService == null) {
+            return reconciled;
+        }
+        try {
+            SkillDictionaryEmbeddingJob embeddingJob = candidateReviewService.getEmbeddingJob(reconciled.embeddingJobId());
+            SkillRagExtractionJobStatus status = switch (embeddingJob.status()) {
+                case COMPLETED -> SkillRagExtractionJobStatus.COMPLETED;
+                case PARTIAL -> SkillRagExtractionJobStatus.PARTIAL;
+                case FAILED -> SkillRagExtractionJobStatus.FAILED;
+                case READY, RUNNING -> SkillRagExtractionJobStatus.RUNNING;
+            };
+            if (status == reconciled.status()
+                    && embeddingJob.status().name().equals(reconciled.embeddingStatus())) {
+                return reconciled;
+            }
+            return store.saveJob(reconciled.withEmbeddingJob(status, embeddingJob.jobId(),
+                    embeddingJob.status().name(), embeddingJob.message(), clock.instant()));
+        } catch (RuntimeException ex) {
+            return reconciled;
+        }
     }
 
     private SkillRagExtractionJob reconcileCompletedActiveJob(SkillRagExtractionJob job) {

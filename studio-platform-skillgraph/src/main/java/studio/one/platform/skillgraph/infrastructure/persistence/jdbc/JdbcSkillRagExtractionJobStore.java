@@ -34,6 +34,12 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     failed_chunks = :failedChunks,
                     extracted_count = :extractedCount,
                     error_message = :error,
+                    generate_embeddings = :generateEmbeddings,
+                    embedding_provider = :embeddingProvider,
+                    embedding_model = :embeddingModel,
+                    embedding_dimension = :embeddingDimension,
+                    embedding_job_id = :embeddingJobId,
+                    embedding_status = :embeddingStatus,
                     updated_at = :updatedAt
                 WHERE job_id = :jobId
                 """, jobParams(job));
@@ -42,10 +48,14 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     INSERT INTO tb_skill_rag_extraction_job
                         (job_id, object_type, object_id, document_id, status, requested_chunks, total_chunks,
                          processed_chunks, succeeded_chunks, failed_chunks, extracted_count, error_message,
+                         generate_embeddings, embedding_provider, embedding_model, embedding_dimension,
+                         embedding_job_id, embedding_status,
                          created_at, updated_at)
                     VALUES
                         (:jobId, :objectType, :objectId, :documentId, :status, :requestedChunks, :totalChunks,
                          :processedChunks, :succeededChunks, :failedChunks, :extractedCount, :error,
+                         :generateEmbeddings, :embeddingProvider, :embeddingModel, :embeddingDimension,
+                         :embeddingJobId, :embeddingStatus,
                          :createdAt, :updatedAt)
                     """, jobParams(job));
         }
@@ -167,6 +177,12 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("failedChunks", job.failedChunks())
                 .addValue("extractedCount", job.extractedCount())
                 .addValue("error", job.error())
+                .addValue("generateEmbeddings", job.generateEmbeddings())
+                .addValue("embeddingProvider", job.embeddingProvider())
+                .addValue("embeddingModel", job.embeddingModel())
+                .addValue("embeddingDimension", job.embeddingDimension())
+                .addValue("embeddingJobId", job.embeddingJobId())
+                .addValue("embeddingStatus", job.embeddingStatus())
                 .addValue("createdAt", Timestamp.from(job.createdAt()))
                 .addValue("updatedAt", Timestamp.from(job.updatedAt()));
     }
@@ -199,6 +215,12 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 rs.getInt("failed_chunks"),
                 rs.getInt("extracted_count"),
                 rs.getString("error_message"),
+                bool(rs, "generate_embeddings"),
+                text(rs, "embedding_provider"),
+                text(rs, "embedding_model"),
+                integer(rs, "embedding_dimension"),
+                text(rs, "embedding_job_id"),
+                text(rs, "embedding_status"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
     }
@@ -219,5 +241,30 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
 
     private Instant instant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private boolean bool(ResultSet rs, String column) throws SQLException {
+        try {
+            return rs.getBoolean(column);
+        } catch (SQLException ex) {
+            return false;
+        }
+    }
+
+    private String text(ResultSet rs, String column) throws SQLException {
+        try {
+            return rs.getString(column);
+        } catch (SQLException ex) {
+            return null;
+        }
+    }
+
+    private Integer integer(ResultSet rs, String column) throws SQLException {
+        try {
+            int value = rs.getInt(column);
+            return rs.wasNull() ? null : value;
+        } catch (SQLException ex) {
+            return null;
+        }
     }
 }
