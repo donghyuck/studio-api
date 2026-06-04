@@ -26,6 +26,9 @@ import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
+import org.springframework.context.ApplicationEventPublisher;
+import studio.one.platform.ai.core.rag.event.RagObjectDeletedEvent;
+import studio.one.platform.ai.core.rag.event.RagObjectIndexedEvent;
 
 public class DefaultRagIndexJobService implements RagIndexJobService {
 
@@ -37,20 +40,39 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     private final ConcurrentMap<String, StoredRequest> requests = new ConcurrentHashMap<>();
     private final Queue<String> requestOrder = new ConcurrentLinkedQueue<>();
     private final Set<String> runningJobs = ConcurrentHashMap.newKeySet();
+    private final ApplicationEventPublisher eventPublisher;
 
+    @Deprecated
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
             RagPipelineService ragPipelineService) {
-        this(repository, ragPipelineService, List.of());
+        this(repository, ragPipelineService, List.of(), null);
+    }
+
+    @Deprecated
+    public DefaultRagIndexJobService(
+            RagIndexJobRepository repository,
+            RagPipelineService ragPipelineService,
+            List<RagIndexJobSourceExecutor> sourceExecutors) {
+        this(repository, ragPipelineService, sourceExecutors, null);
     }
 
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
             RagPipelineService ragPipelineService,
-            List<RagIndexJobSourceExecutor> sourceExecutors) {
+            ApplicationEventPublisher eventPublisher) {
+        this(repository, ragPipelineService, List.of(), eventPublisher);
+    }
+
+    public DefaultRagIndexJobService(
+            RagIndexJobRepository repository,
+            RagPipelineService ragPipelineService,
+            List<RagIndexJobSourceExecutor> sourceExecutors,
+            ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
         this.ragPipelineService = ragPipelineService;
         this.sourceExecutors = sourceExecutors == null ? List.of() : List.copyOf(sourceExecutors);
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -278,6 +300,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             requestOrder.remove(jobId);
             runningJobs.remove(jobId);
         });
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new RagObjectDeletedEvent(normalizedObjectType, normalizedObjectId));
+        }
     }
 
     @Override
@@ -487,6 +512,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                     RagIndexJobLogCode.JOB_COMPLETED,
                     "RAG index job completed",
                     finalStatus.name()));
+            if (eventPublisher != null && job.objectType() != null && job.objectId() != null) {
+                eventPublisher.publishEvent(new RagObjectIndexedEvent(job.objectType(), job.objectId()));
+            }
         }
 
         private boolean isCancelled() {

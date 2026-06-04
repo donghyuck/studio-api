@@ -14,6 +14,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -199,11 +200,13 @@ public class RagPipelineConfiguration {
         RagIndexJobService ragIndexJobService(
                         RagIndexJobRepository ragIndexJobRepository,
                         RagPipelineService ragPipelineService,
-                        ObjectProvider<RagIndexJobSourceExecutor> sourceExecutors) {
+                        ObjectProvider<RagIndexJobSourceExecutor> sourceExecutors,
+                        ApplicationEventPublisher eventPublisher) {
                 return new DefaultRagIndexJobService(
                                 ragIndexJobRepository,
                                 ragPipelineService,
-                                sourceExecutors.orderedStream().toList());
+                                sourceExecutors.orderedStream().toList(),
+                                eventPublisher);
         }
 
         @Bean
