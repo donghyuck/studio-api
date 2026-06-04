@@ -128,6 +128,20 @@ public class SkillCandidateMgmtController {
     public ResponseEntity<ApiResponse<SkillCandidateDto>> review(
             @PathVariable @Size(max = 100) String candidateId,
             @Valid @RequestBody SkillCandidateReviewRequest request) {
+        return reviewCandidate(candidateId, request);
+    }
+
+    @PatchMapping("/{candidateId}/review")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<SkillCandidateDto>> reviewWithActionPath(
+            @PathVariable @Size(max = 100) String candidateId,
+            @Valid @RequestBody SkillCandidateReviewRequest request) {
+        return reviewCandidate(candidateId, request);
+    }
+
+    private ResponseEntity<ApiResponse<SkillCandidateDto>> reviewCandidate(
+            String candidateId,
+            SkillCandidateReviewRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(SkillCandidateDto.from(reviewService.review(candidateId,
                 new SkillCandidateReviewCommand(request.status(), request.matchedSkillId(), request.reviewerNote())))));
     }
