@@ -419,7 +419,10 @@ public class AttachmentAutoConfiguration {
             if (repo == null) {
                 throw new IllegalStateException("AttachmentDataJpaRepository is required for database storage (JPA)");
             }
-            dbStore = new JpaFileStore(repo, transactionManagerProvider.getIfAvailable());
+            dbStore = new JpaFileStore(
+                    repo,
+                    transactionManagerProvider.getIfAvailable(),
+                    templateProvider.getIfAvailable());
             if (!storage.isCacheEnabled()) {
                 log.info(LogUtils.format(i18n, I18nKeys.AutoConfig.Feature.Service.DETAILS, FEATURE_NAME,
                         LogUtils.blue(JpaFileStore.class, true), LogUtils.red(State.CREATED.toString())));

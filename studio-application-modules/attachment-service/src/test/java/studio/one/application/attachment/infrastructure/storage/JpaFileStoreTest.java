@@ -13,9 +13,12 @@ import javax.sql.rowset.serial.SerialBlob;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import studio.one.application.attachment.domain.model.ApplicationAttachment;
 import studio.one.application.attachment.domain.model.ApplicationAttachmentData;
@@ -26,6 +29,9 @@ class JpaFileStoreTest {
 
     @Mock
     private AttachmentDataJpaRepository attachmentDataRepository;
+
+    @Mock
+    private NamedParameterJdbcTemplate jdbcTemplate;
 
     @Test
     void savePersistsBlobPayload() throws Exception {
@@ -58,6 +64,43 @@ class JpaFileStoreTest {
             assertArrayEquals(new byte[] { 4, 5, 6 }, in.readAllBytes());
         }
         verify(blob, never()).getBinaryStream();
+    }
+
+    @Test
+    void loadUsesJdbcLargeObjectWhenTemplateIsAvailable() throws Exception {
+        JpaFileStore store = new JpaFileStore(attachmentDataRepository, null, jdbcTemplate);
+        ApplicationAttachment attachment = attachment(91L);
+        when(jdbcTemplate.query(
+                ArgumentMatchers.contains("lo_get"),
+                ArgumentMatchers.anyMap(),
+                ArgumentMatchers.<ResultSetExtractor<byte[]>>any()))
+                .thenReturn(new byte[] { 7, 8, 9 });
+
+        try (var in = store.load(attachment)) {
+            assertArrayEquals(new byte[] { 7, 8, 9 }, in.readAllBytes());
+        }
+        verify(attachmentDataRepository, never()).findById(91L);
+    }
+
+    @Test
+    void loadFallsBackToJpaBlobWhenJdbcLargeObjectReadFails() throws Exception {
+        JpaFileStore store = new JpaFileStore(attachmentDataRepository, null, jdbcTemplate);
+        ApplicationAttachment attachment = attachment(91L);
+        Blob blob = org.mockito.Mockito.mock(Blob.class);
+
+        when(jdbcTemplate.query(
+                ArgumentMatchers.contains("lo_get"),
+                ArgumentMatchers.anyMap(),
+                ArgumentMatchers.<ResultSetExtractor<byte[]>>any()))
+                .thenThrow(new RuntimeException("lo_get is unavailable"));
+        when(blob.length()).thenReturn(3L);
+        when(blob.getBytes(1, 3)).thenReturn(new byte[] { 4, 5, 6 });
+        when(attachmentDataRepository.findById(91L))
+                .thenReturn(Optional.of(new ApplicationAttachmentData(91L, blob)));
+
+        try (var in = store.load(attachment)) {
+            assertArrayEquals(new byte[] { 4, 5, 6 }, in.readAllBytes());
+        }
     }
 
     private ApplicationAttachment attachment(long attachmentId) {
