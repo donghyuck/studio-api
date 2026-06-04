@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-05-18T00:45:36.649Z",
-  "turn_count": 66,
-  "last_agent_output": "PR 등록했습니다.\n\n- PR: [#489 [ai-assisted] feat(skillgraph): extraction job 목록 API 추가](ht"
+  "last_turn_at": "2026-06-04T00:14:24.901Z",
+  "turn_count": 222,
+  "last_agent_output": "추출 단계 실패 원인은 stage 재개 로직 이전에, 기존 작업이 원본 첨부파일을 다시 읽느"
 }
