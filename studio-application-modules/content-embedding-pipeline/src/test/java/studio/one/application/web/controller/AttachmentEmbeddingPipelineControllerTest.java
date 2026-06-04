@@ -446,8 +446,9 @@ class AttachmentEmbeddingPipelineControllerTest {
                     structuredChunk("doc-1#1", "second", 1, document.metadata()));
         });
         when(embeddingPort.embed(any(EmbeddingRequest.class))).thenReturn(
-                new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))),
-                new EmbeddingResponse(List.of(new EmbeddingVector("1", List.of(0.3d, 0.4d)))));
+                new EmbeddingResponse(List.of(
+                        new EmbeddingVector("0", List.of(0.1d, 0.2d)),
+                        new EmbeddingVector("1", List.of(0.3d, 0.4d)))));
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -838,7 +839,9 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(vectorStore.listByObject("attachment", "1", Integer.MAX_VALUE))
                 .thenReturn(existingChunkResults(1));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
-                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("1", List.of(0.1d, 0.2d)))));
+                .thenReturn(new EmbeddingResponse(List.of(
+                        new EmbeddingVector("1", List.of(0.1d, 0.2d)),
+                        new EmbeddingVector("2", List.of(0.3d, 0.4d)))));
 
         service.index(1L, service.command(
                 1L,
@@ -854,7 +857,7 @@ class AttachmentEmbeddingPipelineControllerTest {
 
         verify(attachmentService, never()).getInputStream(any());
         verifyNoInteractions(extractionService);
-        verify(embeddingPort, times(2)).embed(any(EmbeddingRequest.class));
+        verify(embeddingPort, times(1)).embed(any(EmbeddingRequest.class));
         verify(vectorStore).upsertAll(argThat(records -> records.size() == 2));
         assertThat(chunkStageStore.findByObject("attachment", "1", "doc-1")).isEmpty();
     }

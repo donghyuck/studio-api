@@ -334,7 +334,7 @@ class RagPipelineServiceTest {
                         new TextChunk("doc-progress-0", "hello"),
                         new TextChunk("doc-progress-1", "world")));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
-                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+                .thenReturn(new EmbeddingResponse(embeddingVectors(2)));
 
         ragPipelineService.index(request, listener);
 
@@ -602,7 +602,7 @@ class RagPipelineServiceTest {
                         new TextChunk("doc-chunk-0", "alpha"),
                         new TextChunk("doc-chunk-1", "beta")));
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
-                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+                .thenReturn(new EmbeddingResponse(embeddingVectors(2)));
         when(keywordExtractor.extract("alpha")).thenReturn(List.of("Alpha", "first"));
         when(keywordExtractor.extract("beta")).thenReturn(List.of("Beta", "second"));
 
@@ -634,12 +634,19 @@ class RagPipelineServiceTest {
         }
         when(textChunker.chunk("doc-large", "large text")).thenReturn(chunks);
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
-                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("chunk", List.of(0.1, 0.2)))));
+                .thenReturn(new EmbeddingResponse(embeddingVectors(10)),
+                        new EmbeddingResponse(embeddingVectors(10)),
+                        new EmbeddingResponse(embeddingVectors(10)),
+                        new EmbeddingResponse(embeddingVectors(10)),
+                        new EmbeddingResponse(embeddingVectors(10)),
+                        new EmbeddingResponse(embeddingVectors(10)),
+                        new EmbeddingResponse(embeddingVectors(5)));
 
         ragPipelineService.index(request);
 
         verify(vectorStorePort, never()).deleteByObject("attachment", "99");
         verify(vectorStorePort, never()).replaceRecordsByObject(anyString(), anyString(), any());
+        verify(embeddingPort, times(7)).embed(any(EmbeddingRequest.class));
         verify(vectorStorePort, times(7)).upsertAll(recordsCaptor.capture());
         assertThat(recordsCaptor.getAllValues()).hasSize(7);
         assertThat(recordsCaptor.getAllValues().subList(0, 6)).allSatisfy(batch -> assertThat(batch).hasSize(10));
@@ -1597,5 +1604,13 @@ class RagPipelineServiceTest {
                 content,
                 Map.of(VectorRecord.KEY_CHUNK_TOKEN_COUNT, tokenCount),
                 List.of(0.1, 0.2)), score);
+    }
+
+    private static List<EmbeddingVector> embeddingVectors(int count) {
+        List<EmbeddingVector> vectors = new ArrayList<>();
+        for (int index = 0; index < count; index++) {
+            vectors.add(new EmbeddingVector("chunk-" + index, List.of(0.1, 0.2)));
+        }
+        return vectors;
     }
 }

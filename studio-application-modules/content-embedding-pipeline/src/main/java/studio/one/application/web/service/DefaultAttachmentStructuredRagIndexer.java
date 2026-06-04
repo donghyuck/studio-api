@@ -58,6 +58,7 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
     private static final int INDEX_UPSERT_BATCH_SIZE = 10;
+    private static final int EMBEDDING_BATCH_SIZE = 10;
     private static final int EMBEDDING_MAX_ATTEMPTS = 3;
     private static final long EMBEDDING_RETRY_BACKOFF_MS = 1_000L;
 
@@ -255,9 +256,20 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             RagIndexProgressListener progress) {
         progress.onStep(RagIndexJobStep.EMBEDDING);
         List<VectorRecord> records = new ArrayList<>(chunks.size());
-        for (int i = 0; i < chunks.size(); i++) {
-            records.add(embedRecord(documentId, objectType, objectId, metadata, embeddingPort, chunks.get(i)));
-            progress.onEmbeddedCount(i + 1);
+        int embedded = 0;
+        for (int index = 0; index < chunks.size();) {
+            List<PendingChunk> batch = compatibleEmbeddingBatch(
+                    documentId,
+                    objectType,
+                    objectId,
+                    metadata,
+                    embeddingPort,
+                    chunks,
+                    index);
+            records.addAll(embedPendingBatch(batch));
+            embedded += batch.size();
+            progress.onEmbeddedCount(embedded);
+            index += batch.size();
         }
         return records;
     }
@@ -280,24 +292,38 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         List<VectorRecord> batch = new ArrayList<>(Math.min(INDEX_UPSERT_BATCH_SIZE, chunks.size()));
         int embedded = 0;
         int indexed = completedChunkIndexes.size();
-        for (Chunk chunk : chunks) {
+        for (int index = 0; index < chunks.size();) {
+            Chunk chunk = chunks.get(index);
             if (completedChunkIndexes.contains(chunkIndex(chunk))) {
                 embedded++;
                 progress.onEmbeddedCount(embedded);
                 progress.onIndexedCount(indexed);
+                index++;
                 continue;
             }
-            batch.add(embedRecord(documentId, objectType, objectId, metadata, embeddingPort, chunk));
-            embedded++;
-            progress.onEmbeddedCount(embedded);
-            if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
-                progress.onStep(RagIndexJobStep.INDEXING);
-                upsertBatch(vectorStore, batch, indexed, progress);
-                indexed += batch.size();
-                batch.clear();
-                progress.onIndexedCount(indexed);
-                progress.onStep(RagIndexJobStep.EMBEDDING);
+            List<PendingChunk> embeddingBatch = compatibleEmbeddingBatch(
+                    documentId,
+                    objectType,
+                    objectId,
+                    metadata,
+                    embeddingPort,
+                    chunks,
+                    index,
+                    completedChunkIndexes);
+            for (VectorRecord record : embedPendingBatch(embeddingBatch)) {
+                batch.add(record);
+                embedded++;
+                progress.onEmbeddedCount(embedded);
+                if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
+                    progress.onStep(RagIndexJobStep.INDEXING);
+                    upsertBatch(vectorStore, batch, indexed, progress);
+                    indexed += batch.size();
+                    batch.clear();
+                    progress.onIndexedCount(indexed);
+                    progress.onStep(RagIndexJobStep.EMBEDDING);
+                }
             }
+            index += embeddingBatch.size();
         }
         if (!batch.isEmpty()) {
             progress.onStep(RagIndexJobStep.INDEXING);
@@ -329,7 +355,45 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
     }
 
-    private VectorRecord embedRecord(
+    private List<PendingChunk> compatibleEmbeddingBatch(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            EmbeddingPort embeddingPort,
+            List<Chunk> chunks,
+            int startIndex) {
+        return compatibleEmbeddingBatch(documentId, objectType, objectId, metadata, embeddingPort, chunks, startIndex, Set.of());
+    }
+
+    private List<PendingChunk> compatibleEmbeddingBatch(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            EmbeddingPort embeddingPort,
+            List<Chunk> chunks,
+            int startIndex,
+            Set<Integer> completedChunkIndexes) {
+        List<PendingChunk> batch = new ArrayList<>(Math.min(EMBEDDING_BATCH_SIZE, chunks.size() - startIndex));
+        ResolvedRagEmbedding firstEmbedding = null;
+        for (int index = startIndex; index < chunks.size() && batch.size() < EMBEDDING_BATCH_SIZE; index++) {
+            Chunk chunk = chunks.get(index);
+            if (completedChunkIndexes.contains(chunkIndex(chunk))) {
+                break;
+            }
+            PendingChunk pending = pendingChunk(documentId, objectType, objectId, metadata, embeddingPort, chunk);
+            if (firstEmbedding == null) {
+                firstEmbedding = pending.resolvedEmbedding();
+            } else if (!sameResolvedEmbedding(firstEmbedding, pending.resolvedEmbedding())) {
+                break;
+            }
+            batch.add(pending);
+        }
+        return batch;
+    }
+
+    private PendingChunk pendingChunk(
             String documentId,
             String objectType,
             String objectId,
@@ -351,13 +415,38 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
         chunkMetadata.put(VectorRecord.KEY_OBJECT_TYPE, objectType);
         chunkMetadata.put(VectorRecord.KEY_OBJECT_ID, objectId);
-        EmbeddingVector vector = embedWithRetry(resolvedEmbedding, chunk.content())
-                .vectors()
-                .get(0);
+        return new PendingChunk(documentId, chunk, standardChunkMetadata, chunkMetadata, resolvedEmbedding);
+    }
+
+    private List<VectorRecord> embedPendingBatch(List<PendingChunk> batch) {
+        if (batch.isEmpty()) {
+            return List.of();
+        }
+        ResolvedRagEmbedding resolvedEmbedding = batch.get(0).resolvedEmbedding();
+        List<String> texts = batch.stream()
+                .map(pending -> pending.chunk().content())
+                .toList();
+        EmbeddingResponse response = embedWithRetry(resolvedEmbedding, texts);
+        if (response.vectors().size() != batch.size()) {
+            throw new IllegalStateException(
+                    "Embedding response size mismatch: requested=%d, actual=%d"
+                            .formatted(batch.size(), response.vectors().size()));
+        }
+        List<VectorRecord> records = new ArrayList<>(batch.size());
+        for (int index = 0; index < batch.size(); index++) {
+            records.add(toVectorRecord(batch.get(index), response.vectors().get(index)));
+        }
+        return records;
+    }
+
+    private VectorRecord toVectorRecord(PendingChunk pending, EmbeddingVector vector) {
+        Chunk chunk = pending.chunk();
+        Map<String, Object> standardChunkMetadata = pending.standardChunkMetadata();
+        Map<String, Object> chunkMetadata = pending.chunkMetadata();
         List<Double> embedding = List.copyOf(vector.values());
         return VectorRecord.builder()
                 .id(chunk.id())
-                .documentId(documentId)
+                .documentId(pending.documentId())
                 .chunkId(chunk.id())
                 .parentChunkId(text(chunkMetadata.get(VectorRecord.KEY_PARENT_CHUNK_ID)))
                 .contentHash(contentHash(chunk.content()))
@@ -377,12 +466,21 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 .build();
     }
 
-    private EmbeddingResponse embedWithRetry(ResolvedRagEmbedding resolvedEmbedding, String content) {
+    private boolean sameResolvedEmbedding(ResolvedRagEmbedding left, ResolvedRagEmbedding right) {
+        return left.embeddingPort() == right.embeddingPort()
+                && Objects.equals(left.profileId(), right.profileId())
+                && Objects.equals(left.provider(), right.provider())
+                && Objects.equals(left.model(), right.model())
+                && Objects.equals(left.dimension(), right.dimension())
+                && left.inputType() == right.inputType();
+    }
+
+    private EmbeddingResponse embedWithRetry(ResolvedRagEmbedding resolvedEmbedding, List<String> contents) {
         RuntimeException lastFailure = null;
         for (int attempt = 1; attempt <= EMBEDDING_MAX_ATTEMPTS; attempt++) {
             try {
                 return resolvedEmbedding.embeddingPort()
-                        .embed(resolvedEmbedding.request(List.of(content)));
+                        .embed(resolvedEmbedding.request(contents));
             } catch (RuntimeException ex) {
                 lastFailure = ex;
                 if (attempt == EMBEDDING_MAX_ATTEMPTS) {
@@ -392,6 +490,14 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             }
         }
         throw lastFailure;
+    }
+
+    private record PendingChunk(
+            String documentId,
+            Chunk chunk,
+            Map<String, Object> standardChunkMetadata,
+            Map<String, Object> chunkMetadata,
+            ResolvedRagEmbedding resolvedEmbedding) {
     }
 
     private void sleepBeforeRetry() {

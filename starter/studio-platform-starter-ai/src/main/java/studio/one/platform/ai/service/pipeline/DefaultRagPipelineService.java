@@ -345,9 +345,19 @@ public class DefaultRagPipelineService implements RagPipelineService {
             RagIndexProgressListener progress) {
         progress.onStep(RagIndexJobStep.EMBEDDING);
         List<VectorRecord> records = new ArrayList<>(chunks.size());
-        for (int order = 0; order < chunks.size(); order++) {
-            records.add(embedRecord(request, chunks.get(order), baseMetadata, order));
-            progress.onEmbeddedCount(records.size());
+        int embedded = 0;
+        int embeddingBatchSize = Math.max(1, options.indexUpsertBatchSize());
+        for (int order = 0; order < chunks.size();) {
+            List<PendingRagChunk> batch = compatibleEmbeddingBatch(
+                    request,
+                    chunks,
+                    baseMetadata,
+                    order,
+                    embeddingBatchSize);
+            records.addAll(embedPendingBatch(batch));
+            embedded += batch.size();
+            progress.onEmbeddedCount(embedded);
+            order += batch.size();
         }
         progress.onStep(RagIndexJobStep.INDEXING);
         return records;
@@ -359,21 +369,30 @@ public class DefaultRagPipelineService implements RagPipelineService {
             Map<String, Object> baseMetadata,
             RagIndexProgressListener progress) {
         progress.onStep(RagIndexJobStep.EMBEDDING);
-        int upsertBatchSize = options.indexUpsertBatchSize();
+        int upsertBatchSize = Math.max(1, options.indexUpsertBatchSize());
         List<VectorRecord> batch = new ArrayList<>(Math.min(upsertBatchSize, chunks.size()));
         int embedded = 0;
         int indexed = 0;
-        for (int order = 0; order < chunks.size(); order++) {
-            batch.add(embedRecord(request, chunks.get(order), baseMetadata, order));
-            embedded++;
-            progress.onEmbeddedCount(embedded);
-            if (batch.size() >= upsertBatchSize) {
-                progress.onStep(RagIndexJobStep.INDEXING);
-                upsertBatch(batch, indexed, upsertBatchSize, progress);
-                indexed += batch.size();
-                batch.clear();
-                progress.onStep(RagIndexJobStep.EMBEDDING);
+        for (int order = 0; order < chunks.size();) {
+            List<PendingRagChunk> embeddingBatch = compatibleEmbeddingBatch(
+                    request,
+                    chunks,
+                    baseMetadata,
+                    order,
+                    upsertBatchSize);
+            for (VectorRecord record : embedPendingBatch(embeddingBatch)) {
+                batch.add(record);
+                embedded++;
+                progress.onEmbeddedCount(embedded);
+                if (batch.size() >= upsertBatchSize) {
+                    progress.onStep(RagIndexJobStep.INDEXING);
+                    upsertBatch(batch, indexed, upsertBatchSize, progress);
+                    indexed += batch.size();
+                    batch.clear();
+                    progress.onStep(RagIndexJobStep.EMBEDDING);
+                }
             }
+            order += embeddingBatch.size();
         }
         if (!batch.isEmpty()) {
             progress.onStep(RagIndexJobStep.INDEXING);
@@ -419,13 +438,32 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return fallback;
     }
 
-    private VectorRecord embedRecord(
+    private List<PendingRagChunk> compatibleEmbeddingBatch(
+            RagIndexRequest request,
+            List<RagPipelineChunk> chunks,
+            Map<String, Object> baseMetadata,
+            int startOrder,
+            int batchSize) {
+        List<PendingRagChunk> batch = new ArrayList<>(Math.min(batchSize, chunks.size() - startOrder));
+        ResolvedRagEmbedding firstEmbedding = null;
+        for (int order = startOrder; order < chunks.size() && batch.size() < batchSize; order++) {
+            PendingRagChunk pending = pendingChunk(request, chunks.get(order), baseMetadata, order);
+            if (firstEmbedding == null) {
+                firstEmbedding = pending.resolvedEmbedding();
+            } else if (!sameResolvedEmbedding(firstEmbedding, pending.resolvedEmbedding())) {
+                break;
+            }
+            batch.add(pending);
+        }
+        return batch;
+    }
+
+    private PendingRagChunk pendingChunk(
             RagIndexRequest request,
             RagPipelineChunk chunk,
             Map<String, Object> baseMetadata,
             int order) {
         ResolvedRagEmbedding resolvedEmbedding = resolveEmbedding(request, chunk);
-        List<Double> embedding = embedForIndex(chunk.content(), resolvedEmbedding);
         Map<String, Object> metadata = new HashMap<>(baseMetadata);
         mergeChunkMetadata(metadata, chunk.metadata());
         metadata.putAll(resolvedEmbedding.metadata());
@@ -441,7 +479,39 @@ public class DefaultRagPipelineService implements RagPipelineService {
         metadata.put("chunkOrder", order);
         metadata.put(VectorRecord.KEY_CHUNK_INDEX, order);
         metadata.put("chunkLength", chunk.content().length());
-        return vectorRecord(request.documentId(), chunk, metadata, embedding);
+        return new PendingRagChunk(request.documentId(), chunk, metadata, resolvedEmbedding);
+    }
+
+    private List<VectorRecord> embedPendingBatch(List<PendingRagChunk> batch) {
+        if (batch.isEmpty()) {
+            return List.of();
+        }
+        ResolvedRagEmbedding resolvedEmbedding = batch.get(0).resolvedEmbedding();
+        List<String> texts = batch.stream()
+                .map(pending -> pending.chunk().content())
+                .toList();
+        EmbeddingResponse response = executeEmbedding(texts, resolvedEmbedding);
+        if (response.vectors().size() != batch.size()) {
+            throw new IllegalStateException(
+                    "Embedding response size mismatch: requested=%d, actual=%d"
+                            .formatted(batch.size(), response.vectors().size()));
+        }
+        List<VectorRecord> records = new ArrayList<>(batch.size());
+        for (int index = 0; index < batch.size(); index++) {
+            PendingRagChunk pending = batch.get(index);
+            List<Double> embedding = List.copyOf(response.vectors().get(index).values());
+            records.add(vectorRecord(pending.documentId(), pending.chunk(), pending.metadata(), embedding));
+        }
+        return records;
+    }
+
+    private boolean sameResolvedEmbedding(ResolvedRagEmbedding left, ResolvedRagEmbedding right) {
+        return left.embeddingPort() == right.embeddingPort()
+                && Objects.equals(left.profileId(), right.profileId())
+                && Objects.equals(left.provider(), right.provider())
+                && Objects.equals(left.model(), right.model())
+                && Objects.equals(left.dimension(), right.dimension())
+                && left.inputType() == right.inputType();
     }
 
     private VectorRecord vectorRecord(
@@ -469,6 +539,13 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 .slide(integer(metadata.get(VectorRecord.KEY_SLIDE)))
                 .metadata(metadata)
                 .build();
+    }
+
+    private record PendingRagChunk(
+            String documentId,
+            RagPipelineChunk chunk,
+            Map<String, Object> metadata,
+            ResolvedRagEmbedding resolvedEmbedding) {
     }
 
     private List<RagPipelineChunk> chunk(String indexedText, RagIndexRequest request) {
@@ -727,12 +804,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
         List<Double> values = List.copyOf(vector.values());
         embeddingCache.put(cacheKey, values);
         return values;
-    }
-
-    private List<Double> embedForIndex(String text, ResolvedRagEmbedding resolvedEmbedding) {
-        EmbeddingResponse response = executeEmbedding(List.of(text), resolvedEmbedding);
-        EmbeddingVector vector = response.vectors().get(0);
-        return List.copyOf(vector.values());
     }
 
     private EmbeddingResponse executeEmbedding(List<String> texts, ResolvedRagEmbedding resolvedEmbedding) {
