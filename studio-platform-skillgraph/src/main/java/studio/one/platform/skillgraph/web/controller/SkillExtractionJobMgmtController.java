@@ -79,8 +79,7 @@ public class SkillExtractionJobMgmtController {
     @PostMapping("/rag-documents")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> extractRagDocument(
             @Valid @RequestBody SkillRagDocumentExtractionRequest request) {
         String mode = normalize(request.mode());
@@ -93,14 +92,18 @@ public class SkillExtractionJobMgmtController {
                         request.objectType(),
                         request.objectId(),
                         request.documentId(),
-                        request.limit()))));
+                        request.limit(),
+                        Boolean.TRUE.equals(request.excludeExtracted()),
+                        Boolean.TRUE.equals(request.generateEmbeddings()),
+                        request.embeddingProvider(),
+                        request.embeddingModel(),
+                        request.embeddingDimension()))));
     }
 
     @PostMapping("/rag-chunks")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<ApiResponse<SkillRagBatchExtractionResponse>> extractRagChunks(
             @Valid @RequestBody SkillRagChunkExtractionRequest request) {
         String documentId = normalize(request.documentId());
@@ -132,8 +135,7 @@ public class SkillExtractionJobMgmtController {
     @PostMapping("/rag")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<?> extractRag(
             @Valid @RequestBody SkillRagExtractionRequest request) {
         String mode = normalize(request.mode());
@@ -143,7 +145,12 @@ public class SkillExtractionJobMgmtController {
                     request.objectId(),
                     request.documentId(),
                     "ALL_CHUNKS",
-                    request.limit()));
+                    request.limit(),
+                    request.excludeExtracted(),
+                    request.generateEmbeddings(),
+                    request.embeddingProvider(),
+                    request.embeddingModel(),
+                    request.embeddingDimension()));
         }
         if ("SELECTED_CHUNKS".equalsIgnoreCase(mode)) {
             if (request.chunkIds() == null || request.chunkIds().isEmpty()) {
@@ -225,7 +232,8 @@ public class SkillExtractionJobMgmtController {
         int succeeded = 0;
         int failed = 0;
         for (ResolvedRagChunk chunk : chunks) {
-            String sourceId = Optional.ofNullable(chunk.documentId()).orElse(objectId);
+            String sourceId = Optional.ofNullable(chunk.documentId())
+                    .orElseGet(() -> Optional.ofNullable(chunk.objectId()).orElse(objectId));
             try {
                 SkillExtractionResult result = extractionService.extract(new SkillExtractionCommand(
                         RAG_CHUNK_SOURCE_TYPE,
@@ -305,7 +313,7 @@ public class SkillExtractionJobMgmtController {
         }
         try {
             return resolver.listByObject(normalizeRequired(objectType, "objectType"),
-                    normalizeRequired(objectId, "objectId"), limit)
+                    normalize(objectId), limit)
                     .stream()
                     .filter(chunk -> chunk.content() != null && !chunk.content().isBlank())
                     .toList();

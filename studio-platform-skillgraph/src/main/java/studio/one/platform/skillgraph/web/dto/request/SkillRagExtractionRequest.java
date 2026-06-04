@@ -9,11 +9,28 @@ public record SkillRagExtractionRequest(
         @Size(max = 100)
         @NotBlank String objectType,
         @Size(max = 200)
-        @NotBlank String objectId,
+        String objectId,
         @Size(max = 200)
         String documentId,
         String mode,
         @Size(max = 500)
         List<@NotBlank @Size(max = 200) String> chunkIds,
-        Integer limit) {
+        Integer limit,
+        Boolean excludeExtracted,
+        Boolean generateEmbeddings,
+        @Size(max = 100)
+        String embeddingProvider,
+        @Size(max = 200)
+        String embeddingModel,
+        Integer embeddingDimension) {
+
+    public SkillRagExtractionRequest(
+            String objectType,
+            String objectId,
+            String documentId,
+            String mode,
+            List<String> chunkIds,
+            Integer limit) {
+        this(objectType, objectId, documentId, mode, chunkIds, limit, null, null, null, null, null);
+    }
 }

@@ -166,6 +166,7 @@ public interface VectorStorePort {
 
     /**
      * objectType/objectId에 속한 벡터를 chunk_index 순서로 가져온다.
+     * objectId가 null이면 objectType 전체 범위를 반환할 수 있다.
      * limit가 null이면 전체를 반환한다.
      */
     default List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {

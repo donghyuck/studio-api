@@ -5,7 +5,6 @@ import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -57,11 +56,10 @@ public class SkillGraphExtractionSourceMgmtController {
     @GetMapping("/rag/chunks")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #objectType.trim() + ':' + #objectId.trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #objectType.trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #objectType.trim(),'read')")
     public ResponseEntity<ApiResponse<PageDto<SkillRagChunkPreviewDto>>> ragChunks(
             @RequestParam("objectType") String objectType,
-            @RequestParam("objectId") String objectId,
+            @RequestParam(name = "objectId", required = false) String objectId,
             @RequestParam(name = "documentId", required = false) String documentId,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "offset", required = false) Integer offset,
@@ -70,42 +68,38 @@ public class SkillGraphExtractionSourceMgmtController {
             @RequestParam(name = "sort", required = false) String sort) {
         SkillGraphRagChunkResolver resolver = requireResolver();
         String normalizedObjectType = normalizeRagObjectType(objectType);
-        String normalizedObjectId = required(objectId, "objectId");
+        String normalizedObjectId = normalize(objectId);
         String normalizedDocumentId = normalize(documentId);
         String query = normalize(q);
         Pageable boundedPageable = boundedPageable(pageable, offset, limit);
-        int boundedOffset = pageOffset(boundedPageable);
-        int boundedLimit = boundedPageable.getPageSize();
         List<ResolvedRagChunk> filtered;
         long total;
         if (query != null || normalizedDocumentId != null) {
-            filtered = resolver.listByObject(
+            var page = resolver.pageByObject(
                     normalizedObjectType,
                     normalizedObjectId,
                     normalizedDocumentId,
                     query,
-                    boundedOffset,
-                    boundedLimit).stream()
+                    boundedPageable);
+            filtered = page.getContent().stream()
                     .sorted((left, right) -> compare(left, right, sort))
                     .toList();
-            total = resolver.countByObject(normalizedObjectType, normalizedObjectId, normalizedDocumentId, query);
+            total = page.getTotalElements();
         } else {
-            filtered = resolver.listByObject(
-                    normalizedObjectType,
-                    normalizedObjectId,
-                    boundedOffset,
-                    boundedLimit).stream()
+            var page = resolver.pageByObject(normalizedObjectType, normalizedObjectId, boundedPageable);
+            filtered = page.getContent().stream()
                     .sorted((left, right) -> compare(left, right, sort))
                     .toList();
-            total = resolver.countByObject(normalizedObjectType, normalizedObjectId);
+            total = page.getTotalElements();
         }
-        if (boundedOffset == 0 && filtered.isEmpty()) {
+        if (boundedPageable.getOffset() == 0 && filtered.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG chunks not found");
         }
         List<SkillRagChunkPreviewDto> items = filtered.stream()
                 .map(this::toPreview)
                 .toList();
-        return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new PageImpl<>(items, boundedPageable, total))));
+        return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new org.springframework.data.domain.PageImpl<>(
+                items, boundedPageable, total))));
     }
 
     private SkillGraphRagChunkResolver requireResolver() {
@@ -121,6 +115,7 @@ public class SkillGraphExtractionSourceMgmtController {
         return new SkillRagChunkPreviewDto(
                 chunk.chunkId(),
                 chunk.documentId(),
+                chunk.objectId(),
                 chunk.chunkOrder(),
                 chunk.page(),
                 chunk.section(),
@@ -155,11 +150,6 @@ public class SkillGraphExtractionSourceMgmtController {
         Pageable requested = pageable == null ? PageRequest.of(0, DEFAULT_LIMIT) : pageable;
         int boundedSize = boundedLimit(requested.getPageSize());
         return PageRequest.of(Math.max(0, requested.getPageNumber()), boundedSize, requested.getSort());
-    }
-
-    private int pageOffset(Pageable pageable) {
-        long offset = pageable.getOffset();
-        return offset > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) offset;
     }
 
     private String preview(String content) {

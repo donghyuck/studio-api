@@ -86,7 +86,8 @@ public class SkillGraphWebAutoConfiguration {
                 SkillRagExtractionJobStore jobStore,
                 Executor skillRagExtractionJobExecutor,
                 SkillGraphProperties properties,
-                ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
+                ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
+                ObjectProvider<SkillCandidateReviewService> candidateReviewServiceProvider) {
             SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
             return new DefaultSkillRagExtractionJobService(
                     extractionService,
@@ -97,7 +98,9 @@ public class SkillGraphWebAutoConfiguration {
                             ragJob.getBatchSize(),
                             ragJob.getMaxChunks(),
                             ragJob.getMaxTextBytesPerBatch()),
-                    objectTypeRuntimeServiceProvider.getIfAvailable());
+                    java.time.Clock.systemUTC(),
+                    objectTypeRuntimeServiceProvider.getIfAvailable(),
+                    candidateReviewServiceProvider.getIfAvailable());
         }
     }
 

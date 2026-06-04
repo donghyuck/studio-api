@@ -3,6 +3,10 @@ package studio.one.platform.autoconfigure.skillgraph;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
@@ -25,6 +29,16 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
     @Override
     public long countByObject(String objectType, String objectId) {
         return ragPipelineService.countByObject(objectType, objectId);
+    }
+
+    @Override
+    public Page<ResolvedRagChunk> pageByObject(String objectType, String objectId, Pageable pageable) {
+        int offset = pageable == null ? 0 : (int) Math.min(Integer.MAX_VALUE, pageable.getOffset());
+        int limit = pageable == null || pageable.getPageSize() <= 0 ? 50 : pageable.getPageSize();
+        return new PageImpl<>(
+                listByObject(objectType, objectId, offset, limit),
+                pageable,
+                countByObject(objectType, objectId));
     }
 
     @Override
@@ -51,6 +65,7 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
         Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
         String documentId = text(firstPresent(metadata, VectorRecord.KEY_DOCUMENT_ID, "documentId", "sourceDocumentId"));
         documentId = documentId == null ? result.documentId() : documentId;
+        String objectId = text(firstPresent(metadata, VectorRecord.KEY_OBJECT_ID, "objectId"));
         String chunkId = text(firstPresent(metadata, VectorRecord.KEY_CHUNK_ID, "chunkId"));
         chunkId = chunkId == null ? documentId : chunkId;
         Integer tokenCount = integer(firstPresent(metadata, VectorRecord.KEY_CHUNK_TOKEN_COUNT, "tokenCount"));
@@ -60,6 +75,7 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
         return new ResolvedRagChunk(
                 chunkId,
                 documentId,
+                objectId,
                 result.content(),
                 integer(firstPresent(metadata, VectorRecord.KEY_CHUNK_INDEX, "chunkOrder")),
                 integer(firstPresent(metadata, VectorRecord.KEY_PAGE, "page")),

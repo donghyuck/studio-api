@@ -165,15 +165,15 @@
     SELECT COUNT(*)
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
   </select>
 
   <select id="listByObject" resultMap="PgVectorSearchRowMap">
     SELECT id, object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
-    ORDER BY chunk_index
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+    ORDER BY object_id, chunk_index
     LIMIT #{limit}
   </select>
 
@@ -181,8 +181,8 @@
     SELECT id, object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
-    ORDER BY chunk_index
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+    ORDER BY object_id, chunk_index
     LIMIT #{limit} OFFSET #{offset}
   </select>
 
@@ -190,9 +190,9 @@
     SELECT id, object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
       <include refid="listFilterConditions"/>
-    ORDER BY chunk_index
+    ORDER BY object_id, chunk_index
     LIMIT #{limit} OFFSET #{offset}
   </select>
 

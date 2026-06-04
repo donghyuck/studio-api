@@ -74,26 +74,30 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     private static final String COUNT_BY_OBJECT_SQL = """
             SELECT COUNT(*)
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
             """;
     private static final String LIST_BY_OBJECT_SQL = """
             SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+             ORDER BY object_id, chunk_index
              LIMIT :limit
             """;
     private static final String LIST_BY_OBJECT_PAGE_SQL = """
             SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+             ORDER BY object_id, chunk_index
              LIMIT :limit OFFSET :offset
             """;
     private static final String LIST_BY_OBJECT_PAGE_FILTERED_SQL = """
             SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
                AND (:documentId IS NULL OR metadata->>'documentId' = :documentId)
                AND (:query IS NULL OR (
                     LOWER(text) LIKE :queryPattern
@@ -103,7 +107,7 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                     OR LOWER(COALESCE(metadata->>'headingPath', '')) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'section', '')) LIKE :queryPattern
                ))
-             ORDER BY chunk_index
+             ORDER BY object_id, chunk_index
              LIMIT :limit OFFSET :offset
             """;
     private static final String METADATA_BY_OBJECT_SQL = """

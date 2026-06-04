@@ -10,7 +10,7 @@ public record SkillRagChunkExtractionRequest(
         @Size(max = 100)
         @NotBlank String objectType,
         @Size(max = 200)
-        @NotBlank String objectId,
+        String objectId,
         @Size(max = 200)
         String documentId,
         @NotEmpty

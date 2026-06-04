@@ -11,6 +11,19 @@ public interface SkillRagExtractionJobService {
 
     SkillRagExtractionJob submitAllChunks(String objectType, String objectId, String documentId, Integer limit);
 
+    default SkillRagExtractionJob submitAllChunks(
+            String objectType,
+            String objectId,
+            String documentId,
+            Integer limit,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension) {
+        return submitAllChunks(objectType, objectId, documentId, limit);
+    }
+
     SkillRagExtractionJob getJob(String jobId);
 
     List<SkillRagExtractionJob> listJobs(
