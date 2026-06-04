@@ -50,6 +50,17 @@ class PgVectorMapperXmlContractTest {
                 .contains("LIMIT #{limit} OFFSET #{offset}");
     }
 
+    @Test
+    void upsertChunksUsesMultiRowInsertContract() throws Exception {
+        String mapper = mapperXml();
+
+        assertThat(mapper)
+                .contains("<insert id=\"upsertChunks\">")
+                .contains("<foreach collection=\"chunks\" item=\"chunk\" separator=\",\">")
+                .contains("ON CONFLICT (object_type, object_id, chunk_index)")
+                .contains("DO UPDATE SET");
+    }
+
     private String mapperXml() throws Exception {
         return new String(
                 Objects.requireNonNull(getClass().getClassLoader()

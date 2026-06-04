@@ -153,6 +153,22 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     }
 
     @Override
+    public int upsertChunks(List<PgVectorChunkParameter> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return 0;
+        }
+        MapSqlParameterSource[] batch = chunks.stream()
+                .map(PgVectorJdbcMapper::chunkParams)
+                .toArray(MapSqlParameterSource[]::new);
+        int[] updated = jdbcTemplate.batchUpdate(UPSERT_CHUNK_SQL, batch);
+        int count = 0;
+        for (int value : updated) {
+            count += value;
+        }
+        return count;
+    }
+
+    @Override
     public List<PgVectorSearchRow> search(PgVectorSearchParameter parameter) {
         return jdbcTemplate.query(filteredSql(SEARCH_SQL, parameter), searchParams(parameter), ROW_MAPPER);
     }

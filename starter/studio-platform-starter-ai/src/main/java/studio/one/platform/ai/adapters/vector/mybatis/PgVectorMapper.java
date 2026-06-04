@@ -8,6 +8,8 @@ public interface PgVectorMapper {
 
     int upsertChunk(PgVectorChunkParameter parameter);
 
+    int upsertChunks(@Param("chunks") List<PgVectorChunkParameter> chunks);
+
     List<PgVectorSearchRow> search(PgVectorSearchParameter parameter);
 
     int deleteByObject(

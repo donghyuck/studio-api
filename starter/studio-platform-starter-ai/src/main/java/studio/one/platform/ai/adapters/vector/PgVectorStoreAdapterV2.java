@@ -63,17 +63,29 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     }
 
     private void upsertInternal(List<VectorDocument> documents) {
-        for (VectorDocument document : documents) {
-            Map<String, Object> metadata = withDocumentId(document);
-            mapper.upsertChunk(new PgVectorChunkParameter(
-                    resolveObjectType(metadata),
-                    resolveObjectId(metadata, document.id()),
-                    resolveChunkIndex(metadata),
-                    document.content(),
-                    Json.write(metadata),
-                    toPgVector(document.embedding()),
-                    document.embedding().size()));
+        if (documents == null || documents.isEmpty()) {
+            return;
         }
+        List<PgVectorChunkParameter> chunks = documents.stream()
+                .map(this::chunkParameter)
+                .toList();
+        if (chunks.size() == 1) {
+            mapper.upsertChunk(chunks.get(0));
+            return;
+        }
+        mapper.upsertChunks(chunks);
+    }
+
+    private PgVectorChunkParameter chunkParameter(VectorDocument document) {
+        Map<String, Object> metadata = withDocumentId(document);
+        return new PgVectorChunkParameter(
+                resolveObjectType(metadata),
+                resolveObjectId(metadata, document.id()),
+                resolveChunkIndex(metadata),
+                document.content(),
+                Json.write(metadata),
+                toPgVector(document.embedding()),
+                document.embedding().size());
     }
 
     @Override

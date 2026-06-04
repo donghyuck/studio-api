@@ -76,6 +76,28 @@
       embedding_dimension = EXCLUDED.embedding_dimension
   </insert>
 
+  <insert id="upsertChunks">
+    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
+    VALUES
+    <foreach collection="chunks" item="chunk" separator=",">
+      (
+        #{chunk.objectType,jdbcType=VARCHAR},
+        #{chunk.objectId,jdbcType=VARCHAR},
+        #{chunk.chunkIndex},
+        #{chunk.text,jdbcType=VARCHAR},
+        CAST(#{chunk.metadata,jdbcType=VARCHAR} AS jsonb),
+        #{chunk.embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler},
+        #{chunk.embeddingDimension}
+      )
+    </foreach>
+    ON CONFLICT (object_type, object_id, chunk_index)
+    DO UPDATE SET
+      text = EXCLUDED.text,
+      metadata = EXCLUDED.metadata,
+      embedding = EXCLUDED.embedding,
+      embedding_dimension = EXCLUDED.embedding_dimension
+  </insert>
+
   <select id="search" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"
           resultMap="PgVectorSearchRowMap">
     SELECT id, object_id, text, metadata,
