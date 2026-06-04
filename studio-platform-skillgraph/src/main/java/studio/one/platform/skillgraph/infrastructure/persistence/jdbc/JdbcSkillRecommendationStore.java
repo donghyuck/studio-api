@@ -388,7 +388,16 @@ public class JdbcSkillRecommendationStore implements SkillRecommendationStore {
     }
 
     private String jsonReason(String reason) {
-        return "{\"message\":\"" + (reason == null ? "" : reason.replace("\"", "\\\"")) + "\"}";
+        return "{\"message\":\"" + jsonString(reason == null ? "" : reason) + "\"}";
+    }
+
+    private String jsonString(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     private Timestamp timestamp(Instant instant) {

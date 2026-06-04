@@ -159,6 +159,19 @@ public class JdbcSkillDictionaryStore implements SkillDictionaryStore {
         if (updated > 0) {
             return alias;
         }
+        int normalizedUpdated = template.update("""
+                UPDATE tb_skill_alias
+                SET alias_id = :aliasId,
+                    alias = :alias
+                WHERE normalized_alias = :normalizedAlias
+                  AND skill_id = :skillId
+                """, aliasParams(alias));
+        if (normalizedUpdated > 0) {
+            return alias;
+        }
+        if (findByNormalizedAlias(alias.normalizedAlias()).isPresent()) {
+            throw new IllegalArgumentException("Alias already exists for another skill: " + alias.alias());
+        }
         template.update("""
                 INSERT INTO tb_skill_alias
                     (alias_id, skill_id, alias, normalized_alias, created_at)

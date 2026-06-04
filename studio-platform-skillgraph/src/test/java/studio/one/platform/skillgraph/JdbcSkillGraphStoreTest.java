@@ -292,6 +292,19 @@ class JdbcSkillGraphStoreTest {
     }
 
     @Test
+    void dictionaryStoreTreatsSameSkillAliasRegistrationAsIdempotent() {
+        Instant now = Instant.parse("2026-05-16T00:00:00Z");
+        dictionaryStore.save(new SkillDictionary("skill-1", "Spring", "spring", "backend", "ACTIVE", now, now));
+        dictionaryStore.saveAlias(new SkillAlias("alias-1", "skill-1", "Spring Framework", "spring framework", now));
+
+        dictionaryStore.saveAlias(new SkillAlias("alias-2", "skill-1", "Spring framework", "spring framework",
+                now.plusSeconds(1)));
+
+        var skill = dictionaryStore.findByNormalizedAlias("spring framework").orElseThrow();
+        assertEquals("skill-1", skill.skillId());
+    }
+
+    @Test
     void taxonomyStoreSearchesRootAndChildCategories() {
         taxonomyStore.saveCategory(new SkillCategory("backend", null, "Backend", 1));
         taxonomyStore.saveCategory(new SkillCategory("java", "backend", "Java", 1));
