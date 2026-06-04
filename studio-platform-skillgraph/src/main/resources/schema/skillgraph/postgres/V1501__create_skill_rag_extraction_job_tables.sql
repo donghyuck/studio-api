@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS tb_skill_rag_extraction_job (
     job_id VARCHAR(100) PRIMARY KEY,
     object_type VARCHAR(100) NOT NULL,
-    object_id VARCHAR(200) NOT NULL,
+    object_id VARCHAR(200),
     document_id VARCHAR(200),
     status VARCHAR(40) NOT NULL,
     requested_chunks INT NOT NULL DEFAULT 0,

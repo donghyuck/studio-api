@@ -1,9 +1,11 @@
 package studio.one.platform.skillgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -48,6 +50,30 @@ class DefaultSkillRagExtractionJobServiceTest {
         assertEquals(3, job.processedChunks());
         assertEquals(3, job.succeededChunks());
         assertEquals(List.of(0, 2), resolver.offsets);
+    }
+
+    @Test
+    void processesObjectTypeScopedChunksWithoutObjectId() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "42", "chunk-1", "Spring Boot"),
+                chunk("doc-2", "43", "chunk-2", "Kubernetes")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+
+        var submitted = service.submitAllChunks("attachment", null, null, null);
+        var job = service.getJob(submitted.jobId());
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
+        assertNull(job.objectId());
+        assertEquals(Arrays.asList(null, null), resolver.objectIds);
+        var items = service.listItems(job.jobId(), 0, 10);
+        assertEquals("doc-1", items.get(0).sourceId());
+        assertEquals("doc-2", items.get(1).sourceId());
     }
 
     @Test
@@ -249,6 +275,10 @@ class DefaultSkillRagExtractionJobServiceTest {
 
     private static ResolvedRagChunk chunk(String documentId, String chunkId, String content) {
         return new ResolvedRagChunk(chunkId, documentId, content);
+    }
+
+    private static ResolvedRagChunk chunk(String documentId, String objectId, String chunkId, String content) {
+        return new ResolvedRagChunk(chunkId, documentId, objectId, content, null, null, null, null, null);
     }
 
     private static ObjectTypeRuntimeService objectTypeService(int objectType, String code) {
