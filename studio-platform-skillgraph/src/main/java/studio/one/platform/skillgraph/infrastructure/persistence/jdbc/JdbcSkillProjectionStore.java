@@ -301,10 +301,10 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 rs.getInt("item_count"),
                 hasColumn(rs, "skill_type") ? rs.getString("skill_type") : null,
                 hasColumn(rs, "job_id") ? rs.getString("job_id") : null,
-                hasColumn(rs, "cluster_label") ? (Integer) rs.getObject("cluster_label") : null,
+                hasColumn(rs, "cluster_label") ? integerValue(rs.getObject("cluster_label")) : null,
                 hasColumn(rs, "representative_skill_ids") ? parseJsonArray(rs.getString("representative_skill_ids")) : List.of(),
                 hasColumn(rs, "centroid_projection_id") ? rs.getString("centroid_projection_id") : null,
-                hasColumn(rs, "confidence") ? (Double) rs.getObject("confidence") : null,
+                hasColumn(rs, "confidence") ? doubleValue(rs.getObject("confidence")) : null,
                 hasColumn(rs, "metadata") ? rs.getString("metadata") : null,
                 instant(rs.getTimestamp("created_at")));
     }
@@ -330,10 +330,10 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
                 hasColumn(rs, "job_id") ? rs.getString("job_id") : null,
                 hasColumn(rs, "projection_type") ? rs.getString("projection_type") : null,
                 rs.getString("reduction_algorithm"),
-                hasColumn(rs, "projection_dimension") ? (Integer) rs.getObject("projection_dimension") : null,
+                hasColumn(rs, "projection_dimension") ? integerValue(rs.getObject("projection_dimension")) : null,
                 rs.getString("embedding_provider"),
                 rs.getString("embedding_model"),
-                (Integer) rs.getObject("embedding_dimension"),
+                integerValue(rs.getObject("embedding_dimension")),
                 hasColumn(rs, "metadata") ? rs.getString("metadata") : null,
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
@@ -378,6 +378,14 @@ public class JdbcSkillProjectionStore implements SkillProjectionStore {
 
     private Instant instant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private Integer integerValue(Object value) {
+        return value instanceof Number number ? number.intValue() : null;
+    }
+
+    private Double doubleValue(Object value) {
+        return value instanceof Number number ? number.doubleValue() : null;
     }
 
     private String normalize(String value) {
