@@ -38,8 +38,11 @@ import studio.one.platform.ai.service.keyword.KeywordExtractor;
 import studio.one.platform.ai.service.pipeline.DefaultRagPipelineService;
 import studio.one.platform.ai.service.pipeline.DefaultRagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.DefaultRagIndexJobService;
+import studio.one.platform.ai.service.pipeline.InMemoryRagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.JdbcRagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.JdbcRagIndexJobRepository;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceExecutor;
@@ -122,6 +125,7 @@ public class RagPipelineConfiguration {
                         ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
                         ObjectProvider<KeywordExtractor> keywordExtractorProvider,
                         ObjectProvider<TextCleaner> textCleanerProvider,
+                        RagChunkStageStore chunkStageStore,
                         RagPipelineProperties properties,
                         RagEmbeddingProfileResolver embeddingProfileResolver) {
 
@@ -137,7 +141,24 @@ public class RagPipelineConfiguration {
                                 textCleanerProvider.getIfAvailable(), ragPipelineOptions(properties),
                                 ragPipelineDiagnosticsOptions(properties),
                                 ragKeywordOptions(properties),
-                                embeddingProfileResolver);
+                                embeddingProfileResolver,
+                                chunkStageStore);
+        }
+
+        @Bean
+        @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+        @ConditionalOnMissingBean(RagChunkStageStore.class)
+        @Conditional(RagPipelineConditions.JdbcRepository.class)
+        RagChunkStageStore jdbcRagChunkStageStore(
+                        NamedParameterJdbcTemplate template,
+                        ObjectProvider<ObjectMapper> objectMapperProvider) {
+                return new JdbcRagChunkStageStore(template, objectMapperProvider.getIfAvailable(ObjectMapper::new));
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(RagChunkStageStore.class)
+        RagChunkStageStore ragChunkStageStore() {
+                return new InMemoryRagChunkStageStore();
         }
 
         @Bean

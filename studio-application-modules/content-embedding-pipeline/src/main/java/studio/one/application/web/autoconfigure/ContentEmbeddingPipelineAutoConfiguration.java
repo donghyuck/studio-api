@@ -17,6 +17,7 @@ import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolve
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @AutoConfiguration
@@ -35,12 +36,14 @@ public class ContentEmbeddingPipelineAutoConfiguration {
             AttachmentService attachmentService,
             ObjectProvider<FileContentExtractionService> textExtractionProvider,
             ObjectProvider<RagPipelineService> ragPipelineProvider,
-            ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider) {
+            ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider) {
         return new AttachmentRagIndexService(
                 attachmentService,
                 textExtractionProvider,
                 ragPipelineProvider,
-                structuredRagIndexerProvider);
+                structuredRagIndexerProvider,
+                chunkStageStoreProvider);
     }
 
     @Bean

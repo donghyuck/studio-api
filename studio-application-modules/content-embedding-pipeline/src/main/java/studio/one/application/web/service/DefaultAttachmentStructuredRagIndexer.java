@@ -16,6 +16,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
@@ -32,6 +33,8 @@ import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
+import studio.one.platform.ai.service.pipeline.RagChunkStage;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
@@ -39,6 +42,7 @@ import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.chunking.service.TextractNormalizedDocumentAdapter;
 import studio.one.platform.textract.domain.model.ParsedFile;
@@ -62,6 +66,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
+    private final ObjectProvider<RagChunkStageStore> chunkStageStoreProvider;
     private final ThreadLocal<AttachmentRagIndexDiagnostics> latestDiagnostics = new ThreadLocal<>();
 
     public DefaultAttachmentStructuredRagIndexer(
@@ -69,7 +74,18 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<VectorStorePort> vectorStoreProvider) {
-        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider, null, vectorStoreProvider);
+        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider, null, vectorStoreProvider, null);
+    }
+
+    @Autowired
+    public DefaultAttachmentStructuredRagIndexer(
+            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider) {
+        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
+                embeddingProfileResolverProvider, vectorStoreProvider, null);
     }
 
     public DefaultAttachmentStructuredRagIndexer(
@@ -77,12 +93,14 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
-            ObjectProvider<VectorStorePort> vectorStoreProvider) {
+            ObjectProvider<VectorStorePort> vectorStoreProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider) {
         this.normalizedDocumentAdapterProvider = normalizedDocumentAdapterProvider;
         this.chunkingOrchestratorProvider = chunkingOrchestratorProvider;
         this.embeddingPortProvider = embeddingPortProvider;
         this.embeddingProfileResolverProvider = embeddingProfileResolverProvider;
         this.vectorStoreProvider = vectorStoreProvider;
+        this.chunkStageStoreProvider = chunkStageStoreProvider;
     }
 
     @Override
@@ -112,29 +130,50 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         ChunkingOrchestrator chunkingOrchestrator = chunkingOrchestratorProvider.getIfAvailable();
         EmbeddingPort embeddingPort = embeddingPortProvider.getIfAvailable();
         VectorStorePort vectorStore = vectorStoreProvider.getIfAvailable();
-        String fallbackReason = fallbackReason(adapter, chunkingOrchestrator, embeddingPort, vectorStore, objectType, objectId);
+        RagChunkStageStore chunkStageStore = chunkStageStoreProvider == null
+                ? RagChunkStageStore.noop()
+                : chunkStageStoreProvider.getIfAvailable(RagChunkStageStore::noop);
+        List<Chunk> chunks = hasObjectScope(objectType, objectId)
+                ? stagedChunks(chunkStageStore, objectType, objectId, documentId)
+                : List.of();
+        boolean restoredFromStage = !chunks.isEmpty();
+        String fallbackReason = chunks.isEmpty()
+                ? fallbackReason(adapter, chunkingOrchestrator, embeddingPort, vectorStore, objectType, objectId)
+                : stagedFallbackReason(embeddingPort, vectorStore, objectType, objectId);
         if (fallbackReason != null) {
             latestDiagnostics.set(AttachmentRagIndexDiagnostics.fallback(fallbackReason));
             return false;
         }
 
-        progress.onStep(RagIndexJobStep.EXTRACTING);
-        ParsedFile parsedFile = extractor.parseStructured(attachment.getContentType(), attachment.getName(), inputStream);
-        NormalizedDocument normalizedDocument = adapter.adapt(documentId, parsedFile);
-        NormalizedDocument document = enrichMetadata(documentId, normalizedDocument, metadata);
-        progress.onStep(RagIndexJobStep.CHUNKING);
-        List<Chunk> chunks = chunkingOrchestrator.chunk(document);
+        int parsedBlockCount = 0;
+        if (!restoredFromStage) {
+            progress.onStep(RagIndexJobStep.EXTRACTING);
+            ParsedFile parsedFile = extractor.parseStructured(attachment.getContentType(), attachment.getName(), inputStream);
+            parsedBlockCount = parsedFile.blocks().size();
+            NormalizedDocument normalizedDocument = adapter.adapt(documentId, parsedFile);
+            NormalizedDocument document = enrichMetadata(documentId, normalizedDocument, metadata);
+            progress.onStep(RagIndexJobStep.CHUNKING);
+            chunks = chunkingOrchestrator.chunk(document);
+            saveChunkStage(chunkStageStore, objectType, objectId, documentId, chunks);
+        } else {
+            progress.onInfo(
+                    RagIndexJobStep.CHUNKING,
+                    "Attachment RAG chunk stage restored",
+                    "objectType=%s, objectId=%s, documentId=%s, chunkCount=%d"
+                            .formatted(objectType, objectId, documentId, chunks.size()));
+        }
         progress.onChunkCount(chunks.size());
         if (chunks.isEmpty()) {
-            latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(parsedFile.blocks().size(), 0, 0));
+            latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(parsedBlockCount, 0, 0));
             progress.onStep(RagIndexJobStep.INDEXING);
             vectorStore.replaceRecordsByObject(objectType, objectId, List.of());
+            chunkStageStore.deleteByObject(objectType, objectId, documentId);
             progress.onIndexedCount(0);
             return true;
         }
 
         int vectorCount;
-        if (chunks.size() <= INDEX_UPSERT_BATCH_SIZE) {
+        if (!restoredFromStage && chunks.size() <= INDEX_UPSERT_BATCH_SIZE) {
             List<VectorRecord> records = embedRecords(
                     documentId,
                     objectType,
@@ -157,12 +196,53 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                     vectorStore,
                     progress);
         }
+        chunkStageStore.deleteByObject(objectType, objectId, documentId);
         progress.onIndexedCount(vectorCount);
         latestDiagnostics.set(AttachmentRagIndexDiagnostics.structured(
-                parsedFile.blocks().size(),
+                parsedBlockCount,
                 chunks.size(),
                 vectorCount));
         return true;
+    }
+
+    private List<Chunk> stagedChunks(
+            RagChunkStageStore chunkStageStore,
+            String objectType,
+            String objectId,
+            String documentId) {
+        return chunkStageStore.findByObject(objectType, objectId, documentId).stream()
+                .map(stage -> Chunk.of(
+                        stage.chunkId(),
+                        stage.text(),
+                        ChunkMetadata.builder(
+                                ChunkingStrategyType.from(text(stage.metadata().get(ChunkMetadata.KEY_STRATEGY))),
+                                stage.chunkIndex())
+                                .chunkType(ChunkType.from(text(stage.metadata().get(ChunkMetadata.KEY_CHUNK_TYPE))))
+                                .attributes(stage.metadata())
+                                .build()))
+                .toList();
+    }
+
+    private void saveChunkStage(
+            RagChunkStageStore chunkStageStore,
+            String objectType,
+            String objectId,
+            String documentId,
+            List<Chunk> chunks) {
+        List<RagChunkStage> stages = new ArrayList<>(chunks.size());
+        for (Chunk chunk : chunks) {
+            Integer chunkIndex = chunkIndex(chunk);
+            stages.add(new RagChunkStage(
+                    objectType,
+                    objectId,
+                    documentId,
+                    chunkIndex == null ? stages.size() : chunkIndex,
+                    chunk.id(),
+                    chunk.content(),
+                    chunk.metadata().toMap(),
+                    null));
+        }
+        chunkStageStore.replace(objectType, objectId, documentId, stages);
     }
 
     private List<VectorRecord> embedRecords(
@@ -432,6 +512,23 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         if (chunkingOrchestrator == null) {
             return "missing_chunking_orchestrator";
         }
+        if (embeddingPort == null) {
+            return "missing_embedding_port";
+        }
+        if (vectorStore == null) {
+            return "missing_vector_store";
+        }
+        if (!hasObjectScope(objectType, objectId)) {
+            return "missing_object_scope";
+        }
+        return null;
+    }
+
+    private String stagedFallbackReason(
+            EmbeddingPort embeddingPort,
+            VectorStorePort vectorStore,
+            String objectType,
+            String objectId) {
         if (embeddingPort == null) {
             return "missing_embedding_port";
         }

@@ -56,6 +56,9 @@ import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
+import studio.one.platform.ai.service.pipeline.InMemoryRagChunkStageStore;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.Chunk;
@@ -107,7 +110,8 @@ class AttachmentEmbeddingPipelineControllerTest {
                 attachmentService,
                 provider(extractionService),
                 provider(ragPipelineService),
-                provider(structuredRagIndexer));
+                provider(structuredRagIndexer),
+                provider((RagChunkStageStore) null));
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
@@ -184,7 +188,8 @@ class AttachmentEmbeddingPipelineControllerTest {
                 attachmentService,
                 provider(extractionService),
                 provider(ragPipelineService),
-                provider((AttachmentStructuredRagIndexer) null));
+                provider((AttachmentStructuredRagIndexer) null),
+                provider((RagChunkStageStore) null));
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
@@ -792,6 +797,66 @@ class AttachmentEmbeddingPipelineControllerTest {
         verify(vectorStore).upsertAll(argThat(records ->
                 records.size() == 1
                         && Integer.valueOf(64).equals(records.get(0).toMetadata().get("chunkIndex"))));
+    }
+
+    @Test
+    void ragIndexResumesFromChunkStageWithoutReadingAttachmentAgain() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        InMemoryRagChunkStageStore chunkStageStore = new InMemoryRagChunkStageStore();
+        chunkStageStore.replace("attachment", "1", "doc-1", numberedChunks(3).stream()
+                .map(chunk -> new studio.one.platform.ai.service.pipeline.RagChunkStage(
+                        "attachment",
+                        "1",
+                        "doc-1",
+                        (Integer) chunk.metadata().toMap().get("chunkOrder"),
+                        chunk.id(),
+                        chunk.content(),
+                        chunk.metadata().toMap(),
+                        null))
+                .toList());
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider((TextractNormalizedDocumentAdapter) null),
+                provider((ChunkingOrchestrator) null),
+                provider(embeddingPort),
+                provider((RagEmbeddingProfileResolver) null),
+                provider(vectorStore),
+                provider(chunkStageStore));
+        AttachmentRagIndexService service = new AttachmentRagIndexService(
+                attachmentService,
+                provider(extractionService),
+                provider(ragPipelineService),
+                provider(indexer),
+                provider(chunkStageStore));
+        Attachment attachment = mock(Attachment.class);
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
+        when(attachment.getName()).thenReturn("manual.pdf");
+        when(attachment.getContentType()).thenReturn("application/pdf");
+        when(attachment.getSize()).thenReturn(100L);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(vectorStore.listByObject("attachment", "1", Integer.MAX_VALUE))
+                .thenReturn(existingChunkResults(1));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("1", List.of(0.1d, 0.2d)))));
+
+        service.index(1L, service.command(
+                1L,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                List.of(),
+                false,
+                null,
+                "kure",
+                "nlpai-lab/KURE-v1"), RagIndexProgressListener.noop());
+
+        verify(attachmentService, never()).getInputStream(any());
+        verifyNoInteractions(extractionService);
+        verify(embeddingPort, times(2)).embed(any(EmbeddingRequest.class));
+        verify(vectorStore).upsertAll(argThat(records -> records.size() == 2));
+        assertThat(chunkStageStore.findByObject("attachment", "1", "doc-1")).isEmpty();
     }
 
     @Test
