@@ -252,6 +252,38 @@ class DefaultSkillExtractionServiceTest {
     }
 
     @Test
+    void recommendationAnalysisUsesRegisteredAliasBeforeNewSkillSuggestion() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillRecommendationStore recommendationStore = new InMemorySkillRecommendationStore();
+        dictionaryStore.save(new SkillDictionary("skill-spring", "Spring", "spring", null, "ACTIVE",
+                Instant.now(), Instant.now()));
+        dictionaryStore.saveAlias(new SkillAlias("alias-spring-framework", "skill-spring",
+                "Spring Framework", "spring framework", Instant.now()));
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
+                dictionaryStore);
+        DefaultSkillCandidateRecommendationService recommendationService = new DefaultSkillCandidateRecommendationService(
+                recommendationStore, candidateStore, dictionaryStore, reviewService);
+        var extraction = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
+                "Spring Framework"));
+        String candidateId = extraction.candidates().get(0).candidateId();
+        recommendationStore.saveEmbedding("SKILL_CANDIDATE", candidateId, "kure", "model", 2,
+                "Spring Framework", List.of(1.0d, 0.0d));
+
+        var job = recommendationService.createJob(new SkillCandidateRecommendationJobCommand(
+                "SELECTED", List.of(candidateId), null, null, null, null, "kure", "model", 2,
+                List.of("SKILL_DICTIONARY"), 5, 0.75d, 0.6d, 0.92d));
+        var results = recommendationService.getJobResults(job.jobId());
+
+        assertEquals(1, results.size());
+        assertEquals(studio.one.platform.skillgraph.domain.model.SkillRecommendationType.EXISTING_SKILL_MATCH,
+                results.get(0).recommendationType());
+        assertEquals("skill-spring", results.get(0).targetSourceId());
+    }
+
+    @Test
     void recommendationAnalysisRequiresCandidateEmbedding() {
         InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();

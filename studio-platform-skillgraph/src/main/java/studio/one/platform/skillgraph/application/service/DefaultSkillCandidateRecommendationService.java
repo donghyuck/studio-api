@@ -27,6 +27,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNoti
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJob;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobStatus;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobType;
@@ -303,6 +304,20 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
             SkillRecommendationJob job,
             SkillCandidateRecommendationJobCommand command,
             SkillCandidate candidate) {
+        Optional<SkillDictionaryMatch> exactOrAlias = dictionaryStore.findMatchByNormalizedTerm(candidate.normalizedTerm());
+        if (exactOrAlias.isPresent() && command.targetTypes().contains("SKILL_DICTIONARY")) {
+            SkillDictionaryMatch match = exactOrAlias.get();
+            saveResult(job, candidate, new SkillRecommendationTargetHit(
+                            TARGET_DICTIONARY,
+                            match.skill().skillId(),
+                            match.skill().name(),
+                            match.score()),
+                    SkillRecommendationType.EXISTING_SKILL_MATCH,
+                    match.score(),
+                    "dictionary %s match".formatted(match.type().name().toLowerCase(Locale.ROOT)));
+            return 1;
+        }
+
         List<Double> embedding = recommendationStore.findEmbedding(
                 SOURCE_CANDIDATE,
                 candidate.candidateId(),
