@@ -2,6 +2,7 @@ package studio.one.platform.skillgraph.domain.port;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -71,6 +72,8 @@ public interface SkillCandidateStore {
             String sourceType,
             String sourceId,
             Pageable pageable);
+
+    Page<SkillCandidate> searchCandidatesBySourceChunkIds(Set<String> sourceChunkIds, Pageable pageable);
 
     @Deprecated(forRemoval = true)
     default List<SkillCandidate> searchCandidates(SkillCandidateStatus status, String q, int limit) {

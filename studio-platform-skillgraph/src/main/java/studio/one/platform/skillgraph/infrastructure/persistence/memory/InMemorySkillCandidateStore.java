@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.data.domain.Page;
@@ -160,6 +161,22 @@ public class InMemorySkillCandidateStore implements SkillCandidateStore {
                         || candidate.term().toLowerCase(Locale.ROOT).contains(query)
                         || contains(candidate.searchText(), query)
                         || contains(candidate.target(), query))
+                .sorted(candidateComparator(pageable.getSort()))
+                .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
+    }
+
+    @Override
+    public Page<SkillCandidate> searchCandidatesBySourceChunkIds(
+            Set<String> sourceChunkIds,
+            Pageable pageable) {
+        if (sourceChunkIds == null || sourceChunkIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        List<SkillCandidate> filtered = candidates.values().stream()
+                .filter(candidate -> sourceChunkIds.contains(candidate.sourceChunkId()))
                 .sorted(candidateComparator(pageable.getSort()))
                 .toList();
         int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));

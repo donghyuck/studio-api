@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -325,6 +326,32 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                 """ + sql,
                 params,
                 Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    }
+
+    @Override
+    public Page<SkillCandidate> searchCandidatesBySourceChunkIds(
+            Set<String> sourceChunkIds,
+            Pageable pageable) {
+        if (sourceChunkIds == null || sourceChunkIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("sourceChunkIds", sourceChunkIds)
+                .addValue("limit", pageable.getPageSize())
+                .addValue("offset", pageable.getOffset());
+        List<SkillCandidate> content = template.query("""
+                SELECT *
+                FROM tb_skill_candidate
+                WHERE source_chunk_id IN (:sourceChunkIds)
+                """ + candidateOrderBy(pageable.getSort()) + """
+                LIMIT :limit OFFSET :offset
+                """, params, this::mapCandidate);
+        Long total = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM tb_skill_candidate
+                WHERE source_chunk_id IN (:sourceChunkIds)
+                """, params, Long.class);
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 

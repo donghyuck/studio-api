@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -16,6 +17,7 @@ import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
@@ -113,6 +115,38 @@ class SkillExtractionJobMgmtControllerTest {
         assertEquals(false, response.hasMore());
         assertEquals("42", response.items().get(0).objectId());
         assertEquals("doc-1", response.items().get(0).documentId());
+    }
+
+    @Test
+    void listsCandidatesCreatedByRagExtractionJobAsPage() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillRagExtractionJobStore jobStore = new InMemorySkillRagExtractionJobStore();
+        SkillGraphRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
+                ragChunk("doc-1", "chunk-1", "Spring Boot 기술")));
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillRagExtractionJobService jobService = new DefaultSkillRagExtractionJobService(
+                extractionService,
+                resolver,
+                jobStore,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(20, 1000, 1_000_000),
+                java.time.Clock.systemUTC(),
+                null,
+                new DefaultSkillCandidateReviewService(candidateStore));
+        SkillExtractionJobMgmtController controller = new SkillExtractionJobMgmtController(
+                extractionService,
+                resolverProvider(resolver),
+                jobServiceProvider(jobService));
+        var job = controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
+                "attachment", "42", "doc-1", "ALL_CHUNKS", null)).getBody().getData();
+
+        var response = controller.getRagExtractionJobCandidates(
+                job.jobId(), PageRequest.of(0, 100), 0, 1000).getBody().getData();
+
+        assertEquals(1, response.getTotalElements());
+        assertEquals("Spring Boot", response.getContent().get(0).term());
+        assertEquals("RAG_CHUNK", response.getContent().get(0).sourceType());
     }
 
     @Test

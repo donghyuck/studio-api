@@ -13,11 +13,16 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
 import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
+import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
 import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
@@ -189,6 +194,24 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     public List<SkillRagExtractionJobItem> listItems(String jobId, int offset, int limit) {
         getJob(jobId);
         return store.listItems(required(jobId, "jobId"), Math.max(0, offset), boundedItemLimit(limit));
+    }
+
+    @Override
+    public Page<SkillCandidateView> listCandidates(String jobId, Pageable pageable) {
+        String normalizedJobId = required(jobId, "jobId");
+        getJob(normalizedJobId);
+        if (candidateReviewService == null) {
+            return Page.empty(pageable);
+        }
+        Set<String> sourceChunkIds = store.listItemsByStatus(
+                normalizedJobId, SkillRagExtractionItemStatus.SUCCEEDED, settings.maxChunks()).stream()
+                .map(SkillRagExtractionJobItem::sourceChunkId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (sourceChunkIds.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        return candidateReviewService.searchBySourceChunkIds(sourceChunkIds, pageable);
     }
 
     @Override

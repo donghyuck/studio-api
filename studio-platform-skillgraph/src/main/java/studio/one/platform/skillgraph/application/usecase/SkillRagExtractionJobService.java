@@ -2,6 +2,10 @@ package studio.one.platform.skillgraph.application.usecase;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
 
@@ -35,6 +39,8 @@ public interface SkillRagExtractionJobService {
             int limit);
 
     List<SkillRagExtractionJobItem> listItems(String jobId, int offset, int limit);
+
+    Page<SkillCandidateView> listCandidates(String jobId, Pageable pageable);
 
     SkillRagExtractionJob retryFailed(String jobId);
 }

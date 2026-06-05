@@ -1,6 +1,7 @@
 package studio.one.platform.skillgraph.application.usecase;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -24,6 +25,8 @@ public interface SkillCandidateReviewService {
             String sourceType,
             String sourceId,
             Pageable pageable);
+
+    Page<SkillCandidateView> searchBySourceChunkIds(Set<String> sourceChunkIds, Pageable pageable);
 
     SkillCandidateView get(String candidateId);
 

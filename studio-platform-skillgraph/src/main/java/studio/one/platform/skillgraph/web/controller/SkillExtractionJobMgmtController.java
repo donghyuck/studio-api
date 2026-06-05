@@ -11,6 +11,11 @@ import java.util.Optional;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
@@ -211,6 +217,18 @@ public class SkillExtractionJobMgmtController {
                 ragExtractionJobService().listItems(jobId, safeOffset, safeLimit + 1))));
     }
 
+    @GetMapping("/{jobId}/candidates")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<Page<SkillCandidateView>>> getRagExtractionJobCandidates(
+            @PathVariable String jobId,
+            @PageableDefault(size = 100, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer limit) {
+        getJobOrNotFound(jobId);
+        Pageable bounded = candidatePageable(pageable, offset, limit);
+        return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().listCandidates(jobId, bounded)));
+    }
+
     @PostMapping("/{jobId}/retry-failed")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> retryFailedRagExtractionJob(
@@ -272,6 +290,17 @@ public class SkillExtractionJobMgmtController {
                 failed,
                 extractedCount,
                 items);
+    }
+
+    private Pageable candidatePageable(Pageable pageable, Integer offset, Integer limit) {
+        int size = limit == null ? pageable.getPageSize() : limit;
+        size = Math.max(1, Math.min(size, 1000));
+        long requestedOffset = offset == null ? pageable.getOffset() : Math.max(0, offset);
+        int page = Math.toIntExact(requestedOffset / size);
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort()
+                : Sort.by(Sort.Direction.DESC, "createdAt");
+        return PageRequest.of(page, size, sort);
     }
 
     private SkillRagBatchExtractionResponse withMissingChunks(

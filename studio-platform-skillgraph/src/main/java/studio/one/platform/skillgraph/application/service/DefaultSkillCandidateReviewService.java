@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -131,6 +132,11 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
                 .searchCandidates(status, normalizeQuery(q), normalizeSource(sourceType), normalizeSource(sourceId),
                         pageable)
                 .map(this::toView);
+    }
+
+    @Override
+    public Page<SkillCandidateView> searchBySourceChunkIds(Set<String> sourceChunkIds, Pageable pageable) {
+        return store.searchCandidatesBySourceChunkIds(sourceChunkIds, pageable).map(this::toView);
     }
 
     @Override
