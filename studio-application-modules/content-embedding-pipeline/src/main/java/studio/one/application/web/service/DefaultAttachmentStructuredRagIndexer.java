@@ -17,6 +17,7 @@ import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Component;
@@ -57,8 +58,7 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 })
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
-    private static final int INDEX_UPSERT_BATCH_SIZE = 10;
-    private static final int EMBEDDING_BATCH_SIZE = 10;
+    public static final int DEFAULT_INDEX_UPSERT_BATCH_SIZE = 10;
     private static final int EMBEDDING_MAX_ATTEMPTS = 3;
     private static final long EMBEDDING_RETRY_BACKOFF_MS = 1_000L;
 
@@ -68,6 +68,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private final ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagChunkStageStore> chunkStageStoreProvider;
+    private final int indexUpsertBatchSize;
     private final ThreadLocal<AttachmentRagIndexDiagnostics> latestDiagnostics = new ThreadLocal<>();
 
     public DefaultAttachmentStructuredRagIndexer(
@@ -84,9 +85,10 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
-            ObjectProvider<VectorStorePort> vectorStoreProvider) {
+            ObjectProvider<VectorStorePort> vectorStoreProvider,
+            @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
         this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
-                embeddingProfileResolverProvider, vectorStoreProvider, null);
+                embeddingProfileResolverProvider, vectorStoreProvider, null, indexUpsertBatchSize);
     }
 
     public DefaultAttachmentStructuredRagIndexer(
@@ -96,12 +98,26 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
             ObjectProvider<VectorStorePort> vectorStoreProvider,
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider) {
+        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
+                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider,
+                DEFAULT_INDEX_UPSERT_BATCH_SIZE);
+    }
+
+    public DefaultAttachmentStructuredRagIndexer(
+            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            int indexUpsertBatchSize) {
         this.normalizedDocumentAdapterProvider = normalizedDocumentAdapterProvider;
         this.chunkingOrchestratorProvider = chunkingOrchestratorProvider;
         this.embeddingPortProvider = embeddingPortProvider;
         this.embeddingProfileResolverProvider = embeddingProfileResolverProvider;
         this.vectorStoreProvider = vectorStoreProvider;
         this.chunkStageStoreProvider = chunkStageStoreProvider;
+        this.indexUpsertBatchSize = Math.max(1, indexUpsertBatchSize);
     }
 
     @Override
@@ -174,7 +190,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
 
         int vectorCount;
-        if (!restoredFromStage && chunks.size() <= INDEX_UPSERT_BATCH_SIZE) {
+        if (!restoredFromStage && chunks.size() <= indexUpsertBatchSize) {
             List<VectorRecord> records = embedRecords(
                     documentId,
                     objectType,
@@ -289,7 +305,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             vectorStore.deleteByObject(objectType, objectId);
         }
         progress.onStep(RagIndexJobStep.EMBEDDING);
-        List<VectorRecord> batch = new ArrayList<>(Math.min(INDEX_UPSERT_BATCH_SIZE, chunks.size()));
+        List<VectorRecord> batch = new ArrayList<>(Math.min(indexUpsertBatchSize, chunks.size()));
         int embedded = 0;
         int indexed = completedChunkIndexes.size();
         for (int index = 0; index < chunks.size();) {
@@ -314,7 +330,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 batch.add(record);
                 embedded++;
                 progress.onEmbeddedCount(embedded);
-                if (batch.size() >= INDEX_UPSERT_BATCH_SIZE) {
+                if (batch.size() >= indexUpsertBatchSize) {
                     progress.onStep(RagIndexJobStep.INDEXING);
                     upsertBatch(vectorStore, batch, indexed, progress);
                     indexed += batch.size();
@@ -345,7 +361,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             vectorStore.upsertAll(List.copyOf(batch));
         } catch (RuntimeException ex) {
             String detail = "chunkRange=%d-%d, batchSize=%d, configuredBatchSize=%d, error=%s"
-                    .formatted(fromChunkIndex, toChunkIndex, batch.size(), INDEX_UPSERT_BATCH_SIZE, ex.getMessage());
+                    .formatted(fromChunkIndex, toChunkIndex, batch.size(), indexUpsertBatchSize, ex.getMessage());
             progress.onError(
                     RagIndexJobStep.INDEXING,
                     RagIndexJobLogCode.VECTOR_UPSERT_FAILED,
@@ -375,9 +391,9 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             List<Chunk> chunks,
             int startIndex,
             Set<Integer> completedChunkIndexes) {
-        List<PendingChunk> batch = new ArrayList<>(Math.min(EMBEDDING_BATCH_SIZE, chunks.size() - startIndex));
+        List<PendingChunk> batch = new ArrayList<>(Math.min(indexUpsertBatchSize, chunks.size() - startIndex));
         ResolvedRagEmbedding firstEmbedding = null;
-        for (int index = startIndex; index < chunks.size() && batch.size() < EMBEDDING_BATCH_SIZE; index++) {
+        for (int index = startIndex; index < chunks.size() && batch.size() < indexUpsertBatchSize; index++) {
             Chunk chunk = chunks.get(index);
             if (completedChunkIndexes.contains(chunkIndex(chunk))) {
                 break;
