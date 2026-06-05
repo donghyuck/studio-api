@@ -356,11 +356,9 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                             extracted,
                             null,
                             clock.instant()));
+                    renewLeaseOrStop(jobId);
                 }
                 store.findJob(jobId).ifPresent(jobNotifier::notifyJob);
-                if (!store.renewLease(jobId, leaseOwner, clock.instant(), settings.leaseDuration())) {
-                    throw new IllegalStateException("RAG extraction job lease was lost");
-                }
                 if (fetched.size() < settings.batchSize()) {
                     break;
                 }
@@ -373,10 +371,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             if (status == SkillRagExtractionJobStatus.COMPLETED && completed.generateEmbeddings()) {
                 startCandidateEmbedding(completed);
             }
+        } catch (LeaseLostException ex) {
+            log.info("SkillGraph RAG extraction worker stopped after lease loss: {}", jobId);
         } catch (RuntimeException ex) {
             log.warn("SkillGraph RAG extraction job failed: {}", jobId, ex);
             saveJobAndNotify(job.withProgress(SkillRagExtractionJobStatus.FAILED, total, processed, succeeded, failed,
-                    extracted, "RAG extraction job failed", clock.instant()));
+                    extracted, jobFailureMessage(ex), clock.instant()));
+        }
+    }
+
+    private void renewLeaseOrStop(String jobId) {
+        if (!store.renewLease(jobId, leaseOwner, clock.instant(), settings.leaseDuration())) {
+            throw new LeaseLostException();
         }
     }
 
@@ -564,6 +570,17 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             return ex.getMessage();
         }
         return "Skill extraction failed";
+    }
+
+    private String jobFailureMessage(RuntimeException ex) {
+        String message = normalize(ex.getMessage());
+        if (message == null) {
+            return "RAG extraction job failed";
+        }
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
+    }
+
+    private static final class LeaseLostException extends RuntimeException {
     }
 
     private String required(String value, String field) {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,6 +53,33 @@ class DefaultSkillRagExtractionJobServiceTest {
         assertEquals(3, job.processedChunks());
         assertEquals(3, job.succeededChunks());
         assertEquals(List.of(0, 2), resolver.offsets);
+    }
+
+    @Test
+    void doesNotMarkJobFailedWhenWorkerLosesLease() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore() {
+            @Override
+            public synchronized boolean renewLease(
+                    String jobId,
+                    String owner,
+                    Instant now,
+                    Duration leaseDuration) {
+                return false;
+            }
+        };
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                new PagingResolver(List.of(chunk("doc-1", "chunk-1", "Spring Boot"))),
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(20, 10, 1_000_000));
+
+        var submitted = service.submitAllChunks("attachment", "42", "doc-1", null);
+        var job = store.findJob(submitted.jobId()).orElseThrow();
+
+        assertEquals(SkillRagExtractionJobStatus.RUNNING, job.status());
+        assertEquals(1, job.processedChunks());
+        assertNull(job.error());
     }
 
     @Test
