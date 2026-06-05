@@ -15,6 +15,7 @@ public record SkillRagExtractionJob(
         int failedChunks,
         int extractedCount,
         String error,
+        boolean excludeExtracted,
         boolean generateEmbeddings,
         String embeddingProvider,
         String embeddingModel,
@@ -40,14 +41,15 @@ public record SkillRagExtractionJob(
             Instant createdAt,
             Instant updatedAt) {
         this(jobId, objectType, objectId, documentId, status, requestedChunks, totalChunks, processedChunks,
-                succeededChunks, failedChunks, extractedCount, error, false, null, null, null, null, null, createdAt,
-                updatedAt);
+                succeededChunks, failedChunks, extractedCount, error, false, false, null, null, null, null, null,
+                createdAt, updatedAt);
     }
 
     public SkillRagExtractionJob withStatus(SkillRagExtractionJobStatus status, String error, Instant now) {
         return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, status, requestedChunks,
-                totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, generateEmbeddings,
-                embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId, embeddingStatus, createdAt, now);
+                totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
+                embeddingStatus, createdAt, now);
     }
 
     public SkillRagExtractionJob withProgress(
@@ -60,8 +62,9 @@ public record SkillRagExtractionJob(
             String error,
             Instant now) {
         return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, status, requestedChunks,
-                totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, generateEmbeddings,
-                embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId, embeddingStatus, createdAt, now);
+                totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
+                embeddingStatus, createdAt, now);
     }
 
     public SkillRagExtractionJob withEmbeddingJob(
@@ -71,7 +74,8 @@ public record SkillRagExtractionJob(
             String error,
             Instant now) {
         return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, status, requestedChunks,
-                totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, generateEmbeddings,
-                embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId, embeddingStatus, createdAt, now);
+                totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
+                embeddingStatus, createdAt, now);
     }
 }

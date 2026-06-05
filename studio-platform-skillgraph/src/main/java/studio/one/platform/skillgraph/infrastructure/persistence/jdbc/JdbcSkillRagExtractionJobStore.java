@@ -40,6 +40,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     failed_chunks = :failedChunks,
                     extracted_count = :extractedCount,
                     error_message = :error,
+                    exclude_extracted = :excludeExtracted,
                     generate_embeddings = :generateEmbeddings,
                     embedding_provider = :embeddingProvider,
                     embedding_model = :embeddingModel,
@@ -54,13 +55,13 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     INSERT INTO tb_skill_rag_extraction_job
                         (job_id, object_type, object_id, document_id, status, requested_chunks, total_chunks,
                          processed_chunks, succeeded_chunks, failed_chunks, extracted_count, error_message,
-                         generate_embeddings, embedding_provider, embedding_model, embedding_dimension,
+                         exclude_extracted, generate_embeddings, embedding_provider, embedding_model, embedding_dimension,
                          embedding_job_id, embedding_status,
                          created_at, updated_at)
                     VALUES
                         (:jobId, :objectType, :objectId, :documentId, :status, :requestedChunks, :totalChunks,
                          :processedChunks, :succeededChunks, :failedChunks, :extractedCount, :error,
-                         :generateEmbeddings, :embeddingProvider, :embeddingModel, :embeddingDimension,
+                         :excludeExtracted, :generateEmbeddings, :embeddingProvider, :embeddingModel, :embeddingDimension,
                          :embeddingJobId, :embeddingStatus,
                          :createdAt, :updatedAt)
                     """, jobParams(job));
@@ -299,6 +300,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("failedChunks", job.failedChunks())
                 .addValue("extractedCount", job.extractedCount())
                 .addValue("error", job.error())
+                .addValue("excludeExtracted", job.excludeExtracted())
                 .addValue("generateEmbeddings", job.generateEmbeddings())
                 .addValue("embeddingProvider", job.embeddingProvider())
                 .addValue("embeddingModel", job.embeddingModel())
@@ -337,6 +339,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 rs.getInt("failed_chunks"),
                 rs.getInt("extracted_count"),
                 rs.getString("error_message"),
+                bool(rs, "exclude_extracted"),
                 bool(rs, "generate_embeddings"),
                 text(rs, "embedding_provider"),
                 text(rs, "embedding_model"),

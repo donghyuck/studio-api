@@ -165,6 +165,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 0,
                 0,
                 null,
+                excludeExtracted,
                 generateEmbeddings,
                 normalize(embeddingProvider),
                 normalize(embeddingModel),
@@ -175,8 +176,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 now);
         saveJobAndNotify(job);
         try {
-            executor.execute(() -> processAllChunks(job.jobId(), Set.of(), excludeExtracted,
-                    generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension));
+            executor.execute(() -> processAllChunks(job.jobId(), Set.of()));
             return job;
         } catch (RejectedExecutionException ex) {
             return saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.FAILED,
@@ -261,7 +261,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         SkillRagExtractionJob running = saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
                 clock.instant()));
         try {
-            executor.execute(() -> processAllChunks(job.jobId(), chunkIds, false, false, null, null, null));
+            executor.execute(() -> processAllChunks(job.jobId(), chunkIds));
             return running;
         } catch (RejectedExecutionException ex) {
             return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
@@ -271,13 +271,9 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
 
     private void processAllChunks(
             String jobId,
-            Set<String> retryChunkIds,
-            boolean excludeExtracted,
-            boolean generateEmbeddings,
-            String embeddingProvider,
-            String embeddingModel,
-            Integer embeddingDimension) {
+            Set<String> retryChunkIds) {
         SkillRagExtractionJob job = getJob(jobId);
+        boolean excludeExtracted = job.excludeExtracted();
         String ragObjectType = normalizeRagObjectType(job.objectType());
         Set<String> alreadyExtracted = excludeExtracted ? successfulChunkIds(job) : Set.of();
         int offset = 0;
@@ -382,11 +378,16 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     private Set<String> successfulChunkIds(SkillRagExtractionJob job) {
-        return store.findSuccessfulChunkIds(
+        Set<String> chunkIds = new HashSet<>(store.findSuccessfulChunkIds(
                 job.objectType(),
                 job.objectId(),
                 job.documentId(),
-                job.jobId());
+                job.jobId()));
+        store.listItemsByStatus(job.jobId(), SkillRagExtractionItemStatus.SUCCEEDED, settings.maxChunks()).stream()
+                .map(SkillRagExtractionJobItem::chunkId)
+                .filter(Objects::nonNull)
+                .forEach(chunkIds::add);
+        return chunkIds;
     }
 
     private SkillRagExtractionJobItem extract(SkillRagExtractionJob job, ResolvedRagChunk chunk) {

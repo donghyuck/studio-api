@@ -197,6 +197,70 @@ class DefaultSkillRagExtractionJobServiceTest {
     }
 
     @Test
+    void retryOrphanedJobPreservesOptionsAndSkipsSuccessfulChunks() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot"),
+                chunk("doc-1", "chunk-2", "Kubernetes"),
+                chunk("doc-1", "chunk-3", "PostgreSQL")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+        Instant now = Instant.now();
+        store.saveJob(new SkillRagExtractionJob(
+                "job-orphaned",
+                "attachment",
+                "42",
+                "doc-1",
+                SkillRagExtractionJobStatus.FAILED,
+                10,
+                3,
+                1,
+                1,
+                0,
+                1,
+                "worker interrupted",
+                true,
+                true,
+                "kure",
+                "nlpai-lab/KURE-v1",
+                1024,
+                null,
+                null,
+                now,
+                now));
+        store.saveItem(new SkillRagExtractionJobItem(
+                "job-orphaned",
+                "chunk-1",
+                "doc-1",
+                "doc-1",
+                "source-chunk-1",
+                1,
+                SkillRagExtractionItemStatus.SUCCEEDED,
+                null,
+                now,
+                now));
+
+        var retried = service.retryFailed("job-orphaned");
+        var completed = service.getJob(retried.jobId());
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, completed.status());
+        assertEquals(true, completed.excludeExtracted());
+        assertEquals(true, completed.generateEmbeddings());
+        assertEquals("kure", completed.embeddingProvider());
+        assertEquals(1024, completed.embeddingDimension());
+        assertEquals(2, completed.totalChunks());
+        assertEquals(2, completed.processedChunks());
+        assertEquals(List.of("chunk-1", "chunk-2", "chunk-3"),
+                service.listItems(completed.jobId(), 0, 10).stream()
+                        .map(SkillRagExtractionJobItem::chunkId)
+                        .toList());
+    }
+
+    @Test
     void recordsPartialJobWhenChunkFails() {
         InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
         DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
