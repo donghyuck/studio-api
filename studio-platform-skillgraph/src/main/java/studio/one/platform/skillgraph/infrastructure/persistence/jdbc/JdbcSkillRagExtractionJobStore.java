@@ -261,9 +261,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                       AND source.chunk_id IS NOT NULL
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource()
-                .addValue("objectType", objectType)
-                .addValue("objectId", objectId)
-                .addValue("documentId", documentId)
                 .addValue("excludedJobId", excludedJobId);
         if (documentId != null) {
             sql.append("      AND source.source_id = :documentId\n");
@@ -276,10 +273,23 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     FROM tb_skill_rag_extraction_job_item item
                     JOIN tb_skill_rag_extraction_job job ON job.job_id = item.job_id
                     WHERE item.status = 'SUCCEEDED'
-                      AND (:excludedJobId IS NULL OR item.job_id <> :excludedJobId)
-                      AND (:objectType IS NULL OR job.object_type = :objectType)
-                      AND (:objectId IS NULL OR job.object_id = :objectId)
-                      AND (:documentId IS NULL OR item.document_id = :documentId)
+                """);
+        if (excludedJobId != null) {
+            sql.append("      AND item.job_id <> :excludedJobId\n");
+        }
+        if (objectType != null) {
+            sql.append("      AND job.object_type = :objectType\n");
+            params.addValue("objectType", objectType);
+        }
+        if (objectId != null) {
+            sql.append("      AND job.object_id = :objectId\n");
+            params.addValue("objectId", objectId);
+        }
+        if (documentId != null) {
+            sql.append("      AND item.document_id = :documentId\n");
+            params.addValue("documentId", documentId);
+        }
+        sql.append("""
                 ) successful
                 WHERE chunk_id IS NOT NULL
                 """);
