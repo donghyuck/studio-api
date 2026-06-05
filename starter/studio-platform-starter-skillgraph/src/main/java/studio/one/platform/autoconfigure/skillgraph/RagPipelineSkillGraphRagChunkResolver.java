@@ -66,6 +66,7 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
         String documentId = text(firstPresent(metadata, VectorRecord.KEY_DOCUMENT_ID, "documentId", "sourceDocumentId"));
         documentId = documentId == null ? result.documentId() : documentId;
         String objectId = text(firstPresent(metadata, VectorRecord.KEY_OBJECT_ID, "objectId"));
+        objectId = objectId == null ? result.documentId() : objectId;
         String chunkId = text(firstPresent(metadata, VectorRecord.KEY_CHUNK_ID, "chunkId"));
         chunkId = chunkId == null ? documentId : chunkId;
         Integer tokenCount = integer(firstPresent(metadata, VectorRecord.KEY_CHUNK_TOKEN_COUNT, "tokenCount"));
