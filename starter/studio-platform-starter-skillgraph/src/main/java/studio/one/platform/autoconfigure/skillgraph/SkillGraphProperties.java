@@ -1,5 +1,7 @@
 package studio.one.platform.autoconfigure.skillgraph;
 
+import java.time.Duration;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import lombok.Getter;
@@ -52,6 +54,9 @@ public class SkillGraphProperties {
         private int queueCapacity = 100;
         private int maxChunks = 5000;
         private int maxTextBytesPerBatch = 1_000_000;
+        private Duration leaseDuration = Duration.ofMinutes(2);
+        private Duration recoveryInterval = Duration.ofSeconds(30);
+        private int maxAutoRetries = 3;
     }
 
     @Getter

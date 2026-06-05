@@ -7,6 +7,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -22,6 +24,7 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
 
     private final Map<String, SkillRagExtractionJob> jobs = new ConcurrentHashMap<>();
     private final Map<String, SkillRagExtractionJobItem> items = new ConcurrentHashMap<>();
+    private final Map<String, Lease> leases = new ConcurrentHashMap<>();
 
     @Override
     public SkillRagExtractionJob saveJob(SkillRagExtractionJob job) {
@@ -121,5 +124,59 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
                 .filter(item -> item.status() == SkillRagExtractionItemStatus.SUCCEEDED)
                 .map(SkillRagExtractionJobItem::chunkId)
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public synchronized boolean acquireLease(
+            String jobId, String owner, Instant now, Duration leaseDuration, int maxAutoRetries) {
+        SkillRagExtractionJob job = jobs.get(jobId);
+        if (job == null) {
+            return false;
+        }
+        Lease lease = leases.get(jobId);
+        if (lease != null && lease.expiresAt().isAfter(now) && !lease.owner().equals(owner)) {
+            return false;
+        }
+        int retries = lease == null ? 0 : lease.retryCount();
+        if (retries >= Math.max(1, maxAutoRetries)) {
+            return false;
+        }
+        leases.put(jobId, new Lease(owner, now.plus(leaseDuration), retries + 1));
+        return true;
+    }
+
+    @Override
+    public synchronized boolean renewLease(String jobId, String owner, Instant now, Duration leaseDuration) {
+        Lease lease = leases.get(jobId);
+        if (lease == null || !lease.owner().equals(owner)) {
+            return false;
+        }
+        leases.put(jobId, new Lease(owner, now.plus(leaseDuration), lease.retryCount()));
+        return true;
+    }
+
+    @Override
+    public synchronized void releaseLease(String jobId, String owner) {
+        Lease lease = leases.get(jobId);
+        if (lease != null && lease.owner().equals(owner)) {
+            leases.remove(jobId);
+        }
+    }
+
+    @Override
+    public List<String> findRecoverableJobIds(Instant now, int limit) {
+        return jobs.values().stream()
+                .filter(job -> job.status() == SkillRagExtractionJobStatus.READY
+                        || job.status() == SkillRagExtractionJobStatus.RUNNING)
+                .filter(job -> {
+                    Lease lease = leases.get(job.jobId());
+                    return lease == null || lease.expiresAt().isBefore(now);
+                })
+                .limit(Math.max(1, limit))
+                .map(SkillRagExtractionJob::jobId)
+                .toList();
+    }
+
+    private record Lease(String owner, Instant expiresAt, int retryCount) {
     }
 }

@@ -50,4 +50,6 @@ public interface SkillRagExtractionJobService {
     Page<SkillCandidateView> listCandidates(String jobId, Pageable pageable);
 
     SkillRagExtractionJob retryFailed(String jobId);
+
+    int recoverStaleJobs();
 }

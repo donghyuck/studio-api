@@ -4,6 +4,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -284,6 +285,71 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 """);
         return template.queryForList(sql.toString(), params, String.class).stream()
                 .collect(Collectors.toSet());
+    }
+
+    @Override
+    public boolean acquireLease(String jobId, String owner, Instant now, Duration leaseDuration, int maxAutoRetries) {
+        return template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_owner = :owner,
+                    lease_expires_at = :expiresAt,
+                    heartbeat_at = :now,
+                    retry_count = retry_count + 1,
+                    status = 'RUNNING',
+                    updated_at = :now
+                WHERE job_id = :jobId
+                  AND status IN ('READY', 'RUNNING', 'FAILED')
+                  AND (lease_expires_at IS NULL OR lease_expires_at < :now OR lease_owner = :owner)
+                  AND retry_count < :maxAutoRetries
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("owner", owner)
+                .addValue("now", Timestamp.from(now))
+                .addValue("expiresAt", Timestamp.from(now.plus(leaseDuration)))
+                .addValue("maxAutoRetries", Math.max(1, maxAutoRetries))) == 1;
+    }
+
+    @Override
+    public boolean renewLease(String jobId, String owner, Instant now, Duration leaseDuration) {
+        return template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_expires_at = :expiresAt,
+                    heartbeat_at = :now,
+                    updated_at = :now
+                WHERE job_id = :jobId
+                  AND lease_owner = :owner
+                  AND status = 'RUNNING'
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("owner", owner)
+                .addValue("now", Timestamp.from(now))
+                .addValue("expiresAt", Timestamp.from(now.plus(leaseDuration)))) == 1;
+    }
+
+    @Override
+    public void releaseLease(String jobId, String owner) {
+        template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_owner = NULL,
+                    lease_expires_at = NULL
+                WHERE job_id = :jobId AND lease_owner = :owner
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("owner", owner));
+    }
+
+    @Override
+    public List<String> findRecoverableJobIds(Instant now, int limit) {
+        return template.queryForList("""
+                SELECT job_id
+                FROM tb_skill_rag_extraction_job
+                WHERE status IN ('READY', 'RUNNING')
+                  AND (lease_expires_at IS NULL OR lease_expires_at < :now)
+                ORDER BY updated_at, created_at
+                LIMIT :limit
+                """, new MapSqlParameterSource()
+                .addValue("now", Timestamp.from(now))
+                .addValue("limit", Math.max(1, limit)), String.class);
     }
 
     private MapSqlParameterSource jobParams(SkillRagExtractionJob job) {

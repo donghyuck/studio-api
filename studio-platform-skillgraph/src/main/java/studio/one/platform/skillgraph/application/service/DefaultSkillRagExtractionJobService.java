@@ -58,6 +58,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private final ObjectTypeRuntimeService objectTypeRuntimeService;
     private final SkillCandidateReviewService candidateReviewService;
     private final SkillRagExtractionJobNotifier jobNotifier;
+    private final String leaseOwner = UUID.randomUUID().toString();
 
     public DefaultSkillRagExtractionJobService(
             SkillExtractionService extractionService,
@@ -176,7 +177,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 now);
         saveJobAndNotify(job);
         try {
-            executor.execute(() -> processAllChunks(job.jobId(), Set.of()));
+            submitLeased(job.jobId(), Set.of(), false);
             return job;
         } catch (RejectedExecutionException ex) {
             return saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.FAILED,
@@ -261,7 +262,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         SkillRagExtractionJob running = saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
                 clock.instant()));
         try {
-            executor.execute(() -> processAllChunks(job.jobId(), chunkIds));
+            submitLeased(job.jobId(), chunkIds, true);
             return running;
         } catch (RejectedExecutionException ex) {
             return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
@@ -269,13 +270,47 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         }
     }
 
+    @Override
+    public int recoverStaleJobs() {
+        int recovered = 0;
+        for (String jobId : store.findRecoverableJobIds(clock.instant(), settings.maxChunks())) {
+            try {
+                submitLeased(jobId, Set.of(), true);
+                recovered++;
+            } catch (RejectedExecutionException ex) {
+                break;
+            }
+        }
+        return recovered;
+    }
+
+    private void submitLeased(String jobId, Set<String> retryChunkIds, boolean resume) {
+        Instant now = clock.instant();
+        if (!store.acquireLease(jobId, leaseOwner, now, settings.leaseDuration(), settings.maxAutoRetries())) {
+            return;
+        }
+        try {
+            executor.execute(() -> {
+                try {
+                    processAllChunks(jobId, retryChunkIds, resume);
+                } finally {
+                    store.releaseLease(jobId, leaseOwner);
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            store.releaseLease(jobId, leaseOwner);
+            throw ex;
+        }
+    }
+
     private void processAllChunks(
             String jobId,
-            Set<String> retryChunkIds) {
+            Set<String> retryChunkIds,
+            boolean resume) {
         SkillRagExtractionJob job = getJob(jobId);
         boolean excludeExtracted = job.excludeExtracted();
         String ragObjectType = normalizeRagObjectType(job.objectType());
-        Set<String> alreadyExtracted = excludeExtracted ? successfulChunkIds(job) : Set.of();
+        Set<String> alreadyExtracted = excludeExtracted || resume ? successfulChunkIds(job) : Set.of();
         int offset = 0;
         int total = retryChunkIds.isEmpty()
                 ? effectiveTargetChunks(ragObjectType, job.objectId(), job.requestedChunks(), alreadyExtracted)
@@ -323,11 +358,14 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                             clock.instant()));
                 }
                 store.findJob(jobId).ifPresent(jobNotifier::notifyJob);
+                if (!store.renewLease(jobId, leaseOwner, clock.instant(), settings.leaseDuration())) {
+                    throw new IllegalStateException("RAG extraction job lease was lost");
+                }
                 if (fetched.size() < settings.batchSize()) {
                     break;
                 }
             }
-            SkillRagExtractionJobStatus status = total == 0 && excludeExtracted
+            SkillRagExtractionJobStatus status = total == 0 && (excludeExtracted || resume)
                     ? SkillRagExtractionJobStatus.COMPLETED
                     : finalStatus(processed, succeeded, failed);
             SkillRagExtractionJob completed = saveJobAndNotify(job.withProgress(status, total, processed, succeeded,

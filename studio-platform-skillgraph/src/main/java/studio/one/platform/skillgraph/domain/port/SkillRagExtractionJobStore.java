@@ -3,6 +3,8 @@ package studio.one.platform.skillgraph.domain.port;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -49,4 +51,12 @@ public interface SkillRagExtractionJobStore {
             String objectId,
             String documentId,
             String excludedJobId);
+
+    boolean acquireLease(String jobId, String owner, Instant now, Duration leaseDuration, int maxAutoRetries);
+
+    boolean renewLease(String jobId, String owner, Instant now, Duration leaseDuration);
+
+    void releaseLease(String jobId, String owner);
+
+    List<String> findRecoverableJobIds(Instant now, int limit);
 }
