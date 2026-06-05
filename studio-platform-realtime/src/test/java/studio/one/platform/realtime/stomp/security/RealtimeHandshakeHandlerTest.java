@@ -1,7 +1,6 @@
 package studio.one.platform.realtime.stomp.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.web.socket.WebSocketHandler;
-import org.springframework.web.socket.server.HandshakeFailureException;
 
 import studio.one.base.security.jwt.JwtTokenProvider;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
@@ -51,13 +49,13 @@ class RealtimeHandshakeHandlerTest {
     }
 
     @Test
-    void rejectsConnectionWithoutToken() {
-        assertThatThrownBy(() -> handler(mock(JwtTokenProvider.class)).determineUser(
+    void allowsHandshakeWithoutTokenForStompConnectAuthentication() {
+        Principal principal = handler(mock(JwtTokenProvider.class)).determineUser(
                 request("http://localhost/ws", new HttpHeaders()),
                 mock(WebSocketHandler.class),
-                new HashMap<>()))
-                .isInstanceOf(HandshakeFailureException.class)
-                .hasMessage("Valid JWT bearer token is required");
+                new HashMap<>());
+
+        assertThat(principal).isNull();
     }
 
     private TestableRealtimeHandshakeHandler handler(JwtTokenProvider tokenProvider) {

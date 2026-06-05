@@ -17,7 +17,8 @@ import studio.one.base.security.jwt.JwtTokenProvider;
 
 /**
  * WebSocket Handshake 시 JWT를 통한 Principal 주입을 처리한다.
- * - jwtEnabled=true 이면 유효한 JWT가 필요하다.
+ * - jwtEnabled=true 이고 handshake에 JWT가 있으면 즉시 Principal을 생성한다.
+ * - JWT가 없으면 STOMP CONNECT 단계의 인증을 위해 handshake를 허용한다.
  * - jwtEnabled=false 일 때만 익명 Principal 허용 정책(rejectAnonymous)에 따른다.
  */
 @RequiredArgsConstructor
@@ -43,7 +44,10 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
         }
         try {
             String token = resolveToken(request);
-            if (token == null || !jwtTokenProvider.validateToken(token)) {
+            if (token == null) {
+                return super.determineUser(request, wsHandler, attributes);
+            }
+            if (!jwtTokenProvider.validateToken(token)) {
                 throw new HandshakeFailureException("Valid JWT bearer token is required");
             }
             String name = jwtTokenProvider.getUsername(token);
