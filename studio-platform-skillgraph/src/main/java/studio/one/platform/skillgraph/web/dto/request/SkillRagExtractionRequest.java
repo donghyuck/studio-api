@@ -12,6 +12,8 @@ public record SkillRagExtractionRequest(
         String objectId,
         @Size(max = 200)
         String documentId,
+        @Size(max = 500)
+        String q,
         String mode,
         @Size(max = 500)
         List<@NotBlank @Size(max = 200) String> chunkIds,
@@ -31,6 +33,6 @@ public record SkillRagExtractionRequest(
             String mode,
             List<String> chunkIds,
             Integer limit) {
-        this(objectType, objectId, documentId, mode, chunkIds, limit, null, null, null, null, null);
+        this(objectType, objectId, documentId, null, mode, chunkIds, limit, null, null, null, null, null);
     }
 }

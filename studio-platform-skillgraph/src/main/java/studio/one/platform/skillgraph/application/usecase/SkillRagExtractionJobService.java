@@ -28,6 +28,22 @@ public interface SkillRagExtractionJobService {
         return submitAllChunks(objectType, objectId, documentId, limit);
     }
 
+    default SkillRagExtractionJob submit(
+            String objectType,
+            String objectId,
+            String documentId,
+            String query,
+            List<String> chunkIds,
+            Integer limit,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension) {
+        return submitAllChunks(objectType, objectId, documentId, limit, excludeExtracted, generateEmbeddings,
+                embeddingProvider, embeddingModel, embeddingDimension);
+    }
+
     SkillRagExtractionJob getJob(String jobId);
 
     List<SkillRagExtractionJob> listJobs(

@@ -1,12 +1,16 @@
 package studio.one.platform.skillgraph.application.result;
 
 import java.time.Instant;
+import java.util.List;
 
 public record SkillRagExtractionJob(
         String jobId,
         String objectType,
         String objectId,
         String documentId,
+        String query,
+        String extractionMode,
+        List<String> selectedChunkIds,
         SkillRagExtractionJobStatus status,
         int requestedChunks,
         int totalChunks,
@@ -25,6 +29,10 @@ public record SkillRagExtractionJob(
         Instant createdAt,
         Instant updatedAt) {
 
+    public SkillRagExtractionJob {
+        selectedChunkIds = selectedChunkIds == null ? List.of() : List.copyOf(selectedChunkIds);
+    }
+
     public SkillRagExtractionJob(
             String jobId,
             String objectType,
@@ -40,13 +48,43 @@ public record SkillRagExtractionJob(
             String error,
             Instant createdAt,
             Instant updatedAt) {
-        this(jobId, objectType, objectId, documentId, status, requestedChunks, totalChunks, processedChunks,
+        this(jobId, objectType, objectId, documentId, null, "ALL_CHUNKS", List.of(), status,
+                requestedChunks, totalChunks, processedChunks,
                 succeededChunks, failedChunks, extractedCount, error, false, false, null, null, null, null, null,
                 createdAt, updatedAt);
     }
 
+    public SkillRagExtractionJob(
+            String jobId,
+            String objectType,
+            String objectId,
+            String documentId,
+            SkillRagExtractionJobStatus status,
+            int requestedChunks,
+            int totalChunks,
+            int processedChunks,
+            int succeededChunks,
+            int failedChunks,
+            int extractedCount,
+            String error,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            String embeddingJobId,
+            String embeddingStatus,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(jobId, objectType, objectId, documentId, null, "ALL_CHUNKS", List.of(), status,
+                requestedChunks, totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error,
+                excludeExtracted, generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension,
+                embeddingJobId, embeddingStatus, createdAt, updatedAt);
+    }
+
     public SkillRagExtractionJob withStatus(SkillRagExtractionJobStatus status, String error, Instant now) {
-        return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, status, requestedChunks,
+        return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, query, extractionMode,
+                selectedChunkIds, status, requestedChunks,
                 totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
                 embeddingStatus, createdAt, now);
@@ -61,7 +99,8 @@ public record SkillRagExtractionJob(
             int extractedCount,
             String error,
             Instant now) {
-        return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, status, requestedChunks,
+        return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, query, extractionMode,
+                selectedChunkIds, status, requestedChunks,
                 totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
                 embeddingStatus, createdAt, now);
@@ -73,7 +112,8 @@ public record SkillRagExtractionJob(
             String embeddingStatus,
             String error,
             Instant now) {
-        return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, status, requestedChunks,
+        return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, query, extractionMode,
+                selectedChunkIds, status, requestedChunks,
                 totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
                 embeddingStatus, createdAt, now);

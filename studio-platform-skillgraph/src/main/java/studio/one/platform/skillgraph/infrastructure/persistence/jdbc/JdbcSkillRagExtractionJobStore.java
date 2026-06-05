@@ -48,6 +48,9 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     embedding_dimension = :embeddingDimension,
                     embedding_job_id = :embeddingJobId,
                     embedding_status = :embeddingStatus,
+                    query_text = :query,
+                    extraction_mode = :extractionMode,
+                    selected_chunk_ids = :selectedChunkIds,
                     updated_at = :updatedAt
                 WHERE job_id = :jobId
                 """, jobParams(job));
@@ -58,12 +61,14 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                          processed_chunks, succeeded_chunks, failed_chunks, extracted_count, error_message,
                          exclude_extracted, generate_embeddings, embedding_provider, embedding_model, embedding_dimension,
                          embedding_job_id, embedding_status,
+                         query_text, extraction_mode, selected_chunk_ids,
                          created_at, updated_at)
                     VALUES
                         (:jobId, :objectType, :objectId, :documentId, :status, :requestedChunks, :totalChunks,
                          :processedChunks, :succeededChunks, :failedChunks, :extractedCount, :error,
                          :excludeExtracted, :generateEmbeddings, :embeddingProvider, :embeddingModel, :embeddingDimension,
                          :embeddingJobId, :embeddingStatus,
+                         :query, :extractionMode, :selectedChunkIds,
                          :createdAt, :updatedAt)
                     """, jobParams(job));
         }
@@ -368,6 +373,9 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("objectType", job.objectType())
                 .addValue("objectId", job.objectId())
                 .addValue("documentId", job.documentId())
+                .addValue("query", job.query())
+                .addValue("extractionMode", job.extractionMode())
+                .addValue("selectedChunkIds", String.join("\n", job.selectedChunkIds()))
                 .addValue("status", job.status().name())
                 .addValue("requestedChunks", job.requestedChunks())
                 .addValue("totalChunks", job.totalChunks())
@@ -407,6 +415,9 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 rs.getString("object_type"),
                 rs.getString("object_id"),
                 rs.getString("document_id"),
+                text(rs, "query_text"),
+                Optional.ofNullable(text(rs, "extraction_mode")).orElse("ALL_CHUNKS"),
+                selectedChunkIds(rs),
                 SkillRagExtractionJobStatus.valueOf(rs.getString("status")),
                 rs.getInt("requested_chunks"),
                 rs.getInt("total_chunks"),
@@ -424,6 +435,11 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 text(rs, "embedding_status"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
+    }
+
+    private List<String> selectedChunkIds(ResultSet rs) throws SQLException {
+        String value = text(rs, "selected_chunk_ids");
+        return value == null ? List.of() : value.lines().filter(line -> !line.isBlank()).toList();
     }
 
     private SkillRagExtractionJobItem mapItem(ResultSet rs, int rowNum) throws SQLException {

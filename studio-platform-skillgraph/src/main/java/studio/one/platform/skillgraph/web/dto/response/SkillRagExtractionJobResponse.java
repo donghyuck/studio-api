@@ -1,6 +1,7 @@
 package studio.one.platform.skillgraph.web.dto.response;
 
 import java.time.Instant;
+import java.util.List;
 
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 
@@ -9,6 +10,9 @@ public record SkillRagExtractionJobResponse(
         String objectType,
         String objectId,
         String documentId,
+        String q,
+        String mode,
+        List<String> chunkIds,
         String status,
         int requestedChunks,
         int totalChunks,
@@ -33,6 +37,9 @@ public record SkillRagExtractionJobResponse(
                 job.objectType(),
                 job.objectId(),
                 job.documentId(),
+                job.query(),
+                job.extractionMode(),
+                job.selectedChunkIds(),
                 job.status().name(),
                 job.requestedChunks(),
                 job.totalChunks(),

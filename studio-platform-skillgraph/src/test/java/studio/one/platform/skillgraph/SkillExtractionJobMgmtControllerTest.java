@@ -43,7 +43,7 @@ class SkillExtractionJobMgmtControllerTest {
         var response = controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
                 "attachment", "42", "doc-1", "ALL_CHUNKS", null)).getBody().getData();
 
-        assertEquals("RUNNING", response.status());
+        assertEquals("COMPLETED", response.status());
         assertEquals(1000, response.requestedChunks());
         assertEquals("RAG_CHUNK", store.sourceChunks().get(0).sourceType());
         assertEquals("doc-1", store.sourceChunks().get(0).sourceId());
@@ -79,9 +79,11 @@ class SkillExtractionJobMgmtControllerTest {
                 "SELECTED_CHUNKS",
                 List.of("chunk-1"),
                 null)).getBody();
-        var response = (SkillRagBatchExtractionResponse) body.getData();
+        var response = (studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobResponse) body.getData();
 
-        assertEquals(1, response.succeededChunks());
+        assertEquals("SELECTED_CHUNKS", response.mode());
+        assertEquals(List.of("chunk-1"), response.chunkIds());
+        assertEquals("COMPLETED", response.status());
         assertEquals("chunk-1", store.sourceChunks().get(0).chunkId());
     }
 

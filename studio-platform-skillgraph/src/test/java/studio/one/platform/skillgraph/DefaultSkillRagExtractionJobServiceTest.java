@@ -107,6 +107,48 @@ class DefaultSkillRagExtractionJobServiceTest {
     }
 
     @Test
+    void processesSelectedChunksWithinQueryAndPreservesOptions() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "42", "chunk-1", "Spring Boot"),
+                chunk("doc-1", "42", "chunk-2", "Kubernetes"),
+                chunk("doc-2", "43", "chunk-3", "Spring Security")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+
+        var submitted = service.submit(
+                "attachment",
+                null,
+                null,
+                "spring",
+                List.of("chunk-1", "chunk-3"),
+                10,
+                true,
+                true,
+                "kure",
+                "nlpai-lab/KURE-v1",
+                1024);
+        var job = service.getJob(submitted.jobId());
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
+        assertEquals("spring", job.query());
+        assertEquals("SELECTED_CHUNKS", job.extractionMode());
+        assertEquals(List.of("chunk-1", "chunk-3"), job.selectedChunkIds());
+        assertEquals(true, job.excludeExtracted());
+        assertEquals(true, job.generateEmbeddings());
+        assertEquals("kure", job.embeddingProvider());
+        assertEquals(2, job.totalChunks());
+        assertEquals(List.of("chunk-1", "chunk-3"),
+                service.listItems(job.jobId(), 0, 10).stream()
+                        .map(SkillRagExtractionJobItem::chunkId)
+                        .toList());
+    }
+
+    @Test
     void excludesSuccessfulChunksFromActivePreviousJobs() {
         InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
         Instant now = Instant.now();
@@ -483,6 +525,36 @@ class DefaultSkillRagExtractionJobServiceTest {
             int from = Math.min(offset, chunks.size());
             int to = Math.min(from + limit, chunks.size());
             return chunks.subList(from, to);
+        }
+
+        @Override
+        public List<ResolvedRagChunk> listByObject(
+                String objectType,
+                String objectId,
+                String documentId,
+                String query,
+                int offset,
+                int limit) {
+            objectTypes.add(objectType);
+            objectIds.add(objectId);
+            offsets.add(offset);
+            List<ResolvedRagChunk> filtered = chunks.stream()
+                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
+                    .filter(chunk -> query == null
+                            || chunk.content().toLowerCase().contains(query.toLowerCase()))
+                    .toList();
+            int from = Math.min(offset, filtered.size());
+            int to = Math.min(from + limit, filtered.size());
+            return filtered.subList(from, to);
+        }
+
+        @Override
+        public long countByObject(String objectType, String objectId, String documentId, String query) {
+            return chunks.stream()
+                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
+                    .filter(chunk -> query == null
+                            || chunk.content().toLowerCase().contains(query.toLowerCase()))
+                    .count();
         }
     }
 

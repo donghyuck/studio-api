@@ -145,29 +145,34 @@ public class SkillExtractionJobMgmtController {
             @Valid @RequestBody SkillRagExtractionRequest request) {
         String mode = normalize(request.mode());
         if (mode == null || "ALL_CHUNKS".equalsIgnoreCase(mode)) {
-            return extractRagDocument(new SkillRagDocumentExtractionRequest(
-                    request.objectType(),
-                    request.objectId(),
-                    request.documentId(),
-                    "ALL_CHUNKS",
-                    request.limit(),
-                    request.excludeExtracted(),
-                    request.generateEmbeddings(),
-                    request.embeddingProvider(),
-                    request.embeddingModel(),
-                    request.embeddingDimension()));
+            return submitRagJob(request, List.of());
         }
         if ("SELECTED_CHUNKS".equalsIgnoreCase(mode)) {
             if (request.chunkIds() == null || request.chunkIds().isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "chunkIds are required for SELECTED_CHUNKS");
             }
-            return extractRagChunks(new SkillRagChunkExtractionRequest(
-                    request.objectType(),
-                    request.objectId(),
-                    request.documentId(),
-                    request.chunkIds()));
+            return submitRagJob(request, request.chunkIds());
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported RAG extraction mode");
+    }
+
+    private ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> submitRagJob(
+            SkillRagExtractionRequest request,
+            List<String> chunkIds) {
+        SkillRagExtractionJob job = ragExtractionJobService().submit(
+                request.objectType(),
+                request.objectId(),
+                request.documentId(),
+                request.q(),
+                chunkIds,
+                request.limit(),
+                Boolean.TRUE.equals(request.excludeExtracted()),
+                Boolean.TRUE.equals(request.generateEmbeddings()),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(job)));
     }
 
     @GetMapping
