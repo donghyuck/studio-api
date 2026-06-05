@@ -88,6 +88,31 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     @Test
+    void normalizesLegacyAttachmentWithoutRuntimeLookup() {
+        FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
+        ObjectTypeRuntimeService failingRuntimeService = new ObjectTypeRuntimeService() {
+            @Override
+            public ObjectTypeDefinition definition(int objectType) {
+                throw new AssertionError("legacy attachment must not resolve object type policy");
+            }
+
+            @Override
+            public ValidateUploadResult validateUpload(int objectType, ValidateUploadCommand request) {
+                throw new UnsupportedOperationException();
+            }
+        };
+        SkillGraphExtractionSourceMgmtController controller = controller(resolver, failingRuntimeService);
+
+        var page = controller.ragChunks("2001", null, null, null, PageRequest.of(0, 50))
+                .getBody()
+                .getData();
+
+        assertEquals(1, page.getTotalElements());
+        assertEquals("attachment", resolver.objectType);
+    }
+
+    @Test
     void resolvesNumericObjectTypeToCodeBeforeRagChunkNormalization() {
         FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0)));

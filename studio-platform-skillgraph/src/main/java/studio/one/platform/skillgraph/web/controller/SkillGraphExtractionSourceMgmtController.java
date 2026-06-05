@@ -131,8 +131,11 @@ public class SkillGraphExtractionSourceMgmtController {
 
     private String normalizeRagObjectType(String objectType) {
         String normalized = required(objectType, "objectType");
+        if (LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized)) {
+            return ATTACHMENT_OBJECT_TYPE;
+        }
         normalized = resolveObjectTypeCode(normalized);
-        return LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized) ? ATTACHMENT_OBJECT_TYPE : normalized;
+        return normalized;
     }
 
     private String resolveObjectTypeCode(String objectType) {
