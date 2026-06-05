@@ -18,7 +18,9 @@ import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeServi
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
@@ -74,6 +76,56 @@ class DefaultSkillRagExtractionJobServiceTest {
         var items = service.listItems(job.jobId(), 0, 10);
         assertEquals("doc-1", items.get(0).sourceId());
         assertEquals("doc-2", items.get(1).sourceId());
+    }
+
+    @Test
+    void excludesSuccessfulChunksFromActivePreviousJobs() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        Instant now = Instant.now();
+        store.saveJob(new SkillRagExtractionJob(
+                "previous-job",
+                "attachment",
+                null,
+                null,
+                SkillRagExtractionJobStatus.RUNNING,
+                10,
+                2,
+                1,
+                1,
+                0,
+                1,
+                null,
+                now,
+                now));
+        store.saveItem(new SkillRagExtractionJobItem(
+                "previous-job",
+                "chunk-1",
+                "doc-1",
+                "doc-1",
+                "source-chunk-1",
+                1,
+                SkillRagExtractionItemStatus.SUCCEEDED,
+                null,
+                now,
+                now));
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "42", "chunk-1", "Spring Boot"),
+                chunk("doc-2", "43", "chunk-2", "Kubernetes")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+
+        var submitted = service.submitAllChunks(
+                "attachment", null, null, null, true, false, null, null, null);
+        var job = service.getJob(submitted.jobId());
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
+        assertEquals(1, job.totalChunks());
+        assertEquals(1, job.processedChunks());
+        assertEquals("chunk-2", service.listItems(job.jobId(), 0, 10).get(0).chunkId());
     }
 
     @Test

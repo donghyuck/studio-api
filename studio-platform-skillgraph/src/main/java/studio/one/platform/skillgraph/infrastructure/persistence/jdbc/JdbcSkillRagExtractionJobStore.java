@@ -6,6 +6,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -161,6 +163,47 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("jobId", jobId)
                 .addValue("status", status.name())
                 .addValue("limit", limit <= 0 ? 100 : limit), this::mapItem);
+    }
+
+    @Override
+    public Set<String> findSuccessfulChunkIds(
+            String objectType,
+            String objectId,
+            String documentId,
+            String excludedJobId) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT DISTINCT chunk_id
+                FROM (
+                    SELECT source.chunk_id
+                    FROM tb_skill_source_chunk source
+                    WHERE source.source_type = 'RAG_CHUNK'
+                      AND source.chunk_id IS NOT NULL
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("objectId", objectId)
+                .addValue("documentId", documentId)
+                .addValue("excludedJobId", excludedJobId);
+        if (documentId != null) {
+            sql.append("      AND source.source_id = :documentId\n");
+        } else if (objectId != null) {
+            sql.append("      AND source.source_id = :objectId\n");
+        }
+        sql.append("""
+                    UNION
+                    SELECT item.chunk_id
+                    FROM tb_skill_rag_extraction_job_item item
+                    JOIN tb_skill_rag_extraction_job job ON job.job_id = item.job_id
+                    WHERE item.status = 'SUCCEEDED'
+                      AND (:excludedJobId IS NULL OR item.job_id <> :excludedJobId)
+                      AND (:objectType IS NULL OR job.object_type = :objectType)
+                      AND (:objectId IS NULL OR job.object_id = :objectId)
+                      AND (:documentId IS NULL OR item.document_id = :documentId)
+                ) successful
+                WHERE chunk_id IS NOT NULL
+                """);
+        return template.queryForList(sql.toString(), params, String.class).stream()
+                .collect(Collectors.toSet());
     }
 
     private MapSqlParameterSource jobParams(SkillRagExtractionJob job) {

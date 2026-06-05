@@ -329,21 +329,11 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     private Set<String> successfulChunkIds(SkillRagExtractionJob job) {
-        Set<String> chunkIds = new HashSet<>();
-        for (SkillRagExtractionJob existing : store.listJobs(
-                SkillRagExtractionJobStatus.COMPLETED,
+        return store.findSuccessfulChunkIds(
                 job.objectType(),
                 job.objectId(),
                 job.documentId(),
-                0,
-                Integer.MAX_VALUE)) {
-            for (SkillRagExtractionJobItem item : store.listItems(existing.jobId(), 0, Integer.MAX_VALUE)) {
-                if (item.status() == SkillRagExtractionItemStatus.SUCCEEDED) {
-                    chunkIds.add(item.chunkId());
-                }
-            }
-        }
-        return chunkIds;
+                job.jobId());
     }
 
     private SkillRagExtractionJobItem extract(SkillRagExtractionJob job, ResolvedRagChunk chunk) {

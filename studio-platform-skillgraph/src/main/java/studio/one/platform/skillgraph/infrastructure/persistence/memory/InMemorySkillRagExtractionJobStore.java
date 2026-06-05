@@ -4,7 +4,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
@@ -75,5 +77,25 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
                 .sorted(Comparator.comparing(SkillRagExtractionJobItem::createdAt))
                 .limit(limit <= 0 ? 100 : limit)
                 .toList();
+    }
+
+    @Override
+    public Set<String> findSuccessfulChunkIds(
+            String objectType,
+            String objectId,
+            String documentId,
+            String excludedJobId) {
+        Set<String> matchingJobIds = jobs.values().stream()
+                .filter(job -> excludedJobId == null || !excludedJobId.equals(job.jobId()))
+                .filter(job -> objectType == null || objectType.equals(job.objectType()))
+                .filter(job -> objectId == null || objectId.equals(job.objectId()))
+                .filter(job -> documentId == null || documentId.equals(job.documentId()))
+                .map(SkillRagExtractionJob::jobId)
+                .collect(Collectors.toSet());
+        return items.values().stream()
+                .filter(item -> matchingJobIds.contains(item.jobId()))
+                .filter(item -> item.status() == SkillRagExtractionItemStatus.SUCCEEDED)
+                .map(SkillRagExtractionJobItem::chunkId)
+                .collect(Collectors.toSet());
     }
 }

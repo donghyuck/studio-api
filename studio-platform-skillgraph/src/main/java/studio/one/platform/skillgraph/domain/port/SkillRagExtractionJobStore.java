@@ -2,6 +2,7 @@ package studio.one.platform.skillgraph.domain.port;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
@@ -32,4 +33,10 @@ public interface SkillRagExtractionJobStore {
             String jobId,
             SkillRagExtractionItemStatus status,
             int limit);
+
+    Set<String> findSuccessfulChunkIds(
+            String objectType,
+            String objectId,
+            String documentId,
+            String excludedJobId);
 }
