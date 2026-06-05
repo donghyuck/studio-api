@@ -30,19 +30,19 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-1", "chunk-2", "JPA content", 1),
                 chunk("doc-1", "chunk-3", "Security content", 2)));
 
-        var page = controller.ragChunks("attachment", "42", null, null, 1, 1, PageRequest.of(0, 50), null)
+        var page = controller.ragChunks("attachment", "42", null, null, PageRequest.of(1, 1))
                 .getBody()
                 .getData();
 
-        assertEquals(1, page.getPage());
+        assertEquals(1, page.getNumber());
         assertEquals(1, page.getSize());
         assertEquals(3, page.getTotalElements());
         assertEquals(3, page.getTotalPages());
-        assertTrue(page.isHasNext());
+        assertTrue(page.hasNext());
         assertEquals("chunk-2", page.getContent().get(0).chunkId());
         assertEquals("JPA content", page.getContent().get(0).textPreview());
 
-        var firstPage = controller.ragChunks("attachment", "42", null, null, null, null, PageRequest.of(0, 1), null)
+        var firstPage = controller.ragChunks("attachment", "42", null, null, PageRequest.of(0, 1))
                 .getBody()
                 .getData();
 
@@ -58,12 +58,12 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-2", "chunk-3", "Security content", 2)));
         SkillGraphExtractionSourceMgmtController controller = controller(resolver);
 
-        var page = controller.ragChunks("attachment", "42", "doc-2", "security", null, null, PageRequest.of(0, 10), null)
+        var page = controller.ragChunks("attachment", "42", "doc-2", "security", PageRequest.of(0, 10))
                 .getBody()
                 .getData();
 
         assertEquals(1, page.getTotalElements());
-        assertFalse(page.isHasNext());
+        assertFalse(page.hasNext());
         assertEquals("chunk-3", page.getContent().get(0).chunkId());
         assertEquals("WARNING", page.getContent().get(0).warningStatus());
         assertEquals("doc-2", resolver.documentId);
@@ -78,7 +78,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
         SkillGraphExtractionSourceMgmtController controller = controller(resolver);
 
-        var page = controller.ragChunks("2001", "42", null, null, null, null, PageRequest.of(0, 10), null)
+        var page = controller.ragChunks("2001", "42", null, null, PageRequest.of(0, 10))
                 .getBody()
                 .getData();
 
@@ -93,7 +93,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
         SkillGraphExtractionSourceMgmtController controller = controller(resolver, objectTypeService(2001, "attachment"));
 
-        var page = controller.ragChunks("2001", "42", null, null, null, null, PageRequest.of(0, 10), null)
+        var page = controller.ragChunks("2001", "42", null, null, PageRequest.of(0, 10))
                 .getBody()
                 .getData();
 
@@ -109,7 +109,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class));
 
         assertThrows(RuntimeException.class, () -> controller.ragChunks(
-                "attachment", "42", null, null, null, null, PageRequest.of(0, 10), null));
+                "attachment", "42", null, null, PageRequest.of(0, 10)));
     }
 
     private SkillGraphExtractionSourceMgmtController controller(List<ResolvedRagChunk> chunks) {
