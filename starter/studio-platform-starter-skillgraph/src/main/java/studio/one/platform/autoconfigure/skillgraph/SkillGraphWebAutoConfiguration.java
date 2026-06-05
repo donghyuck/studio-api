@@ -28,6 +28,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillRecommendationSer
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillReferenceDatasetService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobNotifier;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
@@ -87,7 +88,8 @@ public class SkillGraphWebAutoConfiguration {
                 Executor skillRagExtractionJobExecutor,
                 SkillGraphProperties properties,
                 ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
-                ObjectProvider<SkillCandidateReviewService> candidateReviewServiceProvider) {
+                ObjectProvider<SkillCandidateReviewService> candidateReviewServiceProvider,
+                ObjectProvider<SkillRagExtractionJobNotifier> jobNotifierProvider) {
             SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
             return new DefaultSkillRagExtractionJobService(
                     extractionService,
@@ -100,7 +102,8 @@ public class SkillGraphWebAutoConfiguration {
                             ragJob.getMaxTextBytesPerBatch()),
                     java.time.Clock.systemUTC(),
                     objectTypeRuntimeServiceProvider.getIfAvailable(),
-                    candidateReviewServiceProvider.getIfAvailable());
+                    candidateReviewServiceProvider.getIfAvailable(),
+                    jobNotifierProvider.getIfAvailable(() -> SkillRagExtractionJobNotifier.NOOP));
         }
     }
 

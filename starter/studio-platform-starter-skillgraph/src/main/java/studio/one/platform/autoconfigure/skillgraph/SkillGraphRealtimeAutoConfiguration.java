@@ -8,8 +8,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 
 import studio.one.platform.autoconfigure.skillgraph.realtime.StompSkillGraphBatchJobNotifier;
+import studio.one.platform.autoconfigure.skillgraph.realtime.StompSkillRagExtractionJobNotifier;
 import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobNotifier;
 
 @AutoConfiguration(after = SkillGraphAutoConfiguration.class)
 @ConditionalOnClass(name = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
@@ -25,5 +27,16 @@ public class SkillGraphRealtimeAutoConfiguration {
             return SkillGraphBatchJobNotifier.NOOP;
         }
         return new StompSkillGraphBatchJobNotifier(messagingService);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SkillRagExtractionJobNotifier.class)
+    public SkillRagExtractionJobNotifier skillRagExtractionJobNotifier(
+            ObjectProvider<RealtimeMessagingService> messagingServiceProvider) {
+        RealtimeMessagingService messagingService = messagingServiceProvider.getIfAvailable();
+        if (messagingService == null) {
+            return SkillRagExtractionJobNotifier.NOOP;
+        }
+        return new StompSkillRagExtractionJobNotifier(messagingService);
     }
 }

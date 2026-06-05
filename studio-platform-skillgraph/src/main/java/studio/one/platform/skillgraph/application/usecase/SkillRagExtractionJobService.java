@@ -38,6 +38,13 @@ public interface SkillRagExtractionJobService {
             int offset,
             int limit);
 
+    Page<SkillRagExtractionJob> searchJobs(
+            String status,
+            String objectType,
+            String objectId,
+            String documentId,
+            Pageable pageable);
+
     List<SkillRagExtractionJobItem> listItems(String jobId, int offset, int limit);
 
     Page<SkillCandidateView> listCandidates(String jobId, Pageable pageable);

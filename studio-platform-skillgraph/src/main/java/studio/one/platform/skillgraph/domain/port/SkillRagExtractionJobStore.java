@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
@@ -24,6 +27,13 @@ public interface SkillRagExtractionJobStore {
             String documentId,
             int offset,
             int limit);
+
+    Page<SkillRagExtractionJob> searchJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId,
+            Pageable pageable);
 
     SkillRagExtractionJobItem saveItem(SkillRagExtractionJobItem item);
 

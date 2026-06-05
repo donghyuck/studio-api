@@ -9,6 +9,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -108,6 +112,81 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
         params.addValue("offset", Math.max(0, offset));
         params.addValue("limit", limit <= 0 ? 50 : limit);
         return template.query(sql.toString(), params, this::mapJob);
+    }
+
+    @Override
+    public Page<SkillRagExtractionJob> searchJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId,
+            Pageable pageable) {
+        StringBuilder from = new StringBuilder("""
+                FROM tb_skill_rag_extraction_job
+                WHERE 1 = 1
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        appendJobFilters(from, params, status, objectType, objectId, documentId);
+        params.addValue("limit", pageable.getPageSize())
+                .addValue("offset", pageable.getOffset());
+        List<SkillRagExtractionJob> content = template.query("""
+                SELECT *
+                """ + from + jobOrderBy(pageable.getSort()) + """
+                LIMIT :limit OFFSET :offset
+                """, params, this::mapJob);
+        Long total = template.queryForObject("SELECT COUNT(*)\n" + from, params, Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    }
+
+    private void appendJobFilters(
+            StringBuilder sql,
+            MapSqlParameterSource params,
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId) {
+        if (status != null) {
+            sql.append("  AND status = :status\n");
+            params.addValue("status", status.name());
+        }
+        if (objectType != null) {
+            sql.append("  AND object_type = :objectType\n");
+            params.addValue("objectType", objectType);
+        }
+        if (objectId != null) {
+            sql.append("  AND object_id = :objectId\n");
+            params.addValue("objectId", objectId);
+        }
+        if (documentId != null) {
+            sql.append("  AND document_id = :documentId\n");
+            params.addValue("documentId", documentId);
+        }
+    }
+
+    private String jobOrderBy(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return "ORDER BY updated_at DESC, created_at DESC, job_id DESC\n";
+        }
+        List<String> orders = sort.stream()
+                .map(order -> {
+                    String column = switch (order.getProperty()) {
+                        case "jobId" -> "job_id";
+                        case "status" -> "status";
+                        case "objectType" -> "object_type";
+                        case "objectId" -> "object_id";
+                        case "documentId" -> "document_id";
+                        case "processedChunks" -> "processed_chunks";
+                        case "createdAt" -> "created_at";
+                        case "updatedAt" -> "updated_at";
+                        default -> null;
+                    };
+                    return column == null ? null : column + (order.isDescending() ? " DESC" : " ASC");
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        return orders.isEmpty()
+                ? "ORDER BY updated_at DESC, created_at DESC, job_id DESC\n"
+                : "ORDER BY " + String.join(", ", orders) + "\n";
     }
 
     @Override

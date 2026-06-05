@@ -8,6 +8,10 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
@@ -48,6 +52,26 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
                 .skip(Math.max(0, offset))
                 .limit(limit <= 0 ? 50 : limit)
                 .toList();
+    }
+
+    @Override
+    public Page<SkillRagExtractionJob> searchJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            String documentId,
+            Pageable pageable) {
+        List<SkillRagExtractionJob> filtered = jobs.values().stream()
+                .filter(job -> status == null || job.status() == status)
+                .filter(job -> objectType == null || objectType.equals(job.objectType()))
+                .filter(job -> objectId == null || objectId.equals(job.objectId()))
+                .filter(job -> documentId == null || documentId.equals(job.documentId()))
+                .sorted(Comparator.comparing(SkillRagExtractionJob::updatedAt).reversed()
+                        .thenComparing(SkillRagExtractionJob::createdAt, Comparator.reverseOrder()))
+                .toList();
+        int start = Math.toIntExact(Math.min(pageable.getOffset(), filtered.size()));
+        int end = Math.min(start + pageable.getPageSize(), filtered.size());
+        return new PageImpl<>(filtered.subList(start, end), pageable, filtered.size());
     }
 
     @Override

@@ -35,6 +35,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillExtractionService
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobNotifier;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
 
 @Slf4j
@@ -56,6 +57,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private final Clock clock;
     private final ObjectTypeRuntimeService objectTypeRuntimeService;
     private final SkillCandidateReviewService candidateReviewService;
+    private final SkillRagExtractionJobNotifier jobNotifier;
 
     public DefaultSkillRagExtractionJobService(
             SkillExtractionService extractionService,
@@ -107,6 +109,20 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             Clock clock,
             ObjectTypeRuntimeService objectTypeRuntimeService,
             SkillCandidateReviewService candidateReviewService) {
+        this(extractionService, ragChunkResolver, store, executor, settings, clock, objectTypeRuntimeService,
+                candidateReviewService, SkillRagExtractionJobNotifier.NOOP);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            Clock clock,
+            ObjectTypeRuntimeService objectTypeRuntimeService,
+            SkillCandidateReviewService candidateReviewService,
+            SkillRagExtractionJobNotifier jobNotifier) {
         this.extractionService = Objects.requireNonNull(extractionService, "extractionService");
         this.ragChunkResolver = Objects.requireNonNull(ragChunkResolver, "ragChunkResolver");
         this.store = Objects.requireNonNull(store, "store");
@@ -115,6 +131,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         this.clock = Objects.requireNonNull(clock, "clock");
         this.objectTypeRuntimeService = objectTypeRuntimeService;
         this.candidateReviewService = candidateReviewService;
+        this.jobNotifier = jobNotifier == null ? SkillRagExtractionJobNotifier.NOOP : jobNotifier;
     }
 
     @Override
@@ -156,13 +173,13 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 null,
                 now,
                 now);
-        store.saveJob(job);
+        saveJobAndNotify(job);
         try {
             executor.execute(() -> processAllChunks(job.jobId(), Set.of(), excludeExtracted,
                     generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension));
             return job;
         } catch (RejectedExecutionException ex) {
-            return store.saveJob(job.withStatus(SkillRagExtractionJobStatus.FAILED,
+            return saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.FAILED,
                     "RAG extraction job queue is full", clock.instant()));
         }
     }
@@ -188,6 +205,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 .map(this::reconcileJob)
                 .filter(job -> parsedStatus == null || job.status() == parsedStatus)
                 .toList();
+    }
+
+    @Override
+    public Page<SkillRagExtractionJob> searchJobs(
+            String status,
+            String objectType,
+            String objectId,
+            String documentId,
+            Pageable pageable) {
+        SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
+        return store.searchJobs(parsedStatus, normalize(objectType), normalize(objectId), normalize(documentId),
+                pageable).map(this::reconcileJob);
     }
 
     @Override
@@ -229,13 +258,13 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         for (SkillRagExtractionJobItem item : failedItems) {
             chunkIds.add(item.chunkId());
         }
-        SkillRagExtractionJob running = store.saveJob(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
+        SkillRagExtractionJob running = saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
                 clock.instant()));
         try {
             executor.execute(() -> processAllChunks(job.jobId(), chunkIds, false, false, null, null, null));
             return running;
         } catch (RejectedExecutionException ex) {
-            return store.saveJob(running.withStatus(SkillRagExtractionJobStatus.FAILED,
+            return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
                     "RAG extraction job queue is full", clock.instant()));
         }
     }
@@ -297,6 +326,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                             null,
                             clock.instant()));
                 }
+                store.findJob(jobId).ifPresent(jobNotifier::notifyJob);
                 if (fetched.size() < settings.batchSize()) {
                     break;
                 }
@@ -304,14 +334,14 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             SkillRagExtractionJobStatus status = total == 0 && excludeExtracted
                     ? SkillRagExtractionJobStatus.COMPLETED
                     : finalStatus(processed, succeeded, failed);
-            SkillRagExtractionJob completed = store.saveJob(job.withProgress(status, total, processed, succeeded,
+            SkillRagExtractionJob completed = saveJobAndNotify(job.withProgress(status, total, processed, succeeded,
                     failed, extracted, null, clock.instant()));
             if (status == SkillRagExtractionJobStatus.COMPLETED && completed.generateEmbeddings()) {
                 startCandidateEmbedding(completed);
             }
         } catch (RuntimeException ex) {
             log.warn("SkillGraph RAG extraction job failed: {}", jobId, ex);
-            store.saveJob(job.withProgress(SkillRagExtractionJobStatus.FAILED, total, processed, succeeded, failed,
+            saveJobAndNotify(job.withProgress(SkillRagExtractionJobStatus.FAILED, total, processed, succeeded, failed,
                     extracted, "RAG extraction job failed", clock.instant()));
         }
     }
@@ -414,12 +444,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 case COMPLETED -> SkillRagExtractionJobStatus.COMPLETED;
                 case READY, RUNNING -> SkillRagExtractionJobStatus.RUNNING;
             };
-            store.saveJob(job.withEmbeddingJob(status, result.jobId(), result.status().name(), result.message(),
+            saveJobAndNotify(job.withEmbeddingJob(status, result.jobId(), result.status().name(), result.message(),
                     clock.instant()));
         } catch (RuntimeException ex) {
-            store.saveJob(job.withEmbeddingJob(SkillRagExtractionJobStatus.FAILED, null, "FAILED",
+            saveJobAndNotify(job.withEmbeddingJob(SkillRagExtractionJobStatus.FAILED, null, "FAILED",
                     failureMessage(ex), clock.instant()));
         }
+    }
+
+    private SkillRagExtractionJob saveJobAndNotify(SkillRagExtractionJob job) {
+        SkillRagExtractionJob saved = store.saveJob(job);
+        jobNotifier.notifyJob(saved);
+        return saved;
     }
 
     private SkillRagExtractionJob reconcileJob(SkillRagExtractionJob job) {

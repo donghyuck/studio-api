@@ -109,12 +109,13 @@ class SkillExtractionJobMgmtControllerTest {
                 "attachment", "43", "doc-2", "ALL_CHUNKS", null));
 
         var response = controller.listRagExtractionJobs(
-                "COMPLETED", "attachment", "42", "doc-1", 0, 1).getBody().getData();
+                "COMPLETED", "attachment", "42", "doc-1", PageRequest.of(0, 1), null, null)
+                .getBody().getData();
 
-        assertEquals(1, response.returned());
-        assertEquals(false, response.hasMore());
-        assertEquals("42", response.items().get(0).objectId());
-        assertEquals("doc-1", response.items().get(0).documentId());
+        assertEquals(1, response.getNumberOfElements());
+        assertEquals(1, response.getTotalElements());
+        assertEquals("42", response.getContent().get(0).objectId());
+        assertEquals("doc-1", response.getContent().get(0).documentId());
     }
 
     @Test

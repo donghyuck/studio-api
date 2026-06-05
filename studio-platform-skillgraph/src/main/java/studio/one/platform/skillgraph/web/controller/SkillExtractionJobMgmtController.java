@@ -45,7 +45,6 @@ import studio.one.platform.skillgraph.web.dto.response.SkillExtractionResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagBatchExtractionResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkExtractionItemDto;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobItemPageResponse;
-import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobPageResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -173,25 +172,17 @@ public class SkillExtractionJobMgmtController {
 
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
-    public ResponseEntity<ApiResponse<SkillRagExtractionJobPageResponse>> listRagExtractionJobs(
+    public ResponseEntity<ApiResponse<Page<SkillRagExtractionJobResponse>>> listRagExtractionJobs(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String objectType,
             @RequestParam(required = false) String objectId,
             @RequestParam(required = false) String documentId,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "50") int limit) {
-        int safeOffset = Math.max(0, offset);
-        int safeLimit = limit <= 0 ? 50 : Math.min(limit, 200);
-        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobPageResponse.from(
-                safeOffset,
-                safeLimit,
-                ragExtractionJobService().listJobs(
-                        status,
-                        objectType,
-                        objectId,
-                        documentId,
-                        safeOffset,
-                        safeLimit + 1))));
+            @PageableDefault(size = 50, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer limit) {
+        Pageable bounded = boundedPageable(pageable, offset, limit, 200);
+        return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().searchJobs(
+                status, objectType, objectId, documentId, bounded).map(SkillRagExtractionJobResponse::from)));
     }
 
     @GetMapping("/{jobId}")
@@ -293,8 +284,12 @@ public class SkillExtractionJobMgmtController {
     }
 
     private Pageable candidatePageable(Pageable pageable, Integer offset, Integer limit) {
+        return boundedPageable(pageable, offset, limit, 1000);
+    }
+
+    private Pageable boundedPageable(Pageable pageable, Integer offset, Integer limit, int maxSize) {
         int size = limit == null ? pageable.getPageSize() : limit;
-        size = Math.max(1, Math.min(size, 1000));
+        size = Math.max(1, Math.min(size, maxSize));
         long requestedOffset = offset == null ? pageable.getOffset() : Math.max(0, offset);
         int page = Math.toIntExact(requestedOffset / size);
         Sort sort = pageable.getSort().isSorted()
