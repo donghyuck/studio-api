@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.Nullable;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeFailureException;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
@@ -41,7 +42,7 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
             throw new HandshakeFailureException("JWT-enabled WebSocket connections require a JwtTokenProvider");
         }
         try {
-            String token = resolveToken(request.getHeaders());
+            String token = resolveToken(request);
             if (token == null || !jwtTokenProvider.validateToken(token)) {
                 throw new HandshakeFailureException("Valid JWT bearer token is required");
             }
@@ -57,16 +58,19 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
     }
 
     @Nullable
-    private String resolveToken(HttpHeaders headers) {
+    private String resolveToken(org.springframework.http.server.ServerHttpRequest request) {
+        HttpHeaders headers = request.getHeaders();
         List<String> auth = headers.get(HttpHeaders.AUTHORIZATION);
-        if (auth == null || auth.isEmpty()) {
-            return null;
+        if (auth != null && !auth.isEmpty()) {
+            String bearer = auth.get(0);
+            if (bearer.regionMatches(true, 0, "bearer ", 0, 7)) {
+                return bearer.substring(7);
+            }
         }
-        String bearer = auth.get(0);
-        if (bearer.toLowerCase().startsWith("bearer ")) {
-            return bearer.substring(7);
-        }
-        return null;
+        return UriComponentsBuilder.fromUri(request.getURI())
+                .build()
+                .getQueryParams()
+                .getFirst("access_token");
     }
 
     private record SimplePrincipal(String name) implements Principal {

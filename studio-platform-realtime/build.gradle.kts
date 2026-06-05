@@ -19,4 +19,11 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-data-redis")
     compileOnly("org.springframework.security:spring-security-oauth2-jose")
+
+    testImplementation(project(":studio-platform"))
+    testImplementation(project(":studio-platform-security"))
+    testImplementation("org.springframework.boot:spring-boot-starter-security")
+    testImplementation("org.springframework.boot:spring-boot-starter-websocket")
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.security:spring-security-oauth2-jose")
 }
