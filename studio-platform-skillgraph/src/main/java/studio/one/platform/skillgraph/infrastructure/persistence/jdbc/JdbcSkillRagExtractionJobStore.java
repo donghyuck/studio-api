@@ -337,6 +337,21 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
     }
 
     @Override
+    public void resetRetryState(String jobId, Instant now) {
+        template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_owner = NULL,
+                    lease_expires_at = NULL,
+                    heartbeat_at = NULL,
+                    retry_count = 0,
+                    updated_at = :now
+                WHERE job_id = :jobId
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("now", Timestamp.from(now)));
+    }
+
+    @Override
     public List<String> findRecoverableJobIds(Instant now, int limit) {
         return template.queryForList("""
                 SELECT job_id

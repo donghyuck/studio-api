@@ -31,6 +31,7 @@ import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemS
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionRetryMode;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
@@ -277,19 +278,31 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     @Override
-    public SkillRagExtractionJob retryFailed(String jobId) {
+    public SkillRagExtractionJob retry(String jobId, SkillRagExtractionRetryMode mode) {
         SkillRagExtractionJob job = getJob(jobId);
-        if (job.status() == SkillRagExtractionJobStatus.RUNNING || job.status() == SkillRagExtractionJobStatus.READY) {
+        SkillRagExtractionRetryMode retryMode = mode == null
+                ? SkillRagExtractionRetryMode.FAILED_ONLY
+                : mode;
+        if (job.status() == SkillRagExtractionJobStatus.COMPLETED) {
+            throw new IllegalStateException("Completed RAG extraction job cannot be retried: " + jobId);
+        }
+        String executionStatus = executionStatus(job.jobId());
+        if (retryMode != SkillRagExtractionRetryMode.FORCE_RESTART
+                && "RUNNING".equals(executionStatus)) {
             throw new IllegalStateException("RAG extraction job is still active: " + jobId);
         }
-        List<SkillRagExtractionJobItem> failedItems = store.listItemsByStatus(
-                job.jobId(), SkillRagExtractionItemStatus.FAILED, settings.maxChunks());
-        if (failedItems.isEmpty() && job.status() != SkillRagExtractionJobStatus.FAILED) {
-            return job;
-        }
         Set<String> chunkIds = new HashSet<>();
-        for (SkillRagExtractionJobItem item : failedItems) {
-            chunkIds.add(item.chunkId());
+        if (retryMode == SkillRagExtractionRetryMode.FAILED_ONLY) {
+            List<SkillRagExtractionJobItem> failedItems = store.listItemsByStatus(
+                    job.jobId(), SkillRagExtractionItemStatus.FAILED, settings.maxChunks());
+            for (SkillRagExtractionJobItem item : failedItems) {
+                chunkIds.add(item.chunkId());
+            }
+            if (chunkIds.isEmpty() && job.status() != SkillRagExtractionJobStatus.FAILED) {
+                return job;
+            }
+        } else {
+            store.resetRetryState(job.jobId(), clock.instant());
         }
         SkillRagExtractionJob running = saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
                 clock.instant()));

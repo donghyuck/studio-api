@@ -23,6 +23,7 @@ import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemS
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionRetryMode;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
@@ -324,6 +325,60 @@ class DefaultSkillRagExtractionJobServiceTest {
         assertEquals(2, completed.totalChunks());
         assertEquals(2, completed.processedChunks());
         assertEquals(List.of("chunk-1", "chunk-2", "chunk-3"),
+                service.listItems(completed.jobId(), 0, 10).stream()
+                        .map(SkillRagExtractionJobItem::chunkId)
+                        .toList());
+    }
+
+    @Test
+    void forceRestartActiveJobResetsLeaseAndProcessesOnlyIncompleteChunks() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        PagingResolver resolver = new PagingResolver(List.of(
+                chunk("doc-1", "chunk-1", "Spring Boot"),
+                chunk("doc-1", "chunk-2", "Kubernetes")));
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                new CountingExtractionService(),
+                resolver,
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(2, 10, 1_000_000));
+        Instant now = Instant.now();
+        store.saveJob(new SkillRagExtractionJob(
+                "job-running",
+                "attachment",
+                "42",
+                null,
+                SkillRagExtractionJobStatus.RUNNING,
+                10,
+                2,
+                1,
+                1,
+                0,
+                1,
+                null,
+                now,
+                now));
+        store.saveItem(new SkillRagExtractionJobItem(
+                "job-running",
+                "chunk-1",
+                "doc-1",
+                "doc-1",
+                "source-chunk-1",
+                1,
+                SkillRagExtractionItemStatus.SUCCEEDED,
+                null,
+                now,
+                now));
+        store.acquireLease("job-running", "old-worker", now, Duration.ofMinutes(5), 3);
+
+        var retried = service.retry(
+                "job-running", SkillRagExtractionRetryMode.FORCE_RESTART);
+        var completed = service.getJob(retried.jobId());
+
+        assertEquals(SkillRagExtractionJobStatus.COMPLETED, completed.status());
+        assertEquals(1, completed.totalChunks());
+        assertEquals(1, completed.processedChunks());
+        assertEquals(List.of("chunk-1", "chunk-2"),
                 service.listItems(completed.jobId(), 0, 10).stream()
                         .map(SkillRagExtractionJobItem::chunkId)
                         .toList());

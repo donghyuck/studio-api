@@ -39,6 +39,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkReso
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.web.dto.request.SkillExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRetryRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagChunkExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagDocumentExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillExtractionResponse;
@@ -221,13 +222,15 @@ public class SkillExtractionJobMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().listCandidates(jobId, bounded)));
     }
 
-    @PostMapping("/{jobId}/retry-failed")
+    @PostMapping({"/{jobId}/retry", "/{jobId}/retry-failed"})
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
-    public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> retryFailedRagExtractionJob(
-            @PathVariable String jobId) {
+    public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> retryRagExtractionJob(
+            @PathVariable String jobId,
+            @RequestBody(required = false) SkillRagExtractionRetryRequest request) {
         getJobOrNotFound(jobId);
+        var mode = request == null ? null : request.resolvedMode();
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.ok(toResponse(ragExtractionJobService().retryFailed(jobId))));
+                .body(ApiResponse.ok(toResponse(ragExtractionJobService().retry(jobId, mode))));
     }
 
     private SkillRagExtractionJobResponse toResponse(SkillRagExtractionJob job) {

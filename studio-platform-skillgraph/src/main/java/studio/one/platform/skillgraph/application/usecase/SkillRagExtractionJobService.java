@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import studio.one.platform.skillgraph.application.result.SkillCandidateView;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionRetryMode;
 
 public interface SkillRagExtractionJobService {
 
@@ -63,7 +64,11 @@ public interface SkillRagExtractionJobService {
 
     Page<SkillCandidateView> listCandidates(String jobId, Pageable pageable);
 
-    SkillRagExtractionJob retryFailed(String jobId);
+    SkillRagExtractionJob retry(String jobId, SkillRagExtractionRetryMode mode);
+
+    default SkillRagExtractionJob retryFailed(String jobId) {
+        return retry(jobId, SkillRagExtractionRetryMode.FAILED_ONLY);
+    }
 
     int recoverStaleJobs();
 }

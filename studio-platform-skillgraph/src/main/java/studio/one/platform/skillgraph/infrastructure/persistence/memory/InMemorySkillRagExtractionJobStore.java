@@ -158,6 +158,11 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
     }
 
     @Override
+    public synchronized void resetRetryState(String jobId, Instant now) {
+        leases.remove(jobId);
+    }
+
+    @Override
     public List<String> findRecoverableJobIds(Instant now, int limit) {
         return jobs.values().stream()
                 .filter(job -> job.status() == SkillRagExtractionJobStatus.READY
