@@ -193,6 +193,14 @@
     LIMIT #{limit} OFFSET #{offset}
   </select>
 
+  <select id="countByObjectFiltered" resultType="long">
+    SELECT COUNT(*)
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+      <include refid="listFilterConditions"/>
+  </select>
+
   <select id="metadataByObject" resultType="string">
     SELECT metadata
     FROM tb_ai_document_chunk

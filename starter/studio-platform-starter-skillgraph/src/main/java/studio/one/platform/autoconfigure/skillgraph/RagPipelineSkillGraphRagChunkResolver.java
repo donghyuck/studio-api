@@ -33,6 +33,11 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
     }
 
     @Override
+    public long countByObject(String objectType, String objectId, String query) {
+        return ragPipelineService.countByObject(objectType, objectId, query);
+    }
+
+    @Override
     public Page<ResolvedRagChunk> pageByObject(String objectType, String objectId, Pageable pageable) {
         int offset = pageable == null ? 0 : (int) Math.min(Integer.MAX_VALUE, pageable.getOffset());
         int limit = pageable == null || pageable.getPageSize() <= 0 ? 50 : pageable.getPageSize();

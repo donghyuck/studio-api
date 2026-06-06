@@ -729,6 +729,12 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     @Override
+    public long countByObject(String objectType, String objectId, String query) {
+        clearDiagnostics();
+        return vectorStorePort.countByObject(objectType, objectId, normalize(query));
+    }
+
+    @Override
     public void deleteByObject(String objectType, String objectId) {
         clearDiagnostics();
         vectorStorePort.deleteByObject(objectType, objectId);

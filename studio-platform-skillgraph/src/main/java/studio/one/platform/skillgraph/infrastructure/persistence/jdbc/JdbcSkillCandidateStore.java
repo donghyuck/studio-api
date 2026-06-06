@@ -211,6 +211,8 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
         if (normalizedText == null) {
             throw new IllegalArgumentException("embeddingText must not be blank");
         }
+        String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel.trim();
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
         Instant now = Instant.now();
         String vector = vectorLiteral(embedding);
         template.update("""
@@ -226,10 +228,10 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                               embedding = EXCLUDED.embedding,
                               updated_at = EXCLUDED.updated_at
                 """, new MapSqlParameterSource()
-                .addValue("embeddingId", "ske_" + normalizedCandidateId)
+                .addValue("embeddingId", "ske_" + normalizedCandidateId + "_" + Integer.toHexString(model.hashCode()))
                 .addValue("candidateId", normalizedCandidateId)
-                .addValue("embeddingProvider", embeddingProvider)
-                .addValue("embeddingModel", embeddingModel)
+                .addValue("embeddingProvider", provider)
+                .addValue("embeddingModel", model)
                 .addValue("embeddingDimension", embeddingDimension)
                 .addValue("embeddingText", normalizedText)
                 .addValue("embedding", vector)

@@ -32,6 +32,10 @@ public interface RagPipelineService {
         return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
     }
 
+    default long countByObject(String objectType, String objectId, String query) {
+        return listByObject(objectType, objectId, query, 0, Integer.MAX_VALUE).size();
+    }
+
     default void deleteByObject(String objectType, String objectId) {
         throw new UnsupportedOperationException("deleteByObject is not implemented");
     }

@@ -49,6 +49,11 @@ public interface PgVectorMapper {
             @Param("offset") int offset,
             @Param("limit") int limit);
 
+    long countByObjectFiltered(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId,
+            @Param("query") String query);
+
     List<PgVectorSearchRow> listByChunkIds(
             @Param("objectType") String objectType,
             @Param("chunkIds") Set<String> chunkIds);

@@ -23,7 +23,7 @@ class PgVectorMapperXmlContractTest {
         assertThat(mapper.split(Pattern.quote(
                 "CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar)"),
                 -1))
-                .hasSize(7);
+                .hasSize(8);
     }
 
     @Test

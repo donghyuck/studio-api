@@ -110,6 +110,20 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
              ORDER BY object_id, chunk_index
              LIMIT :limit OFFSET :offset
             """;
+    private static final String COUNT_BY_OBJECT_FILTERED_SQL = """
+            SELECT COUNT(*)
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+               AND (CAST(:query AS varchar) IS NULL OR (
+                    LOWER(text) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'chunkId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'documentId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'sourceDocumentId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'headingPath', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'section', '')) LIKE :queryPattern
+               ))
+            """;
     private static final String LIST_BY_CHUNK_IDS_SQL = """
             SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
@@ -244,6 +258,17 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 .addValue("queryPattern", queryPattern(query))
                 .addValue("offset", offset)
                 .addValue("limit", limit), ROW_MAPPER);
+    }
+
+    @Override
+    public long countByObjectFiltered(
+            String objectType,
+            String objectId,
+            String query) {
+        Long count = jdbcTemplate.queryForObject(COUNT_BY_OBJECT_FILTERED_SQL, objectParams(objectType, objectId)
+                .addValue("query", normalize(query))
+                .addValue("queryPattern", queryPattern(query)), Long.class);
+        return count == null ? 0L : count;
     }
 
     @Override

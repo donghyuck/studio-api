@@ -206,6 +206,10 @@ public interface VectorStorePort {
         return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
     }
 
+    default long countByObject(String objectType, String objectId, String query) {
+        return listByObject(objectType, objectId, query, 0, Integer.MAX_VALUE).size();
+    }
+
     default List<VectorSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
         throw new UnsupportedOperationException("listByChunkIds is not implemented");
     }
