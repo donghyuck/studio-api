@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -765,6 +766,18 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 Math.max(0, offset),
                 clampPagedListLimit(limit));
         return results.stream()
+                .map(result -> new RagSearchResult(
+                        result.document().id(),
+                        result.document().content(),
+                        result.document().metadata(),
+                        result.score()))
+                .toList();
+    }
+
+    @Override
+    public List<RagSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        clearDiagnostics();
+        return vectorStorePort.listByChunkIds(objectType, chunkIds).stream()
                 .map(result -> new RagSearchResult(
                         result.document().id(),
                         result.document().content(),

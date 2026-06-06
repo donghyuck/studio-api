@@ -358,9 +358,14 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         Set<String> selectedChunkIds = new HashSet<>(job.selectedChunkIds());
         Set<String> alreadyExtracted = excludeExtracted || resume ? successfulChunkIds(job) : Set.of();
         Set<String> targetChunkIds = retryChunkIds.isEmpty() ? selectedChunkIds : retryChunkIds;
+        List<ResolvedRagChunk> selectedChunks = targetChunkIds.isEmpty()
+                ? List.of()
+                : ragChunkResolver.listByChunkIds(ragObjectType, targetChunkIds);
         int offset = 0;
-        int fetchLimit = targetChunkIds.isEmpty() ? settings.batchSize() : Math.min(50, settings.batchSize());
-        int total = countEligibleChunks(job, ragObjectType, targetChunkIds, alreadyExtracted);
+        int fetchLimit = settings.batchSize();
+        int total = targetChunkIds.isEmpty()
+                ? countEligibleChunks(job, ragObjectType, targetChunkIds, alreadyExtracted)
+                : eligibleBatch(job, selectedChunks, targetChunkIds, alreadyExtracted).size();
         int processed = retryChunkIds.isEmpty() ? 0 : Math.max(0, job.processedChunks() - retryChunkIds.size());
         int succeeded = retryChunkIds.isEmpty() ? 0 : job.succeededChunks();
         int failed = retryChunkIds.isEmpty() ? 0 : Math.max(0, job.failedChunks() - retryChunkIds.size());
@@ -371,8 +376,9 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                         failed, extracted, null, clock.instant()));
             }
             while (processed < total) {
-                List<ResolvedRagChunk> fetched = fetchChunks(
-                        ragObjectType, job.objectId(), job.query(), offset, fetchLimit);
+                List<ResolvedRagChunk> fetched = targetChunkIds.isEmpty()
+                        ? fetchChunks(ragObjectType, job.objectId(), job.query(), offset, fetchLimit)
+                        : selectedChunks;
                 if (fetched.isEmpty()) {
                     break;
                 }
@@ -405,7 +411,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     renewLeaseOrStop(jobId);
                 }
                 store.findJob(jobId).ifPresent(jobNotifier::notifyJob);
-                if (fetched.size() < fetchLimit) {
+                if (!targetChunkIds.isEmpty() || fetched.size() < fetchLimit) {
                     break;
                 }
             }

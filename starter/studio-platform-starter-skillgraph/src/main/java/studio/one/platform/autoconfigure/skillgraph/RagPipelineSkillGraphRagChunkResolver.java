@@ -2,6 +2,7 @@ package studio.one.platform.autoconfigure.skillgraph;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -56,6 +57,13 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
             int offset,
             int limit) {
         return ragPipelineService.listByObject(objectType, objectId, query, offset, limit).stream()
+                .map(this::toChunk)
+                .toList();
+    }
+
+    @Override
+    public List<ResolvedRagChunk> listByChunkIds(String objectType, Set<String> chunkIds) {
+        return ragPipelineService.listByChunkIds(objectType, chunkIds).stream()
                 .map(this::toChunk)
                 .toList();
     }

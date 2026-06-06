@@ -1,6 +1,7 @@
 package studio.one.platform.ai.adapters.vector.mybatis;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.ibatis.annotations.Param;
 
@@ -47,6 +48,10 @@ public interface PgVectorMapper {
             @Param("query") String query,
             @Param("offset") int offset,
             @Param("limit") int limit);
+
+    List<PgVectorSearchRow> listByChunkIds(
+            @Param("objectType") String objectType,
+            @Param("chunkIds") Set<String> chunkIds);
 
     String metadataByObject(
             @Param("objectType") String objectType,

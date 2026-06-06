@@ -2,6 +2,7 @@ package studio.one.platform.skillgraph.application.usecase;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -59,6 +60,12 @@ public interface SkillGraphRagChunkResolver {
             String objectId,
             String query) {
         return listByObject(objectType, objectId, query, 0, Integer.MAX_VALUE).size();
+    }
+
+    default List<ResolvedRagChunk> listByChunkIds(String objectType, Set<String> chunkIds) {
+        return listByObject(objectType, null, Integer.MAX_VALUE).stream()
+                .filter(chunk -> chunkIds.contains(chunk.chunkId()))
+                .toList();
     }
 
     default Page<ResolvedRagChunk> pageByObject(

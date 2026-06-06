@@ -263,7 +263,7 @@ class DefaultSkillRagExtractionJobServiceTest {
 
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, service.getJob(retried.jobId()).status());
         assertEquals("attachment", resolver.objectTypes.get(0));
-        assertEquals("42", resolver.objectIds.get(0));
+        assertNull(resolver.objectIds.get(0));
     }
 
     @Test
@@ -558,6 +558,7 @@ class DefaultSkillRagExtractionJobServiceTest {
         private final List<String> objectTypes = new ArrayList<>();
         private final List<String> objectIds = new ArrayList<>();
         private int filteredCalls;
+        private int chunkIdCalls;
 
         private PagingResolver(List<ResolvedRagChunk> chunks) {
             this.chunks = chunks;
@@ -609,6 +610,16 @@ class DefaultSkillRagExtractionJobServiceTest {
                     .filter(chunk -> query == null
                             || chunk.content().toLowerCase().contains(query.toLowerCase()))
                     .count();
+        }
+
+        @Override
+        public List<ResolvedRagChunk> listByChunkIds(String objectType, java.util.Set<String> chunkIds) {
+            chunkIdCalls++;
+            objectTypes.add(objectType);
+            objectIds.add(null);
+            return chunks.stream()
+                    .filter(chunk -> chunkIds.contains(chunk.chunkId()))
+                    .toList();
         }
     }
 

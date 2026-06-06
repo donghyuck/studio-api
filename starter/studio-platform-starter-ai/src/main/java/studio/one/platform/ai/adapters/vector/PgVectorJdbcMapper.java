@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -108,6 +109,13 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                ))
              ORDER BY object_id, chunk_index
              LIMIT :limit OFFSET :offset
+            """;
+    private static final String LIST_BY_CHUNK_IDS_SQL = """
+            SELECT id, object_id, text, metadata, NULL::double precision AS distance
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType
+               AND metadata->>'chunkId' IN (:chunkIds)
+             ORDER BY object_id, chunk_index
             """;
     private static final String METADATA_BY_OBJECT_SQL = """
             SELECT metadata
@@ -236,6 +244,16 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 .addValue("queryPattern", queryPattern(query))
                 .addValue("offset", offset)
                 .addValue("limit", limit), ROW_MAPPER);
+    }
+
+    @Override
+    public List<PgVectorSearchRow> listByChunkIds(String objectType, Set<String> chunkIds) {
+        if (chunkIds == null || chunkIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbcTemplate.query(LIST_BY_CHUNK_IDS_SQL, new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("chunkIds", chunkIds), ROW_MAPPER);
     }
 
     @Override

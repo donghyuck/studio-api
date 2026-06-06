@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -198,6 +199,13 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                         rowOffset,
                         rowLimit)
                 .stream()
+                .map(PgVectorStoreAdapterV2::mapListRow)
+                .toList();
+    }
+
+    @Override
+    public List<VectorSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        return mapper.listByChunkIds(objectType, chunkIds).stream()
                 .map(PgVectorStoreAdapterV2::mapListRow)
                 .toList();
     }

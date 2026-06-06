@@ -2,6 +2,7 @@ package studio.one.platform.ai.service.pipeline;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
@@ -53,6 +54,10 @@ public interface RagPipelineService {
             int offset,
             int limit) {
         return listByObject(objectType, objectId, offset, limit);
+    }
+
+    default List<RagSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        throw new UnsupportedOperationException("listByChunkIds is not implemented");
     }
 
     /**

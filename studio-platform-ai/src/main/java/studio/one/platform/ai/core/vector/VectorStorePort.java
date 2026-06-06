@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Contract for persisting and querying vectors.
@@ -203,6 +204,10 @@ public interface VectorStorePort {
 
     default long countByObject(String objectType, String objectId) {
         return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
+    }
+
+    default List<VectorSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        throw new UnsupportedOperationException("listByChunkIds is not implemented");
     }
 
     /**
