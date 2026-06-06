@@ -56,4 +56,6 @@ public interface SkillRagExtractionJobStore {
     void releaseLease(String jobId, String owner);
 
     List<String> findRecoverableJobIds(Instant now, int limit);
+
+    String executionStatus(String jobId, Instant now, int maxAutoRetries);
 }

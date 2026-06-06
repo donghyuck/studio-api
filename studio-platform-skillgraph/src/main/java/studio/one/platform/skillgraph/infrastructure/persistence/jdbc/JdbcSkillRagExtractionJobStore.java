@@ -350,6 +350,24 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("limit", Math.max(1, limit)), String.class);
     }
 
+    @Override
+    public String executionStatus(String jobId, Instant now, int maxAutoRetries) {
+        return template.queryForObject("""
+                SELECT CASE
+                    WHEN status NOT IN ('READY', 'RUNNING') THEN status
+                    WHEN retry_count >= :maxAutoRetries
+                         AND (lease_expires_at IS NULL OR lease_expires_at < :now) THEN 'STALLED'
+                    WHEN lease_owner IS NOT NULL AND lease_expires_at >= :now THEN 'RUNNING'
+                    ELSE 'RECOVERING'
+                END
+                FROM tb_skill_rag_extraction_job
+                WHERE job_id = :jobId
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("now", Timestamp.from(now))
+                .addValue("maxAutoRetries", Math.max(1, maxAutoRetries)), String.class);
+    }
+
     private MapSqlParameterSource jobParams(SkillRagExtractionJob job) {
         return new MapSqlParameterSource()
                 .addValue("jobId", job.jobId())

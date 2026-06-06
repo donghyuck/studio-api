@@ -14,6 +14,7 @@ public record SkillRagExtractionJobResponse(
         String mode,
         List<String> chunkIds,
         String status,
+        String executionStatus,
         int requestedChunks,
         int totalChunks,
         int processedChunks,
@@ -32,6 +33,10 @@ public record SkillRagExtractionJobResponse(
         Instant updatedAt) {
 
     public static SkillRagExtractionJobResponse from(SkillRagExtractionJob job) {
+        return from(job, job.status().name());
+    }
+
+    public static SkillRagExtractionJobResponse from(SkillRagExtractionJob job, String executionStatus) {
         return new SkillRagExtractionJobResponse(
                 job.jobId(),
                 job.objectType(),
@@ -41,6 +46,7 @@ public record SkillRagExtractionJobResponse(
                 job.extractionMode(),
                 job.selectedChunkIds(),
                 job.status().name(),
+                executionStatus,
                 job.requestedChunks(),
                 job.totalChunks(),
                 job.processedChunks(),

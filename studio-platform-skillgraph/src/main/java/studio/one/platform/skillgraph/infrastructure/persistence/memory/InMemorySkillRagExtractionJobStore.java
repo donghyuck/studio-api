@@ -171,6 +171,26 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
                 .toList();
     }
 
+    @Override
+    public String executionStatus(String jobId, Instant now, int maxAutoRetries) {
+        SkillRagExtractionJob job = jobs.get(jobId);
+        if (job == null) {
+            return null;
+        }
+        if (job.status() != SkillRagExtractionJobStatus.READY
+                && job.status() != SkillRagExtractionJobStatus.RUNNING) {
+            return job.status().name();
+        }
+        Lease lease = leases.get(jobId);
+        if (lease != null && lease.owner() != null && !lease.expiresAt().isBefore(now)) {
+            return "RUNNING";
+        }
+        if (lease != null && lease.retryCount() >= Math.max(1, maxAutoRetries)) {
+            return "STALLED";
+        }
+        return "RECOVERING";
+    }
+
     private record Lease(String owner, Instant expiresAt, int retryCount) {
     }
 }

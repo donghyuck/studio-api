@@ -92,16 +92,17 @@ public class SkillExtractionJobMgmtController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only ALL_CHUNKS mode is supported");
         }
         SkillRagExtractionJobService jobService = ragExtractionJobService();
+        SkillRagExtractionJob job = jobService.submitAllChunks(
+                request.objectType(),
+                request.objectId(),
+                request.limit(),
+                Boolean.TRUE.equals(request.excludeExtracted()),
+                Boolean.TRUE.equals(request.generateEmbeddings()),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(jobService.submitAllChunks(
-                        request.objectType(),
-                        request.objectId(),
-                        request.limit(),
-                        Boolean.TRUE.equals(request.excludeExtracted()),
-                        Boolean.TRUE.equals(request.generateEmbeddings()),
-                        request.embeddingProvider(),
-                        request.embeddingModel(),
-                        request.embeddingDimension()))));
+                .body(ApiResponse.ok(toResponse(job)));
     }
 
     @PostMapping("/rag-chunks")
@@ -168,7 +169,7 @@ public class SkillExtractionJobMgmtController {
                 request.embeddingModel(),
                 request.embeddingDimension());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(job)));
+                .body(ApiResponse.ok(toResponse(job)));
     }
 
     @GetMapping
@@ -182,14 +183,14 @@ public class SkillExtractionJobMgmtController {
             @RequestParam(required = false) Integer limit) {
         Pageable bounded = boundedPageable(pageable, offset, limit, 200);
         return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().searchJobs(
-                status, objectType, objectId, bounded).map(SkillRagExtractionJobResponse::from)));
+                status, objectType, objectId, bounded).map(this::toResponse)));
     }
 
     @GetMapping("/{jobId}")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> getRagExtractionJob(
             @PathVariable String jobId) {
-        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobResponse.from(getJobOrNotFound(jobId))));
+        return ResponseEntity.ok(ApiResponse.ok(toResponse(getJobOrNotFound(jobId))));
     }
 
     @GetMapping("/{jobId}/items")
@@ -226,8 +227,13 @@ public class SkillExtractionJobMgmtController {
             @PathVariable String jobId) {
         getJobOrNotFound(jobId);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(
-                        ragExtractionJobService().retryFailed(jobId))));
+                .body(ApiResponse.ok(toResponse(ragExtractionJobService().retryFailed(jobId))));
+    }
+
+    private SkillRagExtractionJobResponse toResponse(SkillRagExtractionJob job) {
+        return SkillRagExtractionJobResponse.from(
+                job,
+                ragExtractionJobService().executionStatus(job.jobId()));
     }
 
     private SkillRagBatchExtractionResponse extractChunks(

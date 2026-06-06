@@ -217,6 +217,16 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     @Override
+    public String executionStatus(String jobId) {
+        SkillRagExtractionJob job = getJob(jobId);
+        if (job.status() != SkillRagExtractionJobStatus.RUNNING
+                && job.status() != SkillRagExtractionJobStatus.READY) {
+            return job.status().name();
+        }
+        return store.executionStatus(job.jobId(), clock.instant(), settings.maxAutoRetries());
+    }
+
+    @Override
     public List<SkillRagExtractionJob> listJobs(
             String status,
             String objectType,

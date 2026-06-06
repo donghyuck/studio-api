@@ -44,6 +44,8 @@ public interface SkillRagExtractionJobService {
 
     SkillRagExtractionJob getJob(String jobId);
 
+    String executionStatus(String jobId);
+
     List<SkillRagExtractionJob> listJobs(
             String status,
             String objectType,
