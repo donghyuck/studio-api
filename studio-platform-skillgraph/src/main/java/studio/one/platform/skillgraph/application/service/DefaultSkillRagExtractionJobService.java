@@ -407,9 +407,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String objectType,
             Set<String> targetChunkIds,
             Set<String> alreadyExtracted) {
-        if (targetChunkIds.isEmpty() && alreadyExtracted.isEmpty()) {
+        if (targetChunkIds.isEmpty() && job.query() == null) {
             long count = ragChunkResolver.countByObject(
-                    objectType, job.objectId(), job.query());
+                    objectType, job.objectId());
+            count = Math.max(0L, count - alreadyExtracted.size());
             return (int) Math.min(Math.min(count, Integer.MAX_VALUE), job.requestedChunks());
         }
         int count = 0;
