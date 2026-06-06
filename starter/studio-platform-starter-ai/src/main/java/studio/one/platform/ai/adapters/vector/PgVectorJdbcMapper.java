@@ -98,8 +98,9 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType
                AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
-               AND (:documentId IS NULL OR metadata->>'documentId' = :documentId)
-               AND (:query IS NULL OR (
+               AND (CAST(:documentId AS varchar) IS NULL
+                    OR metadata->>'documentId' = CAST(:documentId AS varchar))
+               AND (CAST(:query AS varchar) IS NULL OR (
                     LOWER(text) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'chunkId', '')) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'documentId', '')) LIKE :queryPattern

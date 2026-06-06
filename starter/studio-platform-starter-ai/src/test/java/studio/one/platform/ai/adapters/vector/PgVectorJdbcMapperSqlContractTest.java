@@ -30,7 +30,7 @@ class PgVectorJdbcMapperSqlContractTest {
         assertThat(sql("COUNT_BY_OBJECT_SQL"))
                 .contains("COUNT(*)")
                 .contains("object_type = :objectType")
-                .contains("object_id = :objectId");
+                .contains("object_id = CAST(:objectId AS varchar)");
     }
 
     @Test
