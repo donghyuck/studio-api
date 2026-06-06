@@ -378,6 +378,7 @@ class DefaultSkillRagExtractionJobServiceTest {
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, completed.status());
         assertEquals(1, completed.totalChunks());
         assertEquals(1, completed.processedChunks());
+        assertEquals(0, resolver.filteredCalls);
         assertEquals(List.of("chunk-1", "chunk-2"),
                 service.listItems(completed.jobId(), 0, 10).stream()
                         .map(SkillRagExtractionJobItem::chunkId)
@@ -556,6 +557,7 @@ class DefaultSkillRagExtractionJobServiceTest {
         private final List<Integer> offsets = new ArrayList<>();
         private final List<String> objectTypes = new ArrayList<>();
         private final List<String> objectIds = new ArrayList<>();
+        private int filteredCalls;
 
         private PagingResolver(List<ResolvedRagChunk> chunks) {
             this.chunks = chunks;
@@ -588,6 +590,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 String query,
                 int offset,
                 int limit) {
+            filteredCalls++;
             objectTypes.add(objectType);
             objectIds.add(objectId);
             offsets.add(offset);

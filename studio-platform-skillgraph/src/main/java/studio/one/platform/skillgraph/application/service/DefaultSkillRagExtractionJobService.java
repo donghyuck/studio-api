@@ -359,6 +359,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         Set<String> alreadyExtracted = excludeExtracted || resume ? successfulChunkIds(job) : Set.of();
         Set<String> targetChunkIds = retryChunkIds.isEmpty() ? selectedChunkIds : retryChunkIds;
         int offset = 0;
+        int fetchLimit = targetChunkIds.isEmpty() ? settings.batchSize() : Math.min(50, settings.batchSize());
         int total = countEligibleChunks(job, ragObjectType, targetChunkIds, alreadyExtracted);
         int processed = retryChunkIds.isEmpty() ? 0 : Math.max(0, job.processedChunks() - retryChunkIds.size());
         int succeeded = retryChunkIds.isEmpty() ? 0 : job.succeededChunks();
@@ -370,8 +371,8 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                         failed, extracted, null, clock.instant()));
             }
             while (processed < total) {
-                List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                        ragObjectType, job.objectId(), job.query(), offset, settings.batchSize());
+                List<ResolvedRagChunk> fetched = fetchChunks(
+                        ragObjectType, job.objectId(), job.query(), offset, fetchLimit);
                 if (fetched.isEmpty()) {
                     break;
                 }
@@ -404,7 +405,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     renewLeaseOrStop(jobId);
                 }
                 store.findJob(jobId).ifPresent(jobNotifier::notifyJob);
-                if (fetched.size() < settings.batchSize()) {
+                if (fetched.size() < fetchLimit) {
                     break;
                 }
             }
@@ -438,9 +439,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         }
         int count = 0;
         int offset = 0;
+        int fetchLimit = targetChunkIds.isEmpty() ? settings.batchSize() : Math.min(50, settings.batchSize());
         while (count < job.requestedChunks()) {
-            List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                    objectType, job.objectId(), job.query(), offset, settings.batchSize());
+            List<ResolvedRagChunk> fetched = fetchChunks(
+                    objectType, job.objectId(), job.query(), offset, fetchLimit);
             if (fetched.isEmpty()) {
                 break;
             }
@@ -456,11 +458,24 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     }
                 }
             }
-            if (fetched.size() < settings.batchSize()) {
+            renewLeaseOrStop(job.jobId());
+            if (fetched.size() < fetchLimit) {
                 break;
             }
         }
         return count;
+    }
+
+    private List<ResolvedRagChunk> fetchChunks(
+            String objectType,
+            String objectId,
+            String query,
+            int offset,
+            int limit) {
+        if (query == null || query.isBlank()) {
+            return ragChunkResolver.listByObject(objectType, objectId, offset, limit);
+        }
+        return ragChunkResolver.listByObject(objectType, objectId, query, offset, limit);
     }
 
     private void renewLeaseOrStop(String jobId) {
