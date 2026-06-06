@@ -228,6 +228,17 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
         int max = normalizeLimit(limit);
         int totalMissing = store.countMissingEmbeddings(provider, model);
         List<SkillCandidate> missing = store.findMissingEmbeddings(provider, model, max);
+        if (missing.isEmpty()) {
+            return new SkillDictionaryEmbeddingResult(
+                    totalMissing,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    SkillDictionaryEmbeddingJobStatus.COMPLETED,
+                    "No missing candidate embeddings");
+        }
         String jobId = "skill_candidate_embedding_" + UUID.randomUUID();
         Instant now = Instant.now();
         SkillGraphBatchJob job = new SkillGraphBatchJob(

@@ -2,6 +2,7 @@ package studio.one.platform.skillgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
@@ -15,6 +16,7 @@ import studio.one.platform.skillgraph.application.command.SkillCandidateRecommen
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
 import studio.one.platform.skillgraph.application.command.SkillRecommendationApplyCommand;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateRecommendationService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
@@ -499,6 +501,9 @@ class DefaultSkillExtractionServiceTest {
         assertEquals(1, first.processedCount());
         assertEquals(0, first.failedCount());
         assertEquals(0, second.requestedCount());
+        assertNull(second.jobId());
+        assertEquals(SkillDictionaryEmbeddingJobStatus.COMPLETED, second.status());
+        assertEquals("No missing candidate embeddings", second.message());
         assertEquals(List.of("test-provider/test-model/Spring Boot 기반 REST API 구현 역량"), embeddedTexts);
     }
 
