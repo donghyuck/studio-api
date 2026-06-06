@@ -96,7 +96,6 @@ public class SkillExtractionJobMgmtController {
                 .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(jobService.submitAllChunks(
                         request.objectType(),
                         request.objectId(),
-                        request.documentId(),
                         request.limit(),
                         Boolean.TRUE.equals(request.excludeExtracted()),
                         Boolean.TRUE.equals(request.generateEmbeddings()),
@@ -111,13 +110,11 @@ public class SkillExtractionJobMgmtController {
             + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<ApiResponse<SkillRagBatchExtractionResponse>> extractRagChunks(
             @Valid @RequestBody SkillRagChunkExtractionRequest request) {
-        String documentId = normalize(request.documentId());
         Map<String, String> requestedChunkIds = normalizedChunkIds(request.chunkIds());
         List<ResolvedRagChunk> resolved = resolveChunks(request.objectType(), request.objectId(), MAX_RAG_CHUNK_LIMIT);
         Map<String, ResolvedRagChunk> byChunkId = new LinkedHashMap<>();
         for (ResolvedRagChunk chunk : resolved) {
-            if ((documentId == null || documentId.equals(chunk.documentId()))
-                    && requestedChunkIds.containsKey(chunk.chunkId())) {
+            if (requestedChunkIds.containsKey(chunk.chunkId())) {
                 byChunkId.putIfAbsent(chunk.chunkId(), chunk);
             }
         }
@@ -128,7 +125,7 @@ public class SkillExtractionJobMgmtController {
         SkillRagBatchExtractionResponse response = extractChunks(
                 normalize(request.objectType()),
                 normalize(request.objectId()),
-                documentId,
+                null,
                 requestedChunkIds.size(),
                 chunks);
         if (chunks.size() < requestedChunkIds.size()) {
@@ -162,7 +159,6 @@ public class SkillExtractionJobMgmtController {
         SkillRagExtractionJob job = ragExtractionJobService().submit(
                 request.objectType(),
                 request.objectId(),
-                request.documentId(),
                 request.q(),
                 chunkIds,
                 request.limit(),
@@ -181,13 +177,12 @@ public class SkillExtractionJobMgmtController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String objectType,
             @RequestParam(required = false) String objectId,
-            @RequestParam(required = false) String documentId,
             @PageableDefault(size = 50, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
             @RequestParam(required = false) Integer offset,
             @RequestParam(required = false) Integer limit) {
         Pageable bounded = boundedPageable(pageable, offset, limit, 200);
         return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().searchJobs(
-                status, objectType, objectId, documentId, bounded).map(SkillRagExtractionJobResponse::from)));
+                status, objectType, objectId, bounded).map(SkillRagExtractionJobResponse::from)));
     }
 
     @GetMapping("/{jobId}")

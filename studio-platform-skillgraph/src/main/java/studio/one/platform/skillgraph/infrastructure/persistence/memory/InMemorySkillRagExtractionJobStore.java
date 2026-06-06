@@ -42,14 +42,12 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit) {
         return jobs.values().stream()
                 .filter(job -> status == null || job.status() == status)
                 .filter(job -> objectType == null || objectType.equals(job.objectType()))
                 .filter(job -> objectId == null || objectId.equals(job.objectId()))
-                .filter(job -> documentId == null || documentId.equals(job.documentId()))
                 .sorted(Comparator.comparing(SkillRagExtractionJob::updatedAt).reversed()
                         .thenComparing(SkillRagExtractionJob::createdAt, Comparator.reverseOrder()))
                 .skip(Math.max(0, offset))
@@ -62,13 +60,11 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             Pageable pageable) {
         List<SkillRagExtractionJob> filtered = jobs.values().stream()
                 .filter(job -> status == null || job.status() == status)
                 .filter(job -> objectType == null || objectType.equals(job.objectType()))
                 .filter(job -> objectId == null || objectId.equals(job.objectId()))
-                .filter(job -> documentId == null || documentId.equals(job.documentId()))
                 .sorted(Comparator.comparing(SkillRagExtractionJob::updatedAt).reversed()
                         .thenComparing(SkillRagExtractionJob::createdAt, Comparator.reverseOrder()))
                 .toList();
@@ -110,13 +106,11 @@ public class InMemorySkillRagExtractionJobStore implements SkillRagExtractionJob
     public Set<String> findSuccessfulChunkIds(
             String objectType,
             String objectId,
-            String documentId,
             String excludedJobId) {
         Set<String> matchingJobIds = jobs.values().stream()
                 .filter(job -> excludedJobId == null || !excludedJobId.equals(job.jobId()))
                 .filter(job -> objectType == null || objectType.equals(job.objectType()))
                 .filter(job -> objectId == null || objectId.equals(job.objectId()))
-                .filter(job -> documentId == null || documentId.equals(job.documentId()))
                 .map(SkillRagExtractionJob::jobId)
                 .collect(Collectors.toSet());
         return items.values().stream()

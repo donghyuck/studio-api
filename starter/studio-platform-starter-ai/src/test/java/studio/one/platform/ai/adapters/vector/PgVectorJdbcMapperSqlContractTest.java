@@ -22,7 +22,8 @@ class PgVectorJdbcMapperSqlContractTest {
                 .contains("NULL::double precision AS distance");
         assertThat(sql("LIST_BY_OBJECT_PAGE_FILTERED_SQL"))
                 .contains("SELECT id, object_id")
-                .contains("NULL::double precision AS distance");
+                .contains("NULL::double precision AS distance")
+                .doesNotContain(":documentId");
     }
 
     @Test

@@ -243,7 +243,7 @@ class PgVectorStoreAdapterV2Test {
     @Test
     void listByObjectWithFiltersDelegatesQueryAndPageToMapper() {
         when(mapper.listByObjectPageFiltered(
-                eq("ARTICLE"), eq("article-1"), eq("doc-list"), eq("Spring"), eq(50), eq(51)))
+                eq("ARTICLE"), eq("article-1"), eq("Spring"), eq(50), eq(51)))
                 .thenReturn(List.of(row(
                         null,
                         "article-1",
@@ -252,11 +252,11 @@ class PgVectorStoreAdapterV2Test {
                         null)));
 
         List<VectorSearchResult> results = adapter.listByObject(
-                "ARTICLE", "article-1", "doc-list", "Spring", 50, 51);
+                "ARTICLE", "article-1", "Spring", 50, 51);
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).document().id()).isEqualTo("doc-list");
-        verify(mapper).listByObjectPageFiltered("ARTICLE", "article-1", "doc-list", "Spring", 50, 51);
+        verify(mapper).listByObjectPageFiltered("ARTICLE", "article-1", "Spring", 50, 51);
     }
 
     @Test

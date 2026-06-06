@@ -88,7 +88,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit) {
         StringBuilder sql = new StringBuilder("""
@@ -108,10 +107,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
             sql.append("  AND object_id = :objectId\n");
             params.addValue("objectId", objectId);
         }
-        if (documentId != null) {
-            sql.append("  AND document_id = :documentId\n");
-            params.addValue("documentId", documentId);
-        }
         sql.append("""
                 ORDER BY updated_at DESC, created_at DESC, job_id DESC
                 LIMIT :limit OFFSET :offset
@@ -126,14 +121,13 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             Pageable pageable) {
         StringBuilder from = new StringBuilder("""
                 FROM tb_skill_rag_extraction_job
                 WHERE 1 = 1
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource();
-        appendJobFilters(from, params, status, objectType, objectId, documentId);
+        appendJobFilters(from, params, status, objectType, objectId);
         params.addValue("limit", pageable.getPageSize())
                 .addValue("offset", pageable.getOffset());
         List<SkillRagExtractionJob> content = template.query("""
@@ -150,8 +144,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
             MapSqlParameterSource params,
             SkillRagExtractionJobStatus status,
             String objectType,
-            String objectId,
-            String documentId) {
+            String objectId) {
         if (status != null) {
             sql.append("  AND status = :status\n");
             params.addValue("status", status.name());
@@ -163,10 +156,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
         if (objectId != null) {
             sql.append("  AND object_id = :objectId\n");
             params.addValue("objectId", objectId);
-        }
-        if (documentId != null) {
-            sql.append("  AND document_id = :documentId\n");
-            params.addValue("documentId", documentId);
         }
     }
 
@@ -255,7 +244,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
     public Set<String> findSuccessfulChunkIds(
             String objectType,
             String objectId,
-            String documentId,
             String excludedJobId) {
         StringBuilder sql = new StringBuilder("""
                 SELECT DISTINCT chunk_id
@@ -267,10 +255,9 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 """);
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("excludedJobId", excludedJobId);
-        if (documentId != null) {
-            sql.append("      AND source.source_id = :documentId\n");
-        } else if (objectId != null) {
+        if (objectId != null) {
             sql.append("      AND source.source_id = :objectId\n");
+            params.addValue("objectId", objectId);
         }
         sql.append("""
                     UNION
@@ -289,10 +276,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
         if (objectId != null) {
             sql.append("      AND job.object_id = :objectId\n");
             params.addValue("objectId", objectId);
-        }
-        if (documentId != null) {
-            sql.append("      AND item.document_id = :documentId\n");
-            params.addValue("documentId", documentId);
         }
         sql.append("""
                 ) successful

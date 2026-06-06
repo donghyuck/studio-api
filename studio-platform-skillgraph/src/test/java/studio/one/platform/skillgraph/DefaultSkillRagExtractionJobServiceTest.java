@@ -45,7 +45,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 Runnable::run,
                 new SkillRagExtractionJobSettings(2, 10, 1_000_000));
 
-        var submitted = service.submitAllChunks("attachment", "42", "doc-1", null);
+        var submitted = service.submitAllChunks("attachment", "42", null);
         var job = service.getJob(submitted.jobId());
 
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
@@ -74,7 +74,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 Runnable::run,
                 new SkillRagExtractionJobSettings(20, 10, 1_000_000));
 
-        var submitted = service.submitAllChunks("attachment", "42", "doc-1", null);
+        var submitted = service.submitAllChunks("attachment", "42", null);
         var job = store.findJob(submitted.jobId()).orElseThrow();
 
         assertEquals(SkillRagExtractionJobStatus.RUNNING, job.status());
@@ -95,7 +95,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 Runnable::run,
                 new SkillRagExtractionJobSettings(2, 10, 1_000_000));
 
-        var submitted = service.submitAllChunks("attachment", null, null, null);
+        var submitted = service.submitAllChunks("attachment", null, null);
         var job = service.getJob(submitted.jobId());
 
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
@@ -122,7 +122,6 @@ class DefaultSkillRagExtractionJobServiceTest {
 
         var submitted = service.submit(
                 "attachment",
-                null,
                 null,
                 "spring",
                 List.of("chunk-1", "chunk-3"),
@@ -189,7 +188,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 new SkillRagExtractionJobSettings(2, 10, 1_000_000));
 
         var submitted = service.submitAllChunks(
-                "attachment", null, null, null, true, false, null, null, null);
+                "attachment", null, null, true, false, null, null, null);
         var job = service.getJob(submitted.jobId());
 
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
@@ -211,7 +210,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 new SkillRagExtractionJobSettings(2, 10, 1_000_000),
                 objectTypeService(2001, "attachment"));
 
-        var submitted = service.submitAllChunks("2001", "42", "doc-1", null);
+        var submitted = service.submitAllChunks("2001", "42", null);
         var job = service.getJob(submitted.jobId());
 
         assertEquals(SkillRagExtractionJobStatus.COMPLETED, job.status());
@@ -347,7 +346,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 Runnable::run,
                 new SkillRagExtractionJobSettings(20, 10, 1_000_000));
 
-        var submitted = service.submitAllChunks("attachment", "42", "doc-1", null);
+        var submitted = service.submitAllChunks("attachment", "42", null);
         var job = service.getJob(submitted.jobId());
 
         assertEquals(SkillRagExtractionJobStatus.PARTIAL, job.status());
@@ -366,7 +365,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 Runnable::run,
                 new SkillRagExtractionJobSettings(20, 10, 4));
 
-        var submitted = service.submitAllChunks("attachment", "42", "doc-1", null);
+        var submitted = service.submitAllChunks("attachment", "42", null);
         var job = service.getJob(submitted.jobId());
 
         assertEquals(SkillRagExtractionJobStatus.FAILED, job.status());
@@ -384,14 +383,14 @@ class DefaultSkillRagExtractionJobServiceTest {
                 Runnable::run,
                 new SkillRagExtractionJobSettings(20, 10, 1_000_000));
 
-        service.submitAllChunks("attachment", "42", "doc-1", null);
-        service.submitAllChunks("attachment", "43", "doc-2", null);
+        service.submitAllChunks("attachment", "42", null);
+        service.submitAllChunks("attachment", "43", null);
 
-        var jobs = service.listJobs("COMPLETED", "attachment", "42", "doc-1", 0, 10);
+        var jobs = service.listJobs("COMPLETED", "attachment", "42", 0, 10);
 
         assertEquals(1, jobs.size());
         assertEquals("42", jobs.get(0).objectId());
-        assertEquals("doc-1", jobs.get(0).documentId());
+        assertNull(jobs.get(0).documentId());
     }
 
     @Test
@@ -452,7 +451,7 @@ class DefaultSkillRagExtractionJobServiceTest {
                 now,
                 now));
 
-        var jobs = service.listJobs("PARTIAL", "attachment", "42", "doc-1", 0, 10);
+        var jobs = service.listJobs("PARTIAL", "attachment", "42", 0, 10);
 
         assertEquals(1, jobs.size());
         assertEquals(SkillRagExtractionJobStatus.PARTIAL, jobs.get(0).status());
@@ -531,7 +530,6 @@ class DefaultSkillRagExtractionJobServiceTest {
         public List<ResolvedRagChunk> listByObject(
                 String objectType,
                 String objectId,
-                String documentId,
                 String query,
                 int offset,
                 int limit) {
@@ -539,7 +537,6 @@ class DefaultSkillRagExtractionJobServiceTest {
             objectIds.add(objectId);
             offsets.add(offset);
             List<ResolvedRagChunk> filtered = chunks.stream()
-                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
                     .filter(chunk -> query == null
                             || chunk.content().toLowerCase().contains(query.toLowerCase()))
                     .toList();
@@ -549,9 +546,8 @@ class DefaultSkillRagExtractionJobServiceTest {
         }
 
         @Override
-        public long countByObject(String objectType, String objectId, String documentId, String query) {
+        public long countByObject(String objectType, String objectId, String query) {
             return chunks.stream()
-                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
                     .filter(chunk -> query == null
                             || chunk.content().toLowerCase().contains(query.toLowerCase()))
                     .count();

@@ -26,7 +26,6 @@ public interface SkillRagExtractionJobStore {
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit);
 
@@ -34,7 +33,6 @@ public interface SkillRagExtractionJobStore {
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             Pageable pageable);
 
     SkillRagExtractionJobItem saveItem(SkillRagExtractionJobItem item);
@@ -49,7 +47,6 @@ public interface SkillRagExtractionJobStore {
     Set<String> findSuccessfulChunkIds(
             String objectType,
             String objectId,
-            String documentId,
             String excludedJobId);
 
     boolean acquireLease(String jobId, String owner, Instant now, Duration leaseDuration, int maxAutoRetries);

@@ -195,7 +195,6 @@ public interface VectorStorePort {
     default List<VectorSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {

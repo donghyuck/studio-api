@@ -754,7 +754,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
     public List<RagSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
@@ -762,7 +761,6 @@ public class DefaultRagPipelineService implements RagPipelineService {
         List<VectorSearchResult> results = vectorStorePort.listByObject(
                 objectType,
                 objectId,
-                normalize(documentId),
                 normalize(query),
                 Math.max(0, offset),
                 clampPagedListLimit(limit));

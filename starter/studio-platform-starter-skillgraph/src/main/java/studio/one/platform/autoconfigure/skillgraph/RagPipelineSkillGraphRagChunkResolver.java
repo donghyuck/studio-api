@@ -52,11 +52,10 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
     public List<ResolvedRagChunk> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
-        return ragPipelineService.listByObject(objectType, objectId, documentId, query, offset, limit).stream()
+        return ragPipelineService.listByObject(objectType, objectId, query, offset, limit).stream()
                 .map(this::toChunk)
                 .toList();
     }

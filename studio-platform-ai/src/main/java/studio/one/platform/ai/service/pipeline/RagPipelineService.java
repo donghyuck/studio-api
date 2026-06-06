@@ -49,7 +49,6 @@ public interface RagPipelineService {
     default List<RagSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {

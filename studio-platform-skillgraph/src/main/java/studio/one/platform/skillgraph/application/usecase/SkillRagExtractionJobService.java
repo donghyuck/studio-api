@@ -13,25 +13,23 @@ public interface SkillRagExtractionJobService {
 
     String SERVICE_NAME = "skillRagExtractionJobService";
 
-    SkillRagExtractionJob submitAllChunks(String objectType, String objectId, String documentId, Integer limit);
+    SkillRagExtractionJob submitAllChunks(String objectType, String objectId, Integer limit);
 
     default SkillRagExtractionJob submitAllChunks(
             String objectType,
             String objectId,
-            String documentId,
             Integer limit,
             boolean excludeExtracted,
             boolean generateEmbeddings,
             String embeddingProvider,
             String embeddingModel,
             Integer embeddingDimension) {
-        return submitAllChunks(objectType, objectId, documentId, limit);
+        return submitAllChunks(objectType, objectId, limit);
     }
 
     default SkillRagExtractionJob submit(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             List<String> chunkIds,
             Integer limit,
@@ -40,7 +38,7 @@ public interface SkillRagExtractionJobService {
             String embeddingProvider,
             String embeddingModel,
             Integer embeddingDimension) {
-        return submitAllChunks(objectType, objectId, documentId, limit, excludeExtracted, generateEmbeddings,
+        return submitAllChunks(objectType, objectId, limit, excludeExtracted, generateEmbeddings,
                 embeddingProvider, embeddingModel, embeddingDimension);
     }
 
@@ -50,7 +48,6 @@ public interface SkillRagExtractionJobService {
             String status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit);
 
@@ -58,7 +55,6 @@ public interface SkillRagExtractionJobService {
             String status,
             String objectType,
             String objectId,
-            String documentId,
             Pageable pageable);
 
     List<SkillRagExtractionJobItem> listItems(String jobId, int offset, int limit);

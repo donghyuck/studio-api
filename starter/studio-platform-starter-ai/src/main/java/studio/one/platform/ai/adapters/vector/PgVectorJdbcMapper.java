@@ -98,8 +98,6 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType
                AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
-               AND (CAST(:documentId AS varchar) IS NULL
-                    OR metadata->>'documentId' = CAST(:documentId AS varchar))
                AND (CAST(:query AS varchar) IS NULL OR (
                     LOWER(text) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'chunkId', '')) LIKE :queryPattern
@@ -230,12 +228,10 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     public List<PgVectorSearchRow> listByObjectPageFiltered(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
         return jdbcTemplate.query(LIST_BY_OBJECT_PAGE_FILTERED_SQL, objectParams(objectType, objectId)
-                .addValue("documentId", normalize(documentId))
                 .addValue("query", normalize(query))
                 .addValue("queryPattern", queryPattern(query))
                 .addValue("offset", offset)

@@ -59,21 +59,18 @@ public class SkillGraphExtractionSourceMgmtController {
     public ResponseEntity<ApiResponse<Page<SkillRagChunkPreviewDto>>> ragChunks(
             @RequestParam("objectType") String objectType,
             @RequestParam(name = "objectId", required = false) String objectId,
-            @RequestParam(name = "documentId", required = false) String documentId,
             @RequestParam(name = "q", required = false) String q,
             @PageableDefault(size = DEFAULT_LIMIT, sort = "objectId") Pageable pageable) {
         SkillGraphRagChunkResolver resolver = requireResolver();
         String normalizedObjectType = normalizeRagObjectType(objectType);
         String normalizedObjectId = normalize(objectId);
-        String normalizedDocumentId = normalize(documentId);
         String query = normalize(q);
         Pageable boundedPageable = boundedPageable(pageable);
         Page<ResolvedRagChunk> chunks;
-        if (query != null || normalizedDocumentId != null) {
+        if (query != null) {
             chunks = resolver.pageByObject(
                     normalizedObjectType,
                     normalizedObjectId,
-                    normalizedDocumentId,
                     query,
                     boundedPageable);
         } else {

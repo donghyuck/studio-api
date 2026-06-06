@@ -10,8 +10,6 @@ public record SkillRagDocumentExtractionRequest(
         @NotBlank String objectType,
         @Size(max = 200)
         String objectId,
-        @Size(max = 200)
-        String documentId,
         String mode,
         @Min(1)
         @Max(5000)
@@ -29,9 +27,8 @@ public record SkillRagDocumentExtractionRequest(
     public SkillRagDocumentExtractionRequest(
             String objectType,
             String objectId,
-            String documentId,
             String mode,
             Integer limit) {
-        this(objectType, objectId, documentId, mode, limit, null, null, null, null, null);
+        this(objectType, objectId, mode, limit, null, null, null, null, null);
     }
 }

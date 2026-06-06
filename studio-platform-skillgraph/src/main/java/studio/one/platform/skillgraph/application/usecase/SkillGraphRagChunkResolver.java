@@ -44,14 +44,12 @@ public interface SkillGraphRagChunkResolver {
     default List<ResolvedRagChunk> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
         int safeOffset = Math.max(0, offset);
         int safeLimit = limit <= 0 ? 50 : limit;
         return listByObject(objectType, objectId, safeOffset, safeLimit).stream()
-                .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
                 .filter(chunk -> matchesQuery(chunk, query))
                 .toList();
     }
@@ -59,23 +57,21 @@ public interface SkillGraphRagChunkResolver {
     default long countByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query) {
-        return listByObject(objectType, objectId, documentId, query, 0, Integer.MAX_VALUE).size();
+        return listByObject(objectType, objectId, query, 0, Integer.MAX_VALUE).size();
     }
 
     default Page<ResolvedRagChunk> pageByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             Pageable pageable) {
         int offset = pageable == null ? 0 : (int) Math.min(Integer.MAX_VALUE, pageable.getOffset());
         int limit = pageable == null || pageable.getPageSize() <= 0 ? 50 : pageable.getPageSize();
         return new PageImpl<>(
-                listByObject(objectType, objectId, documentId, query, offset, limit),
+                listByObject(objectType, objectId, query, offset, limit),
                 pageable,
-                countByObject(objectType, objectId, documentId, query));
+                countByObject(objectType, objectId, query));
     }
 
     private static boolean matchesQuery(ResolvedRagChunk chunk, String query) {

@@ -186,7 +186,6 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     public List<VectorSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
@@ -195,7 +194,6 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return mapper.listByObjectPageFiltered(
                         objectType,
                         objectId,
-                        normalize(documentId),
                         normalize(query),
                         rowOffset,
                         rowLimit)

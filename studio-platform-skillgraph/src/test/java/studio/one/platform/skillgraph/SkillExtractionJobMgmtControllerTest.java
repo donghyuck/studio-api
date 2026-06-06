@@ -1,6 +1,7 @@
 package studio.one.platform.skillgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
@@ -41,13 +42,15 @@ class SkillExtractionJobMgmtControllerTest {
                 ragChunk("doc-2", "chunk-2", "Kubernetes 기술"))));
 
         var response = controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
-                "attachment", "42", "doc-1", "ALL_CHUNKS", null)).getBody().getData();
+                "attachment", "42", "ALL_CHUNKS", null)).getBody().getData();
 
         assertEquals("COMPLETED", response.status());
         assertEquals(1000, response.requestedChunks());
         assertEquals("RAG_CHUNK", store.sourceChunks().get(0).sourceType());
-        assertEquals("doc-1", store.sourceChunks().get(0).sourceId());
-        assertEquals("chunk-1", store.sourceChunks().get(0).chunkId());
+        assertEquals(2, store.sourceChunks().size());
+        assertEquals(
+                java.util.Set.of("chunk-1", "chunk-2"),
+                store.sourceChunks().stream().map(source -> source.chunkId()).collect(java.util.stream.Collectors.toSet()));
     }
 
     @Test
@@ -57,7 +60,7 @@ class SkillExtractionJobMgmtControllerTest {
                 ragChunk("doc-1", "chunk-1", "Spring Boot 기술"))));
 
         var response = controller.extractRagChunks(new SkillRagChunkExtractionRequest(
-                "attachment", "42", null, List.of("chunk-1", "missing"))).getBody().getData();
+                "attachment", "42", List.of("chunk-1", "missing"))).getBody().getData();
 
         assertEquals(2, response.requestedChunks());
         assertEquals(1, response.resolvedChunks());
@@ -75,7 +78,6 @@ class SkillExtractionJobMgmtControllerTest {
         var body = (ApiResponse<?>) controller.extractRag(new SkillRagExtractionRequest(
                 "attachment",
                 "42",
-                "doc-1",
                 "SELECTED_CHUNKS",
                 List.of("chunk-1"),
                 null)).getBody();
@@ -106,18 +108,18 @@ class SkillExtractionJobMgmtControllerTest {
                         Runnable::run,
                         new SkillRagExtractionJobSettings(20, 1000, 1_000_000))));
         controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
-                "attachment", "42", "doc-1", "ALL_CHUNKS", null));
+                "attachment", "42", "ALL_CHUNKS", null));
         controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
-                "attachment", "43", "doc-2", "ALL_CHUNKS", null));
+                "attachment", "43", "ALL_CHUNKS", null));
 
         var response = controller.listRagExtractionJobs(
-                "COMPLETED", "attachment", "42", "doc-1", PageRequest.of(0, 1), null, null)
+                "COMPLETED", "attachment", "42", PageRequest.of(0, 1), null, null)
                 .getBody().getData();
 
         assertEquals(1, response.getNumberOfElements());
         assertEquals(1, response.getTotalElements());
         assertEquals("42", response.getContent().get(0).objectId());
-        assertEquals("doc-1", response.getContent().get(0).documentId());
+        assertNull(response.getContent().get(0).documentId());
     }
 
     @Test
@@ -142,7 +144,7 @@ class SkillExtractionJobMgmtControllerTest {
                 resolverProvider(resolver),
                 jobServiceProvider(jobService));
         var job = controller.extractRagDocument(new SkillRagDocumentExtractionRequest(
-                "attachment", "42", "doc-1", "ALL_CHUNKS", null)).getBody().getData();
+                "attachment", "42", "ALL_CHUNKS", null)).getBody().getData();
 
         var response = controller.getRagExtractionJobCandidates(
                 job.jobId(), PageRequest.of(0, 100), 0, 1000).getBody().getData();
@@ -184,7 +186,6 @@ class SkillExtractionJobMgmtControllerTest {
         assertThrows(RuntimeException.class, () -> controller.extractRag(new SkillRagExtractionRequest(
                 "attachment",
                 "42",
-                "doc-1",
                 "SELECTED_CHUNKS",
                 null,
                 null)));
@@ -196,7 +197,7 @@ class SkillExtractionJobMgmtControllerTest {
         SkillExtractionJobMgmtController controller = controller(store, null);
 
         assertThrows(RuntimeException.class, () -> controller.extractRagDocument(
-                new SkillRagDocumentExtractionRequest("attachment", "42", null, "ALL_CHUNKS", null)));
+                new SkillRagDocumentExtractionRequest("attachment", "42", "ALL_CHUNKS", null)));
     }
 
     @Test
@@ -208,7 +209,7 @@ class SkillExtractionJobMgmtControllerTest {
                 jobServiceProvider(null));
 
         var response = controller.extractRagChunks(new SkillRagChunkExtractionRequest(
-                "attachment", "42", null, List.of("chunk-1"))).getBody().getData();
+                "attachment", "42", List.of("chunk-1"))).getBody().getData();
 
         assertEquals(1, response.failedChunks());
         assertEquals("Skill extraction failed", response.items().get(0).error());

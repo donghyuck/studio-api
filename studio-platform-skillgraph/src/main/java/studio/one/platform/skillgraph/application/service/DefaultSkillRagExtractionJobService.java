@@ -136,22 +136,21 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     @Override
-    public SkillRagExtractionJob submitAllChunks(String objectType, String objectId, String documentId, Integer limit) {
-        return submitAllChunks(objectType, objectId, documentId, limit, false, false, null, null, null);
+    public SkillRagExtractionJob submitAllChunks(String objectType, String objectId, Integer limit) {
+        return submitAllChunks(objectType, objectId, limit, false, false, null, null, null);
     }
 
     @Override
     public SkillRagExtractionJob submitAllChunks(
             String objectType,
             String objectId,
-            String documentId,
             Integer limit,
             boolean excludeExtracted,
             boolean generateEmbeddings,
             String embeddingProvider,
             String embeddingModel,
             Integer embeddingDimension) {
-        return submit(objectType, objectId, documentId, null, List.of(), limit, excludeExtracted,
+        return submit(objectType, objectId, null, List.of(), limit, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension);
     }
 
@@ -159,7 +158,6 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     public SkillRagExtractionJob submit(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             List<String> chunkIds,
             Integer limit,
@@ -180,7 +178,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 "srj_" + UUID.randomUUID().toString().replace("-", ""),
                 normalizeRagObjectType(objectType),
                 normalize(objectId),
-                normalize(documentId),
+                null,
                 normalize(query),
                 selectedChunkIds.isEmpty() ? "ALL_CHUNKS" : "SELECTED_CHUNKS",
                 selectedChunkIds,
@@ -223,11 +221,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit) {
         SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
-        return store.listJobs(null, normalize(objectType), normalize(objectId), normalize(documentId),
+        return store.listJobs(null, normalize(objectType), normalize(objectId),
                 Math.max(0, offset), boundedJobLimit(limit)).stream()
                 .map(this::reconcileJob)
                 .filter(job -> parsedStatus == null || job.status() == parsedStatus)
@@ -239,10 +236,9 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String status,
             String objectType,
             String objectId,
-            String documentId,
             Pageable pageable) {
         SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
-        return store.searchJobs(parsedStatus, normalize(objectType), normalize(objectId), normalize(documentId),
+        return store.searchJobs(parsedStatus, normalize(objectType), normalize(objectId),
                 pageable).map(this::reconcileJob);
     }
 
@@ -352,7 +348,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             }
             while (processed < total) {
                 List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                        ragObjectType, job.objectId(), job.documentId(), job.query(), offset, settings.batchSize());
+                        ragObjectType, job.objectId(), job.query(), offset, settings.batchSize());
                 if (fetched.isEmpty()) {
                     break;
                 }
@@ -413,14 +409,14 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             Set<String> alreadyExtracted) {
         if (targetChunkIds.isEmpty() && alreadyExtracted.isEmpty()) {
             long count = ragChunkResolver.countByObject(
-                    objectType, job.objectId(), job.documentId(), job.query());
+                    objectType, job.objectId(), job.query());
             return (int) Math.min(Math.min(count, Integer.MAX_VALUE), job.requestedChunks());
         }
         int count = 0;
         int offset = 0;
         while (count < job.requestedChunks()) {
             List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                    objectType, job.objectId(), job.documentId(), job.query(), offset, settings.batchSize());
+                    objectType, job.objectId(), job.query(), offset, settings.batchSize());
             if (fetched.isEmpty()) {
                 break;
             }
@@ -460,9 +456,6 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             if (chunk.content() == null || chunk.content().isBlank()) {
                 continue;
             }
-            if (job.documentId() != null && !job.documentId().equals(chunk.documentId())) {
-                continue;
-            }
             if (!retryChunkIds.isEmpty() && !retryChunkIds.contains(chunk.chunkId())) {
                 continue;
             }
@@ -478,7 +471,6 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         Set<String> chunkIds = new HashSet<>(store.findSuccessfulChunkIds(
                 job.objectType(),
                 job.objectId(),
-                job.documentId(),
                 job.jobId()));
         store.listItemsByStatus(job.jobId(), SkillRagExtractionItemStatus.SUCCEEDED, settings.maxChunks()).stream()
                 .map(SkillRagExtractionJobItem::chunkId)

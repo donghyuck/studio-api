@@ -30,7 +30,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-1", "chunk-2", "JPA content", 1),
                 chunk("doc-1", "chunk-3", "Security content", 2)));
 
-        var page = controller.ragChunks("attachment", "42", null, null, PageRequest.of(1, 1))
+        var page = controller.ragChunks("attachment", "42", null, PageRequest.of(1, 1))
                 .getBody()
                 .getData();
 
@@ -42,7 +42,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         assertEquals("chunk-2", page.getContent().get(0).chunkId());
         assertEquals("JPA content", page.getContent().get(0).textPreview());
 
-        var firstPage = controller.ragChunks("attachment", "42", null, null, PageRequest.of(0, 1))
+        var firstPage = controller.ragChunks("attachment", "42", null, PageRequest.of(0, 1))
                 .getBody()
                 .getData();
 
@@ -51,14 +51,14 @@ class SkillGraphExtractionSourceMgmtControllerTest {
     }
 
     @Test
-    void filtersRagChunkPreviewByQueryAndDocument() {
+    void filtersRagChunkPreviewByQuery() {
         FakeRagChunkResolver resolver = new FakeRagChunkResolver(List.of(
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0),
                 chunk("doc-2", "chunk-2", "JPA content", 1),
                 chunk("doc-2", "chunk-3", "Security content", 2)));
         SkillGraphExtractionSourceMgmtController controller = controller(resolver);
 
-        var page = controller.ragChunks("attachment", "42", "doc-2", "security", PageRequest.of(0, 10))
+        var page = controller.ragChunks("attachment", "42", "security", PageRequest.of(0, 10))
                 .getBody()
                 .getData();
 
@@ -66,7 +66,6 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         assertFalse(page.hasNext());
         assertEquals("chunk-3", page.getContent().get(0).chunkId());
         assertEquals("WARNING", page.getContent().get(0).warningStatus());
-        assertEquals("doc-2", resolver.documentId);
         assertEquals("security", resolver.query);
         assertEquals(0, resolver.offset);
         assertEquals(10, resolver.limit);
@@ -78,7 +77,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
         SkillGraphExtractionSourceMgmtController controller = controller(resolver);
 
-        var page = controller.ragChunks("2001", "42", null, null, PageRequest.of(0, 10))
+        var page = controller.ragChunks("2001", "42", null, PageRequest.of(0, 10))
                 .getBody()
                 .getData();
 
@@ -104,7 +103,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         };
         SkillGraphExtractionSourceMgmtController controller = controller(resolver, failingRuntimeService);
 
-        var page = controller.ragChunks("2001", null, null, null, PageRequest.of(0, 50))
+        var page = controller.ragChunks("2001", null, null, PageRequest.of(0, 50))
                 .getBody()
                 .getData();
 
@@ -118,7 +117,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 chunk("doc-1", "chunk-1", "Spring Boot content", 0)));
         SkillGraphExtractionSourceMgmtController controller = controller(resolver, objectTypeService(2001, "attachment"));
 
-        var page = controller.ragChunks("2001", "42", null, null, PageRequest.of(0, 10))
+        var page = controller.ragChunks("2001", "42", null, PageRequest.of(0, 10))
                 .getBody()
                 .getData();
 
@@ -134,7 +133,7 @@ class SkillGraphExtractionSourceMgmtControllerTest {
                 beanFactory.getBeanProvider(SkillGraphRagChunkResolver.class));
 
         assertThrows(RuntimeException.class, () -> controller.ragChunks(
-                "attachment", "42", null, null, PageRequest.of(0, 10)));
+                "attachment", "42", null, PageRequest.of(0, 10)));
     }
 
     private SkillGraphExtractionSourceMgmtController controller(List<ResolvedRagChunk> chunks) {
@@ -205,7 +204,6 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         private final List<ResolvedRagChunk> chunks;
         private String objectType;
         private String objectId;
-        private String documentId;
         private String query;
         private int offset;
         private int limit;
@@ -240,19 +238,16 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         public List<ResolvedRagChunk> listByObject(
                 String objectType,
                 String objectId,
-                String documentId,
                 String query,
                 int offset,
                 int limit) {
             this.objectType = objectType;
             this.objectId = objectId;
-            this.documentId = documentId;
             this.query = query;
             this.offset = offset;
             this.limit = limit;
             int start = Math.max(0, offset);
             List<ResolvedRagChunk> filtered = chunks.stream()
-                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
                     .filter(chunk -> query == null || chunk.content().toLowerCase().contains(query.toLowerCase()))
                     .toList();
             int end = Math.min(filtered.size(), start + Math.max(0, limit));
@@ -260,9 +255,8 @@ class SkillGraphExtractionSourceMgmtControllerTest {
         }
 
         @Override
-        public long countByObject(String objectType, String objectId, String documentId, String query) {
+        public long countByObject(String objectType, String objectId, String query) {
             return chunks.stream()
-                    .filter(chunk -> documentId == null || documentId.equals(chunk.documentId()))
                     .filter(chunk -> query == null || chunk.content().toLowerCase().contains(query.toLowerCase()))
                     .count();
         }
