@@ -92,6 +92,13 @@ class SkillRecommendationMgmtControllerTest {
         }
 
         @Override
+        public SkillRecommendationApplyResult applySelectedResults(
+                List<String> resultIds,
+                SkillRecommendationApplyCommand command) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public SkillRecommendationApplyResult applyJob(String jobId, SkillRecommendationApplyCommand command) {
             throw new UnsupportedOperationException();
         }

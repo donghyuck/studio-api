@@ -37,6 +37,7 @@ import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
+import studio.one.platform.skillgraph.infrastructure.extraction.SkillExtractionFailureMessages;
 import studio.one.platform.skillgraph.web.dto.request.SkillExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRetryRequest;
@@ -406,10 +407,7 @@ public class SkillExtractionJobMgmtController {
     }
 
     private String failureMessage(RuntimeException ex) {
-        if (ex instanceof IllegalArgumentException && ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            return ex.getMessage();
-        }
-        return "Skill extraction failed";
+        return SkillExtractionFailureMessages.from(ex);
     }
 
 }

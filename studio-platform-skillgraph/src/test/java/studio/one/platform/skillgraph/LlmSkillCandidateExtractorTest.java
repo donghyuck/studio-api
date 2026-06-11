@@ -1,6 +1,7 @@
 package studio.one.platform.skillgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
 import java.util.List;
@@ -23,6 +24,7 @@ import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.port.SkillCandidateStore;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 import studio.one.platform.skillgraph.infrastructure.extraction.LlmSkillCandidateExtractor;
+import studio.one.platform.skillgraph.infrastructure.extraction.SkillCandidateExtractionException;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillCandidateStore;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillDictionaryStore;
 
@@ -60,13 +62,72 @@ class LlmSkillCandidateExtractorTest {
     }
 
     @Test
-    void returnsEmptyCandidatesWhenLlmResponseIsMalformed() {
+    void throwsWhenLlmResponseIsMalformed() {
         SkillExtractionService service = service(new CapturingPromptRenderer(),
                 new CapturingChatPort("not-json"), 10);
 
-        var result = service.dryRun(new SkillExtractionCommand("simulation", "sample", null, "Spring Boot"));
+        assertThrows(SkillCandidateExtractionException.class,
+                () -> service.dryRun(new SkillExtractionCommand(
+                        "simulation", "sample", null, "Spring Boot")));
+    }
+
+    @Test
+    void parsesCandidatesFromSupportedWrapperObjects() {
+        SkillExtractionService skillsService = service(new CapturingPromptRenderer(),
+                new CapturingChatPort("""
+                        {"skills":[{"term":"Spring Boot","confidence":0.9}]}
+                        """), 10);
+        SkillExtractionService candidatesService = service(new CapturingPromptRenderer(),
+                new CapturingChatPort("""
+                        {"candidates":[{"term":"Kubernetes","confidence":0.8}]}
+                        """), 10);
+
+        var skills = skillsService.dryRun(new SkillExtractionCommand(
+                "simulation", "sample", null, "Spring Boot"));
+        var candidates = candidatesService.dryRun(new SkillExtractionCommand(
+                "simulation", "sample", null, "Kubernetes"));
+
+        assertEquals("Spring Boot", skills.candidates().get(0).term());
+        assertEquals("Kubernetes", candidates.candidates().get(0).term());
+    }
+
+    @Test
+    void parsesJsonArrayEmbeddedInExplanatoryText() {
+        SkillExtractionService service = service(new CapturingPromptRenderer(),
+                new CapturingChatPort("""
+                        추출 결과는 다음과 같습니다.
+                        ```json
+                        [{"term":"정규 표현식","confidence":0.88}]
+                        ```
+                        위 결과를 확인해 주세요.
+                        """), 10);
+
+        var result = service.dryRun(new SkillExtractionCommand(
+                "simulation", "sample", null, "정규 표현식"));
+
+        assertEquals(1, result.extractedCount());
+        assertEquals("정규 표현식", result.candidates().get(0).term());
+    }
+
+    @Test
+    void acceptsValidEmptyCandidateArray() {
+        SkillExtractionService service = service(new CapturingPromptRenderer(),
+                new CapturingChatPort("[]"), 10);
+
+        var result = service.dryRun(new SkillExtractionCommand(
+                "simulation", "sample", null, "일반 안내 문장"));
 
         assertEquals(0, result.extractedCount());
+    }
+
+    @Test
+    void throwsWhenLlmResponseIsEmpty() {
+        SkillExtractionService service = service(new CapturingPromptRenderer(),
+                new CapturingChatPort(""), 10);
+
+        assertThrows(SkillCandidateExtractionException.class,
+                () -> service.dryRun(new SkillExtractionCommand(
+                        "simulation", "sample", null, "Spring Boot")));
     }
 
     @Test

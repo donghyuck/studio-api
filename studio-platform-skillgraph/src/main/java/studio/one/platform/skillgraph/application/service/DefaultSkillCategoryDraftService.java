@@ -57,6 +57,13 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
     private static final String CATEGORY_NAMING_PROMPT = "skill-category-naming";
     private static final Pattern SUGGESTED_CATEGORY_NAME_PATTERN = Pattern.compile(
             "\"suggestedCategoryName\"\\s*:\\s*\"([^\"]+)\"");
+    private static final List<String> ABSTRACT_CATEGORY_NAMES = List.of(
+            "엔터프라이즈 역량 그룹",
+            "엔터프라이즈 역량",
+            "핵심 역량 그룹",
+            "전문 역량 그룹",
+            "기술 역량 그룹",
+            "스킬 카테고리");
 
     private final SkillProjectionStore projectionStore;
     private final SkillDictionaryStore dictionaryStore;
@@ -355,18 +362,32 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
             int representativeLimit,
             boolean includeNoise,
             boolean useLlm) {
-        List<SkillClusterRepresentativeView> representatives = findRepresentatives(
+        List<SkillClusterRepresentativeView> allRepresentatives = findRepresentatives(
                 projectionId,
                 cluster.clusterId(),
                 includeNoise,
-                PageRequest.of(0, representativeLimit, Sort.by(Sort.Order.desc("representativeScore"))))
+                PageRequest.of(0, SkillGraphLimits.MAX_PROJECTION_ITEMS,
+                        Sort.by(Sort.Order.desc("representativeScore"))))
                 .getContent();
+        List<SkillClusterRepresentativeView> representatives = allRepresentatives.stream()
+                .limit(representativeLimit)
+                .toList();
         List<String> skillIds = representatives.stream().map(SkillClusterRepresentativeView::skillId).toList();
         List<String> names = representatives.stream()
                 .map(SkillClusterRepresentativeView::skillName)
                 .toList();
         boolean noise = isNoise(cluster);
-        String suggestedName = noise ? "미분류 스킬" : proposeName(names, cluster, representatives, useLlm);
+        ClusterQuality quality = noise
+                ? new ClusterQuality("NOISE", 0.0d, List.of(), "노이즈 클러스터입니다.")
+                : assessClusterQuality(allRepresentatives);
+        NamingSuggestion naming = noise
+                ? new NamingSuggestion("미분류 스킬", null, null, null)
+                : proposeName(names, cluster, representatives, useLlm);
+        quality = mergeQuality(quality, naming, allRepresentatives);
+        String suggestedName = validateSuggestedName(naming.name(), names);
+        if (suggestedName == null) {
+            suggestedName = heuristicName(names, cluster);
+        }
         return new SkillCategoryDraftView(
                 "draft_" + cluster.clusterId(),
                 cluster.clusterId(),
@@ -377,7 +398,11 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
                 cluster.itemCount(),
                 skillIds,
                 names,
-                representatives);
+                representatives,
+                quality.status(),
+                quality.score(),
+                quality.outlierSkillIds(),
+                quality.reason());
     }
 
     private SkillCategoryDraftView reconcileDraft(
@@ -395,7 +420,13 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
         List<String> names = cluster.items().stream().map(SkillVectorItem::label).toList();
         SkillCluster syntheticCluster = new SkillCluster(cluster.id(), cluster.id(), "EMBEDDING_RECONCILE",
                 cluster.items().size(), java.time.Instant.now());
-        String suggestedName = proposeName(names, syntheticCluster, representatives, useLlm);
+        ClusterQuality quality = assessClusterQuality(representatives);
+        NamingSuggestion naming = proposeName(names, syntheticCluster, representatives, useLlm);
+        quality = mergeQuality(quality, naming, representatives);
+        String suggestedName = validateSuggestedName(naming.name(), names);
+        if (suggestedName == null) {
+            suggestedName = heuristicName(names, syntheticCluster);
+        }
         return new SkillCategoryDraftView(
                 "draft_" + cluster.id(),
                 cluster.id(),
@@ -406,7 +437,11 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
                 cluster.items().size(),
                 skillIds,
                 names,
-                representatives);
+                representatives,
+                quality.status(),
+                quality.score(),
+                quality.outlierSkillIds(),
+                quality.reason());
     }
 
     private SkillClusterRepresentativeView reconcileRepresentative(
@@ -607,17 +642,21 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
         return comparator.thenComparing(SkillClusterRepresentativeView::skillName);
     }
 
-    private String proposeName(
+    private NamingSuggestion proposeName(
             List<String> names,
             SkillCluster cluster,
             List<SkillClusterRepresentativeView> representatives,
             boolean useLlm) {
         if (useLlm) {
-            String suggested = proposeNameWithLlm(representatives);
-            if (suggested != null) {
+            NamingSuggestion suggested = proposeNameWithLlm(representatives);
+            if (suggested != null && suggested.name() != null) {
                 return suggested;
             }
         }
+        return new NamingSuggestion(heuristicName(names, cluster), null, null, null);
+    }
+
+    private String heuristicName(List<String> names, SkillCluster cluster) {
         String joined = String.join(" ", names).toLowerCase(Locale.ROOT);
         if (joined.contains("security") || joined.contains("인증") || joined.contains("인가") || joined.contains("oauth")) {
             return "인증·인가 보안";
@@ -637,7 +676,7 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
         return cluster.label() == null ? "스킬 카테고리 " + cluster.clusterId() : cluster.label();
     }
 
-    private String proposeNameWithLlm(List<SkillClusterRepresentativeView> representatives) {
+    private NamingSuggestion proposeNameWithLlm(List<SkillClusterRepresentativeView> representatives) {
         if (promptRenderer == null || chatPort == null || representatives == null || representatives.isEmpty()) {
             if (log.isDebugEnabled()) {
                 log.debug("Skipping skill category LLM naming: promptRendererPresent={}, chatPortPresent={}, representativeCount={}",
@@ -654,11 +693,14 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
                     representatives.size());
             List<Map<String, Object>> skills = representatives.stream()
                     .map(skill -> Map.<String, Object>of(
+                            "skillId", skill.skillId(),
                             "skillName", skill.skillName(),
                             "normalizedName", skill.normalizedName(),
                             "centroidDistance", skill.centroidDistance(),
                             "occurrenceCount", skill.occurrenceCount() == null ? 0 : skill.occurrenceCount(),
-                            "confidenceScore", skill.confidenceScore() == null ? 0.0d : skill.confidenceScore()))
+                            "confidenceScore", skill.confidenceScore() == null ? 0.0d : skill.confidenceScore(),
+                            "categoryId", skill.categoryId() == null ? "" : skill.categoryId(),
+                            "status", skill.status() == null ? "" : skill.status()))
                     .toList();
             String prompt = promptRenderer.render(CATEGORY_NAMING_PROMPT, Map.of(
                     "skills", skills,
@@ -677,8 +719,8 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
                     finishReason,
                     raw == null ? 0 : raw.length(),
                     preview(raw));
-            String suggestedName = parseCategoryName(raw);
-            if (suggestedName == null) {
+            NamingSuggestion suggestion = parseNamingSuggestion(raw);
+            if (suggestion == null || suggestion.name() == null) {
                 log.warn("Skill category LLM naming response was not usable; falling back to heuristic: clusterId={}, responseChars={}, preview={}",
                         clusterId,
                         raw == null ? 0 : raw.length(),
@@ -686,16 +728,16 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
             } else {
                 log.debug("Parsed skill category LLM naming response: clusterId={}, suggestedName={}",
                         clusterId,
-                        suggestedName);
+                        suggestion.name());
             }
-            return suggestedName;
+            return suggestion;
         } catch (RuntimeException ex) {
             log.warn("Failed to suggest skill category name via LLM: {}", ex.toString());
             return null;
         }
     }
 
-    private String parseCategoryName(String raw) {
+    private NamingSuggestion parseNamingSuggestion(String raw) {
         String value = raw == null ? "" : raw.trim();
         if (value.isBlank()) {
             return null;
@@ -704,25 +746,118 @@ public class DefaultSkillCategoryDraftService implements SkillCategoryDraftServi
             String stripped = stripFence(value);
             JsonNode node = objectMapper.readTree(stripped);
             if (node.isTextual()) {
-                return normalizeSuggestedName(node.asText());
+                return new NamingSuggestion(normalizeSuggestedName(node.asText()), null, null, null);
             }
-            if (node.hasNonNull("suggestedCategoryName")) {
-                return normalizeSuggestedName(node.get("suggestedCategoryName").asText());
-            }
-            if (node.hasNonNull("name")) {
-                return normalizeSuggestedName(node.get("name").asText());
-            }
+            String name = node.hasNonNull("suggestedCategoryName")
+                    ? normalizeSuggestedName(node.get("suggestedCategoryName").asText())
+                    : node.hasNonNull("name") ? normalizeSuggestedName(node.get("name").asText()) : null;
+            Boolean coherent = node.has("coherent") && node.get("coherent").isBoolean()
+                    ? node.get("coherent").asBoolean()
+                    : null;
+            String reason = node.hasNonNull("reason") ? normalize(node.get("reason").asText()) : null;
+            List<String> outlierIds = node.has("outlierSkillIds") && node.get("outlierSkillIds").isArray()
+                    ? java.util.stream.StreamSupport.stream(node.get("outlierSkillIds").spliterator(), false)
+                            .filter(JsonNode::isTextual)
+                            .map(JsonNode::asText)
+                            .map(this::normalize)
+                            .filter(Objects::nonNull)
+                            .distinct()
+                            .toList()
+                    : List.of();
+            return new NamingSuggestion(name, coherent, outlierIds, reason);
         } catch (Exception ignored) {
             String extracted = extractSuggestedCategoryName(value);
             if (extracted != null) {
-                return extracted;
+                return new NamingSuggestion(extracted, null, null, null);
             }
             if (looksLikeJson(value)) {
                 return null;
             }
-            return normalizeSuggestedName(value);
+            return new NamingSuggestion(normalizeSuggestedName(value), null, null, null);
         }
-        return null;
+    }
+
+    private ClusterQuality assessClusterQuality(List<SkillClusterRepresentativeView> representatives) {
+        if (representatives == null || representatives.size() < 3) {
+            return new ClusterQuality("REVIEW_REQUIRED", 0.6d, List.of(),
+                    "구성 스킬이 3개 미만이므로 자동 응집도 판정을 보류합니다.");
+        }
+        double average = representatives.stream()
+                .mapToDouble(SkillClusterRepresentativeView::centroidDistance)
+                .average()
+                .orElse(0.0d);
+        double variance = representatives.stream()
+                .mapToDouble(value -> Math.pow(value.centroidDistance() - average, 2))
+                .average()
+                .orElse(0.0d);
+        double standardDeviation = Math.sqrt(variance);
+        double outlierThreshold = average + Math.max(standardDeviation * 1.5d, 0.05d);
+        List<String> outlierIds = representatives.stream()
+                .filter(value -> value.centroidDistance() > outlierThreshold)
+                .map(SkillClusterRepresentativeView::skillId)
+                .toList();
+        double dispersion = average == 0.0d ? 0.0d : standardDeviation / average;
+        double score = clamp01(1.0d - Math.min(1.0d, dispersion));
+        if (!outlierIds.isEmpty() || score < 0.55d) {
+            return new ClusterQuality("SPLIT_REQUIRED", score, outlierIds,
+                    "클러스터 내 거리 편차가 커서 이상치 분리 또는 재클러스터링이 필요합니다.");
+        }
+        return new ClusterQuality("COHERENT", score, List.of(), null);
+    }
+
+    private ClusterQuality mergeQuality(
+            ClusterQuality quality,
+            NamingSuggestion naming,
+            List<SkillClusterRepresentativeView> representatives) {
+        if (naming == null || naming.coherent() == null) {
+            return quality;
+        }
+        if (Boolean.TRUE.equals(naming.coherent())) {
+            return quality;
+        }
+        List<String> knownIds = representatives.stream()
+                .map(SkillClusterRepresentativeView::skillId)
+                .toList();
+        List<String> outlierIds = naming.outlierSkillIds() == null ? quality.outlierSkillIds()
+                : naming.outlierSkillIds().stream().filter(knownIds::contains).distinct().toList();
+        return new ClusterQuality(
+                "SPLIT_REQUIRED",
+                Math.min(quality.score(), 0.49d),
+                outlierIds.isEmpty() ? quality.outlierSkillIds() : outlierIds,
+                naming.reason() == null ? "LLM이 구성 스킬의 의미적 일관성이 낮다고 판정했습니다." : naming.reason());
+    }
+
+    private String validateSuggestedName(String name, List<String> skillNames) {
+        String normalizedName = normalizeSuggestedName(name);
+        if (normalizedName == null) {
+            return null;
+        }
+        String compact = normalizedName.replaceAll("\\s+", " ").trim();
+        if (ABSTRACT_CATEGORY_NAMES.stream().anyMatch(compact::equalsIgnoreCase)) {
+            return null;
+        }
+        if (compact.length() > 40) {
+            return null;
+        }
+        return compact;
+    }
+
+    private double clamp01(double value) {
+        return Math.max(0.0d, Math.min(1.0d, value));
+    }
+
+    private record NamingSuggestion(
+            String name,
+            Boolean coherent,
+            List<String> outlierSkillIds,
+            String reason) {
+    }
+
+    private record ClusterQuality(
+            String status,
+            double score,
+            List<String> outlierSkillIds,
+            String reason) {
     }
 
     private String extractSuggestedCategoryName(String value) {

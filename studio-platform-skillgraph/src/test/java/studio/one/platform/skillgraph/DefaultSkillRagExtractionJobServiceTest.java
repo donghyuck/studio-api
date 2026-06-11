@@ -29,8 +29,29 @@ import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobS
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.infrastructure.persistence.memory.InMemorySkillRagExtractionJobStore;
+import studio.one.platform.skillgraph.infrastructure.extraction.SkillCandidateExtractionException;
 
 class DefaultSkillRagExtractionJobServiceTest {
+
+    @Test
+    void preservesCandidateExtractionFailureMessageOnFailedChunk() {
+        InMemorySkillRagExtractionJobStore store = new InMemorySkillRagExtractionJobStore();
+        DefaultSkillRagExtractionJobService service = new DefaultSkillRagExtractionJobService(
+                command -> {
+                    throw new SkillCandidateExtractionException("Failed to parse LLM skill candidate response");
+                },
+                new PagingResolver(List.of(chunk("doc-1", "chunk-1", "Spring Boot"))),
+                store,
+                Runnable::run,
+                new SkillRagExtractionJobSettings(20, 10, 1_000_000));
+
+        var submitted = service.submitAllChunks("attachment", "42", null);
+        var job = service.getJob(submitted.jobId());
+        var items = service.listItems(submitted.jobId(), 0, 10);
+
+        assertEquals(SkillRagExtractionJobStatus.FAILED, job.status());
+        assertEquals("Failed to parse LLM skill candidate response", items.get(0).error());
+    }
 
     @Test
     void processesAllChunksByPageWithoutLoadingWholeDocument() {

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
 import studio.one.platform.skillgraph.application.command.AssignCategoryFromClusterCommand;
@@ -26,6 +28,8 @@ import studio.one.platform.skillgraph.application.command.BulkSkillCategoryComma
 import studio.one.platform.skillgraph.application.command.MergeSkillCategoriesCommand;
 import studio.one.platform.skillgraph.application.command.MoveSkillCategoryCommand;
 import studio.one.platform.skillgraph.application.command.SkillCategoryCommand;
+import studio.one.platform.skillgraph.application.error.SkillCategoryInUseException;
+import studio.one.platform.skillgraph.application.result.SkillCategoryDeletionImpact;
 import studio.one.platform.skillgraph.application.result.SkillCategoryHistoryView;
 import studio.one.platform.skillgraph.application.result.SkillCategoryMutationResult;
 import studio.one.platform.skillgraph.application.result.SkillCategoryView;
@@ -55,6 +59,13 @@ public class SkillTaxonomyMgmtController {
         return ResponseEntity.ok(ApiResponse.ok(service.getCategory(categoryId)));
     }
 
+    @GetMapping("/{categoryId}/deletion-impact")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<SkillCategoryDeletionImpact>> deletionImpact(
+            @PathVariable @Size(max = 100) String categoryId) {
+        return ResponseEntity.ok(ApiResponse.ok(service.getDeletionImpact(categoryId)));
+    }
+
     @PostMapping
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillCategoryView>> save(@Valid @RequestBody SkillCategoryCommand command) {
@@ -76,8 +87,12 @@ public class SkillTaxonomyMgmtController {
     @DeleteMapping("/{categoryId}")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable @Size(max = 100) String categoryId) {
-        service.deleteCategory(categoryId);
-        return ResponseEntity.ok(ApiResponse.ok(null));
+        try {
+            service.deleteCategory(categoryId);
+            return ResponseEntity.ok(ApiResponse.ok(null));
+        } catch (SkillCategoryInUseException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage(), ex);
+        }
     }
 
     @PostMapping("/{categoryId}/move")

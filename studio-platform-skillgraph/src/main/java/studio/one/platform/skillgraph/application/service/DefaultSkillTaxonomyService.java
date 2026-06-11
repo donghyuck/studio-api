@@ -13,6 +13,8 @@ import studio.one.platform.skillgraph.application.command.BulkSkillCategoryComma
 import studio.one.platform.skillgraph.application.command.MergeSkillCategoriesCommand;
 import studio.one.platform.skillgraph.application.command.MoveSkillCategoryCommand;
 import studio.one.platform.skillgraph.application.command.SkillCategoryCommand;
+import studio.one.platform.skillgraph.application.error.SkillCategoryInUseException;
+import studio.one.platform.skillgraph.application.result.SkillCategoryDeletionImpact;
 import studio.one.platform.skillgraph.application.result.SkillCategoryHistoryView;
 import studio.one.platform.skillgraph.application.result.SkillCategoryMutationResult;
 import studio.one.platform.skillgraph.application.result.SkillCategoryView;
@@ -102,10 +104,26 @@ public class DefaultSkillTaxonomyService implements SkillTaxonomyService {
     }
 
     @Override
+    public SkillCategoryDeletionImpact getDeletionImpact(String categoryId) {
+        SkillCategory category = requireCategory(categoryId);
+        int skillCount = dictionaryStore == null ? 0 : dictionaryStore.countByCategoryId(category.categoryId());
+        int childCount = store.findCategories(category.categoryId()).size();
+        return new SkillCategoryDeletionImpact(
+                category.categoryId(),
+                skillCount,
+                childCount,
+                skillCount == 0 && childCount == 0);
+    }
+
+    @Override
     public void deleteCategory(String categoryId) {
         SkillCategory category = requireCategory(categoryId);
-        store.deleteCategory(category.categoryId());
+        SkillCategoryDeletionImpact impact = getDeletionImpact(category.categoryId());
+        if (!impact.deletable()) {
+            throw new SkillCategoryInUseException(impact);
+        }
         saveHistory(category.categoryId(), null, "DELETE", category.parentCategoryId(), null, category.name());
+        store.deleteCategory(category.categoryId());
     }
 
     @Override

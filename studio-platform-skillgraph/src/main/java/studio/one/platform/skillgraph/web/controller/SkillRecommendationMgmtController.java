@@ -30,6 +30,7 @@ import studio.one.platform.skillgraph.application.result.SkillRecommendationResu
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateRecommendationService;
 import studio.one.platform.skillgraph.web.dto.request.SkillCandidateRecommendationJobRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRecommendationApplyRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillRecommendationSelectedApplyRequest;
 import studio.one.platform.web.dto.ApiResponse;
 
 @RestController
@@ -104,6 +105,23 @@ public class SkillRecommendationMgmtController {
             @PathVariable @Size(max = 120) String resultId,
             @Valid @RequestBody SkillRecommendationApplyRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(service.applyResult(resultId, applyCommand(request))));
+    }
+
+    @PostMapping("/recommendations/results/apply")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
+    public ResponseEntity<ApiResponse<SkillRecommendationApplyResult>> applySelectedResults(
+            @Valid @RequestBody SkillRecommendationSelectedApplyRequest request) {
+        try {
+            return ResponseEntity.ok(ApiResponse.ok(service.applySelectedResults(
+                    request.resultIds(),
+                    new SkillRecommendationApplyCommand(
+                            request.applyMode(),
+                            request.recommendationTypes(),
+                            request.minConfidence(),
+                            request.minSimilarityScore()))));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        }
     }
 
     @PostMapping("/recommendations/jobs/{jobId}/apply")

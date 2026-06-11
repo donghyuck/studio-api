@@ -38,6 +38,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewSe
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobNotifier;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
+import studio.one.platform.skillgraph.infrastructure.extraction.SkillExtractionFailureMessages;
 
 @Slf4j
 public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJobService {
@@ -301,13 +302,15 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             if (chunkIds.isEmpty() && job.status() != SkillRagExtractionJobStatus.FAILED) {
                 return job;
             }
-        } else {
-            store.resetRetryState(job.jobId(), clock.instant());
         }
+        store.resetRetryState(job.jobId(), clock.instant());
         SkillRagExtractionJob running = saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
                 clock.instant()));
         try {
-            submitLeased(job.jobId(), chunkIds, true);
+            if (!submitLeased(job.jobId(), chunkIds, true)) {
+                return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
+                        "RAG extraction job lease could not be acquired", clock.instant()));
+            }
             return running;
         } catch (RejectedExecutionException ex) {
             return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
@@ -329,10 +332,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         return recovered;
     }
 
-    private void submitLeased(String jobId, Set<String> retryChunkIds, boolean resume) {
+    private boolean submitLeased(String jobId, Set<String> retryChunkIds, boolean resume) {
         Instant now = clock.instant();
         if (!store.acquireLease(jobId, leaseOwner, now, settings.leaseDuration(), settings.maxAutoRetries())) {
-            return;
+            return false;
         }
         try {
             executor.execute(() -> {
@@ -346,6 +349,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             store.releaseLease(jobId, leaseOwner);
             throw ex;
         }
+        return true;
     }
 
     private void processAllChunks(
@@ -656,10 +660,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     private String failureMessage(RuntimeException ex) {
-        if (ex instanceof IllegalArgumentException && ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            return ex.getMessage();
-        }
-        return "Skill extraction failed";
+        return SkillExtractionFailureMessages.from(ex);
     }
 
     private String jobFailureMessage(RuntimeException ex) {

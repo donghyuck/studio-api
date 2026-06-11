@@ -114,6 +114,72 @@ class DefaultSkillCategoryDraftServiceTest {
     }
 
     @Test
+    void marksClusterForSplitWhenLlmFindsUnrelatedSkills() {
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillProjectionStore projectionStore = new InMemorySkillProjectionStore();
+        InMemorySkillTaxonomyStore taxonomyStore = new InMemorySkillTaxonomyStore();
+        Instant now = Instant.now();
+        dictionaryStore.save(new SkillDictionary("skill-spring", "Spring", null, null, "ACTIVE", now, now));
+        dictionaryStore.save(new SkillDictionary("skill-hadoop", "Hadoop", null, null, "ACTIVE", now, now));
+        dictionaryStore.save(new SkillDictionary("skill-regex", "정규 표현식", null, null, "ACTIVE", now, now));
+        projectionStore.replaceProjection("default", List.of(
+                new SkillProjection("default", "skill-spring", 0.1d, 0.1d, "cluster-1", 0, now),
+                new SkillProjection("default", "skill-hadoop", 0.2d, 0.2d, "cluster-1", 1, now),
+                new SkillProjection("default", "skill-regex", 0.3d, 0.3d, "cluster-1", 2, now)),
+                List.of(new SkillCluster("cluster-1", null, "distance-threshold", 3, now)));
+        DefaultSkillCategoryDraftService service = new DefaultSkillCategoryDraftService(
+                projectionStore,
+                dictionaryStore,
+                taxonomyStore,
+                null,
+                new CapturingPromptRenderer(),
+                request -> new ChatResponse(List.of(ChatMessage.assistant("""
+                        {
+                          "suggestedCategoryName": "엔터프라이즈 데이터 처리",
+                          "coherent": false,
+                          "outlierSkillIds": ["skill-regex"],
+                          "reason": "정규 표현식은 Spring과 Hadoop의 공통 영역에 속하지 않음"
+                        }
+                        """)), "test-model", Map.of()),
+                new ObjectMapper());
+
+        var drafts = service.generateDrafts(new GenerateSkillCategoryDraftCommand(
+                "default", List.of("cluster-1"), 5, false, true));
+        var draft = drafts.drafts().get(0);
+
+        assertEquals("SPLIT_REQUIRED", draft.coherenceStatus());
+        assertEquals(List.of("skill-regex"), draft.outlierSkillIds());
+        assertEquals("정규 표현식은 Spring과 Hadoop의 공통 영역에 속하지 않음", draft.reviewReason());
+    }
+
+    @Test
+    void rejectsAbstractLlmCategoryNameAndFallsBackToSpecificHeuristic() {
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillProjectionStore projectionStore = new InMemorySkillProjectionStore();
+        InMemorySkillTaxonomyStore taxonomyStore = new InMemorySkillTaxonomyStore();
+        Instant now = Instant.now();
+        dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot API", null, null, "ACTIVE", now, now));
+        projectionStore.replaceProjection("default", List.of(
+                new SkillProjection("default", "skill-1", 0.1d, 0.2d, "cluster-1", 0, now)),
+                List.of(new SkillCluster("cluster-1", null, "distance-threshold", 1, now)));
+        DefaultSkillCategoryDraftService service = new DefaultSkillCategoryDraftService(
+                projectionStore,
+                dictionaryStore,
+                taxonomyStore,
+                null,
+                new CapturingPromptRenderer(),
+                request -> new ChatResponse(List.of(ChatMessage.assistant(
+                        "{\"suggestedCategoryName\":\"엔터프라이즈 역량 그룹\",\"coherent\":true}")),
+                        "test-model", Map.of()),
+                new ObjectMapper());
+
+        var drafts = service.generateDrafts(new GenerateSkillCategoryDraftCommand(
+                "default", List.of("cluster-1"), 5, false, true));
+
+        assertEquals("백엔드 API 개발", drafts.drafts().get(0).suggestedCategoryName());
+    }
+
+    @Test
     void fallsBackToHeuristicNameWhenLlmReturnsMalformedJson() {
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
         InMemorySkillProjectionStore projectionStore = new InMemorySkillProjectionStore();

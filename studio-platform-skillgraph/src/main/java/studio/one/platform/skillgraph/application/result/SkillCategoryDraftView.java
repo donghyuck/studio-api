@@ -12,5 +12,9 @@ public record SkillCategoryDraftView(
         int itemCount,
         List<String> representativeSkillIds,
         List<String> representativeSkillNames,
-        List<SkillClusterRepresentativeView> representativeSkills) {
+        List<SkillClusterRepresentativeView> representativeSkills,
+        String coherenceStatus,
+        double coherenceScore,
+        List<String> outlierSkillIds,
+        String reviewReason) {
 }

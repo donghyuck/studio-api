@@ -207,6 +207,25 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
     }
 
     @Override
+    public SkillRecommendationApplyResult applySelectedResults(
+            List<String> resultIds,
+            SkillRecommendationApplyCommand command) {
+        if (resultIds == null || resultIds.isEmpty()) {
+            throw new IllegalArgumentException("resultIds must not be empty");
+        }
+        List<String> normalizedIds = resultIds.stream()
+                .map(resultId -> requireText(resultId, "resultId"))
+                .distinct()
+                .toList();
+        List<SkillRecommendationResult> results = normalizedIds.stream()
+                .map(resultId -> recommendationStore.findResult(resultId)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Unknown recommendation result: " + resultId)))
+                .toList();
+        return applyResults(results, normalizeApply(command));
+    }
+
+    @Override
     public SkillRecommendationApplyResult applyJob(String jobId, SkillRecommendationApplyCommand command) {
         findJob(jobId);
         return applyResults(recommendationStore.findResultsByJob(jobId), normalizeApply(command));
@@ -535,6 +554,7 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
             return new LinkedHashSet<>(command.candidateIds()).stream()
                     .map(candidateStore::findCandidate)
                     .flatMap(Optional::stream)
+                    .filter(this::isRecommendationEligible)
                     .toList();
         }
         SkillCandidateStatus status = parseStatus(command.status());
@@ -543,7 +563,14 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
                 command.keyword(),
                 command.sourceType(),
                 command.sourceId(),
-                Pageable.ofSize(2000)).getContent();
+                Pageable.ofSize(2000)).stream()
+                .filter(this::isRecommendationEligible)
+                .toList();
+    }
+
+    private boolean isRecommendationEligible(SkillCandidate candidate) {
+        return candidate.status() == SkillCandidateStatus.PENDING
+                || candidate.status() == SkillCandidateStatus.NEW_SKILL_CANDIDATE;
     }
 
     private void validateCandidateEmbeddings(
