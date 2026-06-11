@@ -13,18 +13,32 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import lombok.extern.slf4j.Slf4j;
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
+import studio.one.platform.skillgraph.application.result.SkillCandidateView;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJob;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingResult;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionItemStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobItem;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionRetryMode;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
+import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobNotifier;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
+import studio.one.platform.skillgraph.infrastructure.extraction.SkillExtractionFailureMessages;
 
 @Slf4j
 public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJobService {
@@ -34,6 +48,8 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private static final int MAX_JOB_LIMIT = 200;
     private static final int DEFAULT_ITEM_LIMIT = 100;
     private static final int MAX_ITEM_LIMIT = 500;
+    private static final String LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE = "2001";
+    private static final String ATTACHMENT_OBJECT_TYPE = "attachment";
 
     private final SkillExtractionService extractionService;
     private final SkillGraphRagChunkResolver ragChunkResolver;
@@ -41,6 +57,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private final Executor executor;
     private final SkillRagExtractionJobSettings settings;
     private final Clock clock;
+    private final ObjectTypeRuntimeService objectTypeRuntimeService;
+    private final SkillCandidateReviewService candidateReviewService;
+    private final SkillRagExtractionJobNotifier jobNotifier;
+    private final String leaseOwner = UUID.randomUUID().toString();
 
     public DefaultSkillRagExtractionJobService(
             SkillExtractionService extractionService,
@@ -48,7 +68,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             SkillRagExtractionJobStore store,
             Executor executor,
             SkillRagExtractionJobSettings settings) {
-        this(extractionService, ragChunkResolver, store, executor, settings, Clock.systemUTC());
+        this(extractionService, ragChunkResolver, store, executor, settings, Clock.systemUTC(), null, null);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            ObjectTypeRuntimeService objectTypeRuntimeService) {
+        this(extractionService, ragChunkResolver, store, executor, settings, Clock.systemUTC(),
+                objectTypeRuntimeService, null);
     }
 
     public DefaultSkillRagExtractionJobService(
@@ -58,39 +89,124 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             Executor executor,
             SkillRagExtractionJobSettings settings,
             Clock clock) {
+        this(extractionService, ragChunkResolver, store, executor, settings, clock, null, null);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            Clock clock,
+            ObjectTypeRuntimeService objectTypeRuntimeService) {
+        this(extractionService, ragChunkResolver, store, executor, settings, clock, objectTypeRuntimeService, null);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            Clock clock,
+            ObjectTypeRuntimeService objectTypeRuntimeService,
+            SkillCandidateReviewService candidateReviewService) {
+        this(extractionService, ragChunkResolver, store, executor, settings, clock, objectTypeRuntimeService,
+                candidateReviewService, SkillRagExtractionJobNotifier.NOOP);
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionService extractionService,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            Clock clock,
+            ObjectTypeRuntimeService objectTypeRuntimeService,
+            SkillCandidateReviewService candidateReviewService,
+            SkillRagExtractionJobNotifier jobNotifier) {
         this.extractionService = Objects.requireNonNull(extractionService, "extractionService");
         this.ragChunkResolver = Objects.requireNonNull(ragChunkResolver, "ragChunkResolver");
         this.store = Objects.requireNonNull(store, "store");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.clock = Objects.requireNonNull(clock, "clock");
+        this.objectTypeRuntimeService = objectTypeRuntimeService;
+        this.candidateReviewService = candidateReviewService;
+        this.jobNotifier = jobNotifier == null ? SkillRagExtractionJobNotifier.NOOP : jobNotifier;
     }
 
     @Override
-    public SkillRagExtractionJob submitAllChunks(String objectType, String objectId, String documentId, Integer limit) {
+    public SkillRagExtractionJob submitAllChunks(String objectType, String objectId, Integer limit) {
+        return submitAllChunks(objectType, objectId, limit, false, false, null, null, null);
+    }
+
+    @Override
+    public SkillRagExtractionJob submitAllChunks(
+            String objectType,
+            String objectId,
+            Integer limit,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension) {
+        return submit(objectType, objectId, null, List.of(), limit, excludeExtracted,
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension);
+    }
+
+    @Override
+    public SkillRagExtractionJob submit(
+            String objectType,
+            String objectId,
+            String query,
+            List<String> chunkIds,
+            Integer limit,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension) {
+        List<String> selectedChunkIds = chunkIds == null ? List.of() : chunkIds.stream()
+                .map(this::normalize)
+                .filter(Objects::nonNull)
+                .distinct()
+                .limit(settings.maxChunks())
+                .toList();
         int requestedChunks = boundedLimit(limit);
         Instant now = clock.instant();
         SkillRagExtractionJob job = new SkillRagExtractionJob(
                 "srj_" + UUID.randomUUID().toString().replace("-", ""),
-                required(objectType, "objectType"),
-                required(objectId, "objectId"),
-                normalize(documentId),
+                normalizeRagObjectType(objectType),
+                normalize(objectId),
+                null,
+                normalize(query),
+                selectedChunkIds.isEmpty() ? "ALL_CHUNKS" : "SELECTED_CHUNKS",
+                selectedChunkIds,
                 SkillRagExtractionJobStatus.RUNNING,
-                requestedChunks,
+                selectedChunkIds.isEmpty() ? requestedChunks : Math.min(requestedChunks, selectedChunkIds.size()),
                 0,
                 0,
                 0,
                 0,
                 0,
                 null,
+                excludeExtracted,
+                generateEmbeddings,
+                normalize(embeddingProvider),
+                normalize(embeddingModel),
+                embeddingDimension,
+                null,
+                null,
                 now,
                 now);
-        store.saveJob(job);
+        saveJobAndNotify(job);
         try {
-            executor.execute(() -> processAllChunks(job.jobId(), Set.of()));
-            return job;
+            submitLeased(job.jobId(), Set.of(), false);
+            return store.findJob(job.jobId()).orElse(job);
         } catch (RejectedExecutionException ex) {
-            return store.saveJob(job.withStatus(SkillRagExtractionJobStatus.FAILED,
+            return saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.FAILED,
                     "RAG extraction job queue is full", clock.instant()));
         }
     }
@@ -98,8 +214,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     @Override
     public SkillRagExtractionJob getJob(String jobId) {
         return store.findJob(required(jobId, "jobId"))
-                .map(this::reconcileCompletedActiveJob)
+                .map(this::reconcileJob)
                 .orElseThrow(() -> new IllegalArgumentException("RAG extraction job not found: " + jobId));
+    }
+
+    @Override
+    public String executionStatus(String jobId) {
+        SkillRagExtractionJob job = getJob(jobId);
+        if (job.status() != SkillRagExtractionJobStatus.RUNNING
+                && job.status() != SkillRagExtractionJobStatus.READY) {
+            return job.status().name();
+        }
+        return store.executionStatus(job.jobId(), clock.instant(), settings.maxAutoRetries());
     }
 
     @Override
@@ -107,15 +233,25 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit) {
         SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
-        return store.listJobs(null, normalize(objectType), normalize(objectId), normalize(documentId),
+        return store.listJobs(null, normalize(objectType), normalize(objectId),
                 Math.max(0, offset), boundedJobLimit(limit)).stream()
-                .map(this::reconcileCompletedActiveJob)
+                .map(this::reconcileJob)
                 .filter(job -> parsedStatus == null || job.status() == parsedStatus)
                 .toList();
+    }
+
+    @Override
+    public Page<SkillRagExtractionJob> searchJobs(
+            String status,
+            String objectType,
+            String objectId,
+            Pageable pageable) {
+        SkillRagExtractionJobStatus parsedStatus = parseStatus(status);
+        return store.searchJobs(parsedStatus, normalize(objectType), normalize(objectId),
+                pageable).map(this::reconcileJob);
     }
 
     @Override
@@ -125,56 +261,140 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     @Override
-    public SkillRagExtractionJob retryFailed(String jobId) {
+    public Page<SkillCandidateView> listCandidates(String jobId, Pageable pageable) {
+        String normalizedJobId = required(jobId, "jobId");
+        getJob(normalizedJobId);
+        if (candidateReviewService == null) {
+            return Page.empty(pageable);
+        }
+        Set<String> sourceChunkIds = store.listItemsByStatus(
+                normalizedJobId, SkillRagExtractionItemStatus.SUCCEEDED, settings.maxChunks()).stream()
+                .map(SkillRagExtractionJobItem::sourceChunkId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (sourceChunkIds.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+        return candidateReviewService.searchBySourceChunkIds(sourceChunkIds, pageable);
+    }
+
+    @Override
+    public SkillRagExtractionJob retry(String jobId, SkillRagExtractionRetryMode mode) {
         SkillRagExtractionJob job = getJob(jobId);
-        if (job.status() == SkillRagExtractionJobStatus.RUNNING || job.status() == SkillRagExtractionJobStatus.READY) {
+        SkillRagExtractionRetryMode retryMode = mode == null
+                ? SkillRagExtractionRetryMode.FAILED_ONLY
+                : mode;
+        if (job.status() == SkillRagExtractionJobStatus.COMPLETED) {
+            throw new IllegalStateException("Completed RAG extraction job cannot be retried: " + jobId);
+        }
+        String executionStatus = executionStatus(job.jobId());
+        if (retryMode != SkillRagExtractionRetryMode.FORCE_RESTART
+                && "RUNNING".equals(executionStatus)) {
             throw new IllegalStateException("RAG extraction job is still active: " + jobId);
         }
-        List<SkillRagExtractionJobItem> failedItems = store.listItemsByStatus(
-                job.jobId(), SkillRagExtractionItemStatus.FAILED, settings.maxChunks());
-        if (failedItems.isEmpty()) {
-            return job;
-        }
         Set<String> chunkIds = new HashSet<>();
-        for (SkillRagExtractionJobItem item : failedItems) {
-            chunkIds.add(item.chunkId());
+        if (retryMode == SkillRagExtractionRetryMode.FAILED_ONLY) {
+            List<SkillRagExtractionJobItem> failedItems = store.listItemsByStatus(
+                    job.jobId(), SkillRagExtractionItemStatus.FAILED, settings.maxChunks());
+            for (SkillRagExtractionJobItem item : failedItems) {
+                chunkIds.add(item.chunkId());
+            }
+            if (chunkIds.isEmpty() && job.status() != SkillRagExtractionJobStatus.FAILED) {
+                return job;
+            }
         }
-        SkillRagExtractionJob running = store.saveJob(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
+        store.resetRetryState(job.jobId(), clock.instant());
+        SkillRagExtractionJob running = saveJobAndNotify(job.withStatus(SkillRagExtractionJobStatus.RUNNING, null,
                 clock.instant()));
         try {
-            executor.execute(() -> processAllChunks(job.jobId(), chunkIds));
+            if (!submitLeased(job.jobId(), chunkIds, true)) {
+                return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
+                        "RAG extraction job lease could not be acquired", clock.instant()));
+            }
             return running;
         } catch (RejectedExecutionException ex) {
-            return store.saveJob(running.withStatus(SkillRagExtractionJobStatus.FAILED,
+            return saveJobAndNotify(running.withStatus(SkillRagExtractionJobStatus.FAILED,
                     "RAG extraction job queue is full", clock.instant()));
         }
     }
 
-    private void processAllChunks(String jobId, Set<String> retryChunkIds) {
+    @Override
+    public int recoverStaleJobs() {
+        int recovered = 0;
+        for (String jobId : store.findRecoverableJobIds(clock.instant(), settings.maxChunks())) {
+            try {
+                submitLeased(jobId, Set.of(), true);
+                recovered++;
+            } catch (RejectedExecutionException ex) {
+                break;
+            }
+        }
+        return recovered;
+    }
+
+    private boolean submitLeased(String jobId, Set<String> retryChunkIds, boolean resume) {
+        Instant now = clock.instant();
+        if (!store.acquireLease(jobId, leaseOwner, now, settings.leaseDuration(), settings.maxAutoRetries())) {
+            return false;
+        }
+        try {
+            executor.execute(() -> {
+                try {
+                    processAllChunks(jobId, retryChunkIds, resume);
+                } finally {
+                    store.releaseLease(jobId, leaseOwner);
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            store.releaseLease(jobId, leaseOwner);
+            throw ex;
+        }
+        return true;
+    }
+
+    private void processAllChunks(
+            String jobId,
+            Set<String> retryChunkIds,
+            boolean resume) {
         SkillRagExtractionJob job = getJob(jobId);
+        boolean excludeExtracted = job.excludeExtracted();
+        String ragObjectType = normalizeRagObjectType(job.objectType());
+        Set<String> selectedChunkIds = new HashSet<>(job.selectedChunkIds());
+        Set<String> alreadyExtracted = excludeExtracted || resume ? successfulChunkIds(job) : Set.of();
+        Set<String> targetChunkIds = retryChunkIds.isEmpty() ? selectedChunkIds : retryChunkIds;
+        List<ResolvedRagChunk> selectedChunks = targetChunkIds.isEmpty()
+                ? List.of()
+                : ragChunkResolver.listByChunkIds(ragObjectType, targetChunkIds);
         int offset = 0;
-        int total = retryChunkIds.isEmpty() ? 0 : job.totalChunks();
-        int processed = retryChunkIds.isEmpty() ? 0 : job.processedChunks() - retryChunkIds.size();
+        int fetchLimit = settings.batchSize();
+        int total = targetChunkIds.isEmpty()
+                ? countEligibleChunks(job, ragObjectType, targetChunkIds, alreadyExtracted)
+                : eligibleBatch(job, selectedChunks, targetChunkIds, alreadyExtracted).size();
+        int processed = retryChunkIds.isEmpty() ? 0 : Math.max(0, job.processedChunks() - retryChunkIds.size());
         int succeeded = retryChunkIds.isEmpty() ? 0 : job.succeededChunks();
         int failed = retryChunkIds.isEmpty() ? 0 : Math.max(0, job.failedChunks() - retryChunkIds.size());
         int extracted = retryChunkIds.isEmpty() ? 0 : job.extractedCount();
         try {
-            while (processed < job.requestedChunks()) {
-                List<ResolvedRagChunk> fetched = ragChunkResolver.listByObject(
-                        job.objectType(), job.objectId(), offset, settings.batchSize());
+            if (retryChunkIds.isEmpty()) {
+                store.saveJob(job.withProgress(SkillRagExtractionJobStatus.RUNNING, total, processed, succeeded,
+                        failed, extracted, null, clock.instant()));
+            }
+            while (processed < total) {
+                List<ResolvedRagChunk> fetched = targetChunkIds.isEmpty()
+                        ? fetchChunks(ragObjectType, job.objectId(), job.query(), offset, fetchLimit)
+                        : selectedChunks;
                 if (fetched.isEmpty()) {
                     break;
                 }
                 offset += fetched.size();
-                List<ResolvedRagChunk> batch = eligibleBatch(job, fetched, retryChunkIds);
+                List<ResolvedRagChunk> batch = eligibleBatch(job, fetched, targetChunkIds, alreadyExtracted);
                 if (batch.isEmpty() && fetched.size() < settings.batchSize()) {
                     break;
                 }
                 for (ResolvedRagChunk chunk : batch) {
-                    if (processed >= job.requestedChunks()) {
+                    if (processed >= total) {
                         break;
                     }
-                    total = retryChunkIds.isEmpty() ? total + 1 : total;
                     SkillRagExtractionJobItem item = extract(job, chunk);
                     processed++;
                     if (item.status() == SkillRagExtractionItemStatus.SUCCEEDED) {
@@ -192,33 +412,103 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                             extracted,
                             null,
                             clock.instant()));
+                    renewLeaseOrStop(jobId);
                 }
-                if (fetched.size() < settings.batchSize()) {
+                store.findJob(jobId).ifPresent(jobNotifier::notifyJob);
+                if (!targetChunkIds.isEmpty() || fetched.size() < fetchLimit) {
                     break;
                 }
             }
-            SkillRagExtractionJobStatus status = finalStatus(processed, succeeded, failed);
-            store.saveJob(job.withProgress(status, total, processed, succeeded, failed, extracted, null, clock.instant()));
+            SkillRagExtractionJobStatus status = total == 0 && (excludeExtracted || resume)
+                    ? SkillRagExtractionJobStatus.COMPLETED
+                    : finalStatus(processed, succeeded, failed);
+            SkillRagExtractionJob completed = saveJobAndNotify(job.withProgress(status, total, processed, succeeded,
+                    failed, extracted, null, clock.instant()));
+            if (status == SkillRagExtractionJobStatus.COMPLETED && completed.generateEmbeddings()) {
+                startCandidateEmbedding(completed);
+            }
+        } catch (LeaseLostException ex) {
+            log.info("SkillGraph RAG extraction worker stopped after lease loss: {}", jobId);
         } catch (RuntimeException ex) {
             log.warn("SkillGraph RAG extraction job failed: {}", jobId, ex);
-            store.saveJob(job.withProgress(SkillRagExtractionJobStatus.FAILED, total, processed, succeeded, failed,
-                    extracted, "RAG extraction job failed", clock.instant()));
+            saveJobAndNotify(job.withProgress(SkillRagExtractionJobStatus.FAILED, total, processed, succeeded, failed,
+                    extracted, jobFailureMessage(ex), clock.instant()));
         }
     }
+
+    private int countEligibleChunks(
+            SkillRagExtractionJob job,
+            String objectType,
+            Set<String> targetChunkIds,
+            Set<String> alreadyExtracted) {
+        if (targetChunkIds.isEmpty() && job.query() == null) {
+            long count = ragChunkResolver.countByObject(
+                    objectType, job.objectId());
+            count = Math.max(0L, count - alreadyExtracted.size());
+            return (int) Math.min(Math.min(count, Integer.MAX_VALUE), job.requestedChunks());
+        }
+        int count = 0;
+        int offset = 0;
+        int fetchLimit = targetChunkIds.isEmpty() ? settings.batchSize() : Math.min(50, settings.batchSize());
+        while (count < job.requestedChunks()) {
+            List<ResolvedRagChunk> fetched = fetchChunks(
+                    objectType, job.objectId(), job.query(), offset, fetchLimit);
+            if (fetched.isEmpty()) {
+                break;
+            }
+            offset += fetched.size();
+            for (ResolvedRagChunk chunk : fetched) {
+                if ((targetChunkIds.isEmpty() || targetChunkIds.contains(chunk.chunkId()))
+                        && !alreadyExtracted.contains(chunk.chunkId())
+                        && chunk.content() != null
+                        && !chunk.content().isBlank()) {
+                    count++;
+                    if (count >= job.requestedChunks()) {
+                        break;
+                    }
+                }
+            }
+            renewLeaseOrStop(job.jobId());
+            if (fetched.size() < fetchLimit) {
+                break;
+            }
+        }
+        return count;
+    }
+
+    private List<ResolvedRagChunk> fetchChunks(
+            String objectType,
+            String objectId,
+            String query,
+            int offset,
+            int limit) {
+        if (query == null || query.isBlank()) {
+            return ragChunkResolver.listByObject(objectType, objectId, offset, limit);
+        }
+        return ragChunkResolver.listByObject(objectType, objectId, query, offset, limit);
+    }
+
+    private void renewLeaseOrStop(String jobId) {
+        if (!store.renewLease(jobId, leaseOwner, clock.instant(), settings.leaseDuration())) {
+            throw new LeaseLostException();
+        }
+    }
+
 
     private List<ResolvedRagChunk> eligibleBatch(
             SkillRagExtractionJob job,
             List<ResolvedRagChunk> fetched,
-            Set<String> retryChunkIds) {
+            Set<String> retryChunkIds,
+            Set<String> alreadyExtracted) {
         List<ResolvedRagChunk> batch = new ArrayList<>();
         for (ResolvedRagChunk chunk : fetched) {
             if (chunk.content() == null || chunk.content().isBlank()) {
                 continue;
             }
-            if (job.documentId() != null && !job.documentId().equals(chunk.documentId())) {
+            if (!retryChunkIds.isEmpty() && !retryChunkIds.contains(chunk.chunkId())) {
                 continue;
             }
-            if (!retryChunkIds.isEmpty() && !retryChunkIds.contains(chunk.chunkId())) {
+            if (retryChunkIds.isEmpty() && alreadyExtracted.contains(chunk.chunkId())) {
                 continue;
             }
             batch.add(chunk);
@@ -226,9 +516,22 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
         return batch;
     }
 
+    private Set<String> successfulChunkIds(SkillRagExtractionJob job) {
+        Set<String> chunkIds = new HashSet<>(store.findSuccessfulChunkIds(
+                job.objectType(),
+                job.objectId(),
+                job.jobId()));
+        store.listItemsByStatus(job.jobId(), SkillRagExtractionItemStatus.SUCCEEDED, settings.maxChunks()).stream()
+                .map(SkillRagExtractionJobItem::chunkId)
+                .filter(Objects::nonNull)
+                .forEach(chunkIds::add);
+        return chunkIds;
+    }
+
     private SkillRagExtractionJobItem extract(SkillRagExtractionJob job, ResolvedRagChunk chunk) {
         Instant now = clock.instant();
-        String sourceId = Optional.ofNullable(chunk.documentId()).orElse(job.objectId());
+        String sourceId = Optional.ofNullable(chunk.documentId())
+                .orElseGet(() -> Optional.ofNullable(chunk.objectId()).orElse(job.objectId()));
         if (chunk.content().getBytes(StandardCharsets.UTF_8).length > settings.maxTextBytesPerBatch()) {
             return store.saveItem(new SkillRagExtractionJobItem(job.jobId(), chunk.chunkId(), chunk.documentId(),
                     sourceId, null, 0, SkillRagExtractionItemStatus.FAILED,
@@ -260,6 +563,62 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             return SkillRagExtractionJobStatus.FAILED;
         }
         return SkillRagExtractionJobStatus.COMPLETED;
+    }
+
+    private void startCandidateEmbedding(SkillRagExtractionJob job) {
+        if (candidateReviewService == null) {
+            return;
+        }
+        String provider = normalize(job.embeddingProvider());
+        String model = normalize(job.embeddingModel());
+        if (provider == null || model == null) {
+            return;
+        }
+        try {
+            SkillDictionaryEmbeddingResult result = candidateReviewService.embedMissing(provider, model,
+                    job.embeddingDimension() == null ? 0 : job.embeddingDimension(), settings.maxChunks());
+            SkillRagExtractionJobStatus status = switch (result.status()) {
+                case FAILED -> SkillRagExtractionJobStatus.FAILED;
+                case PARTIAL -> SkillRagExtractionJobStatus.PARTIAL;
+                case COMPLETED -> SkillRagExtractionJobStatus.COMPLETED;
+                case READY, RUNNING -> SkillRagExtractionJobStatus.RUNNING;
+            };
+            saveJobAndNotify(job.withEmbeddingJob(status, result.jobId(), result.status().name(), result.message(),
+                    clock.instant()));
+        } catch (RuntimeException ex) {
+            saveJobAndNotify(job.withEmbeddingJob(SkillRagExtractionJobStatus.FAILED, null, "FAILED",
+                    failureMessage(ex), clock.instant()));
+        }
+    }
+
+    private SkillRagExtractionJob saveJobAndNotify(SkillRagExtractionJob job) {
+        SkillRagExtractionJob saved = store.saveJob(job);
+        jobNotifier.notifyJob(saved);
+        return saved;
+    }
+
+    private SkillRagExtractionJob reconcileJob(SkillRagExtractionJob job) {
+        SkillRagExtractionJob reconciled = reconcileCompletedActiveJob(job);
+        if (reconciled.embeddingJobId() == null || candidateReviewService == null) {
+            return reconciled;
+        }
+        try {
+            SkillDictionaryEmbeddingJob embeddingJob = candidateReviewService.getEmbeddingJob(reconciled.embeddingJobId());
+            SkillRagExtractionJobStatus status = switch (embeddingJob.status()) {
+                case COMPLETED -> SkillRagExtractionJobStatus.COMPLETED;
+                case PARTIAL -> SkillRagExtractionJobStatus.PARTIAL;
+                case FAILED -> SkillRagExtractionJobStatus.FAILED;
+                case READY, RUNNING -> SkillRagExtractionJobStatus.RUNNING;
+            };
+            if (status == reconciled.status()
+                    && embeddingJob.status().name().equals(reconciled.embeddingStatus())) {
+                return reconciled;
+            }
+            return store.saveJob(reconciled.withEmbeddingJob(status, embeddingJob.jobId(),
+                    embeddingJob.status().name(), embeddingJob.message(), clock.instant()));
+        } catch (RuntimeException ex) {
+            return reconciled;
+        }
     }
 
     private SkillRagExtractionJob reconcileCompletedActiveJob(SkillRagExtractionJob job) {
@@ -301,10 +660,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     }
 
     private String failureMessage(RuntimeException ex) {
-        if (ex instanceof IllegalArgumentException && ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            return ex.getMessage();
+        return SkillExtractionFailureMessages.from(ex);
+    }
+
+    private String jobFailureMessage(RuntimeException ex) {
+        String message = normalize(ex.getMessage());
+        if (message == null) {
+            return "RAG extraction job failed";
         }
-        return "Skill extraction failed";
+        return message.length() <= 1000 ? message : message.substring(0, 1000);
+    }
+
+    private static final class LeaseLostException extends RuntimeException {
     }
 
     private String required(String value, String field) {
@@ -313,6 +680,41 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             throw new IllegalArgumentException(field + " is required");
         }
         return normalized;
+    }
+
+    private String normalizeRagObjectType(String objectType) {
+        String normalized = required(objectType, "objectType");
+        if (isInteger(normalized)) {
+            String code = resolveObjectTypeCode(Integer.parseInt(normalized));
+            if (code != null) {
+                return code;
+            }
+        }
+        return LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized) ? ATTACHMENT_OBJECT_TYPE : normalized;
+    }
+
+    private String resolveObjectTypeCode(int objectType) {
+        if (objectTypeRuntimeService == null) {
+            return null;
+        }
+        try {
+            ObjectTypeDefinition definition = objectTypeRuntimeService.definition(objectType);
+            if (definition == null || definition.type() == null) {
+                return null;
+            }
+            return normalize(definition.type().code());
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    private boolean isInteger(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String normalize(String value) {

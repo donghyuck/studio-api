@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.http.HttpHeaders;
 import org.springframework.lang.Nullable;
+import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeFailureException;
 import org.springframework.web.socket.server.support.DefaultHandshakeHandler;
@@ -16,7 +17,8 @@ import studio.one.base.security.jwt.JwtTokenProvider;
 
 /**
  * WebSocket Handshake 시 JWT를 통한 Principal 주입을 처리한다.
- * - jwtEnabled=true 이면 유효한 JWT가 필요하다.
+ * - jwtEnabled=true 이고 handshake에 JWT가 있으면 즉시 Principal을 생성한다.
+ * - JWT가 없으면 STOMP CONNECT 단계의 인증을 위해 handshake를 허용한다.
  * - jwtEnabled=false 일 때만 익명 Principal 허용 정책(rejectAnonymous)에 따른다.
  */
 @RequiredArgsConstructor
@@ -41,8 +43,11 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
             throw new HandshakeFailureException("JWT-enabled WebSocket connections require a JwtTokenProvider");
         }
         try {
-            String token = resolveToken(request.getHeaders());
-            if (token == null || !jwtTokenProvider.validateToken(token)) {
+            String token = resolveToken(request);
+            if (token == null) {
+                return super.determineUser(request, wsHandler, attributes);
+            }
+            if (!jwtTokenProvider.validateToken(token)) {
                 throw new HandshakeFailureException("Valid JWT bearer token is required");
             }
             String name = jwtTokenProvider.getUsername(token);
@@ -57,16 +62,19 @@ public class RealtimeHandshakeHandler extends DefaultHandshakeHandler {
     }
 
     @Nullable
-    private String resolveToken(HttpHeaders headers) {
+    private String resolveToken(org.springframework.http.server.ServerHttpRequest request) {
+        HttpHeaders headers = request.getHeaders();
         List<String> auth = headers.get(HttpHeaders.AUTHORIZATION);
-        if (auth == null || auth.isEmpty()) {
-            return null;
+        if (auth != null && !auth.isEmpty()) {
+            String bearer = auth.get(0);
+            if (bearer.regionMatches(true, 0, "bearer ", 0, 7)) {
+                return bearer.substring(7);
+            }
         }
-        String bearer = auth.get(0);
-        if (bearer.toLowerCase().startsWith("bearer ")) {
-            return bearer.substring(7);
-        }
-        return null;
+        return UriComponentsBuilder.fromUri(request.getURI())
+                .build()
+                .getQueryParams()
+                .getFirst("access_token");
     }
 
     private record SimplePrincipal(String name) implements Principal {

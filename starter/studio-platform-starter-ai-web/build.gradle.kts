@@ -24,6 +24,7 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("org.springframework.boot:spring-boot-starter-security")
     compileOnly("org.springframework:spring-jdbc")
+    compileOnly("org.springframework.data:spring-data-commons")
     compileOnly("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
 
@@ -34,5 +35,6 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.boot:spring-boot-starter-security")
     testImplementation("org.springframework.boot:spring-boot-starter-validation")
+    testImplementation("org.springframework.data:spring-data-commons")
     testImplementation(project(":studio-platform"))
 }

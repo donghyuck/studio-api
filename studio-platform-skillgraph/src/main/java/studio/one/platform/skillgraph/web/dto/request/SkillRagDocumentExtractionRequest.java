@@ -9,11 +9,26 @@ public record SkillRagDocumentExtractionRequest(
         @Size(max = 100)
         @NotBlank String objectType,
         @Size(max = 200)
-        @NotBlank String objectId,
-        @Size(max = 200)
-        String documentId,
+        String objectId,
         String mode,
         @Min(1)
         @Max(5000)
-        Integer limit) {
+        Integer limit,
+        Boolean excludeExtracted,
+        Boolean generateEmbeddings,
+        @Size(max = 100)
+        String embeddingProvider,
+        @Size(max = 200)
+        String embeddingModel,
+        @Min(1)
+        @Max(4096)
+        Integer embeddingDimension) {
+
+    public SkillRagDocumentExtractionRequest(
+            String objectType,
+            String objectId,
+            String mode,
+            Integer limit) {
+        this(objectType, objectId, mode, limit, null, null, null, null, null);
+    }
 }

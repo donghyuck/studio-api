@@ -50,10 +50,15 @@ import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.core.vector.VectorDocument;
 import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.core.vector.VectorSearchResult;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
+import studio.one.platform.ai.service.pipeline.InMemoryRagChunkStageStore;
+import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.Chunk;
@@ -105,7 +110,8 @@ class AttachmentEmbeddingPipelineControllerTest {
                 attachmentService,
                 provider(extractionService),
                 provider(ragPipelineService),
-                provider(structuredRagIndexer));
+                provider(structuredRagIndexer),
+                provider((RagChunkStageStore) null));
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
@@ -182,7 +188,8 @@ class AttachmentEmbeddingPipelineControllerTest {
                 attachmentService,
                 provider(extractionService),
                 provider(ragPipelineService),
-                provider((AttachmentStructuredRagIndexer) null));
+                provider((AttachmentStructuredRagIndexer) null),
+                provider((RagChunkStageStore) null));
         AttachmentEmbeddingPipelineController controller = new AttachmentEmbeddingPipelineController(
                 attachmentService,
                 provider(extractionService),
@@ -238,6 +245,8 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(attachmentService.getInputStream(attachment))
                 .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
         when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(34L);
         when(attachment.getContentType()).thenReturn("text/plain");
         when(attachment.getName()).thenReturn("sample.txt");
         when(attachment.getSize()).thenReturn(5L);
@@ -264,6 +273,10 @@ class AttachmentEmbeddingPipelineControllerTest {
                     && "attachment".equals(metadata.get("objectType"))
                     && "1".equals(metadata.get("objectId"))
                     && Long.valueOf(1L).equals(metadata.get("attachmentId"))
+                    && "2103".equals(metadata.get("parentObjectType"))
+                    && "34".equals(metadata.get("parentObjectId"))
+                    && "2103".equals(metadata.get("ownerObjectType"))
+                    && "34".equals(metadata.get("ownerObjectId"))
                     && "sample.txt".equals(metadata.get("name"))
                     && "text/plain".equals(metadata.get("contentType"))
                     && Long.valueOf(5L).equals(metadata.get("size"));
@@ -433,8 +446,9 @@ class AttachmentEmbeddingPipelineControllerTest {
                     structuredChunk("doc-1#1", "second", 1, document.metadata()));
         });
         when(embeddingPort.embed(any(EmbeddingRequest.class))).thenReturn(
-                new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))),
-                new EmbeddingResponse(List.of(new EmbeddingVector("1", List.of(0.3d, 0.4d)))));
+                new EmbeddingResponse(List.of(
+                        new EmbeddingVector("0", List.of(0.1d, 0.2d)),
+                        new EmbeddingVector("1", List.of(0.3d, 0.4d)))));
 
         mockMvc.perform(post(BASE_PATH + "/1/rag/index")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -521,6 +535,8 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(attachmentService.getInputStream(attachment))
                 .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
         when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
         when(attachment.getContentType()).thenReturn("text/plain");
         when(attachment.getName()).thenReturn("sample.txt");
         when(attachment.getSize()).thenReturn(5L);
@@ -535,6 +551,59 @@ class AttachmentEmbeddingPipelineControllerTest {
         ArgumentCaptor<RagIndexJobCreateRequest> captor = ArgumentCaptor.forClass(RagIndexJobCreateRequest.class);
         verify(jobService).createJob(captor.capture(), any(RagIndexJobSourceRequest.class));
         org.assertj.core.api.Assertions.assertThat(captor.getValue().sourceName()).isEqualTo("sample.txt");
+    }
+
+    @Test
+    void ragIndexJobUsesAttachmentScopeEvenWhenRequestContainsBusinessObjectScope() throws Exception {
+        RagIndexJobService jobService = mock(RagIndexJobService.class);
+        configureMockMvc(null, false, jobService);
+        when(jobService.createJob(any(RagIndexJobCreateRequest.class), any(RagIndexJobSourceRequest.class)))
+                .thenReturn(RagIndexJob.pending(
+                        "job-1",
+                        "attachment",
+                        "1",
+                        "1",
+                        "attachment",
+                        java.time.Instant.parse("2026-04-26T00:00:00Z")));
+        when(jobService.progressListener("job-1")).thenReturn(RagIndexProgressListener.noop());
+        Attachment attachment = mock(Attachment.class);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(attachmentService.getInputStream(attachment))
+                .thenReturn(new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)));
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(attachment.getSize()).thenReturn(5L);
+        when(extractionService.extractText(any(), any(), any(InputStream.class))).thenReturn("hello");
+
+        mockMvc.perform(post(BASE_PATH + "/1/rag/index")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "objectType": "2103",
+                                  "objectId": "2",
+                                  "metadata": {
+                                    "objectType": "2103",
+                                    "objectId": "2"
+                                  }
+                                }
+                                """))
+                .andExpect(status().isAccepted());
+
+        ArgumentCaptor<RagIndexJobCreateRequest> jobCaptor = ArgumentCaptor.forClass(RagIndexJobCreateRequest.class);
+        verify(jobService).createJob(jobCaptor.capture(), any(RagIndexJobSourceRequest.class));
+        assertThat(jobCaptor.getValue().objectType()).isEqualTo("attachment");
+        assertThat(jobCaptor.getValue().objectId()).isEqualTo("1");
+        verify(ragPipelineService).index(argThat((RagIndexRequest request) ->
+                        "attachment".equals(request.metadata().get("objectType"))
+                                && "1".equals(request.metadata().get("objectId"))
+                                && "2103".equals(request.metadata().get("parentObjectType"))
+                                && "1".equals(request.metadata().get("parentObjectId"))
+                                && "2103".equals(request.metadata().get("ownerObjectType"))
+                                && "1".equals(request.metadata().get("ownerObjectId"))),
+                any(RagIndexProgressListener.class));
     }
 
     @Test
@@ -648,6 +717,152 @@ class AttachmentEmbeddingPipelineControllerTest {
     }
 
     @Test
+    void structuredIndexerRetriesTransientEmbeddingFailure() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        Attachment attachment = mock(Attachment.class);
+        ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "structured text", "sample.txt");
+        NormalizedDocument normalizedDocument = NormalizedDocument.builder("doc-1")
+                .plainText("structured text")
+                .build();
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
+        when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class)))
+                .thenReturn(List.of(structuredChunk("doc-1#0", "first", 0, Map.of())));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenThrow(new IllegalStateException("temporary TEI failure"))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))));
+
+        boolean indexed = indexer.index(
+                attachment,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                extractionService,
+                new ByteArrayInputStream("content".getBytes(StandardCharsets.UTF_8)));
+
+        org.assertj.core.api.Assertions.assertThat(indexed).isTrue();
+        verify(embeddingPort, times(2)).embed(any(EmbeddingRequest.class));
+        verify(vectorStore).replaceRecordsByObject(
+                argThat("attachment"::equals),
+                argThat("1"::equals),
+                argThat(records -> records.size() == 1));
+    }
+
+    @Test
+    void structuredIndexerSkipsAlreadyIndexedLargeBatchChunksWithSameEmbeddingSelection() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
+        TextractNormalizedDocumentAdapter adapter = mock(TextractNormalizedDocumentAdapter.class);
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider(adapter),
+                provider(chunkingOrchestrator),
+                provider(embeddingPort),
+                provider(vectorStore));
+        Attachment attachment = mock(Attachment.class);
+        ParsedFile parsedFile = ParsedFile.textOnly(DocumentFormat.TEXT, "structured text", "sample.txt");
+        NormalizedDocument normalizedDocument = NormalizedDocument.builder("doc-1")
+                .plainText("structured text")
+                .build();
+        when(attachment.getContentType()).thenReturn("text/plain");
+        when(attachment.getName()).thenReturn("sample.txt");
+        when(extractionService.parseStructured(any(), any(), any(InputStream.class))).thenReturn(parsedFile);
+        when(adapter.adapt("doc-1", parsedFile)).thenReturn(normalizedDocument);
+        when(chunkingOrchestrator.chunk(any(NormalizedDocument.class))).thenReturn(numberedChunks(65));
+        when(vectorStore.listByObject("attachment", "1", Integer.MAX_VALUE))
+                .thenReturn(existingChunkResults(64));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("64", List.of(0.1d, 0.2d)))));
+
+        boolean indexed = indexer.index(
+                attachment,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                extractionService,
+                new ByteArrayInputStream("content".getBytes(StandardCharsets.UTF_8)));
+
+        org.assertj.core.api.Assertions.assertThat(indexed).isTrue();
+        verify(vectorStore, never()).deleteByObject("attachment", "1");
+        verify(embeddingPort, times(1)).embed(any(EmbeddingRequest.class));
+        verify(vectorStore).upsertAll(argThat(records ->
+                records.size() == 1
+                        && Integer.valueOf(64).equals(records.get(0).toMetadata().get("chunkIndex"))));
+    }
+
+    @Test
+    void ragIndexResumesFromChunkStageWithoutReadingAttachmentAgain() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        InMemoryRagChunkStageStore chunkStageStore = new InMemoryRagChunkStageStore();
+        chunkStageStore.replace("attachment", "1", "doc-1", numberedChunks(3).stream()
+                .map(chunk -> new studio.one.platform.ai.service.pipeline.RagChunkStage(
+                        "attachment",
+                        "1",
+                        "doc-1",
+                        (Integer) chunk.metadata().toMap().get("chunkOrder"),
+                        chunk.id(),
+                        chunk.content(),
+                        chunk.metadata().toMap(),
+                        null))
+                .toList());
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider((TextractNormalizedDocumentAdapter) null),
+                provider((ChunkingOrchestrator) null),
+                provider(embeddingPort),
+                provider((RagEmbeddingProfileResolver) null),
+                provider(vectorStore),
+                provider(chunkStageStore));
+        AttachmentRagIndexService service = new AttachmentRagIndexService(
+                attachmentService,
+                provider(extractionService),
+                provider(ragPipelineService),
+                provider(indexer),
+                provider(chunkStageStore));
+        Attachment attachment = mock(Attachment.class);
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
+        when(attachment.getName()).thenReturn("manual.pdf");
+        when(attachment.getContentType()).thenReturn("application/pdf");
+        when(attachment.getSize()).thenReturn(100L);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+        when(vectorStore.listByObject("attachment", "1", Integer.MAX_VALUE))
+                .thenReturn(existingChunkResults(1));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(
+                        new EmbeddingVector("1", List.of(0.1d, 0.2d)),
+                        new EmbeddingVector("2", List.of(0.3d, 0.4d)))));
+
+        service.index(1L, service.command(
+                1L,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                List.of(),
+                false,
+                null,
+                "kure",
+                "nlpai-lab/KURE-v1"), RagIndexProgressListener.noop());
+
+        verify(attachmentService, never()).getInputStream(any());
+        verifyNoInteractions(extractionService);
+        verify(embeddingPort, times(1)).embed(any(EmbeddingRequest.class));
+        verify(vectorStore).upsertAll(argThat(records -> records.size() == 2));
+        assertThat(chunkStageStore.findByObject("attachment", "1", "doc-1")).isEmpty();
+    }
+
+    @Test
     void structuredIndexerFallsBackWithoutReplacingWhenObjectScopeIsMissing() throws Exception {
         VectorStorePort vectorStore = mock(VectorStorePort.class);
         ChunkingOrchestrator chunkingOrchestrator = mock(ChunkingOrchestrator.class);
@@ -704,5 +919,25 @@ class AttachmentEmbeddingPipelineControllerTest {
                         .objectId("1")
                         .attributes(new java.util.HashMap<>(metadata))
                         .build());
+    }
+
+    private List<Chunk> numberedChunks(int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(index -> structuredChunk("doc-1#" + index, "chunk " + index, index, Map.of()))
+                .toList();
+    }
+
+    private List<VectorSearchResult> existingChunkResults(int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(index -> {
+                    Map<String, Object> metadata = Map.of(
+                            "chunkIndex", index,
+                            "embeddingProvider", "kure",
+                            "embeddingModel", "nlpai-lab/KURE-v1");
+                    return new VectorSearchResult(
+                            new VectorDocument("doc-1#" + index, "chunk " + index, metadata, List.of()),
+                            1.0d);
+                })
+                .toList();
     }
 }

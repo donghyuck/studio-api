@@ -16,6 +16,7 @@ import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.exception.NotFoundException;
@@ -29,6 +30,7 @@ public class AttachmentRagIndexService {
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
     private final ObjectProvider<RagPipelineService> ragPipelineProvider;
     private final ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider;
+    private final ObjectProvider<RagChunkStageStore> chunkStageStoreProvider;
 
     public AttachmentRagIndexCommand command(long attachmentId,
             String documentId,
@@ -42,8 +44,8 @@ public class AttachmentRagIndexService {
             String embeddingModel) {
         return new AttachmentRagIndexCommand(
                 hasText(documentId) ? documentId.trim() : String.valueOf(attachmentId),
-                hasText(objectType) ? objectType.trim() : "attachment",
-                hasText(objectId) ? objectId.trim() : String.valueOf(attachmentId),
+                "attachment",
+                String.valueOf(attachmentId),
                 metadata,
                 keywords,
                 Boolean.TRUE.equals(useLlmKeywordExtraction),
@@ -84,21 +86,40 @@ public class AttachmentRagIndexService {
                     ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
                     : null;
             if (structuredIndexer != null) {
-                try (InputStream in = attachmentService.getInputStream(attachment)) {
-                    if (structuredIndexer.index(
-                            attachment,
-                            command.documentId(),
-                            command.objectType(),
-                            command.objectId(),
-                            metadata,
-                            extractor,
-                            in,
-                            progress)) {
-                        return new AttachmentRagIndexResult(structuredIndexer.latestDiagnostics()
-                                .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()));
+                try {
+                    if (hasChunkStage(command)) {
+                        if (structuredIndexer.index(
+                                attachment,
+                                command.documentId(),
+                                command.objectType(),
+                                command.objectId(),
+                                metadata,
+                                extractor,
+                                InputStream.nullInputStream(),
+                                progress)) {
+                            return new AttachmentRagIndexResult(structuredIndexer.latestDiagnostics()
+                                    .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()));
+                        }
+                        structuredDiagnostics = structuredIndexer.latestDiagnostics()
+                                .orElse(AttachmentRagIndexDiagnostics.fallback("structured_stage_not_handled"));
+                    } else {
+                        try (InputStream in = attachmentService.getInputStream(attachment)) {
+                            if (structuredIndexer.index(
+                                    attachment,
+                                    command.documentId(),
+                                    command.objectType(),
+                                    command.objectId(),
+                                    metadata,
+                                    extractor,
+                                    in,
+                                    progress)) {
+                                return new AttachmentRagIndexResult(structuredIndexer.latestDiagnostics()
+                                        .orElse(AttachmentRagIndexDiagnostics.structuredUnknown()));
+                            }
+                            structuredDiagnostics = structuredIndexer.latestDiagnostics()
+                                    .orElse(AttachmentRagIndexDiagnostics.fallback("structured_not_handled"));
+                        }
                     }
-                    structuredDiagnostics = structuredIndexer.latestDiagnostics()
-                            .orElse(AttachmentRagIndexDiagnostics.fallback("structured_not_handled"));
                 } finally {
                     structuredIndexer.clearDiagnostics();
                 }
@@ -136,9 +157,10 @@ public class AttachmentRagIndexService {
 
     private Map<String, Object> buildMetadata(AttachmentRagIndexCommand command, Attachment attachment) {
         Map<String, Object> metadata = new HashMap<>(command.metadata());
-        metadata.putIfAbsent("objectType", command.objectType());
-        metadata.putIfAbsent("objectId", command.objectId());
+        metadata.put("objectType", command.objectType());
+        metadata.put("objectId", command.objectId());
         metadata.putIfAbsent("attachmentId", attachment.getAttachmentId());
+        putOwnerScope(metadata, attachment);
         metadata.putIfAbsent("name", attachment.getName());
         metadata.putIfAbsent("filename", attachment.getName());
         metadata.putIfAbsent("sourceType", "attachment");
@@ -151,10 +173,25 @@ public class AttachmentRagIndexService {
         return metadata;
     }
 
+    private void putOwnerScope(Map<String, Object> metadata, Attachment attachment) {
+        String ownerObjectType = String.valueOf(attachment.getObjectType());
+        String ownerObjectId = String.valueOf(attachment.getObjectId());
+        metadata.put("parentObjectType", ownerObjectType);
+        metadata.put("parentObjectId", ownerObjectId);
+        metadata.put("ownerObjectType", ownerObjectType);
+        metadata.put("ownerObjectId", ownerObjectId);
+    }
+
     private void putIfPresent(Map<String, Object> metadata, String key, String value) {
         if (value != null && !value.isBlank()) {
             metadata.put(key, value.trim());
         }
+    }
+
+    private boolean hasChunkStage(AttachmentRagIndexCommand command) {
+        RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable();
+        return stageStore != null
+                && !stageStore.findByObject(command.objectType(), command.objectId(), command.documentId()).isEmpty();
     }
 
     private boolean hasText(String value) {

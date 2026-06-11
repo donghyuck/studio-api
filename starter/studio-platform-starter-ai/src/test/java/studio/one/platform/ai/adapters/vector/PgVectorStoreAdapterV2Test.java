@@ -2,8 +2,10 @@ package studio.one.platform.ai.adapters.vector;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +56,30 @@ class PgVectorStoreAdapterV2Test {
         assertThat(params.getText()).isEqualTo("hello world");
         assertThat(params.getMetadata()).contains("\"documentId\":\"doc-1\"");
         assertThat(params.getEmbedding()).isInstanceOf(PGvector.class);
+    }
+
+    @Test
+    void upsertUsesBatchMapperForMultipleDocuments() {
+        VectorDocument first = new VectorDocument(
+                "doc-1",
+                "first",
+                Map.of("objectType", "ARTICLE", "objectId", "article-1", "chunkOrder", 0),
+                List.of(0.1d, 0.2d));
+        VectorDocument second = new VectorDocument(
+                "doc-1",
+                "second",
+                Map.of("objectType", "ARTICLE", "objectId", "article-1", "chunkOrder", 1),
+                List.of(0.3d, 0.4d));
+
+        adapter.upsert(List.of(first, second));
+
+        verify(mapper, never()).upsertChunk(any());
+        verify(mapper).upsertChunks(argThat(chunks ->
+                chunks.size() == 2
+                        && chunks.get(0).getText().equals("first")
+                        && chunks.get(0).getChunkIndex() == 0
+                        && chunks.get(1).getText().equals("second")
+                        && chunks.get(1).getChunkIndex() == 1));
     }
 
     @Test
@@ -217,7 +243,7 @@ class PgVectorStoreAdapterV2Test {
     @Test
     void listByObjectWithFiltersDelegatesQueryAndPageToMapper() {
         when(mapper.listByObjectPageFiltered(
-                eq("ARTICLE"), eq("article-1"), eq("doc-list"), eq("Spring"), eq(50), eq(51)))
+                eq("ARTICLE"), eq("article-1"), eq("Spring"), eq(50), eq(51)))
                 .thenReturn(List.of(row(
                         null,
                         "article-1",
@@ -226,11 +252,11 @@ class PgVectorStoreAdapterV2Test {
                         null)));
 
         List<VectorSearchResult> results = adapter.listByObject(
-                "ARTICLE", "article-1", "doc-list", "Spring", 50, 51);
+                "ARTICLE", "article-1", "Spring", 50, 51);
 
         assertThat(results).hasSize(1);
         assertThat(results.get(0).document().id()).isEqualTo("doc-list");
-        verify(mapper).listByObjectPageFiltered("ARTICLE", "article-1", "doc-list", "Spring", 50, 51);
+        verify(mapper).listByObjectPageFiltered("ARTICLE", "article-1", "Spring", 50, 51);
     }
 
     @Test

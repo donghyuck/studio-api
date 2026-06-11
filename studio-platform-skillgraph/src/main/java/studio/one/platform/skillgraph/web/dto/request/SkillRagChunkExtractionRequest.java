@@ -10,9 +10,7 @@ public record SkillRagChunkExtractionRequest(
         @Size(max = 100)
         @NotBlank String objectType,
         @Size(max = 200)
-        @NotBlank String objectId,
-        @Size(max = 200)
-        String documentId,
+        String objectId,
         @NotEmpty
         @Size(max = 500)
         List<@NotBlank @Size(max = 200) String> chunkIds) {

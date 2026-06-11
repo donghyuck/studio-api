@@ -16,6 +16,7 @@ import studio.one.platform.skillgraph.domain.model.SkillDictionary;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatchType;
 import studio.one.platform.skillgraph.domain.model.SkillEmbeddingMetadata;
+import studio.one.platform.skillgraph.domain.model.SkillType;
 import studio.one.platform.skillgraph.domain.model.SkillVectorItem;
 import studio.one.platform.skillgraph.domain.port.SkillDictionaryStore;
 
@@ -201,16 +202,29 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
 
     @Override
     public List<SkillVectorItem> findVectorItems(String embeddingProvider, String embeddingModel, Integer embeddingDimension, int limit) {
+        return findVectorItems(null, embeddingProvider, embeddingModel, embeddingDimension, limit);
+    }
+
+    @Override
+    public List<SkillVectorItem> findVectorItems(
+            String skillType,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            int limit) {
         String provider = embeddingProvider == null || embeddingProvider.isBlank() ? null : embeddingProvider.trim();
         String model = embeddingModel == null || embeddingModel.isBlank() ? null : embeddingModel.trim();
+        String type = skillType == null || skillType.isBlank() ? null : SkillType.normalizeName(skillType);
         return skills.values().stream()
                 .filter(skill -> "ACTIVE".equalsIgnoreCase(skill.status()))
+                .filter(skill -> type == null || type.equals(skill.skillType()))
                 .filter(skill -> hasEmbedding(skill.skillId(), provider, model, embeddingDimension))
                 .sorted(Comparator.comparing(SkillDictionary::name))
                 .limit(limit <= 0 ? Long.MAX_VALUE : limit)
                 .map(skill -> new SkillVectorItem(
                         skill.skillId(),
                         skill.name(),
+                        skill.skillType(),
                         embeddingFor(skill.skillId(), provider, model),
                         model,
                         skill.createdAt()))
@@ -254,7 +268,7 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
                 continue;
             }
             save(new SkillDictionary(skill.skillId(), skill.name(), skill.normalizedName(), categoryId,
-                    skill.status(), skill.createdAt(), java.time.Instant.now()));
+                    skill.skillType(), skill.status(), skill.createdAt(), java.time.Instant.now()));
             affected++;
         }
         return affected;
@@ -267,7 +281,7 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
         for (SkillDictionary skill : List.copyOf(skills.values())) {
             if (sources.contains(skill.categoryId())) {
                 save(new SkillDictionary(skill.skillId(), skill.name(), skill.normalizedName(), targetCategoryId,
-                        skill.status(), skill.createdAt(), java.time.Instant.now()));
+                        skill.skillType(), skill.status(), skill.createdAt(), java.time.Instant.now()));
                 affected++;
             }
         }
@@ -283,7 +297,7 @@ public class InMemorySkillDictionaryStore implements SkillDictionaryStore {
                 continue;
             }
             save(new SkillDictionary(skill.skillId(), skill.name(), skill.normalizedName(), skill.categoryId(),
-                    status, skill.createdAt(), java.time.Instant.now()));
+                    skill.skillType(), status, skill.createdAt(), java.time.Instant.now()));
             affected++;
         }
         return affected;

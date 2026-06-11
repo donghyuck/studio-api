@@ -247,15 +247,15 @@ retry는 `409 Conflict`로 거절된다.
 운영 화면의 일반 흐름:
 
 1. `POST {mgmtBasePath}/rag/jobs`로 색인 job을 생성한다.
-2. `GET {mgmtBasePath}/rag/jobs?offset=0&limit=50&sort=createdAt&direction=desc`로 최신 job 목록을 표시한다.
+2. `GET {mgmtBasePath}/rag/jobs?page=0&size=50&sort=createdAt&direction=desc`로 최신 job 목록을 표시한다.
 3. `GET {mgmtBasePath}/rag/jobs/{jobId}`를 polling해 `ApiResponse.data.status`, `currentStep`, count를 표시한다.
 4. `GET {mgmtBasePath}/rag/jobs/{jobId}/logs`의 `ApiResponse.data`로 경고와 오류 detail을 표시한다.
 5. 완료 후 `GET {mgmtBasePath}/rag/jobs/{jobId}/chunks` 또는 object scope chunk API의 `ApiResponse.data`로 색인 결과를 확인한다.
-   운영 화면에서 페이지 이동이 필요하면 `/chunks/page?offset=0&limit=50` variant를 사용한다.
+   페이지 이동은 `page`/`size` query parameter와 `PageDto` 응답 metadata를 사용한다.
 6. 사용자가 중단을 요청하면 active job에 `POST {mgmtBasePath}/rag/jobs/{jobId}/cancel`을 호출한다.
 7. 실패 또는 완료 상태가 된 뒤 `POST {mgmtBasePath}/rag/jobs/{jobId}/retry`를 호출한다.
 
-목록 API는 `status`, `objectType`, `objectId`, `documentId` filter와 함께 `offset`, `limit`, `sort`,
+목록 API는 `status`, `objectType`, `objectId`, `documentId` filter와 함께 `page`, `size`, `sort`,
 `direction`을 지원한다. 기본 정렬은 `createdAt desc`이며, 잘못된 정렬 값은 기본값으로 normalize된다.
 지원 정렬 필드는 `createdAt`, `startedAt`, `finishedAt`, `status`, `currentStep`, `objectType`,
 `objectId`, `documentId`, `sourceType`, `durationMs`이다.
@@ -704,7 +704,7 @@ HTTP 429 `ProblemDetails.detail`로 `Embedding provider quota exceeded...` 메�
 `services:ai_rag write` 권한이 필요하다.
 `objectType=attachment`이면 `features:attachment write` 권한도 필요하다. 같은 object scope에
 `PENDING` 또는 `RUNNING` RAG job이 있으면 삭제는 `409 Conflict`로 거부된다. 삭제 후 metadata API는
-`data.indexed=false`를 반환하고 chunk page API는 빈 `items`를 반환하며 job 목록에서도 같은 object scope의
+`data.indexed=false`를 반환하고 chunk page API는 빈 `content`를 반환하며 job 목록에서도 같은 object scope의
 종료 이력이 제거된다.
 
 ### 파일 기반 RAG 흐름

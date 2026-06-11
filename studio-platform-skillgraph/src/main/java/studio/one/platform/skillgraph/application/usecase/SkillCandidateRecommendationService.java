@@ -29,5 +29,9 @@ public interface SkillCandidateRecommendationService {
 
     SkillRecommendationApplyResult applyResult(String resultId, SkillRecommendationApplyCommand command);
 
+    SkillRecommendationApplyResult applySelectedResults(
+            List<String> resultIds,
+            SkillRecommendationApplyCommand command);
+
     SkillRecommendationApplyResult applyJob(String jobId, SkillRecommendationApplyCommand command);
 }

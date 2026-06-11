@@ -18,6 +18,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 
@@ -285,6 +286,17 @@ public class GlobalExceptionHandler extends AbstractExceptionHandler {
                 .detail(ex.getReason() == null ? status.getReasonPhrase() : ex.getReason())
                 .build();
         logByStatus(status, ex, "http-status");
+        return withContentType(status, body);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ProblemDetails> handleNoResource(NoResourceFoundException ex, HttpServletRequest req) {
+        HttpStatus status = HttpStatus.NOT_FOUND;
+        ProblemDetails body = baseProblem(status, req)
+                .type("urn:error:not-found")
+                .detail(ex.getMessage())
+                .build();
+        log.debug("No resource found: {}", ex.getMessage());
         return withContentType(status, body);
     }
 

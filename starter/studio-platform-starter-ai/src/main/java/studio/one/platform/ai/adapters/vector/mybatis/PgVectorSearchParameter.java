@@ -6,6 +6,7 @@ import java.util.List;
 public class PgVectorSearchParameter {
 
     private final PGvector vector;
+    private final int embeddingDimension;
     private final int limit;
     private final String objectType;
     private final String objectId;
@@ -16,6 +17,7 @@ public class PgVectorSearchParameter {
 
     public PgVectorSearchParameter(
             PGvector vector,
+            int embeddingDimension,
             int limit,
             String objectType,
             String objectId,
@@ -24,6 +26,7 @@ public class PgVectorSearchParameter {
             List<PgVectorMetadataEqualsCriterion> equalsCriteria,
             List<PgVectorMetadataInCriterion> inCriteria) {
         this.vector = vector;
+        this.embeddingDimension = embeddingDimension;
         this.limit = limit;
         this.objectType = objectType;
         this.objectId = objectId;
@@ -35,6 +38,10 @@ public class PgVectorSearchParameter {
 
     public PGvector getVector() {
         return vector;
+    }
+
+    public int getEmbeddingDimension() {
+        return embeddingDimension;
     }
 
     public int getLimit() {

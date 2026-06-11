@@ -2,6 +2,7 @@ package studio.one.platform.ai.service.pipeline;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -14,6 +15,7 @@ import java.util.concurrent.ConcurrentMap;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
@@ -24,6 +26,9 @@ import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobStep;
+import org.springframework.context.ApplicationEventPublisher;
+import studio.one.platform.ai.core.rag.event.RagObjectDeletedEvent;
+import studio.one.platform.ai.core.rag.event.RagObjectIndexedEvent;
 
 public class DefaultRagIndexJobService implements RagIndexJobService {
 
@@ -35,20 +40,39 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     private final ConcurrentMap<String, StoredRequest> requests = new ConcurrentHashMap<>();
     private final Queue<String> requestOrder = new ConcurrentLinkedQueue<>();
     private final Set<String> runningJobs = ConcurrentHashMap.newKeySet();
+    private final ApplicationEventPublisher eventPublisher;
 
+    @Deprecated
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
             RagPipelineService ragPipelineService) {
-        this(repository, ragPipelineService, List.of());
+        this(repository, ragPipelineService, List.of(), null);
+    }
+
+    @Deprecated
+    public DefaultRagIndexJobService(
+            RagIndexJobRepository repository,
+            RagPipelineService ragPipelineService,
+            List<RagIndexJobSourceExecutor> sourceExecutors) {
+        this(repository, ragPipelineService, sourceExecutors, null);
     }
 
     public DefaultRagIndexJobService(
             RagIndexJobRepository repository,
             RagPipelineService ragPipelineService,
-            List<RagIndexJobSourceExecutor> sourceExecutors) {
+            ApplicationEventPublisher eventPublisher) {
+        this(repository, ragPipelineService, List.of(), eventPublisher);
+    }
+
+    public DefaultRagIndexJobService(
+            RagIndexJobRepository repository,
+            RagPipelineService ragPipelineService,
+            List<RagIndexJobSourceExecutor> sourceExecutors,
+            ApplicationEventPublisher eventPublisher) {
         this.repository = repository;
         this.ragPipelineService = ragPipelineService;
         this.sourceExecutors = sourceExecutors == null ? List.of() : List.copyOf(sourceExecutors);
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -174,7 +198,8 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             if (current.status() == RagIndexJobStatus.PENDING || current.status() == RagIndexJobStatus.RUNNING) {
                 throw new IllegalStateException("RAG index job cannot be retried while active: " + jobId);
             }
-            if (!requests.containsKey(jobId)) {
+            StoredRequest storedRequest = requests.computeIfAbsent(jobId, ignored -> restoredSourceRequest(current));
+            if (storedRequest == null) {
                 throw new IllegalStateException("RAG index job request is no longer available for retry: " + jobId);
             }
             RagIndexJob job = current.resetForRetry(Instant.now());
@@ -192,9 +217,61 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         }
     }
 
+    private StoredRequest restoredSourceRequest(RagIndexJob job) {
+        if (job.sourceType() == null || job.objectType() == null || job.objectId() == null) {
+            return null;
+        }
+        RagIndexJobCreateRequest request = new RagIndexJobCreateRequest(
+                job.objectType(),
+                job.objectId(),
+                job.documentId() == null ? job.objectId() : job.documentId(),
+                job.sourceType(),
+                true,
+                null,
+                job.sourceName());
+        Map<String, Object> metadata = "attachment".equalsIgnoreCase(job.sourceType())
+                ? Map.of(
+                        "objectType", job.objectType(),
+                        "objectId", job.objectId(),
+                        "sourceType", job.sourceType(),
+                        "attachmentId", job.objectId())
+                : Map.of(
+                        "objectType", job.objectType(),
+                        "objectId", job.objectId(),
+                        "sourceType", job.sourceType());
+        RagIndexJobSourceRequest sourceRequest = new RagIndexJobSourceRequest(metadata, List.of(), false);
+        if (sourceExecutor(request, sourceRequest).isEmpty()) {
+            return null;
+        }
+        return new StoredRequest(request, sourceRequest);
+    }
+
     @Override
     public Optional<RagIndexJob> getJob(String jobId) {
         return repository.findById(jobId);
+    }
+
+    @Override
+    public Optional<RagEmbeddingSelectionInfo> getEmbeddingSelection(String jobId) {
+        StoredRequest storedRequest = requests.get(jobId);
+        if (storedRequest == null) {
+            return Optional.empty();
+        }
+        RagIndexJobCreateRequest request = storedRequest.request();
+        if (request.indexRequest() != null) {
+            return selection(
+                    request.indexRequest().embeddingProfileId(),
+                    request.indexRequest().embeddingProvider(),
+                    request.indexRequest().embeddingModel());
+        }
+        RagIndexJobSourceRequest sourceRequest = storedRequest.sourceRequest();
+        if (sourceRequest == null) {
+            return Optional.empty();
+        }
+        return selection(
+                sourceRequest.embeddingProfileId(),
+                sourceRequest.embeddingProvider(),
+                sourceRequest.embeddingModel());
     }
 
     @Override
@@ -223,6 +300,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
             requestOrder.remove(jobId);
             runningJobs.remove(jobId);
         });
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new RagObjectDeletedEvent(normalizedObjectType, normalizedObjectId));
+        }
     }
 
     @Override
@@ -233,6 +313,17 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     private RagIndexJob requireJob(String jobId) {
         return repository.findById(jobId)
                 .orElseThrow(() -> new NoSuchElementException("RAG index job not found: " + jobId));
+    }
+
+    private Optional<RagEmbeddingSelectionInfo> selection(
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
+                embeddingProfileId,
+                embeddingProvider,
+                embeddingModel);
+        return selection.empty() ? Optional.empty() : Optional.of(selection);
     }
 
     private RagIndexJobLog log(
@@ -421,6 +512,9 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                     RagIndexJobLogCode.JOB_COMPLETED,
                     "RAG index job completed",
                     finalStatus.name()));
+            if (eventPublisher != null && job.objectType() != null && job.objectId() != null) {
+                eventPublisher.publishEvent(new RagObjectIndexedEvent(job.objectType(), job.objectId()));
+            }
         }
 
         private boolean isCancelled() {

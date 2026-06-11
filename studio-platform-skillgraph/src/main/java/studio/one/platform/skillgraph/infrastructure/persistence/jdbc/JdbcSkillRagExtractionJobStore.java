@@ -4,9 +4,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
@@ -34,6 +41,16 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     failed_chunks = :failedChunks,
                     extracted_count = :extractedCount,
                     error_message = :error,
+                    exclude_extracted = :excludeExtracted,
+                    generate_embeddings = :generateEmbeddings,
+                    embedding_provider = :embeddingProvider,
+                    embedding_model = :embeddingModel,
+                    embedding_dimension = :embeddingDimension,
+                    embedding_job_id = :embeddingJobId,
+                    embedding_status = :embeddingStatus,
+                    query_text = :query,
+                    extraction_mode = :extractionMode,
+                    selected_chunk_ids = :selectedChunkIds,
                     updated_at = :updatedAt
                 WHERE job_id = :jobId
                 """, jobParams(job));
@@ -42,10 +59,16 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     INSERT INTO tb_skill_rag_extraction_job
                         (job_id, object_type, object_id, document_id, status, requested_chunks, total_chunks,
                          processed_chunks, succeeded_chunks, failed_chunks, extracted_count, error_message,
+                         exclude_extracted, generate_embeddings, embedding_provider, embedding_model, embedding_dimension,
+                         embedding_job_id, embedding_status,
+                         query_text, extraction_mode, selected_chunk_ids,
                          created_at, updated_at)
                     VALUES
                         (:jobId, :objectType, :objectId, :documentId, :status, :requestedChunks, :totalChunks,
                          :processedChunks, :succeededChunks, :failedChunks, :extractedCount, :error,
+                         :excludeExtracted, :generateEmbeddings, :embeddingProvider, :embeddingModel, :embeddingDimension,
+                         :embeddingJobId, :embeddingStatus,
+                         :query, :extractionMode, :selectedChunkIds,
                          :createdAt, :updatedAt)
                     """, jobParams(job));
         }
@@ -65,7 +88,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
             SkillRagExtractionJobStatus status,
             String objectType,
             String objectId,
-            String documentId,
             int offset,
             int limit) {
         StringBuilder sql = new StringBuilder("""
@@ -85,10 +107,6 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
             sql.append("  AND object_id = :objectId\n");
             params.addValue("objectId", objectId);
         }
-        if (documentId != null) {
-            sql.append("  AND document_id = :documentId\n");
-            params.addValue("documentId", documentId);
-        }
         sql.append("""
                 ORDER BY updated_at DESC, created_at DESC, job_id DESC
                 LIMIT :limit OFFSET :offset
@@ -96,6 +114,75 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
         params.addValue("offset", Math.max(0, offset));
         params.addValue("limit", limit <= 0 ? 50 : limit);
         return template.query(sql.toString(), params, this::mapJob);
+    }
+
+    @Override
+    public Page<SkillRagExtractionJob> searchJobs(
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId,
+            Pageable pageable) {
+        StringBuilder from = new StringBuilder("""
+                FROM tb_skill_rag_extraction_job
+                WHERE 1 = 1
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource();
+        appendJobFilters(from, params, status, objectType, objectId);
+        params.addValue("limit", pageable.getPageSize())
+                .addValue("offset", pageable.getOffset());
+        List<SkillRagExtractionJob> content = template.query("""
+                SELECT *
+                """ + from + jobOrderBy(pageable.getSort()) + """
+                LIMIT :limit OFFSET :offset
+                """, params, this::mapJob);
+        Long total = template.queryForObject("SELECT COUNT(*)\n" + from, params, Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    }
+
+    private void appendJobFilters(
+            StringBuilder sql,
+            MapSqlParameterSource params,
+            SkillRagExtractionJobStatus status,
+            String objectType,
+            String objectId) {
+        if (status != null) {
+            sql.append("  AND status = :status\n");
+            params.addValue("status", status.name());
+        }
+        if (objectType != null) {
+            sql.append("  AND object_type = :objectType\n");
+            params.addValue("objectType", objectType);
+        }
+        if (objectId != null) {
+            sql.append("  AND object_id = :objectId\n");
+            params.addValue("objectId", objectId);
+        }
+    }
+
+    private String jobOrderBy(Sort sort) {
+        if (sort == null || sort.isUnsorted()) {
+            return "ORDER BY updated_at DESC, created_at DESC, job_id DESC\n";
+        }
+        List<String> orders = sort.stream()
+                .map(order -> {
+                    String column = switch (order.getProperty()) {
+                        case "jobId" -> "job_id";
+                        case "status" -> "status";
+                        case "objectType" -> "object_type";
+                        case "objectId" -> "object_id";
+                        case "documentId" -> "document_id";
+                        case "processedChunks" -> "processed_chunks";
+                        case "createdAt" -> "created_at";
+                        case "updatedAt" -> "updated_at";
+                        default -> null;
+                    };
+                    return column == null ? null : column + (order.isDescending() ? " DESC" : " ASC");
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        return orders.isEmpty()
+                ? "ORDER BY updated_at DESC, created_at DESC, job_id DESC\n"
+                : "ORDER BY " + String.join(", ", orders) + "\n";
     }
 
     @Override
@@ -153,12 +240,158 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("limit", limit <= 0 ? 100 : limit), this::mapItem);
     }
 
+    @Override
+    public Set<String> findSuccessfulChunkIds(
+            String objectType,
+            String objectId,
+            String excludedJobId) {
+        StringBuilder sql = new StringBuilder("""
+                SELECT DISTINCT chunk_id
+                FROM (
+                    SELECT source.chunk_id
+                    FROM tb_skill_source_chunk source
+                    WHERE source.source_type = 'RAG_CHUNK'
+                      AND source.chunk_id IS NOT NULL
+                """);
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("excludedJobId", excludedJobId);
+        if (objectId != null) {
+            sql.append("      AND source.source_id = :objectId\n");
+            params.addValue("objectId", objectId);
+        }
+        sql.append("""
+                    UNION
+                    SELECT item.chunk_id
+                    FROM tb_skill_rag_extraction_job_item item
+                    JOIN tb_skill_rag_extraction_job job ON job.job_id = item.job_id
+                    WHERE item.status = 'SUCCEEDED'
+                """);
+        if (excludedJobId != null) {
+            sql.append("      AND item.job_id <> :excludedJobId\n");
+        }
+        if (objectType != null) {
+            sql.append("      AND job.object_type = :objectType\n");
+            params.addValue("objectType", objectType);
+        }
+        if (objectId != null) {
+            sql.append("      AND job.object_id = :objectId\n");
+            params.addValue("objectId", objectId);
+        }
+        sql.append("""
+                ) successful
+                WHERE chunk_id IS NOT NULL
+                """);
+        return template.queryForList(sql.toString(), params, String.class).stream()
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public boolean acquireLease(String jobId, String owner, Instant now, Duration leaseDuration, int maxAutoRetries) {
+        return template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_owner = :owner,
+                    lease_expires_at = :expiresAt,
+                    heartbeat_at = :now,
+                    retry_count = retry_count + 1,
+                    status = 'RUNNING',
+                    updated_at = :now
+                WHERE job_id = :jobId
+                  AND status IN ('READY', 'RUNNING', 'FAILED')
+                  AND (lease_expires_at IS NULL OR lease_expires_at < :now OR lease_owner = :owner)
+                  AND retry_count < :maxAutoRetries
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("owner", owner)
+                .addValue("now", Timestamp.from(now))
+                .addValue("expiresAt", Timestamp.from(now.plus(leaseDuration)))
+                .addValue("maxAutoRetries", Math.max(1, maxAutoRetries))) == 1;
+    }
+
+    @Override
+    public boolean renewLease(String jobId, String owner, Instant now, Duration leaseDuration) {
+        return template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_expires_at = :expiresAt,
+                    heartbeat_at = :now,
+                    updated_at = :now
+                WHERE job_id = :jobId
+                  AND lease_owner = :owner
+                  AND status = 'RUNNING'
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("owner", owner)
+                .addValue("now", Timestamp.from(now))
+                .addValue("expiresAt", Timestamp.from(now.plus(leaseDuration)))) == 1;
+    }
+
+    @Override
+    public void releaseLease(String jobId, String owner) {
+        template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_owner = NULL,
+                    lease_expires_at = NULL
+                WHERE job_id = :jobId AND lease_owner = :owner
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("owner", owner));
+    }
+
+    @Override
+    public void resetRetryState(String jobId, Instant now) {
+        template.update("""
+                UPDATE tb_skill_rag_extraction_job
+                SET lease_owner = NULL,
+                    lease_expires_at = NULL,
+                    heartbeat_at = NULL,
+                    retry_count = 0,
+                    updated_at = :now
+                WHERE job_id = :jobId
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("now", Timestamp.from(now)));
+    }
+
+    @Override
+    public List<String> findRecoverableJobIds(Instant now, int limit) {
+        return template.queryForList("""
+                SELECT job_id
+                FROM tb_skill_rag_extraction_job
+                WHERE status IN ('READY', 'RUNNING')
+                  AND (lease_expires_at IS NULL OR lease_expires_at < :now)
+                ORDER BY updated_at, created_at
+                LIMIT :limit
+                """, new MapSqlParameterSource()
+                .addValue("now", Timestamp.from(now))
+                .addValue("limit", Math.max(1, limit)), String.class);
+    }
+
+    @Override
+    public String executionStatus(String jobId, Instant now, int maxAutoRetries) {
+        return template.queryForObject("""
+                SELECT CASE
+                    WHEN status NOT IN ('READY', 'RUNNING') THEN status
+                    WHEN retry_count >= :maxAutoRetries
+                         AND (lease_expires_at IS NULL OR lease_expires_at < :now) THEN 'STALLED'
+                    WHEN lease_owner IS NOT NULL AND lease_expires_at >= :now THEN 'RUNNING'
+                    ELSE 'RECOVERING'
+                END
+                FROM tb_skill_rag_extraction_job
+                WHERE job_id = :jobId
+                """, new MapSqlParameterSource()
+                .addValue("jobId", jobId)
+                .addValue("now", Timestamp.from(now))
+                .addValue("maxAutoRetries", Math.max(1, maxAutoRetries)), String.class);
+    }
+
     private MapSqlParameterSource jobParams(SkillRagExtractionJob job) {
         return new MapSqlParameterSource()
                 .addValue("jobId", job.jobId())
                 .addValue("objectType", job.objectType())
                 .addValue("objectId", job.objectId())
                 .addValue("documentId", job.documentId())
+                .addValue("query", job.query())
+                .addValue("extractionMode", job.extractionMode())
+                .addValue("selectedChunkIds", String.join("\n", job.selectedChunkIds()))
                 .addValue("status", job.status().name())
                 .addValue("requestedChunks", job.requestedChunks())
                 .addValue("totalChunks", job.totalChunks())
@@ -167,6 +400,13 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("failedChunks", job.failedChunks())
                 .addValue("extractedCount", job.extractedCount())
                 .addValue("error", job.error())
+                .addValue("excludeExtracted", job.excludeExtracted())
+                .addValue("generateEmbeddings", job.generateEmbeddings())
+                .addValue("embeddingProvider", job.embeddingProvider())
+                .addValue("embeddingModel", job.embeddingModel())
+                .addValue("embeddingDimension", job.embeddingDimension())
+                .addValue("embeddingJobId", job.embeddingJobId())
+                .addValue("embeddingStatus", job.embeddingStatus())
                 .addValue("createdAt", Timestamp.from(job.createdAt()))
                 .addValue("updatedAt", Timestamp.from(job.updatedAt()));
     }
@@ -191,6 +431,9 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 rs.getString("object_type"),
                 rs.getString("object_id"),
                 rs.getString("document_id"),
+                text(rs, "query_text"),
+                Optional.ofNullable(text(rs, "extraction_mode")).orElse("ALL_CHUNKS"),
+                selectedChunkIds(rs),
                 SkillRagExtractionJobStatus.valueOf(rs.getString("status")),
                 rs.getInt("requested_chunks"),
                 rs.getInt("total_chunks"),
@@ -199,8 +442,20 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 rs.getInt("failed_chunks"),
                 rs.getInt("extracted_count"),
                 rs.getString("error_message"),
+                bool(rs, "exclude_extracted"),
+                bool(rs, "generate_embeddings"),
+                text(rs, "embedding_provider"),
+                text(rs, "embedding_model"),
+                integer(rs, "embedding_dimension"),
+                text(rs, "embedding_job_id"),
+                text(rs, "embedding_status"),
                 instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("updated_at")));
+    }
+
+    private List<String> selectedChunkIds(ResultSet rs) throws SQLException {
+        String value = text(rs, "selected_chunk_ids");
+        return value == null ? List.of() : value.lines().filter(line -> !line.isBlank()).toList();
     }
 
     private SkillRagExtractionJobItem mapItem(ResultSet rs, int rowNum) throws SQLException {
@@ -219,5 +474,30 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
 
     private Instant instant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private boolean bool(ResultSet rs, String column) throws SQLException {
+        try {
+            return rs.getBoolean(column);
+        } catch (SQLException ex) {
+            return false;
+        }
+    }
+
+    private String text(ResultSet rs, String column) throws SQLException {
+        try {
+            return rs.getString(column);
+        } catch (SQLException ex) {
+            return null;
+        }
+    }
+
+    private Integer integer(ResultSet rs, String column) throws SQLException {
+        try {
+            int value = rs.getInt(column);
+            return rs.wasNull() ? null : value;
+        } catch (SQLException ex) {
+            return null;
+        }
     }
 }

@@ -28,6 +28,7 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
     private final RetryProperties retry = new RetryProperties();
     private final RetrievalProperties retrieval = new RetrievalProperties();
     private final ObjectScopeProperties objectScope = new ObjectScopeProperties();
+    private final IndexingProperties indexing = new IndexingProperties();
     private final CleanerProperties cleaner = new CleanerProperties();
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
     private final KeywordsProperties keywords = new KeywordsProperties();
@@ -104,6 +105,10 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
 
     public ObjectScopeProperties getObjectScope() {
         return objectScope;
+    }
+
+    public IndexingProperties getIndexing() {
+        return indexing;
     }
 
     public CleanerProperties getCleaner() {
@@ -295,6 +300,18 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
 
         public void setMaxListLimit(int maxListLimit) {
             this.maxListLimit = maxListLimit;
+        }
+    }
+
+    public static class IndexingProperties {
+        private int upsertBatchSize = RagPipelineOptions.DEFAULT_INDEX_UPSERT_BATCH_SIZE;
+
+        public int getUpsertBatchSize() {
+            return upsertBatchSize;
+        }
+
+        public void setUpsertBatchSize(int upsertBatchSize) {
+            this.upsertBatchSize = upsertBatchSize;
         }
     }
 

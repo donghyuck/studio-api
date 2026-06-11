@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Contract for persisting and querying vectors.
@@ -166,6 +167,7 @@ public interface VectorStorePort {
 
     /**
      * objectType/objectId에 속한 벡터를 chunk_index 순서로 가져온다.
+     * objectId가 null이면 objectType 전체 범위를 반환할 수 있다.
      * limit가 null이면 전체를 반환한다.
      */
     default List<VectorSearchResult> listByObject(String objectType, String objectId, Integer limit) {
@@ -194,11 +196,22 @@ public interface VectorStorePort {
     default List<VectorSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
         return listByObject(objectType, objectId, offset, limit);
+    }
+
+    default long countByObject(String objectType, String objectId) {
+        return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
+    }
+
+    default long countByObject(String objectType, String objectId, String query) {
+        return listByObject(objectType, objectId, query, 0, Integer.MAX_VALUE).size();
+    }
+
+    default List<VectorSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        throw new UnsupportedOperationException("listByChunkIds is not implemented");
     }
 
     /**

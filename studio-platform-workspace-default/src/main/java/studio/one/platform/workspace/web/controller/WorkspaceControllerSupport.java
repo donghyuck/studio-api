@@ -55,6 +55,7 @@ abstract class WorkspaceControllerSupport {
     }
 
     WorkspaceRef createRoot(WorkspaceCreateRequest request, boolean platformAdmin) {
+
         if (!platformAdmin && request.companyId() != null) {
             throw new AccessDeniedException("Company-scoped root workspace creation requires management access");
         }

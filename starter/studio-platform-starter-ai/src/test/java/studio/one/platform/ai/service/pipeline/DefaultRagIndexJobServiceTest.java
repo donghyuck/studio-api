@@ -130,6 +130,38 @@ class DefaultRagIndexJobServiceTest {
     }
 
     @Test
+    void retryRestoresPersistedAttachmentSourceJobWhenStoredRequestIsMissing() {
+        InMemoryRagIndexJobRepository persistedOnlyRepository = new InMemoryRagIndexJobRepository();
+        RagIndexJob failed = RagIndexJob.pending(
+                "job-1",
+                "attachment",
+                "42",
+                "42",
+                "attachment",
+                "manual.pdf",
+                java.time.Instant.parse("2026-04-26T00:00:00Z"))
+                .withStatus(RagIndexJobStatus.FAILED, RagIndexJobStep.INDEXING, "boom",
+                        java.time.Instant.parse("2026-04-26T00:00:01Z"));
+        persistedOnlyRepository.save(failed);
+        CapturingSourceExecutor sourceExecutor = new CapturingSourceExecutor();
+        DefaultRagIndexJobService service =
+                new DefaultRagIndexJobService(persistedOnlyRepository, new SuccessfulPipeline(), List.of(sourceExecutor));
+
+        RagIndexJob retried = service.retryJob("job-1");
+
+        assertThat(retried.status()).isEqualTo(RagIndexJobStatus.SUCCEEDED);
+        assertThat(retried.chunkCount()).isEqualTo(3);
+        assertThat(sourceExecutor.request.objectType()).isEqualTo("attachment");
+        assertThat(sourceExecutor.request.objectId()).isEqualTo("42");
+        assertThat(sourceExecutor.request.sourceType()).isEqualTo("attachment");
+        assertThat(sourceExecutor.request.sourceName()).isEqualTo("manual.pdf");
+        assertThat(sourceExecutor.sourceRequest.metadata())
+                .containsEntry("attachmentId", "42")
+                .containsEntry("objectType", "attachment")
+                .containsEntry("objectId", "42");
+    }
+
+    @Test
     void cancelsActiveJobAndRecordsLog() {
         DefaultRagIndexJobService service = new DefaultRagIndexJobService(repository, new SuccessfulPipeline());
         RagIndexJob job = service.createJob(new RagIndexJobCreateRequest(

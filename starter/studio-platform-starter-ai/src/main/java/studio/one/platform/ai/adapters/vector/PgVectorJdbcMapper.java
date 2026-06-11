@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -20,10 +21,13 @@ import studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchRow;
 public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     private static final String UPSERT_CHUNK_SQL = """
-            INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
-            VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding)
+            INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
+            VALUES (:objectType, :objectId, :chunkIndex, :text, CAST(:metadata AS jsonb), :embedding, :embeddingDimension)
             ON CONFLICT (object_type, object_id, chunk_index)
-            DO UPDATE SET text = EXCLUDED.text, metadata = EXCLUDED.metadata, embedding = EXCLUDED.embedding
+            DO UPDATE SET text = EXCLUDED.text,
+                          metadata = EXCLUDED.metadata,
+                          embedding = EXCLUDED.embedding,
+                          embedding_dimension = EXCLUDED.embedding_dimension
             """;
     private static final String SEARCH_SQL = """
             SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
@@ -68,26 +72,34 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
               FROM tb_ai_document_chunk
              WHERE object_type = :objectType AND object_id = :objectId
             """;
-    private static final String LIST_BY_OBJECT_SQL = """
-            SELECT object_id, text, metadata, NULL::double precision AS distance
+    private static final String COUNT_BY_OBJECT_SQL = """
+            SELECT COUNT(*)
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+            """;
+    private static final String LIST_BY_OBJECT_SQL = """
+            SELECT id, object_id, text, metadata, NULL::double precision AS distance
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+             ORDER BY object_id, chunk_index
              LIMIT :limit
             """;
     private static final String LIST_BY_OBJECT_PAGE_SQL = """
-            SELECT object_id, text, metadata, NULL::double precision AS distance
+            SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-             ORDER BY chunk_index
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+             ORDER BY object_id, chunk_index
              LIMIT :limit OFFSET :offset
             """;
     private static final String LIST_BY_OBJECT_PAGE_FILTERED_SQL = """
-            SELECT object_id, text, metadata, NULL::double precision AS distance
+            SELECT id, object_id, text, metadata, NULL::double precision AS distance
               FROM tb_ai_document_chunk
-             WHERE object_type = :objectType AND object_id = :objectId
-               AND (:documentId IS NULL OR metadata->>'documentId' = :documentId)
-               AND (:query IS NULL OR (
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+               AND (CAST(:query AS varchar) IS NULL OR (
                     LOWER(text) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'chunkId', '')) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'documentId', '')) LIKE :queryPattern
@@ -95,8 +107,29 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                     OR LOWER(COALESCE(metadata->>'headingPath', '')) LIKE :queryPattern
                     OR LOWER(COALESCE(metadata->>'section', '')) LIKE :queryPattern
                ))
-             ORDER BY chunk_index
+             ORDER BY object_id, chunk_index
              LIMIT :limit OFFSET :offset
+            """;
+    private static final String COUNT_BY_OBJECT_FILTERED_SQL = """
+            SELECT COUNT(*)
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType
+               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
+               AND (CAST(:query AS varchar) IS NULL OR (
+                    LOWER(text) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'chunkId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'documentId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'sourceDocumentId', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'headingPath', '')) LIKE :queryPattern
+                    OR LOWER(COALESCE(metadata->>'section', '')) LIKE :queryPattern
+               ))
+            """;
+    private static final String LIST_BY_CHUNK_IDS_SQL = """
+            SELECT id, object_id, text, metadata, NULL::double precision AS distance
+              FROM tb_ai_document_chunk
+             WHERE object_type = :objectType
+               AND metadata->>'chunkId' IN (:chunkIds)
+             ORDER BY object_id, chunk_index
             """;
     private static final String METADATA_BY_OBJECT_SQL = """
             SELECT metadata
@@ -145,6 +178,22 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     }
 
     @Override
+    public int upsertChunks(List<PgVectorChunkParameter> chunks) {
+        if (chunks == null || chunks.isEmpty()) {
+            return 0;
+        }
+        MapSqlParameterSource[] batch = chunks.stream()
+                .map(PgVectorJdbcMapper::chunkParams)
+                .toArray(MapSqlParameterSource[]::new);
+        int[] updated = jdbcTemplate.batchUpdate(UPSERT_CHUNK_SQL, batch);
+        int count = 0;
+        for (int value : updated) {
+            count += value;
+        }
+        return count;
+    }
+
+    @Override
     public List<PgVectorSearchRow> search(PgVectorSearchParameter parameter) {
         return jdbcTemplate.query(filteredSql(SEARCH_SQL, parameter), searchParams(parameter), ROW_MAPPER);
     }
@@ -179,6 +228,12 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     }
 
     @Override
+    public long countByObject(String objectType, String objectId) {
+        Long count = jdbcTemplate.queryForObject(COUNT_BY_OBJECT_SQL, objectParams(objectType, objectId), Long.class);
+        return count == null ? 0L : count;
+    }
+
+    @Override
     public List<PgVectorSearchRow> listByObject(String objectType, String objectId, int limit) {
         return jdbcTemplate.query(LIST_BY_OBJECT_SQL, objectParams(objectType, objectId)
                 .addValue("limit", limit), ROW_MAPPER);
@@ -195,16 +250,35 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     public List<PgVectorSearchRow> listByObjectPageFiltered(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
         return jdbcTemplate.query(LIST_BY_OBJECT_PAGE_FILTERED_SQL, objectParams(objectType, objectId)
-                .addValue("documentId", normalize(documentId))
                 .addValue("query", normalize(query))
                 .addValue("queryPattern", queryPattern(query))
                 .addValue("offset", offset)
                 .addValue("limit", limit), ROW_MAPPER);
+    }
+
+    @Override
+    public long countByObjectFiltered(
+            String objectType,
+            String objectId,
+            String query) {
+        Long count = jdbcTemplate.queryForObject(COUNT_BY_OBJECT_FILTERED_SQL, objectParams(objectType, objectId)
+                .addValue("query", normalize(query))
+                .addValue("queryPattern", queryPattern(query)), Long.class);
+        return count == null ? 0L : count;
+    }
+
+    @Override
+    public List<PgVectorSearchRow> listByChunkIds(String objectType, Set<String> chunkIds) {
+        if (chunkIds == null || chunkIds.isEmpty()) {
+            return List.of();
+        }
+        return jdbcTemplate.query(LIST_BY_CHUNK_IDS_SQL, new MapSqlParameterSource()
+                .addValue("objectType", objectType)
+                .addValue("chunkIds", chunkIds), ROW_MAPPER);
     }
 
     @Override
@@ -223,7 +297,8 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 .addValue("chunkIndex", parameter.getChunkIndex())
                 .addValue("text", parameter.getText())
                 .addValue("metadata", parameter.getMetadata())
-                .addValue("embedding", parameter.getEmbedding());
+                .addValue("embedding", parameter.getEmbedding())
+                .addValue("embeddingDimension", parameter.getEmbeddingDimension());
     }
 
     private static MapSqlParameterSource objectParams(String objectType, String objectId) {
@@ -244,6 +319,7 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
     private static MapSqlParameterSource searchParams(PgVectorSearchParameter parameter) {
         MapSqlParameterSource params = new MapSqlParameterSource()
                 .addValue("vector", parameter.getVector())
+                .addValue("embeddingDimension", parameter.getEmbeddingDimension())
                 .addValue("limit", parameter.getLimit())
                 .addValue("objectType", parameter.getObjectType())
                 .addValue("objectId", parameter.getObjectId());
@@ -291,11 +367,16 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
         String head = orderByIndex < 0 ? sql : sql.substring(0, orderByIndex);
         String tail = orderByIndex < 0 ? "" : sql.substring(orderByIndex);
         String conjunction = head.toLowerCase(java.util.Locale.ROOT).contains(" where ") ? " AND " : " WHERE ";
-        return head + conjunction + String.join(" AND ", conditions) + tail;
+        return head.stripTrailing()
+                + conjunction
+                + String.join(" AND ", conditions)
+                + System.lineSeparator()
+                + tail.stripLeading();
     }
 
     private static List<String> metadataConditions(PgVectorSearchParameter parameter) {
         List<String> conditions = new ArrayList<>();
+        conditions.add("embedding_dimension = :embeddingDimension");
         if (parameter.getMetadataObjectType() != null) {
             conditions.add("object_type = :metadataObjectType");
         }

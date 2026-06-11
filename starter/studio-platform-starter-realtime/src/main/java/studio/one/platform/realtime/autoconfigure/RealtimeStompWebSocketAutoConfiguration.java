@@ -27,6 +27,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
 import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
+import studio.one.platform.realtime.stomp.security.RealtimeStompAuthChannelInterceptor;
 
 @AutoConfiguration
 @EnableWebSocketMessageBroker
@@ -47,12 +49,17 @@ import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
 public class RealtimeStompWebSocketAutoConfiguration implements WebSocketMessageBrokerConfigurer {
     private final RealtimeStompProperties properties;
     private final RealtimeHandshakeHandler handshakeHandler;
+    private final RealtimeStompAuthChannelInterceptor authChannelInterceptor;
     private final List<HandshakeInterceptor> handshakeInterceptors;
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.enableSimpleBroker(properties.getTopicPrefix(), properties.getUserPrefix());
         registry.setApplicationDestinationPrefixes(properties.getAppDestinationPrefix());
         registry.setUserDestinationPrefix(properties.getUserPrefix());
+    }
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(authChannelInterceptor);
     }
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {

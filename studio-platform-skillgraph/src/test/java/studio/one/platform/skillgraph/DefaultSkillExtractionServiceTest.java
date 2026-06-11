@@ -2,6 +2,7 @@ package studio.one.platform.skillgraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.Instant;
@@ -15,6 +16,7 @@ import studio.one.platform.skillgraph.application.command.SkillCandidateRecommen
 import studio.one.platform.skillgraph.application.command.SkillCandidateReviewCommand;
 import studio.one.platform.skillgraph.application.command.SkillRecommendationApplyCommand;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
+import studio.one.platform.skillgraph.application.result.SkillDictionaryEmbeddingJobStatus;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillCandidateRecommendationService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
@@ -252,6 +254,168 @@ class DefaultSkillExtractionServiceTest {
     }
 
     @Test
+    void recommendationSelectedApplyProcessesOnlyRequestedResultsAndDeduplicatesIds() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillRecommendationStore recommendationStore = new InMemorySkillRecommendationStore();
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
+                dictionaryStore);
+        DefaultSkillCandidateRecommendationService recommendationService = new DefaultSkillCandidateRecommendationService(
+                recommendationStore, candidateStore, dictionaryStore, reviewService);
+        var first = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
+                "Kubernetes"));
+        var second = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-2",
+                "Terraform"));
+        String firstCandidateId = first.candidates().get(0).candidateId();
+        String secondCandidateId = second.candidates().get(0).candidateId();
+        recommendationStore.saveEmbedding("SKILL_CANDIDATE", firstCandidateId, "kure", "model", 2,
+                "Kubernetes", List.of(1.0d, 0.0d));
+        recommendationStore.saveEmbedding("SKILL_CANDIDATE", secondCandidateId, "kure", "model", 2,
+                "Terraform", List.of(0.0d, 1.0d));
+
+        var job = recommendationService.createJob(new SkillCandidateRecommendationJobCommand(
+                "SELECTED", List.of(firstCandidateId, secondCandidateId), null, null, null, null,
+                "kure", "model", 2, List.of("SKILL_DICTIONARY"), 5, 0.75d, 0.6d, 0.92d));
+        var results = recommendationService.getJobResults(job.jobId());
+        String selectedResultId = results.stream()
+                .filter(result -> result.sourceId().equals(firstCandidateId))
+                .findFirst()
+                .orElseThrow()
+                .resultId();
+
+        var applied = recommendationService.applySelectedResults(
+                List.of(selectedResultId, selectedResultId),
+                new SkillRecommendationApplyCommand(
+                        "ELIGIBLE_ONLY", List.of("NEW_SKILL_CANDIDATE"), 0.6d, 0.92d));
+
+        assertEquals(1, applied.requestedCount());
+        assertEquals(1, applied.appliedCount());
+        assertEquals(SkillCandidateStatus.APPROVED,
+                candidateStore.findCandidate(firstCandidateId).orElseThrow().status());
+        assertEquals(SkillCandidateStatus.PENDING,
+                candidateStore.findCandidate(secondCandidateId).orElseThrow().status());
+    }
+
+    @Test
+    void recommendationSelectedApplyRejectsUnknownResultBeforeApplyingAnySelection() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillRecommendationStore recommendationStore = new InMemorySkillRecommendationStore();
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
+                dictionaryStore);
+        DefaultSkillCandidateRecommendationService recommendationService = new DefaultSkillCandidateRecommendationService(
+                recommendationStore, candidateStore, dictionaryStore, reviewService);
+        var extraction = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
+                "Kubernetes"));
+        String candidateId = extraction.candidates().get(0).candidateId();
+        recommendationStore.saveEmbedding("SKILL_CANDIDATE", candidateId, "kure", "model", 2,
+                "Kubernetes", List.of(1.0d, 0.0d));
+        var job = recommendationService.createJob(new SkillCandidateRecommendationJobCommand(
+                "SELECTED", List.of(candidateId), null, null, null, null,
+                "kure", "model", 2, List.of("SKILL_DICTIONARY"), 5, 0.75d, 0.6d, 0.92d));
+        String resultId = recommendationService.getJobResults(job.jobId()).get(0).resultId();
+
+        assertThrows(IllegalArgumentException.class, () -> recommendationService.applySelectedResults(
+                List.of(resultId, "missing-result"),
+                new SkillRecommendationApplyCommand(
+                        "ELIGIBLE_ONLY", List.of("NEW_SKILL_CANDIDATE"), 0.6d, 0.92d)));
+        assertEquals(SkillCandidateStatus.PENDING,
+                candidateStore.findCandidate(candidateId).orElseThrow().status());
+    }
+
+    @Test
+    void recommendationSelectedAnalysisExcludesFinalizedCandidates() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillRecommendationStore recommendationStore = new InMemorySkillRecommendationStore();
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
+                dictionaryStore);
+        DefaultSkillCandidateRecommendationService recommendationService = new DefaultSkillCandidateRecommendationService(
+                recommendationStore, candidateStore, dictionaryStore, reviewService);
+        var extraction = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
+                "Kubernetes"));
+        String candidateId = extraction.candidates().get(0).candidateId();
+        reviewService.review(candidateId,
+                new SkillCandidateReviewCommand(SkillCandidateStatus.APPROVED, null, "approved"));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> recommendationService.createJob(new SkillCandidateRecommendationJobCommand(
+                        "SELECTED", List.of(candidateId), null, null, null, null,
+                        "kure", "model", 2, List.of("SKILL_DICTIONARY"), 5, 0.75d, 0.6d, 0.92d)));
+
+        assertEquals("자동 분석 대상 후보가 없습니다.", ex.getMessage());
+    }
+
+    @Test
+    void recommendationAllAnalysisIncludesOnlyUnresolvedCandidatesByDefault() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillRecommendationStore recommendationStore = new InMemorySkillRecommendationStore();
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
+                dictionaryStore);
+        DefaultSkillCandidateRecommendationService recommendationService = new DefaultSkillCandidateRecommendationService(
+                recommendationStore, candidateStore, dictionaryStore, reviewService);
+        var pending = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
+                "Kubernetes"));
+        var approved = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-2",
+                "Terraform"));
+        String pendingId = pending.candidates().get(0).candidateId();
+        String approvedId = approved.candidates().get(0).candidateId();
+        reviewService.review(approvedId,
+                new SkillCandidateReviewCommand(SkillCandidateStatus.APPROVED, null, "approved"));
+        recommendationStore.saveEmbedding("SKILL_CANDIDATE", pendingId, "kure", "model", 2,
+                "Kubernetes", List.of(1.0d, 0.0d));
+
+        var job = recommendationService.createJob(new SkillCandidateRecommendationJobCommand(
+                "ALL", List.of(), null, null, null, null,
+                "kure", "model", 2, List.of("SKILL_DICTIONARY"), 5, 0.75d, 0.6d, 0.92d));
+
+        assertEquals(1, recommendationService.getJob(job.jobId()).totalCount());
+        assertEquals(1, recommendationService.getJobResults(job.jobId()).size());
+        assertEquals(pendingId, recommendationService.getJobResults(job.jobId()).get(0).sourceId());
+    }
+
+    @Test
+    void recommendationAnalysisUsesRegisteredAliasBeforeNewSkillSuggestion() {
+        InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillRecommendationStore recommendationStore = new InMemorySkillRecommendationStore();
+        dictionaryStore.save(new SkillDictionary("skill-spring", "Spring", "spring", null, "ACTIVE",
+                Instant.now(), Instant.now()));
+        dictionaryStore.saveAlias(new SkillAlias("alias-spring-framework", "skill-spring",
+                "Spring Framework", "spring framework", Instant.now()));
+        DefaultSkillExtractionService extractionService = new DefaultSkillExtractionService(candidateStore,
+                new PatternSkillCandidateExtractor());
+        DefaultSkillCandidateReviewService reviewService = new DefaultSkillCandidateReviewService(candidateStore,
+                dictionaryStore);
+        DefaultSkillCandidateRecommendationService recommendationService = new DefaultSkillCandidateRecommendationService(
+                recommendationStore, candidateStore, dictionaryStore, reviewService);
+        var extraction = extractionService.extract(new SkillExtractionCommand("course", "course-1", "chunk-1",
+                "Spring Framework"));
+        String candidateId = extraction.candidates().get(0).candidateId();
+        recommendationStore.saveEmbedding("SKILL_CANDIDATE", candidateId, "kure", "model", 2,
+                "Spring Framework", List.of(1.0d, 0.0d));
+
+        var job = recommendationService.createJob(new SkillCandidateRecommendationJobCommand(
+                "SELECTED", List.of(candidateId), null, null, null, null, "kure", "model", 2,
+                List.of("SKILL_DICTIONARY"), 5, 0.75d, 0.6d, 0.92d));
+        var results = recommendationService.getJobResults(job.jobId());
+
+        assertEquals(1, results.size());
+        assertEquals(studio.one.platform.skillgraph.domain.model.SkillRecommendationType.EXISTING_SKILL_MATCH,
+                results.get(0).recommendationType());
+        assertEquals("skill-spring", results.get(0).targetSourceId());
+    }
+
+    @Test
     void recommendationAnalysisRequiresCandidateEmbedding() {
         InMemorySkillCandidateStore candidateStore = new InMemorySkillCandidateStore();
         InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
@@ -467,6 +631,9 @@ class DefaultSkillExtractionServiceTest {
         assertEquals(1, first.processedCount());
         assertEquals(0, first.failedCount());
         assertEquals(0, second.requestedCount());
+        assertNull(second.jobId());
+        assertEquals(SkillDictionaryEmbeddingJobStatus.COMPLETED, second.status());
+        assertEquals("No missing candidate embeddings", second.message());
         assertEquals(List.of("test-provider/test-model/Spring Boot 기반 REST API 구현 역량"), embeddedTexts);
     }
 

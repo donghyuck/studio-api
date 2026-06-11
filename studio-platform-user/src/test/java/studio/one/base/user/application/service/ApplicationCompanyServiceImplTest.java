@@ -50,7 +50,7 @@ class ApplicationCompanyServiceImplTest {
 
         assertThat(result.getCompanyId()).isEqualTo(10L);
         assertThat(result.getStatus()).isEqualTo(CompanyStatus.ACTIVE);
-        verify(memberService).addMember(10L, 99L, CompanyRole.OWNER, 99L);
+        verify(memberService).addMember(10L, 99L, CompanyRole.OWNER, 99L, true);
     }
 
     @Test

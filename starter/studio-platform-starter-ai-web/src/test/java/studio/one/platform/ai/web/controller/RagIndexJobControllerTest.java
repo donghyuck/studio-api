@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.web.PageableHandlerMethodArgumentResolver;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -31,6 +33,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJobLog;
 import studio.one.platform.ai.core.rag.RagIndexJobLogCode;
 import studio.one.platform.ai.core.rag.RagIndexJobLogLevel;
@@ -48,12 +51,11 @@ import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
-import studio.one.platform.ai.web.dto.RagIndexChunkPageResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
-import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.web.dto.ApiResponse;
+import studio.one.platform.web.dto.PageDto;
 
 class RagIndexJobControllerTest {
 
@@ -362,14 +364,24 @@ class RagIndexJobControllerTest {
                 mock(RagPipelineService.class),
                 null);
 
-        ResponseEntity<ApiResponse<RagIndexJobListResponseDto>> listResponse =
-                controller.listJobs(RagIndexJobStatus.PENDING, "attachment", "42", null, 0, 10, "createdAt", "desc");
+        ResponseEntity<ApiResponse<PageDto<RagIndexJobDto>>> listResponse =
+                controller.listJobs(
+                        RagIndexJobStatus.PENDING,
+                        "attachment",
+                        "42",
+                        null,
+                        PageRequest.of(0, 10),
+                        "createdAt",
+                        "desc");
         ResponseEntity<ApiResponse<RagIndexJobDto>> detailResponse = controller.getJob("job-1");
         ResponseEntity<ApiResponse<RagIndexJobDto>> retryResponse = controller.retryJob("job-1");
         ResponseEntity<ApiResponse<List<RagIndexJobLogDto>>> logsResponse = controller.getLogs("job-1");
 
-        assertThat(listResponse.getBody().getData().items()).hasSize(1);
-        assertThat(listResponse.getBody().getData().items().get(0).sourceName()).isEqualTo("sample.pdf");
+        assertThat(listResponse.getBody().getData().getContent()).hasSize(1);
+        assertThat(listResponse.getBody().getData().getContent().get(0).sourceName()).isEqualTo("sample.pdf");
+        assertThat(listResponse.getBody().getData().getPage()).isZero();
+        assertThat(listResponse.getBody().getData().getSize()).isEqualTo(10);
+        assertThat(listResponse.getBody().getData().getTotalElements()).isEqualTo(1);
         assertThat(detailResponse.getBody().getData().jobId()).isEqualTo("job-1");
         assertThat(detailResponse.getBody().getData().sourceName()).isEqualTo("sample.pdf");
         assertThat(retryResponse.getStatusCode().value()).isEqualTo(202);
@@ -379,6 +391,51 @@ class RagIndexJobControllerTest {
                 .containsExactly(RagIndexJobLogCode.JOB_STARTED);
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.CREATED_AT);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+        assertThat(jobService.pageRequest.offset()).isZero();
+        assertThat(jobService.pageRequest.limit()).isEqualTo(10);
+    }
+
+    @Test
+    void jobDetailIncludesEmbeddingSelectionFromStoredRequest() {
+        CapturingJobService jobService = new CapturingJobService();
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                null);
+        jobService.createdSourceRequest = new RagIndexJobSourceRequest(
+                Map.of(),
+                List.of(),
+                false,
+                "retrieval-ko-kure",
+                null,
+                null);
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.getJob("job-1");
+
+        RagIndexJobDto dto = response.getBody().getData();
+        assertThat(dto.embeddingProfileId()).isEqualTo("retrieval-ko-kure");
+        assertThat(dto.embeddingProvider()).isNull();
+        assertThat(dto.embeddingModel()).isNull();
+    }
+
+    @Test
+    void jobDetailFallsBackToVectorMetadataEmbeddingSelection() {
+        CapturingJobService jobService = new CapturingJobService();
+        VectorStorePort vectorStorePort = mock(VectorStorePort.class);
+        RagIndexJobController controller = new RagIndexJobController(
+                jobService,
+                mock(RagPipelineService.class),
+                vectorStorePort);
+        when(vectorStorePort.getMetadata("attachment", "42")).thenReturn(Map.of(
+                "embeddingProvider", "kure",
+                "embeddingModel", "nlpai-lab/KURE-v1"));
+
+        ResponseEntity<ApiResponse<RagIndexJobDto>> response = controller.getJob("job-1");
+
+        RagIndexJobDto dto = response.getBody().getData();
+        assertThat(dto.embeddingProfileId()).isNull();
+        assertThat(dto.embeddingProvider()).isEqualTo("kure");
+        assertThat(dto.embeddingModel()).isEqualTo("nlpai-lab/KURE-v1");
     }
 
     @Test
@@ -413,7 +470,7 @@ class RagIndexJobControllerTest {
                 mock(RagPipelineService.class),
                 null);
 
-        controller.listJobs(null, null, null, null, 0, 10, " document-id ", "sideways");
+        controller.listJobs(null, null, null, null, PageRequest.of(0, 10), " document-id ", "sideways");
 
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
@@ -425,14 +482,21 @@ class RagIndexJobControllerTest {
         MockMvc mockMvc = jobControllerMockMvc(jobService);
 
         mockMvc.perform(get("/api/mgmt/ai/rag/jobs")
+                        .param("page", "2")
+                        .param("size", "25")
                         .param("sort", " document-id ")
                         .param("direction", "sideways"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.items[0].jobId").value("job-1"))
-                .andExpect(jsonPath("$.data.items[0].sourceName").value("sample.pdf"));
+                .andExpect(jsonPath("$.data.content[0].jobId").value("job-1"))
+                .andExpect(jsonPath("$.data.content[0].sourceName").value("sample.pdf"))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.size").value(25))
+                .andExpect(jsonPath("$.data.totalElements").value(51));
 
         assertThat(jobService.sort.field()).isEqualTo(RagIndexJobSort.Field.DOCUMENT_ID);
         assertThat(jobService.sort.direction()).isEqualTo(RagIndexJobSort.Direction.DESC);
+        assertThat(jobService.pageRequest.offset()).isEqualTo(50);
+        assertThat(jobService.pageRequest.limit()).isEqualTo(25);
     }
 
     @Test
@@ -567,7 +631,7 @@ class RagIndexJobControllerTest {
         RagIndexJobService jobService = new CapturingJobService();
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagIndexJobController controller = new RagIndexJobController(jobService, ragPipelineService, null);
-        when(ragPipelineService.listByObject("attachment", "42", 25))
+        when(ragPipelineService.listByObject("attachment", "42", 0, 25))
                 .thenReturn(List.of(new RagSearchResult("doc-1", "chunk text", Map.of(
                         VectorRecord.KEY_CHUNK_ID, "chunk-1",
                         VectorRecord.KEY_DOCUMENT_ID, "doc-1",
@@ -578,16 +642,23 @@ class RagIndexJobControllerTest {
                         VectorRecord.KEY_PAGE, 1,
                         "chunkOrder", 7,
                         "indexedAt", "2026-04-26T00:00:00Z"), 0.8d)));
+        when(ragPipelineService.countByObject("attachment", "42")).thenReturn(1L);
 
-        ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> response =
-                controller.objectChunks("attachment", "42", 25);
+        ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> response =
+                controller.objectChunks("attachment", "42", PageRequest.of(0, 25));
 
-        RagIndexChunkDto chunk = response.getBody().getData().get(0);
+        PageDto<RagIndexChunkDto> page = response.getBody().getData();
+        assertThat(page.getPage()).isZero();
+        assertThat(page.getSize()).isEqualTo(25);
+        assertThat(page.getTotalElements()).isEqualTo(1);
+        assertThat(page.isHasNext()).isFalse();
+        RagIndexChunkDto chunk = page.getContent().get(0);
         assertThat(chunk.chunkId()).isEqualTo("chunk-1");
         assertThat(chunk.parentChunkId()).isEqualTo("parent-1");
         assertThat(chunk.headingPath()).isEqualTo("Intro > Details");
         assertThat(chunk.indexedAt()).isEqualTo(java.time.Instant.parse("2026-04-26T00:00:00Z"));
-        verify(ragPipelineService).listByObject("attachment", "42", 25);
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 25);
+        verify(ragPipelineService).countByObject("attachment", "42");
     }
 
     @Test
@@ -597,22 +668,24 @@ class RagIndexJobControllerTest {
                 new CapturingJobService(),
                 ragPipelineService,
                 null);
-        when(ragPipelineService.listByObject("attachment", "42", 10, 3))
+        when(ragPipelineService.listByObject("attachment", "42", 10, 2))
                 .thenReturn(List.of(
                         new RagSearchResult("doc-1", "chunk 1", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-1"), 1.0d),
-                        new RagSearchResult("doc-1", "chunk 2", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-2"), 1.0d),
-                        new RagSearchResult("doc-1", "chunk 3", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-3"), 1.0d)));
+                        new RagSearchResult("doc-1", "chunk 2", Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-2"), 1.0d)));
 
-        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
-                controller.objectChunksPage("attachment", "42", 10, 2);
+        when(ragPipelineService.countByObject("attachment", "42")).thenReturn(13L);
 
-        RagIndexChunkPageResponseDto page = response.getBody().getData();
-        assertThat(page.offset()).isEqualTo(10);
-        assertThat(page.limit()).isEqualTo(2);
-        assertThat(page.returned()).isEqualTo(2);
-        assertThat(page.hasMore()).isTrue();
-        assertThat(page.items()).extracting(RagIndexChunkDto::chunkId).containsExactly("chunk-1", "chunk-2");
-        verify(ragPipelineService).listByObject("attachment", "42", 10, 3);
+        ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> response =
+                controller.objectChunksPage("attachment", "42", PageRequest.of(5, 2));
+
+        PageDto<RagIndexChunkDto> page = response.getBody().getData();
+        assertThat(page.getPage()).isEqualTo(5);
+        assertThat(page.getSize()).isEqualTo(2);
+        assertThat(page.getTotalElements()).isEqualTo(13);
+        assertThat(page.isHasNext()).isTrue();
+        assertThat(page.getContent()).extracting(RagIndexChunkDto::chunkId).containsExactly("chunk-1", "chunk-2");
+        verify(ragPipelineService).listByObject("attachment", "42", 10, 2);
+        verify(ragPipelineService).countByObject("attachment", "42");
     }
 
     @Test
@@ -624,23 +697,25 @@ class RagIndexJobControllerTest {
                 null,
                 Runnable::run,
                 25);
-        when(ragPipelineService.listByObject("attachment", "42", 0, 26))
-                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 26)
+        when(ragPipelineService.listByObject("attachment", "42", 0, 25))
+                .thenReturn(java.util.stream.IntStream.rangeClosed(1, 25)
                         .mapToObj(index -> new RagSearchResult(
                                 "doc-1",
                                 "chunk " + index,
                                 Map.of(VectorRecord.KEY_CHUNK_ID, "chunk-" + index),
                                 1.0d))
                         .toList());
+        when(ragPipelineService.countByObject("attachment", "42")).thenReturn(26L);
 
-        ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> response =
-                controller.objectChunksPage("attachment", "42", 0, 200);
+        ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> response =
+                controller.objectChunksPage("attachment", "42", PageRequest.of(0, 200));
 
-        RagIndexChunkPageResponseDto page = response.getBody().getData();
-        assertThat(page.limit()).isEqualTo(25);
-        assertThat(page.returned()).isEqualTo(25);
-        assertThat(page.hasMore()).isTrue();
-        verify(ragPipelineService).listByObject("attachment", "42", 0, 26);
+        PageDto<RagIndexChunkDto> page = response.getBody().getData();
+        assertThat(page.getSize()).isEqualTo(25);
+        assertThat(page.getContent()).hasSize(25);
+        assertThat(page.isHasNext()).isTrue();
+        verify(ragPipelineService).listByObject("attachment", "42", 0, 25);
+        verify(ragPipelineService).countByObject("attachment", "42");
     }
 
     @Test
@@ -811,6 +886,7 @@ class RagIndexJobControllerTest {
                         Jackson2ObjectMapperBuilder.json()
                                 .modules(new JavaTimeModule())
                                 .build()))
+                .setCustomArgumentResolvers(new PageableHandlerMethodArgumentResolver())
                 .setControllerAdvice(new AiWebExceptionHandler())
                 .build();
     }
@@ -1007,9 +1083,26 @@ class RagIndexJobControllerTest {
         }
 
         @Override
+        public Optional<RagEmbeddingSelectionInfo> getEmbeddingSelection(String jobId) {
+            if (createdRequest != null && createdRequest.indexRequest() != null) {
+                return selection(
+                        createdRequest.indexRequest().embeddingProfileId(),
+                        createdRequest.indexRequest().embeddingProvider(),
+                        createdRequest.indexRequest().embeddingModel());
+            }
+            if (createdSourceRequest != null) {
+                return selection(
+                        createdSourceRequest.embeddingProfileId(),
+                        createdSourceRequest.embeddingProvider(),
+                        createdSourceRequest.embeddingModel());
+            }
+            return Optional.empty();
+        }
+
+        @Override
         public RagIndexJobPage listJobs(RagIndexJobFilter filter, RagIndexJobPageRequest pageable) {
             this.pageRequest = pageable;
-            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+            return new RagIndexJobPage(List.of(job), pageable.offset() + 1L, pageable.offset(), pageable.limit());
         }
 
         @Override
@@ -1019,7 +1112,7 @@ class RagIndexJobControllerTest {
                 RagIndexJobSort sort) {
             this.pageRequest = pageable;
             this.sort = sort;
-            return new RagIndexJobPage(List.of(job), 1, pageable.offset(), pageable.limit());
+            return new RagIndexJobPage(List.of(job), pageable.offset() + 1L, pageable.offset(), pageable.limit());
         }
 
         @Override
@@ -1044,6 +1137,11 @@ class RagIndexJobControllerTest {
         @Override
         public RagIndexProgressListener progressListener(String jobId) {
             return RagIndexProgressListener.noop();
+        }
+
+        private Optional<RagEmbeddingSelectionInfo> selection(String profileId, String provider, String model) {
+            RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(profileId, provider, model);
+            return selection.empty() ? Optional.empty() : Optional.of(selection);
         }
     }
 }

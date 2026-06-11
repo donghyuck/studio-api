@@ -27,6 +27,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNoti
 import studio.one.platform.skillgraph.domain.model.SkillCandidate;
 import studio.one.platform.skillgraph.domain.model.SkillCandidateStatus;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
+import studio.one.platform.skillgraph.domain.model.SkillDictionaryMatch;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJob;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobStatus;
 import studio.one.platform.skillgraph.domain.model.SkillGraphBatchJobType;
@@ -206,6 +207,25 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
     }
 
     @Override
+    public SkillRecommendationApplyResult applySelectedResults(
+            List<String> resultIds,
+            SkillRecommendationApplyCommand command) {
+        if (resultIds == null || resultIds.isEmpty()) {
+            throw new IllegalArgumentException("resultIds must not be empty");
+        }
+        List<String> normalizedIds = resultIds.stream()
+                .map(resultId -> requireText(resultId, "resultId"))
+                .distinct()
+                .toList();
+        List<SkillRecommendationResult> results = normalizedIds.stream()
+                .map(resultId -> recommendationStore.findResult(resultId)
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "Unknown recommendation result: " + resultId)))
+                .toList();
+        return applyResults(results, normalizeApply(command));
+    }
+
+    @Override
     public SkillRecommendationApplyResult applyJob(String jobId, SkillRecommendationApplyCommand command) {
         findJob(jobId);
         return applyResults(recommendationStore.findResultsByJob(jobId), normalizeApply(command));
@@ -303,6 +323,20 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
             SkillRecommendationJob job,
             SkillCandidateRecommendationJobCommand command,
             SkillCandidate candidate) {
+        Optional<SkillDictionaryMatch> exactOrAlias = dictionaryStore.findMatchByNormalizedTerm(candidate.normalizedTerm());
+        if (exactOrAlias.isPresent() && command.targetTypes().contains("SKILL_DICTIONARY")) {
+            SkillDictionaryMatch match = exactOrAlias.get();
+            saveResult(job, candidate, new SkillRecommendationTargetHit(
+                            TARGET_DICTIONARY,
+                            match.skill().skillId(),
+                            match.skill().name(),
+                            match.score()),
+                    SkillRecommendationType.EXISTING_SKILL_MATCH,
+                    match.score(),
+                    "dictionary %s match".formatted(match.type().name().toLowerCase(Locale.ROOT)));
+            return 1;
+        }
+
         List<Double> embedding = recommendationStore.findEmbedding(
                 SOURCE_CANDIDATE,
                 candidate.candidateId(),
@@ -520,6 +554,7 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
             return new LinkedHashSet<>(command.candidateIds()).stream()
                     .map(candidateStore::findCandidate)
                     .flatMap(Optional::stream)
+                    .filter(this::isRecommendationEligible)
                     .toList();
         }
         SkillCandidateStatus status = parseStatus(command.status());
@@ -528,7 +563,14 @@ public class DefaultSkillCandidateRecommendationService implements SkillCandidat
                 command.keyword(),
                 command.sourceType(),
                 command.sourceId(),
-                Pageable.ofSize(2000)).getContent();
+                Pageable.ofSize(2000)).stream()
+                .filter(this::isRecommendationEligible)
+                .toList();
+    }
+
+    private boolean isRecommendationEligible(SkillCandidate candidate) {
+        return candidate.status() == SkillCandidateStatus.PENDING
+                || candidate.status() == SkillCandidateStatus.NEW_SKILL_CANDIDATE;
     }
 
     private void validateCandidateEmbeddings(

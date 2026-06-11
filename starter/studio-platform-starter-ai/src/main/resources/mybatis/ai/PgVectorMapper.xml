@@ -13,6 +13,7 @@
   </resultMap>
 
   <sql id="metadataConditions">
+    AND embedding_dimension = #{embeddingDimension}
     <if test="metadataObjectType != null">
       AND object_type = #{metadataObjectType,jdbcType=VARCHAR}
     </if>
@@ -41,9 +42,6 @@
   </sql>
 
   <sql id="listFilterConditions">
-    <if test="documentId != null">
-      AND (metadata -&gt;&gt; 'documentId') = #{documentId,jdbcType=VARCHAR}
-    </if>
     <if test="query != null">
       AND (
         LOWER(text) LIKE CONCAT('%', LOWER(#{query,jdbcType=VARCHAR}), '%')
@@ -57,20 +55,44 @@
   </sql>
 
   <insert id="upsertChunk" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorChunkParameter">
-    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding)
+    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
     VALUES (
       #{objectType,jdbcType=VARCHAR},
       #{objectId,jdbcType=VARCHAR},
       #{chunkIndex},
       #{text,jdbcType=VARCHAR},
       CAST(#{metadata,jdbcType=VARCHAR} AS jsonb),
-      #{embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}
+      #{embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler},
+      #{embeddingDimension}
     )
     ON CONFLICT (object_type, object_id, chunk_index)
     DO UPDATE SET
       text = EXCLUDED.text,
       metadata = EXCLUDED.metadata,
-      embedding = EXCLUDED.embedding
+      embedding = EXCLUDED.embedding,
+      embedding_dimension = EXCLUDED.embedding_dimension
+  </insert>
+
+  <insert id="upsertChunks">
+    INSERT INTO tb_ai_document_chunk(object_type, object_id, chunk_index, text, metadata, embedding, embedding_dimension)
+    VALUES
+    <foreach collection="chunks" item="chunk" separator=",">
+      (
+        #{chunk.objectType,jdbcType=VARCHAR},
+        #{chunk.objectId,jdbcType=VARCHAR},
+        #{chunk.chunkIndex},
+        #{chunk.text,jdbcType=VARCHAR},
+        CAST(#{chunk.metadata,jdbcType=VARCHAR} AS jsonb),
+        #{chunk.embedding,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler},
+        #{chunk.embeddingDimension}
+      )
+    </foreach>
+    ON CONFLICT (object_type, object_id, chunk_index)
+    DO UPDATE SET
+      text = EXCLUDED.text,
+      metadata = EXCLUDED.metadata,
+      embedding = EXCLUDED.embedding,
+      embedding_dimension = EXCLUDED.embedding_dimension
   </insert>
 
   <select id="search" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"
@@ -136,32 +158,47 @@
       AND object_id = #{objectId,jdbcType=VARCHAR}
   </select>
 
-  <select id="listByObject" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata, NULL::double precision AS distance
+  <select id="countByObject" resultType="long">
+    SELECT COUNT(*)
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
-    ORDER BY chunk_index
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+  </select>
+
+  <select id="listByObject" resultMap="PgVectorSearchRowMap">
+    SELECT id, object_id, text, metadata, NULL::double precision AS distance
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+    ORDER BY object_id, chunk_index
     LIMIT #{limit}
   </select>
 
   <select id="listByObjectPage" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata, NULL::double precision AS distance
+    SELECT id, object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
-    ORDER BY chunk_index
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+    ORDER BY object_id, chunk_index
     LIMIT #{limit} OFFSET #{offset}
   </select>
 
   <select id="listByObjectPageFiltered" resultMap="PgVectorSearchRowMap">
-    SELECT object_id, text, metadata, NULL::double precision AS distance
+    SELECT id, object_id, text, metadata, NULL::double precision AS distance
     FROM tb_ai_document_chunk
     WHERE object_type = #{objectType,jdbcType=VARCHAR}
-      AND object_id = #{objectId,jdbcType=VARCHAR}
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
       <include refid="listFilterConditions"/>
-    ORDER BY chunk_index
+    ORDER BY object_id, chunk_index
     LIMIT #{limit} OFFSET #{offset}
+  </select>
+
+  <select id="countByObjectFiltered" resultType="long">
+    SELECT COUNT(*)
+    FROM tb_ai_document_chunk
+    WHERE object_type = #{objectType,jdbcType=VARCHAR}
+      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
+      <include refid="listFilterConditions"/>
   </select>
 
   <select id="metadataByObject" resultType="string">

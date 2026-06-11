@@ -60,6 +60,7 @@ public class VectorStoreConfiguration {
 
         private boolean hasMappedStatements(SqlSessionTemplate sqlSessionTemplate) {
             return hasMappedStatement(sqlSessionTemplate, "upsertChunk")
+                    && hasMappedStatement(sqlSessionTemplate, "upsertChunks")
                     && hasMappedStatement(sqlSessionTemplate, "search")
                     && hasMappedStatement(sqlSessionTemplate, "deleteByObject")
                     && hasMappedStatement(sqlSessionTemplate, "searchByObject")

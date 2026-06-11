@@ -9,6 +9,7 @@ import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -96,6 +97,7 @@ public class DefaultVectorProjectionService implements VectorProjectionService {
     }
 
     @Override
+    @Cacheable(cacheNames = "vectorProjectionPoints", key = "{#projectionId, #targetType, #clusterId, #keyword, #limit, #offset}")
     public ProjectionPointPage points(
             String projectionId,
             String targetType,

@@ -23,7 +23,7 @@ class PgVectorMapperXmlContractTest {
         assertThat(mapper.split(Pattern.quote(
                 "CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar)"),
                 -1))
-                .hasSize(3);
+                .hasSize(8);
     }
 
     @Test
@@ -48,6 +48,17 @@ class PgVectorMapperXmlContractTest {
                 .contains("metadata -&gt;&gt; 'chunkId'")
                 .contains("metadata -&gt;&gt; 'headingPath'")
                 .contains("LIMIT #{limit} OFFSET #{offset}");
+    }
+
+    @Test
+    void upsertChunksUsesMultiRowInsertContract() throws Exception {
+        String mapper = mapperXml();
+
+        assertThat(mapper)
+                .contains("<insert id=\"upsertChunks\">")
+                .contains("<foreach collection=\"chunks\" item=\"chunk\" separator=\",\">")
+                .contains("ON CONFLICT (object_type, object_id, chunk_index)")
+                .contains("DO UPDATE SET");
     }
 
     private String mapperXml() throws Exception {

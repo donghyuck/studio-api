@@ -41,6 +41,7 @@ import studio.one.platform.realtime.stomp.config.RealtimeStompProperties;
 import studio.one.platform.realtime.stomp.messaging.LocalStompMessagingService;
 import studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService;
 import studio.one.platform.realtime.stomp.security.RealtimeHandshakeHandler;
+import studio.one.platform.realtime.stomp.security.RealtimeStompAuthChannelInterceptor;
 import studio.one.platform.service.I18n;
 import studio.one.platform.util.I18nUtils;
 import studio.one.platform.util.LogUtils;
@@ -86,6 +87,13 @@ public class RealtimeStompAutoConfiguration {
                 LogUtils.blue(RealtimeHandshakeHandler.class, true),
                 LogUtils.red(State.CREATED.toString())));
         return new RealtimeHandshakeHandler(properties, jwtTokenProvider);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(RealtimeStompAuthChannelInterceptor.class)
+    public RealtimeStompAuthChannelInterceptor realtimeStompAuthChannelInterceptor(
+            ObjectProvider<studio.one.base.security.jwt.JwtTokenProvider> provider) {
+        return new RealtimeStompAuthChannelInterceptor(properties, provider.getIfAvailable());
     }
 
     @Bean(name = ServiceNames.Featrues.PREFIX + ":realtime:session-handshake-interceptor")

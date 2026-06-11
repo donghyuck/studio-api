@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -63,16 +64,29 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     }
 
     private void upsertInternal(List<VectorDocument> documents) {
-        for (VectorDocument document : documents) {
-            Map<String, Object> metadata = withDocumentId(document);
-            mapper.upsertChunk(new PgVectorChunkParameter(
-                    resolveObjectType(metadata),
-                    resolveObjectId(metadata, document.id()),
-                    resolveChunkIndex(metadata),
-                    document.content(),
-                    Json.write(metadata),
-                    toPgVector(document.embedding())));
+        if (documents == null || documents.isEmpty()) {
+            return;
         }
+        List<PgVectorChunkParameter> chunks = documents.stream()
+                .map(this::chunkParameter)
+                .toList();
+        if (chunks.size() == 1) {
+            mapper.upsertChunk(chunks.get(0));
+            return;
+        }
+        mapper.upsertChunks(chunks);
+    }
+
+    private PgVectorChunkParameter chunkParameter(VectorDocument document) {
+        Map<String, Object> metadata = withDocumentId(document);
+        return new PgVectorChunkParameter(
+                resolveObjectType(metadata),
+                resolveObjectId(metadata, document.id()),
+                resolveChunkIndex(metadata),
+                document.content(),
+                Json.write(metadata),
+                toPgVector(document.embedding()),
+                document.embedding().size());
     }
 
     @Override
@@ -173,7 +187,6 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
     public List<VectorSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
@@ -182,13 +195,29 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         return mapper.listByObjectPageFiltered(
                         objectType,
                         objectId,
-                        normalize(documentId),
                         normalize(query),
                         rowOffset,
                         rowLimit)
                 .stream()
                 .map(PgVectorStoreAdapterV2::mapListRow)
                 .toList();
+    }
+
+    @Override
+    public List<VectorSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        return mapper.listByChunkIds(objectType, chunkIds).stream()
+                .map(PgVectorStoreAdapterV2::mapListRow)
+                .toList();
+    }
+
+    @Override
+    public long countByObject(String objectType, String objectId) {
+        return mapper.countByObject(objectType, objectId);
+    }
+
+    @Override
+    public long countByObject(String objectType, String objectId, String query) {
+        return mapper.countByObjectFiltered(objectType, objectId, normalize(query));
     }
 
     @Override
@@ -228,6 +257,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         MetadataFilter filter = request.metadataFilter();
         return new PgVectorSearchParameter(
                 toPgVector(request.embedding()),
+                request.embedding().size(),
                 request.topK(),
                 objectType,
                 objectId,
@@ -248,6 +278,7 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
         MetadataFilter filter = request.metadataFilter();
         return new PgVectorHybridSearchParameter(
                 toPgVector(request.embedding()),
+                request.embedding().size(),
                 request.topK(),
                 objectType,
                 objectId,

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
@@ -134,6 +135,11 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
     }
 
     @Override
+    public Page<SkillCandidateView> searchBySourceChunkIds(Set<String> sourceChunkIds, Pageable pageable) {
+        return store.searchCandidatesBySourceChunkIds(sourceChunkIds, pageable).map(this::toView);
+    }
+
+    @Override
     public SkillCandidateView get(String candidateId) {
         return toView(find(candidateId));
     }
@@ -222,6 +228,17 @@ public class DefaultSkillCandidateReviewService implements SkillCandidateReviewS
         int max = normalizeLimit(limit);
         int totalMissing = store.countMissingEmbeddings(provider, model);
         List<SkillCandidate> missing = store.findMissingEmbeddings(provider, model, max);
+        if (missing.isEmpty()) {
+            return new SkillDictionaryEmbeddingResult(
+                    totalMissing,
+                    0,
+                    0,
+                    0,
+                    0,
+                    null,
+                    SkillDictionaryEmbeddingJobStatus.COMPLETED,
+                    "No missing candidate embeddings");
+        }
         String jobId = "skill_candidate_embedding_" + UUID.randomUUID();
         Instant now = Instant.now();
         SkillGraphBatchJob job = new SkillGraphBatchJob(

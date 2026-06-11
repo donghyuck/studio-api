@@ -14,6 +14,7 @@ import studio.one.platform.skillgraph.application.command.AssignSkillsToCategory
 import studio.one.platform.skillgraph.application.command.MergeSkillCategoriesCommand;
 import studio.one.platform.skillgraph.application.command.MoveSkillCategoryCommand;
 import studio.one.platform.skillgraph.application.command.SkillCategoryCommand;
+import studio.one.platform.skillgraph.application.error.SkillCategoryInUseException;
 import studio.one.platform.skillgraph.application.service.DefaultSkillTaxonomyService;
 import studio.one.platform.skillgraph.domain.model.SkillCluster;
 import studio.one.platform.skillgraph.domain.model.SkillDictionary;
@@ -87,6 +88,40 @@ class DefaultSkillTaxonomyServiceTest {
         assertEquals(1, result.affectedCount());
         assertEquals("backend", dictionaryStore.findById("skill-1").orElseThrow().categoryId());
         assertThrows(IllegalArgumentException.class, () -> service.getCategory("server"));
+    }
+
+    @Test
+    void deletesOnlyUnusedLeafCategory() {
+        DefaultSkillTaxonomyService service = service();
+        service.saveCategory(new SkillCategoryCommand("unused", null, "Unused", 1));
+
+        var impact = service.getDeletionImpact("unused");
+        service.deleteCategory("unused");
+
+        assertEquals(0, impact.skillCount());
+        assertEquals(0, impact.childCount());
+        assertEquals(true, impact.deletable());
+        assertThrows(IllegalArgumentException.class, () -> service.getCategory("unused"));
+    }
+
+    @Test
+    void rejectsDeletionWhenCategoryHasSkillsOrChildren() {
+        InMemorySkillDictionaryStore dictionaryStore = new InMemorySkillDictionaryStore();
+        InMemorySkillTaxonomyStore taxonomyStore = new InMemorySkillTaxonomyStore();
+        DefaultSkillTaxonomyService service = new DefaultSkillTaxonomyService(taxonomyStore, dictionaryStore, null);
+        Instant now = Instant.now();
+        service.saveCategory(new SkillCategoryCommand("parent", null, "Parent", 1));
+        service.saveCategory(new SkillCategoryCommand("child", "parent", "Child", 1));
+        dictionaryStore.save(new SkillDictionary("skill-1", "Spring Boot", "spring boot",
+                "parent", "ACTIVE", now, now));
+
+        SkillCategoryInUseException ex = assertThrows(SkillCategoryInUseException.class,
+                () -> service.deleteCategory("parent"));
+
+        assertEquals(1, ex.impact().skillCount());
+        assertEquals(1, ex.impact().childCount());
+        assertEquals(false, ex.impact().deletable());
+        assertEquals("parent", service.getCategory("parent").categoryId());
     }
 
     private DefaultSkillTaxonomyService service() {

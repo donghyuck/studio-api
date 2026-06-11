@@ -11,6 +11,11 @@ import java.util.Optional;
 import jakarta.validation.Valid;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,18 +32,21 @@ import org.springframework.web.server.ResponseStatusException;
 import studio.one.platform.skillgraph.application.command.SkillExtractionCommand;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.result.SkillExtractionResult;
+import studio.one.platform.skillgraph.application.result.SkillCandidateView;
+import studio.one.platform.skillgraph.application.result.SkillRagExtractionJob;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
+import studio.one.platform.skillgraph.infrastructure.extraction.SkillExtractionFailureMessages;
 import studio.one.platform.skillgraph.web.dto.request.SkillExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRequest;
+import studio.one.platform.skillgraph.web.dto.request.SkillRagExtractionRetryRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagChunkExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.request.SkillRagDocumentExtractionRequest;
 import studio.one.platform.skillgraph.web.dto.response.SkillExtractionResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagBatchExtractionResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkExtractionItemDto;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobItemPageResponse;
-import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobPageResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagExtractionJobResponse;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -70,16 +78,17 @@ public class SkillExtractionJobMgmtController {
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and (@endpointAuthz.can('objects:' + #request.sourceType().trim() + ':' + #request.sourceId().trim(),'read') "
             + "or @endpointAuthz.can('objects:' + #request.sourceType().trim(),'read'))")
-    public ResponseEntity<ApiResponse<SkillExtractionResponse>> extract(@Valid @RequestBody SkillExtractionRequest request) {
+    public ResponseEntity<ApiResponse<SkillExtractionResponse>> extract(
+            @Valid @RequestBody SkillExtractionRequest request) {
         return ResponseEntity.ok(ApiResponse.ok(SkillExtractionResponse.from(extractionService.extract(
-                new SkillExtractionCommand(request.sourceType(), request.sourceId(), request.chunkId(), request.text())))));
+                new SkillExtractionCommand(request.sourceType(), request.sourceId(), request.chunkId(),
+                        request.text())))));
     }
 
     @PostMapping("/rag-documents")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> extractRagDocument(
             @Valid @RequestBody SkillRagDocumentExtractionRequest request) {
         String mode = normalize(request.mode());
@@ -87,28 +96,30 @@ public class SkillExtractionJobMgmtController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only ALL_CHUNKS mode is supported");
         }
         SkillRagExtractionJobService jobService = ragExtractionJobService();
+        SkillRagExtractionJob job = jobService.submitAllChunks(
+                request.objectType(),
+                request.objectId(),
+                request.limit(),
+                Boolean.TRUE.equals(request.excludeExtracted()),
+                Boolean.TRUE.equals(request.generateEmbeddings()),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(jobService.submitAllChunks(
-                        request.objectType(),
-                        request.objectId(),
-                        request.documentId(),
-                        request.limit()))));
+                .body(ApiResponse.ok(toResponse(job)));
     }
 
     @PostMapping("/rag-chunks")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<ApiResponse<SkillRagBatchExtractionResponse>> extractRagChunks(
             @Valid @RequestBody SkillRagChunkExtractionRequest request) {
-        String documentId = normalize(request.documentId());
         Map<String, String> requestedChunkIds = normalizedChunkIds(request.chunkIds());
         List<ResolvedRagChunk> resolved = resolveChunks(request.objectType(), request.objectId(), MAX_RAG_CHUNK_LIMIT);
         Map<String, ResolvedRagChunk> byChunkId = new LinkedHashMap<>();
         for (ResolvedRagChunk chunk : resolved) {
-            if ((documentId == null || documentId.equals(chunk.documentId()))
-                    && requestedChunkIds.containsKey(chunk.chunkId())) {
+            if (requestedChunkIds.containsKey(chunk.chunkId())) {
                 byChunkId.putIfAbsent(chunk.chunkId(), chunk);
             }
         }
@@ -119,7 +130,7 @@ public class SkillExtractionJobMgmtController {
         SkillRagBatchExtractionResponse response = extractChunks(
                 normalize(request.objectType()),
                 normalize(request.objectId()),
-                documentId,
+                null,
                 requestedChunkIds.size(),
                 chunks);
         if (chunks.size() < requestedChunkIds.size()) {
@@ -131,61 +142,59 @@ public class SkillExtractionJobMgmtController {
     @PostMapping("/rag")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
+            + "and @endpointAuthz.can('objects:' + #request.objectType().trim(),'read')")
     public ResponseEntity<?> extractRag(
             @Valid @RequestBody SkillRagExtractionRequest request) {
         String mode = normalize(request.mode());
         if (mode == null || "ALL_CHUNKS".equalsIgnoreCase(mode)) {
-            return extractRagDocument(new SkillRagDocumentExtractionRequest(
-                    request.objectType(),
-                    request.objectId(),
-                    request.documentId(),
-                    "ALL_CHUNKS",
-                    request.limit()));
+            return submitRagJob(request, List.of());
         }
         if ("SELECTED_CHUNKS".equalsIgnoreCase(mode)) {
             if (request.chunkIds() == null || request.chunkIds().isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "chunkIds are required for SELECTED_CHUNKS");
             }
-            return extractRagChunks(new SkillRagChunkExtractionRequest(
-                    request.objectType(),
-                    request.objectId(),
-                    request.documentId(),
-                    request.chunkIds()));
+            return submitRagJob(request, request.chunkIds());
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported RAG extraction mode");
     }
 
+    private ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> submitRagJob(
+            SkillRagExtractionRequest request,
+            List<String> chunkIds) {
+        SkillRagExtractionJob job = ragExtractionJobService().submit(
+                request.objectType(),
+                request.objectId(),
+                request.q(),
+                chunkIds,
+                request.limit(),
+                Boolean.TRUE.equals(request.excludeExtracted()),
+                Boolean.TRUE.equals(request.generateEmbeddings()),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension());
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.ok(toResponse(job)));
+    }
+
     @GetMapping
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
-    public ResponseEntity<ApiResponse<SkillRagExtractionJobPageResponse>> listRagExtractionJobs(
+    public ResponseEntity<ApiResponse<Page<SkillRagExtractionJobResponse>>> listRagExtractionJobs(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String objectType,
             @RequestParam(required = false) String objectId,
-            @RequestParam(required = false) String documentId,
-            @RequestParam(defaultValue = "0") int offset,
-            @RequestParam(defaultValue = "50") int limit) {
-        int safeOffset = Math.max(0, offset);
-        int safeLimit = limit <= 0 ? 50 : Math.min(limit, 200);
-        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobPageResponse.from(
-                safeOffset,
-                safeLimit,
-                ragExtractionJobService().listJobs(
-                        status,
-                        objectType,
-                        objectId,
-                        documentId,
-                        safeOffset,
-                        safeLimit + 1))));
+            @PageableDefault(size = 50, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer limit) {
+        Pageable bounded = boundedPageable(pageable, offset, limit, 200);
+        return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().searchJobs(
+                status, objectType, objectId, bounded).map(this::toResponse)));
     }
 
     @GetMapping("/{jobId}")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
     public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> getRagExtractionJob(
             @PathVariable String jobId) {
-        return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobResponse.from(
-                ragExtractionJobService().getJob(jobId))));
+        return ResponseEntity.ok(ApiResponse.ok(toResponse(getJobOrNotFound(jobId))));
     }
 
     @GetMapping("/{jobId}/items")
@@ -196,6 +205,7 @@ public class SkillExtractionJobMgmtController {
             @RequestParam(defaultValue = "100") int limit) {
         int safeOffset = Math.max(0, offset);
         int safeLimit = limit <= 0 ? 100 : Math.min(limit, 500);
+        getJobOrNotFound(jobId);
         return ResponseEntity.ok(ApiResponse.ok(SkillRagExtractionJobItemPageResponse.from(
                 jobId,
                 safeOffset,
@@ -203,13 +213,33 @@ public class SkillExtractionJobMgmtController {
                 ragExtractionJobService().listItems(jobId, safeOffset, safeLimit + 1))));
     }
 
-    @PostMapping("/{jobId}/retry-failed")
+    @GetMapping("/{jobId}/candidates")
+    @PreAuthorize("@endpointAuthz.can('features:skillgraph','read')")
+    public ResponseEntity<ApiResponse<Page<SkillCandidateView>>> getRagExtractionJobCandidates(
+            @PathVariable String jobId,
+            @PageableDefault(size = 100, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            @RequestParam(required = false) Integer offset,
+            @RequestParam(required = false) Integer limit) {
+        getJobOrNotFound(jobId);
+        Pageable bounded = candidatePageable(pageable, offset, limit);
+        return ResponseEntity.ok(ApiResponse.ok(ragExtractionJobService().listCandidates(jobId, bounded)));
+    }
+
+    @PostMapping({ "/{jobId}/retry", "/{jobId}/retry-failed" })
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','manage')")
-    public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> retryFailedRagExtractionJob(
-            @PathVariable String jobId) {
+    public ResponseEntity<ApiResponse<SkillRagExtractionJobResponse>> retryRagExtractionJob(
+            @PathVariable String jobId,
+            @RequestBody(required = false) SkillRagExtractionRetryRequest request) {
+        getJobOrNotFound(jobId);
+        var mode = request == null ? null : request.resolvedMode();
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(ApiResponse.ok(SkillRagExtractionJobResponse.from(
-                        ragExtractionJobService().retryFailed(jobId))));
+                .body(ApiResponse.ok(toResponse(ragExtractionJobService().retry(jobId, mode))));
+    }
+
+    private SkillRagExtractionJobResponse toResponse(SkillRagExtractionJob job) {
+        return SkillRagExtractionJobResponse.from(
+                job,
+                ragExtractionJobService().executionStatus(job.jobId()));
     }
 
     private SkillRagBatchExtractionResponse extractChunks(
@@ -223,7 +253,8 @@ public class SkillExtractionJobMgmtController {
         int succeeded = 0;
         int failed = 0;
         for (ResolvedRagChunk chunk : chunks) {
-            String sourceId = Optional.ofNullable(chunk.documentId()).orElse(objectId);
+            String sourceId = Optional.ofNullable(chunk.documentId())
+                    .orElseGet(() -> Optional.ofNullable(chunk.objectId()).orElse(objectId));
             try {
                 SkillExtractionResult result = extractionService.extract(new SkillExtractionCommand(
                         RAG_CHUNK_SOURCE_TYPE,
@@ -262,6 +293,21 @@ public class SkillExtractionJobMgmtController {
                 failed,
                 extractedCount,
                 items);
+    }
+
+    private Pageable candidatePageable(Pageable pageable, Integer offset, Integer limit) {
+        return boundedPageable(pageable, offset, limit, 1000);
+    }
+
+    private Pageable boundedPageable(Pageable pageable, Integer offset, Integer limit, int maxSize) {
+        int size = limit == null ? pageable.getPageSize() : limit;
+        size = Math.max(1, Math.min(size, maxSize));
+        long requestedOffset = offset == null ? pageable.getOffset() : Math.max(0, offset);
+        int page = Math.toIntExact(requestedOffset / size);
+        Sort sort = pageable.getSort().isSorted()
+                ? pageable.getSort()
+                : Sort.by(Sort.Direction.DESC, "createdAt");
+        return PageRequest.of(page, size, sort);
     }
 
     private SkillRagBatchExtractionResponse withMissingChunks(
@@ -303,7 +349,7 @@ public class SkillExtractionJobMgmtController {
         }
         try {
             return resolver.listByObject(normalizeRequired(objectType, "objectType"),
-                    normalizeRequired(objectId, "objectId"), limit)
+                    normalize(objectId), limit)
                     .stream()
                     .filter(chunk -> chunk.content() != null && !chunk.content().isBlank())
                     .toList();
@@ -319,6 +365,17 @@ public class SkillExtractionJobMgmtController {
                     "RAG extraction job service is not configured");
         }
         return service;
+    }
+
+    private SkillRagExtractionJob getJobOrNotFound(String jobId) {
+        try {
+            return ragExtractionJobService().getJob(jobId);
+        } catch (IllegalArgumentException ex) {
+            if (ex.getMessage() != null && ex.getMessage().startsWith("RAG extraction job not found:")) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG extraction job not found", ex);
+            }
+            throw ex;
+        }
     }
 
     private Map<String, String> normalizedChunkIds(List<String> chunkIds) {
@@ -350,10 +407,7 @@ public class SkillExtractionJobMgmtController {
     }
 
     private String failureMessage(RuntimeException ex) {
-        if (ex instanceof IllegalArgumentException && ex.getMessage() != null && !ex.getMessage().isBlank()) {
-            return ex.getMessage();
-        }
-        return "Skill extraction failed";
+        return SkillExtractionFailureMessages.from(ex);
     }
 
 }

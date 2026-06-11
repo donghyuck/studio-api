@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -210,6 +211,8 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
         if (normalizedText == null) {
             throw new IllegalArgumentException("embeddingText must not be blank");
         }
+        String model = embeddingModel == null || embeddingModel.isBlank() ? "unknown" : embeddingModel.trim();
+        String provider = embeddingProvider == null || embeddingProvider.isBlank() ? "unknown" : embeddingProvider.trim();
         Instant now = Instant.now();
         String vector = vectorLiteral(embedding);
         template.update("""
@@ -225,10 +228,10 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                               embedding = EXCLUDED.embedding,
                               updated_at = EXCLUDED.updated_at
                 """, new MapSqlParameterSource()
-                .addValue("embeddingId", "ske_" + normalizedCandidateId)
+                .addValue("embeddingId", "ske_" + normalizedCandidateId + "_" + Integer.toHexString(model.hashCode()))
                 .addValue("candidateId", normalizedCandidateId)
-                .addValue("embeddingProvider", embeddingProvider)
-                .addValue("embeddingModel", embeddingModel)
+                .addValue("embeddingProvider", provider)
+                .addValue("embeddingModel", model)
                 .addValue("embeddingDimension", embeddingDimension)
                 .addValue("embeddingText", normalizedText)
                 .addValue("embedding", vector)
@@ -325,6 +328,32 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                 """ + sql,
                 params,
                 Long.class);
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
+    }
+
+    @Override
+    public Page<SkillCandidate> searchCandidatesBySourceChunkIds(
+            Set<String> sourceChunkIds,
+            Pageable pageable) {
+        if (sourceChunkIds == null || sourceChunkIds.isEmpty()) {
+            return Page.empty(pageable);
+        }
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("sourceChunkIds", sourceChunkIds)
+                .addValue("limit", pageable.getPageSize())
+                .addValue("offset", pageable.getOffset());
+        List<SkillCandidate> content = template.query("""
+                SELECT *
+                FROM tb_skill_candidate
+                WHERE source_chunk_id IN (:sourceChunkIds)
+                """ + candidateOrderBy(pageable.getSort()) + """
+                LIMIT :limit OFFSET :offset
+                """, params, this::mapCandidate);
+        Long total = template.queryForObject("""
+                SELECT COUNT(*)
+                FROM tb_skill_candidate
+                WHERE source_chunk_id IN (:sourceChunkIds)
+                """, params, Long.class);
         return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 

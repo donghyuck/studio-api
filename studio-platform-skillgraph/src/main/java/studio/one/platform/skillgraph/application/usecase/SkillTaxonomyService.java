@@ -12,6 +12,7 @@ import studio.one.platform.skillgraph.application.command.MergeSkillCategoriesCo
 import studio.one.platform.skillgraph.application.command.MoveSkillCategoryCommand;
 import studio.one.platform.skillgraph.application.command.SkillCategoryCommand;
 import studio.one.platform.skillgraph.application.result.SkillCategoryHistoryView;
+import studio.one.platform.skillgraph.application.result.SkillCategoryDeletionImpact;
 import studio.one.platform.skillgraph.application.result.SkillCategoryMutationResult;
 import studio.one.platform.skillgraph.application.result.SkillCategoryView;
 
@@ -26,6 +27,8 @@ public interface SkillTaxonomyService {
     Page<SkillCategoryView> searchCategories(String q, String parentCategoryId, Pageable pageable);
 
     SkillCategoryView getCategory(String categoryId);
+
+    SkillCategoryDeletionImpact getDeletionImpact(String categoryId);
 
     void deleteCategory(String categoryId);
 

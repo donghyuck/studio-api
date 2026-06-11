@@ -12,6 +12,10 @@ import java.util.concurrent.RejectedExecutionException;
 
 import jakarta.validation.Valid;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.lang.Nullable;
@@ -30,6 +34,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import studio.one.platform.ai.core.rag.RagIndexJob;
+import studio.one.platform.ai.core.rag.RagEmbeddingSelectionInfo;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobPage;
@@ -45,13 +50,12 @@ import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
-import studio.one.platform.ai.web.dto.RagIndexChunkPageResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
-import studio.one.platform.ai.web.dto.RagIndexJobListResponseDto;
 import studio.one.platform.ai.web.dto.RagIndexJobLogDto;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
+import studio.one.platform.web.dto.PageDto;
 
 @RestController
 @RequestMapping("${" + PropertyKeys.AI.Endpoints.MGMT_BASE_PATH + ":/api/mgmt/ai}/rag")
@@ -59,6 +63,8 @@ import studio.one.platform.web.dto.ApiResponse;
 public class RagIndexJobController {
 
     private static final Logger log = LoggerFactory.getLogger(RagIndexJobController.class);
+    private static final int DEFAULT_JOB_PAGE_SIZE = 50;
+    private static final int MAX_JOB_PAGE_SIZE = 200;
     private static final int DEFAULT_CHUNK_LIMIT = 200;
 
     private final RagIndexJobService jobService;
@@ -110,32 +116,31 @@ public class RagIndexJobController {
 
     @GetMapping("/jobs")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
-    public ResponseEntity<ApiResponse<RagIndexJobListResponseDto>> listJobs(
+    public ResponseEntity<ApiResponse<PageDto<RagIndexJobDto>>> listJobs(
             @RequestParam(name = "status", required = false) RagIndexJobStatus status,
             @RequestParam(name = "objectType", required = false) String objectType,
             @RequestParam(name = "objectId", required = false) String objectId,
             @RequestParam(name = "documentId", required = false) String documentId,
-            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "50") int limit,
+            @PageableDefault(size = DEFAULT_JOB_PAGE_SIZE) Pageable pageable,
             @RequestParam(name = "sort", required = false) String sort,
             @RequestParam(name = "direction", required = false) String direction) {
+        Pageable boundedPageable = boundedJobPageable(pageable);
         RagIndexJobPage page = jobService.listJobs(
                 new RagIndexJobFilter(status, objectType, objectId, documentId),
-                new RagIndexJobPageRequest(offset, limit),
+                new RagIndexJobPageRequest(pageOffset(boundedPageable), boundedPageable.getPageSize()),
                 new RagIndexJobSort(
                         RagIndexJobSort.Field.from(sort),
                         RagIndexJobSort.Direction.from(direction)));
-        return ResponseEntity.ok(ApiResponse.ok(new RagIndexJobListResponseDto(
-                page.jobs().stream().map(RagIndexJobDto::from).toList(),
-                page.total(),
-                page.offset(),
-                page.limit())));
+        return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new PageImpl<>(
+                page.jobs().stream().map(this::toJobDto).toList(),
+                boundedPageable,
+                page.total()))));
     }
 
     @GetMapping("/jobs/{jobId}")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
     public ResponseEntity<ApiResponse<RagIndexJobDto>> getJob(@PathVariable("jobId") String jobId) {
-        return ResponseEntity.ok(ApiResponse.ok(RagIndexJobDto.from(requireJob(jobId))));
+        return ResponseEntity.ok(ApiResponse.ok(toJobDto(requireJob(jobId))));
     }
 
     @PostMapping("/jobs")
@@ -149,7 +154,7 @@ public class RagIndexJobController {
                 ? jobService.createJob(command.request())
                 : jobService.createJob(command.request(), command.sourceRequest());
         dispatch(job.jobId(), () -> jobService.startJob(job.jobId()));
-        return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(job)));
+        return ResponseEntity.accepted().body(ApiResponse.ok(toJobDto(job)));
     }
 
     @PostMapping("/jobs/{jobId}/retry")
@@ -162,7 +167,7 @@ public class RagIndexJobController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "RAG index job is still active");
         }
         dispatch(jobId, () -> jobService.retryJob(jobId));
-        return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(requireJob(jobId))));
+        return ResponseEntity.accepted().body(ApiResponse.ok(toJobDto(requireJob(jobId))));
     }
 
     @PostMapping("/jobs/{jobId}/cancel")
@@ -173,7 +178,7 @@ public class RagIndexJobController {
         requireJob(jobId);
         try {
             RagIndexJob cancelled = jobService.cancelJob(jobId);
-            return ResponseEntity.accepted().body(ApiResponse.ok(RagIndexJobDto.from(cancelled)));
+            return ResponseEntity.accepted().body(ApiResponse.ok(toJobDto(cancelled)));
         } catch (UnsupportedOperationException ex) {
             throw new ResponseStatusException(HttpStatus.NOT_IMPLEMENTED, "RAG index job cancel is not supported", ex);
         } catch (IllegalStateException ex) {
@@ -196,71 +201,61 @@ public class RagIndexJobController {
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
             + " or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> getJobChunks(
+    public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> getJobChunks(
             @PathVariable("jobId") String jobId,
-            @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
+            @PageableDefault(size = DEFAULT_CHUNK_LIMIT) Pageable pageable) {
         RagIndexJob job = requireJob(jobId);
         if (job.objectType() == null || job.objectId() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "job has no object scope");
         }
-        return objectChunks(job.objectType(), job.objectId(), limit);
+        return objectChunks(job.objectType(), job.objectId(), pageable);
     }
 
     @GetMapping("/jobs/{jobId}/chunks/page")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentJob(#jobId)"
             + " or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> getJobChunksPage(
+    public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> getJobChunksPage(
             @PathVariable("jobId") String jobId,
-            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
+            @PageableDefault(size = DEFAULT_CHUNK_LIMIT) Pageable pageable) {
         RagIndexJob job = requireJob(jobId);
         if (job.objectType() == null || job.objectId() == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "job has no object scope");
         }
-        return objectChunksPage(job.objectType(), job.objectId(), offset, limit);
+        return objectChunksPage(job.objectType(), job.objectId(), pageable);
     }
 
     @GetMapping("/objects/{objectType}/{objectId}/chunks")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
             + " or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<List<RagIndexChunkDto>>> objectChunks(
+    public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> objectChunks(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId,
-            @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
-        int boundedLimit = boundedChunkLimit(limit);
-        List<RagIndexChunkDto> chunks = ragPipelineService.listByObject(objectType, objectId, boundedLimit).stream()
-                .map(this::toChunkDto)
-                .toList();
-        return ResponseEntity.ok(ApiResponse.ok(chunks));
+            @PageableDefault(size = DEFAULT_CHUNK_LIMIT) Pageable pageable) {
+        return objectChunksPage(objectType, objectId, pageable);
     }
 
     @GetMapping("/objects/{objectType}/{objectId}/chunks/page")
     @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')"
             + " and (!@ragIndexJobEndpointSecurity.isAttachmentObject(#objectType)"
             + " or @endpointAuthz.can('features:attachment','read'))")
-    public ResponseEntity<ApiResponse<RagIndexChunkPageResponseDto>> objectChunksPage(
+    public ResponseEntity<ApiResponse<PageDto<RagIndexChunkDto>>> objectChunksPage(
             @PathVariable("objectType") String objectType,
             @PathVariable("objectId") String objectId,
-            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "200") int limit) {
-        int boundedOffset = Math.max(0, offset);
-        int boundedLimit = boundedChunkLimit(limit);
-        int fetchLimit = boundedLimit == Integer.MAX_VALUE ? boundedLimit : boundedLimit + 1;
-        List<RagIndexChunkDto> fetched = ragPipelineService
-                .listByObject(objectType, objectId, boundedOffset, fetchLimit)
+            @PageableDefault(size = DEFAULT_CHUNK_LIMIT) Pageable pageable) {
+        Pageable boundedPageable = boundedChunkPageable(pageable);
+        List<RagIndexChunkDto> items = ragPipelineService
+                .listByObject(
+                        objectType,
+                        objectId,
+                        pageOffset(boundedPageable),
+                        boundedPageable.getPageSize())
                 .stream()
                 .map(this::toChunkDto)
                 .toList();
-        boolean hasMore = fetched.size() > boundedLimit;
-        List<RagIndexChunkDto> items = hasMore ? fetched.subList(0, boundedLimit) : fetched;
-        return ResponseEntity.ok(ApiResponse.ok(new RagIndexChunkPageResponseDto(
-                items,
-                boundedOffset,
-                boundedLimit,
-                items.size(),
-                hasMore)));
+        long total = ragPipelineService.countByObject(objectType, objectId);
+        return ResponseEntity.ok(ApiResponse.ok(PageDto.from(new PageImpl<>(items, boundedPageable, total))));
     }
 
     @DeleteMapping("/objects/{objectType}/{objectId}")
@@ -322,6 +317,30 @@ public class RagIndexJobController {
                         "RAG index object cannot be deleted while job is active: "
                                 + activeJob.get().jobId());
             }
+        }
+    }
+
+    private RagIndexJobDto toJobDto(RagIndexJob job) {
+        return RagIndexJobDto.from(job, embeddingSelection(job).orElse(null));
+    }
+
+    private Optional<RagEmbeddingSelectionInfo> embeddingSelection(RagIndexJob job) {
+        Optional<RagEmbeddingSelectionInfo> requestSelection = jobService.getEmbeddingSelection(job.jobId());
+        if (requestSelection.isPresent()) {
+            return requestSelection;
+        }
+        if (vectorStorePort == null || job.objectType() == null || job.objectId() == null) {
+            return Optional.empty();
+        }
+        try {
+            Map<String, Object> metadata = vectorStorePort.getMetadata(job.objectType(), job.objectId());
+            RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
+                    text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
+                    text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
+                    text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)));
+            return selection.empty() ? Optional.empty() : Optional.of(selection);
+        } catch (UnsupportedOperationException ex) {
+            return Optional.empty();
         }
     }
 
@@ -449,9 +468,34 @@ public class RagIndexJobController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG index job not found"));
     }
 
-    private int boundedChunkLimit(int limit) {
-        int requestedLimit = limit <= 0 ? Math.min(DEFAULT_CHUNK_LIMIT, maxChunkPageLimit) : limit;
-        return Math.min(requestedLimit, maxChunkPageLimit);
+    private Pageable boundedJobPageable(Pageable pageable) {
+        Pageable source = pageable == null || pageable.isUnpaged()
+                ? PageRequest.of(0, DEFAULT_JOB_PAGE_SIZE)
+                : pageable;
+        int page = Math.max(0, source.getPageNumber());
+        int requestedSize = source.getPageSize() <= 0 ? DEFAULT_JOB_PAGE_SIZE : source.getPageSize();
+        int size = Math.min(requestedSize, MAX_JOB_PAGE_SIZE);
+        return PageRequest.of(page, size, source.getSort());
+    }
+
+    private int pageOffset(Pageable pageable) {
+        long offset = pageable.getOffset();
+        if (offset > Integer.MAX_VALUE) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "page offset is too large");
+        }
+        return (int) offset;
+    }
+
+    private Pageable boundedChunkPageable(Pageable pageable) {
+        Pageable source = pageable == null || pageable.isUnpaged()
+                ? PageRequest.of(0, Math.min(DEFAULT_CHUNK_LIMIT, maxChunkPageLimit))
+                : pageable;
+        int page = Math.max(0, source.getPageNumber());
+        int requestedSize = source.getPageSize() <= 0
+                ? Math.min(DEFAULT_CHUNK_LIMIT, maxChunkPageLimit)
+                : source.getPageSize();
+        int size = Math.min(requestedSize, maxChunkPageLimit);
+        return PageRequest.of(page, size, source.getSort());
     }
 
     private RagIndexChunkDto toChunkDto(RagSearchResult result) {

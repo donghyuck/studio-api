@@ -5,12 +5,16 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillRagExtractionJobService;
 import studio.one.platform.skillgraph.application.service.SkillDatasetImportJobService;
 import studio.one.platform.skillgraph.application.service.SkillRagExtractionJobSettings;
@@ -26,6 +30,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillRecommendationSer
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillReferenceDatasetService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
+import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobNotifier;
 import studio.one.platform.skillgraph.application.usecase.SkillTaxonomyService;
 import studio.one.platform.skillgraph.application.usecase.SkillVisualizationService;
 import studio.one.platform.skillgraph.domain.port.SkillRagExtractionJobStore;
@@ -83,7 +88,10 @@ public class SkillGraphWebAutoConfiguration {
                 SkillGraphRagChunkResolver ragChunkResolver,
                 SkillRagExtractionJobStore jobStore,
                 Executor skillRagExtractionJobExecutor,
-                SkillGraphProperties properties) {
+                SkillGraphProperties properties,
+                ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider,
+                ObjectProvider<SkillCandidateReviewService> candidateReviewServiceProvider,
+                ObjectProvider<SkillRagExtractionJobNotifier> jobNotifierProvider) {
             SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
             return new DefaultSkillRagExtractionJobService(
                     extractionService,
@@ -93,7 +101,35 @@ public class SkillGraphWebAutoConfiguration {
                     new SkillRagExtractionJobSettings(
                             ragJob.getBatchSize(),
                             ragJob.getMaxChunks(),
-                            ragJob.getMaxTextBytesPerBatch()));
+                            ragJob.getMaxTextBytesPerBatch(),
+                            ragJob.getLeaseDuration(),
+                            ragJob.getMaxAutoRetries()),
+                    java.time.Clock.systemUTC(),
+                    objectTypeRuntimeServiceProvider.getIfAvailable(),
+                    candidateReviewServiceProvider.getIfAvailable(),
+                    jobNotifierProvider.getIfAvailable(() -> SkillRagExtractionJobNotifier.NOOP));
+        }
+
+        @Bean(destroyMethod = "shutdown")
+        @ConditionalOnMissingBean(name = "skillRagExtractionRecoveryScheduler")
+        ScheduledExecutorService skillRagExtractionRecoveryScheduler() {
+            return Executors.newSingleThreadScheduledExecutor(runnable -> {
+                Thread thread = new Thread(runnable, "skill-rag-extraction-recovery");
+                thread.setDaemon(true);
+                return thread;
+            });
+        }
+
+        @Bean
+        @ConditionalOnMissingBean
+        SkillRagExtractionJobRecoveryCoordinator skillRagExtractionJobRecoveryCoordinator(
+                SkillRagExtractionJobService jobService,
+                ScheduledExecutorService skillRagExtractionRecoveryScheduler,
+                SkillGraphProperties properties) {
+            return new SkillRagExtractionJobRecoveryCoordinator(
+                    jobService,
+                    skillRagExtractionRecoveryScheduler,
+                    properties.getExtraction().getRagJob().getRecoveryInterval());
         }
     }
 

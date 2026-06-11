@@ -1,12 +1,15 @@
 package studio.one.platform.ai.adapters.vector.mybatis;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.ibatis.annotations.Param;
 
 public interface PgVectorMapper {
 
     int upsertChunk(PgVectorChunkParameter parameter);
+
+    int upsertChunks(@Param("chunks") List<PgVectorChunkParameter> chunks);
 
     List<PgVectorSearchRow> search(PgVectorSearchParameter parameter);
 
@@ -24,6 +27,10 @@ public interface PgVectorMapper {
             @Param("objectType") String objectType,
             @Param("objectId") String objectId);
 
+    long countByObject(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId);
+
     List<PgVectorSearchRow> listByObject(
             @Param("objectType") String objectType,
             @Param("objectId") String objectId,
@@ -38,10 +45,18 @@ public interface PgVectorMapper {
     List<PgVectorSearchRow> listByObjectPageFiltered(
             @Param("objectType") String objectType,
             @Param("objectId") String objectId,
-            @Param("documentId") String documentId,
             @Param("query") String query,
             @Param("offset") int offset,
             @Param("limit") int limit);
+
+    long countByObjectFiltered(
+            @Param("objectType") String objectType,
+            @Param("objectId") String objectId,
+            @Param("query") String query);
+
+    List<PgVectorSearchRow> listByChunkIds(
+            @Param("objectType") String objectType,
+            @Param("chunkIds") Set<String> chunkIds);
 
     String metadataByObject(
             @Param("objectType") String objectType,

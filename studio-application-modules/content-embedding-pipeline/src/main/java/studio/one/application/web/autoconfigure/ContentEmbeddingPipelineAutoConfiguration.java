@@ -6,23 +6,29 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.application.web.controller.AttachmentEmbeddingPipelineController;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceExecutor;
 import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolver;
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @AutoConfiguration
 @AutoConfigureAfter(name = "studio.one.application.attachment.autoconfigure.AttachmentAutoConfiguration")
 @ConditionalOnClass({AttachmentService.class, RagPipelineService.class})
 @ConditionalOnBean(AttachmentService.class)
-@Import(ContentEmbeddingPipelineStructuredRagAutoConfiguration.class)
+@Import({
+        AttachmentEmbeddingPipelineController.class,
+        ContentEmbeddingPipelineStructuredRagAutoConfiguration.class
+})
 public class ContentEmbeddingPipelineAutoConfiguration {
 
     @Bean
@@ -31,12 +37,14 @@ public class ContentEmbeddingPipelineAutoConfiguration {
             AttachmentService attachmentService,
             ObjectProvider<FileContentExtractionService> textExtractionProvider,
             ObjectProvider<RagPipelineService> ragPipelineProvider,
-            ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider) {
+            ObjectProvider<AttachmentStructuredRagIndexer> structuredRagIndexerProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider) {
         return new AttachmentRagIndexService(
                 attachmentService,
                 textExtractionProvider,
                 ragPipelineProvider,
-                structuredRagIndexerProvider);
+                structuredRagIndexerProvider,
+                chunkStageStoreProvider);
     }
 
     @Bean
@@ -72,12 +80,15 @@ class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
             ObjectProvider<studio.one.platform.ai.core.embedding.EmbeddingPort> embeddingPortProvider,
             ObjectProvider<studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver>
                     embeddingProfileResolverProvider,
-            ObjectProvider<studio.one.platform.ai.core.vector.VectorStorePort> vectorStoreProvider) {
+            ObjectProvider<studio.one.platform.ai.core.vector.VectorStorePort> vectorStoreProvider,
+            @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
         return new studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer(
                 normalizedDocumentAdapterProvider,
                 chunkingOrchestratorProvider,
                 embeddingPortProvider,
                 embeddingProfileResolverProvider,
-                vectorStoreProvider);
+                vectorStoreProvider,
+                null,
+                indexUpsertBatchSize);
     }
 }

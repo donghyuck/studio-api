@@ -1,9 +1,13 @@
 package studio.one.platform.skillgraph.web.controller;
 
-import java.util.List;
 import java.util.Objects;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,9 +18,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import studio.one.platform.objecttype.application.result.ObjectTypeDefinition;
+import studio.one.platform.objecttype.application.usecase.ObjectTypeRuntimeService;
 import studio.one.platform.skillgraph.application.result.ResolvedRagChunk;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
-import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkPageResponse;
 import studio.one.platform.skillgraph.web.dto.response.SkillRagChunkPreviewDto;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -28,73 +33,50 @@ public class SkillGraphExtractionSourceMgmtController {
     private static final int DEFAULT_LIMIT = 50;
     private static final int MAX_LIMIT = 200;
     private static final int PREVIEW_LENGTH = 240;
+    private static final String LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE = "2001";
+    private static final String ATTACHMENT_OBJECT_TYPE = "attachment";
 
     private final ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider;
+    private final ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider;
 
     public SkillGraphExtractionSourceMgmtController(
             ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider) {
+        this(ragChunkResolverProvider, null);
+    }
+
+    @Autowired
+    public SkillGraphExtractionSourceMgmtController(
+            ObjectProvider<SkillGraphRagChunkResolver> ragChunkResolverProvider,
+            ObjectProvider<ObjectTypeRuntimeService> objectTypeRuntimeServiceProvider) {
         this.ragChunkResolverProvider = Objects.requireNonNull(ragChunkResolverProvider, "ragChunkResolverProvider");
+        this.objectTypeRuntimeServiceProvider = objectTypeRuntimeServiceProvider;
     }
 
     @GetMapping("/rag/chunks")
     @PreAuthorize("@endpointAuthz.can('features:skillgraph','read') "
             + "and @endpointAuthz.can('services:ai_rag','read') "
-            + "and (@endpointAuthz.can('objects:' + #objectType.trim() + ':' + #objectId.trim(),'read') "
-            + "or @endpointAuthz.can('objects:' + #objectType.trim(),'read'))")
-    public ResponseEntity<ApiResponse<SkillRagChunkPageResponse>> ragChunks(
+            + "and @endpointAuthz.can('objects:' + #objectType.trim(),'read')")
+    public ResponseEntity<ApiResponse<Page<SkillRagChunkPreviewDto>>> ragChunks(
             @RequestParam("objectType") String objectType,
-            @RequestParam("objectId") String objectId,
-            @RequestParam(name = "documentId", required = false) String documentId,
+            @RequestParam(name = "objectId", required = false) String objectId,
             @RequestParam(name = "q", required = false) String q,
-            @RequestParam(name = "offset", required = false, defaultValue = "0") int offset,
-            @RequestParam(name = "limit", required = false, defaultValue = "50") int limit,
-            @RequestParam(name = "sort", required = false) String sort) {
+            @PageableDefault(size = DEFAULT_LIMIT, sort = "objectId") Pageable pageable) {
         SkillGraphRagChunkResolver resolver = requireResolver();
-        String normalizedObjectType = required(objectType, "objectType");
-        String normalizedObjectId = required(objectId, "objectId");
-        String normalizedDocumentId = normalize(documentId);
+        String normalizedObjectType = normalizeRagObjectType(objectType);
+        String normalizedObjectId = normalize(objectId);
         String query = normalize(q);
-        int boundedOffset = Math.max(0, offset);
-        int boundedLimit = boundedLimit(limit);
-        List<ResolvedRagChunk> filtered;
-        Integer total = null;
-        boolean hasMore;
-        if (query != null || normalizedDocumentId != null) {
-            List<ResolvedRagChunk> fetched = resolver.listByObject(
+        Pageable boundedPageable = boundedPageable(pageable);
+        Page<ResolvedRagChunk> chunks;
+        if (query != null) {
+            chunks = resolver.pageByObject(
                     normalizedObjectType,
                     normalizedObjectId,
-                    normalizedDocumentId,
                     query,
-                    boundedOffset,
-                    boundedLimit + 1).stream()
-                    .sorted((left, right) -> compare(left, right, sort))
-                    .toList();
-            hasMore = fetched.size() > boundedLimit;
-            filtered = hasMore ? fetched.subList(0, boundedLimit) : fetched;
+                    boundedPageable);
         } else {
-            List<ResolvedRagChunk> fetched = resolver.listByObject(
-                    normalizedObjectType,
-                    normalizedObjectId,
-                    boundedOffset,
-                    boundedLimit + 1).stream()
-                    .sorted((left, right) -> compare(left, right, sort))
-                    .toList();
-            hasMore = fetched.size() > boundedLimit;
-            filtered = hasMore ? fetched.subList(0, boundedLimit) : fetched;
+            chunks = resolver.pageByObject(normalizedObjectType, normalizedObjectId, boundedPageable);
         }
-        if (boundedOffset == 0 && filtered.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "RAG chunks not found");
-        }
-        List<SkillRagChunkPreviewDto> items = filtered.stream()
-                .map(this::toPreview)
-                .toList();
-        return ResponseEntity.ok(ApiResponse.ok(new SkillRagChunkPageResponse(
-                items,
-                boundedOffset,
-                boundedLimit,
-                items.size(),
-                total,
-                hasMore)));
+        return ResponseEntity.ok(ApiResponse.ok(chunks.map(this::toPreview)));
     }
 
     private SkillGraphRagChunkResolver requireResolver() {
@@ -110,6 +92,7 @@ public class SkillGraphExtractionSourceMgmtController {
         return new SkillRagChunkPreviewDto(
                 chunk.chunkId(),
                 chunk.documentId(),
+                chunk.objectId(),
                 chunk.chunkOrder(),
                 chunk.page(),
                 chunk.section(),
@@ -119,20 +102,15 @@ public class SkillGraphExtractionSourceMgmtController {
                 chunk.warningStatus());
     }
 
-    private int compare(ResolvedRagChunk left, ResolvedRagChunk right, String sort) {
-        if ("chunkOrderDesc".equalsIgnoreCase(sort)) {
-            return Integer.compare(order(right), order(left));
-        }
-        return Integer.compare(order(left), order(right));
-    }
-
-    private int order(ResolvedRagChunk chunk) {
-        return chunk.chunkOrder() == null ? Integer.MAX_VALUE : chunk.chunkOrder();
-    }
-
     private int boundedLimit(int limit) {
         int requested = limit <= 0 ? DEFAULT_LIMIT : limit;
         return Math.min(requested, MAX_LIMIT);
+    }
+
+    private Pageable boundedPageable(Pageable pageable) {
+        Pageable requested = pageable == null ? PageRequest.of(0, DEFAULT_LIMIT) : pageable;
+        int boundedSize = boundedLimit(requested.getPageSize());
+        return PageRequest.of(Math.max(0, requested.getPageNumber()), boundedSize, requested.getSort());
     }
 
     private String preview(String content) {
@@ -146,6 +124,47 @@ public class SkillGraphExtractionSourceMgmtController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, field + " is required");
         }
         return normalized;
+    }
+
+    private String normalizeRagObjectType(String objectType) {
+        String normalized = required(objectType, "objectType");
+        if (LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE.equals(normalized)) {
+            return ATTACHMENT_OBJECT_TYPE;
+        }
+        normalized = resolveObjectTypeCode(normalized);
+        return normalized;
+    }
+
+    private String resolveObjectTypeCode(String objectType) {
+        if (objectTypeRuntimeServiceProvider == null) {
+            return objectType;
+        }
+        ObjectTypeRuntimeService service = objectTypeRuntimeServiceProvider.getIfAvailable();
+        if (service == null) {
+            return objectType;
+        }
+        try {
+            if (isInteger(objectType)) {
+                ObjectTypeDefinition definition = service.definition(Integer.parseInt(objectType));
+                if (definition == null || definition.type() == null) {
+                    return objectType;
+                }
+                String code = normalize(definition.type().code());
+                return code == null ? objectType : code;
+            }
+            return objectType;
+        } catch (RuntimeException ex) {
+            return objectType;
+        }
+    }
+
+    private boolean isInteger(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String normalize(String value) {

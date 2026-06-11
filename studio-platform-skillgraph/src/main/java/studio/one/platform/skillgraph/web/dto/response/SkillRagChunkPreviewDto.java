@@ -3,6 +3,7 @@ package studio.one.platform.skillgraph.web.dto.response;
 public record SkillRagChunkPreviewDto(
         String chunkId,
         String documentId,
+        String objectId,
         Integer chunkOrder,
         Integer page,
         String section,

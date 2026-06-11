@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -84,6 +85,7 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 })
 @Conditional(AiWebEndpointCondition.class)
 @EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class, RagPipelineProperties.class})
+@EnableCaching
 public class AiWebAutoConfiguration {
 
     @Bean

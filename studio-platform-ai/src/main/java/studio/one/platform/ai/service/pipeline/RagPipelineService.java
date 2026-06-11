@@ -2,6 +2,7 @@ package studio.one.platform.ai.service.pipeline;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
@@ -27,6 +28,14 @@ public interface RagPipelineService {
 
     List<RagSearchResult> listByObject(String objectType, String objectId, Integer limit);
 
+    default long countByObject(String objectType, String objectId) {
+        return listByObject(objectType, objectId, Integer.MAX_VALUE).size();
+    }
+
+    default long countByObject(String objectType, String objectId, String query) {
+        return listByObject(objectType, objectId, query, 0, Integer.MAX_VALUE).size();
+    }
+
     default void deleteByObject(String objectType, String objectId) {
         throw new UnsupportedOperationException("deleteByObject is not implemented");
     }
@@ -45,11 +54,14 @@ public interface RagPipelineService {
     default List<RagSearchResult> listByObject(
             String objectType,
             String objectId,
-            String documentId,
             String query,
             int offset,
             int limit) {
         return listByObject(objectType, objectId, offset, limit);
+    }
+
+    default List<RagSearchResult> listByChunkIds(String objectType, Set<String> chunkIds) {
+        throw new UnsupportedOperationException("listByChunkIds is not implemented");
     }
 
     /**
