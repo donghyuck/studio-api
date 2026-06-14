@@ -16,6 +16,7 @@ import studio.one.platform.textract.domain.model.BlockType;
 import studio.one.platform.textract.domain.model.ExtractedImage;
 import studio.one.platform.textract.domain.model.ExtractedTable;
 import studio.one.platform.textract.domain.model.ExtractedTableCell;
+import studio.one.platform.textract.domain.model.MarkdownLocator;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
 
@@ -48,13 +49,38 @@ public class TextractNormalizedDocumentAdapter {
                 .filter(NormalizedBlock::hasText)
                 .forEach(blocks::add);
 
+        Map<String, Object> documentMetadata = new LinkedHashMap<>(parsedFile.metadata());
+        documentMetadata.put("contentFormat", parsedFile.contentFormat());
+        if (!parsedFile.locators().isEmpty()) {
+            documentMetadata.put("locators", parsedFile.locators().stream()
+                    .map(this::locatorMetadata)
+                    .toList());
+        }
+
         return NormalizedDocument.builder(sourceDocumentId)
-                .plainText(parsedFile.plainText())
+                .plainText(firstNonBlank(parsedFile.markdown(), parsedFile.plainText()))
                 .sourceFormat(parsedFile.format().name())
                 .filename(filename(parsedFile.metadata()))
                 .blocks(blocks)
-                .metadata(parsedFile.metadata())
+                .metadata(documentMetadata)
                 .build();
+    }
+
+    private Map<String, Object> locatorMetadata(MarkdownLocator locator) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("type", locator.type());
+        if (locator.number() != null) {
+            metadata.put("number", locator.number());
+        }
+        if (!locator.title().isBlank()) {
+            metadata.put("title", locator.title());
+        }
+        metadata.put("startOffset", locator.startOffset());
+        metadata.put("endOffset", locator.endOffset());
+        if (!locator.sourceRef().isBlank()) {
+            metadata.put("sourceRef", locator.sourceRef());
+        }
+        return Map.copyOf(metadata);
     }
 
     private Map<String, ParsedBlock> tableBlocks(List<ParsedBlock> blocks) {

@@ -1,0 +1,42 @@
+{
+  "properties": [
+    {
+      "name": "studio.document-convert.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable document conversion job APIs and worker integration."
+    },
+    {
+      "name": "studio.document-convert.callback-base-url",
+      "type": "java.net.URI",
+      "description": "Base URL exposed to the Pandoc worker for callbacks."
+    },
+    {
+      "name": "studio.document-convert.callback-token",
+      "type": "java.lang.String",
+      "description": "Internal token required by the callback endpoint."
+    },
+    {
+      "name": "studio.document-convert.worker.base-url",
+      "type": "java.net.URI",
+      "description": "Base URL of the standalone Pandoc worker."
+    },
+    {
+      "name": "studio.document-convert.worker.internal-token",
+      "type": "java.lang.String",
+      "description": "Internal token sent to the Pandoc worker."
+    },
+    {
+      "name": "studio.document-convert.storage.signed-url-ttl",
+      "type": "java.time.Duration",
+      "defaultValue": "10m",
+      "description": "Lifetime of Attachment source and result signed download URLs."
+    },
+    {
+      "name": "studio.document-convert.job.max-retry-count",
+      "type": "java.lang.Integer",
+      "defaultValue": 2,
+      "description": "Maximum number of retries for failed jobs."
+    }
+  ]
+}

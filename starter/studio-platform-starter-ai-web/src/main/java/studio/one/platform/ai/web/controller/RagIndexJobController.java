@@ -49,6 +49,7 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
+import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
 import studio.one.platform.ai.web.dto.RagIndexChunkDto;
 import studio.one.platform.ai.web.dto.RagIndexJobCreateRequestDto;
 import studio.one.platform.ai.web.dto.RagIndexJobDto;
@@ -72,6 +73,7 @@ public class RagIndexJobController {
     private final Executor jobExecutor;
     private final int maxChunkPageLimit;
     private final List<RagIndexJobSourceNameResolver> sourceNameResolvers;
+    private final List<RagObjectMetadataContributor> metadataContributors;
     @Nullable
     private final VectorStorePort vectorStorePort;
 
@@ -106,12 +108,25 @@ public class RagIndexJobController {
             Executor jobExecutor,
             int maxChunkPageLimit,
             List<RagIndexJobSourceNameResolver> sourceNameResolvers) {
+        this(jobService, ragPipelineService, vectorStorePort, jobExecutor, maxChunkPageLimit,
+                sourceNameResolvers, List.of());
+    }
+
+    public RagIndexJobController(
+            RagIndexJobService jobService,
+            RagPipelineService ragPipelineService,
+            @Nullable VectorStorePort vectorStorePort,
+            Executor jobExecutor,
+            int maxChunkPageLimit,
+            List<RagIndexJobSourceNameResolver> sourceNameResolvers,
+            List<RagObjectMetadataContributor> metadataContributors) {
         this.jobService = Objects.requireNonNull(jobService, "jobService");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.vectorStorePort = vectorStorePort;
         this.jobExecutor = Objects.requireNonNull(jobExecutor, "jobExecutor");
         this.maxChunkPageLimit = maxChunkPageLimit <= 0 ? DEFAULT_CHUNK_LIMIT : maxChunkPageLimit;
         this.sourceNameResolvers = sourceNameResolvers == null ? List.of() : List.copyOf(sourceNameResolvers);
+        this.metadataContributors = metadataContributors == null ? List.of() : List.copyOf(metadataContributors);
     }
 
     @GetMapping("/jobs")
@@ -292,14 +307,44 @@ public class RagIndexJobController {
         if (vectorStorePort == null) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "VectorStorePort is not configured");
         }
-        Map<String, Object> metadata = vectorStorePort.getMetadata(objectType, objectId);
-        if (metadata == null || metadata.isEmpty()) {
-            return ResponseEntity.ok(ApiResponse.ok(Map.of(
-                    "objectType", objectType,
-                    "objectId", objectId,
-                    "indexed", false)));
+        Map<String, Object> stored = vectorStorePort.getMetadata(objectType, objectId);
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("objectType", objectType);
+        metadata.put("objectId", objectId);
+        metadata.put("indexed", stored != null && !stored.isEmpty());
+        if (stored != null) {
+            metadata.putAll(stored);
+        }
+        Map<String, Object> embedding = embeddingMetadata(stored);
+        if (!embedding.isEmpty()) {
+            metadata.put("embedding", embedding);
+        }
+        for (RagObjectMetadataContributor contributor : metadataContributors) {
+            Map<String, Object> contributed = contributor.contribute(objectType, objectId);
+            if (contributed != null && !contributed.isEmpty()) {
+                metadata.putAll(contributed);
+            }
         }
         return ResponseEntity.ok(ApiResponse.ok(metadata));
+    }
+
+    private Map<String, Object> embeddingMetadata(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, Object> embedding = new HashMap<>();
+        copyMetadata(metadata, embedding, "embeddingProvider", "provider");
+        copyMetadata(metadata, embedding, "embeddingModel", "model");
+        copyMetadata(metadata, embedding, "embeddingDimension", "dimension");
+        return Map.copyOf(embedding);
+    }
+
+    private void copyMetadata(Map<String, Object> source, Map<String, Object> target,
+            String sourceKey, String targetKey) {
+        Object value = source.get(sourceKey);
+        if (value != null && (!(value instanceof String text) || !text.isBlank())) {
+            target.put(targetKey, value);
+        }
     }
 
     private void rejectActiveObjectJob(String objectType, String objectId) {

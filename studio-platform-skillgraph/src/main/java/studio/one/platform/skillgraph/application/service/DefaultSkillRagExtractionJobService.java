@@ -542,7 +542,10 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     RAG_CHUNK_SOURCE_TYPE,
                     sourceId,
                     chunk.chunkId(),
-                    chunk.content()));
+                    chunk.content(),
+                    chunk.markdownDocumentId(),
+                    chunk.markdownRevisionId(),
+                    chunk.sourceMetadataJson()));
             return store.saveItem(new SkillRagExtractionJobItem(job.jobId(), chunk.chunkId(), chunk.documentId(),
                     sourceId, result.sourceChunkId(), result.extractedCount(), SkillRagExtractionItemStatus.SUCCEEDED,
                     null, now, now));

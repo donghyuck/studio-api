@@ -232,6 +232,7 @@ class TextractAutoConfigurationTest {
                     assertThat(ReflectionTestUtils.getField(service, "maxExtractBytes"))
                             .isEqualTo(10 * 1024 * 1024);
                     assertThat(context).hasBean("textFileParser");
+                    assertThat(context).hasBean("epubFileParser");
                     assertThat(context).hasBean("pdfFileParser");
                     assertThat(context).hasBean("excelFileParser");
                     assertThat(context).doesNotHaveBean(PyMuPdf4LlmClient.class);

@@ -9,10 +9,13 @@ public record ResolvedRagChunk(
         Integer page,
         String section,
         Integer tokenCount,
-        String warningStatus) {
+        String warningStatus,
+        String markdownDocumentId,
+        String markdownRevisionId,
+        String sourceMetadataJson) {
 
     public ResolvedRagChunk(String chunkId, String documentId, String content) {
-        this(chunkId, documentId, null, content, null, null, null, null, null);
+        this(chunkId, documentId, null, content, null, null, null, null, null, null, null, null);
     }
 
     public ResolvedRagChunk(
@@ -24,6 +27,21 @@ public record ResolvedRagChunk(
             String section,
             Integer tokenCount,
             String warningStatus) {
-        this(chunkId, documentId, null, content, chunkOrder, page, section, tokenCount, warningStatus);
+        this(chunkId, documentId, null, content, chunkOrder, page, section, tokenCount, warningStatus,
+                null, null, null);
+    }
+
+    public ResolvedRagChunk(
+            String chunkId,
+            String documentId,
+            String objectId,
+            String content,
+            Integer chunkOrder,
+            Integer page,
+            String section,
+            Integer tokenCount,
+            String warningStatus) {
+        this(chunkId, documentId, objectId, content, chunkOrder, page, section, tokenCount, warningStatus,
+                null, null, null);
     }
 }

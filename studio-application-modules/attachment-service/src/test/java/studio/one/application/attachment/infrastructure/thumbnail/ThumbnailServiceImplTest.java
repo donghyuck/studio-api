@@ -15,11 +15,16 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.imageio.ImageIO;
 
@@ -36,6 +41,7 @@ import studio.one.platform.thumbnail.ThumbnailRenderer;
 import studio.one.platform.thumbnail.ThumbnailRendererFactory;
 import studio.one.platform.thumbnail.ThumbnailSource;
 import studio.one.platform.thumbnail.ThumbnailGenerationException;
+import studio.one.platform.thumbnail.renderer.EpubThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.ImageThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PdfThumbnailRenderer;
 
@@ -74,6 +80,23 @@ class ThumbnailServiceImplTest {
         assertThat(result).isPresent();
         assertThat(result.get().getStatus()).isEqualTo("pending");
         assertThat(result.get().getContentType()).isEqualTo("image/png");
+        verify(storage).save(any(ThumbnailKey.class), any(InputStream.class));
+    }
+
+    @Test
+    void epubAttachmentStoresGeneratedCoverThumbnail() throws Exception {
+        AttachmentService attachmentService = mock(AttachmentService.class);
+        ThumbnailStorage storage = mock(ThumbnailStorage.class);
+        ThumbnailServiceImpl service = newService(attachmentService, storage);
+        Attachment attachment = attachment(22L, "sample.epub", "application/epub+zip");
+
+        when(storage.load(any())).thenThrow(new IllegalStateException("miss"));
+        when(attachmentService.getInputStream(attachment)).thenReturn(new ByteArrayInputStream(epubBytes()));
+
+        var result = service.getOrCreate(attachment, 64, "png");
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getStatus()).isEqualTo("pending");
         verify(storage).save(any(ThumbnailKey.class), any(InputStream.class));
     }
 
@@ -300,7 +323,10 @@ class ThumbnailServiceImplTest {
 
     private static ThumbnailServiceImpl newService(AttachmentService attachmentService, ThumbnailStorage storage) {
         ThumbnailGenerationService generationService = new ThumbnailGenerationService(
-                new ThumbnailRendererFactory(List.of(new ImageThumbnailRenderer(), new PdfThumbnailRenderer(0))),
+                new ThumbnailRendererFactory(List.of(
+                        new EpubThumbnailRenderer(300, 300, null),
+                        new ImageThumbnailRenderer(),
+                        new PdfThumbnailRenderer(0))),
                 new ThumbnailGenerationOptions(128, "png", 16, 512, 1024 * 1024, 25_000_000));
         return new ThumbnailServiceImpl(attachmentService, storage, generationService);
     }
@@ -333,6 +359,36 @@ class ThumbnailServiceImplTest {
             document.addPage(new PDPage());
             document.save(out);
             return out.toByteArray();
+        }
+    }
+
+    private static byte[] epubBytes() throws IOException {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        entries.put("META-INF/container.xml", """
+                <container xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+                  <rootfiles><rootfile full-path="content.opf"/></rootfiles>
+                </container>
+                """.getBytes(StandardCharsets.UTF_8));
+        entries.put("content.opf", """
+                <package xmlns="http://www.idpf.org/2007/opf" version="3.0">
+                  <metadata/>
+                  <manifest>
+                    <item id="cover" href="cover.png" media-type="image/png" properties="cover-image"/>
+                  </manifest>
+                  <spine/>
+                </package>
+                """.getBytes(StandardCharsets.UTF_8));
+        entries.put("cover.png", imageBytes());
+
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream();
+                ZipOutputStream zip = new ZipOutputStream(output)) {
+            for (Map.Entry<String, byte[]> entry : entries.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue());
+                zip.closeEntry();
+            }
+            zip.finish();
+            return output.toByteArray();
         }
     }
 

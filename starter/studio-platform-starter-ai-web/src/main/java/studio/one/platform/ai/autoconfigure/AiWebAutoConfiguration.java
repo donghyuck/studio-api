@@ -11,7 +11,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -70,6 +69,7 @@ import studio.one.platform.ai.web.service.InMemoryConversationRepository;
 import studio.one.platform.ai.web.service.InMemoryChatMemoryStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
+import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.chunking.core.Chunker;
@@ -85,7 +85,6 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 })
 @Conditional(AiWebEndpointCondition.class)
 @EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class, RagPipelineProperties.class})
-@EnableCaching
 public class AiWebAutoConfiguration {
 
     @Bean
@@ -282,14 +281,16 @@ public class AiWebAutoConfiguration {
             @Nullable VectorStorePort vectorStorePort,
             RagPipelineProperties ragPipelineProperties,
             @Qualifier("ragIndexJobExecutor") Executor ragIndexJobExecutor,
-            ObjectProvider<RagIndexJobSourceNameResolver> sourceNameResolvers) {
+            ObjectProvider<RagIndexJobSourceNameResolver> sourceNameResolvers,
+            ObjectProvider<RagObjectMetadataContributor> metadataContributors) {
         return new RagIndexJobController(
                 ragIndexJobService,
                 ragPipelineService,
                 vectorStorePort,
                 ragIndexJobExecutor,
                 ragPipelineProperties.getObjectScope().getMaxListLimit(),
-                sourceNameResolvers.orderedStream().toList());
+                sourceNameResolvers.orderedStream().toList(),
+                metadataContributors.orderedStream().toList());
     }
 
     @Bean

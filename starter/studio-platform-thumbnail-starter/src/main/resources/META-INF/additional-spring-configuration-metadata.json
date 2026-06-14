@@ -63,6 +63,24 @@
       "description": "Enable ImageIO-based image thumbnail rendering."
     },
     {
+      "name": "studio.thumbnail.renderers.epub.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Enable EPUB cover thumbnail rendering. Missing or invalid covers use a generated EPUB icon."
+    },
+    {
+      "name": "studio.thumbnail.renderers.epub.fallback-min-width",
+      "type": "java.lang.Integer",
+      "defaultValue": 300,
+      "description": "Minimum raster image width considered when EPUB cover metadata is absent."
+    },
+    {
+      "name": "studio.thumbnail.renderers.epub.fallback-min-height",
+      "type": "java.lang.Integer",
+      "defaultValue": 300,
+      "description": "Minimum raster image height considered when EPUB cover metadata is absent."
+    },
+    {
       "name": "studio.thumbnail.renderers.pdf.enabled",
       "type": "java.lang.Boolean",
       "defaultValue": false,

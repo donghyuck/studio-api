@@ -26,6 +26,7 @@ import studio.one.platform.service.I18n;
 import studio.one.platform.textract.application.usecase.FileParser;
 import studio.one.platform.textract.application.usecase.FileParserFactory;
 import studio.one.platform.textract.infrastructure.extractor.impl.DocxFileParser;
+import studio.one.platform.textract.infrastructure.extractor.impl.EpubFileParser;
 import studio.one.platform.textract.infrastructure.extractor.impl.ExcelFileParser;
 import studio.one.platform.textract.infrastructure.extractor.impl.HtmlFileParser;
 import studio.one.platform.textract.infrastructure.extractor.impl.HwpHwpxFileParser;
@@ -70,6 +71,13 @@ public class TextractAutoConfiguration {
     public FileParser htmlFileParser() {
         logCreated(HtmlFileParser.class);
         return new HtmlFileParser();
+    }
+
+    @Bean
+    @ConditionalOnClass(name = "org.jsoup.Jsoup")
+    public FileParser epubFileParser() {
+        logCreated(EpubFileParser.class);
+        return new EpubFileParser();
     }
 
     @Bean

@@ -6,9 +6,8 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.Objects;
 
+import studio.one.platform.textract.application.service.MarkdownDocumentBuilder;
 import studio.one.platform.textract.domain.error.FileParseException;
-import studio.one.platform.textract.application.usecase.FileParser;
-import studio.one.platform.textract.application.usecase.FileParserFactory;
 import studio.one.platform.textract.domain.error.FileSizeLimitExceededException;
 import studio.one.platform.textract.domain.model.DocumentExtractionResult;
 import studio.one.platform.textract.domain.model.ParsedFile;
@@ -17,6 +16,7 @@ public class FileContentExtractionService {
 
     private final FileParserFactory parserFactory;
     private final int maxExtractBytes;
+    private final MarkdownDocumentBuilder markdownDocumentBuilder;
 
     public FileContentExtractionService(FileParserFactory parserFactory) {
         this(parserFactory, 10 * 1024 * 1024);
@@ -28,6 +28,7 @@ public class FileContentExtractionService {
             throw new IllegalArgumentException("maxExtractBytes must be positive");
         }
         this.maxExtractBytes = maxExtractBytes;
+        this.markdownDocumentBuilder = new MarkdownDocumentBuilder();
     }
 
     public String extractText(String contentType, String filename, File file) throws FileParseException {
@@ -41,7 +42,7 @@ public class FileContentExtractionService {
             ensureWithinLimit(fileSize, filename);
             byte[] bytes = Files.readAllBytes(file.toPath());
             FileParser parser = parserFactory.getParser(contentType, filename);
-            return parser.parseStructured(bytes, contentType, filename);
+            return markdownDocumentBuilder.normalize(parser.parseStructured(bytes, contentType, filename));
         } catch (IOException e) {
             throw new FileParseException("Failed to read file: " + filename, e);
         }
@@ -67,7 +68,7 @@ public class FileContentExtractionService {
             byte[] bytes = is.readNBytes(readLimit);
             ensureWithinLimit(bytes.length, filename);
             FileParser parser = parserFactory.getParser(contentType, filename);
-            return parser.parseStructured(bytes, contentType, filename);
+            return markdownDocumentBuilder.normalize(parser.parseStructured(bytes, contentType, filename));
         } catch (IOException e) {
             throw new FileParseException("Failed to read input stream for: " + filename, e);
         }

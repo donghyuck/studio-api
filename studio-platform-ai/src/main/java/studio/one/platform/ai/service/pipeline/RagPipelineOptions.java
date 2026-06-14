@@ -16,6 +16,7 @@ public record RagPipelineOptions(
         int defaultListLimit,
         int maxListLimit,
         int maxContextTokens,
+        int indexEmbeddingBatchSize,
         int indexUpsertBatchSize) {
 
     public static final double DEFAULT_VECTOR_WEIGHT = 0.7;
@@ -29,6 +30,7 @@ public record RagPipelineOptions(
     public static final int DEFAULT_LIST_LIMIT = 20;
     public static final int DEFAULT_MAX_LIST_LIMIT = 200;
     public static final int DEFAULT_MAX_CONTEXT_TOKENS = 0;
+    public static final int DEFAULT_INDEX_EMBEDDING_BATCH_SIZE = 10;
     public static final int DEFAULT_INDEX_UPSERT_BATCH_SIZE = 10;
 
     public RagPipelineOptions {
@@ -65,6 +67,9 @@ public record RagPipelineOptions(
         if (maxContextTokens < 0) {
             throw new IllegalArgumentException("maxContextTokens must not be negative");
         }
+        if (indexEmbeddingBatchSize < 1) {
+            throw new IllegalArgumentException("indexEmbeddingBatchSize must be greater than 0");
+        }
         if (indexUpsertBatchSize < 1) {
             throw new IllegalArgumentException("indexUpsertBatchSize must be greater than 0");
         }
@@ -82,7 +87,26 @@ public record RagPipelineOptions(
                 DEFAULT_LIST_LIMIT,
                 DEFAULT_MAX_LIST_LIMIT,
                 DEFAULT_MAX_CONTEXT_TOKENS,
+                DEFAULT_INDEX_EMBEDDING_BATCH_SIZE,
                 DEFAULT_INDEX_UPSERT_BATCH_SIZE);
+    }
+
+    public RagPipelineOptions(
+            double vectorWeight,
+            double lexicalWeight,
+            double minScore,
+            double minRelevanceScore,
+            boolean keywordFallbackEnabled,
+            boolean semanticFallbackEnabled,
+            int topK,
+            int defaultListLimit,
+            int maxListLimit,
+            int maxContextTokens,
+            int indexUpsertBatchSize) {
+        this(vectorWeight, lexicalWeight, minScore, minRelevanceScore,
+                keywordFallbackEnabled, semanticFallbackEnabled, topK,
+                defaultListLimit, maxListLimit, maxContextTokens,
+                indexUpsertBatchSize, indexUpsertBatchSize);
     }
 
     public RagPipelineOptions(
@@ -95,7 +119,7 @@ public record RagPipelineOptions(
             int maxListLimit) {
         this(vectorWeight, lexicalWeight, minRelevanceScore, minRelevanceScore,
                 keywordFallbackEnabled, semanticFallbackEnabled, DEFAULT_TOP_K, defaultListLimit, maxListLimit,
-                DEFAULT_MAX_CONTEXT_TOKENS, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
+                DEFAULT_MAX_CONTEXT_TOKENS, DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
     }
 
     public RagPipelineOptions(
@@ -109,7 +133,8 @@ public record RagPipelineOptions(
             int defaultListLimit,
             int maxListLimit) {
         this(vectorWeight, lexicalWeight, minScore, minRelevanceScore, keywordFallbackEnabled, semanticFallbackEnabled,
-                topK, defaultListLimit, maxListLimit, DEFAULT_MAX_CONTEXT_TOKENS, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
+                topK, defaultListLimit, maxListLimit, DEFAULT_MAX_CONTEXT_TOKENS,
+                DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
     }
 
     public RagPipelineOptions(
@@ -124,7 +149,8 @@ public record RagPipelineOptions(
             int maxListLimit,
             int maxContextTokens) {
         this(vectorWeight, lexicalWeight, minScore, minRelevanceScore, keywordFallbackEnabled, semanticFallbackEnabled,
-                topK, defaultListLimit, maxListLimit, maxContextTokens, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
+                topK, defaultListLimit, maxListLimit, maxContextTokens,
+                DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
     }
 
     public int clampListLimit(Integer requestedLimit) {

@@ -17,7 +17,10 @@ public record ParsedFile(
         List<ParsedBlock> pages,
         List<ExtractedTable> tables,
         List<ExtractedImage> images,
-        boolean ocrApplied) {
+        boolean ocrApplied,
+        String markdown,
+        String contentFormat,
+        List<MarkdownLocator> locators) {
 
     public ParsedFile {
         format = format == null ? DocumentFormat.UNKNOWN : format;
@@ -28,6 +31,23 @@ public record ParsedFile(
         pages = pages == null ? List.of() : List.copyOf(pages);
         tables = tables == null ? List.of() : List.copyOf(tables);
         images = images == null ? List.of() : List.copyOf(images);
+        markdown = markdown == null ? "" : markdown;
+        contentFormat = contentFormat == null || contentFormat.isBlank() ? "text" : contentFormat;
+        locators = locators == null ? List.of() : List.copyOf(locators);
+    }
+
+    public ParsedFile(
+            DocumentFormat format,
+            String plainText,
+            List<ParsedBlock> blocks,
+            Map<String, Object> metadata,
+            List<ParseWarning> warnings,
+            List<ParsedBlock> pages,
+            List<ExtractedTable> tables,
+            List<ExtractedImage> images,
+            boolean ocrApplied) {
+        this(format, plainText, blocks, metadata, warnings, pages, tables, images, ocrApplied,
+                "", "text", List.of());
     }
 
     public static ParsedFile textOnly(DocumentFormat format, String plainText, String filename) {
@@ -38,5 +58,10 @@ public record ParsedFile(
                 ? List.of()
                 : List.of(ParsedBlock.text("document", BlockType.DOCUMENT, plainText, null, 0, Map.of()));
         return new ParsedFile(format, plainText, blocks, metadata, List.of(), List.of(), List.of(), List.of(), false);
+    }
+
+    public ParsedFile withMarkdown(String markdown, List<MarkdownLocator> locators) {
+        return new ParsedFile(format, plainText, blocks, metadata, warnings, pages, tables, images, ocrApplied,
+                markdown, "markdown", locators);
     }
 }

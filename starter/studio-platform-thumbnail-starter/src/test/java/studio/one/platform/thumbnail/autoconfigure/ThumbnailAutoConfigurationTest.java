@@ -33,6 +33,8 @@ import studio.one.platform.thumbnail.ThumbnailRendererFactory;
 import studio.one.platform.thumbnail.ThumbnailResult;
 import studio.one.platform.thumbnail.ThumbnailSource;
 import studio.one.platform.thumbnail.renderer.DocxThumbnailRenderer;
+import studio.one.platform.thumbnail.renderer.EpubSvgRasterizer;
+import studio.one.platform.thumbnail.renderer.EpubThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.ImageThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PdfThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PptxThumbnailRenderer;
@@ -103,7 +105,52 @@ class ThumbnailAutoConfigurationTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(ImageThumbnailRenderer.class);
+                    assertThat(context).hasSingleBean(EpubThumbnailRenderer.class);
                     assertThat(context).doesNotHaveBean(PdfThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void epubRendererIsEnabledByDefaultAndCanBeDisabled() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context).hasSingleBean(EpubThumbnailRenderer.class);
+            assertThat(context.getBean(ThumbnailRendererFactory.class).renderers().get(0))
+                    .isInstanceOf(EpubThumbnailRenderer.class);
+        });
+
+        contextRunner
+                .withPropertyValues("studio.thumbnail.renderers.epub.enabled=false")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(EpubThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void epubSvgRasterizerIsConditionalOnBatikClasspath() {
+        contextRunner
+                .run(context -> assertThat(context).hasSingleBean(EpubSvgRasterizer.class));
+
+        contextRunner
+                .withClassLoader(new FilteredClassLoader("org.apache.batik"))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).doesNotHaveBean(EpubSvgRasterizer.class);
+                    assertThat(context).hasSingleBean(EpubThumbnailRenderer.class);
+                });
+    }
+
+    @Test
+    void preservesUserDefinedEpubRendererByType() {
+        EpubThumbnailRenderer customRenderer = new EpubThumbnailRenderer(100, 100, null);
+
+        contextRunner
+                .withBean("customEpubRenderer", EpubThumbnailRenderer.class, () -> customRenderer)
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    assertThat(context).hasSingleBean(EpubThumbnailRenderer.class);
+                    assertThat(context).getBean(EpubThumbnailRenderer.class).isSameAs(customRenderer);
                 });
     }
 

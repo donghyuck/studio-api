@@ -1,9 +1,11 @@
 package studio.one.platform.autoconfigure.skillgraph;
 
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +19,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkReso
 
 @RequiredArgsConstructor
 class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolver {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final RagPipelineService ragPipelineService;
 
@@ -94,7 +97,10 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
                 integer(firstPresent(metadata, VectorRecord.KEY_PAGE, "page")),
                 text(firstPresent(metadata, VectorRecord.KEY_HEADING_PATH, "headingPath", "section")),
                 tokenCount,
-                warningStatus);
+                warningStatus,
+                text(metadata.get("markdownDocumentId")),
+                text(metadata.get("markdownRevisionId")),
+                writeMetadata(metadata));
     }
 
     private Object firstPresent(Map<String, Object> metadata, String... keys) {
@@ -126,6 +132,26 @@ class RagPipelineSkillGraphRagChunkResolver implements SkillGraphRagChunkResolve
         try {
             return Integer.parseInt(text);
         } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String writeMetadata(Map<String, Object> metadata) {
+        try {
+            Map<String, Object> safe = new LinkedHashMap<>();
+            for (String key : Set.of(
+                    "markdownDocumentId", "markdownRevisionId", "sourceType", "sourceObjectType",
+                    "sourceObjectId", "sourceFileId", "sourceFileName", "sourceFormat", "contentFormat",
+                    "pageNo", "slideNo", "sectionTitle", "locatorType", "locatorNo",
+                    VectorRecord.KEY_OBJECT_TYPE, VectorRecord.KEY_OBJECT_ID,
+                    VectorRecord.KEY_DOCUMENT_ID, VectorRecord.KEY_CHUNK_ID)) {
+                Object value = metadata.get(key);
+                if (value != null) {
+                    safe.put(key, value);
+                }
+            }
+            return OBJECT_MAPPER.writeValueAsString(safe);
+        } catch (Exception ex) {
             return null;
         }
     }

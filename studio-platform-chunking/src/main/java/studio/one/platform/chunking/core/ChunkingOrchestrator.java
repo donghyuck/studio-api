@@ -9,6 +9,13 @@ public interface ChunkingOrchestrator {
 
     List<Chunk> chunk(ChunkingContext context);
 
+    default List<Chunk> chunk(NormalizedDocument document, ChunkingContext context) {
+        if (document == null || document.chunkableText().isBlank()) {
+            return List.of();
+        }
+        return chunk(context == null ? document.toContextBuilder().build() : context);
+    }
+
     default List<Chunk> chunk(NormalizedDocument document) {
         if (document == null || document.chunkableText().isBlank()) {
             return List.of();

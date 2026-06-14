@@ -347,7 +347,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
         progress.onStep(RagIndexJobStep.EMBEDDING);
         List<VectorRecord> records = new ArrayList<>(chunks.size());
         int embedded = 0;
-        int embeddingBatchSize = Math.max(1, options.indexUpsertBatchSize());
+        int embeddingBatchSize = Math.max(1, options.indexEmbeddingBatchSize());
         for (int order = 0; order < chunks.size();) {
             List<PendingRagChunk> batch = compatibleEmbeddingBatch(
                     request,
@@ -370,6 +370,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
             Map<String, Object> baseMetadata,
             RagIndexProgressListener progress) {
         progress.onStep(RagIndexJobStep.EMBEDDING);
+        int embeddingBatchSize = Math.max(1, options.indexEmbeddingBatchSize());
         int upsertBatchSize = Math.max(1, options.indexUpsertBatchSize());
         List<VectorRecord> batch = new ArrayList<>(Math.min(upsertBatchSize, chunks.size()));
         int embedded = 0;
@@ -380,7 +381,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                     chunks,
                     baseMetadata,
                     order,
-                    upsertBatchSize);
+                    embeddingBatchSize);
             for (VectorRecord record : embedPendingBatch(embeddingBatch)) {
                 batch.add(record);
                 embedded++;
@@ -561,6 +562,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
                 request.embeddingModel(),
+                request.embeddingDimension(),
                 EmbeddingInputType.TEXT));
         Map<String, Object> metadata = new HashMap<>(request.metadata());
         metadata.putAll(resolvedEmbedding.metadata());
@@ -572,7 +574,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.useLlmKeywordExtraction(),
                 firstText(request.embeddingProfileId(), resolvedEmbedding.profileId()),
                 firstText(request.embeddingProvider(), resolvedEmbedding.provider()),
-                firstText(request.embeddingModel(), resolvedEmbedding.model()));
+                firstText(request.embeddingModel(), resolvedEmbedding.model()),
+                request.embeddingDimension() == null ? resolvedEmbedding.dimension() : request.embeddingDimension());
     }
 
     private String firstText(String preferred, String fallback) {
@@ -838,7 +841,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
     }
 
     private ResolvedRagEmbedding resolveLegacyEmbedding() {
-        return embeddingProfileResolver.resolve(new RagEmbeddingSelection(null, null, null, EmbeddingInputType.TEXT));
+        return embeddingProfileResolver.resolve(
+                new RagEmbeddingSelection(null, null, null, null, EmbeddingInputType.TEXT));
     }
 
     private ResolvedRagEmbedding resolveEmbedding(RagIndexRequest request, RagPipelineChunk chunk) {
@@ -846,6 +850,7 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
                 request.embeddingModel(),
+                request.embeddingDimension(),
                 embeddingInputType(chunk.metadata())));
     }
 

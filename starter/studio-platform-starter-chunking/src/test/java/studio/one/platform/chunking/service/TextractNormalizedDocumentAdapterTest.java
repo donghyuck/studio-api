@@ -17,6 +17,7 @@ import studio.one.platform.textract.domain.model.ExtractedTable;
 import studio.one.platform.textract.domain.model.ExtractedTableCell;
 import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import studio.one.platform.textract.domain.model.MarkdownLocator;
 
 class TextractNormalizedDocumentAdapterTest {
 
@@ -123,5 +124,29 @@ class TextractNormalizedDocumentAdapterTest {
         assertThat(document.blocks()).isEmpty();
         assertThat(document.chunkableText()).isEqualTo("plain fallback");
         assertThat(document.filename()).isEqualTo("fallback.txt");
+    }
+
+    @Test
+    void prefersMarkdownAndCarriesLocatorMetadata() {
+        ParsedFile parsedFile = new ParsedFile(
+                DocumentFormat.PDF,
+                "plain fallback",
+                List.of(),
+                Map.of("filename", "sample.pdf", "sourceFileId", "att-1"),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
+                false,
+                "# Page 1\n\nMarkdown",
+                "markdown",
+                List.of(new MarkdownLocator("page", 1, "", 0, 18, "page[1]", Map.of())));
+
+        NormalizedDocument document = new TextractNormalizedDocumentAdapter().adapt("doc", parsedFile);
+
+        assertThat(document.chunkableText()).isEqualTo("# Page 1\n\nMarkdown");
+        assertThat(document.metadata()).containsEntry("contentFormat", "markdown");
+        assertThat(document.metadata()).containsKey("locators");
+        assertThat(document.metadata()).containsEntry("sourceFileId", "att-1");
     }
 }

@@ -59,6 +59,7 @@ List<ParsedBlock> blocks = parsed.blocks();
 | --- | --- | --- |
 | TXT/CSV/LOG | 전체 텍스트 | JDK |
 | HTML | Jsoup 기반 semantic block, 표, 이미지 src/alt | `org.jsoup:jsoup` |
+| EPUB2/EPUB3 | OPF spine 순서의 XHTML/HTML 제목, 문단, 목록 | JDK ZIP/XML, `org.jsoup:jsoup` |
 | PDF | PDFBox 기반 page/paragraph, 표 후보, 실제 content stream 이미지 | `org.apache.pdfbox:pdfbox` |
 | Excel | visible sheet의 used range, 표, 수식 표시값/formula metadata | `org.apache.poi:poi`, `org.apache.poi:poi-ooxml` |
 | DOCX | 문단, 표, header/footer/footnote/list, 내장 이미지/caption | `org.apache.poi:poi-ooxml` |
@@ -338,8 +339,21 @@ language data not found
 
 운영 failure matrix는 다음 기준을 지킨다.
 
-- corrupt PDF/DOCX/PPTX/image/HWPX 입력은 complete failure로 `FileParseException`을 발생시킨다.
+- corrupt EPUB/PDF/DOCX/PPTX/image/HWPX 입력은 complete failure로 `FileParseException`을 발생시킨다.
+- EPUB은 ZIP entry 수/크기/전체 추출량을 제한하고 package 경로 탈출과 XML external entity를 거부한다.
 - HTML은 Jsoup parser 특성상 malformed markup을 best-effort로 복구할 수 있으며, corrupt binary 포맷과 동일한 failure로 취급하지 않는다.
 - partial support는 `ParseWarning`의 `canonicalCode`, `severity`, `partialParse`로 구분한다.
 - oversized file/InputStream은 parser dispatch 전에 차단되어야 한다.
 - 포맷별 golden test는 구조화 결과의 block/table/image/warning contract 회귀를 방지한다.
+## Markdown 정규화
+
+`FileContentExtractionService.parseStructured(...)`는 기존 `ParsedFile` 계약을 유지하면서
+`markdown`, `contentFormat`, `locators`를 함께 반환한다. `extractText(...)`와
+`plainText`의 기존 의미는 변경하지 않는다.
+
+- EPUB, PDF, PPTX, Image, HWP/HWPX, Text는 기존 parser 결과를 Markdown으로 렌더링한다.
+- page, slide, section 출처는 Markdown offset 기반 locator로 보존한다.
+- warning은 Markdown 본문에 삽입하지 않고 `ParsedFile.warnings`에 유지한다.
+- DOCX와 HTML의 원격 Pandoc 변환은 `studio-platform-document-convert`의 Attachment/ObjectStorage
+  비동기 Job을 사용한다.
+- `File`/`InputStream` 동기 API는 worker를 호출하지 않고 기존 native parser를 사용한다.

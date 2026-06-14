@@ -20,7 +20,11 @@ dependencies {
     api(project(":studio-platform"))
     compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     compileOnly("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    compileOnly("org.apache.xmlgraphics:batik-transcoder:${property("apacheBatikVersion")}")
+    compileOnly("org.apache.xmlgraphics:batik-codec:${property("apacheBatikVersion")}")
 
     testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     testImplementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    testImplementation("org.apache.xmlgraphics:batik-transcoder:${property("apacheBatikVersion")}")
+    testImplementation("org.apache.xmlgraphics:batik-codec:${property("apacheBatikVersion")}")
 }
