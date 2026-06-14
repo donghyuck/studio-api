@@ -9,6 +9,9 @@ public record SkillCandidate(
         String sourceChunkId,
         String sourceType,
         String sourceId,
+        String sourceMarkdownDocumentId,
+        String sourceMarkdownRevisionId,
+        String sourceMetadataJson,
         String term,
         String normalizedTerm,
         String searchText,
@@ -49,10 +52,47 @@ public record SkillCandidate(
             String reviewerNote,
             Instant createdAt,
             Instant updatedAt) {
-        this(candidateId, sourceChunkId, sourceType, sourceId, term, normalizedTerm,
+        this(candidateId, sourceChunkId, sourceType, sourceId, null, null, null, term, normalizedTerm,
                 null, null, null, List.of(), null, null, null, null, null, null, null, null, null, null, null,
                 false,
                 status, confidence, occurrenceCount, matchedSkillId, reviewerNote, createdAt, updatedAt);
+    }
+
+    public SkillCandidate(
+            String candidateId,
+            String sourceChunkId,
+            String sourceType,
+            String sourceId,
+            String term,
+            String normalizedTerm,
+            String searchText,
+            String skillType,
+            String action,
+            List<String> technology,
+            String target,
+            String evidenceText,
+            String context,
+            String difficulty,
+            String extractionMethod,
+            String confidenceDetail,
+            String sourcePosition,
+            String normalizationInfo,
+            String mappingCandidates,
+            String reviewStatus,
+            String feedback,
+            boolean embedded,
+            SkillCandidateStatus status,
+            double confidence,
+            int occurrenceCount,
+            String matchedSkillId,
+            String reviewerNote,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(candidateId, sourceChunkId, sourceType, sourceId, null, null, null,
+                term, normalizedTerm, searchText, skillType, action, technology, target, evidenceText,
+                context, difficulty, extractionMethod, confidenceDetail, sourcePosition, normalizationInfo,
+                mappingCandidates, reviewStatus, feedback, embedded, status, confidence, occurrenceCount,
+                matchedSkillId, reviewerNote, createdAt, updatedAt);
     }
 
     public SkillCandidate {
@@ -60,6 +100,9 @@ public record SkillCandidate(
         sourceChunkId = normalize(sourceChunkId);
         sourceType = normalize(sourceType);
         sourceId = normalize(sourceId);
+        sourceMarkdownDocumentId = normalize(sourceMarkdownDocumentId);
+        sourceMarkdownRevisionId = normalize(sourceMarkdownRevisionId);
+        sourceMetadataJson = normalize(sourceMetadataJson);
         term = requireText(term, "term");
         normalizedTerm = normalizeSkillTerm(normalizedTerm == null ? term : normalizedTerm);
         searchText = normalize(searchText);
@@ -91,14 +134,16 @@ public record SkillCandidate(
     }
 
     public SkillCandidate withStatus(SkillCandidateStatus nextStatus, String matchedSkillId, String reviewerNote, Instant now) {
-        return new SkillCandidate(candidateId, sourceChunkId, sourceType, sourceId, term, normalizedTerm,
+        return new SkillCandidate(candidateId, sourceChunkId, sourceType, sourceId,
+                sourceMarkdownDocumentId, sourceMarkdownRevisionId, sourceMetadataJson, term, normalizedTerm,
                 searchText, skillType, action, technology, target, evidenceText, context, difficulty, extractionMethod,
                 confidenceDetail, sourcePosition, normalizationInfo, mappingCandidates, reviewStatus, feedback, embedded,
                 nextStatus, confidence, occurrenceCount, matchedSkillId, reviewerNote, createdAt, now);
     }
 
     public SkillCandidate incrementOccurrence(Instant now) {
-        return new SkillCandidate(candidateId, sourceChunkId, sourceType, sourceId, term, normalizedTerm,
+        return new SkillCandidate(candidateId, sourceChunkId, sourceType, sourceId,
+                sourceMarkdownDocumentId, sourceMarkdownRevisionId, sourceMetadataJson, term, normalizedTerm,
                 searchText, skillType, action, technology, target, evidenceText, context, difficulty, extractionMethod,
                 confidenceDetail, sourcePosition, normalizationInfo, mappingCandidates, reviewStatus, feedback, embedded,
                 status, confidence, occurrenceCount + 1, matchedSkillId, reviewerNote, createdAt, now);

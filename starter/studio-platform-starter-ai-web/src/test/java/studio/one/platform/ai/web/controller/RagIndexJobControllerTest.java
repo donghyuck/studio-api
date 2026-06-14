@@ -873,6 +873,35 @@ class RagIndexJobControllerTest {
                 .containsEntry("indexed", false);
     }
 
+    @Test
+    void objectMetadataIncludesEmbeddingAndContributedState() {
+        VectorStorePort vectorStorePort = mock(VectorStorePort.class);
+        when(vectorStorePort.getMetadata("attachment", "42")).thenReturn(Map.of(
+                "embeddingProvider", "kure",
+                "embeddingModel", "nlpai-lab/KURE-v1",
+                "embeddingDimension", 1024));
+        RagIndexJobController controller = new RagIndexJobController(
+                new CapturingJobService(),
+                mock(RagPipelineService.class),
+                vectorStorePort,
+                Runnable::run,
+                200,
+                List.of(),
+                List.of((objectType, objectId) -> Map.of(
+                        "markdown", Map.of("exists", true, "pipelineStatus", "RUNNING"))));
+
+        Map<String, Object> metadata = controller.objectMetadata("attachment", "42").getBody().getData();
+
+        assertThat(metadata).containsEntry("indexed", true);
+        assertThat((Map<String, Object>) metadata.get("embedding"))
+                .containsEntry("provider", "kure")
+                .containsEntry("model", "nlpai-lab/KURE-v1")
+                .containsEntry("dimension", 1024);
+        assertThat((Map<String, Object>) metadata.get("markdown"))
+                .containsEntry("exists", true)
+                .containsEntry("pipelineStatus", "RUNNING");
+    }
+
     private static MockMvc jobControllerMockMvc(RagIndexJobService jobService) {
         return jobControllerMockMvc(jobService, mock(RagPipelineService.class));
     }

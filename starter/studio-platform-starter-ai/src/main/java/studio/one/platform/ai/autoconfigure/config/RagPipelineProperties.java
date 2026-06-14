@@ -304,7 +304,16 @@ public class RagPipelineProperties implements EnvironmentAware, InitializingBean
     }
 
     public static class IndexingProperties {
+        private int embeddingBatchSize = RagPipelineOptions.DEFAULT_INDEX_EMBEDDING_BATCH_SIZE;
         private int upsertBatchSize = RagPipelineOptions.DEFAULT_INDEX_UPSERT_BATCH_SIZE;
+
+        public int getEmbeddingBatchSize() {
+            return embeddingBatchSize;
+        }
+
+        public void setEmbeddingBatchSize(int embeddingBatchSize) {
+            this.embeddingBatchSize = embeddingBatchSize;
+        }
 
         public int getUpsertBatchSize() {
             return upsertBatchSize;

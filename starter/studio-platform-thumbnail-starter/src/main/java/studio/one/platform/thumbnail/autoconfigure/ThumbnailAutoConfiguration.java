@@ -22,6 +22,9 @@ import studio.one.platform.thumbnail.ThumbnailGenerationOptions;
 import studio.one.platform.thumbnail.ThumbnailGenerationService;
 import studio.one.platform.thumbnail.ThumbnailRenderer;
 import studio.one.platform.thumbnail.ThumbnailRendererFactory;
+import studio.one.platform.thumbnail.renderer.BatikEpubSvgRasterizer;
+import studio.one.platform.thumbnail.renderer.EpubSvgRasterizer;
+import studio.one.platform.thumbnail.renderer.EpubThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.ImageThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PdfThumbnailRenderer;
 import studio.one.platform.thumbnail.renderer.PptxThumbnailRenderer;
@@ -40,6 +43,30 @@ public class ThumbnailAutoConfiguration {
     private final ThumbnailProperties props;
     private final Environment environment;
     private final ObjectProvider<I18n> i18nProvider;
+
+    @Bean
+    @ConditionalOnClass(name = {
+            "org.apache.batik.transcoder.image.PNGTranscoder",
+            "org.apache.batik.ext.awt.image.codec.png.PNGImageWriter"
+    })
+    @ConditionalOnMissingBean(EpubSvgRasterizer.class)
+    EpubSvgRasterizer epubSvgRasterizer() {
+        logCreated(BatikEpubSvgRasterizer.class);
+        return new BatikEpubSvgRasterizer();
+    }
+
+    @Bean
+    @Order(50)
+    @ConditionalOnProperty(prefix = "studio.thumbnail.renderers.epub", name = "enabled", matchIfMissing = true)
+    @ConditionalOnMissingBean(EpubThumbnailRenderer.class)
+    EpubThumbnailRenderer epubThumbnailRenderer(ObjectProvider<EpubSvgRasterizer> svgRasterizerProvider) {
+        ThumbnailProperties.EpubRenderer epub = props.getRenderers().getEpub();
+        logCreated(EpubThumbnailRenderer.class);
+        return new EpubThumbnailRenderer(
+                epub.getFallbackMinWidth(),
+                epub.getFallbackMinHeight(),
+                svgRasterizerProvider.getIfAvailable());
+    }
 
     @Bean
     @Order(100)

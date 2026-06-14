@@ -28,8 +28,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     compileOnly(project(":studio-platform-textract"))
     compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
+    compileOnly("org.apache.xmlgraphics:batik-transcoder:${property("apacheBatikVersion")}")
+    compileOnly("org.apache.xmlgraphics:batik-codec:${property("apacheBatikVersion")}")
 
     testImplementation(project(":studio-platform-textract"))
     testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     testImplementation("org.apache.poi:poi-ooxml:${property("apachePoiVersion")}")
+    testImplementation("org.apache.xmlgraphics:batik-transcoder:${property("apacheBatikVersion")}")
+    testImplementation("org.apache.xmlgraphics:batik-codec:${property("apacheBatikVersion")}")
 }

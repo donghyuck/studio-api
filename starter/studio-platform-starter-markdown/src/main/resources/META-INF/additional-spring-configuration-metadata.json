@@ -1,0 +1,34 @@
+{
+  "properties": [
+    {
+      "name": "studio.markdown.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Enable attachment-based Markdown extraction and knowledge pipeline APIs."
+    },
+    {
+      "name": "studio.markdown.max-source-bytes",
+      "type": "java.lang.Integer",
+      "defaultValue": 26214400,
+      "description": "Maximum source or converted Markdown attachment size loaded by the orchestrator."
+    },
+    {
+      "name": "studio.markdown.pandoc-version",
+      "type": "java.lang.String",
+      "defaultValue": "pandoc",
+      "description": "Pandoc extractor version included in revision deduplication."
+    },
+    {
+      "name": "studio.markdown.textract-version",
+      "type": "java.lang.String",
+      "defaultValue": "native",
+      "description": "Native textract version included in revision deduplication."
+    },
+    {
+      "name": "studio.markdown.web.base-path",
+      "type": "java.lang.String",
+      "defaultValue": "/api/markdown-documents",
+      "description": "Base path for Markdown document APIs."
+    }
+  ]
+}

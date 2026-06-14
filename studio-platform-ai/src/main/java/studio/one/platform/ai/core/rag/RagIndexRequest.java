@@ -17,6 +17,7 @@ public final class RagIndexRequest {
     private final String embeddingProfileId;
     private final String embeddingProvider;
     private final String embeddingModel;
+    private final Integer embeddingDimension;
 
     public RagIndexRequest(String documentId, String text, Map<String, Object> metadata) {
         this(documentId, text, metadata, List.of(), false);
@@ -38,6 +39,19 @@ public final class RagIndexRequest {
                            String embeddingProfileId,
                            String embeddingProvider,
                            String embeddingModel) {
+        this(documentId, text, metadata, keywords, useLlmKeywordExtraction,
+                embeddingProfileId, embeddingProvider, embeddingModel, null);
+    }
+
+    public RagIndexRequest(String documentId,
+                           String text,
+                           Map<String, Object> metadata,
+                           List<String> keywords,
+                           boolean useLlmKeywordExtraction,
+                           String embeddingProfileId,
+                           String embeddingProvider,
+                           String embeddingModel,
+                           Integer embeddingDimension) {
         this.documentId = Objects.requireNonNull(documentId, "documentId");
         this.text = Objects.requireNonNull(text, "text");
         this.metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
@@ -46,6 +60,10 @@ public final class RagIndexRequest {
         this.embeddingProfileId = normalize(embeddingProfileId);
         this.embeddingProvider = normalize(embeddingProvider);
         this.embeddingModel = normalize(embeddingModel);
+        if (embeddingDimension != null && embeddingDimension <= 0) {
+            throw new IllegalArgumentException("embeddingDimension must be greater than zero");
+        }
+        this.embeddingDimension = embeddingDimension;
     }
 
     public String documentId() {
@@ -78,6 +96,10 @@ public final class RagIndexRequest {
 
     public String embeddingModel() {
         return embeddingModel;
+    }
+
+    public Integer embeddingDimension() {
+        return embeddingDimension;
     }
 
     private static String normalize(String value) {

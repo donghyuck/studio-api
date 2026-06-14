@@ -1,0 +1,20 @@
+create table if not exists tb_document_convert_job (
+    id bigint not null auto_increment primary key,
+    job_id varchar(64) not null unique,
+    source_file_id varchar(100) not null,
+    source_format varchar(30) not null,
+    target_format varchar(30) not null,
+    status varchar(30) not null,
+    options_json text,
+    result_file_id varchar(500),
+    error_code varchar(100),
+    error_message text,
+    retry_count integer not null default 0,
+    requested_by varchar(100),
+    created_at timestamp not null default current_timestamp,
+    started_at timestamp null,
+    completed_at timestamp null,
+    updated_at timestamp not null default current_timestamp,
+    index idx_document_convert_job_status (status),
+    index idx_document_convert_job_created_at (created_at)
+);

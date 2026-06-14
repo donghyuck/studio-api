@@ -108,6 +108,31 @@ class DefaultChunkingOrchestratorTest {
     }
 
     @Test
+    void appliesExplicitContextToNormalizedDocument() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setStrategy("recursive");
+        properties.setMaxSize(80);
+        properties.setOverlap(0);
+        RecursiveChunker recursiveChunker = new RecursiveChunker(80, 0);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(80, 0), recursiveChunker,
+                        new StructureBasedChunker(80, 0, recursiveChunker)));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .plainText("abcdefghij")
+                .build();
+
+        var chunks = orchestrator.chunk(document, document.toContextBuilder()
+                .strategy(ChunkingStrategyType.FIXED_SIZE)
+                .maxSize(5)
+                .overlap(0)
+                .build());
+
+        assertThat(chunks).extracting(chunk -> chunk.content()).containsExactly("abcde", "fghij");
+        assertThat(chunks).allMatch(chunk -> chunk.metadata().strategy() == ChunkingStrategyType.FIXED_SIZE);
+    }
+
+    @Test
     void appliesConfiguredUnitToNormalizedDocumentChunking() {
         ChunkingProperties properties = new ChunkingProperties();
         properties.setUnit("token");

@@ -48,6 +48,7 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getRetrieval().getQueryExpansion().getMaxKeywords()).isEqualTo(10);
         assertThat(properties.getObjectScope().getDefaultListLimit()).isEqualTo(20);
         assertThat(properties.getObjectScope().getMaxListLimit()).isEqualTo(200);
+        assertThat(properties.getIndexing().getEmbeddingBatchSize()).isEqualTo(10);
         assertThat(properties.getIndexing().getUpsertBatchSize()).isEqualTo(10);
         assertThat(properties.getKeywords().getScope()).isEqualTo("document");
         assertThat(properties.getKeywords().getMaxInputChars()).isEqualTo(4_000);
@@ -74,7 +75,8 @@ class RagPipelinePropertiesTest {
                 Map.entry("studio.ai.rag.retrieval.query-expansion.max-keywords", "4"),
                 Map.entry("studio.ai.rag.object-scope.default-list-limit", "5"),
                 Map.entry("studio.ai.rag.object-scope.max-list-limit", "10"),
-                Map.entry("studio.ai.rag.indexing.upsert-batch-size", "8"),
+                Map.entry("studio.ai.rag.indexing.embedding-batch-size", "8"),
+                Map.entry("studio.ai.rag.indexing.upsert-batch-size", "32"),
                 Map.entry("studio.ai.rag.keywords.scope", "both"),
                 Map.entry("studio.ai.rag.keywords.max-input-chars", "2048"),
                 Map.entry("studio.ai.rag.cleaner.enabled", "true"),
@@ -99,7 +101,8 @@ class RagPipelinePropertiesTest {
         assertThat(properties.getRetrieval().getQueryExpansion().getMaxKeywords()).isEqualTo(4);
         assertThat(properties.getObjectScope().getDefaultListLimit()).isEqualTo(5);
         assertThat(properties.getObjectScope().getMaxListLimit()).isEqualTo(10);
-        assertThat(properties.getIndexing().getUpsertBatchSize()).isEqualTo(8);
+        assertThat(properties.getIndexing().getEmbeddingBatchSize()).isEqualTo(8);
+        assertThat(properties.getIndexing().getUpsertBatchSize()).isEqualTo(32);
         assertThat(properties.getKeywords().getScope()).isEqualTo("both");
         assertThat(properties.getKeywords().getMaxInputChars()).isEqualTo(2048);
         assertThat(properties.getCleaner().isEnabled()).isTrue();

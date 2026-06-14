@@ -13,14 +13,14 @@ public class SinglePortRagEmbeddingProfileResolver implements RagEmbeddingProfil
     @Override
     public ResolvedRagEmbedding resolve(RagEmbeddingSelection selection) {
         RagEmbeddingSelection resolved = selection == null
-                ? new RagEmbeddingSelection(null, null, null, null)
+                ? new RagEmbeddingSelection(null, null, null, null, null)
                 : selection;
         return new ResolvedRagEmbedding(
                 embeddingPort,
                 resolved.profileId(),
                 resolved.provider(),
                 resolved.model(),
-                null,
+                resolved.dimension(),
                 resolved.inputType());
     }
 }

@@ -21,6 +21,7 @@ class RagEmbeddingSelectionContractTest {
         assertThat(indexRequest.embeddingProfileId()).isNull();
         assertThat(indexRequest.embeddingProvider()).isNull();
         assertThat(indexRequest.embeddingModel()).isNull();
+        assertThat(indexRequest.embeddingDimension()).isNull();
         assertThat(searchRequest.metadataFilter()).isEqualTo(MetadataFilter.empty());
         assertThat(searchRequest.embeddingProfileId()).isNull();
         assertThat(sourceRequest.embeddingProfileId()).isNull();
@@ -30,7 +31,7 @@ class RagEmbeddingSelectionContractTest {
     void carriesEmbeddingSelectionAcrossRagRequests() {
         RagIndexRequest indexRequest = new RagIndexRequest(
                 "doc-1", "text", Map.of(), List.of(), false,
-                "retrieval", "google", "gemini-embedding-001");
+                "retrieval", "google", "gemini-embedding-001", 768);
         RagSearchRequest searchRequest = new RagSearchRequest(
                 "query", 3, MetadataFilter.empty(),
                 "retrieval", "google", "gemini-embedding-001");
@@ -39,6 +40,7 @@ class RagEmbeddingSelectionContractTest {
                 "retrieval", "google", "gemini-embedding-001");
 
         assertThat(indexRequest.embeddingProfileId()).isEqualTo("retrieval");
+        assertThat(indexRequest.embeddingDimension()).isEqualTo(768);
         assertThat(searchRequest.embeddingProvider()).isEqualTo("google");
         assertThat(sourceRequest.embeddingModel()).isEqualTo("gemini-embedding-001");
     }

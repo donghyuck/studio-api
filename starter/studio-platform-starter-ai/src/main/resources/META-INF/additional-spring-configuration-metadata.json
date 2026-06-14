@@ -217,6 +217,18 @@
       "description": "Wait duration between RAG retry attempts."
     },
     {
+      "name": "studio.ai.rag.indexing.embedding-batch-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 10,
+      "description": "Maximum number of chunks sent in one embedding request."
+    },
+    {
+      "name": "studio.ai.rag.indexing.upsert-batch-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 10,
+      "description": "Maximum number of vector records written in one upsert request."
+    },
+    {
       "name": "studio.ai.rag.object-scope.default-list-limit",
       "type": "java.lang.Integer",
       "defaultValue": 20,

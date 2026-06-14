@@ -76,6 +76,9 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                     mapping_candidates = :mappingCandidates,
                     review_status = :reviewStatus,
                     feedback = :feedback,
+                    source_markdown_document_id = :sourceMarkdownDocumentId,
+                    source_markdown_revision_id = :sourceMarkdownRevisionId,
+                    source_metadata_json = :sourceMetadataJson,
                     updated_at = :updatedAt
                 WHERE candidate_id = :candidateId
                 """, candidateParams(candidate));
@@ -84,13 +87,17 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
         }
         template.update("""
                 INSERT INTO tb_skill_candidate
-                    (candidate_id, source_chunk_id, source_type, source_id, term, normalized_term,
+                    (candidate_id, source_chunk_id, source_type, source_id,
+                     source_markdown_document_id, source_markdown_revision_id, source_metadata_json,
+                     term, normalized_term,
                      search_text, skill_type, action, technology, target, evidence_text, context, difficulty,
                      extraction_method, confidence_detail, source_position, normalization_info, mapping_candidates,
                      review_status, feedback, status, confidence, occurrence_count, matched_skill_id, reviewer_note,
                      created_at, updated_at)
                 VALUES
-                    (:candidateId, :sourceChunkId, :sourceType, :sourceId, :term, :normalizedTerm,
+                    (:candidateId, :sourceChunkId, :sourceType, :sourceId,
+                     :sourceMarkdownDocumentId, :sourceMarkdownRevisionId, :sourceMetadataJson,
+                     :term, :normalizedTerm,
                      :searchText, :skillType, :action, :technology, :target, :evidenceText, :context, :difficulty,
                      :extractionMethod, :confidenceDetail, :sourcePosition, :normalizationInfo, :mappingCandidates,
                      :reviewStatus, :feedback, :status, :confidence, :occurrenceCount, :matchedSkillId, :reviewerNote,
@@ -401,6 +408,9 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                 .addValue("sourceChunkId", candidate.sourceChunkId())
                 .addValue("sourceType", candidate.sourceType())
                 .addValue("sourceId", candidate.sourceId())
+                .addValue("sourceMarkdownDocumentId", candidate.sourceMarkdownDocumentId())
+                .addValue("sourceMarkdownRevisionId", candidate.sourceMarkdownRevisionId())
+                .addValue("sourceMetadataJson", candidate.sourceMetadataJson())
                 .addValue("term", candidate.term())
                 .addValue("normalizedTerm", candidate.normalizedTerm())
                 .addValue("searchText", candidate.searchText())
@@ -433,6 +443,9 @@ public class JdbcSkillCandidateStore implements SkillCandidateStore {
                 rs.getString("source_chunk_id"),
                 rs.getString("source_type"),
                 rs.getString("source_id"),
+                rs.getString("source_markdown_document_id"),
+                rs.getString("source_markdown_revision_id"),
+                rs.getString("source_metadata_json"),
                 rs.getString("term"),
                 rs.getString("normalized_term"),
                 rs.getString("search_text"),

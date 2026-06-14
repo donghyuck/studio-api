@@ -29,7 +29,7 @@ public class DefaultRagEmbeddingProfileResolver implements RagEmbeddingProfileRe
     @Override
     public ResolvedRagEmbedding resolve(RagEmbeddingSelection selection) {
         RagEmbeddingSelection requested = selection == null
-                ? new RagEmbeddingSelection(null, null, null, EmbeddingInputType.TEXT)
+                ? new RagEmbeddingSelection(null, null, null, null, EmbeddingInputType.TEXT)
                 : selection;
         String profileId = requested.profileId();
         if (profileId == null && requested.isLegacyDefault()) {
@@ -40,6 +40,12 @@ public class DefaultRagEmbeddingProfileResolver implements RagEmbeddingProfileRe
                     "embeddingProvider/embeddingModel must not be supplied with embeddingProfileId");
         }
         RagEmbeddingProfile profile = profile(profileId);
+        if (profile != null && requested.dimension() != null && profile.dimension() != null
+                && !requested.dimension().equals(profile.dimension())) {
+            throw new IllegalArgumentException("embeddingDimension does not match RAG embedding profile '"
+                    + profile.profileId() + "': expected " + profile.dimension()
+                    + ", requested " + requested.dimension());
+        }
         if (profile != null && !profile.supports(requested.inputType())) {
             throw new IllegalArgumentException("RAG embedding profile '" + profile.profileId()
                     + "' does not support input type " + requested.inputType());
@@ -47,7 +53,9 @@ public class DefaultRagEmbeddingProfileResolver implements RagEmbeddingProfileRe
 
         String provider = firstNonBlank(requested.provider(), profile == null ? null : profile.provider());
         String model = firstNonBlank(requested.model(), profile == null ? null : profile.model());
-        Integer dimension = profile == null ? null : profile.dimension();
+        Integer dimension = requested.dimension() != null
+                ? requested.dimension()
+                : profile == null ? null : profile.dimension();
         EmbeddingPort port = provider == null
                 ? defaultEmbeddingPort
                 : providerRegistry.embeddingPort(provider);

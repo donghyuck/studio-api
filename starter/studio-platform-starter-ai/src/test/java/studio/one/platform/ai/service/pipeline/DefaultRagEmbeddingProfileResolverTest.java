@@ -146,4 +146,22 @@ class DefaultRagEmbeddingProfileResolverTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("does not support input type IMAGE_CAPTION");
     }
+
+    @Test
+    void profileRejectsMismatchedRequestedDimension() {
+        EmbeddingPort defaultPort = mock(EmbeddingPort.class);
+        DefaultRagEmbeddingProfileResolver resolver = new DefaultRagEmbeddingProfileResolver(
+                defaultPort,
+                new AiProviderRegistry("default", Map.of(), Map.of("default", defaultPort)),
+                "retrieval",
+                Map.of("retrieval", new RagEmbeddingProfile(
+                        "retrieval", null, "text-model", 768,
+                        List.of(EmbeddingInputType.TEXT), Map.of())));
+
+        assertThatThrownBy(() -> resolver.resolve(new RagEmbeddingSelection(
+                "retrieval", null, null, 1024, EmbeddingInputType.TEXT)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("expected 768")
+                .hasMessageContaining("requested 1024");
+    }
 }

@@ -145,6 +145,9 @@ public class ThumbnailProperties {
         private Renderer image = new Renderer();
 
         @Valid
+        private EpubRenderer epub = new EpubRenderer();
+
+        @Valid
         private PdfRenderer pdf = new PdfRenderer();
 
         @Valid
@@ -165,6 +168,16 @@ public class ThumbnailProperties {
     @NoArgsConstructor
     public static class Renderer {
         private boolean enabled = true;
+    }
+
+    @Getter
+    @Setter
+    public static class EpubRenderer extends Renderer {
+        @Positive
+        private int fallbackMinWidth = 300;
+
+        @Positive
+        private int fallbackMinHeight = 300;
     }
 
     @Getter

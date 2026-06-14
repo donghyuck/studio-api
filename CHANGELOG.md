@@ -3,6 +3,24 @@
 ## Unreleased
 
 ### 변경됨
+- 기존 Markdown 본문을 재추출하지 않고 chunking과 RAG를 새 embedding profile/provider/model로 다시 실행하는 `POST /api/markdown-documents/{id}/rag/reindex` API를 추가했다. 재색인은 새 Markdown Revision으로 기록하며 기존 Revision과 locator/resource 이력을 보존한다.
+- RAG 색인의 embedding 요청 배치와 vector upsert 배치를 `studio.ai.rag.indexing.embedding-batch-size`, `upsert-batch-size`로 분리해 각각 독립적으로 조정할 수 있도록 변경했다.
+- Attachment Markdown native 추출과 후속 Chunking/RAG/Skill 처리를 commit 이후 background executor에서 실행하도록 변경했다. 생성 요청은 `RUNNING` Revision을 먼저 반환하며, 첨부파일 상세 polling을 위해 `GET /api/markdown-documents/by-attachment/{attachmentId}`를 추가했다.
+- Markdown pipeline의 현재 단계, 마지막 성공 단계, 오류와 시도 횟수를 `tb_ai_markdown_pipeline_execution`에 저장한다. `GET /api/markdown-documents/{id}/pipeline`으로 상태를 조회하고 `POST /api/markdown-documents/{id}/resume`으로 중단되거나 실패한 추출 또는 Chunking/RAG/Skill 단계를 자동/수동 재개할 수 있다.
+- RAG object metadata endpoint가 기존 vector metadata와 함께 구조화된 `embedding` 정보를 반환하도록 확장하고, metadata contributor SPI를 통해 `attachment` 객체의 Markdown 생성 및 pipeline 상태를 `markdown` 하위 객체로 제공한다.
+- Markdown pipeline 실행 이력이 없는 경우에도 `/pipeline`이 non-null 상태를 반환하도록 보강했다. 신규 Revision은 downstream 단계가 없어도 최종 상태를 영속화하며, 과거 이력이 없는 완료 Revision은 `UNKNOWN/PIPELINE_HISTORY_UNAVAILABLE`로 표시한다. 변환 이력이 없는 `by-attachment` 조회는 `404 Not Found`로 처리하고 성공 `ApiResponse`와 실패 RFC 7807 `ProblemDetails` 응답 규약을 문서화했다.
+- Markdown 기반 RAG 색인이 `RagPipelineService`를 직접 호출하지 않고 `RagIndexJobService`를 통해 Job을 생성·실행하도록 변경했다. 기존 RAG Job 목록과 로그에 `sourceType=markdown-revision`, Attachment object scope, Markdown document/revision metadata 및 embedding 선택이 기록된다.
+- EPUB 첨부파일의 Markdown/RAG embedding 요청이 `Unsupported file type`으로 실패하지 않도록 Textract에 EPUB2/EPUB3 native parser를 추가했다. OPF spine 순서의 XHTML/HTML 제목, 문단, 목록을 Markdown으로 정규화하며 ZIP 추출 한도, package path 검증과 XXE 차단을 적용한다.
+- `studio-platform-thumbnail`에 EPUB2/EPUB3 cover thumbnail renderer를 추가했다. `application/epub+zip`과 `.epub` 입력에서 OPF cover metadata 또는 큰 raster resource를 선택하고, cover가 없으면 기본 EPUB 아이콘을 생성한다. ZIP 추출 한도, package path 검증, XXE 차단을 적용하며 SVG cover는 Batik runtime이 있을 때만 선택적으로 지원한다.
+- Attachment Markdown 파이프라인 요청에 Chunking 전략/크기/overlap/unit과 RAG embedding profile/provider/model/dimension 선택을 추가하고, RAG 및 Skill 추출 선택 시 필요한 선행 단계를 자동 활성화하도록 변경했다.
+- Markdown starter가 JDBC, Attachment, Textract, Document Convert 자동설정 이후에 구성되도록 순서를 보장하고, `MarkdownDocumentService`가 생성된 경우에만 API controller를 등록하도록 수정했다.
+- Attachment 기반 Markdown Document/Revision 저장소와 추출 API를 추가했다.
+- DOCX/HTML Pandoc 변환 완료를 event port로 Markdown orchestration에 연결했다.
+- Markdown Revision 식별자와 source metadata를 RAG chunk 및 Skill Candidate에 전달한다.
+- Textract structured extraction 결과에 호환 가능한 Markdown 정규화와 page/slide/section locator를 추가했다.
+- Chunking adapter가 정규화 Markdown을 우선 사용하고 `contentFormat`과 locator metadata를 전달하도록 변경했다.
+- DOCX/HTML의 Pandoc 변환은 Attachment/ObjectStorage 기반 document-convert 비동기 Job으로 제한하고, 동기 `File`/`InputStream` 추출은 native parser를 유지하도록 문서화했다.
+- Attachment signed URL 기반 비동기 문서 변환 기능을 추가했다. `studio-platform-document-convert`와 starter는 Job 생성/조회/재시도/취소, JDBC 상태 저장, worker callback과 결과 upload endpoint를 제공하고, 독립 Python FastAPI `studio-pandoc-worker`가 컨테이너 임시 디렉터리에서 Pandoc을 실행한다. 원본과 결과는 기존 Attachment 저장 방식(database, local, objectstorage)을 그대로 사용하며 local path는 shared Docker volume 개발 환경에서만 opt-in으로 허용한다.
 - 이슈 #507 대응으로 SkillGraph projection/cluster 실행 이력 기반을 보강했다. `SkillType` single label 정규화, type별 projection 입력 분리, cluster metadata/member 저장, representative skill 선정, cluster member 조회 API, PostgreSQL/MySQL/MariaDB migration을 추가했다.
 - 이슈 #505 대응으로 SkillGraph 스킬 후보 자동 분석 및 추천 결과 일괄 승인 기능을 추가했다. 동일 embedding provider/model/dimension의 `tb_skill_embedding` 벡터만 비교해 신규 스킬 후보와 기존 스킬 매칭 추천 결과를 저장하고, 일괄 승인 시 기존 후보 approve/review 로직을 재사용해 신규 사전 등록 또는 기존 스킬 연결만 적용한다.
 - 이슈 #505 대응으로 SkillGraph 스킬 후보 추출 결과를 구조화했다. LLM prompt와 parser가 `searchText`, `skillType`, `action`, `technology`, `target`, `evidenceText`, `context`, `difficulty`를 처리하고, `tb_skill_candidate` 확장 컬럼 및 공통 `tb_skill_embedding` 테이블 migration을 추가했으며 dictionary embedding 유사도 매칭은 `searchText`를 우선 사용한다.

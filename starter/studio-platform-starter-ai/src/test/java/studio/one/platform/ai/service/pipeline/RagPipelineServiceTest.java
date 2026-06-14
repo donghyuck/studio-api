@@ -654,6 +654,45 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldUseIndependentEmbeddingAndUpsertBatchSizes() {
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                new RagPipelineOptions(
+                        0.7d, 0.3d, 0.15d, 0.15d,
+                        false, false, 5, 20, 100, 0, 4, 10));
+        RagIndexRequest request = new RagIndexRequest("doc-split-batches", "large text", Map.of(
+                "objectType", "attachment",
+                "objectId", "100"));
+        List<TextChunk> chunks = new ArrayList<>();
+        for (int i = 0; i < 25; i++) {
+            chunks.add(new TextChunk("doc-split-batches-" + i, "chunk-" + i));
+        }
+        when(textChunker.chunk("doc-split-batches", "large text")).thenReturn(chunks);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(embeddingVectors(4)),
+                        new EmbeddingResponse(embeddingVectors(4)),
+                        new EmbeddingResponse(embeddingVectors(4)),
+                        new EmbeddingResponse(embeddingVectors(4)),
+                        new EmbeddingResponse(embeddingVectors(4)),
+                        new EmbeddingResponse(embeddingVectors(4)),
+                        new EmbeddingResponse(embeddingVectors(1)));
+
+        ragPipelineService.index(request);
+
+        verify(embeddingPort, times(7)).embed(any(EmbeddingRequest.class));
+        verify(vectorStorePort, times(3)).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getAllValues())
+                .extracting(List::size)
+                .containsExactly(10, 10, 5);
+    }
+
+    @Test
     void shouldIgnoreCallerKeywordsWhenScopeIsChunk() {
         ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,

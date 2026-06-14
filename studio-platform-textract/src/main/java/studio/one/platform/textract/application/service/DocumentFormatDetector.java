@@ -18,6 +18,9 @@ public final class DocumentFormatDetector {
         if (type.startsWith("text/html") || name.endsWith(".html") || name.endsWith(".htm")) {
             return DocumentFormat.HTML;
         }
+        if (type.startsWith("application/epub+zip") || name.endsWith(".epub")) {
+            return DocumentFormat.EPUB;
+        }
         if (name.endsWith(".csv")) {
             return DocumentFormat.TEXT;
         }

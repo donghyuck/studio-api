@@ -372,6 +372,7 @@ public class RagPipelineConfiguration {
                                 objectScope.getDefaultListLimit(),
                                 objectScope.getMaxListLimit(),
                                 retrieval.getMaxContextTokens(),
+                                indexing.getEmbeddingBatchSize(),
                                 indexing.getUpsertBatchSize());
         }
 

@@ -6,6 +6,7 @@ package studio.one.platform.textract.domain.model;
 public enum DocumentFormat {
     TEXT,
     HTML,
+    EPUB,
     PDF,
     EXCEL,
     DOCX,
