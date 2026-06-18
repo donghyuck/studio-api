@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import studio.one.platform.markdown.domain.MarkdownDocument;
+import studio.one.platform.markdown.domain.MarkdownExtractPart;
 import studio.one.platform.markdown.domain.MarkdownLocator;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
 import studio.one.platform.markdown.domain.MarkdownResource;
@@ -38,7 +39,15 @@ public interface MarkdownRepository {
 
     void replaceResources(String revisionId, List<MarkdownResource> resources);
 
+    void replaceExtractParts(String revisionId, List<MarkdownExtractPart> parts);
+
+    void deleteExtractParts(String revisionId);
+
+    void saveExtractPart(MarkdownExtractPart part);
+
     List<MarkdownLocator> findLocators(String revisionId);
 
     List<MarkdownResource> findResources(String revisionId);
+
+    List<MarkdownExtractPart> findExtractParts(String revisionId);
 }

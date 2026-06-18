@@ -177,6 +177,23 @@ class TextractAutoConfigurationTest {
     }
 
     @Test
+    void bindsPdfOcrFallbackProperties() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.textract.pdf.ocr-fallback.enabled=true",
+                        "studio.textract.pdf.ocr-fallback.max-pages=7",
+                        "studio.textract.pdf.ocr-fallback.dpi=144")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    TextractProperties.PdfOcrFallback fallback =
+                            context.getBean(TextractProperties.class).getPdf().getOcrFallback();
+                    assertThat(fallback.isEnabled()).isTrue();
+                    assertThat(fallback.getMaxPages()).isEqualTo(7);
+                    assertThat(fallback.getDpi()).isEqualTo(144f);
+                });
+    }
+
+    @Test
     void legacyFeatureEnabledFallsBackAndWarns(CapturedOutput output) {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(

@@ -33,6 +33,7 @@ import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobIt
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionJobStatus;
 import studio.one.platform.skillgraph.application.result.SkillRagExtractionRetryMode;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
+import studio.one.platform.skillgraph.application.usecase.SkillExtractionServiceResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphRagChunkResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewService;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
@@ -51,7 +52,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
     private static final String LEGACY_GENERIC_ATTACHMENT_OBJECT_TYPE = "2001";
     private static final String ATTACHMENT_OBJECT_TYPE = "attachment";
 
-    private final SkillExtractionService extractionService;
+    private final SkillExtractionServiceResolver extractionServiceResolver;
     private final SkillGraphRagChunkResolver ragChunkResolver;
     private final SkillRagExtractionJobStore store;
     private final Executor executor;
@@ -126,7 +127,30 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             ObjectTypeRuntimeService objectTypeRuntimeService,
             SkillCandidateReviewService candidateReviewService,
             SkillRagExtractionJobNotifier jobNotifier) {
-        this.extractionService = Objects.requireNonNull(extractionService, "extractionService");
+        this.extractionServiceResolver = SkillExtractionServiceResolver.fixed(
+                Objects.requireNonNull(extractionService, "extractionService"));
+        this.ragChunkResolver = Objects.requireNonNull(ragChunkResolver, "ragChunkResolver");
+        this.store = Objects.requireNonNull(store, "store");
+        this.executor = Objects.requireNonNull(executor, "executor");
+        this.settings = Objects.requireNonNull(settings, "settings");
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.objectTypeRuntimeService = objectTypeRuntimeService;
+        this.candidateReviewService = candidateReviewService;
+        this.jobNotifier = jobNotifier == null ? SkillRagExtractionJobNotifier.NOOP : jobNotifier;
+    }
+
+    public DefaultSkillRagExtractionJobService(
+            SkillExtractionServiceResolver extractionServiceResolver,
+            SkillGraphRagChunkResolver ragChunkResolver,
+            SkillRagExtractionJobStore store,
+            Executor executor,
+            SkillRagExtractionJobSettings settings,
+            Clock clock,
+            ObjectTypeRuntimeService objectTypeRuntimeService,
+            SkillCandidateReviewService candidateReviewService,
+            SkillRagExtractionJobNotifier jobNotifier) {
+        this.extractionServiceResolver = Objects.requireNonNull(
+                extractionServiceResolver, "extractionServiceResolver");
         this.ragChunkResolver = Objects.requireNonNull(ragChunkResolver, "ragChunkResolver");
         this.store = Objects.requireNonNull(store, "store");
         this.executor = Objects.requireNonNull(executor, "executor");
@@ -152,8 +176,24 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String embeddingProvider,
             String embeddingModel,
             Integer embeddingDimension) {
+        return submitAllChunks(objectType, objectId, limit, excludeExtracted,
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, null);
+    }
+
+    @Override
+    public SkillRagExtractionJob submitAllChunks(
+            String objectType,
+            String objectId,
+            Integer limit,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            String candidateExtractorMode) {
         return submit(objectType, objectId, null, List.of(), limit, excludeExtracted,
-                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension);
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension,
+                candidateExtractorMode);
     }
 
     @Override
@@ -168,6 +208,22 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             String embeddingProvider,
             String embeddingModel,
             Integer embeddingDimension) {
+        return submit(objectType, objectId, query, chunkIds, limit, excludeExtracted,
+                generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, null);
+    }
+
+    public SkillRagExtractionJob submit(
+            String objectType,
+            String objectId,
+            String query,
+            List<String> chunkIds,
+            Integer limit,
+            boolean excludeExtracted,
+            boolean generateEmbeddings,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            String candidateExtractorMode) {
         List<String> selectedChunkIds = chunkIds == null ? List.of() : chunkIds.stream()
                 .map(this::normalize)
                 .filter(Objects::nonNull)
@@ -183,6 +239,7 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                 null,
                 normalize(query),
                 selectedChunkIds.isEmpty() ? "ALL_CHUNKS" : "SELECTED_CHUNKS",
+                extractionServiceResolver.resolveMode(normalizeExtractorMode(candidateExtractorMode)),
                 selectedChunkIds,
                 SkillRagExtractionJobStatus.RUNNING,
                 selectedChunkIds.isEmpty() ? requestedChunks : Math.min(requestedChunks, selectedChunkIds.size()),
@@ -538,6 +595,8 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
                     "RAG chunk text exceeds maxTextBytesPerBatch", now, now));
         }
         try {
+            SkillExtractionService extractionService = extractionServiceResolver.resolve(
+                    job.candidateExtractorMode());
             SkillExtractionResult result = extractionService.extract(new SkillExtractionCommand(
                     RAG_CHUNK_SOURCE_TYPE,
                     sourceId,
@@ -553,6 +612,18 @@ public class DefaultSkillRagExtractionJobService implements SkillRagExtractionJo
             return store.saveItem(new SkillRagExtractionJobItem(job.jobId(), chunk.chunkId(), chunk.documentId(),
                     sourceId, null, 0, SkillRagExtractionItemStatus.FAILED, failureMessage(ex), now, now));
         }
+    }
+
+    private String normalizeExtractorMode(String value) {
+        String mode = normalize(value);
+        if (mode == null) {
+            return null;
+        }
+        mode = mode.toLowerCase(java.util.Locale.ROOT);
+        if (!mode.equals("regex") && !mode.equals("llm")) {
+            throw new IllegalArgumentException("Unsupported candidateExtractorMode: " + value);
+        }
+        return mode;
     }
 
     private SkillRagExtractionJobStatus finalStatus(int processed, int succeeded, int failed) {

@@ -175,6 +175,28 @@ class StructureBasedChunkerTest {
                 .isEqualTo(ChunkingStrategyType.RECURSIVE);
     }
 
+    @Test
+    void splitsOversizedNormalizedBlockWhileKeepingProvenance() {
+        StructureBasedChunker chunker = new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .sourceFormat("PDF")
+                .blocks(List.of(block(NormalizedBlockType.PAGE,
+                        "alpha beta gamma delta", "page[1]", 0, 0.91d)))
+                .build();
+
+        List<Chunk> chunks = chunker.chunk(document, context(document, 10, 0));
+
+        assertThat(chunks).extracting(Chunk::content).containsExactly("alpha beta", "gamma", "delta");
+        assertThat(chunks).allSatisfy(chunk -> assertThat(chunk.content()).hasSizeLessThanOrEqualTo(10));
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.STRUCTURE_BASED);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_SOURCE_REF, "page[1]")
+                .containsEntry(ChunkMetadata.KEY_BLOCK_TYPE, "PAGE")
+                .containsEntry(ChunkMetadata.KEY_BLOCK_IDS, List.of("page[1]"))
+                .containsEntry(ChunkMetadata.KEY_CONFIDENCE, 0.91d)
+                .containsEntry(ChunkMetadata.KEY_MAX_SIZE, 10);
+    }
+
     private NormalizedBlock block(NormalizedBlockType type, String text, String sourceRef, int order, double confidence) {
         return NormalizedBlock.builder(type, text)
                 .id(sourceRef)

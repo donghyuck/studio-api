@@ -5,5 +5,11 @@ public record MarkdownRagReindexRequest(
         String embeddingProvider,
         String embeddingModel,
         Integer embeddingDimension,
-        boolean runSkillExtraction) {
+        boolean useLlmKeywordExtraction,
+        boolean runSkillExtraction,
+        String skillExtractionMode,
+        boolean generateSkillEmbeddings,
+        String skillEmbeddingProvider,
+        String skillEmbeddingModel,
+        Integer skillEmbeddingDimension) {
 }

@@ -24,6 +24,7 @@ import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.MarkdownDocumentNotFoundException;
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
 import studio.one.platform.markdown.application.port.MarkdownPipelinePort;
@@ -102,6 +103,117 @@ class MarkdownDocumentServiceTest {
 
         assertEquals(MarkdownRevisionStatus.COMPLETED,
                 service.getRevisions(created.document().documentId()).get(0).status());
+    }
+
+    @Test
+    void blankNativeExtractionFailsRevisionWithoutRunningPipeline() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "scan.pdf", "application/pdf", "pdf");
+        CapturingPipeline pipeline = new CapturingPipeline();
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "   \n\t", "textract-1", List.of(), List.of()),
+                pipeline);
+
+        var result = service.create(new MarkdownExtractionRequest(1L, true, true, false, false, "tester"));
+
+        assertEquals(MarkdownRevisionStatus.FAILED, result.revision().status());
+        assertEquals("NO_TEXT_EXTRACTED", result.revision().errorCode());
+        assertEquals("Extracted markdown text is blank", result.revision().errorMessage());
+        assertEquals(null, service.getDocument(result.document().documentId()).currentRevisionId());
+        assertEquals(0, pipeline.processed.size());
+    }
+
+    @Test
+    void doesNotReuseCompletedRevisionWithBlankMarkdown() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "scan.pdf", "application/pdf", "pdf");
+        int[] extractionCount = {0};
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> {
+                    extractionCount[0]++;
+                    return new MarkdownNativeExtractorPort.NativeExtraction(
+                            "# Extracted", "textract-1", List.of(), List.of());
+                },
+                MarkdownPipelinePort.noop());
+
+        var first = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+        MarkdownRevision blankCompleted = new MarkdownRevision(
+                first.revision().revisionId(),
+                first.revision().documentId(),
+                first.revision().sourceAttachmentId(),
+                first.revision().resultAttachmentId(),
+                first.revision().documentConvertJobId(),
+                first.revision().extractorType(),
+                first.revision().extractorVersion(),
+                first.revision().optionsJson(),
+                first.revision().optionsHash(),
+                first.revision().sourceContentHash(),
+                null,
+                " ",
+                first.revision().sourceFileName(),
+                first.revision().sourceFormat(),
+                first.revision().sourceObjectType(),
+                first.revision().sourceObjectId(),
+                MarkdownRevisionStatus.COMPLETED,
+                null,
+                null,
+                first.revision().createdAt(),
+                first.revision().startedAt(),
+                first.revision().completedAt(),
+                first.revision().updatedAt());
+        repository.saveRevision(blankCompleted);
+
+        var second = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+
+        assertFalse(second.reused());
+        assertEquals(2, extractionCount[0]);
+        assertTrue(second.revision().markdownText().contains("# Extracted"));
+        assertFalse(first.revision().revisionId().equals(second.revision().revisionId()));
+    }
+
+    @Test
+    void reindexRagRejectsCompletedRevisionWithBlankMarkdown() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "scan.pdf", "application/pdf", "pdf");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Extracted", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+
+        var created = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+        repository.saveRevision(new MarkdownRevision(
+                created.revision().revisionId(),
+                created.revision().documentId(),
+                created.revision().sourceAttachmentId(),
+                created.revision().resultAttachmentId(),
+                created.revision().documentConvertJobId(),
+                created.revision().extractorType(),
+                created.revision().extractorVersion(),
+                created.revision().optionsJson(),
+                created.revision().optionsHash(),
+                created.revision().sourceContentHash(),
+                null,
+                "",
+                created.revision().sourceFileName(),
+                created.revision().sourceFormat(),
+                created.revision().sourceObjectType(),
+                created.revision().sourceObjectId(),
+                MarkdownRevisionStatus.COMPLETED,
+                null,
+                null,
+                created.revision().createdAt(),
+                created.revision().startedAt(),
+                created.revision().completedAt(),
+                created.revision().updatedAt()));
+
+        IllegalStateException error = assertThrows(IllegalStateException.class,
+                () -> service.reindexRag(created.document().documentId(), "retrieval-ko-kure", null, null, null, false));
+
+        assertEquals("Completed Markdown revision with text is required for RAG reindex", error.getMessage());
     }
 
     @Test
@@ -186,6 +298,47 @@ class MarkdownDocumentServiceTest {
                 .equals("mres-source"));
         assertEquals(1, pipeline.processed.size());
         assertEquals("retrieval-ko-kure", pipeline.options.embeddingProfileId());
+    }
+
+    @Test
+    void resumeOverridesRagKeywordAndSkillEmbeddingOptions() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.txt", "text/plain", "hello");
+        CapturingPipeline pipeline = new CapturingPipeline();
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Hello", "textract-1", List.of(), List.of()),
+                pipeline);
+        var created = service.create(new MarkdownExtractionRequest(
+                1L, MarkdownPipelineOptions.none(), false, "tester"));
+
+        service.resumeWithOptions(created.document().documentId(), new MarkdownResumeOptions(
+                MarkdownPipelineStage.RAG_INDEX,
+                true,
+                true,
+                true,
+                null,
+                null,
+                null,
+                null,
+                "retrieval-ko-kure",
+                null,
+                null,
+                null,
+                true,
+                "llm",
+                true,
+                "kure",
+                "nlpai-lab/KURE-v1",
+                1024));
+
+        assertTrue(pipeline.options.useLlmKeywordExtraction());
+        assertEquals("llm", pipeline.options.skillExtractionMode());
+        assertTrue(pipeline.options.generateSkillEmbeddings());
+        assertEquals("kure", pipeline.options.skillEmbeddingProvider());
+        assertEquals("nlpai-lab/KURE-v1", pipeline.options.skillEmbeddingModel());
+        assertEquals(1024, pipeline.options.skillEmbeddingDimension());
     }
 
     @Test
@@ -285,7 +438,8 @@ class MarkdownDocumentServiceTest {
         MarkdownPipelineOptions options = new MarkdownPipelineOptions(
                 false, false, true,
                 "fixed-size", 400, 40, "token",
-                null, "google", "gemini-embedding-001", 768);
+                null, "google", "gemini-embedding-001", 768,
+                true, "llm", true, "kure", "nlpai-lab/KURE-v1", 1024);
 
         var result = service.create(new MarkdownExtractionRequest(1L, options, false, "tester"));
         Map<String, Object> stored = new ObjectMapper().readValue(
@@ -297,6 +451,12 @@ class MarkdownDocumentServiceTest {
         assertTrue(pipeline.options.runSkillExtraction());
         assertEquals("fixed-size", stored.get("chunkingStrategy"));
         assertEquals(768, stored.get("embeddingDimension"));
+        assertEquals(true, stored.get("useLlmKeywordExtraction"));
+        assertEquals("llm", stored.get("skillExtractionMode"));
+        assertEquals(true, stored.get("generateSkillEmbeddings"));
+        assertEquals("kure", stored.get("skillEmbeddingProvider"));
+        assertEquals("nlpai-lab/KURE-v1", stored.get("skillEmbeddingModel"));
+        assertEquals(1024, stored.get("skillEmbeddingDimension"));
     }
 
     private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
@@ -412,6 +572,8 @@ class MarkdownDocumentServiceTest {
         private final Map<String, MarkdownRevision> revisions = new HashMap<>();
         private final Map<String, List<MarkdownLocator>> locators = new HashMap<>();
         private final Map<String, List<MarkdownResource>> resources = new HashMap<>();
+        private final Map<String, List<studio.one.platform.markdown.domain.MarkdownExtractPart>> extractParts =
+                new HashMap<>();
         private final Map<String, MarkdownPipelineExecution> pipelineExecutions = new HashMap<>();
 
         @Override
@@ -501,6 +663,25 @@ class MarkdownDocumentServiceTest {
         }
 
         @Override
+        public void replaceExtractParts(String revisionId,
+                List<studio.one.platform.markdown.domain.MarkdownExtractPart> values) {
+            extractParts.put(revisionId, List.copyOf(values));
+        }
+
+        @Override
+        public void deleteExtractParts(String revisionId) {
+            extractParts.remove(revisionId);
+        }
+
+        @Override
+        public void saveExtractPart(studio.one.platform.markdown.domain.MarkdownExtractPart part) {
+            List<studio.one.platform.markdown.domain.MarkdownExtractPart> values =
+                    new ArrayList<>(extractParts.getOrDefault(part.revisionId(), List.of()));
+            values.add(part);
+            extractParts.put(part.revisionId(), List.copyOf(values));
+        }
+
+        @Override
         public List<MarkdownLocator> findLocators(String revisionId) {
             return locators.getOrDefault(revisionId, List.of());
         }
@@ -508,6 +689,11 @@ class MarkdownDocumentServiceTest {
         @Override
         public List<MarkdownResource> findResources(String revisionId) {
             return resources.getOrDefault(revisionId, List.of());
+        }
+
+        @Override
+        public List<studio.one.platform.markdown.domain.MarkdownExtractPart> findExtractParts(String revisionId) {
+            return extractParts.getOrDefault(revisionId, List.of());
         }
     }
 }

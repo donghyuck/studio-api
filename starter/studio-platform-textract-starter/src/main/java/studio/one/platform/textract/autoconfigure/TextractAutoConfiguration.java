@@ -39,6 +39,7 @@ import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEn
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionMode;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox.PdfBoxExtractionEngine;
+import studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox.PdfOcrFallbackOptions;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmExtractionEngine;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
@@ -86,7 +87,7 @@ public class TextractAutoConfiguration {
         logCreated(PdfFileParser.class);
         List<PdfExtractionEngine> engines = new ArrayList<>();
         if (props.getPdf().getEngines().getPdfbox().isEnabled()) {
-            engines.add(new PdfBoxExtractionEngine());
+            engines.add(new PdfBoxExtractionEngine(pdfOcrFallbackOptions()));
         }
         PyMuPdf4LlmClient pyMuPdf4LlmClient = pyMuPdf4LlmClientProvider.getIfAvailable();
         if (pyMuPdf4LlmClient != null) {
@@ -211,6 +212,7 @@ public class TextractAutoConfiguration {
         TextractProperties.Pdf pdf = props.getPdf();
         TextractProperties.PreferPyMuPdf4LlmWhen prefer = pdf.getAuto().getPreferPymupdf4llmWhen();
         TextractProperties.PdfEngines engines = pdf.getEngines();
+        TextractProperties.LargePdf largePdf = pdf.getLargePdf();
         return new PdfExtractionOptions(
                 PdfExtractionMode.valueOf(pdf.getEngine().name()),
                 pdf.isFallbackEnabled(),
@@ -221,7 +223,27 @@ public class TextractAutoConfiguration {
                 false,
                 null,
                 prefer.getMinPages(),
-                engines.getPymupdf4llm().getMaxFileSizeBytes());
+                engines.getPymupdf4llm().getMaxFileSizeBytes(),
+                largePdf.isEnabled(),
+                largePdf.getPageThreshold(),
+                largePdf.getBatchSize(),
+                largePdf.isContinueOnPartFailure(),
+                largePdf.getMaxPartFailures(),
+                null,
+                null,
+                null,
+                largePdf.isIncludeImages());
+    }
+
+    private PdfOcrFallbackOptions pdfOcrFallbackOptions() {
+        TextractProperties.PdfOcrFallback fallback = props.getPdf().getOcrFallback();
+        TextractProperties.Tesseract tesseract = resolveTesseractProperties();
+        return new PdfOcrFallbackOptions(
+                fallback.isEnabled(),
+                fallback.getMaxPages(),
+                fallback.getDpi(),
+                tesseract.getDatapath(),
+                tesseract.getLanguage());
     }
 
     private void bindTesseractFallback(

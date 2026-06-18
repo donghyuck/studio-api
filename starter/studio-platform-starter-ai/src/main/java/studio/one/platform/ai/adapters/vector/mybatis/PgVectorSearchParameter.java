@@ -10,10 +10,14 @@ public class PgVectorSearchParameter {
     private final int limit;
     private final String objectType;
     private final String objectId;
+    private final List<String> objectTypes;
     private final String metadataObjectType;
     private final String metadataObjectId;
     private final List<PgVectorMetadataEqualsCriterion> equalsCriteria;
     private final List<PgVectorMetadataInCriterion> inCriteria;
+    private final boolean includeText;
+    private final boolean includeMetadata;
+    private final boolean minimalMetadata;
 
     public PgVectorSearchParameter(
             PGvector vector,
@@ -25,15 +29,37 @@ public class PgVectorSearchParameter {
             String metadataObjectId,
             List<PgVectorMetadataEqualsCriterion> equalsCriteria,
             List<PgVectorMetadataInCriterion> inCriteria) {
+        this(vector, embeddingDimension, limit, objectType, objectId, List.of(), metadataObjectType, metadataObjectId,
+                equalsCriteria, inCriteria, true, true, false);
+    }
+
+    public PgVectorSearchParameter(
+            PGvector vector,
+            int embeddingDimension,
+            int limit,
+            String objectType,
+            String objectId,
+            List<String> objectTypes,
+            String metadataObjectType,
+            String metadataObjectId,
+            List<PgVectorMetadataEqualsCriterion> equalsCriteria,
+            List<PgVectorMetadataInCriterion> inCriteria,
+            boolean includeText,
+            boolean includeMetadata,
+            boolean minimalMetadata) {
         this.vector = vector;
         this.embeddingDimension = embeddingDimension;
         this.limit = limit;
         this.objectType = objectType;
         this.objectId = objectId;
+        this.objectTypes = objectTypes == null ? List.of() : List.copyOf(objectTypes);
         this.metadataObjectType = metadataObjectType;
         this.metadataObjectId = metadataObjectId;
         this.equalsCriteria = equalsCriteria == null ? List.of() : List.copyOf(equalsCriteria);
         this.inCriteria = inCriteria == null ? List.of() : List.copyOf(inCriteria);
+        this.includeText = includeText;
+        this.includeMetadata = includeMetadata;
+        this.minimalMetadata = minimalMetadata;
     }
 
     public PGvector getVector() {
@@ -56,6 +82,10 @@ public class PgVectorSearchParameter {
         return objectId;
     }
 
+    public List<String> getObjectTypes() {
+        return objectTypes;
+    }
+
     public String getMetadataObjectType() {
         return metadataObjectType;
     }
@@ -70,5 +100,17 @@ public class PgVectorSearchParameter {
 
     public List<PgVectorMetadataInCriterion> getInCriteria() {
         return inCriteria;
+    }
+
+    public boolean isIncludeText() {
+        return includeText;
+    }
+
+    public boolean isIncludeMetadata() {
+        return includeMetadata;
+    }
+
+    public boolean isMinimalMetadata() {
+        return minimalMetadata;
     }
 }

@@ -30,9 +30,9 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                           embedding_dimension = EXCLUDED.embedding_dimension
             """;
     private static final String SEARCH_SQL = """
-            SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
+            SELECT %s, %s AS distance
               FROM tb_ai_document_chunk
-             ORDER BY embedding <-> :vector ASC
+             ORDER BY %s ASC
              LIMIT :limit
             """;
     private static final String DELETE_BY_OBJECT_SQL = """
@@ -40,30 +40,26 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
              WHERE object_type = :objectType AND object_id = :objectId
             """;
     private static final String SEARCH_BY_OBJECT_SQL = """
-            SELECT id, object_id, text, metadata, (embedding <-> :vector) AS distance
+            SELECT %s, %s AS distance
               FROM tb_ai_document_chunk
-             WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))
-               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
-             ORDER BY embedding <-> :vector ASC
+             ORDER BY %s ASC
              LIMIT :limit
             """;
     private static final String HYBRID_SEARCH_SQL = """
-            SELECT id, object_id, text, metadata,
-                   (embedding <-> :vector) AS distance,
+            SELECT %s,
+                   %s AS distance,
                    ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
-                   ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+                   (%s * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
               FROM tb_ai_document_chunk
              ORDER BY hybrid ASC
              LIMIT :limit
             """;
     private static final String HYBRID_SEARCH_BY_OBJECT_SQL = """
-            SELECT id, object_id, text, metadata,
-                   (embedding <-> :vector) AS distance,
+            SELECT %s,
+                   %s AS distance,
                    ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)) AS bm25,
-                   ((embedding <-> :vector) * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
+                   (%s * :vectorWeight) - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata->>'keywordsText','')), plainto_tsquery(:query)),0) * :lexicalWeight) AS hybrid
               FROM tb_ai_document_chunk
-             WHERE (CAST(:objectType AS varchar) IS NULL OR object_type = CAST(:objectType AS varchar))
-               AND (CAST(:objectId AS varchar) IS NULL OR object_id = CAST(:objectId AS varchar))
              ORDER BY hybrid ASC
              LIMIT :limit
             """;
@@ -195,7 +191,7 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     @Override
     public List<PgVectorSearchRow> search(PgVectorSearchParameter parameter) {
-        return jdbcTemplate.query(filteredSql(SEARCH_SQL, parameter), searchParams(parameter), ROW_MAPPER);
+        return jdbcTemplate.query(filteredSql(searchSql(SEARCH_SQL, parameter), parameter), searchParams(parameter), ROW_MAPPER);
     }
 
     @Override
@@ -205,18 +201,19 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     @Override
     public List<PgVectorSearchRow> searchByObject(PgVectorSearchParameter parameter) {
-        return jdbcTemplate.query(filteredSql(SEARCH_BY_OBJECT_SQL, parameter), searchParams(parameter), ROW_MAPPER);
+        return jdbcTemplate.query(filteredSql(searchSql(SEARCH_BY_OBJECT_SQL, parameter), parameter), searchParams(parameter), ROW_MAPPER);
     }
 
     @Override
     public List<PgVectorSearchRow> hybridSearch(PgVectorHybridSearchParameter parameter) {
-        return jdbcTemplate.query(filteredSql(HYBRID_SEARCH_SQL, parameter), hybridSearchParams(parameter), ROW_MAPPER);
+        return jdbcTemplate.query(filteredSql(searchSql(HYBRID_SEARCH_SQL, parameter), parameter),
+                hybridSearchParams(parameter), ROW_MAPPER);
     }
 
     @Override
     public List<PgVectorSearchRow> hybridSearchByObject(PgVectorHybridSearchParameter parameter) {
         return jdbcTemplate.query(
-                filteredSql(HYBRID_SEARCH_BY_OBJECT_SQL, parameter),
+                filteredSql(searchSql(HYBRID_SEARCH_BY_OBJECT_SQL, parameter), parameter),
                 hybridSearchParams(parameter),
                 ROW_MAPPER);
     }
@@ -322,7 +319,8 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
                 .addValue("embeddingDimension", parameter.getEmbeddingDimension())
                 .addValue("limit", parameter.getLimit())
                 .addValue("objectType", parameter.getObjectType())
-                .addValue("objectId", parameter.getObjectId());
+                .addValue("objectId", parameter.getObjectId())
+                .addValue("objectTypes", parameter.getObjectTypes());
         addMetadataParams(params, parameter);
         return params;
     }
@@ -376,6 +374,16 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
 
     private static List<String> metadataConditions(PgVectorSearchParameter parameter) {
         List<String> conditions = new ArrayList<>();
+        if (parameter.getObjectType() != null) {
+            conditions.add("object_type = :objectType");
+        }
+        if (parameter.getObjectId() != null) {
+            conditions.add("object_id = :objectId");
+        }
+        if (!parameter.getObjectTypes().isEmpty()) {
+            conditions.add("object_type IN (:objectTypes)");
+        }
+        conditions.add("embedding IS NOT NULL");
         conditions.add("embedding_dimension = :embeddingDimension");
         if (parameter.getMetadataObjectType() != null) {
             conditions.add("object_type = :metadataObjectType");
@@ -397,5 +405,40 @@ public final class PgVectorJdbcMapper implements PgVectorMapper {
             index++;
         }
         return conditions;
+    }
+
+    private static String searchSql(String sql, PgVectorSearchParameter parameter) {
+        String distanceExpression = distanceExpression(parameter);
+        if (sql == HYBRID_SEARCH_SQL || sql == HYBRID_SEARCH_BY_OBJECT_SQL) {
+            return sql.formatted(searchSelectColumns(parameter), distanceExpression, distanceExpression);
+        }
+        return sql.formatted(searchSelectColumns(parameter), distanceExpression, distanceExpression);
+    }
+
+    private static String searchSelectColumns(PgVectorSearchParameter parameter) {
+        String textColumn = parameter.isIncludeText() ? "text" : "NULL::text AS text";
+        String metadataColumn;
+        if (!parameter.isIncludeMetadata()) {
+            metadataColumn = "'{}'::jsonb AS metadata";
+        } else if (parameter.isMinimalMetadata()) {
+            metadataColumn = """
+                    jsonb_strip_nulls(jsonb_build_object(
+                        'chunkId', metadata -> 'chunkId',
+                        'documentId', metadata -> 'documentId',
+                        '_vectorRowId', 'row-' || id
+                    )) AS metadata
+                    """.strip();
+        } else {
+            metadataColumn = "metadata";
+        }
+        return "id, object_id, " + textColumn + ", " + metadataColumn;
+    }
+
+    private static String distanceExpression(PgVectorSearchParameter parameter) {
+        return switch (parameter.getEmbeddingDimension()) {
+            case 1024 -> "(embedding::vector(1024) <-> CAST(:vector AS vector(1024)))";
+            case 768 -> "(embedding::vector(768) <-> CAST(:vector AS vector(768)))";
+            default -> "(embedding <-> :vector)";
+        };
     }
 }

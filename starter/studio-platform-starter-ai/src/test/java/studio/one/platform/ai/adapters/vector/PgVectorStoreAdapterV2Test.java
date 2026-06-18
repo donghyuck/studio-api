@@ -132,6 +132,29 @@ class PgVectorStoreAdapterV2Test {
     }
 
     @Test
+    void searchMapsNullTextToEmptyContentWhenTextIsNotSelected() {
+        when(mapper.search(any(PgVectorSearchParameter.class))).thenReturn(List.of(row(
+                42L,
+                "object-1",
+                null,
+                "{\"documentId\":\"doc-42\",\"chunkId\":\"chunk-42\"}",
+                0.5d)));
+
+        List<VectorSearchResult> results = adapter.search(new VectorSearchRequest(
+                List.of(0.2d, 0.3d),
+                "query",
+                3,
+                MetadataFilter.empty(),
+                null,
+                false,
+                true));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).document().content()).isEmpty();
+        assertThat(results.get(0).document().metadata()).containsEntry("chunkId", "chunk-42");
+    }
+
+    @Test
     void searchAppliesMetadataEqualsAndInCriteriaToMapperParameter() {
         when(mapper.search(any(PgVectorSearchParameter.class))).thenReturn(List.of());
         MetadataFilter filter = MetadataFilter.of(

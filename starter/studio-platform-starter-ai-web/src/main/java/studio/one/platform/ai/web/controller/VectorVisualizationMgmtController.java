@@ -10,6 +10,7 @@ import org.springframework.lang.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,12 +20,15 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.vector.visualization.ProjectionAlgorithm;
+import studio.one.platform.ai.core.vector.visualization.ProjectionMode;
+import studio.one.platform.ai.core.vector.visualization.ProjectionSamplingStrategy;
 import studio.one.platform.ai.core.vector.visualization.ProjectionPointPage;
 import studio.one.platform.ai.core.vector.visualization.ProjectionPointView;
 import studio.one.platform.ai.core.vector.visualization.VectorVisualizationMetadataSanitizer;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjection;
 import studio.one.platform.ai.service.visualization.VectorProjectionCreateCommand;
+import studio.one.platform.ai.service.visualization.VectorProjectionEstimate;
 import studio.one.platform.ai.service.visualization.VectorProjectionService;
 import studio.one.platform.ai.service.visualization.VectorSearchVisualizationCommand;
 import studio.one.platform.ai.service.visualization.VectorSearchVisualizationResult;
@@ -32,6 +36,8 @@ import studio.one.platform.ai.service.visualization.VectorSearchVisualizationSer
 import studio.one.platform.ai.web.dto.visualization.ProjectionCreateRequest;
 import studio.one.platform.ai.web.dto.visualization.ProjectionCreateResponse;
 import studio.one.platform.ai.web.dto.visualization.ProjectionDetailResponse;
+import studio.one.platform.ai.web.dto.visualization.ProjectionEstimateRequest;
+import studio.one.platform.ai.web.dto.visualization.ProjectionEstimateResponse;
 import studio.one.platform.ai.web.dto.visualization.ProjectionListResponse;
 import studio.one.platform.ai.web.dto.visualization.ProjectionPointResponse;
 import studio.one.platform.ai.web.dto.visualization.ProjectionPointsResponse;
@@ -67,11 +73,43 @@ public class VectorVisualizationMgmtController {
                 algorithm(request.algorithm()),
                 request.targetTypes(),
                 request.filters(),
+                mode(request.mode()),
+                request.sampleSize(),
+                samplingStrategy(request.samplingStrategy()),
                 null));
         return ResponseEntity.ok(ApiResponse.ok(new ProjectionCreateResponse(
                 projection.projectionId(),
                 projection.status().name(),
-                "벡터 시각화 좌표 생성 작업이 요청되었습니다.")));
+                "벡터 시각화 좌표 생성 작업이 요청되었습니다.",
+                projection.mode().name(),
+                projection.totalCount(),
+                projection.projectedCount(),
+                projection.sampled(),
+                projection.sampleSize(),
+                projection.samplingStrategy().name(),
+                projection.maxAllowed())));
+    }
+
+    @PostMapping("/projections/estimate")
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','admin')")
+    public ResponseEntity<ApiResponse<ProjectionEstimateResponse>> estimateProjection(
+            @RequestBody ProjectionEstimateRequest request) {
+        VectorProjectionEstimate estimate = projectionService.estimate(new VectorProjectionCreateCommand(
+                "estimate",
+                ProjectionAlgorithm.PCA,
+                request.targetTypes(),
+                request.filters(),
+                mode(request.mode()),
+                request.sampleSize(),
+                samplingStrategy(request.samplingStrategy()),
+                null));
+        return ResponseEntity.ok(ApiResponse.ok(new ProjectionEstimateResponse(
+                estimate.totalCount(),
+                estimate.maxAllowed(),
+                estimate.exceedsLimit(),
+                new ProjectionEstimateResponse.RecommendedSampling(
+                        estimate.recommendedSampleSize(),
+                        estimate.recommendedSamplingStrategy().name()))));
     }
 
     @GetMapping("/projections")
@@ -90,6 +128,13 @@ public class VectorVisualizationMgmtController {
     public ResponseEntity<ApiResponse<ProjectionDetailResponse>> projection(
             @PathVariable String projectionId) {
         return ResponseEntity.ok(ApiResponse.ok(detail(projectionService.get(projectionId))));
+    }
+
+    @DeleteMapping("/projections/{projectionId}")
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','admin')")
+    public ResponseEntity<Void> deleteProjection(@PathVariable String projectionId) {
+        projectionService.delete(projectionId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/projections/{projectionId}/points")
@@ -134,7 +179,9 @@ public class VectorVisualizationMgmtController {
                 request.query(),
                 request.targetTypes(),
                 request.topK(),
-                request.minScore()));
+                request.minScore(),
+                request.embeddingProvider(),
+                request.embeddingModel()));
         return ResponseEntity.ok(ApiResponse.ok(searchResponse(result)));
     }
 
@@ -156,6 +203,13 @@ public class VectorVisualizationMgmtController {
                 projection.algorithm().name(),
                 projection.status().name(),
                 projection.targetTypes(),
+                projection.mode().name(),
+                projection.totalCount(),
+                projection.projectedCount(),
+                projection.sampled(),
+                projection.sampleSize(),
+                projection.samplingStrategy().name(),
+                projection.maxAllowed(),
                 projection.itemCount(),
                 projection.createdAt(),
                 projection.completedAt());
@@ -169,10 +223,41 @@ public class VectorVisualizationMgmtController {
                 projection.status().name(),
                 projection.targetTypes(),
                 projection.filters(),
+                projection.mode().name(),
+                projection.totalCount(),
+                projection.projectedCount(),
+                projection.sampled(),
+                projection.sampleSize(),
+                projection.samplingStrategy().name(),
+                projection.maxAllowed(),
                 projection.itemCount(),
+                projection.errorCode(),
                 projection.errorMessage(),
                 projection.createdAt(),
                 projection.completedAt());
+    }
+
+    private ProjectionMode mode(String value) {
+        if (value == null || value.isBlank()) {
+            return ProjectionMode.DETAIL;
+        }
+        try {
+            return ProjectionMode.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_PROJECTION_MODE", ex);
+        }
+    }
+
+    private ProjectionSamplingStrategy samplingStrategy(String value) {
+        if (value == null || value.isBlank()) {
+            return ProjectionSamplingStrategy.STRATIFIED;
+        }
+        try {
+            return ProjectionSamplingStrategy.valueOf(value.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "UNSUPPORTED_PROJECTION_SAMPLING_STRATEGY", ex);
+        }
     }
 
     private ProjectionPointResponse point(ProjectionPointView point) {

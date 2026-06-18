@@ -130,6 +130,18 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
             if (current.isEmpty()) {
                 current = new ArrayList<>();
             }
+            if (ChunkSizing.sizeOf(block.text(), unit) > maxSize) {
+                if (!current.isEmpty()) {
+                    chunks.add(toChildChunk(document, context, current, order++, section.headingPath(),
+                            parentChunk, maxSize, overlap, unit));
+                    current = new ArrayList<>();
+                }
+                for (NormalizedBlock splitBlock : splitOversizedBlock(document, context, block, maxSize, overlap, unit)) {
+                    chunks.add(toChildChunk(document, context, List.of(splitBlock), order++, section.headingPath(),
+                            parentChunk, maxSize, overlap, unit));
+                }
+                continue;
+            }
             current.add(block);
         }
 
@@ -138,6 +150,45 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                     parentChunk, maxSize, overlap, unit));
         }
         return order;
+    }
+
+    private List<NormalizedBlock> splitOversizedBlock(
+            NormalizedDocument document,
+            ChunkingContext context,
+            NormalizedBlock block,
+            int maxSize,
+            int overlap,
+            ChunkUnit unit) {
+        ChunkingContext splitContext = ChunkingContext.builder(block.text())
+                .sourceDocumentId(effectiveSourceDocumentId(document, context))
+                .contentType(context.contentType())
+                .filename(context.filename())
+                .objectType(context.objectType())
+                .objectId(context.objectId())
+                .strategy(ChunkingStrategyType.RECURSIVE)
+                .maxSize(maxSize)
+                .overlap(overlap)
+                .unit(unit)
+                .metadata(context.metadata())
+                .build();
+        List<Chunk> splitChunks = fallbackChunker.chunk(splitContext);
+        List<NormalizedBlock> splitBlocks = new ArrayList<>(splitChunks.size());
+        for (int index = 0; index < splitChunks.size(); index++) {
+            Chunk splitChunk = splitChunks.get(index);
+            splitBlocks.add(NormalizedBlock.builder(block.type(), splitChunk.content())
+                    .id(block.id() + "#part-" + index)
+                    .sourceRef(block.effectiveSourceRef())
+                    .page(block.page())
+                    .slide(block.slide())
+                    .order(block.order())
+                    .parentBlockId(block.parentBlockId())
+                    .headingPath(block.headingPath())
+                    .blockIds(block.blockIds())
+                    .confidence(block.confidence())
+                    .metadata(block.metadata())
+                    .build());
+        }
+        return splitBlocks;
     }
 
     private Chunk toChildChunk(

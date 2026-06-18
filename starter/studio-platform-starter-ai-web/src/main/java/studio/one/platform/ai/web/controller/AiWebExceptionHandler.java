@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.web.dto.ProblemDetails;
+import studio.one.platform.ai.service.visualization.VectorProjectionException;
+import studio.one.platform.ai.web.dto.visualization.ProjectionProblemDetails;
 
 @RestControllerAdvice(assignableTypes = {
         ChatController.class,
@@ -29,6 +31,24 @@ import studio.one.platform.web.dto.ProblemDetails;
 public class AiWebExceptionHandler {
 
     private static final String GOOGLE_GENAI_CLIENT_EXCEPTION = "com.google.genai.errors.ClientException";
+
+    @ExceptionHandler(VectorProjectionException.class)
+    public ResponseEntity<ProjectionProblemDetails> handleVectorProjectionException(
+            VectorProjectionException ex,
+            HttpServletRequest request) {
+        ProjectionProblemDetails body = new ProjectionProblemDetails(
+                "urn:error:" + ex.code().toLowerCase(java.util.Locale.ROOT),
+                ex.status().getReasonPhrase(),
+                ex.status().value(),
+                ex.getMessage(),
+                request.getRequestURI(),
+                ex.code(),
+                ex.totalCount(),
+                ex.maxAllowed(),
+                ex.sampleSize(),
+                OffsetDateTime.now());
+        return ResponseEntity.status(ex.status()).body(body);
+    }
 
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ProblemDetails> handleResponseStatusException(

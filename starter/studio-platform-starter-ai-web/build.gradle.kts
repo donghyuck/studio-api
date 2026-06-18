@@ -19,6 +19,7 @@ tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
 dependencies {
     api(project(":starter:studio-platform-starter-ai"))
     implementation(project(":studio-platform"))
+    compileOnly(project(":studio-platform-realtime"))
 
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-validation")

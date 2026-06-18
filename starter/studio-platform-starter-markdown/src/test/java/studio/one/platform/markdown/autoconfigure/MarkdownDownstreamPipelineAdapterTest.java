@@ -54,7 +54,8 @@ class MarkdownDownstreamPipelineAdapterTest {
         MarkdownPipelineOptions options = new MarkdownPipelineOptions(
                 true, true, false,
                 "fixed-size", 400, 40, "token",
-                null, "google", "gemini-embedding-001", 768);
+                null, "google", "gemini-embedding-001", 768,
+                true, false, null, null, null);
 
         adapter.process(revision(), options);
 
@@ -73,10 +74,45 @@ class MarkdownDownstreamPipelineAdapterTest {
         assertThat(request.getValue().indexRequest().embeddingProvider()).isEqualTo("google");
         assertThat(request.getValue().indexRequest().embeddingModel()).isEqualTo("gemini-embedding-001");
         assertThat(request.getValue().indexRequest().embeddingDimension()).isEqualTo(768);
+        assertThat(request.getValue().indexRequest().useLlmKeywordExtraction()).isTrue();
         assertThat(request.getValue().indexRequest().metadata())
                 .containsEntry("markdownRevisionId", "revision-1")
                 .containsEntry("strategy", "fixed-size");
         verify(ragJobs).startJob("rag-job-1");
+    }
+
+    @Test
+    void forwardsSkillCandidateEmbeddingSelection() {
+        SkillRagExtractionJobService skillJobs = mock(SkillRagExtractionJobService.class);
+        MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
+                provider(RagIndexJobService.class),
+                provider(SkillRagExtractionJobService.class, skillJobs),
+                provider(ChunkingOrchestrator.class),
+                provider(RagChunkStageStore.class),
+                mock(MarkdownRepository.class));
+        MarkdownPipelineOptions options = new MarkdownPipelineOptions(
+                true, true, true,
+                null, null, null, null,
+                "retrieval-ko-kure", null, null, null,
+                false, "llm", true, "kure", "nlpai-lab/KURE-v1", 1024);
+
+        adapter.process(
+                revision(),
+                options,
+                studio.one.platform.markdown.domain.MarkdownPipelineStage.SKILL_EXTRACTION,
+                stage -> {
+                });
+
+        verify(skillJobs).submitAllChunks(
+                "attachment",
+                "42",
+                null,
+                false,
+                true,
+                "kure",
+                "nlpai-lab/KURE-v1",
+                1024,
+                "llm");
     }
 
     @Test

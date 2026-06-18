@@ -245,7 +245,8 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
             metadata.putIfAbsent("_vectorRowId", "row-" + row.getId());
         }
         String documentId = Objects.toString(metadata.getOrDefault("documentId", objectId), objectId);
-        VectorDocument document = new VectorDocument(documentId, row.getText(), metadata, List.of());
+        String text = row.getText() == null ? "" : row.getText();
+        VectorDocument document = new VectorDocument(documentId, text, metadata, List.of());
         return new VectorSearchResult(document, score);
     }
 
@@ -261,10 +262,14 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                 request.topK(),
                 objectType,
                 objectId,
+                objectTypes(filter),
                 includeObjectColumns ? filter.objectType() : null,
                 includeObjectColumns ? filter.objectId() : null,
                 equalsCriteria(filter),
-                inCriteria(filter));
+                inCriteria(filter),
+                request.includeText(),
+                request.includeMetadata(),
+                !request.includeText() && request.includeMetadata());
     }
 
     private static PgVectorHybridSearchParameter hybridSearchParameter(
@@ -308,6 +313,20 @@ public class PgVectorStoreAdapterV2 implements VectorStorePort {
                         entry.getValue().stream()
                                 .map(value -> Objects.toString(value, null))
                                 .toList()))
+                .toList();
+    }
+
+    private static List<String> objectTypes(MetadataFilter filter) {
+        List<Object> values = filter.inCriteria().get("objectType");
+        if (values == null || values.isEmpty()) {
+            return List.of();
+        }
+        return values.stream()
+                .filter(Objects::nonNull)
+                .map(Object::toString)
+                .map(String::trim)
+                .filter(value -> !value.isBlank())
+                .distinct()
                 .toList();
     }
 

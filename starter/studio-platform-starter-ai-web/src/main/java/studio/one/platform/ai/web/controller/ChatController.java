@@ -106,6 +106,8 @@ public class ChatController {
     private static final int DEFAULT_CONTEXT_EXPANSION_MAX_CANDIDATES = 100;
     private static final int MAX_CONTEXT_EXPANSION_CANDIDATE_MULTIPLIER = 20;
     private static final int MAX_CONTEXT_EXPANSION_CANDIDATES = 500;
+    private static final String RAG_NO_CONTEXT_MESSAGE = "제공된 RAG 문서에서 확인할 수 없습니다.";
+    private static final String RAG_SKIP_REASON_NO_RESULTS = "NO_RAG_RESULTS";
 
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
@@ -410,6 +412,22 @@ public class ChatController {
         }
         ragResults = limitRagResults(ragResults, ragTopK);
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
+        boolean exposeDiagnostics = shouldExposeDiagnostics(request);
+        if (ragResults.isEmpty()) {
+            Map<String, Object> extraMetadata = new LinkedHashMap<>();
+            extraMetadata.put("ragReferences", List.of());
+            extraMetadata.put("ragSkippedChat", true);
+            extraMetadata.put("ragSkipReason", RAG_SKIP_REASON_NO_RESULTS);
+            ChatResponse response = new ChatResponse(
+                    List.of(new ChatMessage(ChatMessageRole.ASSISTANT, RAG_NO_CONTEXT_MESSAGE)),
+                    chat.model(),
+                    Map.of());
+            return ResponseEntity.ok(ApiResponse.ok(toDto(
+                    response,
+                    diagnostics,
+                    exposeDiagnostics,
+                    extraMetadata)));
+        }
 
         List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
                 ragResults,
@@ -441,7 +459,6 @@ public class ChatController {
         ChatResponse response = executeChat(chatPort(chat.provider()), toDomainChatRequest(augmented));
         int memoryMessageCount = appendMemory(memory, chat.messages(), response);
         appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
-        boolean exposeDiagnostics = shouldExposeDiagnostics(request);
         Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
         extraMetadata.put("ragReferences", ragReferences(contextResult.usedResults(), exposeDiagnostics));
         if (exposeDiagnostics && contextResult.diagnostics() != null) {
@@ -687,6 +704,9 @@ public class ChatController {
                 .toList();
         Map<String, Object> metadata = new HashMap<>(response.metadata());
         metadata.putAll(extraMetadata);
+        if (diagnostics != null) {
+            metadata.put("ragRetrievalSummary", diagnostics.toMetadata());
+        }
         if (exposeDiagnostics && diagnostics != null) {
             metadata.put("ragDiagnostics", diagnostics.toMetadata());
         }

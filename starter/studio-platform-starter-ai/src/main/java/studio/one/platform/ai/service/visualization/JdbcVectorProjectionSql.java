@@ -58,4 +58,8 @@ final class JdbcVectorProjectionSql {
                 + " OR " + rowVectorItemId("id", postgres) + " IN (:ids)"
                 + " OR " + jsonText(null, "documentId", postgres) + " IN (:ids)";
     }
+
+    static String randomOrder(boolean postgres) {
+        return postgres ? "RANDOM()" : "RAND()";
+    }
 }

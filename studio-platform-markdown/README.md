@@ -54,6 +54,18 @@ embedding 모델만 변경해 다시 색인하려면 `rag/reindex`를 사용한�
 이 API는 기존 Markdown 본문과 locator/resource를 복제한 새 Revision을 생성하고, 기존 chunking 설정으로
 `CHUNKING -> RAG_INDEX`를 다시 실행한다. 원본 Attachment 추출과 Pandoc 변환은 실행하지 않는다.
 
+Markdown 생성, 재추출, resume, RAG reindex 요청은 다음 선택 항목을 지원한다.
+
+- `useLlmKeywordExtraction`: RAG 색인 중 LLM keyword extraction 사용 여부
+- `skillExtractionMode`: Skill 후보 추출 방식(`regex`, `llm`). 생략하면 서버의
+  `studio.skillgraph.extraction.mode` 설정을 사용한다.
+- `generateSkillEmbeddings`: Skill 후보 추출 완료 후 후보 embedding 생성 여부
+- `skillEmbeddingProvider`, `skillEmbeddingModel`, `skillEmbeddingDimension`: Skill 후보 embedding 설정
+
+Skill 후보를 추출하는 생성형 LLM 사용 여부는 요청별 옵션이 아니라
+`studio.skillgraph.extraction.mode=llm` 서버 설정으로 결정된다. `skillEmbedding*` 값은
+Skill 추출 LLM이 아니라 추출된 후보의 후속 embedding에만 사용된다.
+
 `pipeline`은 신규 Revision에 대해 요청 단계가 없더라도 최종 `COMPLETED` 실행 정보를 저장하고
 항상 non-null 응답을 반환한다. 실행 이력이 없던 기존 완료 Revision은 상태를 추측하지 않고
 `UNKNOWN`, `errorCode=PIPELINE_HISTORY_UNAVAILABLE`로 반환한다.

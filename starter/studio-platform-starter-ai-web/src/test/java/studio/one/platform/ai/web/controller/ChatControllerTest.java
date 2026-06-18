@@ -648,6 +648,67 @@ class ChatControllerTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void ragChatSkipsLlmWhenRetrievalHasNoFinalResults() {
+        RagRetrievalDiagnostics diagnostics = new RagRetrievalDiagnostics(
+                RagRetrievalDiagnostics.Strategy.HYBRID,
+                2,
+                0,
+                0.6d,
+                0.7d,
+                0.3d,
+                null,
+                null,
+                2,
+                2,
+                0.6d,
+                2,
+                0);
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
+        when(ragPipelineService.latestDiagnostics()).thenReturn(Optional.of(diagnostics));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        "google",
+                        null,
+                        List.of(new ChatMessageDto("user", "여름 휴가 규정이 있는가")),
+                        "gemini-2.5-flash",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "여름 휴가 규정이 있는가",
+                2,
+                null,
+                null,
+                null,
+                null,
+                null,
+                2,
+                0.6d,
+                false)).getBody().getData();
+
+        assertThat(response.messages())
+                .extracting(message -> message.role() + ":" + message.content())
+                .containsExactly("assistant:제공된 RAG 문서에서 확인할 수 없습니다.");
+        assertThat(response.model()).isEqualTo("gemini-2.5-flash");
+        assertThat(response.metadata())
+                .containsEntry("ragSkippedChat", true)
+                .containsEntry("ragSkipReason", "NO_RAG_RESULTS")
+                .containsEntry("ragReferences", List.of());
+        Map<String, Object> summary = (Map<String, Object>) response.metadata().get("ragRetrievalSummary");
+        assertThat(summary)
+                .containsEntry("initialResultCount", 2)
+                .containsEntry("finalResultCount", 0)
+                .containsEntry("effectiveMinScore", 0.6d)
+                .containsEntry("beforeMinScoreCount", 2)
+                .containsEntry("afterMinScoreCount", 0);
+        assertThat(response.metadata()).doesNotContainKey("ragDiagnostics");
+        verifyNoInteractions(providerRegistry, defaultChatPort, googleChatPort);
+    }
+
+    @Test
     void ragChatAllowsNonAttachmentObjectScope() {
         ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
         when(ragPipelineService.search(any(RagSearchRequest.class)))
@@ -1110,6 +1171,7 @@ class ChatControllerTest {
 
         assertThat(response.metadata()).doesNotContainKey("ragDiagnostics");
         assertThat(response.metadata()).doesNotContainKey("ragContextDiagnostics");
+        assertThat(response.metadata()).containsKey("ragRetrievalSummary");
     }
 
     @Test

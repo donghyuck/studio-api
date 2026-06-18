@@ -17,15 +17,19 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.core.vector.visualization.ProjectionAlgorithm;
+import studio.one.platform.ai.core.vector.visualization.ProjectionMode;
 import studio.one.platform.ai.core.vector.visualization.ProjectionPointPage;
 import studio.one.platform.ai.core.vector.visualization.ProjectionPointView;
+import studio.one.platform.ai.core.vector.visualization.ProjectionSamplingStrategy;
 import studio.one.platform.ai.core.vector.visualization.ProjectionStatus;
 import studio.one.platform.ai.core.vector.visualization.VectorItem;
 import studio.one.platform.ai.core.vector.visualization.VectorProjection;
 import studio.one.platform.ai.service.visualization.VectorProjectionCreateCommand;
+import studio.one.platform.ai.service.visualization.VectorProjectionEstimate;
 import studio.one.platform.ai.service.visualization.VectorProjectionService;
 import studio.one.platform.ai.service.visualization.VectorSearchVisualizationService;
 import studio.one.platform.ai.web.dto.visualization.ProjectionCreateRequest;
+import studio.one.platform.ai.web.dto.visualization.ProjectionEstimateRequest;
 import studio.one.platform.ai.web.dto.visualization.VectorSearchVisualizationRequest;
 
 class VectorVisualizationMgmtControllerTest {
@@ -84,6 +88,48 @@ class VectorVisualizationMgmtControllerTest {
     }
 
     @Test
+    void createProjectionMapsOverviewSamplingOptions() {
+        VectorProjectionService projectionService = mock(VectorProjectionService.class);
+        when(projectionService.create(any())).thenReturn(projection(ProjectionStatus.REQUESTED));
+        VectorVisualizationMgmtController controller = new VectorVisualizationMgmtController(projectionService, null);
+        ArgumentCaptor<VectorProjectionCreateCommand> captor = ArgumentCaptor.forClass(VectorProjectionCreateCommand.class);
+
+        controller.createProjection(new ProjectionCreateRequest(
+                "overview",
+                List.of(),
+                "PCA",
+                Map.of(),
+                "OVERVIEW",
+                500,
+                "RANDOM"));
+
+        verify(projectionService).create(captor.capture());
+        assertThat(captor.getValue().mode()).isEqualTo(ProjectionMode.OVERVIEW);
+        assertThat(captor.getValue().sampleSize()).isEqualTo(500);
+        assertThat(captor.getValue().samplingStrategy()).isEqualTo(ProjectionSamplingStrategy.RANDOM);
+    }
+
+    @Test
+    void estimateReturnsServerLimitAndSamplingRecommendation() {
+        VectorProjectionService projectionService = mock(VectorProjectionService.class);
+        when(projectionService.estimate(any())).thenReturn(new VectorProjectionEstimate(
+                7_534, 1_000, true, 1_000, ProjectionSamplingStrategy.STRATIFIED));
+        VectorVisualizationMgmtController controller = new VectorVisualizationMgmtController(projectionService, null);
+
+        var response = controller.estimateProjection(new ProjectionEstimateRequest(
+                List.of(),
+                Map.of(),
+                "OVERVIEW",
+                null,
+                null));
+
+        assertThat(response.getBody().getData().totalCount()).isEqualTo(7_534);
+        assertThat(response.getBody().getData().maxAllowed()).isEqualTo(1_000);
+        assertThat(response.getBody().getData().exceedsLimit()).isTrue();
+        assertThat(response.getBody().getData().recommendedSampling().samplingStrategy()).isEqualTo("STRATIFIED");
+    }
+
+    @Test
     void pointsReturnsClientOrientedShape() {
         VectorProjectionService projectionService = mock(VectorProjectionService.class);
         when(projectionService.get("proj-1")).thenReturn(projection(ProjectionStatus.COMPLETED));
@@ -127,6 +173,17 @@ class VectorVisualizationMgmtControllerTest {
     }
 
     @Test
+    void deleteProjectionReturnsNoContent() {
+        VectorProjectionService projectionService = mock(VectorProjectionService.class);
+        VectorVisualizationMgmtController controller = new VectorVisualizationMgmtController(projectionService, null);
+
+        var response = controller.deleteProjection("proj-1");
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(projectionService).delete("proj-1");
+    }
+
+    @Test
     void itemDetailDoesNotReturnEmbeddingMetadata() {
         VectorProjectionService projectionService = mock(VectorProjectionService.class);
         when(projectionService.item("chunk-1")).thenReturn(new VectorItem(
@@ -159,6 +216,8 @@ class VectorVisualizationMgmtControllerTest {
                 "java",
                 List.of(),
                 10,
+                null,
+                null,
                 null)))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting("statusCode")

@@ -24,6 +24,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftServ
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryRelationService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
+import studio.one.platform.skillgraph.application.usecase.SkillExtractionServiceResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
@@ -85,6 +86,7 @@ public class SkillGraphWebAutoConfiguration {
         @ConditionalOnMissingBean
         SkillRagExtractionJobService skillRagExtractionJobService(
                 SkillExtractionService extractionService,
+                ObjectProvider<SkillExtractionServiceResolver> extractionServiceResolverProvider,
                 SkillGraphRagChunkResolver ragChunkResolver,
                 SkillRagExtractionJobStore jobStore,
                 Executor skillRagExtractionJobExecutor,
@@ -94,7 +96,8 @@ public class SkillGraphWebAutoConfiguration {
                 ObjectProvider<SkillRagExtractionJobNotifier> jobNotifierProvider) {
             SkillGraphProperties.RagJob ragJob = properties.getExtraction().getRagJob();
             return new DefaultSkillRagExtractionJobService(
-                    extractionService,
+                    extractionServiceResolverProvider.getIfAvailable(
+                            () -> SkillExtractionServiceResolver.fixed(extractionService)),
                     ragChunkResolver,
                     jobStore,
                     skillRagExtractionJobExecutor,

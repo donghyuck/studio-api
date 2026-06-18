@@ -1,0 +1,16 @@
+{
+  "properties": [
+    {
+      "name": "studio.ai.vector.projection.max-items",
+      "type": "java.lang.Integer",
+      "defaultValue": 1000,
+      "description": "한 projection 실행에서 DB로부터 조회하고 좌표화할 수 있는 최대 vector item 수입니다."
+    },
+    {
+      "name": "studio.ai.vector.projection.default-sample-size",
+      "type": "java.lang.Integer",
+      "defaultValue": 1000,
+      "description": "OVERVIEW 요청이 최대 건수를 초과할 때 적용할 기본 sample size입니다."
+    }
+  ]
+}

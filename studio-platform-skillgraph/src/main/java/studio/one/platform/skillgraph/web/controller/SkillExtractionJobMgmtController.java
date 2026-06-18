@@ -104,7 +104,8 @@ public class SkillExtractionJobMgmtController {
                 Boolean.TRUE.equals(request.generateEmbeddings()),
                 request.embeddingProvider(),
                 request.embeddingModel(),
-                request.embeddingDimension());
+                request.embeddingDimension(),
+                request.candidateExtractorMode());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(ApiResponse.ok(toResponse(job)));
     }
@@ -171,7 +172,8 @@ public class SkillExtractionJobMgmtController {
                 Boolean.TRUE.equals(request.generateEmbeddings()),
                 request.embeddingProvider(),
                 request.embeddingModel(),
-                request.embeddingDimension());
+                request.embeddingDimension(),
+                request.candidateExtractorMode());
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(ApiResponse.ok(toResponse(job)));
     }

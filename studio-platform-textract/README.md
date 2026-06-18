@@ -81,6 +81,17 @@ studio:
     pdf:
       engine: auto # auto, pdfbox, pymupdf4llm
       fallback-enabled: true
+      ocr-fallback:
+        enabled: false
+        max-pages: 20
+        dpi: 180
+      large-pdf:
+        enabled: true
+        page-threshold: 100
+        batch-size: 50
+        continue-on-part-failure: true
+        max-part-failures: 0
+        include-images: false
       engines:
         pdfbox:
           enabled: true
@@ -104,6 +115,10 @@ studio:
 - `engine=auto`: PDFBox가 활성화되어 있으면 기본적으로 PDFBox를 사용한다. worker가 활성화되어 있고 page threshold 또는 요청 option이 PyMuPDF4LLM을 선호할 때 worker를 사용한다. PDFBox를 비활성화하고 worker만 활성화한 구성에서는 worker를 사용한다.
 - PyMuPDF4LLM이 비활성화되었거나 실패하고 `fallback-enabled=true`이면 PDFBox로 재시도하고 `ParseWarning`에 fallback 사실을 남긴다.
 - `fallback-enabled=false`이면 worker 실패를 `FileParseException`으로 노출한다.
+- PDFBox 결과에 텍스트 레이어가 없고 `ocr-fallback.enabled=true`이면 최대 `ocr-fallback.max-pages` 페이지만 이미지로 렌더링해 기존 Tesseract OCR을 적용한다.
+- PDF OCR fallback은 CPU와 메모리 사용량이 크므로 기본값은 비활성화다. 대용량 PDF는 페이지 제한을 두고 명시적으로 활성화한다.
+- PyMuPDF4LLM worker가 활성화되어 있고 PDF page 수가 `large-pdf.page-threshold` 이상이면 Java 쪽에서 `large-pdf.batch-size` 단위 page range로 나누어 worker를 반복 호출한다.
+- 대형 PDF part별 결과는 Markdown revision 아래 `tb_ai_markdown_extract_part`에 저장되며, 하나 이상의 part가 텍스트를 만들면 revision은 `COMPLETED`로 완료된다. 모든 part가 비어 있으면 `NO_EXTRACTABLE_CONTENT`로 실패한다.
 
 PyMuPDF4LLM worker는 `tools/pymupdf4llm-worker`에 PoC와 운영 문서가 있다.
 로컬 Python 환경에서는 Python 3.10 이상에서 다음처럼 설치한다.
@@ -254,6 +269,11 @@ studio:
       # Windows: C:\Program Files\Tesseract-OCR\tessdata
       datapath: /opt/homebrew/share/tessdata
       language: kor+eng
+    pdf:
+      ocr-fallback:
+        enabled: true
+        max-pages: 20
+        dpi: 180
 ```
 
 설정 값 설명:
@@ -261,6 +281,9 @@ studio:
 - `max-extract-size`: 텍스트 추출 전 파일 크기 제한. 숫자만 쓰면 byte로 해석하고, `10M`, `10MB`, `50MB` 같은 단위 표현을 지원한다.
 - `datapath`: `kor.traineddata`, `eng.traineddata` 같은 언어 파일이 들어 있는 `tessdata` 디렉터리 경로
 - `language`: Tesseract 언어 코드. 여러 언어는 `kor+eng`처럼 `+`로 연결
+- `pdf.ocr-fallback.enabled`: PDF 텍스트 추출 결과가 비어 있을 때 PDF 페이지 렌더링 후 OCR을 수행할지 여부
+- `pdf.ocr-fallback.max-pages`: OCR fallback이 처리할 최대 PDF 페이지 수
+- `pdf.ocr-fallback.dpi`: PDF 페이지를 이미지로 렌더링할 때 사용할 DPI
 
 제한을 초과하면 `error.text.file.too-large` 오류가 발생하며 HTTP 상태는 `413 Payload Too Large`다.
 예외 메시지에는 감지된 크기, 적용된 제한값, 조정할 설정 키가 포함된다.

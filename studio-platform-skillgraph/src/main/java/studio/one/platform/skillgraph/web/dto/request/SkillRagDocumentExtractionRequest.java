@@ -22,13 +22,15 @@ public record SkillRagDocumentExtractionRequest(
         String embeddingModel,
         @Min(1)
         @Max(4096)
-        Integer embeddingDimension) {
+        Integer embeddingDimension,
+        @Size(max = 20)
+        String candidateExtractorMode) {
 
     public SkillRagDocumentExtractionRequest(
             String objectType,
             String objectId,
             String mode,
             Integer limit) {
-        this(objectType, objectId, mode, limit, null, null, null, null, null);
+        this(objectType, objectId, mode, limit, null, null, null, null, null, null);
     }
 }

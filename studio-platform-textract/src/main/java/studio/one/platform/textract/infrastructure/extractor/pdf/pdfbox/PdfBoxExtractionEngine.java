@@ -1,7 +1,9 @@
 package studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox;
 
 import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -14,6 +16,7 @@ import org.apache.pdfbox.contentstream.PDFGraphicsStreamEngine;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImage;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +43,22 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
     private static final Logger log = LoggerFactory.getLogger(PdfBoxExtractionEngine.class);
 
     private static final double REPEATED_BOUNDARY_RATIO = 0.50d;
+    private static final String KEY_PDF_OCR_FALLBACK = "pdfOcrFallback";
+    private static final String KEY_PDF_OCR_RENDERED_PAGES = "pdfOcrRenderedPages";
+    private static final String KEY_PDF_OCR_TOTAL_PAGES = "pdfOcrTotalPages";
+    private static final String KEY_PDF_OCR_DPI = "pdfOcrDpi";
+
+    private final PdfOcrFallbackOptions ocrFallbackOptions;
+
+    public PdfBoxExtractionEngine() {
+        this(PdfOcrFallbackOptions.disabled());
+    }
+
+    public PdfBoxExtractionEngine(PdfOcrFallbackOptions ocrFallbackOptions) {
+        this.ocrFallbackOptions = ocrFallbackOptions == null
+                ? PdfOcrFallbackOptions.disabled()
+                : ocrFallbackOptions;
+    }
 
     @Override
     public PdfExtractionEngineType type() {
@@ -129,6 +148,9 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
             String text = cleanText(cleanedPages.stream()
                     .filter(page -> page != null && !page.isBlank())
                     .collect(Collectors.joining("\n\n")));
+            if ((text == null || text.isBlank()) && ocrFallbackOptions.enabled()) {
+                return extractWithOcrFallback(document, request, images, tableExtraction.warnings());
+            }
             return new ParsedFile(
                     DocumentFormat.PDF,
                     text,
@@ -142,6 +164,112 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         } catch (IOException e) {
             throw new FileParseException("Failed to parse PDF file: " + safeFilename(request.filename()), e);
         }
+    }
+
+    private ParsedFile extractWithOcrFallback(
+            PDDocument document,
+            PdfExtractionRequest request,
+            List<ExtractedImage> images,
+            List<ParseWarning> existingWarnings) throws FileParseException {
+        try {
+            Object tesseract = createTesseract();
+            Method doOcr = tesseract.getClass().getMethod("doOCR", BufferedImage.class);
+
+            PDFRenderer renderer = new PDFRenderer(document);
+            int totalPages = document.getNumberOfPages();
+            int pagesToRender = Math.min(totalPages, ocrFallbackOptions.maxPages());
+            List<String> pageTexts = new ArrayList<>();
+            List<ParsedBlock> pageBlocks = new ArrayList<>();
+            List<ParsedBlock> blocks = new ArrayList<>();
+            int order = 0;
+            for (int pageIndex = 0; pageIndex < pagesToRender; pageIndex++) {
+                int pageNumber = pageIndex + 1;
+                BufferedImage image = renderer.renderImageWithDPI(pageIndex, ocrFallbackOptions.dpi());
+                String pageText = cleanPdfText((String) doOcr.invoke(tesseract, image));
+                if (pageText == null || pageText.isBlank()) {
+                    continue;
+                }
+                pageTexts.add(pageText);
+                String pagePath = "page[" + pageNumber + "]";
+                pageBlocks.add(ParsedBlock.text(
+                        pagePath,
+                        BlockType.PAGE,
+                        pageText,
+                        pageNumber,
+                        order,
+                        ocrBlockMetadata(pagePath, order, pageNumber)));
+                order++;
+                for (String line : pageText.split("\\n")) {
+                    String cleanedLine = cleanText(line);
+                    if (cleanedLine == null || cleanedLine.isBlank()) {
+                        continue;
+                    }
+                    String linePath = pagePath + "/ocr/line[" + blocks.size() + "]";
+                    blocks.add(ParsedBlock.text(
+                            linePath,
+                            BlockType.OCR_TEXT,
+                            cleanedLine,
+                            pageNumber,
+                            order,
+                            ocrBlockMetadata(linePath, order, pageNumber)));
+                    order++;
+                }
+            }
+            String text = cleanText(String.join("\n\n", pageTexts));
+            Map<String, Object> metadata = pdfFileMetadata(request.contentType(), request.filename());
+            metadata.put(KEY_PDF_OCR_FALLBACK, true);
+            metadata.put(KEY_PDF_OCR_RENDERED_PAGES, pagesToRender);
+            metadata.put(KEY_PDF_OCR_TOTAL_PAGES, totalPages);
+            metadata.put(KEY_PDF_OCR_DPI, ocrFallbackOptions.dpi());
+            List<ParseWarning> warnings = new ArrayList<>();
+            warnings.add(ParseWarning.warning(
+                    "PDF_OCR_FALLBACK_APPLIED",
+                    "PDF text layer was empty; OCR fallback was used.",
+                    "document",
+                    Map.of(
+                            KEY_PDF_OCR_RENDERED_PAGES, pagesToRender,
+                            KEY_PDF_OCR_TOTAL_PAGES, totalPages)));
+            if (totalPages > pagesToRender) {
+                warnings.add(ParseWarning.partial(
+                        "PDF_OCR_PAGE_LIMIT_EXCEEDED",
+                        "PDF OCR fallback processed only the configured maximum pages.",
+                        "document",
+                        Map.of(
+                                KEY_PDF_OCR_RENDERED_PAGES, pagesToRender,
+                                KEY_PDF_OCR_TOTAL_PAGES, totalPages)));
+            }
+            warnings.addAll(existingWarnings == null ? List.of() : existingWarnings);
+            return new ParsedFile(
+                    DocumentFormat.PDF,
+                    text,
+                    blocks,
+                    metadata,
+                    warnings,
+                    pageBlocks,
+                    List.of(),
+                    images,
+                    true);
+        } catch (ReflectiveOperationException | IOException e) {
+            throw new FileParseException("Failed to OCR PDF file: " + safeFilename(request.filename()), e);
+        }
+    }
+
+    private Object createTesseract() throws ReflectiveOperationException {
+        Class<?> type = Class.forName("net.sourceforge.tess4j.Tesseract");
+        Object tesseract = type.getConstructor().newInstance();
+        if (!ocrFallbackOptions.tesseractDataPath().isBlank()) {
+            type.getMethod("setDatapath", String.class).invoke(tesseract, ocrFallbackOptions.tesseractDataPath());
+        }
+        type.getMethod("setLanguage", String.class).invoke(tesseract, ocrFallbackOptions.language());
+        return tesseract;
+    }
+
+    private Map<String, Object> ocrBlockMetadata(String sourceRef, int order, int pageNumber) {
+        Map<String, Object> metadata = blockMetadata(sourceRef, order);
+        metadata.put(ExtractedImage.KEY_OCR_APPLIED, true);
+        metadata.put(ExtractedImage.KEY_OCR_UNIT, "line");
+        metadata.put("pageNumber", pageNumber);
+        return metadata;
     }
 
     public List<String> cleanPdfPages(List<String> rawPages) {

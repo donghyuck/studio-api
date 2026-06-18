@@ -65,9 +65,9 @@ public class MarkdownAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnBean(FileContentExtractionService.class)
     MarkdownNativeExtractorPort markdownNativeExtractorPort(FileContentExtractionService extractionService,
-            ObjectMapper objectMapper, MarkdownProperties properties) {
+            ObjectMapper objectMapper, MarkdownProperties properties, MarkdownRepository repository) {
         return new TextractMarkdownNativeExtractorAdapter(extractionService, objectMapper,
-                properties.getTextractVersion());
+                properties.getTextractVersion(), repository);
     }
 
     @Bean
