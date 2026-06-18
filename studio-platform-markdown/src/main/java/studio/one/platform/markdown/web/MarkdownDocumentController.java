@@ -27,6 +27,7 @@ import studio.one.platform.markdown.application.MarkdownDocumentNotFoundExceptio
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
 import studio.one.platform.markdown.application.MarkdownExtractionResult;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.MarkdownResumeResult;
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.domain.MarkdownLocator;
@@ -80,7 +81,7 @@ public class MarkdownDocumentController {
     public ResponseEntity<ApiResponse<MarkdownResumeResult>> resume(
             @PathVariable String id, @RequestBody(required = false) MarkdownResumeRequest request) {
         return ResponseEntity.accepted().body(ApiResponse.ok(
-                service.resume(id, request == null ? null : request.fromStage())));
+                service.resumeWithOptions(id, resumeOptions(request))));
     }
 
     @PostMapping("/{id}/rag/reindex")
@@ -93,7 +94,13 @@ public class MarkdownDocumentController {
                 request.embeddingProvider(),
                 request.embeddingModel(),
                 request.embeddingDimension(),
-                request.runSkillExtraction())));
+                request.useLlmKeywordExtraction(),
+                request.runSkillExtraction(),
+                request.skillExtractionMode(),
+                request.generateSkillEmbeddings(),
+                request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(),
+                request.skillEmbeddingDimension())));
     }
 
     @GetMapping("/{id}/locators")
@@ -144,7 +151,9 @@ public class MarkdownDocumentController {
                 request.runChunking(), request.runRagIndex(), request.runSkillExtraction(),
                 request.chunkingStrategy(), request.chunkMaxSize(), request.chunkOverlap(), request.chunkUnit(),
                 request.embeddingProfileId(), request.embeddingProvider(), request.embeddingModel(),
-                request.embeddingDimension());
+                request.embeddingDimension(), request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(), request.skillEmbeddingDimension());
     }
 
     private MarkdownPipelineOptions options(MarkdownReextractRequest request) {
@@ -152,6 +161,33 @@ public class MarkdownDocumentController {
                 request.runChunking(), request.runRagIndex(), request.runSkillExtraction(),
                 request.chunkingStrategy(), request.chunkMaxSize(), request.chunkOverlap(), request.chunkUnit(),
                 request.embeddingProfileId(), request.embeddingProvider(), request.embeddingModel(),
-                request.embeddingDimension());
+                request.embeddingDimension(), request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(), request.skillEmbeddingDimension());
+    }
+
+    private MarkdownResumeOptions resumeOptions(MarkdownResumeRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return new MarkdownResumeOptions(
+                request.fromStage(),
+                request.runChunking(),
+                request.runRagIndex(),
+                request.runSkillExtraction(),
+                request.chunkingStrategy(),
+                request.chunkMaxSize(),
+                request.chunkOverlap(),
+                request.chunkUnit(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension(),
+                request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(),
+                request.generateSkillEmbeddings(),
+                request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(),
+                request.skillEmbeddingDimension());
     }
 }

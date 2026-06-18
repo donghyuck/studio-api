@@ -22,7 +22,9 @@ public record SkillRagExtractionRequest(
         String embeddingProvider,
         @Size(max = 200)
         String embeddingModel,
-        Integer embeddingDimension) {
+        Integer embeddingDimension,
+        @Size(max = 20)
+        String candidateExtractorMode) {
 
     public SkillRagExtractionRequest(
             String objectType,
@@ -30,6 +32,6 @@ public record SkillRagExtractionRequest(
             String mode,
             List<String> chunkIds,
             Integer limit) {
-        this(objectType, objectId, null, mode, chunkIds, limit, null, null, null, null, null);
+        this(objectType, objectId, null, mode, chunkIds, limit, null, null, null, null, null, null);
     }
 }

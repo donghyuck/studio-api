@@ -107,9 +107,19 @@ class PyMuPdf4LlmHttpClient implements PyMuPdf4LlmClient {
         options.put("ocrRequired", request.options().ocrRequired());
         options.put("preserveLayout", request.options().preserveLayout());
         options.put("tableExtractionRequired", request.options().tableExtractionRequired());
+        options.put("includeImages", request.options().includeImages());
+        putIfPresent(options, "pageFrom", request.options().pageFrom());
+        putIfPresent(options, "pageTo", request.options().pageTo());
+        putIfPresent(options, "maxPages", request.options().maxPages());
         options.put("filename", sanitizeFilename(request.filename()));
         options.put("contentType", sanitizeHeaderValue(request.contentType(), "application/pdf"));
         return objectMapper.writeValueAsString(options);
+    }
+
+    private void putIfPresent(Map<String, Object> options, String key, Object value) {
+        if (value != null) {
+            options.put(key, value);
+        }
     }
 
     private String sanitizeFilename(String filename) {

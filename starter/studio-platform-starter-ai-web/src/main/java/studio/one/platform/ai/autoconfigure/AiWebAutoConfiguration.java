@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.concurrent.Executor;
 
+import org.springframework.beans.BeanInstantiationException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -11,8 +12,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.Ordered;
@@ -49,6 +51,7 @@ import studio.one.platform.ai.service.visualization.JdbcExistingVectorItemReposi
 import studio.one.platform.ai.service.visualization.JdbcVectorProjectionPointRepository;
 import studio.one.platform.ai.service.visualization.JdbcVectorProjectionRepository;
 import studio.one.platform.ai.service.visualization.VectorProjectionJobService;
+import studio.one.platform.ai.service.visualization.VectorProjectionNotifier;
 import studio.one.platform.ai.service.visualization.VectorProjectionService;
 import studio.one.platform.ai.service.visualization.VectorSearchVisualizationService;
 import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
@@ -84,7 +87,12 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
         "org.springframework.web.bind.annotation.RestController"
 })
 @Conditional(AiWebEndpointCondition.class)
-@EnableConfigurationProperties({AiWebRagProperties.class, AiWebChatProperties.class, RagPipelineProperties.class})
+@EnableConfigurationProperties({
+        AiWebRagProperties.class,
+        AiWebChatProperties.class,
+        RagPipelineProperties.class,
+        VectorProjectionProperties.class
+})
 public class AiWebAutoConfiguration {
 
     @Bean
@@ -201,12 +209,33 @@ public class AiWebAutoConfiguration {
             VectorProjectionRepository projectionRepository,
             VectorProjectionPointRepository pointRepository,
             ExistingVectorItemRepository itemRepository,
-            ObjectProvider<VectorProjectionGenerator> generators) {
+            ObjectProvider<VectorProjectionGenerator> generators,
+            ObjectProvider<VectorProjectionNotifier> projectionNotifierProvider) {
         return new DefaultVectorProjectionJobService(
                 projectionRepository,
                 pointRepository,
                 itemRepository,
-                generators.orderedStream().toList());
+                generators.orderedStream().toList(),
+                projectionNotifierProvider.getIfAvailable(() -> VectorProjectionNotifier.NOOP));
+    }
+
+    @Bean
+    @ConditionalOnClass(name = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
+    @ConditionalOnBean(type = "studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService")
+    @ConditionalOnMissingBean(VectorProjectionNotifier.class)
+    VectorProjectionNotifier vectorProjectionNotifier(ApplicationContext context) {
+        try {
+            Class<?> messagingType = Class.forName("studio.one.platform.realtime.stomp.messaging.RealtimeMessagingService");
+            Object messagingService = context.getBean(messagingType);
+            Class<?> notifierType = Class.forName(
+                    "studio.one.platform.ai.autoconfigure.realtime.StompVectorProjectionNotifier");
+            return (VectorProjectionNotifier) notifierType
+                    .getConstructor(messagingType)
+                    .newInstance(messagingService);
+        } catch (ReflectiveOperationException ex) {
+            throw new BeanInstantiationException(VectorProjectionNotifier.class,
+                    "Failed to create STOMP vector projection notifier", ex);
+        }
     }
 
     @Bean
@@ -217,29 +246,38 @@ public class AiWebAutoConfiguration {
             VectorProjectionPointRepository pointRepository,
             ExistingVectorItemRepository itemRepository,
             VectorProjectionJobService jobService,
-            @Qualifier("vectorProjectionExecutor") Executor vectorProjectionExecutor) {
+            @Qualifier("vectorProjectionExecutor") Executor vectorProjectionExecutor,
+            VectorProjectionProperties properties) {
         return new DefaultVectorProjectionService(
                 projectionRepository,
                 pointRepository,
                 itemRepository,
                 jobService,
-                vectorProjectionExecutor);
+                vectorProjectionExecutor,
+                properties.getMaxItems(),
+                properties.getDefaultSampleSize(),
+                properties.getDefaultSamplingStrategy(),
+                properties.getProcessingTimeout());
     }
 
     @Bean
-    @ConditionalOnBean({EmbeddingPort.class, VectorStorePort.class, VectorProjectionRepository.class,
-            VectorProjectionPointRepository.class})
+    @ConditionalOnBean({EmbeddingPort.class, AiProviderRegistry.class, VectorStorePort.class, VectorProjectionRepository.class,
+            VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
     @ConditionalOnMissingBean
     VectorSearchVisualizationService vectorSearchVisualizationService(
             EmbeddingPort embeddingPort,
+            AiProviderRegistry providerRegistry,
             VectorStorePort vectorStorePort,
             VectorProjectionRepository projectionRepository,
-            VectorProjectionPointRepository pointRepository) {
+            VectorProjectionPointRepository pointRepository,
+            ExistingVectorItemRepository itemRepository) {
         return new DefaultVectorSearchVisualizationService(
                 embeddingPort,
                 vectorStorePort,
                 projectionRepository,
-                pointRepository);
+                pointRepository,
+                itemRepository,
+                providerRegistry);
     }
 
     @Bean

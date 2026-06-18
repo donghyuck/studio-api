@@ -29,6 +29,7 @@ import studio.one.platform.skillgraph.application.service.DefaultSkillCategoryDr
 import studio.one.platform.skillgraph.application.service.DefaultSkillCategoryRelationService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillDictionaryService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionService;
+import studio.one.platform.skillgraph.application.service.DefaultSkillExtractionServiceResolver;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphBatchJobService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillGraphService;
 import studio.one.platform.skillgraph.application.service.DefaultSkillMappingService;
@@ -44,6 +45,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftServ
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryRelationService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
+import studio.one.platform.skillgraph.application.usecase.SkillExtractionServiceResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobNotifier;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphBatchJobService;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
@@ -137,6 +139,74 @@ public class SkillGraphAutoConfiguration {
             SkillEmbeddingPort embeddingPort,
             SkillMatchPolicy matchPolicy) {
         return new DefaultSkillExtractionService(candidateStore, dictionaryStore, extractor, embeddingPort, matchPolicy);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public SkillExtractionServiceResolver skillExtractionServiceResolver(
+            SkillExtractionService configuredService,
+            SkillCandidateStore candidateStore,
+            SkillDictionaryStore dictionaryStore,
+            SkillEmbeddingPort embeddingPort,
+            SkillMatchPolicy matchPolicy,
+            SkillGraphProperties properties,
+            ObjectProvider<PromptRenderer> promptRendererProvider,
+            ObjectProvider<ChatPort> chatPortProvider) {
+        SkillGraphProperties.Extraction extraction = properties.getExtraction();
+        String defaultMode = extraction.getMode().name();
+        SkillExtractionService regexService = extraction.getMode() == SkillGraphProperties.Mode.regex
+                ? configuredService
+                : new DefaultSkillExtractionService(
+                        candidateStore,
+                        dictionaryStore,
+                        new PatternSkillCandidateExtractor(extraction.getMaxTerms()),
+                        embeddingPort,
+                        matchPolicy);
+        SkillExtractionService llmService = extraction.getMode() == SkillGraphProperties.Mode.llm
+                ? configuredService
+                : llmSkillExtractionService(
+                        candidateStore,
+                        dictionaryStore,
+                        embeddingPort,
+                        matchPolicy,
+                        promptRendererProvider.getIfAvailable(),
+                        chatPortProvider.getIfAvailable(),
+                        properties);
+        return new DefaultSkillExtractionServiceResolver(defaultMode, regexService, llmService);
+    }
+
+    private SkillExtractionService llmSkillExtractionService(
+            SkillCandidateStore candidateStore,
+            SkillDictionaryStore dictionaryStore,
+            SkillEmbeddingPort embeddingPort,
+            SkillMatchPolicy matchPolicy,
+            PromptRenderer promptRenderer,
+            ChatPort chatPort,
+            SkillGraphProperties properties) {
+        if (promptRenderer == null || chatPort == null) {
+            return null;
+        }
+        SkillGraphProperties.Extraction extraction = properties.getExtraction();
+        SkillGraphProperties.Llm llm = extraction.getLlm();
+        SkillCandidateExtractor extractor = new LlmSkillCandidateExtractor(
+                candidateStore,
+                dictionaryStore,
+                embeddingPort,
+                matchPolicy,
+                promptRenderer,
+                chatPort,
+                new ObjectMapper(),
+                llm.getPrompt(),
+                extraction.getMaxTerms(),
+                llm.getMaxInputChars(),
+                llm.getMaxOutputTokens(),
+                llm.getTemperature());
+        return new DefaultSkillExtractionService(
+                candidateStore,
+                dictionaryStore,
+                extractor,
+                embeddingPort,
+                matchPolicy);
     }
 
     @Bean(name = SkillCandidateReviewService.SERVICE_NAME)

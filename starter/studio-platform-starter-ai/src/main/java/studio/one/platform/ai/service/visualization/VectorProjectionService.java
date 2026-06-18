@@ -10,9 +10,13 @@ public interface VectorProjectionService {
 
     VectorProjection create(VectorProjectionCreateCommand command);
 
+    VectorProjectionEstimate estimate(VectorProjectionCreateCommand command);
+
     List<VectorProjection> list(int limit, int offset);
 
     VectorProjection get(String projectionId);
+
+    void delete(String projectionId);
 
     ProjectionPointPage points(String projectionId, String targetType, String clusterId, String keyword, int limit, int offset);
 

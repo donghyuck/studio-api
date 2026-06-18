@@ -13,7 +13,14 @@
   </resultMap>
 
   <sql id="metadataConditions">
+    AND embedding IS NOT NULL
     AND embedding_dimension = #{embeddingDimension}
+    <if test="objectTypes != null and objectTypes.size > 0">
+      AND object_type IN
+      <foreach collection="objectTypes" item="objectTypeValue" open="(" separator="," close=")">
+        #{objectTypeValue,jdbcType=VARCHAR}
+      </foreach>
+    </if>
     <if test="metadataObjectType != null">
       AND object_type = #{metadataObjectType,jdbcType=VARCHAR}
     </if>
@@ -33,6 +40,40 @@
         </foreach>
       </foreach>
     </if>
+  </sql>
+
+  <sql id="searchSelectColumns">
+    id,
+    object_id,
+    <choose>
+      <when test="includeText">text</when>
+      <otherwise>NULL::text AS text</otherwise>
+    </choose>,
+    <choose>
+      <when test="includeMetadata and minimalMetadata">
+        jsonb_strip_nulls(jsonb_build_object(
+          'chunkId', metadata -&gt; 'chunkId',
+          'documentId', metadata -&gt; 'documentId',
+          '_vectorRowId', 'row-' || id
+        )) AS metadata
+      </when>
+      <when test="includeMetadata">metadata</when>
+      <otherwise>'{}'::jsonb AS metadata</otherwise>
+    </choose>
+  </sql>
+
+  <sql id="distanceExpression">
+    <choose>
+      <when test="embeddingDimension == 1024">
+        (embedding::vector(1024) &lt;-&gt; CAST(#{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler} AS vector(1024)))
+      </when>
+      <when test="embeddingDimension == 768">
+        (embedding::vector(768) &lt;-&gt; CAST(#{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler} AS vector(768)))
+      </when>
+      <otherwise>
+        (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler})
+      </otherwise>
+    </choose>
   </sql>
 
   <sql id="metadataWhere">
@@ -97,11 +138,11 @@
 
   <select id="search" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"
           resultMap="PgVectorSearchRowMap">
-    SELECT id, object_id, text, metadata,
-           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance
+    SELECT <include refid="searchSelectColumns"/>,
+           <include refid="distanceExpression"/> AS distance
     FROM tb_ai_document_chunk
     <include refid="metadataWhere"/>
-    ORDER BY embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler} ASC
+    ORDER BY <include refid="distanceExpression"/> ASC
     LIMIT #{limit}
   </select>
 
@@ -113,22 +154,28 @@
 
   <select id="searchByObject" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorSearchParameter"
           resultMap="PgVectorSearchRowMap">
-    SELECT id, object_id, text, metadata,
-           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance
+    SELECT <include refid="searchSelectColumns"/>,
+           <include refid="distanceExpression"/> AS distance
     FROM tb_ai_document_chunk
-    WHERE (CAST(#{objectType,jdbcType=VARCHAR} AS varchar) IS NULL OR object_type = CAST(#{objectType,jdbcType=VARCHAR} AS varchar))
-      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
-    <include refid="metadataConditions"/>
-    ORDER BY embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler} ASC
+    <where>
+      <if test="objectType != null">
+        AND object_type = #{objectType,jdbcType=VARCHAR}
+      </if>
+      <if test="objectId != null">
+        AND object_id = #{objectId,jdbcType=VARCHAR}
+      </if>
+      <include refid="metadataConditions"/>
+    </where>
+    ORDER BY <include refid="distanceExpression"/> ASC
     LIMIT #{limit}
   </select>
 
   <select id="hybridSearch" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorHybridSearchParameter"
           resultMap="PgVectorSearchRowMap">
-    SELECT id, object_id, text, metadata,
-           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance,
+    SELECT <include refid="searchSelectColumns"/>,
+           <include refid="distanceExpression"/> AS distance,
            ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})) AS bm25,
-           ((embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) * #{vectorWeight})
+           (<include refid="distanceExpression"/> * #{vectorWeight})
              - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})), 0) * #{lexicalWeight}) AS hybrid
     FROM tb_ai_document_chunk
     <include refid="metadataWhere"/>
@@ -138,15 +185,21 @@
 
   <select id="hybridSearchByObject" parameterType="studio.one.platform.ai.adapters.vector.mybatis.PgVectorHybridSearchParameter"
           resultMap="PgVectorSearchRowMap">
-    SELECT id, object_id, text, metadata,
-           (embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) AS distance,
+    SELECT <include refid="searchSelectColumns"/>,
+           <include refid="distanceExpression"/> AS distance,
            ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})) AS bm25,
-           ((embedding &lt;-&gt; #{vector,typeHandler=studio.one.platform.ai.adapters.vector.mybatis.PgVectorTypeHandler}) * #{vectorWeight})
+           (<include refid="distanceExpression"/> * #{vectorWeight})
              - (COALESCE(ts_rank_cd(to_tsvector('simple', text || ' ' || COALESCE(metadata-&gt;&gt;'keywordsText','')), plainto_tsquery(#{query,jdbcType=VARCHAR})), 0) * #{lexicalWeight}) AS hybrid
     FROM tb_ai_document_chunk
-    WHERE (CAST(#{objectType,jdbcType=VARCHAR} AS varchar) IS NULL OR object_type = CAST(#{objectType,jdbcType=VARCHAR} AS varchar))
-      AND (CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar))
-    <include refid="metadataConditions"/>
+    <where>
+      <if test="objectType != null">
+        AND object_type = #{objectType,jdbcType=VARCHAR}
+      </if>
+      <if test="objectId != null">
+        AND object_id = #{objectId,jdbcType=VARCHAR}
+      </if>
+      <include refid="metadataConditions"/>
+    </where>
     ORDER BY hybrid ASC
     LIMIT #{limit}
   </select>

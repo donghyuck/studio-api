@@ -48,6 +48,11 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
                 .map(point -> new MapSqlParameterSource()
                         .addValue("projectionId", point.projectionId())
                         .addValue("vectorItemId", point.vectorItemId())
+                        .addValue("documentChunkId", point.documentChunkId())
+                        .addValue("targetType", point.targetType())
+                        .addValue("sourceId", point.sourceId())
+                        .addValue("label", point.label())
+                        .addValue("metadataPreview", writeJson(point.metadataPreview()))
                         .addValue("x", point.x())
                         .addValue("y", point.y())
                         .addValue("clusterId", point.clusterId())
@@ -56,9 +61,11 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
                 .toArray(MapSqlParameterSource[]::new);
         jdbcTemplate.batchUpdate("""
                 INSERT INTO tb_ai_vector_projection_point(
-                    projection_id, vector_item_id, x, y, cluster_id, display_order, created_at)
+                    projection_id, vector_item_id, document_chunk_id, target_type, source_id, label,
+                    metadata_preview_json, x, y, cluster_id, display_order, created_at)
                 VALUES (
-                    :projectionId, :vectorItemId, :x, :y, :clusterId, :displayOrder, :createdAt)
+                    :projectionId, :vectorItemId, :documentChunkId, :targetType, :sourceId, :label,
+                    :metadataPreview, :x, :y, :clusterId, :displayOrder, :createdAt)
                 """, params);
     }
 
@@ -78,25 +85,25 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
                 .addValue("limit", limit)
                 .addValue("offset", offset);
         String where = whereClause(targetType, clusterId, keyword);
-        Long total = jdbcTemplate.queryForObject("""
-                SELECT COUNT(*)
-                  FROM tb_ai_vector_projection_point p
-                  JOIN tb_ai_document_chunk c
-                    ON p.vector_item_id = """ + pointJoinExpression() + """
-                 WHERE p.projection_id = :projectionId
-                """ + where, params, Long.class);
+        Long total = jdbcTemplate.queryForObject(countSql(targetType, keyword, where), params, Long.class);
         List<ProjectionPointView> items = jdbcTemplate.query("""
-                SELECT p.vector_item_id, c.object_type, c.object_id, c.text, c.metadata,
+                SELECT p.vector_item_id, p.target_type, p.source_id, p.label, p.metadata_preview_json,
                        p.x, p.y, p.cluster_id
                   FROM tb_ai_vector_projection_point p
-                  JOIN tb_ai_document_chunk c
-                    ON p.vector_item_id = """ + pointJoinExpression() + """
                  WHERE p.projection_id = :projectionId
                 """ + where + """
                 """ + JdbcVectorProjectionSql.orderByDisplayOrderClause(postgres) + """
                  LIMIT :limit OFFSET :offset
                 """, params, rowMapper);
         return new ProjectionPointPage(total == null ? 0L : total, items);
+    }
+
+    String countSql(String targetType, String keyword, String where) {
+        return """
+                SELECT COUNT(*)
+                  FROM tb_ai_vector_projection_point p
+                 WHERE p.projection_id = :projectionId
+                """ + where;
     }
 
     @Override
@@ -109,11 +116,9 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
             return List.of();
         }
         return jdbcTemplate.query("""
-                SELECT p.vector_item_id, c.object_type, c.object_id, c.text, c.metadata,
+                SELECT p.vector_item_id, p.target_type, p.source_id, p.label, p.metadata_preview_json,
                        p.x, p.y, p.cluster_id
                   FROM tb_ai_vector_projection_point p
-                  JOIN tb_ai_document_chunk c
-                    ON p.vector_item_id = """ + pointJoinExpression() + """
                  WHERE p.projection_id = :projectionId
                    AND p.vector_item_id IN (:vectorItemIds)
                 """, new MapSqlParameterSource()
@@ -129,7 +134,7 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
     private String whereClause(String targetType, String clusterId, String keyword) {
         StringBuilder where = new StringBuilder();
         if (targetType != null) {
-            where.append(" AND c.object_type = :targetType");
+            where.append(" AND p.target_type = :targetType");
         }
         if (clusterId != null) {
             where.append(" AND p.cluster_id = :clusterId");
@@ -137,10 +142,8 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
         if (keyword != null) {
             where.append("""
                      AND (
-                         LOWER(c.object_id) LIKE :keyword
-                      OR LOWER(c.text) LIKE :keyword
-                      OR LOWER(COALESCE(""" + labelExpressions() + """
-                                        , '')) LIKE :keyword
+                         LOWER(COALESCE(p.source_id, '')) LIKE :keyword
+                      OR LOWER(COALESCE(p.label, '')) LIKE :keyword
                      )
                     """);
         }
@@ -148,12 +151,16 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
     }
 
     private ProjectionPointView mapView(ResultSet rs, int rowNum) throws SQLException {
-        Map<String, Object> metadata = readJson(rs.getString("metadata"));
-        String label = label(metadata, rs.getString("object_id"));
+        Map<String, Object> metadata = readJson(rs.getString("metadata_preview_json"));
+        String sourceId = rs.getString("source_id");
+        String label = rs.getString("label");
+        if (label == null || label.isBlank()) {
+            label = label(metadata, sourceId);
+        }
         return new ProjectionPointView(
                 rs.getString("vector_item_id"),
-                rs.getString("object_type"),
-                rs.getString("object_id"),
+                rs.getString("target_type"),
+                sourceId,
                 label,
                 rs.getDouble("x"),
                 rs.getDouble("y"),
@@ -172,6 +179,17 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
         }
     }
 
+    private String writeJson(Map<String, Object> value) {
+        if (value == null || value.isEmpty()) {
+            return "{}";
+        }
+        try {
+            return objectMapper.writeValueAsString(VectorVisualizationMetadataSanitizer.sanitize(value));
+        } catch (Exception ex) {
+            return "{}";
+        }
+    }
+
     private String label(Map<String, Object> metadata, String fallback) {
         for (String key : List.of("sourceName", "title", "filename", "fileName", "name", "headingPath", "sourceRef")) {
             Object value = metadata.get(key);
@@ -180,26 +198,6 @@ public class JdbcVectorProjectionPointRepository implements VectorProjectionPoin
             }
         }
         return fallback;
-    }
-
-    private String pointJoinExpression() {
-        return "COALESCE(NULLIF(" + jsonText("c", "chunkId") + ",''), "
-                + JdbcVectorProjectionSql.rowVectorItemId("c.id", postgres) + ")";
-    }
-
-    private String labelExpressions() {
-        return String.join(", ", List.of(
-                jsonText("c", "sourceName"),
-                jsonText("c", "title"),
-                jsonText("c", "filename"),
-                jsonText("c", "fileName"),
-                jsonText("c", "name"),
-                jsonText("c", "headingPath"),
-                jsonText("c", "sourceRef")));
-    }
-
-    private String jsonText(String alias, String key) {
-        return JdbcVectorProjectionSql.jsonText(alias, key, postgres);
     }
 
 }

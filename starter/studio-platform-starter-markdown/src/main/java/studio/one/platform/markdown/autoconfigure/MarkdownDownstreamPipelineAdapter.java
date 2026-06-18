@@ -81,7 +81,8 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 throw new IllegalStateException("RAG index job service is not configured");
             }
             RagIndexRequest indexRequest = new RagIndexRequest(
-                    revision.documentId(), revision.markdownText(), metadata, List.of(), false,
+                    revision.documentId(), revision.markdownText(), metadata, List.of(),
+                    options.useLlmKeywordExtraction(),
                     options.embeddingProfileId(), options.embeddingProvider(), options.embeddingModel(),
                     options.embeddingDimension());
             RagIndexJob job = ragJobService.createJob(new RagIndexJobCreateRequest(
@@ -102,7 +103,16 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             if (skillService == null) {
                 throw new IllegalStateException("Skill extraction service is not configured");
             }
-            skillService.submitAllChunks(objectType, objectId, null);
+            skillService.submitAllChunks(
+                    objectType,
+                    objectId,
+                    null,
+                    false,
+                    options.generateSkillEmbeddings(),
+                    options.skillEmbeddingProvider(),
+                    options.skillEmbeddingModel(),
+                    options.skillEmbeddingDimension(),
+                    options.skillExtractionMode());
             stageCompleted.accept(MarkdownPipelineStage.SKILL_EXTRACTION);
         }
     }

@@ -11,5 +11,11 @@ public record MarkdownReextractRequest(
         String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
-        Integer embeddingDimension) {
+        Integer embeddingDimension,
+        boolean useLlmKeywordExtraction,
+        String skillExtractionMode,
+        boolean generateSkillEmbeddings,
+        String skillEmbeddingProvider,
+        String skillEmbeddingModel,
+        Integer skillEmbeddingDimension) {
 }

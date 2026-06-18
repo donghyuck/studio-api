@@ -96,4 +96,22 @@ class VectorProjectionGeneratorAutoConfigurationTest {
                     assertThat(ReflectionTestUtils.getField(projectionService, "jobService")).isSameAs(jobService);
                 });
     }
+
+    @Test
+    void projectionLimitsAreBoundFromConfiguration() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.ai.vector.projection.max-items=750",
+                        "studio.ai.vector.projection.default-sample-size=500")
+                .withBean(VectorProjectionRepository.class, () -> mock(VectorProjectionRepository.class))
+                .withBean(VectorProjectionPointRepository.class, () -> mock(VectorProjectionPointRepository.class))
+                .withBean(ExistingVectorItemRepository.class, () -> mock(ExistingVectorItemRepository.class))
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    DefaultVectorProjectionService projectionService =
+                            (DefaultVectorProjectionService) context.getBean(VectorProjectionService.class);
+                    assertThat(ReflectionTestUtils.getField(projectionService, "maxItems")).isEqualTo(750);
+                    assertThat(ReflectionTestUtils.getField(projectionService, "defaultSampleSize")).isEqualTo(500);
+                });
+    }
 }

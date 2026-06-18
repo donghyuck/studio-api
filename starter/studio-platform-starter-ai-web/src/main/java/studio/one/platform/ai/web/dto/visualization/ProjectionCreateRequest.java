@@ -10,5 +10,16 @@ public record ProjectionCreateRequest(
         @NotBlank @Size(max = 200) String name,
         List<String> targetTypes,
         String algorithm,
-        Map<String, Object> filters) {
+        Map<String, Object> filters,
+        String mode,
+        Integer sampleSize,
+        String samplingStrategy) {
+
+    public ProjectionCreateRequest(
+            String name,
+            List<String> targetTypes,
+            String algorithm,
+            Map<String, Object> filters) {
+        this(name, targetTypes, algorithm, filters, null, null, null);
+    }
 }

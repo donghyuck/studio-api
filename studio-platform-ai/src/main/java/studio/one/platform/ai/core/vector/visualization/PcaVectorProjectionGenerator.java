@@ -22,4 +22,16 @@ public class PcaVectorProjectionGenerator implements VectorProjectionGenerator {
         List<double[]> coordinates = ProjectionCoordinateSupport.pcaCoordinates(usable);
         return ProjectionCoordinateSupport.points(projectionId, usable, coordinates, createdAt);
     }
+
+    public List<VectorProjectionPoint> generateProjectionVectors(
+            String projectionId,
+            List<ProjectionVector> vectors,
+            Instant createdAt) {
+        List<ProjectionVector> usable = ProjectionCoordinateSupport.usableVectors(vectors);
+        if (usable.isEmpty()) {
+            return List.of();
+        }
+        List<double[]> coordinates = ProjectionCoordinateSupport.pcaVectorCoordinates(usable);
+        return ProjectionCoordinateSupport.vectorPoints(projectionId, usable, coordinates, createdAt);
+    }
 }

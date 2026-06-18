@@ -3,6 +3,7 @@ import logging
 import os
 import tempfile
 import time
+from collections.abc import Sequence
 from typing import Any
 
 import fitz
@@ -55,18 +56,37 @@ async def extract_pdf(
         temp.write(content)
         temp.flush()
         try:
-            markdown = to_markdown(temp.name)
             with fitz.open(temp.name) as document:
-                pages = extract_pages(document)
-                images = extract_images(document)
+                page_numbers = page_range(parsed_options, document.page_count)
+                markdown = to_markdown(temp.name, page_numbers, range_requested(parsed_options))
+                pages = extract_pages(document, page_numbers)
+                images = extract_images(document, page_numbers, bool(parsed_options.get("includeImages")))
                 metadata = dict(document.metadata or {})
                 metadata["pageCount"] = document.page_count
+                metadata["pageFrom"] = page_numbers[0] + 1 if page_numbers else None
+                metadata["pageTo"] = page_numbers[-1] + 1 if page_numbers else None
+                metadata["rangePageCount"] = len(page_numbers)
+                metadata["textLength"] = len(markdown.strip())
+        except HTTPException:
+            raise
         except Exception as exc:
             logger.exception("Failed to extract PDF with PyMuPDF4LLM")
             raise HTTPException(status_code=422, detail="PDF extraction failed") from exc
 
-    blocks = markdown_blocks(markdown)
-    tables = markdown_tables(markdown)
+    if not markdown.strip():
+        warnings.append({
+            "code": "PYMUPDF4LLM_EMPTY_TEXT",
+            "message": "PyMuPDF4LLM returned empty markdown text.",
+            "sourceRef": "document",
+            "metadata": {
+                "pageFrom": metadata.get("pageFrom"),
+                "pageTo": metadata.get("pageTo"),
+            },
+        })
+
+    first_page = metadata.get("pageFrom") or 1
+    blocks = markdown_blocks(markdown, first_page)
+    tables = markdown_tables(markdown, first_page)
     elapsed_ms = int((time.monotonic() - started) * 1000)
     return {
         "filename": file.filename,
@@ -93,19 +113,58 @@ def parse_options(raw: str) -> dict[str, Any]:
     return value
 
 
-def to_markdown(path: str) -> str:
+def page_range(options: dict[str, Any], page_count: int) -> list[int]:
+    page_from = positive_int(options.get("pageFrom"), 1)
+    page_to = positive_int(options.get("pageTo"), page_count)
+    max_pages = positive_int(options.get("maxPages"), None)
+    page_from = max(1, min(page_from, page_count))
+    page_to = max(1, min(page_to, page_count))
+    if page_to < page_from:
+        raise HTTPException(status_code=400, detail="pageTo must be greater than or equal to pageFrom")
+    if max_pages is not None:
+        page_to = min(page_to, page_from + max_pages - 1)
+    return list(range(page_from - 1, page_to))
+
+
+def range_requested(options: dict[str, Any]) -> bool:
+    return any(key in options for key in ("pageFrom", "pageTo", "maxPages"))
+
+
+def positive_int(value: Any, default: int | None) -> int | None:
+    if value is None or value == "":
+        return default
     try:
-        value = pymupdf4llm.to_markdown(path, page_chunks=False)
-    except TypeError:
+        parsed = int(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="page range options must be positive integers") from exc
+    if parsed <= 0:
+        raise HTTPException(status_code=400, detail="page range options must be positive integers")
+    return parsed
+
+
+def to_markdown(path: str, page_numbers: Sequence[int], requested_range: bool) -> str:
+    try:
+        value = pymupdf4llm.to_markdown(path, page_chunks=False, pages=list(page_numbers))
+    except TypeError as exc:
+        if requested_range:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "errorCode": "PYMUPDF4LLM_PAGE_RANGE_UNSUPPORTED",
+                    "message": "Installed pymupdf4llm does not support page range extraction.",
+                },
+            ) from exc
         value = pymupdf4llm.to_markdown(path)
     if isinstance(value, list):
         return "\n\n".join(str(chunk) for chunk in value)
     return str(value or "")
 
 
-def extract_pages(document: fitz.Document) -> list[dict[str, Any]]:
+def extract_pages(document: fitz.Document, page_numbers: Sequence[int]) -> list[dict[str, Any]]:
     pages: list[dict[str, Any]] = []
-    for index, page in enumerate(document, start=1):
+    for zero_based in page_numbers:
+        page = document[zero_based]
+        index = zero_based + 1
         pages.append({
             "pageNumber": index,
             "text": page.get_text("text"),
@@ -119,9 +178,13 @@ def extract_pages(document: fitz.Document) -> list[dict[str, Any]]:
     return pages
 
 
-def extract_images(document: fitz.Document) -> list[dict[str, Any]]:
+def extract_images(document: fitz.Document, page_numbers: Sequence[int], include_images: bool) -> list[dict[str, Any]]:
+    if not include_images:
+        return []
     images: list[dict[str, Any]] = []
-    for page_index, page in enumerate(document, start=1):
+    for zero_based in page_numbers:
+        page = document[zero_based]
+        page_index = zero_based + 1
         for image_index, image in enumerate(page.get_images(full=True)):
             source_ref = f"page[{page_index}]/image[{image_index}]"
             images.append({
@@ -141,12 +204,11 @@ def extract_images(document: fitz.Document) -> list[dict[str, Any]]:
     return images
 
 
-def markdown_blocks(markdown: str) -> list[dict[str, Any]]:
+def markdown_blocks(markdown: str, page_number: int) -> list[dict[str, Any]]:
     blocks: list[dict[str, Any]] = []
     order = 0
     for paragraph in split_paragraphs(markdown):
         block_type = block_type_for(paragraph)
-        page_number = 1
         source_ref = f"page[{page_number}]/block[{order}]"
         block: dict[str, Any] = {
             "type": block_type,
@@ -163,7 +225,7 @@ def markdown_blocks(markdown: str) -> list[dict[str, Any]]:
     return blocks
 
 
-def markdown_tables(markdown: str) -> list[dict[str, Any]]:
+def markdown_tables(markdown: str, page_number: int) -> list[dict[str, Any]]:
     tables: list[dict[str, Any]] = []
     current: list[str] = []
     for line in markdown.splitlines() + [""]:
@@ -172,10 +234,10 @@ def markdown_tables(markdown: str) -> list[dict[str, Any]]:
             continue
         if current:
             table_index = len(tables)
-            source_ref = f"page[1]/table[{table_index}]"
+            source_ref = f"page[{page_number}]/table[{table_index}]"
             headers, rows = parse_markdown_table(current)
             tables.append({
-                "pageNumber": 1,
+                "pageNumber": page_number,
                 "caption": "",
                 "headers": headers,
                 "rows": rows,

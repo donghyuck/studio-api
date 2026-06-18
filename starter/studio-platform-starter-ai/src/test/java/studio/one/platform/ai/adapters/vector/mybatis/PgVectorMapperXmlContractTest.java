@@ -15,15 +15,13 @@ class PgVectorMapperXmlContractTest {
 
         assertThat(mapper)
                 .contains("<select id=\"searchByObject\"")
-                .contains("<select id=\"hybridSearchByObject\"");
-        assertThat(mapper.split(Pattern.quote(
-                "CAST(#{objectType,jdbcType=VARCHAR} AS varchar) IS NULL OR object_type = CAST(#{objectType,jdbcType=VARCHAR} AS varchar)"),
-                -1))
-                .hasSize(3);
+                .contains("<select id=\"hybridSearchByObject\"")
+                .contains("<if test=\"objectType != null\">")
+                .contains("<if test=\"objectId != null\">");
         assertThat(mapper.split(Pattern.quote(
                 "CAST(#{objectId,jdbcType=VARCHAR} AS varchar) IS NULL OR object_id = CAST(#{objectId,jdbcType=VARCHAR} AS varchar)"),
                 -1))
-                .hasSize(8);
+                .hasSize(6);
     }
 
     @Test

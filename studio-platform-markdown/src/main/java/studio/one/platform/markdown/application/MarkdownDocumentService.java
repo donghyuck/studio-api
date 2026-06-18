@@ -91,7 +91,9 @@ public class MarkdownDocumentService {
                     extractorType, extractorVersion, optionsHash);
             if (reusable.isPresent()) {
                 MarkdownRevision revision = reusable.get();
-                return new MarkdownExtractionResult(requireDocument(revision.documentId()), revision, true);
+                if (hasText(revision.markdownText())) {
+                    return new MarkdownExtractionResult(requireDocument(revision.documentId()), revision, true);
+                }
             }
         }
 
@@ -145,7 +147,7 @@ public class MarkdownDocumentService {
                     revision.extractorVersion(), headingLocators(revision.revisionId(), markdown), List.of());
             prepareAndSchedulePipeline(completed);
         } catch (RuntimeException ex) {
-            fail(revision, "REVISION_STORE_FAILED", ex.getMessage());
+            fail(revision, extractionErrorCode(ex, "REVISION_STORE_FAILED"), ex.getMessage());
         }
     }
 
@@ -196,12 +198,20 @@ public class MarkdownDocumentService {
     }
 
     public MarkdownResumeResult resume(String documentId, MarkdownPipelineStage requestedStage) {
+        return resumeWithOptions(documentId, MarkdownResumeOptions.fromStage(requestedStage));
+    }
+
+    public MarkdownResumeResult resumeWithOptions(String documentId, MarkdownResumeOptions request) {
         MarkdownDocument document = requireDocument(documentId);
         MarkdownRevision revision = latestRevision(documentId);
+        MarkdownPipelineStage requestedStage = request == null ? null : request.fromStage();
+
         if (revision.status() != MarkdownRevisionStatus.COMPLETED) {
             if (revision.status().terminal() || "PANDOC".equalsIgnoreCase(revision.extractorType())) {
+                MarkdownPipelineOptions previous = readOptions(revision.optionsJson());
+                MarkdownPipelineOptions options = request == null ? previous : merge(previous, request);
                 MarkdownExtractionResult restarted = create(new MarkdownExtractionRequest(
-                        revision.sourceAttachmentId(), readOptions(revision.optionsJson()), true, "resume"));
+                        revision.sourceAttachmentId(), options, true, "resume"));
                 return new MarkdownResumeResult(restarted.document(), restarted.revision(), null,
                         "EXTRACTION", null);
             }
@@ -209,8 +219,31 @@ public class MarkdownDocumentService {
             scheduleNative(revisionId);
             return new MarkdownResumeResult(document, revision, null, "EXTRACTION", null);
         }
+        if (!hasText(revision.markdownText())) {
+            MarkdownPipelineOptions previous = readOptions(revision.optionsJson());
+            MarkdownPipelineOptions options = request == null ? previous : merge(previous, request);
+            MarkdownExtractionResult restarted = create(new MarkdownExtractionRequest(
+                    revision.sourceAttachmentId(), options, true, "resume"));
+            return new MarkdownResumeResult(restarted.document(), restarted.revision(), null,
+                    "EXTRACTION", null);
+        }
 
-        MarkdownPipelineOptions options = readOptions(revision.optionsJson());
+        MarkdownPipelineOptions previous = readOptions(revision.optionsJson());
+        MarkdownPipelineOptions options = request == null ? previous : merge(previous, request);
+
+        if (request != null) {
+            String newOptionsJson = writeOptions(options);
+            String newOptionsHash = hash(newOptionsJson.getBytes(StandardCharsets.UTF_8));
+            revision = new MarkdownRevision(
+                    revision.revisionId(), revision.documentId(), revision.sourceAttachmentId(),
+                    revision.resultAttachmentId(), revision.documentConvertJobId(), revision.extractorType(), revision.extractorVersion(),
+                    newOptionsJson, newOptionsHash, revision.sourceContentHash(), revision.contentHash(), revision.markdownText(),
+                    revision.sourceFileName(), revision.sourceFormat(), revision.sourceObjectType(), revision.sourceObjectId(),
+                    revision.status(), revision.errorCode(), revision.errorMessage(), revision.createdAt(),
+                    revision.startedAt(), revision.completedAt(), revision.updatedAt());
+            repository.saveRevision(revision);
+        }
+
         MarkdownPipelineStage fromStage = requestedStage == null ? resumeStage(revision, options) : requestedStage;
         if (fromStage == MarkdownPipelineStage.COMPLETED) {
             return new MarkdownResumeResult(document, revision,
@@ -225,6 +258,53 @@ public class MarkdownDocumentService {
         return new MarkdownResumeResult(document, revision, execution, "PIPELINE", fromStage);
     }
 
+    private MarkdownPipelineOptions merge(MarkdownPipelineOptions previous, MarkdownResumeOptions request) {
+        boolean runChunking = request.runChunking() != null ? request.runChunking() : previous.runChunking();
+        boolean runRagIndex = request.runRagIndex() != null ? request.runRagIndex() : previous.runRagIndex();
+        boolean runSkillExtraction = request.runSkillExtraction() != null ? request.runSkillExtraction() : previous.runSkillExtraction();
+
+        String chunkingStrategy = request.chunkingStrategy() != null ? request.chunkingStrategy() : previous.chunkingStrategy();
+        Integer chunkMaxSize = request.chunkMaxSize() != null ? request.chunkMaxSize() : previous.chunkMaxSize();
+        Integer chunkOverlap = request.chunkOverlap() != null ? request.chunkOverlap() : previous.chunkOverlap();
+        String chunkUnit = request.chunkUnit() != null ? request.chunkUnit() : previous.chunkUnit();
+
+        String embeddingProfileId = request.embeddingProfileId() != null ? request.embeddingProfileId() : previous.embeddingProfileId();
+        String embeddingProvider = request.embeddingProvider() != null ? request.embeddingProvider() : previous.embeddingProvider();
+        String embeddingModel = request.embeddingModel() != null ? request.embeddingModel() : previous.embeddingModel();
+        Integer embeddingDimension = request.embeddingDimension() != null ? request.embeddingDimension() : previous.embeddingDimension();
+        boolean useLlmKeywordExtraction = request.useLlmKeywordExtraction() != null
+                ? request.useLlmKeywordExtraction()
+                : previous.useLlmKeywordExtraction();
+        String skillExtractionMode = request.skillExtractionMode() != null
+                ? request.skillExtractionMode()
+                : previous.skillExtractionMode();
+        boolean generateSkillEmbeddings = request.generateSkillEmbeddings() != null
+                ? request.generateSkillEmbeddings()
+                : previous.generateSkillEmbeddings();
+        String skillEmbeddingProvider = request.skillEmbeddingProvider() != null
+                ? request.skillEmbeddingProvider()
+                : previous.skillEmbeddingProvider();
+        String skillEmbeddingModel = request.skillEmbeddingModel() != null
+                ? request.skillEmbeddingModel()
+                : previous.skillEmbeddingModel();
+        Integer skillEmbeddingDimension = request.skillEmbeddingDimension() != null
+                ? request.skillEmbeddingDimension()
+                : previous.skillEmbeddingDimension();
+
+        if (request.embeddingProfileId() != null && !request.embeddingProfileId().isBlank()) {
+            embeddingProvider = null;
+            embeddingModel = null;
+            embeddingDimension = null;
+        }
+
+        return new MarkdownPipelineOptions(
+                runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
+    }
+
     public MarkdownResumeResult reindexRag(
             String documentId,
             String embeddingProfileId,
@@ -232,10 +312,38 @@ public class MarkdownDocumentService {
             String embeddingModel,
             Integer embeddingDimension,
             boolean runSkillExtraction) {
+        return reindexRag(
+                documentId,
+                embeddingProfileId,
+                embeddingProvider,
+                embeddingModel,
+                embeddingDimension,
+                false,
+                runSkillExtraction,
+                null,
+                false,
+                null,
+                null,
+                null);
+    }
+
+    public MarkdownResumeResult reindexRag(
+            String documentId,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            boolean useLlmKeywordExtraction,
+            boolean runSkillExtraction,
+            String skillExtractionMode,
+            boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension) {
         MarkdownDocument document = requireDocument(documentId);
         MarkdownRevision source = latestRevision(documentId);
-        if (source.status() != MarkdownRevisionStatus.COMPLETED || source.markdownText() == null) {
-            throw new IllegalStateException("Completed Markdown revision is required for RAG reindex");
+        if (source.status() != MarkdownRevisionStatus.COMPLETED || !hasText(source.markdownText())) {
+            throw new IllegalStateException("Completed Markdown revision with text is required for RAG reindex");
         }
 
         MarkdownPipelineOptions previous = readOptions(source.optionsJson());
@@ -254,7 +362,13 @@ public class MarkdownDocumentService {
                 explicitSelection ? embeddingProfileId : previous.embeddingProfileId(),
                 explicitSelection ? embeddingProvider : previous.embeddingProvider(),
                 explicitSelection ? embeddingModel : previous.embeddingModel(),
-                explicitSelection ? embeddingDimension : previous.embeddingDimension());
+                explicitSelection ? embeddingDimension : previous.embeddingDimension(),
+                useLlmKeywordExtraction,
+                skillExtractionMode,
+                generateSkillEmbeddings,
+                skillEmbeddingProvider,
+                skillEmbeddingModel,
+                skillEmbeddingDimension);
         String optionsJson = writeOptions(options);
         String optionsHash = hash(optionsJson.getBytes(StandardCharsets.UTF_8));
         Instant now = nextRevisionTime(source.updatedAt());
@@ -373,6 +487,9 @@ public class MarkdownDocumentService {
             String extractorVersion, List<MarkdownLocator> locators, List<MarkdownResource> resources) {
         Instant now = clock.instant();
         String normalized = markdown == null ? "" : markdown;
+        if (normalized.isBlank()) {
+            throw new NoTextExtractedException("Extracted markdown text is blank");
+        }
         MarkdownRevision completed = repository.saveRevision(copy(revision, MarkdownRevisionStatus.COMPLETED,
                 normalized, hash(normalized.getBytes(StandardCharsets.UTF_8)), resultAttachmentId,
                 revision.documentConvertJobId(), normalize(extractorVersion, revision.extractorVersion()),
@@ -402,14 +519,31 @@ public class MarkdownDocumentService {
             MarkdownSourcePort.MarkdownSource source = sourcePort.load(revision.sourceAttachmentId());
             MarkdownNativeExtractorPort.NativeExtraction extracted = nativeExtractor.extract(source, revisionId);
             MarkdownRevision completed = transactions.required(() -> {
+                repository.replaceExtractParts(revision.revisionId(), extracted.extractParts());
+                if (!hasText(extracted.markdown()) && hasText(extracted.errorCode())) {
+                    fail(revision, extracted.errorCode(), extracted.errorMessage());
+                    return null;
+                }
                 MarkdownRevision value = complete(revision, null, extracted.markdown(), revision.extractorVersion(),
                         extracted.locators(), extracted.resources());
                 preparePipeline(value);
                 return value;
             });
-            schedulePreparedPipeline(completed);
+            if (completed != null) {
+                schedulePreparedPipeline(completed);
+            }
         } catch (RuntimeException ex) {
-            transactions.required(() -> fail(revision, "EXTRACTION_FAILED", ex.getMessage()));
+            transactions.required(() -> fail(revision, extractionErrorCode(ex, "EXTRACTION_FAILED"), ex.getMessage()));
+        }
+    }
+
+    private String extractionErrorCode(RuntimeException ex, String fallback) {
+        return ex instanceof NoTextExtractedException ? "NO_TEXT_EXTRACTED" : fallback;
+    }
+
+    private static final class NoTextExtractedException extends RuntimeException {
+        private NoTextExtractedException(String message) {
+            super(message);
         }
     }
 

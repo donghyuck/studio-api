@@ -10,6 +10,7 @@ public record SkillRagExtractionJob(
         String documentId,
         String query,
         String extractionMode,
+        String candidateExtractorMode,
         List<String> selectedChunkIds,
         SkillRagExtractionJobStatus status,
         int requestedChunks,
@@ -48,7 +49,7 @@ public record SkillRagExtractionJob(
             String error,
             Instant createdAt,
             Instant updatedAt) {
-        this(jobId, objectType, objectId, documentId, null, "ALL_CHUNKS", List.of(), status,
+        this(jobId, objectType, objectId, documentId, null, "ALL_CHUNKS", null, List.of(), status,
                 requestedChunks, totalChunks, processedChunks,
                 succeededChunks, failedChunks, extractedCount, error, false, false, null, null, null, null, null,
                 createdAt, updatedAt);
@@ -76,7 +77,7 @@ public record SkillRagExtractionJob(
             String embeddingStatus,
             Instant createdAt,
             Instant updatedAt) {
-        this(jobId, objectType, objectId, documentId, null, "ALL_CHUNKS", List.of(), status,
+        this(jobId, objectType, objectId, documentId, null, "ALL_CHUNKS", null, List.of(), status,
                 requestedChunks, totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error,
                 excludeExtracted, generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension,
                 embeddingJobId, embeddingStatus, createdAt, updatedAt);
@@ -84,6 +85,7 @@ public record SkillRagExtractionJob(
 
     public SkillRagExtractionJob withStatus(SkillRagExtractionJobStatus status, String error, Instant now) {
         return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, query, extractionMode,
+                candidateExtractorMode,
                 selectedChunkIds, status, requestedChunks,
                 totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
@@ -100,6 +102,7 @@ public record SkillRagExtractionJob(
             String error,
             Instant now) {
         return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, query, extractionMode,
+                candidateExtractorMode,
                 selectedChunkIds, status, requestedChunks,
                 totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,
@@ -113,6 +116,7 @@ public record SkillRagExtractionJob(
             String error,
             Instant now) {
         return new SkillRagExtractionJob(jobId, objectType, objectId, documentId, query, extractionMode,
+                candidateExtractorMode,
                 selectedChunkIds, status, requestedChunks,
                 totalChunks, processedChunks, succeededChunks, failedChunks, extractedCount, error, excludeExtracted,
                 generateEmbeddings, embeddingProvider, embeddingModel, embeddingDimension, embeddingJobId,

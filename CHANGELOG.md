@@ -2,7 +2,29 @@
 
 ## Unreleased
 
+- AI vector projection 작업이 제한 시간 동안 점을 쓰지 못한 채 `REQUESTED`/`PROCESSING`에 머무르면
+`FAILED`로 회수하고, OOM 실패를 `PROJECTION_JOB_OUT_OF_MEMORY`로 기록하도록 변경했다.
+
+- AI vector projection PCA 작업은 primitive embedding 경로와 누적 PCA 계산을 사용하고, projection 생성 조회에서 본문/전체 metadata를 제외하며, 단계별 heap 로그와 chunk 구간 균등 sampling을 적용하도록 개선했다.
+
+- AI vector projection PCA 좌표의 `vectorItemId`가 chunk metadata의 `chunkId`를 우선 사용하고, 값이 없으면 `row-{id}`로 폴백하도록 수정해 `/points` 조회 조인이 누락되지 않게 했다.
+
+- AI vector projection `/points`의 필터 없는 total count가 projection point 테이블만 조회하도록 최적화하고, PostgreSQL chunk 조인 계산식에 expression index를 추가해 대용량 조회 지연을 줄였다.
+
+- 잘못 생성되거나 더 이상 필요하지 않은 완료/실패 projection과 좌표를 제거하는 관리용 `DELETE /api/mgmt/ai/vectors/projections/{projectionId}` API를 추가했다. 실행 중인 projection 삭제는 거부한다.
+
+- AI vector projection 기본 sampling 전략을 `studio.ai.vector.projection.default-sampling-strategy`로 설정할 수 있도록 추가했다.
+
+- AI vector projection 작업 상태 변경을 STOMP topic(`/topic/ai/vectors/projections/{projectionId}`)으로 발행하도록 추가했다.
+
+- Markdown 지식 파이프라인 요청에서 Skill 후보 추출 모드(`regex`, `llm`)를 선택할 수 있으며,
+  생략 시 `studio.skillgraph.extraction.mode` 서버 기본값을 사용하도록 개선
+
+- Markdown pipeline 요청에서 RAG LLM keyword extraction과 Skill 후보 embedding 설정을
+  저장·재개하고 하위 RAG/SkillGraph 작업으로 전달하도록 확장했다.
+
 ### 변경됨
+- Vector Projection API에 `OVERVIEW`/`DETAIL` mode, 사전 건수 estimate, DB 단계 `HEAD`/`RANDOM`/`STRATIFIED` sampling을 추가했다. 1,000건을 초과하는 전체 범위는 Overview에서 자동 샘플링하고, Detail은 명시적 scope와 sample size를 검증하며 실행 이력에 대상·샘플·구조화 오류 정보를 저장한다.
 - 기존 Markdown 본문을 재추출하지 않고 chunking과 RAG를 새 embedding profile/provider/model로 다시 실행하는 `POST /api/markdown-documents/{id}/rag/reindex` API를 추가했다. 재색인은 새 Markdown Revision으로 기록하며 기존 Revision과 locator/resource 이력을 보존한다.
 - RAG 색인의 embedding 요청 배치와 vector upsert 배치를 `studio.ai.rag.indexing.embedding-batch-size`, `upsert-batch-size`로 분리해 각각 독립적으로 조정할 수 있도록 변경했다.
 - Attachment Markdown native 추출과 후속 Chunking/RAG/Skill 처리를 commit 이후 background executor에서 실행하도록 변경했다. 생성 요청은 `RUNNING` Revision을 먼저 반환하며, 첨부파일 상세 polling을 위해 `GET /api/markdown-documents/by-attachment/{attachmentId}`를 추가했다.

@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownDocument;
+import studio.one.platform.markdown.domain.MarkdownExtractPart;
 import studio.one.platform.markdown.domain.MarkdownLocator;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecutionStatus;
@@ -259,6 +260,35 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
     }
 
     @Override
+    public void replaceExtractParts(String revisionId, List<MarkdownExtractPart> parts) {
+        deleteExtractParts(revisionId);
+        for (MarkdownExtractPart part : parts) {
+            saveExtractPart(part);
+        }
+    }
+
+    @Override
+    public void deleteExtractParts(String revisionId) {
+        jdbc.update("DELETE FROM tb_ai_markdown_extract_part WHERE revision_id=:revisionId",
+                Map.of("revisionId", revisionId));
+    }
+
+    @Override
+    public void saveExtractPart(MarkdownExtractPart part) {
+        jdbc.update("""
+                INSERT INTO tb_ai_markdown_extract_part (
+                    part_id, revision_id, page_from, page_to, status, engine,
+                    text_length, markdown_text, error_code, error_message, elapsed_ms,
+                    metadata_json, created_at, started_at, completed_at
+                ) VALUES (
+                    :partId, :revisionId, :pageFrom, :pageTo, :status, :engine,
+                    :textLength, :markdownText, :errorCode, :errorMessage, :elapsedMs,
+                    :metadataJson, :createdAt, :startedAt, :completedAt
+                )
+                """, extractPartParams(part));
+    }
+
+    @Override
     public List<MarkdownLocator> findLocators(String revisionId) {
         return jdbc.query("""
                 SELECT * FROM tb_ai_markdown_locator
@@ -279,6 +309,14 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
                 rs.getString("name"), longValue(rs, "attachment_id"), rs.getString("metadata_json")));
     }
 
+    @Override
+    public List<MarkdownExtractPart> findExtractParts(String revisionId) {
+        return jdbc.query("""
+                SELECT * FROM tb_ai_markdown_extract_part
+                WHERE revision_id=:revisionId ORDER BY page_from, page_to
+                """, Map.of("revisionId", revisionId), this::mapExtractPart);
+    }
+
     private MarkdownDocument mapDocument(ResultSet rs, int rowNum) throws SQLException {
         return new MarkdownDocument(rs.getString("document_id"), rs.getLong("source_attachment_id"),
                 rs.getString("current_revision_id"), instant(rs.getTimestamp("created_at")),
@@ -297,6 +335,25 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
                 rs.getString("error_message"), instant(rs.getTimestamp("created_at")),
                 instant(rs.getTimestamp("started_at")), instant(rs.getTimestamp("completed_at")),
                 instant(rs.getTimestamp("updated_at")));
+    }
+
+    private MarkdownExtractPart mapExtractPart(ResultSet rs, int rowNum) throws SQLException {
+        return new MarkdownExtractPart(
+                rs.getString("part_id"),
+                rs.getString("revision_id"),
+                rs.getInt("page_from"),
+                rs.getInt("page_to"),
+                rs.getString("status"),
+                rs.getString("engine"),
+                rs.getInt("text_length"),
+                rs.getString("markdown_text"),
+                rs.getString("error_code"),
+                rs.getString("error_message"),
+                longValue(rs, "elapsed_ms"),
+                rs.getString("metadata_json"),
+                instant(rs.getTimestamp("created_at")),
+                instant(rs.getTimestamp("started_at")),
+                instant(rs.getTimestamp("completed_at")));
     }
 
     private MapSqlParameterSource revisionParams(MarkdownRevision revision) {
@@ -324,6 +381,25 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
                 .addValue("startedAt", timestamp(revision.startedAt()))
                 .addValue("completedAt", timestamp(revision.completedAt()))
                 .addValue("updatedAt", timestamp(revision.updatedAt()));
+    }
+
+    private MapSqlParameterSource extractPartParams(MarkdownExtractPart part) {
+        return new MapSqlParameterSource()
+                .addValue("partId", part.partId())
+                .addValue("revisionId", part.revisionId())
+                .addValue("pageFrom", part.pageFrom())
+                .addValue("pageTo", part.pageTo())
+                .addValue("status", part.status())
+                .addValue("engine", part.engine())
+                .addValue("textLength", part.textLength())
+                .addValue("markdownText", part.markdownText())
+                .addValue("errorCode", part.errorCode())
+                .addValue("errorMessage", part.errorMessage())
+                .addValue("elapsedMs", part.elapsedMs())
+                .addValue("metadataJson", part.metadataJson())
+                .addValue("createdAt", timestamp(part.createdAt()))
+                .addValue("startedAt", timestamp(part.startedAt()))
+                .addValue("completedAt", timestamp(part.completedAt()));
     }
 
     private static Long longValue(ResultSet rs, String column) throws SQLException {

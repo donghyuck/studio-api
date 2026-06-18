@@ -94,6 +94,8 @@ public class TextractProperties {
         private boolean fallbackEnabled = true;
         private PdfEngines engines = new PdfEngines();
         private PdfAuto auto = new PdfAuto();
+        private PdfOcrFallback ocrFallback = new PdfOcrFallback();
+        private LargePdf largePdf = new LargePdf();
     }
 
     @Getter
@@ -132,6 +134,27 @@ public class TextractProperties {
     @NoArgsConstructor
     public static class PdfAuto {
         private PreferPyMuPdf4LlmWhen preferPymupdf4llmWhen = new PreferPyMuPdf4LlmWhen();
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class PdfOcrFallback {
+        private boolean enabled = false;
+        private int maxPages = 20;
+        private float dpi = 180f;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class LargePdf {
+        private boolean enabled = true;
+        private int pageThreshold = 100;
+        private int batchSize = 50;
+        private boolean continueOnPartFailure = true;
+        private int maxPartFailures = 0;
+        private boolean includeImages = false;
     }
 
     @Getter

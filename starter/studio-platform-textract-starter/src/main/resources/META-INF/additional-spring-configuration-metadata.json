@@ -34,6 +34,16 @@
       "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when",
       "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PreferPyMuPdf4LlmWhen",
       "description": "Automatic PyMuPDF4LLM preference thresholds."
+    },
+    {
+      "name": "studio.textract.pdf.ocr-fallback",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PdfOcrFallback",
+      "description": "PDF OCR fallback policy used when PDF text layer extraction returns no text."
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$LargePdf",
+      "description": "Large PDF page-range extraction policy."
     }
   ],
   "properties": [
@@ -126,6 +136,60 @@
       "type": "java.lang.Boolean",
       "description": "Reserved preference flag for request-level layout preservation hints.",
       "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.ocr-fallback.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether PDFBox should render PDF pages and run Tesseract OCR when the PDF text layer is empty.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.pdf.ocr-fallback.max-pages",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of PDF pages rendered for OCR fallback.",
+      "defaultValue": 20
+    },
+    {
+      "name": "studio.textract.pdf.ocr-fallback.dpi",
+      "type": "java.lang.Float",
+      "description": "Render DPI used for PDF OCR fallback.",
+      "defaultValue": 180
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether large PDFs should be split into PyMuPDF4LLM page-range parts.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf.page-threshold",
+      "type": "java.lang.Integer",
+      "description": "Minimum PDF page count that triggers page-range part extraction.",
+      "defaultValue": 100
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf.batch-size",
+      "type": "java.lang.Integer",
+      "description": "Number of PDF pages sent to the worker per page-range part.",
+      "defaultValue": 50
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf.continue-on-part-failure",
+      "type": "java.lang.Boolean",
+      "description": "Whether extraction continues after an individual page-range part fails.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf.max-part-failures",
+      "type": "java.lang.Integer",
+      "description": "Maximum failed page-range parts before extraction aborts. Zero means no explicit limit.",
+      "defaultValue": 0
+    },
+    {
+      "name": "studio.textract.pdf.large-pdf.include-images",
+      "type": "java.lang.Boolean",
+      "description": "Whether worker responses include image references during large PDF extraction.",
+      "defaultValue": false
     },
     {
       "name": "studio.features.text.enabled",

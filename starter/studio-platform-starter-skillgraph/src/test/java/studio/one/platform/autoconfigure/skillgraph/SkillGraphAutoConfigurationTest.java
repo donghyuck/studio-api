@@ -25,6 +25,7 @@ import studio.one.platform.skillgraph.application.usecase.SkillCandidateReviewSe
 import studio.one.platform.skillgraph.application.usecase.SkillCategoryDraftService;
 import studio.one.platform.skillgraph.application.usecase.SkillDictionaryService;
 import studio.one.platform.skillgraph.application.usecase.SkillExtractionService;
+import studio.one.platform.skillgraph.application.usecase.SkillExtractionServiceResolver;
 import studio.one.platform.skillgraph.application.usecase.SkillGraphService;
 import studio.one.platform.skillgraph.application.usecase.SkillMappingService;
 import studio.one.platform.skillgraph.application.usecase.SkillRecommendationService;
@@ -63,6 +64,7 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).hasSingleBean(SkillCandidateStore.class);
             assertThat(context).hasSingleBean(SkillDictionaryStore.class);
             assertThat(context).hasSingleBean(SkillExtractionService.class);
+            assertThat(context).hasSingleBean(SkillExtractionServiceResolver.class);
             assertThat(context).hasSingleBean(SkillCandidateReviewService.class);
             assertThat(context).hasSingleBean(SkillDictionaryService.class);
             assertThat(context).hasSingleBean(SkillCategoryDraftService.class);
@@ -76,6 +78,10 @@ class SkillGraphAutoConfigurationTest {
             assertThat(context).hasSingleBean(SkillRecommendationService.class);
             assertThat(context).getBean(SkillExtractionService.class)
                     .isInstanceOf(DefaultSkillExtractionService.class);
+            assertThat(context.getBean(SkillExtractionServiceResolver.class).resolve(null))
+                    .isSameAs(context.getBean(SkillExtractionService.class));
+            assertThat(context.getBean(SkillExtractionServiceResolver.class).resolveMode(null))
+                    .isEqualTo("regex");
         });
     }
 
@@ -105,8 +111,14 @@ class SkillGraphAutoConfigurationTest {
                         List.of(ChatMessage.assistant("[{\"term\":\"Spring Boot\",\"confidence\":0.9}]")),
                         "test",
                         Map.of()))
-                .run(context -> assertThat(context).getBean(SkillExtractionService.class)
-                        .isInstanceOf(DefaultSkillExtractionService.class));
+                .run(context -> {
+                    SkillExtractionService configured = context.getBean(SkillExtractionService.class);
+                    SkillExtractionServiceResolver resolver = context.getBean(SkillExtractionServiceResolver.class);
+                    assertThat(configured).isInstanceOf(DefaultSkillExtractionService.class);
+                    assertThat(resolver.resolve(null)).isSameAs(configured);
+                    assertThat(resolver.resolveMode(null)).isEqualTo("llm");
+                    assertThat(resolver.resolve("regex")).isNotSameAs(configured);
+                });
     }
 
     @Test

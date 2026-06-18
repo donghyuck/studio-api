@@ -50,6 +50,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                     embedding_status = :embeddingStatus,
                     query_text = :query,
                     extraction_mode = :extractionMode,
+                    candidate_extractor_mode = :candidateExtractorMode,
                     selected_chunk_ids = :selectedChunkIds,
                     updated_at = :updatedAt
                 WHERE job_id = :jobId
@@ -61,14 +62,14 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                          processed_chunks, succeeded_chunks, failed_chunks, extracted_count, error_message,
                          exclude_extracted, generate_embeddings, embedding_provider, embedding_model, embedding_dimension,
                          embedding_job_id, embedding_status,
-                         query_text, extraction_mode, selected_chunk_ids,
+                         query_text, extraction_mode, candidate_extractor_mode, selected_chunk_ids,
                          created_at, updated_at)
                     VALUES
                         (:jobId, :objectType, :objectId, :documentId, :status, :requestedChunks, :totalChunks,
                          :processedChunks, :succeededChunks, :failedChunks, :extractedCount, :error,
                          :excludeExtracted, :generateEmbeddings, :embeddingProvider, :embeddingModel, :embeddingDimension,
                          :embeddingJobId, :embeddingStatus,
-                         :query, :extractionMode, :selectedChunkIds,
+                         :query, :extractionMode, :candidateExtractorMode, :selectedChunkIds,
                          :createdAt, :updatedAt)
                     """, jobParams(job));
         }
@@ -391,6 +392,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 .addValue("documentId", job.documentId())
                 .addValue("query", job.query())
                 .addValue("extractionMode", job.extractionMode())
+                .addValue("candidateExtractorMode", job.candidateExtractorMode())
                 .addValue("selectedChunkIds", String.join("\n", job.selectedChunkIds()))
                 .addValue("status", job.status().name())
                 .addValue("requestedChunks", job.requestedChunks())
@@ -433,6 +435,7 @@ public class JdbcSkillRagExtractionJobStore implements SkillRagExtractionJobStor
                 rs.getString("document_id"),
                 text(rs, "query_text"),
                 Optional.ofNullable(text(rs, "extraction_mode")).orElse("ALL_CHUNKS"),
+                text(rs, "candidate_extractor_mode"),
                 selectedChunkIds(rs),
                 SkillRagExtractionJobStatus.valueOf(rs.getString("status")),
                 rs.getInt("requested_chunks"),

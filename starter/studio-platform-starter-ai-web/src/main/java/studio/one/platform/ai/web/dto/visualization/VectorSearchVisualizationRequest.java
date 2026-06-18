@@ -10,5 +10,7 @@ public record VectorSearchVisualizationRequest(
         @NotBlank @Size(max = 2000) String query,
         List<String> targetTypes,
         Integer topK,
-        Double minScore) {
+        Double minScore,
+        String embeddingProvider,
+        String embeddingModel) {
 }

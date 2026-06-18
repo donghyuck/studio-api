@@ -84,9 +84,11 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
     }
 
     private PdfExtractionOptions withDetectedPageCount(byte[] bytes) {
-        if (options.engine() != PdfExtractionMode.AUTO
-                || !options.pyMuPdf4LlmEnabled()
-                || options.preferPyMuPdf4LlmMinPages() <= 0) {
+        if (!options.pyMuPdf4LlmEnabled()
+                || (options.engine() == PdfExtractionMode.PDFBOX)
+                || (options.engine() == PdfExtractionMode.AUTO
+                        && options.preferPyMuPdf4LlmMinPages() <= 0
+                        && !options.largePdfEnabled())) {
             return options;
         }
         try (PDDocument document = Loader.loadPDF(bytes)) {

@@ -84,6 +84,7 @@ studio:
 | `POST` | `{mgmtBasePath}/vectors` | 벡터 문서 업서트 | `services:ai_vector read` |
 | `POST` | `{mgmtBasePath}/vectors/search` | 벡터 유사도 검색 | `services:ai_vector read` |
 | `POST` | `{mgmtBasePath}/vectors/projections` | 벡터 2D projection 생성 job 요청 | `services:ai_vector admin` |
+| `POST` | `{mgmtBasePath}/vectors/projections/estimate` | projection 대상 건수와 sampling 권장값 조회 | `services:ai_vector admin` |
 | `GET` | `{mgmtBasePath}/vectors/projections` | 벡터 projection 목록 조회 | `services:ai_vector read` |
 | `GET` | `{mgmtBasePath}/vectors/projections/{projectionId}` | 벡터 projection 상세 조회 | `services:ai_vector read` |
 | `GET` | `{mgmtBasePath}/vectors/projections/{projectionId}/points` | 산점도 렌더링용 projection point 조회 | `services:ai_vector admin` |
@@ -110,6 +111,10 @@ studio:
 
 ### Vector Projection Visualization
 
+`studio.ai.vector.projection.max-items`, `default-sample-size`, `default-sampling-strategy`,
+`processing-timeout`으로 projection 작업 한도와 기본 sampling 전략을 조정한다. 메모리 사용을 최소화해야 하는 운영 환경은
+`default-sampling-strategy=HEAD`와 낮은 `default-sample-size`를 사용해 DB window ranking과 JVM 적재량을 줄일 수 있다.
+
 관리자 화면에서 기존 `tb_ai_document_chunk` 벡터를 2D 산점도로 표시할 수 있도록 projection API를 제공한다.
 원본 embedding 테이블은 변경하지 않고, `tb_ai_vector_projection`과 `tb_ai_vector_projection_point`에
 projection job 상태와 미리 계산된 좌표만 저장한다. 화면 요청 시마다 고차원 벡터를 다시 projection하지 않는다.
@@ -120,9 +125,12 @@ points API가 내려준 `x`, `y` 좌표를 그대로 렌더링한다. 더 높은
 `VectorProjectionGenerator` 구현을 교체해 확장한다. `targetTypes`는 UI 문서 분류가 아니라
 `tb_ai_document_chunk.object_type`에 저장된 RAG index objectType 기준이다. 예를 들어 `attachment`,
 `forums-post-attachment`, 정책 object type 값처럼 색인 job이 사용한 objectType을 지정한다.
-`targetTypes`가 비어 있으면 전체 vector item을 대상으로 한다.
-`filters`는 v1에서 metadata equality 조건만 사용하며 null 값은 무시한다. 한 projection job은 최대
-1,000개 vector item, 2,048 embedding dimension까지 처리한다. 더 큰 범위는 `targetTypes`나 metadata filter로 나눠 생성한다.
+`OVERVIEW`는 빈 범위를 허용하고 서버 기본 sample size를 적용한다. `DETAIL`은 `targetTypes`,
+`objectId`/`attachmentId`, metadata filter, `chunkIndexFrom`/`chunkIndexTo` 중 하나가 반드시 필요하다.
+`attachmentId`는 `object_type=attachment AND object_id=?`로, chunk 범위는 실제 `chunk_index` 컬럼 조건으로 처리한다.
+그 밖의 `filters`는 metadata equality 조건으로 처리하며 null 값은 무시한다.
+한 projection job은 기본 최대 1,000개 vector item, 2,048 embedding dimension까지 처리한다.
+`DETAIL` 대상이 최대값을 초과하면 `sampleSize`를 명시하거나 범위를 더 좁혀야 한다.
 projection 생성과 point/item/search visualization 조회는 object별 ACL을 행마다 평가하지 않는 corpus-level 관리 API이므로
 `services:ai_vector admin` 권한이 필요하다.
 
@@ -135,17 +143,30 @@ Content-Type: application/json
 
 {
   "name": "NCS-과정-청크 벡터맵",
+  "mode": "DETAIL",
   "targetTypes": ["NCS_UNIT", "COURSE", "COURSE_CHUNK"],
   "algorithm": "UMAP",
+  "sampleSize": 1000,
+  "samplingStrategy": "STRATIFIED",
   "filters": {
     "useYn": "Y"
   }
 }
 ```
 
+`mode` 기본값은 `DETAIL`, `samplingStrategy` 기본값은 `STRATIFIED`다. `HEAD`는 기존 정렬 앞부분,
+`RANDOM`은 DB random 정렬, `STRATIFIED`는 `object_type/object_id`별 window rank를 interleave해
+문서별 후보를 균등하게 선택한다. 생성 전에 동일한 scope로 `POST /projections/estimate`를 호출하면
+`totalCount`, `maxAllowed`, `exceedsLimit`, `recommendedSampling`을 확인할 수 있다.
+`sampleSize > maxAllowed`는 `400 PROJECTION_SAMPLE_SIZE_EXCEEDED`, 범위 없는 `DETAIL`은
+`400 PROJECTION_SCOPE_REQUIRED`, 제한을 초과한 `DETAIL`은 `409 PROJECTION_LIMIT_EXCEEDED`를 반환한다.
+
 응답은 즉시 `REQUESTED`를 반환한다. 서버는 비동기 job에서 `PROCESSING`으로 전환한 뒤 기존
 `tb_ai_document_chunk`의 embedding을 읽어 좌표를 만들고, 기존 point를 삭제 후 재생성한다.
-완료 시 `COMPLETED`, 실패 시 `FAILED`와 `errorMessage`를 저장한다. 완료된 projection의 목록/상세 응답
+전체 결과를 Java 메모리에 올리지 않고 DB에서 `sampleSize`까지만 조회한다.
+완료 시 `COMPLETED`, 실패 시 `FAILED`와 구조화된 `errorCode`/`errorMessage`를 저장한다.
+생성·목록·상세 응답에는 `mode`, `totalCount`, `projectedCount`, `sampled`, `sampleSize`,
+`samplingStrategy`, `maxAllowed`가 포함된다. 완료된 projection의 목록/상세 응답
 `targetTypes`는 실제 좌표에 포함된 `tb_ai_document_chunk.object_type` 목록을 반환하므로 클라이언트는 이 값을
 필터와 범례 구성에 사용할 수 있다.
 
@@ -154,9 +175,27 @@ Content-Type: application/json
   "data": {
     "projectionId": "proj-20260430010000-a1b2c3d4",
     "status": "REQUESTED",
-    "message": "벡터 시각화 좌표 생성 작업이 요청되었습니다."
+    "message": "벡터 시각화 좌표 생성 작업이 요청되었습니다.",
+    "mode": "DETAIL",
+    "totalCount": 7534,
+    "projectedCount": 1000,
+    "sampled": true,
+    "sampleSize": 1000,
+    "samplingStrategy": "STRATIFIED",
+    "maxAllowed": 1000
   }
 }
+```
+
+설정:
+
+```yaml
+studio:
+  ai:
+    vector:
+      projection:
+        max-items: 1000
+        default-sample-size: 1000
 ```
 
 산점도 point 조회:

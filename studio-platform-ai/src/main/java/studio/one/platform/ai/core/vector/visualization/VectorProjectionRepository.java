@@ -12,7 +12,28 @@ public interface VectorProjectionRepository {
 
     List<VectorProjection> findAll(int limit, int offset);
 
+    default void deleteById(String projectionId) {
+        throw new UnsupportedOperationException("Projection deletion is not supported");
+    }
+
     void updateStatus(String projectionId, ProjectionStatus status, String errorMessage, Instant completedAt);
 
+    default void updateStatus(
+            String projectionId,
+            ProjectionStatus status,
+            String errorCode,
+            String errorMessage,
+            Instant completedAt) {
+        updateStatus(projectionId, status, errorMessage, completedAt);
+    }
+
     void markCompleted(String projectionId, int itemCount, List<String> targetTypes, Instant completedAt);
+
+    default int markStaleProcessingFailed(
+            Instant cutoff,
+            String errorCode,
+            String errorMessage,
+            Instant completedAt) {
+        return 0;
+    }
 }

@@ -45,4 +45,10 @@ class JdbcVectorProjectionSqlTest {
                         + " OR 'row-' || id IN (:ids)"
                         + " OR metadata ->> 'documentId' IN (:ids)");
     }
+
+    @Test
+    void randomOrderUsesDatabaseSpecificFunction() {
+        assertThat(JdbcVectorProjectionSql.randomOrder(true)).isEqualTo("RANDOM()");
+        assertThat(JdbcVectorProjectionSql.randomOrder(false)).isEqualTo("RAND()");
+    }
 }
