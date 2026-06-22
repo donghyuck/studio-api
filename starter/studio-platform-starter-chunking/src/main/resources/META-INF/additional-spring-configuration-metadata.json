@@ -1,0 +1,82 @@
+{
+  "properties": [
+    {
+      "name": "studio.chunking.blockify.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the opt-in blockify chunking strategy can be selected.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.chunking.blockify.max-input-tokens",
+      "type": "java.lang.Integer",
+      "description": "Maximum estimated input tokens per section for blockify generation.",
+      "defaultValue": 2500
+    },
+    {
+      "name": "studio.chunking.blockify.max-output-tokens-per-block",
+      "type": "java.lang.Integer",
+      "description": "Maximum output token budget per generated blockify block.",
+      "defaultValue": 500
+    },
+    {
+      "name": "studio.chunking.blockify.max-blocks-per-section",
+      "type": "java.lang.Integer",
+      "description": "Maximum generated blockify blocks per source section.",
+      "defaultValue": 10
+    },
+    {
+      "name": "studio.chunking.blockify.max-sections-per-document",
+      "type": "java.lang.Integer",
+      "description": "Maximum source sections to process with blockify for one document.",
+      "defaultValue": 500
+    },
+    {
+      "name": "studio.chunking.blockify.max-estimated-cost-per-job",
+      "type": "java.lang.Double",
+      "description": "Estimated cost ceiling available to blockify generator implementations.",
+      "defaultValue": 10.0
+    },
+    {
+      "name": "studio.chunking.blockify.per-job-concurrency",
+      "type": "java.lang.Integer",
+      "description": "Per-job concurrency ceiling available to blockify generator implementations.",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.chunking.blockify.global-concurrency",
+      "type": "java.lang.Integer",
+      "description": "Global concurrency ceiling available to blockify generator implementations.",
+      "defaultValue": 4
+    },
+    {
+      "name": "studio.chunking.blockify.prompt-version",
+      "type": "java.lang.String",
+      "description": "Prompt version recorded in blockify metadata and fingerprints.",
+      "defaultValue": "blockify-v1"
+    },
+    {
+      "name": "studio.chunking.blockify.generator-model",
+      "type": "java.lang.String",
+      "description": "Generator model recorded in blockify metadata and fingerprints.",
+      "defaultValue": "heuristic-blockify-v1"
+    },
+    {
+      "name": "studio.chunking.blockify.temperature",
+      "type": "java.lang.Double",
+      "description": "Generation temperature recorded for reproducible blockify benchmark runs.",
+      "defaultValue": 0.0
+    },
+    {
+      "name": "studio.chunking.blockify.top-p",
+      "type": "java.lang.Double",
+      "description": "Generation top-p value recorded for reproducible blockify benchmark runs.",
+      "defaultValue": 1.0
+    },
+    {
+      "name": "studio.chunking.blockify.require-source-evidence",
+      "type": "java.lang.Boolean",
+      "description": "Whether generated blockify blocks must include source evidence text found in the source section.",
+      "defaultValue": true
+    }
+  ]
+}

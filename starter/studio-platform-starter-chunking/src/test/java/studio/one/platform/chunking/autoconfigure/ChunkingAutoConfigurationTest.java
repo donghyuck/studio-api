@@ -8,6 +8,9 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.core.ChunkingStrategyType;
+import studio.one.platform.chunking.service.BlockifyChunker;
+import studio.one.platform.chunking.service.BlockifyGenerator;
 import studio.one.platform.chunking.service.FixedSizeChunker;
 import studio.one.platform.chunking.service.HeadingChunkContextExpander;
 import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
@@ -29,6 +32,8 @@ class ChunkingAutoConfigurationTest {
                 .hasSingleBean(FixedSizeChunker.class)
                 .hasSingleBean(RecursiveChunker.class)
                 .hasSingleBean(StructureBasedChunker.class)
+                .hasSingleBean(BlockifyGenerator.class)
+                .hasSingleBean(BlockifyChunker.class)
                 .hasSingleBean(WindowChunkContextExpander.class)
                 .hasSingleBean(ParentChildChunkContextExpander.class)
                 .hasSingleBean(HeadingChunkContextExpander.class)
@@ -44,6 +49,8 @@ class ChunkingAutoConfigurationTest {
                         .doesNotHaveBean(FixedSizeChunker.class)
                         .doesNotHaveBean(RecursiveChunker.class)
                         .doesNotHaveBean(StructureBasedChunker.class)
+                        .doesNotHaveBean(BlockifyGenerator.class)
+                        .doesNotHaveBean(BlockifyChunker.class)
                         .doesNotHaveBean(WindowChunkContextExpander.class)
                         .doesNotHaveBean(ParentChildChunkContextExpander.class)
                         .doesNotHaveBean(HeadingChunkContextExpander.class)
@@ -82,6 +89,39 @@ class ChunkingAutoConfigurationTest {
 
                     assertThat(chunks).extracting(chunk -> chunk.content())
                             .containsExactly("abcde", "efghi", "ij");
+                });
+    }
+
+    @Test
+    void rejectsBlockifyWhenDisabledByDefault() {
+        contextRunner.run(context -> {
+            ChunkingOrchestrator orchestrator = context.getBean(ChunkingOrchestrator.class);
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> orchestrator.chunk(
+                            ChunkingContext.builder("본문 내용입니다.")
+                                    .sourceDocumentId("doc")
+                                    .strategy(ChunkingStrategyType.BLOCKIFY)
+                                    .build()))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Blockify chunking is disabled");
+        });
+    }
+
+    @Test
+    void enablesBlockifyWhenConfigured() {
+        contextRunner.withPropertyValues("studio.chunking.blockify.enabled=true")
+                .run(context -> {
+                    ChunkingOrchestrator orchestrator = context.getBean(ChunkingOrchestrator.class);
+
+                    var chunks = orchestrator.chunk(ChunkingContext.builder("수료 기준은 진도율 80% 이상입니다.")
+                            .sourceDocumentId("doc")
+                            .strategy(ChunkingStrategyType.BLOCKIFY)
+                            .build());
+
+                    assertThat(chunks).hasSize(1);
+                    assertThat(chunks.get(0).metadata().toMap())
+                            .containsEntry("requestedChunkingStrategy", "blockify")
+                            .containsEntry("actualChunkingStrategy", "blockify");
                 });
     }
 }

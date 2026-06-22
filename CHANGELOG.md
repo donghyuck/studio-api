@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 이슈 #514 대응으로 chunking starter에 opt-in `blockify` 전략 PoC를 추가했다. 기본값은 비활성이며,
+  `studio.chunking.blockify.enabled=true`일 때 Markdown pipeline의 `chunkingStrategy=blockify`가
+  질문·답변 중심 chunk와 `blockify-metadata-v1` metadata를 생성하고, 표/검증 실패 섹션은
+  `structure-based` fallback metadata로 보존한다.
+
 - AI vector projection 작업이 제한 시간 동안 점을 쓰지 못한 채 `REQUESTED`/`PROCESSING`에 머무르면
 `FAILED`로 회수하고, OOM 실패를 `PROJECTION_JOB_OUT_OF_MEMORY`로 기록하도록 변경했다.
 

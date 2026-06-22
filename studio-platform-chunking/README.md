@@ -74,6 +74,11 @@ Chunk 생성은 여러 종류의 Chunking Processor를 통해 수행된다. Text
 | `confidence` | parser/OCR confidence가 있는 경우 보존합니다. | 추가 key |
 | `tokenEstimate`, `chunkUnit`, `maxSize`, `overlap` | size 정책과 검증 evidence입니다. | 추가 key |
 
+`blockify` 전략은 starter 구현체가 제공하는 opt-in PoC 전략입니다.
+core 계약에서는 `ChunkingStrategyType.BLOCKIFY` 식별자와 metadata 전달만 정의하며, LLM 호출이나 생성 구현은 포함하지 않습니다.
+Blockify 구현체는 `requestedChunkingStrategy`, `actualChunkingStrategy`, `blockifyFingerprint`, `sourceEvidence`,
+`validationStatus`, `promptVersion`, `generatorModel`, `schemaVersion` 같은 additive metadata를 사용할 수 있습니다.
+
 ## 구조화 입력
 
 `NormalizedDocument`와 `NormalizedBlock`은 chunking이 parser 구현에 직접 의존하지 않고 구조화 추출 결과를 소비하기 위한 입력 모델입니다.

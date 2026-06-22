@@ -71,6 +71,49 @@ class DefaultChunkingOrchestratorTest {
     }
 
     @Test
+    void rejectsBlockifyWhenDisabled() {
+        ChunkingProperties properties = new ChunkingProperties();
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(10, 0), new RecursiveChunker(10, 0),
+                        new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0)),
+                        new BlockifyChunker(properties.getBlockify(),
+                                new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0)),
+                                new HeuristicBlockifyGenerator())));
+
+        assertThatThrownBy(() -> orchestrator.chunk(ChunkingContext.builder("hello")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.BLOCKIFY)
+                .build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Blockify chunking is disabled");
+    }
+
+    @Test
+    void usesBlockifyWhenEnabled() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.getBlockify().setEnabled(true);
+        RecursiveChunker recursiveChunker = new RecursiveChunker(100, 0);
+        StructureBasedChunker structureBasedChunker = new StructureBasedChunker(100, 0, recursiveChunker);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(100, 0), recursiveChunker, structureBasedChunker,
+                        new BlockifyChunker(properties.getBlockify(), structureBasedChunker,
+                                new HeuristicBlockifyGenerator())));
+
+        var chunks = orchestrator.chunk(ChunkingContext.builder("수료 기준은 진도율 80% 이상입니다.")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.BLOCKIFY)
+                .build());
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.BLOCKIFY);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry("requestedChunkingStrategy", "blockify")
+                .containsEntry("actualChunkingStrategy", "blockify");
+    }
+
+    @Test
     void rejectsMissingChunkerBeanForSupportedStrategy() {
         ChunkingProperties properties = new ChunkingProperties();
         properties.setStrategy("fixed-size");

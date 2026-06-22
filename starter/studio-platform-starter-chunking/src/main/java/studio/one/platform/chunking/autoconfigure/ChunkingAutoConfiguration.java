@@ -15,10 +15,13 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.TokenizerPort;
 import studio.one.platform.chunking.core.TokenizerResolver;
 import studio.one.platform.chunking.service.ApproximateTokenizer;
+import studio.one.platform.chunking.service.BlockifyChunker;
+import studio.one.platform.chunking.service.BlockifyGenerator;
 import studio.one.platform.chunking.service.DefaultChunkingOrchestrator;
 import studio.one.platform.chunking.service.DefaultTokenizerResolver;
 import studio.one.platform.chunking.service.FixedSizeChunker;
 import studio.one.platform.chunking.service.HeadingChunkContextExpander;
+import studio.one.platform.chunking.service.HeuristicBlockifyGenerator;
 import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
 import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.service.StructureBasedChunker;
@@ -50,6 +53,21 @@ public class ChunkingAutoConfiguration {
             ChunkingProperties properties,
             RecursiveChunker recursiveChunker) {
         return new StructureBasedChunker(properties.getMaxSize(), properties.getOverlap(), recursiveChunker);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public BlockifyGenerator blockifyGenerator() {
+        return new HeuristicBlockifyGenerator();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public BlockifyChunker blockifyChunker(
+            ChunkingProperties properties,
+            StructureBasedChunker structureBasedChunker,
+            BlockifyGenerator blockifyGenerator) {
+        return new BlockifyChunker(properties.getBlockify(), structureBasedChunker, blockifyGenerator);
     }
 
     @Bean

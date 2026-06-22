@@ -16,11 +16,17 @@ Phase 1 지원 전략:
 - `recursive` (default)
 - `fixed-size`
 - `structure-based`
+- `blockify` (opt-in, PoC)
 
 Phase 2 후보이며 이 starter에는 포함하지 않는 전략:
 
 - `semantic` (AI-linked)
 - `llm-based` (AI-linked)
+
+`blockify`는 질문·답변 중심 Knowledge Block을 생성하기 위한 PoC 전략입니다.
+기본값은 비활성화이며 `studio.chunking.blockify.enabled=true`를 설정한 경우에만 선택할 수 있습니다.
+기본 `BlockifyGenerator`는 외부 LLM을 호출하지 않는 deterministic heuristic 구현입니다.
+운영 LLM 연동은 `BlockifyGenerator` bean을 교체해 적용합니다.
 
 ## 설정
 
@@ -40,6 +46,16 @@ studio:
         text-embedding-3-small:
           provider: tiktoken
           encoding: cl100k_base
+    blockify:
+      enabled: false
+      max-input-tokens: 2500
+      max-output-tokens-per-block: 500
+      max-blocks-per-section: 10
+      max-sections-per-document: 500
+      prompt-version: blockify-v1
+      generator-model: heuristic-blockify-v1
+      temperature: 0
+      top-p: 1
 ```
 
 | Property | Default | 설명 |
@@ -53,6 +69,18 @@ studio:
 | `studio.chunking.tokenizer.fallback` | `approximate` | 정확한 tokenizer가 없을 때 사용할 fallback tokenizer입니다. |
 | `studio.chunking.tokenizer.fail-on-unknown-model` | `false` | 알 수 없는 model에서 fallback 대신 실패할지 결정합니다. |
 | `studio.chunking.tokenizer.mappings.*` | `{}` | model별 explicit tokenizer mapping입니다. |
+| `studio.chunking.blockify.enabled` | `false` | `blockify` 전략 선택 허용 여부입니다. |
+| `studio.chunking.blockify.max-input-tokens` | `2500` | 섹션별 Blockify 입력 token 상한입니다. |
+| `studio.chunking.blockify.max-output-tokens-per-block` | `500` | 생성 block 하나의 출력 token 상한 기준입니다. |
+| `studio.chunking.blockify.max-blocks-per-section` | `10` | 섹션 하나에서 생성할 최대 Knowledge Block 수입니다. |
+| `studio.chunking.blockify.max-sections-per-document` | `500` | 문서 하나에서 Blockify를 시도할 최대 섹션 수입니다. |
+| `studio.chunking.blockify.max-estimated-cost-per-job` | `10.0` | 호출 구현체가 사용할 수 있는 작업 비용 상한입니다. |
+| `studio.chunking.blockify.per-job-concurrency` | `2` | 호출 구현체가 사용할 수 있는 작업별 동시성 상한입니다. |
+| `studio.chunking.blockify.global-concurrency` | `4` | 호출 구현체가 사용할 수 있는 전역 동시성 상한입니다. |
+| `studio.chunking.blockify.prompt-version` | `blockify-v1` | metadata와 fingerprint에 기록할 prompt version입니다. |
+| `studio.chunking.blockify.generator-model` | `heuristic-blockify-v1` | metadata와 fingerprint에 기록할 generator model입니다. |
+| `studio.chunking.blockify.temperature` | `0` | 생성 재현성을 위한 temperature 설정값입니다. |
+| `studio.chunking.blockify.top-p` | `1` | 생성 재현성을 위한 top-p 설정값입니다. |
 
 `max-size <= 0`, `overlap < 0`, `overlap >= max-size` 설정은 auto-configuration 단계에서 fail-fast 됩니다.
 
@@ -64,12 +92,15 @@ studio:
 - `FixedSizeChunker`
 - `RecursiveChunker`
 - `StructureBasedChunker`
+- `BlockifyGenerator`
+- `BlockifyChunker`
 - `WindowChunkContextExpander`
 - `ParentChildChunkContextExpander`
 - `HeadingChunkContextExpander`
 - `TableChunkContextExpander`
 
-`DefaultChunkingOrchestrator`는 모든 `Chunker` bean을 받아 `FIXED_SIZE`, `RECURSIVE`, `STRUCTURE_BASED`를 실행합니다.
+`DefaultChunkingOrchestrator`는 모든 `Chunker` bean을 받아 `FIXED_SIZE`, `RECURSIVE`, `STRUCTURE_BASED`, `BLOCKIFY`를 실행합니다.
+`BLOCKIFY`는 `studio.chunking.blockify.enabled=true`일 때만 허용됩니다.
 
 ## Recursive Strategy
 
@@ -109,6 +140,32 @@ neighbor link는 parent section boundary를 넘지 않습니다.
 heading 없이 시작하는 문서는 빈 `section` 값과 body-only `parentChunkContent`를 사용합니다.
 
 이 전략은 파일 parsing, OCR 실행, embedding API 호출, LLM 호출, vector store 저장을 하지 않습니다.
+
+## Blockify Strategy
+
+`BlockifyChunker`는 `NormalizedDocument`의 heading/page/slide 기반 block을 섹션 단위로 처리해 질문·답변 중심 chunk를 생성합니다.
+기본 구현은 PoC용 deterministic `HeuristicBlockifyGenerator`를 사용하며 외부 provider를 호출하지 않습니다.
+실제 LLM 기반 생성이 필요한 경우 애플리케이션에서 `BlockifyGenerator` bean을 교체합니다.
+
+Blockify chunk metadata는 기존 chunk 저장 계약을 바꾸지 않고 additive field로 보존됩니다.
+
+- `schemaVersion=blockify-metadata-v1`
+- `requestedChunkingStrategy`
+- `actualChunkingStrategy`
+- `blockifyFingerprint`
+- `title`, `question`, `answer`
+- `keywords`, `tags`
+- `sourceEvidence`
+- `validationStatus`
+- `fallbackReason`
+- `promptVersion`
+- `generatorModel`
+
+표 섹션, 입력 token 상한 초과, 생성 결과 검증 실패 섹션은 `structure-based` fallback chunk로 대체됩니다.
+fallback chunk는 `requestedChunkingStrategy=blockify`, `actualChunkingStrategy=structure-based`, `validationStatus=FALLBACK` metadata를 남깁니다.
+
+동일 원본 비교 PoC는 같은 파일을 별도 Attachment로 등록하고 `structure-based` Projection과 `blockify` Projection을 분리해 실행합니다.
+같은 Attachment scope에 두 전략을 반복 실행하면 downstream stage/vector 교체 정책에 의해 결과가 덮일 수 있습니다.
 
 `studio-platform-textract`가 classpath에 있으면 `TextractNormalizedDocumentAdapter`로 `ParsedFile`을 `NormalizedDocument`로 변환할 수 있습니다.
 실제 파일 읽기, embedding 생성, vector upsert는 이 starter의 책임이 아니며, `content-embedding-pipeline` 같은 조립 모듈에서 실행합니다.

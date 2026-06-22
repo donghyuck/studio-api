@@ -137,7 +137,8 @@ public record MarkdownPipelineOptions(
         normalized = normalized.toLowerCase(Locale.ROOT).replace('_', '-');
         if (!normalized.equals("fixed-size")
                 && !normalized.equals("recursive")
-                && !normalized.equals("structure-based")) {
+                && !normalized.equals("structure-based")
+                && !normalized.equals("blockify")) {
             throw new IllegalArgumentException("Unsupported chunkingStrategy: " + value);
         }
         return normalized;
