@@ -299,11 +299,20 @@ public class DefaultRagPipelineService implements RagPipelineService {
         if (objectType != null && objectId != null) {
             progress.onInfo(
                     RagIndexJobStep.INDEXING,
-                    "RAG index will resume with object-scoped upserts",
+                    "RAG index will replace object-scoped vectors with batched upserts",
                     "objectType=%s, objectId=%s, chunkCount=%d, upsertBatchSize=%d"
                             .formatted(objectType, objectId, chunks.size(), indexUpsertBatchSize));
+            vectorStorePort.deleteByObject(objectType, objectId);
         }
-        int indexed = embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
+        int indexed;
+        try {
+            indexed = embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
+        } catch (RuntimeException ex) {
+            if (objectType != null && objectId != null) {
+                vectorStorePort.deleteByObject(objectType, objectId);
+            }
+            throw ex;
+        }
         if (objectType != null && objectId != null) {
             chunkStageStore.deleteByObject(objectType, objectId, request.documentId());
         }

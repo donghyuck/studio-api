@@ -73,6 +73,12 @@
       "description": "Embedding vector dimension metadata exposed through AI embedding option discovery."
     },
     {
+      "name": "studio.ai.providers.*.embedding.request-timeout",
+      "type": "java.time.Duration",
+      "defaultValue": "2m",
+      "description": "HTTP request timeout for non-Spring AI embedding providers such as TEI."
+    },
+    {
       "name": "studio.ai.providers.*.google-embedding.task-type",
       "type": "java.lang.String",
       "defaultValue": "RETRIEVAL_DOCUMENT",

@@ -5,6 +5,7 @@ import java.io.InputStream;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.platform.markdown.application.MarkdownSourceTooLargeException;
 import studio.one.platform.markdown.application.port.MarkdownSourcePort;
 
 public class AttachmentMarkdownSourceAdapter implements MarkdownSourcePort {
@@ -17,15 +18,23 @@ public class AttachmentMarkdownSourceAdapter implements MarkdownSourcePort {
     }
 
     @Override
+    public MarkdownSourceDescriptor describe(long attachmentId) {
+        Attachment attachment = attachmentService.getAttachmentById(attachmentId);
+        return new MarkdownSourceDescriptor(attachment.getAttachmentId(), attachment.getName(),
+                attachment.getContentType(), String.valueOf(attachment.getObjectType()),
+                String.valueOf(attachment.getObjectId()), attachment.getSize());
+    }
+
+    @Override
     public MarkdownSource load(long attachmentId) {
         Attachment attachment = attachmentService.getAttachmentById(attachmentId);
         if (attachment.getSize() > maxSourceBytes) {
-            throw new IllegalArgumentException("Attachment exceeds markdown source size limit");
+            throw new MarkdownSourceTooLargeException(attachment.getSize(), maxSourceBytes);
         }
         try (InputStream input = attachmentService.getInputStream(attachment)) {
             byte[] content = input.readNBytes(maxSourceBytes + 1);
             if (content.length > maxSourceBytes) {
-                throw new IllegalArgumentException("Attachment exceeds markdown source size limit");
+                throw new MarkdownSourceTooLargeException(content.length, maxSourceBytes);
             }
             return new MarkdownSource(attachment.getAttachmentId(), attachment.getName(),
                     attachment.getContentType(), String.valueOf(attachment.getObjectType()),

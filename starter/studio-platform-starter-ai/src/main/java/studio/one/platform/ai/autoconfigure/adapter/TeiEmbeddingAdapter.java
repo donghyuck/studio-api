@@ -2,9 +2,11 @@ package studio.one.platform.ai.autoconfigure.adapter;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpConnectTimeoutException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,21 +34,29 @@ public class TeiEmbeddingAdapter implements EmbeddingPort {
     private final ObjectMapper objectMapper;
     private final URI embedUri;
     private final String configuredModel;
+    private final Duration requestTimeout;
 
     public TeiEmbeddingAdapter(String baseUrl, String configuredModel) {
+        this(baseUrl, configuredModel, Duration.ofMinutes(2));
+    }
+
+    public TeiEmbeddingAdapter(String baseUrl, String configuredModel, Duration requestTimeout) {
         this(HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build(),
                 new ObjectMapper(),
                 baseUrl,
-                configuredModel);
+                configuredModel,
+                requestTimeout);
     }
 
-    TeiEmbeddingAdapter(HttpClient httpClient, ObjectMapper objectMapper, String baseUrl, String configuredModel) {
+    TeiEmbeddingAdapter(HttpClient httpClient, ObjectMapper objectMapper, String baseUrl, String configuredModel,
+            Duration requestTimeout) {
         this.httpClient = Objects.requireNonNull(httpClient, "httpClient");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.embedUri = URI.create(normalizeBaseUrl(baseUrl) + "/embed");
         this.configuredModel = normalize(configuredModel);
+        this.requestTimeout = sanitizeTimeout(requestTimeout);
     }
 
     @Override
@@ -75,7 +85,7 @@ public class TeiEmbeddingAdapter implements EmbeddingPort {
         try {
             String body = objectMapper.writeValueAsString(new TeiEmbeddingRequest(texts));
             HttpRequest httpRequest = HttpRequest.newBuilder(embedUri)
-                    .timeout(Duration.ofMinutes(2))
+                    .timeout(requestTimeout)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
@@ -85,6 +95,12 @@ public class TeiEmbeddingAdapter implements EmbeddingPort {
                         + response.statusCode() + ": " + abbreviate(response.body()));
             }
             return objectMapper.readValue(response.body(), EMBEDDING_LIST_TYPE);
+        } catch (HttpConnectTimeoutException e) {
+            throw new IllegalStateException("Timed out connecting to TEI embedding server after "
+                    + requestTimeout, e);
+        } catch (HttpTimeoutException e) {
+            throw new IllegalStateException("Timed out waiting for TEI embedding server after "
+                    + requestTimeout, e);
         } catch (IOException e) {
             throw new IllegalStateException("Failed to call TEI embedding server", e);
         } catch (InterruptedException e) {
@@ -106,6 +122,13 @@ public class TeiEmbeddingAdapter implements EmbeddingPort {
 
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static Duration sanitizeTimeout(Duration timeout) {
+        if (timeout == null || timeout.isZero() || timeout.isNegative()) {
+            return Duration.ofMinutes(2);
+        }
+        return timeout;
     }
 
     private static String abbreviate(String body) {

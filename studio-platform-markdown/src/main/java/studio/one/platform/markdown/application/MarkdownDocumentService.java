@@ -50,6 +50,9 @@ public class MarkdownDocumentService {
     private final Clock clock;
     private final String pandocVersion;
     private final Set<String> activeTasks = ConcurrentHashMap.newKeySet();
+    private static final int ESTIMATE_TARGET_CHUNKS = 1000;
+    private static final int ESTIMATE_DEFAULT_EMBEDDING_BATCH_SIZE = 4;
+    private static final int STALE_PIPELINE_RECOVERY_MINUTES = 30;
 
     public MarkdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
             MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
@@ -74,6 +77,7 @@ public class MarkdownDocumentService {
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pandocVersion = normalize(pandocVersion, "pandoc");
+        recoverStalePipelineExecutions();
     }
 
     public MarkdownExtractionResult create(MarkdownExtractionRequest request) {
@@ -195,6 +199,78 @@ public class MarkdownDocumentService {
         MarkdownRevision revision = latestRevision(documentId);
         return repository.findPipelineExecution(revision.revisionId())
                 .orElseGet(() -> legacyPipelineExecution(revision));
+    }
+
+    public MarkdownPipelineProgress getPipelineProgress(String documentId) {
+        MarkdownRevision revision = latestRevision(documentId);
+        MarkdownPipelineExecution execution = repository.findPipelineExecution(revision.revisionId())
+                .orElseGet(() -> legacyPipelineExecution(revision));
+        return new MarkdownPipelineProgress(execution, pipelinePort.latestRagProgress(revision));
+    }
+
+    public MarkdownPipelineEstimate estimatePipeline(String documentId, MarkdownResumeOptions request) {
+        MarkdownRevision revision = latestRevision(documentId);
+        if (revision.status() != MarkdownRevisionStatus.COMPLETED || !hasText(revision.markdownText())) {
+            throw new MarkdownPipelineEstimateUnavailableException(
+                    "Completed Markdown revision with text is required for pipeline estimate");
+        }
+        MarkdownPipelineOptions previous = readOptions(revision.optionsJson());
+        MarkdownPipelineOptions options = request == null ? previous : merge(previous, request);
+        int pageCount = pageCount(revision.revisionId());
+        int markdownLength = revision.markdownText().length();
+        int chunkCount = pipelinePort.estimateChunkCount(revision, options);
+        int embeddingBatchSize = ESTIMATE_DEFAULT_EMBEDDING_BATCH_SIZE;
+        int embeddingRequests = embeddingRequests(chunkCount, embeddingBatchSize);
+        RecommendedEstimate recommended = recommendedEstimate(revision, options, chunkCount, embeddingBatchSize);
+        List<MarkdownPipelineEstimate.Warning> warnings = estimateWarnings(markdownLength, pageCount, chunkCount);
+        return new MarkdownPipelineEstimate(
+                revision.documentId(),
+                revision.revisionId(),
+                revision.sourceFileName(),
+                revision.sourceFormat(),
+                markdownLength,
+                pageCount,
+                markdownLength,
+                chunkCount,
+                embeddingRequests,
+                embeddingBatchSize,
+                riskLevel(chunkCount),
+                recommended.toResponse(),
+                warnings);
+    }
+
+    public MarkdownPipelineEstimate estimatePipelineByAttachment(long attachmentId, MarkdownResumeOptions request) {
+        var document = repository.findDocumentBySourceAttachmentId(attachmentId);
+        if (document.isPresent() && document.get().currentRevisionId() != null) {
+            MarkdownRevision revision = repository.findRevision(document.get().currentRevisionId()).orElse(null);
+            if (revision != null && revision.status() == MarkdownRevisionStatus.COMPLETED && hasText(revision.markdownText())) {
+                return estimatePipeline(document.get().documentId(), request);
+            }
+        }
+        MarkdownSourcePort.MarkdownSourceDescriptor source = sourcePort.describe(attachmentId);
+        MarkdownPipelineOptions options = request == null ? MarkdownPipelineOptions.none()
+                : merge(new MarkdownPipelineOptions(true, true, false), request);
+        int markdownLengthEstimate = Math.toIntExact(Math.min(Integer.MAX_VALUE, Math.max(0L, source.size())));
+        int chunkCount = heuristicChunkCount(markdownLengthEstimate, options);
+        int embeddingBatchSize = ESTIMATE_DEFAULT_EMBEDDING_BATCH_SIZE;
+        int embeddingRequests = embeddingRequests(chunkCount, embeddingBatchSize);
+        RecommendedEstimate recommended = heuristicRecommendedEstimate(options, markdownLengthEstimate, chunkCount,
+                embeddingBatchSize);
+        List<MarkdownPipelineEstimate.Warning> warnings = estimateWarnings(markdownLengthEstimate, 0, chunkCount);
+        return new MarkdownPipelineEstimate(
+                document.map(MarkdownDocument::documentId).orElse(null),
+                null,
+                source.fileName(),
+                sourceFormat(source.fileName(), source.contentType()),
+                source.size(),
+                0,
+                markdownLengthEstimate,
+                chunkCount,
+                embeddingRequests,
+                embeddingBatchSize,
+                riskLevel(chunkCount),
+                recommended.toResponse(),
+                warnings);
     }
 
     public MarkdownResumeResult resume(String documentId, MarkdownPipelineStage requestedStage) {
@@ -639,6 +715,183 @@ public class MarkdownDocumentService {
                     revision.revisionId(), MarkdownPipelineExecutionStatus.FAILED, current.get(),
                     lastCompleted.get(), previous.attemptCount() + 1,
                     "PIPELINE_FAILED", sanitize(ex.getMessage()), started, now, now));
+        } catch (Error error) {
+            Instant now = clock.instant();
+            repository.savePipelineExecution(new MarkdownPipelineExecution(
+                    revision.revisionId(), MarkdownPipelineExecutionStatus.FAILED, current.get(),
+                    lastCompleted.get(), previous.attemptCount() + 1,
+                    "PIPELINE_ERROR", sanitize(error.getClass().getSimpleName() + ": " + error.getMessage()),
+                    started, now, now));
+            throw error;
+        }
+    }
+
+    private void recoverStalePipelineExecutions() {
+        Instant now = clock.instant();
+        repository.recoverStalePipelineExecutions(
+                now.minusSeconds(STALE_PIPELINE_RECOVERY_MINUTES * 60L),
+                now);
+    }
+
+    private int pageCount(String revisionId) {
+        return repository.findExtractParts(revisionId).stream()
+                .mapToInt(part -> Math.max(part.pageFrom(), part.pageTo()))
+                .max()
+                .orElseGet(() -> (int) repository.findLocators(revisionId).stream()
+                        .filter(locator -> "PAGE".equalsIgnoreCase(locator.locatorType()))
+                        .count());
+    }
+
+    private int embeddingRequests(int chunkCount, int batchSize) {
+        if (chunkCount <= 0) {
+            return 0;
+        }
+        int effectiveBatchSize = Math.max(1, batchSize);
+        return (int) Math.ceil((double) chunkCount / effectiveBatchSize);
+    }
+
+    private RecommendedEstimate recommendedEstimate(
+            MarkdownRevision revision,
+            MarkdownPipelineOptions current,
+            int currentChunkCount,
+            int embeddingBatchSize) {
+        if (currentChunkCount <= ESTIMATE_TARGET_CHUNKS) {
+            return new RecommendedEstimate(current, currentChunkCount, embeddingRequests(currentChunkCount, embeddingBatchSize));
+        }
+        int overlap = current.chunkOverlap() == null ? 150 : current.chunkOverlap();
+        String strategy = current.chunkingStrategy() == null ? "structure-based" : current.chunkingStrategy();
+        String unit = current.chunkUnit() == null ? "CHARACTER" : current.chunkUnit();
+        int[] candidates = {2000, 3000, 4000, 6000};
+        RecommendedEstimate best = new RecommendedEstimate(current, currentChunkCount,
+                embeddingRequests(currentChunkCount, embeddingBatchSize));
+        for (int maxSize : candidates) {
+            int candidateOverlap = Math.min(overlap, maxSize - 1);
+            MarkdownPipelineOptions candidate = new MarkdownPipelineOptions(
+                    current.runChunking(),
+                    current.runRagIndex(),
+                    current.runSkillExtraction(),
+                    strategy,
+                    maxSize,
+                    candidateOverlap,
+                    unit,
+                    current.embeddingProfileId(),
+                    current.embeddingProvider(),
+                    current.embeddingModel(),
+                    current.embeddingDimension(),
+                    current.useLlmKeywordExtraction(),
+                    current.skillExtractionMode(),
+                    current.generateSkillEmbeddings(),
+                    current.skillEmbeddingProvider(),
+                    current.skillEmbeddingModel(),
+                    current.skillEmbeddingDimension());
+            int chunks = pipelinePort.estimateChunkCount(revision, candidate);
+            best = new RecommendedEstimate(candidate, chunks, embeddingRequests(chunks, embeddingBatchSize));
+            if (chunks <= ESTIMATE_TARGET_CHUNKS) {
+                break;
+            }
+        }
+        return best;
+    }
+
+    private RecommendedEstimate heuristicRecommendedEstimate(
+            MarkdownPipelineOptions current,
+            int markdownLengthEstimate,
+            int currentChunkCount,
+            int embeddingBatchSize) {
+        if (currentChunkCount <= ESTIMATE_TARGET_CHUNKS) {
+            return new RecommendedEstimate(current, currentChunkCount, embeddingRequests(currentChunkCount, embeddingBatchSize));
+        }
+        int overlap = current.chunkOverlap() == null ? 150 : current.chunkOverlap();
+        String strategy = current.chunkingStrategy() == null ? "structure-based" : current.chunkingStrategy();
+        String unit = current.chunkUnit() == null ? "CHARACTER" : current.chunkUnit();
+        int[] candidates = {2000, 3000, 4000, 6000};
+        RecommendedEstimate best = new RecommendedEstimate(current, currentChunkCount,
+                embeddingRequests(currentChunkCount, embeddingBatchSize));
+        for (int maxSize : candidates) {
+            int candidateOverlap = Math.min(overlap, maxSize - 1);
+            MarkdownPipelineOptions candidate = new MarkdownPipelineOptions(
+                    current.runChunking(),
+                    current.runRagIndex(),
+                    current.runSkillExtraction(),
+                    strategy,
+                    maxSize,
+                    candidateOverlap,
+                    unit,
+                    current.embeddingProfileId(),
+                    current.embeddingProvider(),
+                    current.embeddingModel(),
+                    current.embeddingDimension(),
+                    current.useLlmKeywordExtraction(),
+                    current.skillExtractionMode(),
+                    current.generateSkillEmbeddings(),
+                    current.skillEmbeddingProvider(),
+                    current.skillEmbeddingModel(),
+                    current.skillEmbeddingDimension());
+            int chunks = heuristicChunkCount(markdownLengthEstimate, candidate);
+            best = new RecommendedEstimate(candidate, chunks, embeddingRequests(chunks, embeddingBatchSize));
+            if (chunks <= ESTIMATE_TARGET_CHUNKS) {
+                break;
+            }
+        }
+        return best;
+    }
+
+    private int heuristicChunkCount(int markdownLengthEstimate, MarkdownPipelineOptions options) {
+        if (markdownLengthEstimate <= 0) {
+            return 0;
+        }
+        int maxSize = options.chunkMaxSize() == null ? 1000 : options.chunkMaxSize();
+        int overlap = options.chunkOverlap() == null ? 0 : Math.min(options.chunkOverlap(), maxSize - 1);
+        int effectiveSize = Math.max(1, maxSize - overlap);
+        return Math.max(1, (int) Math.ceil((double) markdownLengthEstimate / effectiveSize));
+    }
+
+    private List<MarkdownPipelineEstimate.Warning> estimateWarnings(int markdownLength, int pageCount, int chunkCount) {
+        List<MarkdownPipelineEstimate.Warning> warnings = new ArrayList<>();
+        if (markdownLength >= 10 * 1024 * 1024) {
+            warnings.add(new MarkdownPipelineEstimate.Warning(
+                    "LARGE_MARKDOWN",
+                    "Markdown text is larger than 10MB. Use the recommended chunking options before indexing."));
+        }
+        if (pageCount >= 100) {
+            warnings.add(new MarkdownPipelineEstimate.Warning(
+                    "MANY_PAGES",
+                    "Document has 100 or more pages. Indexing may take a long time."));
+        }
+        if (chunkCount > ESTIMATE_TARGET_CHUNKS) {
+            warnings.add(new MarkdownPipelineEstimate.Warning(
+                    "MANY_CHUNKS",
+                    "Estimated chunk count is high. Recommended chunking options reduce embedding requests."));
+        }
+        return List.copyOf(warnings);
+    }
+
+    private String riskLevel(int chunkCount) {
+        if (chunkCount >= 5000) {
+            return "VERY_HIGH";
+        }
+        if (chunkCount >= 1500) {
+            return "HIGH";
+        }
+        if (chunkCount >= 500) {
+            return "MEDIUM";
+        }
+        return "LOW";
+    }
+
+    private record RecommendedEstimate(
+            MarkdownPipelineOptions options,
+            int estimatedChunkCount,
+            int estimatedEmbeddingRequests) {
+
+        MarkdownPipelineEstimate.RecommendedChunking toResponse() {
+            return new MarkdownPipelineEstimate.RecommendedChunking(
+                    options.chunkingStrategy(),
+                    options.chunkMaxSize(),
+                    options.chunkOverlap(),
+                    options.chunkUnit(),
+                    estimatedChunkCount,
+                    estimatedEmbeddingRequests);
         }
     }
 

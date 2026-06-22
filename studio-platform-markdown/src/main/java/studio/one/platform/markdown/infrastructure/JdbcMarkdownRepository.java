@@ -172,6 +172,22 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
     }
 
     @Override
+    public int recoverStalePipelineExecutions(Instant staleBefore, Instant now) {
+        return jdbc.update("""
+                UPDATE tb_ai_markdown_pipeline_execution
+                   SET status='FAILED',
+                       error_code='PIPELINE_STALE',
+                       error_message='Pipeline was marked stale during startup recovery',
+                       completed_at=:now,
+                       updated_at=:now
+                 WHERE status='RUNNING'
+                   AND updated_at < :staleBefore
+                """, new MapSqlParameterSource()
+                .addValue("staleBefore", timestamp(staleBefore))
+                .addValue("now", timestamp(now)));
+    }
+
+    @Override
     public Optional<MarkdownRevision> findActiveRevisionBySourceAttachmentId(long sourceAttachmentId) {
         return jdbc.query("""
                 SELECT * FROM tb_ai_markdown_revision

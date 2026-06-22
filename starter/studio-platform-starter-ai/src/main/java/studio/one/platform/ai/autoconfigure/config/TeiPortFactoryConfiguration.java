@@ -43,7 +43,7 @@ public class TeiPortFactoryConfiguration {
             baseUrl = requireText(baseUrl, "studio.ai.providers." + providerId
                     + ".base-url must be configured for TEI embedding provider");
             String model = provider.getEmbedding().getModel();
-            return new TeiEmbeddingAdapter(baseUrl, model);
+            return new TeiEmbeddingAdapter(baseUrl, model, provider.getEmbedding().getRequestTimeout());
         }
 
         private static String requireText(String value, String message) {

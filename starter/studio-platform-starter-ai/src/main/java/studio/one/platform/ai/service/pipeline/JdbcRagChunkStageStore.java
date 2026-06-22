@@ -17,6 +17,7 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
+    private static final int INSERT_BATCH_SIZE = 200;
 
     private final NamedParameterJdbcTemplate template;
     private final ObjectMapper objectMapper;
@@ -32,15 +33,19 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
         if (chunks == null || chunks.isEmpty()) {
             return;
         }
-        MapSqlParameterSource[] batch = chunks.stream()
-                .map(chunk -> params(objectType, objectId, documentId, chunk))
-                .toArray(MapSqlParameterSource[]::new);
-        template.batchUpdate("""
-                INSERT INTO tb_ai_rag_chunk_stage(
-                    object_type, object_id, document_id, chunk_index, chunk_id, text, metadata, created_at)
-                VALUES (
-                    :objectType, :objectId, :documentId, :chunkIndex, :chunkId, :text, :metadata, :createdAt)
-                """, batch);
+        for (int offset = 0; offset < chunks.size(); offset += INSERT_BATCH_SIZE) {
+            List<RagChunkStage> slice = chunks.subList(offset, Math.min(offset + INSERT_BATCH_SIZE, chunks.size()));
+            MapSqlParameterSource[] batch = new MapSqlParameterSource[slice.size()];
+            for (int index = 0; index < slice.size(); index++) {
+                batch[index] = params(objectType, objectId, documentId, slice.get(index));
+            }
+            template.batchUpdate("""
+                    INSERT INTO tb_ai_rag_chunk_stage(
+                        object_type, object_id, document_id, chunk_index, chunk_id, text, metadata, created_at)
+                    VALUES (
+                        :objectType, :objectId, :documentId, :chunkIndex, :chunkId, :text, :metadata, :createdAt)
+                    """, batch);
+        }
     }
 
     @Override
