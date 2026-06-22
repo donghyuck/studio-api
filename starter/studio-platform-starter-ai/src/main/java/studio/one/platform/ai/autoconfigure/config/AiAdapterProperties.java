@@ -1,5 +1,6 @@
 package studio.one.platform.ai.autoconfigure.config;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -64,6 +65,7 @@ public class AiAdapterProperties {
         private boolean enabled = false;
         private String model;
         private Integer dimension;
+        private Duration requestTimeout;
     }
 
     @Getter

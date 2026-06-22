@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties("studio.markdown")
 public class MarkdownProperties {
     private boolean enabled;
-    private int maxSourceBytes = 25 * 1024 * 1024;
+    private int maxSourceBytes = 64 * 1024 * 1024;
     private String pandocVersion = "pandoc";
     private String textractVersion = "native";
     private final Web web = new Web();

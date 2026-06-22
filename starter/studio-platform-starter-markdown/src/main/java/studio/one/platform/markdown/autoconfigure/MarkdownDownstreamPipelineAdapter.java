@@ -3,6 +3,7 @@ package studio.one.platform.markdown.autoconfigure;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -11,7 +12,10 @@ import org.springframework.beans.factory.ObjectProvider;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
+import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSort;
 import studio.one.platform.ai.core.rag.RagIndexRequest;
 import studio.one.platform.ai.service.pipeline.RagChunkStage;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
@@ -26,6 +30,7 @@ import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownPipelineProgress;
 import studio.one.platform.markdown.application.port.MarkdownPipelinePort;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownLocator;
@@ -117,6 +122,54 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         }
     }
 
+    @Override
+    public int estimateChunkCount(MarkdownRevision revision, MarkdownPipelineOptions options) {
+        ChunkingOrchestrator chunking = chunkingProvider.getIfAvailable();
+        if (chunking == null || revision == null || revision.markdownText() == null || revision.markdownText().isBlank()) {
+            return MarkdownPipelinePort.super.estimateChunkCount(revision, options);
+        }
+        String objectType = "attachment";
+        String objectId = Long.toString(revision.sourceAttachmentId());
+        Map<String, Object> metadata = metadata(revision, objectType, objectId);
+        addPipelineMetadata(metadata, options);
+        NormalizedDocument document = NormalizedDocument.builder(revision.documentId())
+                .plainText(revision.markdownText())
+                .sourceFormat("markdown")
+                .filename(revision.sourceFileName())
+                .blocks(blocks(revision))
+                .metadata(metadata)
+                .build();
+        return chunking.chunk(document, chunkingContext(document, options).build()).size();
+    }
+
+    @Override
+    public MarkdownPipelineProgress.RagProgress latestRagProgress(MarkdownRevision revision) {
+        RagIndexJobService ragJobService = ragJobServiceProvider.getIfAvailable();
+        if (ragJobService == null || revision == null) {
+            return null;
+        }
+        RagIndexJobFilter filter = new RagIndexJobFilter(
+                null,
+                "attachment",
+                Long.toString(revision.sourceAttachmentId()),
+                revision.documentId());
+        var page = ragJobService.listJobs(filter, new RagIndexJobPageRequest(0, 1),
+                new RagIndexJobSort(RagIndexJobSort.Field.CREATED_AT, RagIndexJobSort.Direction.DESC));
+        if (page == null || page.jobs().isEmpty()) {
+            return null;
+        }
+        RagIndexJob job = page.jobs().get(0);
+        return new MarkdownPipelineProgress.RagProgress(
+                job.jobId(),
+                job.status() == null ? null : job.status().name(),
+                job.currentStep() == null ? null : job.currentStep().name(),
+                job.chunkCount(),
+                job.embeddedCount(),
+                job.indexedCount(),
+                job.warningCount(),
+                job.errorMessage());
+    }
+
     private void stageChunks(MarkdownRevision revision, String objectType, String objectId,
             Map<String, Object> metadata, MarkdownPipelineOptions options) {
         ChunkingOrchestrator chunking = chunkingProvider.getIfAvailable();
@@ -132,6 +185,26 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 .metadata(metadata)
                 .build();
         ChunkingContext.Builder context = document.toContextBuilder();
+        applyChunkingOptions(context, options);
+        List<Chunk> chunks = chunking.chunk(document, context.build());
+        List<RagChunkStage> stages = new ArrayList<>(chunks.size());
+        for (int index = 0; index < chunks.size(); index++) {
+            Chunk chunk = chunks.get(index);
+            Map<String, Object> chunkMetadata = new HashMap<>(metadata);
+            chunkMetadata.putAll(stageMetadata(chunk.metadata().toMap()));
+            stages.add(new RagChunkStage(objectType, objectId, revision.documentId(), index,
+                    chunk.id(), chunk.content(), chunkMetadata, null));
+        }
+        stageStore.replace(objectType, objectId, revision.documentId(), stages);
+    }
+
+    private ChunkingContext.Builder chunkingContext(NormalizedDocument document, MarkdownPipelineOptions options) {
+        ChunkingContext.Builder context = document.toContextBuilder();
+        applyChunkingOptions(context, options);
+        return context;
+    }
+
+    private void applyChunkingOptions(ChunkingContext.Builder context, MarkdownPipelineOptions options) {
         if (options.chunkingStrategy() == null) {
             context.useConfiguredStrategy();
         } else {
@@ -150,16 +223,15 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         if (options.chunkUnit() != null) {
             context.unit(ChunkUnit.valueOf(options.chunkUnit()));
         }
-        List<Chunk> chunks = chunking.chunk(document, context.build());
-        List<RagChunkStage> stages = new ArrayList<>(chunks.size());
-        for (int index = 0; index < chunks.size(); index++) {
-            Chunk chunk = chunks.get(index);
-            Map<String, Object> chunkMetadata = new HashMap<>(metadata);
-            chunkMetadata.putAll(chunk.metadata().toMap());
-            stages.add(new RagChunkStage(objectType, objectId, revision.documentId(), index,
-                    chunk.id(), chunk.content(), chunkMetadata, null));
+    }
+
+    private Map<String, Object> stageMetadata(Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty()) {
+            return Map.of();
         }
-        stageStore.replace(objectType, objectId, revision.documentId(), stages);
+        Map<String, Object> sanitized = new LinkedHashMap<>(metadata);
+        sanitized.remove(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT);
+        return sanitized;
     }
 
     private void addPipelineMetadata(Map<String, Object> metadata, MarkdownPipelineOptions options) {

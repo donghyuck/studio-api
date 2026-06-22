@@ -58,6 +58,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 @SuppressWarnings("deprecation")
@@ -644,13 +645,36 @@ class RagPipelineServiceTest {
 
         ragPipelineService.index(request);
 
-        verify(vectorStorePort, never()).deleteByObject("attachment", "99");
+        verify(vectorStorePort).deleteByObject("attachment", "99");
         verify(vectorStorePort, never()).replaceRecordsByObject(anyString(), anyString(), any());
         verify(embeddingPort, times(7)).embed(any(EmbeddingRequest.class));
         verify(vectorStorePort, times(7)).upsertAll(recordsCaptor.capture());
         assertThat(recordsCaptor.getAllValues()).hasSize(7);
         assertThat(recordsCaptor.getAllValues().subList(0, 6)).allSatisfy(batch -> assertThat(batch).hasSize(10));
         assertThat(recordsCaptor.getAllValues().get(6)).hasSize(5);
+    }
+
+    @Test
+    void shouldDeletePartialObjectScopedVectorsWhenLargeBatchedIndexFails() {
+        RagIndexRequest request = new RagIndexRequest("doc-large-fail", "large text", Map.of(
+                "objectType", "attachment",
+                "objectId", "101"));
+        List<TextChunk> chunks = new ArrayList<>();
+        for (int i = 0; i < 65; i++) {
+            chunks.add(new TextChunk("doc-large-fail-" + i, "chunk-" + i));
+        }
+        when(textChunker.chunk("doc-large-fail", "large text")).thenReturn(chunks);
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(embeddingVectors(10)));
+        doThrow(new IllegalStateException("vector store unavailable"))
+                .when(vectorStorePort)
+                .upsertAll(any());
+
+        assertThatThrownBy(() -> ragPipelineService.index(request))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("vector store unavailable");
+
+        verify(vectorStorePort, times(2)).deleteByObject("attachment", "101");
     }
 
     @Test

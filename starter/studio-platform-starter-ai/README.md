@@ -236,6 +236,7 @@ studio:
         embedding:
           enabled: true
           model: nlpai-lab/KURE-v1
+          request-timeout: 5m
     rag:
       default-embedding-profile: retrieval-ko-kure
       embedding-profiles:

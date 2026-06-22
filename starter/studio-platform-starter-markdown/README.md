@@ -6,7 +6,7 @@
 studio:
   markdown:
     enabled: true
-    max-source-bytes: 26214400
+    max-source-bytes: 67108864
     pandoc-version: pandoc-3
     textract-version: native-1
   document-convert:

@@ -26,9 +26,13 @@ import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.MarkdownDocumentNotFoundException;
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
 import studio.one.platform.markdown.application.MarkdownExtractionResult;
+import studio.one.platform.markdown.application.MarkdownPipelineEstimate;
+import studio.one.platform.markdown.application.MarkdownPipelineEstimateUnavailableException;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownPipelineProgress;
 import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.MarkdownResumeResult;
+import studio.one.platform.markdown.application.MarkdownSourceTooLargeException;
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.domain.MarkdownLocator;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
@@ -74,6 +78,26 @@ public class MarkdownDocumentController {
     @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
     public ApiResponse<MarkdownPipelineExecution> pipeline(@PathVariable String id) {
         return ApiResponse.ok(service.getPipelineExecution(id));
+    }
+
+    @GetMapping("/{id}/pipeline/progress")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<MarkdownPipelineProgress> pipelineProgress(@PathVariable String id) {
+        return ApiResponse.ok(service.getPipelineProgress(id));
+    }
+
+    @PostMapping("/{id}/pipeline/estimate")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<MarkdownPipelineEstimate> pipelineEstimate(
+            @PathVariable String id, @RequestBody(required = false) MarkdownResumeRequest request) {
+        return ApiResponse.ok(service.estimatePipeline(id, resumeOptions(request)));
+    }
+
+    @PostMapping("/by-attachment/{attachmentId}/pipeline/estimate")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<MarkdownPipelineEstimate> pipelineEstimateByAttachment(
+            @PathVariable long attachmentId, @RequestBody(required = false) MarkdownResumeRequest request) {
+        return ApiResponse.ok(service.estimatePipelineByAttachment(attachmentId, resumeOptions(request)));
     }
 
     @PostMapping("/{id}/resume")
@@ -142,6 +166,41 @@ public class MarkdownDocumentController {
                 .timestamp(OffsetDateTime.now())
                 .build();
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(MarkdownSourceTooLargeException.class)
+    public ResponseEntity<ProblemDetails> sourceTooLarge(
+            MarkdownSourceTooLargeException exception, HttpServletRequest request) {
+        ProblemDetails problem = ProblemDetails.builder()
+                .type("urn:error:markdown-source-too-large")
+                .title(HttpStatus.PAYLOAD_TOO_LARGE.getReasonPhrase())
+                .status(HttpStatus.PAYLOAD_TOO_LARGE.value())
+                .detail("Attachment exceeds markdown source size limit: actualBytes=%d, maxBytes=%d"
+                        .formatted(exception.actualBytes(), exception.maxBytes()))
+                .instance(request.getRequestURI())
+                .code("markdown.source.too-large")
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(MarkdownPipelineEstimateUnavailableException.class)
+    public ResponseEntity<ProblemDetails> estimateUnavailable(
+            MarkdownPipelineEstimateUnavailableException exception, HttpServletRequest request) {
+        ProblemDetails problem = ProblemDetails.builder()
+                .type("urn:error:markdown-pipeline-estimate-unavailable")
+                .title(HttpStatus.CONFLICT.getReasonPhrase())
+                .status(HttpStatus.CONFLICT.value())
+                .detail(exception.getMessage())
+                .instance(request.getRequestURI())
+                .code("markdown.pipeline.estimate-unavailable")
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .body(problem);
     }

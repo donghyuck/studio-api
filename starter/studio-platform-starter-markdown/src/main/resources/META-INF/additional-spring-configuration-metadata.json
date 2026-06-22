@@ -9,7 +9,7 @@
     {
       "name": "studio.markdown.max-source-bytes",
       "type": "java.lang.Integer",
-      "defaultValue": 26214400,
+      "defaultValue": 67108864,
       "description": "Maximum source or converted Markdown attachment size loaded by the orchestrator."
     },
     {

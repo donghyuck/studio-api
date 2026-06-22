@@ -2,6 +2,7 @@ package studio.one.platform.markdown.application.port;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.Instant;
 
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.domain.MarkdownExtractPart;
@@ -27,6 +28,10 @@ public interface MarkdownRepository {
     Optional<MarkdownRevision> findRevisionByConvertJobId(String convertJobId);
 
     Optional<MarkdownPipelineExecution> findPipelineExecution(String revisionId);
+
+    default int recoverStalePipelineExecutions(Instant staleBefore, Instant now) {
+        return 0;
+    }
 
     Optional<MarkdownRevision> findActiveRevisionBySourceAttachmentId(long sourceAttachmentId);
 
