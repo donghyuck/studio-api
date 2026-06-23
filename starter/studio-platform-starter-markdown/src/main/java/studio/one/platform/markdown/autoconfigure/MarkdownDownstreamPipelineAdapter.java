@@ -9,6 +9,8 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import org.springframework.beans.factory.ObjectProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import studio.one.platform.ai.core.rag.RagIndexJob;
 import studio.one.platform.ai.core.rag.RagIndexJobCreateRequest;
@@ -16,7 +18,7 @@ import studio.one.platform.ai.core.rag.RagIndexJobFilter;
 import studio.one.platform.ai.core.rag.RagIndexJobStatus;
 import studio.one.platform.ai.core.rag.RagIndexJobPageRequest;
 import studio.one.platform.ai.core.rag.RagIndexJobSort;
-import studio.one.platform.ai.core.rag.RagIndexRequest;
+import studio.one.platform.ai.core.rag.RagIndexJobSourceRequest;
 import studio.one.platform.ai.service.pipeline.RagChunkStage;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
@@ -39,6 +41,12 @@ import studio.one.platform.markdown.domain.MarkdownPipelineStage;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 
 public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
+    private static final Logger log = LoggerFactory.getLogger(MarkdownDownstreamPipelineAdapter.class);
+    private static final String BLOCKIFY_SCHEMA_VERSION = "blockify-metadata-v1";
+    private static final String BLOCKIFY_VALIDATION_FALLBACK = "FALLBACK";
+    private static final String BLOCKIFY_UNKNOWN_FALLBACK = "UNKNOWN_FALLBACK";
+    private static final String REQUIRE_RAG_CHUNK_STAGE = "requireRagChunkStage";
+
     private final ObjectProvider<RagIndexJobService> ragJobServiceProvider;
     private final ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider;
     private final ObjectProvider<ChunkingOrchestrator> chunkingProvider;
@@ -85,14 +93,16 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             if (ragJobService == null) {
                 throw new IllegalStateException("RAG index job service is not configured");
             }
-            RagIndexRequest indexRequest = new RagIndexRequest(
-                    revision.documentId(), revision.markdownText(), metadata, List.of(),
-                    options.useLlmKeywordExtraction(),
-                    options.embeddingProfileId(), options.embeddingProvider(), options.embeddingModel(),
-                    options.embeddingDimension());
+            Map<String, Object> ragMetadata = new HashMap<>(metadata);
+            if (isBlockify(options)) {
+                ragMetadata.put(REQUIRE_RAG_CHUNK_STAGE, true);
+            }
             RagIndexJob job = ragJobService.createJob(new RagIndexJobCreateRequest(
-                    objectType, objectId, revision.documentId(), "markdown-revision",
-                    true, indexRequest, revision.sourceFileName()));
+                    objectType, objectId, revision.documentId(), objectType,
+                    true, null, revision.sourceFileName()),
+                    new RagIndexJobSourceRequest(
+                            ragMetadata, List.of(), options.useLlmKeywordExtraction(),
+                            options.embeddingProfileId(), options.embeddingProvider(), options.embeddingModel()));
             RagIndexJob completed = ragJobService.startJob(job.jobId());
             if (completed.status() != RagIndexJobStatus.SUCCEEDED
                     && completed.status() != RagIndexJobStatus.WARNING) {
@@ -128,6 +138,9 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         if (chunking == null || revision == null || revision.markdownText() == null || revision.markdownText().isBlank()) {
             return MarkdownPipelinePort.super.estimateChunkCount(revision, options);
         }
+        if (options != null && "blockify".equalsIgnoreCase(options.chunkingStrategy())) {
+            return MarkdownPipelinePort.super.estimateChunkCount(revision, options);
+        }
         String objectType = "attachment";
         String objectId = Long.toString(revision.sourceAttachmentId());
         Map<String, Object> metadata = metadata(revision, objectType, objectId);
@@ -136,7 +149,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 .plainText(revision.markdownText())
                 .sourceFormat("markdown")
                 .filename(revision.sourceFileName())
-                .blocks(blocks(revision))
+                .blocks(blocks(revision, options))
                 .metadata(metadata)
                 .build();
         return chunking.chunk(document, chunkingContext(document, options).build()).size();
@@ -181,21 +194,37 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 .plainText(revision.markdownText())
                 .sourceFormat("markdown")
                 .filename(revision.sourceFileName())
-                .blocks(blocks(revision))
+                .blocks(blocks(revision, options))
                 .metadata(metadata)
                 .build();
         ChunkingContext.Builder context = document.toContextBuilder();
         applyChunkingOptions(context, options);
         List<Chunk> chunks = chunking.chunk(document, context.build());
+        boolean blockify = isBlockify(options);
+        if (blockify) {
+            logBlockifyChunking(revision, chunks);
+            if (chunks.isEmpty()) {
+                throw new IllegalStateException(
+                        "Blockify chunking produced no chunks: revisionId=%s".formatted(revision.revisionId()));
+            }
+        }
         List<RagChunkStage> stages = new ArrayList<>(chunks.size());
         for (int index = 0; index < chunks.size(); index++) {
             Chunk chunk = chunks.get(index);
             Map<String, Object> chunkMetadata = new HashMap<>(metadata);
-            chunkMetadata.putAll(stageMetadata(chunk.metadata().toMap()));
+            Map<String, Object> stageMetadata = stageMetadata(chunk.metadata().toMap());
+            if (blockify) {
+                stageMetadata = blockifyStageMetadata(stageMetadata, chunk);
+                validateBlockifyStageMetadata(stageMetadata, chunk);
+            }
+            chunkMetadata.putAll(stageMetadata);
             stages.add(new RagChunkStage(objectType, objectId, revision.documentId(), index,
                     chunk.id(), chunk.content(), chunkMetadata, null));
         }
         stageStore.replace(objectType, objectId, revision.documentId(), stages);
+        if (blockify) {
+            verifyBlockifyStageStored(stageStore, objectType, objectId, revision.documentId(), stages.size());
+        }
     }
 
     private ChunkingContext.Builder chunkingContext(NormalizedDocument document, MarkdownPipelineOptions options) {
@@ -234,25 +263,129 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         return sanitized;
     }
 
+    private Map<String, Object> blockifyStageMetadata(Map<String, Object> metadata, Chunk chunk) {
+        Map<String, Object> enriched = new LinkedHashMap<>(metadata == null ? Map.of() : metadata);
+        boolean fallbackLike = chunk.metadata().strategy() == ChunkingStrategyType.STRUCTURE_BASED
+                || "structure-based".equals(text(enriched.get("actualChunkingStrategy")))
+                || BLOCKIFY_VALIDATION_FALLBACK.equals(text(enriched.get("validationStatus")))
+                || text(enriched.get("fallbackReason")) != null;
+        if (fallbackLike) {
+            enriched.putIfAbsent("requestedChunkingStrategy", ChunkingStrategyType.BLOCKIFY.value());
+            enriched.putIfAbsent("actualChunkingStrategy", ChunkingStrategyType.STRUCTURE_BASED.value());
+            enriched.putIfAbsent("validationStatus", BLOCKIFY_VALIDATION_FALLBACK);
+            enriched.putIfAbsent("fallbackReason", BLOCKIFY_UNKNOWN_FALLBACK);
+        }
+        return enriched;
+    }
+
+    private void validateBlockifyStageMetadata(Map<String, Object> metadata, Chunk chunk) {
+        String requested = text(metadata.get("requestedChunkingStrategy"));
+        String actual = text(metadata.get("actualChunkingStrategy"));
+        if (!ChunkingStrategyType.BLOCKIFY.value().equals(requested)) {
+            throw invalidBlockifyChunk("missing requestedChunkingStrategy=blockify", chunk, metadata);
+        }
+        if (ChunkingStrategyType.BLOCKIFY.value().equals(actual)) {
+            require(metadata, chunk, "schemaVersion");
+            if (!BLOCKIFY_SCHEMA_VERSION.equals(text(metadata.get("schemaVersion")))) {
+                throw invalidBlockifyChunk("invalid schemaVersion", chunk, metadata);
+            }
+            require(metadata, chunk, "blockifyFingerprint");
+            require(metadata, chunk, "question");
+            require(metadata, chunk, "answer");
+            require(metadata, chunk, "sourceEvidence");
+            return;
+        }
+        if (ChunkingStrategyType.STRUCTURE_BASED.value().equals(actual)) {
+            if (!BLOCKIFY_VALIDATION_FALLBACK.equals(text(metadata.get("validationStatus")))) {
+                throw invalidBlockifyChunk("missing validationStatus=FALLBACK", chunk, metadata);
+            }
+            require(metadata, chunk, "fallbackReason");
+            return;
+        }
+        throw invalidBlockifyChunk("unsupported actualChunkingStrategy=" + actual, chunk, metadata);
+    }
+
+    private void require(Map<String, Object> metadata, Chunk chunk, String key) {
+        Object value = metadata.get(key);
+        if (value == null) {
+            throw invalidBlockifyChunk("missing " + key, chunk, metadata);
+        }
+        if (value instanceof String text && text.isBlank()) {
+            throw invalidBlockifyChunk("blank " + key, chunk, metadata);
+        }
+        if (value instanceof List<?> list && list.isEmpty()) {
+            throw invalidBlockifyChunk("empty " + key, chunk, metadata);
+        }
+    }
+
+    private void verifyBlockifyStageStored(
+            RagChunkStageStore stageStore,
+            String objectType,
+            String objectId,
+            String documentId,
+            int expectedCount) {
+        List<RagChunkStage> stored = stageStore.findByObject(objectType, objectId, documentId);
+        if (stored.size() != expectedCount) {
+            throw new IllegalStateException(
+                    "Blockify chunk stage was not stored: objectType=%s, objectId=%s, documentId=%s, expected=%d, actual=%d"
+                            .formatted(objectType, objectId, documentId, expectedCount, stored.size()));
+        }
+    }
+
+    private IllegalStateException invalidBlockifyChunk(String reason, Chunk chunk, Map<String, Object> metadata) {
+        return new IllegalStateException(
+                "Invalid blockify chunk metadata: %s, chunkId=%s, chunkStrategy=%s, metadataKeys=%s"
+                        .formatted(reason, chunk.id(), chunk.metadata().strategy(), metadata.keySet()));
+    }
+
+    private void logBlockifyChunking(MarkdownRevision revision, List<Chunk> chunks) {
+        if (!log.isInfoEnabled()) {
+            return;
+        }
+        Chunk first = chunks.isEmpty() ? null : chunks.get(0);
+        log.info(
+                "Markdown blockify chunking completed: revisionId={}, chunkCount={}, firstChunkStrategy={}, firstMetadataKeys={}, firstContentPrefix={}",
+                revision.revisionId(),
+                chunks.size(),
+                first == null ? null : first.metadata().strategy(),
+                first == null ? List.of() : first.metadata().toMap().keySet(),
+                first == null ? "" : prefix(first.content()));
+    }
+
+    private String prefix(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        String normalized = value.replaceAll("\\s+", " ").trim();
+        return normalized.length() <= 120 ? normalized : normalized.substring(0, 120);
+    }
+
     private void addPipelineMetadata(Map<String, Object> metadata, MarkdownPipelineOptions options) {
         put(metadata, ChunkMetadata.KEY_STRATEGY, options.chunkingStrategy());
         put(metadata, ChunkMetadata.KEY_MAX_SIZE, options.chunkMaxSize());
         put(metadata, ChunkMetadata.KEY_OVERLAP, options.chunkOverlap());
         put(metadata, ChunkMetadata.KEY_CHUNK_UNIT,
                 options.chunkUnit() == null ? null : options.chunkUnit().toLowerCase());
+        put(metadata, "blockifyLlmProvider", options.blockifyLlmProvider());
+        put(metadata, "blockifyLlmModel", options.blockifyLlmModel());
         put(metadata, "embeddingProfileId", options.embeddingProfileId());
         put(metadata, "embeddingProvider", options.embeddingProvider());
         put(metadata, "embeddingModel", options.embeddingModel());
         put(metadata, "embeddingDimension", options.embeddingDimension());
     }
 
-    private List<NormalizedBlock> blocks(MarkdownRevision revision) {
+    private List<NormalizedBlock> blocks(MarkdownRevision revision, MarkdownPipelineOptions options) {
         List<MarkdownLocator> all = repository.findLocators(revision.revisionId());
+        boolean blockify = isBlockify(options);
+        boolean hasSection = all.stream()
+                .anyMatch(locator -> "SECTION".equalsIgnoreCase(locator.locatorType()));
         boolean hasPageOrSlide = all.stream()
                 .anyMatch(locator -> "PAGE".equalsIgnoreCase(locator.locatorType())
                         || "SLIDE".equalsIgnoreCase(locator.locatorType()));
         List<MarkdownLocator> selected = all.stream()
-                .filter(locator -> !hasPageOrSlide
+                .filter(locator -> blockify && hasSection
+                        ? "SECTION".equalsIgnoreCase(locator.locatorType())
+                        : !hasPageOrSlide
                         || "PAGE".equalsIgnoreCase(locator.locatorType())
                         || "SLIDE".equalsIgnoreCase(locator.locatorType()))
                 .sorted(Comparator.comparingInt(MarkdownLocator::startOffset))
@@ -271,6 +404,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             if (end == start) {
                 continue;
             }
+            String text = revision.markdownText().substring(start, end);
             Map<String, Object> attributes = new HashMap<>();
             attributes.put("locatorType", locator.locatorType());
             if (locator.locatorNo() != null) {
@@ -279,8 +413,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             if (locator.title() != null && !locator.title().isBlank()) {
                 attributes.put("sectionTitle", locator.title());
             }
-            NormalizedBlock.Builder builder = NormalizedBlock.builder(blockType(locator), revision.markdownText()
-                            .substring(start, end))
+            NormalizedBlock.Builder builder = NormalizedBlock.builder(blockType(locator, text), text)
                     .id(locator.locatorId())
                     .sourceRef(locator.sourceRef())
                     .order(index)
@@ -297,14 +430,38 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         return blocks;
     }
 
-    private NormalizedBlockType blockType(MarkdownLocator locator) {
+    private boolean isBlockify(MarkdownPipelineOptions options) {
+        return options != null && options.chunkingStrategy() != null
+                && ChunkingStrategyType.from(options.chunkingStrategy()) == ChunkingStrategyType.BLOCKIFY;
+    }
+
+    private NormalizedBlockType blockType(MarkdownLocator locator, String text) {
         if ("PAGE".equalsIgnoreCase(locator.locatorType())) {
             return NormalizedBlockType.PAGE;
         }
         if ("SECTION".equalsIgnoreCase(locator.locatorType())) {
-            return NormalizedBlockType.HEADING;
+            return isHeadingOnlySection(locator, text) ? NormalizedBlockType.HEADING : NormalizedBlockType.DOCUMENT;
         }
         return NormalizedBlockType.DOCUMENT;
+    }
+
+    private boolean isHeadingOnlySection(MarkdownLocator locator, String text) {
+        String title = locator.title() == null ? "" : locator.title().trim();
+        String normalized = text == null ? "" : text
+                .replaceAll("(?m)^\\s{0,3}#{1,6}\\s*", "")
+                .replaceAll("\\{#[^}]+}", "")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (normalized.isBlank()) {
+            return true;
+        }
+        if (!title.isBlank()) {
+            String normalizedTitle = title.replaceAll("\\s+", " ").trim();
+            return normalized.equals(normalizedTitle)
+                    || normalized.matches(java.util.regex.Pattern.quote(normalizedTitle) + "\\s*$");
+        }
+        return normalized.matches("^(제\\s*)?\\d+\\s*(장|절)$")
+                || normalized.matches("^제\\s*\\d+조\\s*\\([^)]*\\)$");
     }
 
     private Map<String, Object> metadata(MarkdownRevision revision, String objectType, String objectId) {
@@ -327,5 +484,13 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         if (value != null && (!(value instanceof String text) || !text.isBlank())) {
             metadata.put(key, value);
         }
+    }
+
+    private String text(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String text = value.toString();
+        return text.isBlank() ? null : text;
     }
 }
