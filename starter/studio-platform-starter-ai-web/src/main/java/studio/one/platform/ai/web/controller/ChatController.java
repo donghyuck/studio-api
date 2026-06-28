@@ -34,6 +34,7 @@ import java.security.Principal;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
 import jakarta.validation.Valid;
 
@@ -67,10 +68,8 @@ import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.chat.ChatResponseMetadata;
 import studio.one.platform.ai.core.chat.ChatStreamEvent;
 import studio.one.platform.ai.core.chat.ChatStreamEventType;
-import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
-import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
@@ -79,12 +78,15 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
+import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationDetailDto;
 import studio.one.platform.ai.web.dto.ConversationMessageActionRequestDto;
 import studio.one.platform.ai.web.dto.ConversationSummaryDto;
+import studio.one.platform.ai.web.dto.RagRetrievalPolicyDto;
+import studio.one.platform.ai.web.dto.RagRetrievalPolicyUsageDto;
 import studio.one.platform.ai.web.service.ConversationChatService;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
@@ -111,6 +113,7 @@ public class ChatController {
 
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
+    private final RagChatRetrievalService ragChatRetrievalService;
     private final RagContextBuilder ragContextBuilder;
     private final int ragContextCandidateMultiplier;
     private final int ragContextMaxCandidates;
@@ -120,6 +123,8 @@ public class ChatController {
     private final boolean chatMemoryEnabled;
     private final ConversationChatService conversationChatService;
     private final ObjectMapper objectMapper;
+    private final RagRetrievalPolicyStore ragRetrievalPolicyStore;
+    private final RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore;
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
         this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
@@ -192,8 +197,67 @@ public class ChatController {
             int ragContextCandidateMultiplier,
             int ragContextMaxCandidates,
             RagPipelineOptions ragPipelineOptions) {
+        this(providerRegistry, ragPipelineService, new RagChatRetrievalService(ragPipelineService), ragContextBuilder,
+                allowClientDebug, chatMemoryStore, chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, ragContextMaxCandidates, ragPipelineOptions, null);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagChatRetrievalService ragChatRetrievalService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates,
+            RagPipelineOptions ragPipelineOptions) {
+        this(providerRegistry, ragPipelineService, ragChatRetrievalService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, ragContextMaxCandidates, ragPipelineOptions, null);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagChatRetrievalService ragChatRetrievalService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates,
+            RagPipelineOptions ragPipelineOptions,
+            RagRetrievalPolicyStore ragRetrievalPolicyStore) {
+        this(providerRegistry, ragPipelineService, ragChatRetrievalService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, ragContextMaxCandidates, ragPipelineOptions,
+                ragRetrievalPolicyStore, null);
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagChatRetrievalService ragChatRetrievalService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates,
+            RagPipelineOptions ragPipelineOptions,
+            RagRetrievalPolicyStore ragRetrievalPolicyStore,
+            RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
+        this.ragChatRetrievalService = Objects.requireNonNull(ragChatRetrievalService, "ragChatRetrievalService");
         this.ragContextBuilder = Objects.requireNonNull(ragContextBuilder, "ragContextBuilder");
         this.ragContextCandidateMultiplier = clamp(
                 ragContextCandidateMultiplier,
@@ -209,6 +273,8 @@ public class ChatController {
         this.conversationChatService = conversationChatService;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.ragPipelineOptions = ragPipelineOptions == null ? RagPipelineOptions.defaults() : ragPipelineOptions;
+        this.ragRetrievalPolicyStore = ragRetrievalPolicyStore;
+        this.ragRetrievalPolicyUsageStore = ragRetrievalPolicyUsageStore;
     }
 
     public ChatController(
@@ -369,15 +435,20 @@ public class ChatController {
             ChatRagRequestDto request,
             Principal principal) {
         ChatRequestDto chat = request.chat();
-        int ragTopK = effectiveTopK(request);
-        double minScore = effectiveMinScore(request);
         ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
+        RagRetrievalPolicyDto appliedPolicy = resolveRetrievalPolicy(request, objectScope);
+        request = applyRetrievalPolicy(request, appliedPolicy);
+        int ragTopK = effectiveTopK(request);
+        int resultTopK = effectiveResultTopK(request, ragTopK);
+        double minScore = effectiveMinScore(request);
         String objectType = objectScope.objectType();
         String objectId = objectScope.objectId();
 
         List<RagSearchResult> ragResults;
         String ragQuery = request.ragQuery();
         boolean hasFilter = objectScope.hasFilter();
+        RagChatRetrievalService.RetrievalDebug retrievalDebug = RagChatRetrievalService.RetrievalDebug.disabled();
+        long retrievalStartedNanos = System.nanoTime();
 
         if (ragQuery == null || ragQuery.isBlank()) {
             if (!hasFilter) {
@@ -386,31 +457,21 @@ public class ChatController {
             ragResults = ragPipelineService.listByObject(objectType, objectId, ragTopK);
         } else {
             String resolvedQuery = resolveRagQuery(request);
-            if (hasFilter) {
-                ragResults = ragPipelineService.search(new RagSearchRequest(
-                        resolvedQuery,
-                        ragTopK,
-                        MetadataFilter.objectScope(objectType, objectId),
-                        request.embeddingProfileId(),
-                        request.embeddingProvider(),
-                        request.embeddingModel(),
-                        minScore,
-                        requestedTopK(request),
-                        request.minScore()));
-            } else {
-                ragResults = ragPipelineService.search(new RagSearchRequest(
-                        resolvedQuery,
-                        ragTopK,
-                        MetadataFilter.empty(),
-                        request.embeddingProfileId(),
-                        request.embeddingProvider(),
-                        request.embeddingModel(),
-                        minScore,
-                        requestedTopK(request),
-                        request.minScore()));
-            }
+            RagChatRetrievalService.RetrievalResult retrieval = ragChatRetrievalService.retrieve(
+                    request,
+                    resolvedQuery,
+                    objectType,
+                    objectId,
+                    ragTopK,
+                    minScore,
+                    requestedTopK(request),
+                    shouldExposeDiagnostics(request));
+            ragResults = retrieval.results();
+            retrievalDebug = retrieval.debug();
         }
-        ragResults = limitRagResults(ragResults, ragTopK);
+        ragResults = limitRagResults(ragResults, resultTopK);
+        long retrievalElapsedMs = Math.max(0L, (System.nanoTime() - retrievalStartedNanos) / 1_000_000L);
+        recordRetrievalPolicyUsage(appliedPolicy, request, ragResults.size(), ragResults.isEmpty(), retrievalElapsedMs);
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
         boolean exposeDiagnostics = shouldExposeDiagnostics(request);
         if (ragResults.isEmpty()) {
@@ -418,6 +479,10 @@ public class ChatController {
             extraMetadata.put("ragReferences", List.of());
             extraMetadata.put("ragSkippedChat", true);
             extraMetadata.put("ragSkipReason", RAG_SKIP_REASON_NO_RESULTS);
+            if (exposeDiagnostics && retrievalDebug.enabled()) {
+                extraMetadata.put("retrieval", retrievalDebug.toMetadata());
+            }
+            putRetrievalPolicyMetadata(extraMetadata, appliedPolicy);
             ChatResponse response = new ChatResponse(
                     List.of(new ChatMessage(ChatMessageRole.ASSISTANT, RAG_NO_CONTEXT_MESSAGE)),
                     chat.model(),
@@ -433,7 +498,7 @@ public class ChatController {
                 ragResults,
                 objectType,
                 objectId,
-                ragTopK,
+                resultTopK,
                 ragQuery == null || ragQuery.isBlank());
         RagContextBuilder.BuildResult contextResult = ragContextBuilder.buildWithDiagnostics(ragResults, expansionCandidates);
         String context = contextResult.context();
@@ -464,6 +529,10 @@ public class ChatController {
         if (exposeDiagnostics && contextResult.diagnostics() != null) {
             extraMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
         }
+        if (exposeDiagnostics && retrievalDebug.enabled()) {
+            extraMetadata.put("retrieval", retrievalDebug.toMetadata());
+        }
+        putRetrievalPolicyMetadata(extraMetadata, appliedPolicy);
         return ResponseEntity.ok(ApiResponse.ok(toDto(
                 response,
                 diagnostics,
@@ -643,6 +712,111 @@ public class ChatController {
         return new ObjectScope(normalizedObjectType, normalizedObjectId);
     }
 
+    private RagRetrievalPolicyDto resolveRetrievalPolicy(ChatRagRequestDto request, ObjectScope objectScope) {
+        if (ragRetrievalPolicyStore == null || !objectScope.hasFilter()) {
+            return null;
+        }
+        String requestedStrategy = normalizeText(request.retrievalStrategy());
+        ChatRagRetrievalOptionsDto requestedOptions = request.retrievalOptions();
+        if (requestedStrategy != null && requestedOptions != null) {
+            return null;
+        }
+        return ragRetrievalPolicyStore
+                .find(objectScope.objectType(), objectScope.objectId())
+                .orElse(null);
+    }
+
+    private ChatRagRequestDto applyRetrievalPolicy(ChatRagRequestDto request, RagRetrievalPolicyDto policy) {
+        if (policy == null) {
+            return request;
+        }
+        String requestedStrategy = normalizeText(request.retrievalStrategy());
+        ChatRagRetrievalOptionsDto requestedOptions = request.retrievalOptions();
+        String effectiveStrategy = requestedStrategy == null ? normalizeText(policy.retrievalStrategy()) : requestedStrategy;
+        ChatRagRetrievalOptionsDto effectiveOptions = requestedOptions == null
+                ? policy.retrievalOptions()
+                : requestedOptions;
+        if (Objects.equals(effectiveStrategy, request.retrievalStrategy())
+                && effectiveOptions == request.retrievalOptions()) {
+            return request;
+        }
+        return new ChatRagRequestDto(
+                request.chat(),
+                request.ragQuery(),
+                request.ragTopK(),
+                request.objectType(),
+                request.objectId(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.topK(),
+                request.minScore(),
+                request.debug(),
+                effectiveStrategy,
+                effectiveOptions);
+    }
+
+    private void putRetrievalPolicyMetadata(Map<String, Object> metadata, RagRetrievalPolicyDto policy) {
+        if (policy == null) {
+            return;
+        }
+        Map<String, Object> policyMetadata = new LinkedHashMap<>();
+        policyMetadata.put("applied", true);
+        policyMetadata.put("objectType", policy.objectType());
+        policyMetadata.put("objectId", policy.objectId());
+        policyMetadata.put("retrievalStrategy", policy.retrievalStrategy());
+        if (policy.questionSetId() != null) {
+            policyMetadata.put("questionSetId", policy.questionSetId());
+        }
+        if (policy.evaluationRunId() != null) {
+            policyMetadata.put("evaluationRunId", policy.evaluationRunId());
+        }
+        if (policy.score() != null) {
+            policyMetadata.put("score", policy.score());
+        }
+        if (policy.hitRate() != null) {
+            policyMetadata.put("hitRate", policy.hitRate());
+        }
+        if (policy.mrr() != null) {
+            policyMetadata.put("mrr", policy.mrr());
+        }
+        if (policy.averageElapsedMs() != null) {
+            policyMetadata.put("averageElapsedMs", policy.averageElapsedMs());
+        }
+        metadata.put("retrievalPolicy", policyMetadata);
+    }
+
+    private void recordRetrievalPolicyUsage(
+            RagRetrievalPolicyDto policy,
+            ChatRagRequestDto request,
+            int resultCount,
+            boolean skippedChat,
+            long elapsedMs) {
+        if (policy == null || ragRetrievalPolicyUsageStore == null) {
+            return;
+        }
+        try {
+            ragRetrievalPolicyUsageStore.save(new RagRetrievalPolicyUsageDto(
+                    "rpu-" + UUID.randomUUID(),
+                    policy.objectType(),
+                    policy.objectId(),
+                    normalizeText(request.retrievalStrategy()) == null
+                            ? policy.retrievalStrategy()
+                            : normalizeText(request.retrievalStrategy()),
+                    policy.questionSetId(),
+                    policy.evaluationRunId(),
+                    requestedTopK(request),
+                    effectiveMinScore(request),
+                    resultCount,
+                    skippedChat,
+                    elapsedMs,
+                    Instant.now()));
+        } catch (RuntimeException ex) {
+            log.warn("Failed to record RAG retrieval policy usage: objectType={}, objectId={}",
+                    policy.objectType(), policy.objectId(), ex);
+        }
+    }
+
     private String normalizeText(String value) {
         if (value == null) {
             return null;
@@ -815,12 +989,25 @@ public class ChatController {
         return requestedTopK == null ? ragPipelineOptions.topK() : requestedTopK;
     }
 
+    private int effectiveResultTopK(ChatRagRequestDto request, int fallback) {
+        if (request.retrievalOptions() != null && request.retrievalOptions().finalTopK() != null) {
+            return request.retrievalOptions().finalTopK();
+        }
+        return fallback;
+    }
+
     private Integer requestedTopK(ChatRagRequestDto request) {
         return request.topK() != null ? request.topK() : request.ragTopK();
     }
 
     private double effectiveMinScore(ChatRagRequestDto request) {
-        return request.minScore() == null ? ragPipelineOptions.minScore() : request.minScore();
+        if (request.minScore() != null) {
+            return request.minScore();
+        }
+        if (request.retrievalOptions() != null && request.retrievalOptions().minScore() != null) {
+            return request.retrievalOptions().minScore();
+        }
+        return ragPipelineOptions.minScore();
     }
 
     private List<RagSearchResult> limitRagResults(List<RagSearchResult> results, int topK) {
