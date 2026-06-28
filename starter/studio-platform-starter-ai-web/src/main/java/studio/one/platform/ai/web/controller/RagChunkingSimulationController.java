@@ -21,9 +21,16 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
+import studio.one.platform.ai.core.MetadataFilter;
+import studio.one.platform.ai.core.rag.RagSearchRequest;
+import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
+import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.RagChunkingSimulationRequestDto;
 import studio.one.platform.ai.web.dto.RagChunkingSimulationResponseDto;
+import studio.one.platform.ai.web.dto.RagContextSimulationRequestDto;
+import studio.one.platform.ai.web.dto.RagContextSimulationResponseDto;
+import studio.one.platform.ai.web.dto.RagContextSimulationChunkDto;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkUnit;
@@ -43,14 +50,18 @@ public class RagChunkingSimulationController {
     private final ChunkingOrchestrator chunkingOrchestrator;
     private final AiWebRagProperties ragProperties;
     private final Environment environment;
+    @Nullable
+    private final RagPipelineService ragPipelineService;
 
     public RagChunkingSimulationController(
             @Nullable ChunkingOrchestrator chunkingOrchestrator,
             AiWebRagProperties ragProperties,
-            Environment environment) {
+            Environment environment,
+            @Nullable RagPipelineService ragPipelineService) {
         this.chunkingOrchestrator = chunkingOrchestrator;
         this.ragProperties = Objects.requireNonNull(ragProperties, "ragProperties");
         this.environment = Objects.requireNonNull(environment, "environment");
+        this.ragPipelineService = ragPipelineService;
     }
 
     @PostMapping("/chunking")
@@ -295,5 +306,107 @@ public class RagChunkingSimulationController {
             }
         }
         return null;
+    }
+
+    @PostMapping("/context")
+    @PreAuthorize("@endpointAuthz.can('services:ai_rag','read')")
+    public ResponseEntity<ApiResponse<RagContextSimulationResponseDto>> simulateContext(
+            @Valid @RequestBody RagContextSimulationRequestDto request) {
+        if (ragPipelineService == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "RagPipelineService is not configured");
+        }
+
+        String normalizedObjectType = request.objectType() == null ? null : request.objectType().trim();
+        String normalizedObjectId = request.objectId() == null ? null : request.objectId().trim();
+        MetadataFilter objectFilter = MetadataFilter.empty();
+        if (normalizedObjectType != null && !normalizedObjectType.isEmpty() 
+                && normalizedObjectId != null && !normalizedObjectId.isEmpty()) {
+            objectFilter = MetadataFilter.objectScope(normalizedObjectType, normalizedObjectId);
+        }
+
+        int targetTopK = request.topK() == null ? 5 : request.topK();
+        double targetMinScore = request.minScore() == null ? 0.0 : request.minScore();
+        int budgetLimit = request.contextBudgetTokens() == null ? 4000 : request.contextBudgetTokens();
+
+        List<RagSearchResult> searchResults = ragPipelineService.search(new RagSearchRequest(
+                request.query(),
+                targetTopK,
+                objectFilter,
+                null,
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                targetMinScore,
+                targetTopK,
+                targetMinScore));
+
+        List<RagContextSimulationChunkDto> chunks = new ArrayList<>();
+        int rank = 1;
+        int cumulativeTokens = 0;
+
+        for (RagSearchResult result : searchResults) {
+            Map<String, Object> meta = result.metadata() == null ? Map.of() : result.metadata();
+            
+            Integer tokenCount = null;
+            Object tokenObj = meta.get(ChunkMetadata.KEY_CHUNK_TOKEN_COUNT);
+            if (tokenObj == null) {
+                tokenObj = meta.get(ChunkMetadata.KEY_TOKEN_COUNT);
+            }
+            if (tokenObj instanceof Number num) {
+                tokenCount = num.intValue();
+            } else if (tokenObj instanceof String str) {
+                try {
+                    tokenCount = Integer.parseInt(str.trim());
+                } catch (NumberFormatException ignored) {}
+            }
+            if (tokenCount == null) {
+                tokenCount = Math.max(1, (int) Math.ceil(result.content().replaceAll("\\s+", " ").trim().length() / 4.0d));
+            }
+
+            boolean included = true;
+            String exclusionReason = null;
+            if (cumulativeTokens + tokenCount > budgetLimit) {
+                included = false;
+                exclusionReason = "BUDGET_EXCEEDED";
+            } else {
+                cumulativeTokens += tokenCount;
+            }
+
+            String chunkId = result.documentId();
+            Integer chunkIndex = null;
+            Object indexObj = meta.get("chunkIndex");
+            if (indexObj instanceof Number num) {
+                chunkIndex = num.intValue();
+            }
+
+            chunks.add(new RagContextSimulationChunkDto(
+                    result.documentId(),
+                    result.content(),
+                    meta,
+                    result.score(),
+                    rank++,
+                    chunkId,
+                    chunkIndex,
+                    request.objectType(),
+                    request.objectId(),
+                    tokenCount,
+                    included,
+                    exclusionReason,
+                    cumulativeTokens,
+                    null,
+                    null,
+                    request.embeddingModel(),
+                    List.of()
+            ));
+        }
+
+        RagContextSimulationResponseDto response = new RagContextSimulationResponseDto(
+                null,
+                chunks,
+                chunks,
+                cumulativeTokens,
+                List.of()
+        );
+
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 }
