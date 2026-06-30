@@ -15,11 +15,18 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.TokenizerPort;
 import studio.one.platform.chunking.core.TokenizerResolver;
 import studio.one.platform.chunking.service.ApproximateTokenizer;
+import studio.one.platform.chunking.service.BlockifyChunker;
+import studio.one.platform.chunking.service.BlockifyGenerator;
 import studio.one.platform.chunking.service.DefaultChunkingOrchestrator;
 import studio.one.platform.chunking.service.DefaultTokenizerResolver;
 import studio.one.platform.chunking.service.FixedSizeChunker;
 import studio.one.platform.chunking.service.HeadingChunkContextExpander;
+import studio.one.platform.chunking.service.HeuristicBlockifyGenerator;
+import studio.one.platform.chunking.service.KnowledgeBlockChunker;
+import studio.one.platform.chunking.service.LlmBlockifyGenerator;
 import studio.one.platform.chunking.service.ParentChildChunkContextExpander;
+import studio.one.platform.chunking.service.PiiMaskingBlockifyGenerator;
+import studio.one.platform.chunking.service.PresidioPiiMaskingClient;
 import studio.one.platform.chunking.service.RecursiveChunker;
 import studio.one.platform.chunking.service.StructureBasedChunker;
 import studio.one.platform.chunking.service.TableChunkContextExpander;
@@ -50,6 +57,31 @@ public class ChunkingAutoConfiguration {
             ChunkingProperties properties,
             RecursiveChunker recursiveChunker) {
         return new StructureBasedChunker(properties.getMaxSize(), properties.getOverlap(), recursiveChunker);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "studio.chunking.blockify", name = "generator-type", havingValue = "heuristic", matchIfMissing = true)
+    public BlockifyGenerator blockifyGenerator() {
+        return new HeuristicBlockifyGenerator();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public BlockifyChunker blockifyChunker(
+            ChunkingProperties properties,
+            StructureBasedChunker structureBasedChunker,
+            BlockifyGenerator blockifyGenerator) {
+        return new BlockifyChunker(properties.getBlockify(), structureBasedChunker, blockifyGenerator);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public KnowledgeBlockChunker knowledgeBlockChunker(
+            ChunkingProperties properties,
+            StructureBasedChunker structureBasedChunker,
+            BlockifyGenerator blockifyGenerator) {
+        return new KnowledgeBlockChunker(properties.getBlockify(), structureBasedChunker, blockifyGenerator);
     }
 
     @Bean
@@ -116,6 +148,27 @@ public class ChunkingAutoConfiguration {
         @ConditionalOnMissingBean
         TextractNormalizedDocumentAdapter textractNormalizedDocumentAdapter() {
             return new TextractNormalizedDocumentAdapter();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(name = "studio.one.platform.ai.core.registry.AiProviderRegistry")
+    static class LlmBlockifyGeneratorConfiguration {
+
+        @Bean
+        @ConditionalOnMissingBean
+        @ConditionalOnProperty(prefix = "studio.chunking.blockify", name = "generator-type", havingValue = "llm")
+        BlockifyGenerator llmBlockifyGenerator(
+                ChunkingProperties properties,
+                studio.one.platform.ai.core.registry.AiProviderRegistry providerRegistry) {
+            BlockifyGenerator generator = new LlmBlockifyGenerator(providerRegistry);
+            if (!properties.getBlockify().getPiiMasking().isEnabled()) {
+                return generator;
+            }
+            return new PiiMaskingBlockifyGenerator(
+                    generator,
+                    new PresidioPiiMaskingClient(properties.getBlockify().getPiiMasking()),
+                    properties.getBlockify().getPiiMasking());
         }
     }
 }

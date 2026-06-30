@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  presidio-analyzer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - PORT=5002
+      - LOG_LEVEL=INFO
+      - ANALYZER_CONF_FILE=/app/presidio-analyzer/analyzer_config.yaml
+      - NLP_CONF_FILE=/app/presidio-analyzer/nlp_config.yaml
+      - RECOGNIZER_REGISTRY_CONF_FILE=/app/presidio-analyzer/recognizer_registry_config.yaml
+    restart: always
+
+  presidio-anonymizer:
+    image: mcr.microsoft.com/presidio-anonymizer:latest
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - LOG_LEVEL=INFO
+    restart: always

@@ -41,6 +41,7 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMemoryOptionsDto;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
+import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
 import studio.one.platform.ai.web.dto.ChatRequestDto;
 import studio.one.platform.ai.web.dto.ChatResponseDto;
 import studio.one.platform.ai.web.dto.ConversationActionRequestDto;
@@ -99,7 +100,7 @@ class ChatControllerTest {
 
     @Test
     void chatUsesDefaultProviderWhenProviderMissing() {
-        controller.chat(new ChatRequestDto(
+        ChatResponseDto response = controller.chat(new ChatRequestDto(
                 null,
                 null,
                 List.of(new ChatMessageDto("user", "hello")),
@@ -108,10 +109,12 @@ class ChatControllerTest {
                 null,
                 null,
                 null,
-                null));
+                null)).getBody().getData();
 
         verify(providerRegistry).chatPort(null);
         verify(defaultChatPort).chat(any(ChatRequest.class));
+        assertThat(response.answer()).isEqualTo("default");
+        assertThat(response.content()).isEqualTo("default");
     }
 
     @Test
@@ -554,7 +557,15 @@ class ChatControllerTest {
                 "summary",
                 3,
                 "attachment",
-                "123"));
+                "123",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "default",
+                null));
         controller.chat(memoryChat("chat-1", "follow up"));
 
         verify(defaultChatPort, times(2)).chat(captor.capture());
@@ -589,7 +600,15 @@ class ChatControllerTest {
                 "summary",
                 3,
                 "attachment",
-                "123"));
+                "123",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "default",
+                null));
 
         verify(ragPipelineService).search(ragCaptor.capture());
         assertThat(ragCaptor.getValue().metadataFilter().objectType()).isEqualTo("attachment");
@@ -635,6 +654,8 @@ class ChatControllerTest {
 
         List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
         assertThat(references).hasSize(1);
+        assertThat(response.answer()).isEqualTo("default");
+        assertThat(response.content()).isEqualTo("default");
         assertThat(references.get(0))
                 .containsEntry("index", 1)
                 .containsEntry("documentId", "doc-1")
@@ -728,7 +749,15 @@ class ChatControllerTest {
                 "summary",
                 3,
                 "2001",
-                "6"));
+                "6",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "default",
+                null));
 
         verify(ragPipelineService).search(ragCaptor.capture());
         assertThat(ragCaptor.getValue().metadataFilter().objectType()).isEqualTo("2001");
@@ -761,6 +790,8 @@ class ChatControllerTest {
                 null,
                 5,
                 0.7d,
+                null,
+                "default",
                 null));
 
         verify(ragPipelineService).search(ragCaptor.capture());
@@ -768,6 +799,168 @@ class ChatControllerTest {
         assertThat(ragCaptor.getValue().requestedTopK()).isEqualTo(5);
         assertThat(ragCaptor.getValue().minScore()).isEqualTo(0.7d);
         assertThat(ragCaptor.getValue().requestedMinScore()).isEqualTo(0.7d);
+    }
+
+    @Test
+    void ragChatRequestDeserializesRetrievalStrategyOptions() throws Exception {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = Jackson2ObjectMapperBuilder.json().build();
+
+        ChatRagRequestDto request = mapper.readValue("""
+                {
+                  "chat": {
+                    "messages": [{"role": "user", "content": "question"}]
+                  },
+                  "ragQuery": "question",
+                  "topK": 3,
+                  "retrievalStrategy": "hybrid",
+                  "retrievalOptions": {
+                    "structureTopK": 4,
+                    "ideaBlockTopK": 5,
+                    "finalTopK": 6,
+                    "minScore": 0.7,
+                    "dedupe": true,
+                    "includeDebugChunks": true
+                  }
+                }
+                """, ChatRagRequestDto.class);
+
+        assertThat(request.retrievalStrategy()).isEqualTo("hybrid");
+        assertThat(request.retrievalOptions().structureTopK()).isEqualTo(4);
+        assertThat(request.retrievalOptions().ideaBlockTopK()).isEqualTo(5);
+        assertThat(request.retrievalOptions().finalTopK()).isEqualTo(6);
+        assertThat(request.retrievalOptions().minScore()).isEqualTo(0.7d);
+        assertThat(request.retrievalOptions().dedupe()).isTrue();
+        assertThat(request.retrievalOptions().includeDebugChunks()).isTrue();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragChatAppliesObjectRetrievalPolicyWhenStrategyIsOmitted() {
+        InMemoryRagRetrievalPolicyStore policyStore = new InMemoryRagRetrievalPolicyStore();
+        InMemoryRagRetrievalPolicyUsageStore usageStore = new InMemoryRagRetrievalPolicyUsageStore();
+        policyStore.save(new studio.one.platform.ai.web.dto.RagRetrievalPolicyDto(
+                "attachment",
+                "123",
+                "hybrid",
+                new ChatRagRetrievalOptionsDto(2, 3, 4, 0.5d, true, false, null, null),
+                "reqs-1",
+                "reval-1",
+                1.0d,
+                1.0d,
+                1.0d,
+                10.0d,
+                java.time.Instant.now(),
+                java.time.Instant.now()));
+        controller = new ChatController(
+                providerRegistry,
+                ragPipelineService,
+                new RagChatRetrievalService(ragPipelineService),
+                RagContextBuilder.defaults(),
+                false,
+                null,
+                false,
+                null,
+                Jackson2ObjectMapperBuilder.json().build(),
+                4,
+                100,
+                studio.one.platform.ai.service.pipeline.RagPipelineOptions.defaults(),
+                policyStore,
+                usageStore);
+        ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("structure", "structure text",
+                        Map.of(RagContextBuilder.KEY_CHUNK_ID, "chunk-1", "strategy", "structure-based"), 0.8d)))
+                .thenReturn(List.of(new RagSearchResult("blockify", "blockify text",
+                        Map.of(RagContextBuilder.KEY_CHUNK_ID, "chunk-2", "actualChunkingStrategy", "blockify"), 0.9d)))
+                .thenReturn(List.of());
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "question")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "question",
+                5,
+                "attachment",
+                "123")).getBody().getData();
+
+        verify(ragPipelineService, times(3)).search(ragCaptor.capture());
+        List<RagSearchRequest> searches = ragCaptor.getAllValues();
+        assertThat(searches).extracting(RagSearchRequest::topK).containsExactly(2, 3, 3);
+        assertThat(searches.get(0).metadataFilter().equalsCriteria())
+                .containsEntry(ChunkMetadata.KEY_STRATEGY, "structure-based");
+        assertThat(searches.get(1).metadataFilter().equalsCriteria())
+                .containsEntry("actualChunkingStrategy", "blockify");
+        assertThat(searches.get(2).metadataFilter().equalsCriteria())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_TYPE, "ideaBlock");
+        Map<String, Object> policyMetadata = (Map<String, Object>) response.metadata().get("retrievalPolicy");
+        assertThat(policyMetadata)
+                .containsEntry("applied", true)
+                .containsEntry("objectType", "attachment")
+                .containsEntry("objectId", "123")
+                .containsEntry("retrievalStrategy", "hybrid")
+                .containsEntry("questionSetId", "reqs-1")
+                .containsEntry("evaluationRunId", "reval-1");
+        assertThat(usageStore.list("attachment", "123")).singleElement()
+                .satisfies(usage -> {
+                    assertThat(usage.retrievalStrategy()).isEqualTo("hybrid");
+                    assertThat(usage.resultCount()).isEqualTo(2);
+                    assertThat(usage.skippedChat()).isFalse();
+                    assertThat(usage.topK()).isEqualTo(5);
+                    assertThat(usage.minScore()).isEqualTo(0.5d);
+                });
+        assertThat(usageStore.summary("attachment", "123").usageCount()).isEqualTo(1);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragChatReturnsRetrievalDebugMetadataWhenEnabled() {
+        controller = new ChatController(providerRegistry, ragPipelineService, RagContextBuilder.defaults(), true);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult("structure", "structure text",
+                        Map.of(RagContextBuilder.KEY_CHUNK_ID, "chunk-1", "strategy", "structure-based"), 0.8d)))
+                .thenReturn(List.of(new RagSearchResult("blockify", "blockify text",
+                        Map.of(RagContextBuilder.KEY_CHUNK_ID, "chunk-2", "actualChunkingStrategy", "blockify"), 0.9d)))
+                .thenReturn(List.of());
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "question")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "question",
+                5,
+                "attachment",
+                "1",
+                null,
+                null,
+                null,
+                5,
+                null,
+                true,
+                "hybrid",
+                new studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto(3, 3, 2, null, true, true, null, null)))
+                .getBody().getData();
+
+        Map<String, Object> retrieval = (Map<String, Object>) response.metadata().get("retrieval");
+        assertThat(retrieval)
+                .containsEntry("requestedStrategy", "hybrid")
+                .containsEntry("resolvedStrategy", "hybrid")
+                .containsEntry("finalCount", 2);
+        assertThat((List<?>) retrieval.get("legs")).hasSize(3);
+        assertThat((List<?>) retrieval.get("chunks")).hasSize(2);
     }
 
     @Test
@@ -806,6 +999,38 @@ class ChatControllerTest {
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
                 .contains("previous\nseed\nnext");
+    }
+
+    @Test
+    void ragChatUsesObjectChunksForKoreanPlotSummaryQuestion() {
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.listByObject("attachment", "3", 20))
+                .thenReturn(List.of(
+                        new RagSearchResult("chunk-1", "first plot fragment", chunkMetadata("chunk-1"), 1.0d),
+                        new RagSearchResult("chunk-2", "second plot fragment", chunkMetadata("chunk-2"), 1.0d)));
+
+        controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "줄거리를 요약해줘")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "줄거리를 요약해줘",
+                5,
+                "attachment",
+                "3"));
+
+        verify(ragPipelineService).listByObject("attachment", "3", 20);
+        verify(ragPipelineService, times(0)).search(any(RagSearchRequest.class));
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("first plot fragment")
+                .contains("second plot fragment");
     }
 
     @Test

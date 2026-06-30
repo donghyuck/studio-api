@@ -1,0 +1,9 @@
+nlp_configuration:
+  nlp_engine_name: spacy
+  models:
+    - lang_code: ko
+      model_name: ko_core_news_sm
+
+supported_languages:
+  - ko
+  - en

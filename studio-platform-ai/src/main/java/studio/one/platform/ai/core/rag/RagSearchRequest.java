@@ -21,6 +21,7 @@ public final class RagSearchRequest {
     private final Double minScore;
     private final Integer requestedTopK;
     private final Double requestedMinScore;
+    private final boolean queryExpansionEnabled;
 
     public RagSearchRequest(String query, int topK) {
         this(query, topK, MetadataFilter.empty());
@@ -62,6 +63,21 @@ public final class RagSearchRequest {
             Double minScore,
             Integer requestedTopK,
             Double requestedMinScore) {
+        this(query, topK, metadataFilter, embeddingProfileId, embeddingProvider, embeddingModel,
+                minScore, requestedTopK, requestedMinScore, true);
+    }
+
+    public RagSearchRequest(
+            String query,
+            int topK,
+            MetadataFilter metadataFilter,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Double minScore,
+            Integer requestedTopK,
+            Double requestedMinScore,
+            boolean queryExpansionEnabled) {
         this.query = Objects.requireNonNull(query, "query");
         if (topK <= 0 || topK > MAX_TOP_K) {
             throw new IllegalArgumentException("topK must be between 1 and " + MAX_TOP_K);
@@ -77,6 +93,7 @@ public final class RagSearchRequest {
         this.minScore = minScore;
         this.requestedTopK = requestedTopK;
         this.requestedMinScore = requestedMinScore;
+        this.queryExpansionEnabled = queryExpansionEnabled;
     }
 
     public String query() {
@@ -113,6 +130,10 @@ public final class RagSearchRequest {
 
     public Double requestedMinScore() {
         return requestedMinScore;
+    }
+
+    public boolean queryExpansionEnabled() {
+        return queryExpansionEnabled;
     }
 
     private static String normalize(String value) {

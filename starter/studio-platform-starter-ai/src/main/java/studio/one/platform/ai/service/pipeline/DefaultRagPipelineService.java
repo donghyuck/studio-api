@@ -676,7 +676,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 null,
                 null,
                 request.requestedTopK(),
-                request.requestedMinScore());
+                request.requestedMinScore(),
+                request.queryExpansionEnabled());
         return toRagSearchResults(applyContextBudget(results));
     }
 
@@ -714,7 +715,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 searchFilter.objectType(),
                 searchFilter.objectId(),
                 request.requestedTopK(),
-                request.requestedMinScore());
+                request.requestedMinScore(),
+                request.queryExpansionEnabled());
         return toRagSearchResults(applyContextBudget(results));
     }
 
@@ -973,7 +975,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
             String objectType,
             String objectId,
             Integer requestedTopK,
-            Double requestedMinScore) {
+            Double requestedMinScore,
+            boolean queryExpansionEnabled) {
         List<VectorSearchResult> rawResults = limitResults(hybridSearch.apply(query), searchRequest.topK());
         List<VectorSearchResult> results = applyMinScore(rawResults, searchRequest.minScore());
         List<VectorSearchResult> lastRawResults = rawResults;
@@ -986,8 +989,9 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
         int initialResultCount = safeSize(rawResults);
 
-        String enrichedQuery = options.keywordFallbackEnabled() ? enrichQuery(query) : query;
-        if (options.keywordFallbackEnabled() && !enrichedQuery.equals(query)) {
+        boolean keywordExpansionEnabled = queryExpansionEnabled && options.keywordFallbackEnabled();
+        String enrichedQuery = keywordExpansionEnabled ? enrichQuery(query) : query;
+        if (keywordExpansionEnabled && !enrichedQuery.equals(query)) {
             List<VectorSearchResult> enrichedRawResults = limitResults(
                     hybridSearch.apply(enrichedQuery),
                     searchRequest.topK());
@@ -1093,7 +1097,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.embeddingModel(),
                 options.minScore(),
                 request.requestedTopK(),
-                request.requestedMinScore());
+                request.requestedMinScore(),
+                request.queryExpansionEnabled());
     }
 
     private String enrichQuery(String query) {

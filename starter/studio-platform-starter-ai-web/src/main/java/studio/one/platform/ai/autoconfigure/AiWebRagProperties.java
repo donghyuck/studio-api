@@ -10,6 +10,7 @@ public class AiWebRagProperties {
     private final ContextProperties context = new ContextProperties();
     private final DiagnosticsProperties diagnostics = new DiagnosticsProperties();
     private final ChunkPreviewProperties chunkPreview = new ChunkPreviewProperties();
+    private final RetrievalProperties retrieval = new RetrievalProperties();
 
     public ContextProperties getContext() {
         return context;
@@ -21,6 +22,10 @@ public class AiWebRagProperties {
 
     public ChunkPreviewProperties getChunkPreview() {
         return chunkPreview;
+    }
+
+    public RetrievalProperties getRetrieval() {
+        return retrieval;
     }
 
     public static class ContextProperties {
@@ -163,6 +168,81 @@ public class AiWebRagProperties {
 
         public void setMaxPreviewChunks(int maxPreviewChunks) {
             this.maxPreviewChunks = Math.max(1, maxPreviewChunks);
+        }
+    }
+
+    public static class RetrievalProperties {
+        private String defaultStrategy = "hybrid";
+        private int structureTopK = 5;
+        private int ideaBlockTopK = 5;
+        private int finalTopK = 5;
+        private boolean dedupe = true;
+        private double distilledScoreBoost = 0.0d;
+        private double minRecommendationHitRate = 0.3d;
+        private double minRecommendationMrr = 0.2d;
+
+        public String getDefaultStrategy() {
+            return defaultStrategy;
+        }
+
+        public void setDefaultStrategy(String defaultStrategy) {
+            this.defaultStrategy = defaultStrategy;
+        }
+
+        public int getStructureTopK() {
+            return structureTopK;
+        }
+
+        public void setStructureTopK(int structureTopK) {
+            this.structureTopK = Math.max(1, structureTopK);
+        }
+
+        public int getIdeaBlockTopK() {
+            return ideaBlockTopK;
+        }
+
+        public void setIdeaBlockTopK(int ideaBlockTopK) {
+            this.ideaBlockTopK = Math.max(1, ideaBlockTopK);
+        }
+
+        public int getFinalTopK() {
+            return finalTopK;
+        }
+
+        public void setFinalTopK(int finalTopK) {
+            this.finalTopK = Math.max(1, finalTopK);
+        }
+
+        public boolean isDedupe() {
+            return dedupe;
+        }
+
+        public void setDedupe(boolean dedupe) {
+            this.dedupe = dedupe;
+        }
+
+        public double getDistilledScoreBoost() {
+            return distilledScoreBoost;
+        }
+
+        public void setDistilledScoreBoost(double distilledScoreBoost) {
+            this.distilledScoreBoost = Math.max(0.0d, Math.min(1.0d, distilledScoreBoost));
+        }
+
+        public double getMinRecommendationHitRate() {
+            return minRecommendationHitRate;
+        }
+
+        public void setMinRecommendationHitRate(double minRecommendationHitRate) {
+            this.minRecommendationHitRate = Math.max(0.0d, Math.min(1.0d, minRecommendationHitRate));
+        }
+
+        public double getMinRecommendationMrr() {
+            return minRecommendationMrr;
+        }
+
+        public void setMinRecommendationMrr(double minRecommendationMrr) {
+            this.minRecommendationMrr = Math.max(0.0d, Math.min(1.0d, minRecommendationMrr));
         }
     }
 }

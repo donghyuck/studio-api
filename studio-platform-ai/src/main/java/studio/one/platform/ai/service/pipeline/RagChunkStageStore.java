@@ -20,6 +20,10 @@ public interface RagChunkStageStore {
         return List.of();
     }
 
+    default List<RagChunkStage> findIndexedByObject(String objectType, String objectId, String revisionId) {
+        return List.of();
+    }
+
     default void deleteByObject(String objectType, String objectId, String documentId) {
     }
 }

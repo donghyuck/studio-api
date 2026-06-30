@@ -81,6 +81,8 @@ class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
             ObjectProvider<studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver>
                     embeddingProfileResolverProvider,
             ObjectProvider<studio.one.platform.ai.core.vector.VectorStorePort> vectorStoreProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            @Value("${studio.ai.rag.indexing.embedding-batch-size:10}") int indexEmbeddingBatchSize,
             @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
         return new studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer(
                 normalizedDocumentAdapterProvider,
@@ -88,7 +90,8 @@ class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
                 embeddingPortProvider,
                 embeddingProfileResolverProvider,
                 vectorStoreProvider,
-                null,
+                chunkStageStoreProvider,
+                indexEmbeddingBatchSize,
                 indexUpsertBatchSize);
     }
 }

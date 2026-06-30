@@ -5,6 +5,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import studio.one.platform.ai.autoconfigure.adapter.OpenAiCompatibleChatAdapter;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter;
 import studio.one.platform.ai.autoconfigure.adapter.SpringAiEmbeddingAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
@@ -38,6 +39,22 @@ public class OpenAiPortFactoryConfiguration {
         }
 
         @Override
+        public ChatPort create(String providerId,
+                               AiAdapterProperties.Provider provider,
+                               Environment env,
+                               ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+            if (hasText(provider.getBaseUrl())) {
+                return new OpenAiCompatibleChatAdapter(
+                        provider.getBaseUrl(),
+                        firstNonBlank(provider.getApiKey(), env.getProperty("spring.ai.openai.api-key")),
+                        firstNonBlank(providerId, provider.getType().name()),
+                        firstNonBlank(provider.getChat().getModel(), env.getProperty("spring.ai.openai.chat.options.model")),
+                        provider.getChat().getRequestTimeout());
+            }
+            return create(provider, env, chatModelProvider);
+        }
+
+        @Override
         public ChatPort create(AiAdapterProperties.Provider provider,
                                Environment env,
                                ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
@@ -51,6 +68,19 @@ public class OpenAiPortFactoryConfiguration {
                     chatModel,
                     provider.getType().name(),
                     env.getProperty("spring.ai.openai.chat.options.model"));
+        }
+
+        private static boolean hasText(String value) {
+            return value != null && !value.isBlank();
+        }
+
+        private static String firstNonBlank(String... values) {
+            for (String value : values) {
+                if (value != null && !value.isBlank()) {
+                    return value.trim();
+                }
+            }
+            return null;
         }
     }
 

@@ -6,11 +6,14 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.beans.factory.ObjectProvider;
+
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlEndpointKind;
 import studio.one.application.attachment.application.result.AttachmentDownloadUrlIssueActor;
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.attachment.domain.model.Attachment;
+import studio.one.platform.documentconvert.application.port.out.DocumentConvertDirectResultStore;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertStoragePort;
 import studio.one.platform.documentconvert.domain.model.DocumentConvertJob;
 
@@ -20,15 +23,23 @@ public class AttachmentDocumentConvertStorageAdapter implements DocumentConvertS
     private final URI callbackBaseUrl;
     private final String uploadToken;
     private final Duration ttl;
+    private final ObjectProvider<DocumentConvertDirectResultStore> directResultStores;
     private final Map<String, Long> resultAttachmentIds = new ConcurrentHashMap<>();
 
     public AttachmentDocumentConvertStorageAdapter(AttachmentService attachmentService,
             AttachmentDownloadUrlService downloadUrlService, URI callbackBaseUrl, String uploadToken, Duration ttl) {
+        this(attachmentService, downloadUrlService, callbackBaseUrl, uploadToken, ttl, null);
+    }
+
+    public AttachmentDocumentConvertStorageAdapter(AttachmentService attachmentService,
+            AttachmentDownloadUrlService downloadUrlService, URI callbackBaseUrl, String uploadToken, Duration ttl,
+            ObjectProvider<DocumentConvertDirectResultStore> directResultStores) {
         this.attachmentService = attachmentService;
         this.downloadUrlService = downloadUrlService;
         this.callbackBaseUrl = callbackBaseUrl;
         this.uploadToken = uploadToken;
         this.ttl = ttl;
+        this.directResultStores = directResultStores;
     }
 
     @Override
@@ -48,6 +59,10 @@ public class AttachmentDocumentConvertStorageAdapter implements DocumentConvertS
 
     @Override
     public String storeResult(DocumentConvertJob job, InputStream input) {
+        DocumentConvertDirectResultStore directStore = directStore(job);
+        if (directStore != null) {
+            return directStore.storeResult(job, input);
+        }
         Attachment source = sourceAttachment(job);
         Attachment result = attachmentService.createAttachment(
                 source.getObjectType(),
@@ -84,6 +99,16 @@ public class AttachmentDocumentConvertStorageAdapter implements DocumentConvertS
 
     private Attachment sourceAttachment(DocumentConvertJob job) {
         return attachmentService.getAttachmentById(parseAttachmentId(job.sourceFileId()));
+    }
+
+    private DocumentConvertDirectResultStore directStore(DocumentConvertJob job) {
+        if (directResultStores == null) {
+            return null;
+        }
+        return directResultStores.orderedStream()
+                .filter(store -> store.supports(job))
+                .findFirst()
+                .orElse(null);
     }
 
     private URI workerAccessibleUrl(URI publicUrl) {

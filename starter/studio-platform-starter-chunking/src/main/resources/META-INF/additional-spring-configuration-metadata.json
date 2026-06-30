@@ -1,0 +1,205 @@
+{
+  "properties": [
+    {
+      "name": "studio.chunking.blockify.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the opt-in blockify chunking strategy can be selected.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.chunking.knowledge-block.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether the opt-in knowledge-block strategy can be selected. It reuses the Blockify/IdeaBlock generation pipeline and stores knowledgeBlock metadata aliases.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.chunking.blockify.max-input-tokens",
+      "type": "java.lang.Integer",
+      "description": "Maximum estimated input tokens per section for blockify generation.",
+      "defaultValue": 2500
+    },
+    {
+      "name": "studio.chunking.blockify.max-output-tokens-per-block",
+      "type": "java.lang.Integer",
+      "description": "Maximum output token budget per generated blockify block.",
+      "defaultValue": 500
+    },
+    {
+      "name": "studio.chunking.blockify.max-blocks-per-section",
+      "type": "java.lang.Integer",
+      "description": "Maximum generated blockify blocks per source section.",
+      "defaultValue": 10
+    },
+    {
+      "name": "studio.chunking.blockify.max-sections-per-document",
+      "type": "java.lang.Integer",
+      "description": "Maximum source sections to process with blockify for one document.",
+      "defaultValue": 500
+    },
+    {
+      "name": "studio.chunking.blockify.max-estimated-cost-per-job",
+      "type": "java.lang.Double",
+      "description": "Estimated cost ceiling available to blockify generator implementations.",
+      "defaultValue": 10.0
+    },
+    {
+      "name": "studio.chunking.blockify.per-job-concurrency",
+      "type": "java.lang.Integer",
+      "description": "Per-job concurrency ceiling available to blockify generator implementations.",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.chunking.blockify.global-concurrency",
+      "type": "java.lang.Integer",
+      "description": "Global concurrency ceiling available to blockify generator implementations.",
+      "defaultValue": 4
+    },
+    {
+      "name": "studio.chunking.blockify.generator-type",
+      "type": "java.lang.String",
+      "description": "Blockify block generator implementation type. Supported values are heuristic and llm.",
+      "defaultValue": "heuristic"
+    },
+    {
+      "name": "studio.chunking.blockify.prompt-version",
+      "type": "java.lang.String",
+      "description": "Prompt version recorded in blockify metadata and fingerprints.",
+      "defaultValue": "blockify-v1"
+    },
+    {
+      "name": "studio.chunking.blockify.generator-model",
+      "type": "java.lang.String",
+      "description": "Generator model recorded in blockify metadata and fingerprints.",
+      "defaultValue": "heuristic-blockify-v1"
+    },
+    {
+      "name": "studio.chunking.blockify.llm-provider",
+      "type": "java.lang.String",
+      "description": "Default provider used by Blockify LLM generator implementations when the request does not override it."
+    },
+    {
+      "name": "studio.chunking.blockify.llm-model",
+      "type": "java.lang.String",
+      "description": "Default model used by Blockify LLM generator implementations when the request does not override it."
+    },
+    {
+      "name": "studio.chunking.blockify.generation-timeout",
+      "type": "java.time.Duration",
+      "description": "Maximum wait time for one Blockify generator call before falling back for that source candidate.",
+      "defaultValue": "30s"
+    },
+    {
+      "name": "studio.chunking.blockify.temperature",
+      "type": "java.lang.Double",
+      "description": "Generation temperature recorded for reproducible blockify benchmark runs.",
+      "defaultValue": 0.0
+    },
+    {
+      "name": "studio.chunking.blockify.top-p",
+      "type": "java.lang.Double",
+      "description": "Generation top-p value recorded for reproducible blockify benchmark runs.",
+      "defaultValue": 1.0
+    },
+    {
+      "name": "studio.chunking.blockify.require-source-evidence",
+      "type": "java.lang.Boolean",
+      "description": "Whether generated blockify blocks must include source evidence text found in the source section.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.chunking.blockify.distillation-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether Blockify should run deterministic IdeaBlock distillation by removing duplicate normalized question/answer candidates before staging chunks.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.chunking.blockify.distillation-similarity-threshold",
+      "type": "java.lang.Double",
+      "description": "Lexical similarity threshold used to mark safe IdeaBlock merge candidates. Candidates are annotated only; they are not merged by this pass.",
+      "defaultValue": 0.82
+    },
+    {
+      "name": "studio.chunking.blockify.document-type",
+      "type": "java.lang.String",
+      "description": "Document type override for Blockify profile selection. Supported values are auto, policy, manual, narrative, technical, table-heavy, and general.",
+      "defaultValue": "auto"
+    },
+    {
+      "name": "studio.chunking.blockify.min-answer-chars",
+      "type": "java.lang.Integer",
+      "description": "Minimum answer character count required for a generated blockify block before falling back.",
+      "defaultValue": 80
+    },
+    {
+      "name": "studio.chunking.blockify.min-chunk-chars",
+      "type": "java.lang.Integer",
+      "description": "Minimum final blockify chunk character count required before falling back.",
+      "defaultValue": 150
+    },
+    {
+      "name": "studio.chunking.blockify.max-chunk-chars",
+      "type": "java.lang.Integer",
+      "description": "Maximum final blockify chunk character count allowed before falling back.",
+      "defaultValue": 900
+    },
+    {
+      "name": "studio.chunking.blockify.min-evidence-chars",
+      "type": "java.lang.Integer",
+      "description": "Minimum source evidence character count required for evidence validation.",
+      "defaultValue": 40
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether Blockify LLM generation masks PII before sending source text to an external LLM.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.required",
+      "type": "java.lang.Boolean",
+      "description": "Whether PII masking failure should fail the Blockify pipeline instead of allowing fallback.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.analyzer-url",
+      "type": "java.lang.String",
+      "description": "Base URL of the Presidio Analyzer service.",
+      "defaultValue": "http://localhost:5002"
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.anonymizer-url",
+      "type": "java.lang.String",
+      "description": "Base URL of the Presidio Anonymizer service. Reserved for deployment metadata and future API compatibility.",
+      "defaultValue": "http://localhost:5001"
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.language",
+      "type": "java.lang.String",
+      "description": "Language code passed to Presidio Analyzer.",
+      "defaultValue": "ko"
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.min-score",
+      "type": "java.lang.Double",
+      "description": "Minimum Presidio analyzer confidence score accepted for masking.",
+      "defaultValue": 0.5
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.timeout",
+      "type": "java.time.Duration",
+      "description": "Timeout for Presidio HTTP requests.",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.on-failure",
+      "type": "java.lang.String",
+      "description": "Failure policy when Presidio masking fails. Supported values are fail and fallback.",
+      "defaultValue": "fail"
+    },
+    {
+      "name": "studio.chunking.blockify.pii-masking.entity-types",
+      "type": "java.util.Set<java.lang.String>",
+      "description": "Optional allow-list of Presidio entity types to mask. Empty means all detected entity types."
+    }
+  ]
+}

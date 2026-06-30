@@ -33,7 +33,8 @@ class RagChunkingSimulationControllerTest {
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 orchestrator,
                 new AiWebRagProperties(),
-                environment());
+                environment(),
+                null);
 
         ResponseEntity<ApiResponse<RagChunkingSimulationResponseDto>> response = controller.simulateChunking(
                 new RagChunkingSimulationRequestDto(
@@ -87,7 +88,8 @@ class RagChunkingSimulationControllerTest {
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 new CapturingOrchestrator(List.of(fallbackChunk)),
                 new AiWebRagProperties(),
-                environment());
+                environment(),
+                null);
 
         RagChunkingSimulationResponseDto body = controller.simulateChunking(new RagChunkingSimulationRequestDto(
                 "oversized",
@@ -116,7 +118,8 @@ class RagChunkingSimulationControllerTest {
                 environment(Map.of(
                         "studio.chunking.max-size", "120",
                         "studio.chunking.overlap", "12",
-                        "studio.chunking.unit", "token")));
+                        "studio.chunking.unit", "token")),
+                null);
 
         RagChunkingSimulationResponseDto body = controller.simulateChunking(new RagChunkingSimulationRequestDto(
                 "alpha",
@@ -141,14 +144,16 @@ class RagChunkingSimulationControllerTest {
         RagChunkingSimulationController missingOrchestrator = new RagChunkingSimulationController(
                 null,
                 new AiWebRagProperties(),
-                environment());
+                environment(),
+                null);
         assertStatus(() -> missingOrchestrator.simulateChunking(new RagChunkingSimulationRequestDto(
                 "alpha", null, null, null, null, null, null, null, null, null, null)), 503);
 
         RagChunkingSimulationController controller = new RagChunkingSimulationController(
                 new CapturingOrchestrator(List.of()),
                 new AiWebRagProperties(),
-                environment());
+                environment(),
+                null);
         assertStatus(() -> controller.simulateChunking(new RagChunkingSimulationRequestDto(
                 " ", null, null, null, null, null, null, null, null, null, null)), 400);
         assertStatus(() -> controller.simulateChunking(new RagChunkingSimulationRequestDto(

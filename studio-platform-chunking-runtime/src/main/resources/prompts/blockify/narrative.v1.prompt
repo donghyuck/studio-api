@@ -1,0 +1,19 @@
+NARRATIVE schema:
+Add these fields when grounded in sourceEvidence:
+- chapter
+- scene
+- character
+- characterRole
+- event
+- eventType
+- motivation
+- conflict
+- cause
+- effect
+- location
+- timeReference
+- quote
+
+Generate one IdeaBlock per event, character action, dialogue turn, motivation, cause, or consequence.
+The criticalQuestion may be English or Korean, but it must be specific to the source event.
+Do not invent character motivation when the source only implies it weakly.

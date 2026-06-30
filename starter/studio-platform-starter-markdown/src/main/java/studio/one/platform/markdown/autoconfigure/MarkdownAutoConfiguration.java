@@ -19,11 +19,14 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.registry.AiProviderRegistry;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobListener;
+import studio.one.platform.documentconvert.application.port.out.DocumentConvertDirectResultStore;
 import studio.one.platform.documentconvert.application.service.DocumentConvertService;
 import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
@@ -83,9 +86,11 @@ public class MarkdownAutoConfiguration {
             ObjectProvider<SkillRagExtractionJobService> skillJobService,
             ObjectProvider<ChunkingOrchestrator> chunking,
             ObjectProvider<RagChunkStageStore> chunkStageStore,
+            ObjectProvider<EmbeddingPort> embeddingPort,
+            ObjectProvider<AiProviderRegistry> aiProviderRegistry,
             MarkdownRepository repository) {
         return new MarkdownDownstreamPipelineAdapter(ragIndexJobs, skillJobService, chunking, chunkStageStore,
-                repository);
+                embeddingPort, aiProviderRegistry, repository);
     }
 
     @Bean(name = "markdownTaskExecutor")
@@ -150,5 +155,14 @@ public class MarkdownAutoConfiguration {
     @ConditionalOnBean(MarkdownDocumentService.class)
     DocumentConvertJobListener markdownDocumentConvertListener(MarkdownDocumentService service) {
         return new MarkdownDocumentConvertListener(service);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "markdownDocumentConvertDirectResultStore")
+    @ConditionalOnBean(MarkdownDocumentService.class)
+    DocumentConvertDirectResultStore markdownDocumentConvertDirectResultStore(
+            MarkdownDocumentService service,
+            MarkdownProperties properties) {
+        return new MarkdownDocumentConvertDirectResultStore(service, properties.getMaxSourceBytes());
     }
 }

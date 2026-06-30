@@ -11,6 +11,9 @@ public record MarkdownResumeOptions(
         Integer chunkMaxSize,
         Integer chunkOverlap,
         String chunkUnit,
+        String blockifyLlmProvider,
+        String blockifyLlmModel,
+        Boolean blockifyPiiMaskingEnabled,
         String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
@@ -42,8 +45,36 @@ public record MarkdownResumeOptions(
             Integer skillEmbeddingDimension) {
         this(fromStage, runChunking, runRagIndex, runSkillExtraction,
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                null, null, null,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, null, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
+    }
+
+    public MarkdownResumeOptions(
+            MarkdownPipelineStage fromStage,
+            Boolean runChunking,
+            Boolean runRagIndex,
+            Boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            Boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension) {
+        this(fromStage, runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                null, null, null,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
     }
 
@@ -51,8 +82,8 @@ public record MarkdownResumeOptions(
         return new MarkdownResumeOptions(
                 stage,
                 null, null, null,
+                null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 }

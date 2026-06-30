@@ -42,9 +42,18 @@ Attachment 추출 요청은 항상 Markdown Revision을 저장하며 후속 단�
 }
 ```
 
-- Chunking 전략은 `fixed-size`, `recursive`, `structure-based`를 지원한다.
+- Chunking 전략은 `fixed-size`, `recursive`, `structure-based`, `blockify`를 지원한다.
 - `embeddingProfileId`를 사용하거나 `embeddingProvider`와 `embeddingModel`을 직접 지정한다.
 - `embeddingDimension`을 profile과 함께 보내면 profile dimension과 일치하는지 검증한다.
 - RAG를 선택하면 Chunking이 자동 활성화된다.
 - Skill 추출을 선택하면 RAG와 Chunking이 자동 활성화된다.
 - Markdown 저장 이후 후속 파이프라인 실패는 완료된 Revision을 실패 상태로 되돌리지 않는다.
+
+Blockify/IdeaBlock 품질 확인:
+
+- `GET /api/markdown-documents/{id}/revisions/{revisionId}/ideablocks/summary`
+- 응답에는 `coverage`, `ideaBlockCount`, `fallbackCount`, `fallbackReasonCounts`,
+  `missingSourceBlocks`, `detectedDocumentType`, `blockifyProfile`, `ideaBlockSchemaVersion`,
+  `typedFieldCounts`, `typedFieldCoverage`, `samples`가 포함된다.
+- `samples`는 실제 저장된 IdeaBlock의 `criticalQuestion`, `trustedAnswer`, `sourceEvidence`,
+  `sourceBlockRange`, `typedFields`, merge candidate 정보를 보여준다.

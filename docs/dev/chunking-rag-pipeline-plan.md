@@ -311,9 +311,9 @@ Lane C 소유 파일로 고정한다.
 
 신규 구현:
 
-- `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/FixedSizeChunker.java`
-- `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/RecursiveChunker.java`
-- `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/DefaultChunkingOrchestrator.java`
+- `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/FixedSizeChunker.java`
+- `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/RecursiveChunker.java`
+- `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/DefaultChunkingOrchestrator.java`
 - `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/autoconfigure/ChunkingProperties.java`
 - `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/autoconfigure/ChunkingAutoConfiguration.java`
 
@@ -355,9 +355,9 @@ Lane C 소유 파일로 고정한다.
 | `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/autoconfigure/ChunkingAutoConfiguration.java` | chunker/orchestrator 자동 구성 |
 | `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/autoconfigure/ChunkingProperties.java` | `studio.chunking.*` 설정 바인딩 |
 | `starter/studio-platform-starter-chunking/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` | Spring Boot auto-configuration 등록 |
-| `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/FixedSizeChunker.java` | 길이 기반 fallback chunker |
-| `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/RecursiveChunker.java` | 기본 recursive chunker |
-| `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/DefaultChunkingOrchestrator.java` | 기본 전략 선택/조합 구현 |
+| `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/FixedSizeChunker.java` | 길이 기반 fallback chunker |
+| `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/RecursiveChunker.java` | 기본 recursive chunker |
+| `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/DefaultChunkingOrchestrator.java` | 기본 전략 선택/조합 구현 |
 | `starter/studio-platform-starter-chunking/src/test/java/studio/one/platform/chunking/service/FixedSizeChunkerTest.java` | fixed-size/overlap 검증 |
 | `starter/studio-platform-starter-chunking/src/test/java/studio/one/platform/chunking/service/RecursiveChunkerTest.java` | paragraph/sentence separator fallback 검증 |
 | `starter/studio-platform-starter-chunking/src/test/java/studio/one/platform/chunking/autoconfigure/ChunkingAutoConfigurationTest.java` | properties binding과 기본 bean 검증 |
@@ -383,7 +383,7 @@ Lane C 소유 파일로 고정한다.
 
 | 경로 | 목적 |
 |---|---|
-| `starter/studio-platform-starter-chunking/src/main/java/studio/one/platform/chunking/service/StructureBasedChunker.java` | heading/page/table/paragraph boundary 기반 chunking |
+| `studio-platform-chunking-runtime/src/main/java/studio/one/platform/chunking/service/StructureBasedChunker.java` | heading/page/table/paragraph boundary 기반 chunking |
 | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/service/chunk/SemanticChunker.java` | `EmbeddingPort` 기반 semantic refinement 후보 |
 | `starter/studio-platform-starter-ai/src/main/java/studio/one/platform/ai/service/chunk/LlmChunker.java` | `ChatPort`/`PromptRenderer` 기반 LLM refinement 후보 |
 | `studio-platform-chunking/src/main/java/studio/one/platform/chunking/core/ParsedDocument.java` | 구조 기반 chunking 입력 모델 후보 |

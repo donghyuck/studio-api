@@ -1,0 +1,42 @@
+supported_languages:
+  - ko
+  - en
+
+recognizers:
+  - name: CreditCardRecognizer
+    supported_languages:
+      - language: en
+        context: [credit, card, visa, mastercard, cc, amex, discover, jcb, diners, maestro, instapayment]
+      - language: ko
+        context: [신용카드, 카드, 비자, 마스터, 카드번호]
+    type: predefined
+
+  - name: EmailRecognizer
+    supported_languages:
+      - en
+      - ko
+    type: predefined
+
+  - name: PhoneRecognizer
+    supported_languages:
+      - en
+      - ko
+    type: predefined
+
+  - name: IpRecognizer
+    supported_languages:
+      - en
+      - ko
+    type: predefined
+
+  - name: DateRecognizer
+    supported_languages:
+      - en
+      - ko
+    type: predefined
+
+  - name: UrlRecognizer
+    supported_languages:
+      - en
+      - ko
+    type: predefined

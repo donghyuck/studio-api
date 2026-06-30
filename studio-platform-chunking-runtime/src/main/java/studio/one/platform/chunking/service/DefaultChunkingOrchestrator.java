@@ -40,7 +40,8 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
     @Override
     public List<Chunk> chunk(ChunkingContext context) {
         ChunkingContext effectiveContext = applyDefaults(context);
-        if (effectiveContext.unit() == ChunkUnit.TOKEN && tokenBasedChunker != null) {
+        if (!usesDocumentAwareChunker(effectiveContext.strategy())
+                && effectiveContext.unit() == ChunkUnit.TOKEN && tokenBasedChunker != null) {
             return tokenBasedChunker.chunk(effectiveContext);
         }
         return selectChunker(effectiveContext).chunk(effectiveContext);
@@ -77,12 +78,22 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
 
     private Chunker selectChunker(ChunkingContext context) {
         ChunkingStrategyType strategy = context.strategy() == null ? properties.strategyType() : context.strategy();
+        if (strategy == ChunkingStrategyType.BLOCKIFY && !properties.getBlockify().isEnabled()) {
+            throw new IllegalStateException(
+                    "Blockify chunking is disabled. Set studio.chunking.blockify.enabled=true to use blockify.");
+        }
+        if (strategy == ChunkingStrategyType.KNOWLEDGE_BLOCK && !properties.getKnowledgeBlock().isEnabled()) {
+            throw new IllegalStateException(
+                    "Knowledge block chunking is disabled. Set studio.chunking.knowledge-block.enabled=true to use knowledge-block.");
+        }
         if (strategy != ChunkingStrategyType.FIXED_SIZE
                 && strategy != ChunkingStrategyType.RECURSIVE
-                && strategy != ChunkingStrategyType.STRUCTURE_BASED) {
+                && strategy != ChunkingStrategyType.STRUCTURE_BASED
+                && strategy != ChunkingStrategyType.BLOCKIFY
+                && strategy != ChunkingStrategyType.KNOWLEDGE_BLOCK) {
             throw new IllegalArgumentException(
                     "Unsupported pure chunking strategy: " + strategy
-                            + ". Supported values are FIXED_SIZE, RECURSIVE, and STRUCTURE_BASED.");
+                            + ". Supported values are FIXED_SIZE, RECURSIVE, STRUCTURE_BASED, BLOCKIFY, and KNOWLEDGE_BLOCK.");
         }
         Chunker chunker = chunkers.get(strategy);
         if (chunker == null) {
@@ -110,5 +121,10 @@ public class DefaultChunkingOrchestrator implements ChunkingOrchestrator {
         return context.strategy() == null
                 && context.maxSize() == ChunkingContext.USE_CONFIGURED_MAX_SIZE
                 && context.overlap() == ChunkingContext.USE_CONFIGURED_OVERLAP;
+    }
+
+    private boolean usesDocumentAwareChunker(ChunkingStrategyType strategy) {
+        return strategy == ChunkingStrategyType.BLOCKIFY
+                || strategy == ChunkingStrategyType.KNOWLEDGE_BLOCK;
     }
 }

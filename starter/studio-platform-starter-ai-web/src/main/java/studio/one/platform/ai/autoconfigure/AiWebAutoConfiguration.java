@@ -58,13 +58,37 @@ import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
+import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationStore;
+import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationJobStore;
+import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationQuestionSetStore;
+import studio.one.platform.ai.web.controller.JdbcRagRetrievalEvaluationStore;
+import studio.one.platform.ai.web.controller.JdbcRagRetrievalEvaluationJobStore;
+import studio.one.platform.ai.web.controller.JdbcRagRetrievalEvaluationQuestionSetStore;
+import studio.one.platform.ai.web.controller.InMemoryRagRetrievalPolicyStore;
+import studio.one.platform.ai.web.controller.InMemoryRagRetrievalPolicyHistoryStore;
+import studio.one.platform.ai.web.controller.InMemoryRagRetrievalPolicyUsageStore;
+import studio.one.platform.ai.web.controller.JdbcRagRetrievalPolicyStore;
+import studio.one.platform.ai.web.controller.JdbcRagRetrievalPolicyHistoryStore;
+import studio.one.platform.ai.web.controller.JdbcRagRetrievalPolicyUsageStore;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
 import studio.one.platform.ai.web.controller.RagChunkPreviewController;
 import studio.one.platform.ai.web.controller.RagChunkingSimulationController;
 import studio.one.platform.ai.web.controller.RagController;
+import studio.one.platform.ai.web.controller.RagChatRetrievalService;
 import studio.one.platform.ai.web.controller.RagContextBuilder;
 import studio.one.platform.ai.web.controller.RagIndexJobController;
 import studio.one.platform.ai.web.controller.RagIndexJobEndpointSecurity;
+import studio.one.platform.ai.web.controller.RagRetrievalEvaluationController;
+import studio.one.platform.ai.web.controller.RagRetrievalEvaluationJobService;
+import studio.one.platform.ai.web.controller.RagRetrievalEvaluationJobStore;
+import studio.one.platform.ai.web.controller.RagRetrievalEvaluationQuestionSetStore;
+import studio.one.platform.ai.web.controller.RagRetrievalPolicyController;
+import studio.one.platform.ai.web.controller.RagRetrievalPolicyHistoryStore;
+import studio.one.platform.ai.web.controller.RagRetrievalPolicyStore;
+import studio.one.platform.ai.web.controller.RagRetrievalPolicyUsageStore;
+import studio.one.platform.ai.web.controller.RagRetrievalRecommendationService;
+import studio.one.platform.ai.web.controller.RagRetrievalEvaluationRunner;
+import studio.one.platform.ai.web.controller.RagRetrievalEvaluationStore;
 import studio.one.platform.ai.web.controller.VectorController;
 import studio.one.platform.ai.web.controller.VectorVisualizationMgmtController;
 import studio.one.platform.ai.web.service.ConversationChatService;
@@ -103,6 +127,13 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
+    RagChatRetrievalService ragChatRetrievalService(
+            RagPipelineService ragPipelineService,
+            AiWebRagProperties properties) {
+        return new RagChatRetrievalService(ragPipelineService, properties.getRetrieval());
+    }
+
+    @Bean
     @ConditionalOnMissingBean(ChatMemoryStore.class)
     @ConditionalOnProperty(prefix = PropertyKeys.AI.Endpoints.PREFIX + ".chat.memory", name = "enabled", havingValue = "true")
     ChatMemoryStore chatMemoryStore(AiWebChatProperties properties) {
@@ -130,14 +161,18 @@ public class AiWebAutoConfiguration {
     ChatController chatController(
             AiProviderRegistry providerRegistry,
             RagPipelineService ragPipelineService,
+            RagChatRetrievalService ragChatRetrievalService,
             RagContextBuilder ragContextBuilder,
             AiWebRagProperties ragProperties,
             AiWebChatProperties chatProperties,
             @Nullable ChatMemoryStore chatMemoryStore,
             ConversationChatService conversationChatService,
             ObjectMapper objectMapper,
-            RagPipelineProperties ragPipelineProperties) {
-        return new ChatController(providerRegistry, ragPipelineService, ragContextBuilder,
+            RagPipelineProperties ragPipelineProperties,
+            RagRetrievalPolicyStore ragRetrievalPolicyStore,
+            RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore) {
+        return new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
+                ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
                 chatMemoryStore,
                 chatProperties.getMemory().isEnabled(),
@@ -145,7 +180,162 @@ public class AiWebAutoConfiguration {
                 objectMapper,
                 ragProperties.getContext().getExpansion().getCandidateMultiplier(),
                 ragProperties.getContext().getExpansion().getMaxCandidates(),
-                ragPipelineOptions(ragPipelineProperties));
+                ragPipelineOptions(ragPipelineProperties),
+                ragRetrievalPolicyStore,
+                ragRetrievalPolicyUsageStore);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalEvaluationStore ragRetrievalEvaluationStore(
+            ApplicationContext context,
+            ObjectMapper objectMapper) {
+        Object jdbcTemplate = jdbcTemplate(context);
+        if (jdbcTemplate == null) {
+            return new InMemoryRagRetrievalEvaluationStore();
+        }
+        return new JdbcRagRetrievalEvaluationStore((NamedParameterJdbcTemplate) jdbcTemplate, objectMapper);
+    }
+
+    @Nullable
+    private Object jdbcTemplate(ApplicationContext context) {
+        if (!isClassPresent("org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate")) {
+            return null;
+        }
+        Class<?> jdbcTemplateType;
+        try {
+            jdbcTemplateType = Class.forName("org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate",
+                    false, getClass().getClassLoader());
+        } catch (ClassNotFoundException ex) {
+            return null;
+        }
+        String[] names = context.getBeanNamesForType(jdbcTemplateType, false, false);
+        if (names.length == 0) {
+            return null;
+        }
+        return context.getBean(names[0]);
+    }
+
+    private boolean isClassPresent(String className) {
+        try {
+            Class.forName(className, false, getClass().getClassLoader());
+            return true;
+        } catch (ClassNotFoundException ex) {
+            return false;
+        }
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "ragRetrievalEvaluationExecutor")
+    Executor ragRetrievalEvaluationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("rag-eval-");
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(20);
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalEvaluationRunner ragRetrievalEvaluationRunner(
+            RagChatRetrievalService retrievalService,
+            RagRetrievalEvaluationStore evaluationStore) {
+        return new RagRetrievalEvaluationRunner(retrievalService, evaluationStore);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalEvaluationQuestionSetStore ragRetrievalEvaluationQuestionSetStore(
+            ApplicationContext context,
+            ObjectMapper objectMapper) {
+        Object jdbcTemplate = jdbcTemplate(context);
+        if (jdbcTemplate == null) {
+            return new InMemoryRagRetrievalEvaluationQuestionSetStore();
+        }
+        return new JdbcRagRetrievalEvaluationQuestionSetStore((NamedParameterJdbcTemplate) jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalEvaluationJobStore ragRetrievalEvaluationJobStore(ApplicationContext context) {
+        Object jdbcTemplate = jdbcTemplate(context);
+        if (jdbcTemplate == null) {
+            return new InMemoryRagRetrievalEvaluationJobStore();
+        }
+        return new JdbcRagRetrievalEvaluationJobStore((NamedParameterJdbcTemplate) jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalPolicyStore ragRetrievalPolicyStore(
+            ApplicationContext context,
+            ObjectMapper objectMapper) {
+        Object jdbcTemplate = jdbcTemplate(context);
+        if (jdbcTemplate == null) {
+            return new InMemoryRagRetrievalPolicyStore();
+        }
+        return new JdbcRagRetrievalPolicyStore((NamedParameterJdbcTemplate) jdbcTemplate, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore(ApplicationContext context) {
+        Object jdbcTemplate = jdbcTemplate(context);
+        if (jdbcTemplate == null) {
+            return new InMemoryRagRetrievalPolicyUsageStore();
+        }
+        return new JdbcRagRetrievalPolicyUsageStore((NamedParameterJdbcTemplate) jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalPolicyHistoryStore ragRetrievalPolicyHistoryStore(ApplicationContext context) {
+        Object jdbcTemplate = jdbcTemplate(context);
+        if (jdbcTemplate == null) {
+            return new InMemoryRagRetrievalPolicyHistoryStore();
+        }
+        return new JdbcRagRetrievalPolicyHistoryStore((NamedParameterJdbcTemplate) jdbcTemplate);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalRecommendationService ragRetrievalRecommendationService() {
+        return new RagRetrievalRecommendationService();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RagRetrievalEvaluationJobService ragRetrievalEvaluationJobService(
+            RagRetrievalEvaluationRunner evaluationRunner,
+            @Qualifier("ragRetrievalEvaluationExecutor") Executor executor,
+            RagRetrievalEvaluationJobStore jobStore) {
+        return new RagRetrievalEvaluationJobService(evaluationRunner, executor, jobStore);
+    }
+
+    @Bean
+    RagRetrievalEvaluationController ragRetrievalEvaluationController(
+            RagRetrievalEvaluationRunner evaluationRunner,
+            RagRetrievalEvaluationStore evaluationStore,
+            RagRetrievalEvaluationJobService jobService,
+            RagRetrievalEvaluationQuestionSetStore questionSetStore,
+            RagRetrievalRecommendationService recommendationService) {
+        return new RagRetrievalEvaluationController(evaluationRunner, evaluationStore, jobService, questionSetStore,
+                recommendationService);
+    }
+
+    @Bean
+    RagRetrievalPolicyController ragRetrievalPolicyController(
+            RagRetrievalPolicyStore policyStore,
+            RagRetrievalEvaluationStore evaluationStore,
+            RagRetrievalEvaluationQuestionSetStore questionSetStore,
+            RagRetrievalRecommendationService recommendationService,
+            AiWebRagProperties ragProperties,
+            RagRetrievalPolicyUsageStore usageStore,
+            RagRetrievalPolicyHistoryStore historyStore) {
+        return new RagRetrievalPolicyController(policyStore, evaluationStore, questionSetStore, recommendationService,
+                ragProperties.getRetrieval(), usageStore, historyStore);
     }
 
     @Bean
@@ -353,11 +543,13 @@ public class AiWebAutoConfiguration {
     RagChunkingSimulationController ragChunkingSimulationController(
             ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
             AiWebRagProperties ragProperties,
-            Environment environment) {
+            Environment environment,
+            ObjectProvider<RagPipelineService> ragPipelineServiceProvider) {
         return new RagChunkingSimulationController(
                 chunkingOrchestratorProvider.getIfAvailable(),
                 ragProperties,
-                environment);
+                environment,
+                ragPipelineServiceProvider.getIfAvailable());
     }
 
     @Bean(name = "ragIndexJobEndpointSecurity")

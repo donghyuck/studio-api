@@ -1,0 +1,15 @@
+TECHNICAL schema:
+Add these fields when grounded in sourceEvidence:
+- component
+- apiName
+- endpoint
+- method
+- parameter
+- returnValue
+- errorCode
+- command
+- configurationKey
+- dependency
+- version
+
+Generate one IdeaBlock per endpoint, command, configuration key, error, dependency, or behavior contract.

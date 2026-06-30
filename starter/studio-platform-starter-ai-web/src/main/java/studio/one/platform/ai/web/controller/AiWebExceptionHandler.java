@@ -24,6 +24,7 @@ import studio.one.platform.ai.web.dto.visualization.ProjectionProblemDetails;
         RagChunkPreviewController.class,
         RagChunkingSimulationController.class,
         RagIndexJobController.class,
+        RagRetrievalPolicyController.class,
         QueryRewriteController.class,
         AiInfoController.class
 })
@@ -47,6 +48,22 @@ public class AiWebExceptionHandler {
                 ex.maxAllowed(),
                 ex.sampleSize(),
                 OffsetDateTime.now());
+        return ResponseEntity.status(ex.status()).body(body);
+    }
+
+    @ExceptionHandler(RagRetrievalPolicyException.class)
+    public ResponseEntity<ProblemDetails> handleRagRetrievalPolicyException(
+            RagRetrievalPolicyException ex,
+            HttpServletRequest request) {
+        ProblemDetails body = ProblemDetails.builder()
+                .type("urn:error:" + ex.code().toLowerCase(java.util.Locale.ROOT))
+                .title(ex.status().getReasonPhrase())
+                .status(ex.status().value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .code(ex.code())
+                .timestamp(OffsetDateTime.now())
+                .build();
         return ResponseEntity.status(ex.status()).body(body);
     }
 

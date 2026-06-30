@@ -1,0 +1,8 @@
+GENERAL schema:
+Add these fields when grounded in sourceEvidence:
+- topic
+- summary
+- mainClaim
+- supportingEvidence
+
+Generate one IdeaBlock per self-contained fact, claim, definition, or explanation.

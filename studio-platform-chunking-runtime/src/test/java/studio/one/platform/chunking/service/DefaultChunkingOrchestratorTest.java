@@ -71,6 +71,98 @@ class DefaultChunkingOrchestratorTest {
     }
 
     @Test
+    void rejectsBlockifyWhenDisabled() {
+        ChunkingProperties properties = new ChunkingProperties();
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(10, 0), new RecursiveChunker(10, 0),
+                        new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0)),
+                        new BlockifyChunker(properties.getBlockify(),
+                                new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0)),
+                                new HeuristicBlockifyGenerator())));
+
+        assertThatThrownBy(() -> orchestrator.chunk(ChunkingContext.builder("hello")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.BLOCKIFY)
+                .build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Blockify chunking is disabled");
+    }
+
+    @Test
+    void usesBlockifyWhenEnabled() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.getBlockify().setEnabled(true);
+        RecursiveChunker recursiveChunker = new RecursiveChunker(100, 0);
+        StructureBasedChunker structureBasedChunker = new StructureBasedChunker(100, 0, recursiveChunker);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(100, 0), recursiveChunker, structureBasedChunker,
+                        new BlockifyChunker(properties.getBlockify(), structureBasedChunker,
+                                new HeuristicBlockifyGenerator())));
+
+        var chunks = orchestrator.chunk(ChunkingContext.builder(
+                        "수료 기준은 전체 진도율 80% 이상을 충족하고 최종 평가에서 60점 이상을 취득하는 것입니다. "
+                                + "교육 담당자는 두 조건을 모두 확인한 뒤 수료 여부를 확정해야 하며, "
+                                + "어느 하나라도 충족하지 못하면 보완 학습 또는 재평가 대상으로 분류합니다.")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.BLOCKIFY)
+                .build());
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.BLOCKIFY);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry("requestedChunkingStrategy", "blockify")
+                .containsEntry("actualChunkingStrategy", "blockify");
+    }
+
+    @Test
+    void rejectsKnowledgeBlockWhenDisabled() {
+        ChunkingProperties properties = new ChunkingProperties();
+        RecursiveChunker recursiveChunker = new RecursiveChunker(100, 0);
+        StructureBasedChunker structureBasedChunker = new StructureBasedChunker(100, 0, recursiveChunker);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(100, 0), recursiveChunker, structureBasedChunker,
+                        new KnowledgeBlockChunker(properties.getBlockify(), structureBasedChunker,
+                                new HeuristicBlockifyGenerator())));
+
+        assertThatThrownBy(() -> orchestrator.chunk(ChunkingContext.builder("hello")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.KNOWLEDGE_BLOCK)
+                .build()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Knowledge block chunking is disabled");
+    }
+
+    @Test
+    void usesKnowledgeBlockWhenEnabled() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.getKnowledgeBlock().setEnabled(true);
+        RecursiveChunker recursiveChunker = new RecursiveChunker(100, 0);
+        StructureBasedChunker structureBasedChunker = new StructureBasedChunker(100, 0, recursiveChunker);
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(100, 0), recursiveChunker, structureBasedChunker,
+                        new KnowledgeBlockChunker(properties.getBlockify(), structureBasedChunker,
+                                new HeuristicBlockifyGenerator())));
+
+        var chunks = orchestrator.chunk(ChunkingContext.builder(
+                        "수료 기준은 전체 진도율 80% 이상을 충족하고 최종 평가에서 60점 이상을 취득하는 것입니다. "
+                                + "교육 담당자는 두 조건을 모두 확인한 뒤 수료 여부를 확정해야 하며, "
+                                + "어느 하나라도 충족하지 못하면 보완 학습 또는 재평가 대상으로 분류합니다.")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.KNOWLEDGE_BLOCK)
+                .build());
+
+        assertThat(chunks).hasSize(1);
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.KNOWLEDGE_BLOCK);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry("requestedChunkingStrategy", "knowledge-block")
+                .containsEntry("actualChunkingStrategy", "knowledge-block");
+    }
+
+    @Test
     void rejectsMissingChunkerBeanForSupportedStrategy() {
         ChunkingProperties properties = new ChunkingProperties();
         properties.setStrategy("fixed-size");
