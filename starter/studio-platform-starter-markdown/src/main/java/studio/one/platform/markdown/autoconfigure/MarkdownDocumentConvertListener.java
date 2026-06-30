@@ -13,7 +13,11 @@ public class MarkdownDocumentConvertListener implements DocumentConvertJobListen
 
     @Override
     public void onCompleted(DocumentConvertJob job) {
-        service.onConversionCompleted(job.jobId(), parseLong(job.resultFileId()), parseLong(job.sourceFileId()));
+        Long resultAttachmentId = parseLong(job.resultFileId());
+        if (resultAttachmentId == null) {
+            return;
+        }
+        service.onConversionCompleted(job.jobId(), resultAttachmentId, parseLong(job.sourceFileId()));
     }
 
     @Override

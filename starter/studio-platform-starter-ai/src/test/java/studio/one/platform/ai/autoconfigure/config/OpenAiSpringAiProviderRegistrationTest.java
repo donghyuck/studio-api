@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.mock.env.MockEnvironment;
 
+import studio.one.platform.ai.autoconfigure.adapter.OpenAiCompatibleChatAdapter;
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
@@ -91,5 +92,34 @@ class OpenAiSpringAiProviderRegistrationTest {
                 factories);
 
         assertThat(chatPorts).containsOnlyKeys("openai", "google");
+    }
+
+    @Test
+    void openAiProviderWithBaseUrlUsesOpenAiCompatibleChatAdapter() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("local-gemma");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.OPENAI);
+        provider.setApiKey("local-dev");
+        provider.setBaseUrl("http://127.0.0.1:8000");
+        provider.getChat().setEnabled(true);
+        provider.getChat().setModel("gemma-3-4b");
+        properties.getProviders().put("local-gemma", provider);
+
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.openai.api-key", "test-key")
+                .withProperty("spring.ai.openai.chat.options.model", "gpt-4o-mini");
+
+        ProviderChatPortFactory chatFactory = new OpenAiPortFactoryConfiguration().openAiChatPortFactory();
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
+                properties,
+                environment,
+                beanFactory.getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(chatFactory));
+
+        assertThat(chatPorts).containsOnlyKeys("local-gemma");
+        assertThat(chatPorts.get("local-gemma")).isInstanceOf(OpenAiCompatibleChatAdapter.class);
     }
 }

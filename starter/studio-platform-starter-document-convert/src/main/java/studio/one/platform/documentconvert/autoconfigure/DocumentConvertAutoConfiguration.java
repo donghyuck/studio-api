@@ -14,9 +14,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 
 import studio.one.application.attachment.application.usecase.AttachmentDownloadUrlService;
 import studio.one.application.attachment.application.usecase.AttachmentService;
+import studio.one.platform.documentconvert.application.port.out.DocumentConvertDirectResultStore;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobRepository;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobListener;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertStoragePort;
@@ -48,12 +50,14 @@ public class DocumentConvertAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnBean({AttachmentService.class, AttachmentDownloadUrlService.class})
     DocumentConvertStoragePort documentConvertStoragePort(AttachmentService attachmentService,
-            AttachmentDownloadUrlService downloadUrlService, DocumentConvertProperties properties) {
+            AttachmentDownloadUrlService downloadUrlService, DocumentConvertProperties properties,
+            ObjectProvider<DocumentConvertDirectResultStore> directResultStores) {
         var storage = properties.getStorage();
         return new AttachmentDocumentConvertStorageAdapter(attachmentService, downloadUrlService,
                 properties.getCallbackBaseUrl(),
                 requireSecret(properties.getCallbackToken(), "studio.document-convert.callback-token"),
-                storage.getSignedUrlTtl());
+                storage.getSignedUrlTtl(),
+                directResultStores);
     }
 
     @Bean

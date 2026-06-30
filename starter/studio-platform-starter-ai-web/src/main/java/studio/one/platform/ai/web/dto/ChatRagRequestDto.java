@@ -27,7 +27,9 @@ public record ChatRagRequestDto(
         @DecimalMin(value = "0.0", message = "minScore must be at least 0.0")
         @DecimalMax(value = "1.0", message = "minScore must be at most 1.0")
         Double minScore,
-        Boolean debug
+        Boolean debug,
+        String retrievalStrategy,
+        @Valid ChatRagRetrievalOptionsDto retrievalOptions
 ) {
     public ChatRagRequestDto(
             ChatRequestDto chat,
@@ -35,7 +37,7 @@ public record ChatRagRequestDto(
             Integer ragTopK,
             String objectType,
             String objectId) {
-        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, null);
+        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, null, null, null);
     }
 
     public ChatRagRequestDto(
@@ -45,6 +47,22 @@ public record ChatRagRequestDto(
             String objectType,
             String objectId,
             Boolean debug) {
-        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, debug);
+        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, debug, null, null);
+    }
+
+    public ChatRagRequestDto(
+            ChatRequestDto chat,
+            String ragQuery,
+            Integer ragTopK,
+            String objectType,
+            String objectId,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer topK,
+            Double minScore,
+            Boolean debug) {
+        this(chat, ragQuery, ragTopK, objectType, objectId, embeddingProfileId, embeddingProvider, embeddingModel,
+                topK, minScore, debug, null, null);
     }
 }

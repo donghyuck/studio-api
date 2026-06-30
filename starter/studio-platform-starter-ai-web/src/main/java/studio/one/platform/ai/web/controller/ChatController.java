@@ -450,11 +450,21 @@ public class ChatController {
         RagChatRetrievalService.RetrievalDebug retrievalDebug = RagChatRetrievalService.RetrievalDebug.disabled();
         long retrievalStartedNanos = System.nanoTime();
 
+        boolean objectCandidateResults = false;
+        boolean skipFinalResultLimit = false;
         if (ragQuery == null || ragQuery.isBlank()) {
             if (!hasFilter) {
                 throw new IllegalArgumentException("ragQuery가 없으면 objectType 또는 objectId를 제공해야 합니다");
             }
             ragResults = ragPipelineService.listByObject(objectType, objectId, ragTopK);
+            objectCandidateResults = true;
+        } else if (hasFilter && isWholeDocumentSummaryQuery(ragQuery, chat)) {
+            ragResults = ragPipelineService.listByObject(
+                    objectType,
+                    objectId,
+                    contextExpansionCandidateLimit(Math.max(ragTopK, resultTopK)));
+            objectCandidateResults = true;
+            skipFinalResultLimit = true;
         } else {
             String resolvedQuery = resolveRagQuery(request);
             RagChatRetrievalService.RetrievalResult retrieval = ragChatRetrievalService.retrieve(
@@ -469,7 +479,9 @@ public class ChatController {
             ragResults = retrieval.results();
             retrievalDebug = retrieval.debug();
         }
-        ragResults = limitRagResults(ragResults, resultTopK);
+        if (!skipFinalResultLimit) {
+            ragResults = limitRagResults(ragResults, resultTopK);
+        }
         long retrievalElapsedMs = Math.max(0L, (System.nanoTime() - retrievalStartedNanos) / 1_000_000L);
         recordRetrievalPolicyUsage(appliedPolicy, request, ragResults.size(), ragResults.isEmpty(), retrievalElapsedMs);
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
@@ -499,7 +511,7 @@ public class ChatController {
                 objectType,
                 objectId,
                 resultTopK,
-                ragQuery == null || ragQuery.isBlank());
+                objectCandidateResults);
         RagContextBuilder.BuildResult contextResult = ragContextBuilder.buildWithDiagnostics(ragResults, expansionCandidates);
         String context = contextResult.context();
 
@@ -1031,6 +1043,32 @@ public class ChatController {
             }
         }
         throw new IllegalArgumentException("RAG query is empty");
+    }
+
+    private boolean isWholeDocumentSummaryQuery(String ragQuery, ChatRequestDto chat) {
+        String query = normalizeText(ragQuery);
+        if (query == null && chat != null && chat.messages() != null) {
+            for (int i = chat.messages().size() - 1; i >= 0; i--) {
+                ChatMessageDto message = chat.messages().get(i);
+                if ("user".equalsIgnoreCase(message.role())) {
+                    query = normalizeText(message.content());
+                    break;
+                }
+            }
+        }
+        if (query == null) {
+            return false;
+        }
+        String normalized = query.toLowerCase(Locale.ROOT);
+        return normalized.contains("줄거리")
+                || normalized.contains("전체 내용")
+                || normalized.contains("전체내용")
+                || normalized.contains("문서 요약")
+                || normalized.contains("요약해")
+                || normalized.contains("요약해줘")
+                || normalized.contains("요약하여")
+                || normalized.contains("plot summary")
+                || normalized.contains("synopsis");
     }
 
     private List<RagSearchResult> contextExpansionCandidates(

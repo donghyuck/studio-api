@@ -39,6 +39,7 @@ import studio.one.application.attachment.domain.model.Attachment;
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.application.web.service.AttachmentRagIndexService;
+import studio.one.application.web.service.AttachmentRagIndexUnavailableException;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
@@ -841,7 +842,8 @@ class AttachmentEmbeddingPipelineControllerTest {
         when(embeddingPort.embed(any(EmbeddingRequest.class)))
                 .thenReturn(new EmbeddingResponse(List.of(
                         new EmbeddingVector("1", List.of(0.1d, 0.2d)),
-                        new EmbeddingVector("2", List.of(0.3d, 0.4d)))));
+                        new EmbeddingVector("2", List.of(0.3d, 0.4d)),
+                        new EmbeddingVector("3", List.of(0.5d, 0.6d)))));
 
         service.index(1L, service.command(
                 1L,
@@ -858,7 +860,108 @@ class AttachmentEmbeddingPipelineControllerTest {
         verify(attachmentService, never()).getInputStream(any());
         verifyNoInteractions(extractionService);
         verify(embeddingPort, times(1)).embed(any(EmbeddingRequest.class));
-        verify(vectorStore).upsertAll(argThat(records -> records.size() == 2));
+        verify(vectorStore).deleteByObject("attachment", "1");
+        verify(vectorStore).upsertAll(argThat(records -> records.size() == 3));
+        assertThat(chunkStageStore.findByObject("attachment", "1", "doc-1")).isEmpty();
+    }
+
+    @Test
+    void ragIndexDoesNotFallbackToAttachmentExtractionWhenChunkStageIsRequired() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        InMemoryRagChunkStageStore chunkStageStore = new InMemoryRagChunkStageStore();
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider((TextractNormalizedDocumentAdapter) null),
+                provider((ChunkingOrchestrator) null),
+                provider(embeddingPort),
+                provider((RagEmbeddingProfileResolver) null),
+                provider(vectorStore),
+                provider(chunkStageStore));
+        AttachmentRagIndexService service = new AttachmentRagIndexService(
+                attachmentService,
+                provider(extractionService),
+                provider(ragPipelineService),
+                provider(indexer),
+                provider(chunkStageStore));
+        Attachment attachment = mock(Attachment.class);
+        when(attachment.getAttachmentId()).thenReturn(1L);
+        when(attachment.getObjectType()).thenReturn(2103);
+        when(attachment.getObjectId()).thenReturn(1L);
+        when(attachment.getName()).thenReturn("manual.pdf");
+        when(attachment.getContentType()).thenReturn("application/pdf");
+        when(attachment.getSize()).thenReturn(100L);
+        when(attachmentService.getAttachmentById(1L)).thenReturn(attachment);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.index(1L, service.command(
+                1L,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of(
+                        AttachmentRagIndexService.METADATA_REQUIRE_RAG_CHUNK_STAGE, true,
+                        "embeddingProvider", "kure",
+                        "embeddingModel", "nlpai-lab/KURE-v1"),
+                List.of(),
+                false,
+                null,
+                "kure",
+                "nlpai-lab/KURE-v1"), RagIndexProgressListener.noop()))
+                .isInstanceOf(AttachmentRagIndexUnavailableException.class)
+                .hasMessage("Required RAG chunk stage was not found");
+
+        verify(attachmentService, never()).getInputStream(any());
+        verifyNoInteractions(extractionService, ragPipelineService);
+        verifyNoInteractions(vectorStore);
+    }
+
+    @Test
+    void ragIndexResumedFromChunkStageUsesEmbeddingBatchSizeSeparatelyFromUpsertBatchSize() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        InMemoryRagChunkStageStore chunkStageStore = new InMemoryRagChunkStageStore();
+        chunkStageStore.replace("attachment", "1", "doc-1", numberedChunks(26).stream()
+                .map(chunk -> new studio.one.platform.ai.service.pipeline.RagChunkStage(
+                        "attachment",
+                        "1",
+                        "doc-1",
+                        (Integer) chunk.metadata().toMap().get("chunkOrder"),
+                        chunk.id(),
+                        chunk.content(),
+                        chunk.metadata().toMap(),
+                        null))
+                .toList());
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider((TextractNormalizedDocumentAdapter) null),
+                provider((ChunkingOrchestrator) null),
+                provider(embeddingPort),
+                provider((RagEmbeddingProfileResolver) null),
+                provider(vectorStore),
+                provider(chunkStageStore),
+                4,
+                64);
+        Attachment attachment = mock(Attachment.class);
+        when(embeddingPort.embed(any(EmbeddingRequest.class))).thenAnswer(invocation -> {
+            EmbeddingRequest request = invocation.getArgument(0);
+            return new EmbeddingResponse(java.util.stream.IntStream.range(0, request.texts().size())
+                    .mapToObj(index -> new EmbeddingVector(String.valueOf(index), List.of(0.1d, 0.2d)))
+                    .toList());
+        });
+
+        boolean indexed = indexer.index(
+                attachment,
+                "doc-1",
+                "attachment",
+                "1",
+                Map.of("embeddingProvider", "kure", "embeddingModel", "nlpai-lab/KURE-v1"),
+                extractionService,
+                InputStream.nullInputStream());
+
+        assertThat(indexed).isTrue();
+        ArgumentCaptor<EmbeddingRequest> requestCaptor = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingPort, times(7)).embed(requestCaptor.capture());
+        assertThat(requestCaptor.getAllValues())
+                .extracting(request -> request.texts().size())
+                .containsExactly(4, 4, 4, 4, 4, 4, 2);
+        verify(vectorStore).deleteByObject("attachment", "1");
+        verify(vectorStore).upsertAll(argThat(records -> records.size() == 26));
         assertThat(chunkStageStore.findByObject("attachment", "1", "doc-1")).isEmpty();
     }
 

@@ -116,8 +116,8 @@ public class MarkdownDocumentService {
 
         if (pandoc) {
             revision = markRunning(revision);
-            MarkdownConversionPort.ConversionSubmission submission =
-                    conversionPort.submit(conversionJobId, source.attachmentId(), sourceFormat, request.requestedBy());
+            MarkdownConversionPort.ConversionSubmission submission = conversionPort.submit(conversionJobId,
+                    source.attachmentId(), sourceFormat, request.requestedBy());
             revision = withConversionJob(revision, submission.jobId());
             if ("FAILED".equalsIgnoreCase(submission.status())) {
                 revision = fail(revision, submission.errorCode(), submission.errorMessage());
@@ -134,6 +134,23 @@ public class MarkdownDocumentService {
 
     public void onConversionCompleted(String jobId, long resultAttachmentId) {
         onConversionCompleted(jobId, resultAttachmentId, null);
+    }
+
+    public void onConversionResult(String jobId, String markdown, Long sourceAttachmentId) {
+        MarkdownRevision revision = findConversionRevision(jobId, sourceAttachmentId);
+        if (revision == null || revision.status().terminal()) {
+            return;
+        }
+        if (revision.documentConvertJobId() == null) {
+            revision = withConversionJob(revision, jobId);
+        }
+        try {
+            MarkdownRevision completed = complete(revision, null, markdown,
+                    revision.extractorVersion(), headingLocators(revision.revisionId(), markdown), List.of());
+            prepareAndSchedulePipeline(completed);
+        } catch (RuntimeException ex) {
+            fail(revision, extractionErrorCode(ex, "REVISION_STORE_FAILED"), ex.getMessage());
+        }
     }
 
     public void onConversionCompleted(String jobId, long resultAttachmentId, Long sourceAttachmentId) {
@@ -205,7 +222,249 @@ public class MarkdownDocumentService {
         MarkdownRevision revision = latestRevision(documentId);
         MarkdownPipelineExecution execution = repository.findPipelineExecution(revision.revisionId())
                 .orElseGet(() -> legacyPipelineExecution(revision));
-        return new MarkdownPipelineProgress(execution, pipelinePort.latestRagProgress(revision));
+        return new MarkdownPipelineProgress(execution, pipelinePort.latestChunkingProgress(revision),
+                pipelinePort.latestRagProgress(revision));
+    }
+
+    public MarkdownIdeaBlockSummary getIdeaBlockSummary(String documentId, String revisionId) {
+        requireDocument(documentId);
+        MarkdownRevision revision = repository.findRevision(revisionId)
+                .filter(value -> documentId.equals(value.documentId()))
+                .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                        "Markdown revision not found: " + revisionId));
+        MarkdownIdeaBlockSummary summary = pipelinePort.ideaBlockSummary(revision);
+        return summary == null ? new MarkdownIdeaBlockSummary(documentId, revisionId, 0.0d, 0, 0, 0,
+                "NOT_AVAILABLE", 0, 0, 0, 0, null, Map.of(), List.of(), List.of(), List.of(), List.of(), List.of())
+                : summary;
+    }
+
+    public MarkdownIdeaBlockMergePreview getIdeaBlockMergePreview(
+            String documentId,
+            String revisionId,
+            MarkdownIdeaBlockMergePreviewOptions options) {
+        requireDocument(documentId);
+        MarkdownRevision revision = repository.findRevision(revisionId)
+                .filter(value -> documentId.equals(value.documentId()))
+                .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                        "Markdown revision not found: " + revisionId));
+        MarkdownIdeaBlockMergePreview preview = pipelinePort.ideaBlockMergePreview(
+                revision,
+                options == null ? MarkdownIdeaBlockMergePreviewOptions.defaults() : options);
+        return preview == null ? new MarkdownIdeaBlockMergePreview(
+                documentId, revisionId, false, null, null, List.of()) : preview;
+    }
+
+    public MarkdownIdeaBlockMergeApplyResult applyIdeaBlockMerge(
+            String documentId,
+            String revisionId,
+            MarkdownIdeaBlockMergeApplyOptions options) {
+        requireDocument(documentId);
+        MarkdownRevision revision = repository.findRevision(revisionId)
+                .filter(value -> documentId.equals(value.documentId()))
+                .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                        "Markdown revision not found: " + revisionId));
+        MarkdownIdeaBlockMergeApplyResult result = pipelinePort.ideaBlockMergeApply(revision, options);
+        if (result == null) {
+            throw new IllegalStateException("IdeaBlock merge apply is not configured");
+        }
+        return result;
+    }
+
+    public MarkdownIdeaBlockMergeApplyResult applyIdeaBlockMerge(
+            String documentId,
+            String revisionId,
+            MarkdownIdeaBlockMergeApplyOptions options,
+            MarkdownResumeOptions downstreamOptions) {
+        MarkdownIdeaBlockMergeApplyResult result = applyIdeaBlockMerge(documentId, revisionId, options);
+        MarkdownResumeResult pipelineResult = null;
+        if (downstreamOptions != null && Boolean.TRUE.equals(downstreamOptions.runRagIndex())) {
+            MarkdownResumeOptions resumeOptions = new MarkdownResumeOptions(
+                    MarkdownPipelineStage.RAG_INDEX,
+                    false,
+                    true,
+                    downstreamOptions.runSkillExtraction(),
+                    downstreamOptions.chunkingStrategy(),
+                    downstreamOptions.chunkMaxSize(),
+                    downstreamOptions.chunkOverlap(),
+                    downstreamOptions.chunkUnit(),
+                    downstreamOptions.blockifyLlmProvider(),
+                    downstreamOptions.blockifyLlmModel(),
+                    downstreamOptions.blockifyPiiMaskingEnabled(),
+                    downstreamOptions.embeddingProfileId(),
+                    downstreamOptions.embeddingProvider(),
+                    downstreamOptions.embeddingModel(),
+                    downstreamOptions.embeddingDimension(),
+                    downstreamOptions.useLlmKeywordExtraction(),
+                    downstreamOptions.skillExtractionMode(),
+                    downstreamOptions.generateSkillEmbeddings(),
+                    downstreamOptions.skillEmbeddingProvider(),
+                    downstreamOptions.skillEmbeddingModel(),
+                    downstreamOptions.skillEmbeddingDimension());
+            pipelineResult = resumeWithOptions(documentId, resumeOptions);
+        }
+        return new MarkdownIdeaBlockMergeApplyResult(
+                result.documentId(),
+                result.revisionId(),
+                result.planId(),
+                result.planFingerprint(),
+                result.mergedChunkId(),
+                result.mergedFromChunkIds(),
+                result.beforeChunkCount(),
+                result.afterChunkCount(),
+                pipelineResult);
+    }
+
+    public MarkdownIdeaBlockMergeBatchApplyResult applyIdeaBlockMergeBatch(
+            String documentId,
+            String revisionId,
+            List<MarkdownIdeaBlockMergeApplyOptions> items,
+            MarkdownResumeOptions downstreamOptions) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("Merge apply batch items are required");
+        }
+        List<MarkdownIdeaBlockMergeBatchApplyResult.Applied> applied = new ArrayList<>();
+        List<MarkdownIdeaBlockMergeBatchApplyResult.Failed> failed = new ArrayList<>();
+        for (MarkdownIdeaBlockMergeApplyOptions item : items) {
+            try {
+                MarkdownIdeaBlockMergeApplyResult result = applyIdeaBlockMerge(documentId, revisionId, item);
+                applied.add(new MarkdownIdeaBlockMergeBatchApplyResult.Applied(
+                        result.planId(),
+                        result.planFingerprint(),
+                        result.mergedChunkId(),
+                        result.mergedFromChunkIds(),
+                        result.beforeChunkCount(),
+                        result.afterChunkCount()));
+            } catch (RuntimeException ex) {
+                failed.add(new MarkdownIdeaBlockMergeBatchApplyResult.Failed(
+                        item == null ? null : item.planFingerprint(),
+                        ex.getMessage()));
+            }
+        }
+        MarkdownResumeResult pipelineResult = null;
+        if (!applied.isEmpty() && downstreamOptions != null && Boolean.TRUE.equals(downstreamOptions.runRagIndex())) {
+            MarkdownResumeOptions resumeOptions = new MarkdownResumeOptions(
+                    MarkdownPipelineStage.RAG_INDEX,
+                    false,
+                    true,
+                    downstreamOptions.runSkillExtraction(),
+                    downstreamOptions.chunkingStrategy(),
+                    downstreamOptions.chunkMaxSize(),
+                    downstreamOptions.chunkOverlap(),
+                    downstreamOptions.chunkUnit(),
+                    downstreamOptions.blockifyLlmProvider(),
+                    downstreamOptions.blockifyLlmModel(),
+                    downstreamOptions.blockifyPiiMaskingEnabled(),
+                    downstreamOptions.embeddingProfileId(),
+                    downstreamOptions.embeddingProvider(),
+                    downstreamOptions.embeddingModel(),
+                    downstreamOptions.embeddingDimension(),
+                    downstreamOptions.useLlmKeywordExtraction(),
+                    downstreamOptions.skillExtractionMode(),
+                    downstreamOptions.generateSkillEmbeddings(),
+                    downstreamOptions.skillEmbeddingProvider(),
+                    downstreamOptions.skillEmbeddingModel(),
+                    downstreamOptions.skillEmbeddingDimension());
+            pipelineResult = resumeWithOptions(documentId, resumeOptions);
+        }
+        return new MarkdownIdeaBlockMergeBatchApplyResult(
+                documentId,
+                revisionId,
+                List.copyOf(applied),
+                List.copyOf(failed),
+                pipelineResult);
+    }
+
+    public MarkdownIdeaBlockMergeBatchApplyResult autoApplyIdeaBlockMerge(
+            String documentId,
+            String revisionId,
+            MarkdownIdeaBlockMergePreviewOptions previewOptions,
+            MarkdownResumeOptions downstreamOptions) {
+        MarkdownIdeaBlockMergePreview preview = getIdeaBlockMergePreview(documentId, revisionId,
+                previewOptions == null ? MarkdownIdeaBlockMergePreviewOptions.defaults() : previewOptions);
+        List<MarkdownIdeaBlockMergeApplyOptions> applicableItems = preview.clusters().stream()
+                .filter(MarkdownIdeaBlockMergePreview.ClusterPreview::applicable)
+                .map(cluster -> new MarkdownIdeaBlockMergeApplyOptions(
+                        new MarkdownIdeaBlockMergePreviewOptions(
+                                cluster.clusterId(),
+                                "embedding".equals(cluster.clusterType()),
+                                preview.llmProvider(),
+                                preview.llmModel(),
+                                1),
+                        cluster.planFingerprint()))
+                .toList();
+        if (applicableItems.isEmpty()) {
+            return new MarkdownIdeaBlockMergeBatchApplyResult(
+                    documentId,
+                    revisionId,
+                    List.of(),
+                    preview.clusters().stream()
+                            .map(cluster -> new MarkdownIdeaBlockMergeBatchApplyResult.Failed(
+                                    cluster.planFingerprint(),
+                                    "IdeaBlock merge preview is not applicable: "
+                                            + String.join(",", cluster.validationWarnings())))
+                            .toList(),
+                    null);
+        }
+        return applyIdeaBlockMergeBatch(documentId, revisionId, applicableItems, downstreamOptions);
+    }
+
+    public MarkdownIdeaBlockMergeUndoResult undoIdeaBlockMerge(
+            String documentId,
+            String revisionId,
+            MarkdownIdeaBlockMergeUndoOptions options) {
+        requireDocument(documentId);
+        MarkdownRevision revision = repository.findRevision(revisionId)
+                .filter(value -> documentId.equals(value.documentId()))
+                .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                        "Markdown revision not found: " + revisionId));
+        MarkdownIdeaBlockMergeUndoResult result = pipelinePort.ideaBlockMergeUndo(revision, options);
+        if (result == null) {
+            throw new IllegalStateException("IdeaBlock merge undo is not configured");
+        }
+        return result;
+    }
+
+    public MarkdownIdeaBlockMergeUndoResult undoIdeaBlockMerge(
+            String documentId,
+            String revisionId,
+            MarkdownIdeaBlockMergeUndoOptions options,
+            MarkdownResumeOptions downstreamOptions) {
+        MarkdownIdeaBlockMergeUndoResult result = undoIdeaBlockMerge(documentId, revisionId, options);
+        MarkdownResumeResult pipelineResult = null;
+        if (downstreamOptions != null && Boolean.TRUE.equals(downstreamOptions.runRagIndex())) {
+            MarkdownResumeOptions resumeOptions = new MarkdownResumeOptions(
+                    MarkdownPipelineStage.RAG_INDEX,
+                    false,
+                    true,
+                    downstreamOptions.runSkillExtraction(),
+                    downstreamOptions.chunkingStrategy(),
+                    downstreamOptions.chunkMaxSize(),
+                    downstreamOptions.chunkOverlap(),
+                    downstreamOptions.chunkUnit(),
+                    downstreamOptions.blockifyLlmProvider(),
+                    downstreamOptions.blockifyLlmModel(),
+                    downstreamOptions.blockifyPiiMaskingEnabled(),
+                    downstreamOptions.embeddingProfileId(),
+                    downstreamOptions.embeddingProvider(),
+                    downstreamOptions.embeddingModel(),
+                    downstreamOptions.embeddingDimension(),
+                    downstreamOptions.useLlmKeywordExtraction(),
+                    downstreamOptions.skillExtractionMode(),
+                    downstreamOptions.generateSkillEmbeddings(),
+                    downstreamOptions.skillEmbeddingProvider(),
+                    downstreamOptions.skillEmbeddingModel(),
+                    downstreamOptions.skillEmbeddingDimension());
+            pipelineResult = resumeWithOptions(documentId, resumeOptions);
+        }
+        return new MarkdownIdeaBlockMergeUndoResult(
+                result.documentId(),
+                result.revisionId(),
+                result.mergedChunkId(),
+                result.planFingerprint(),
+                result.restoredChunkIds(),
+                result.beforeChunkCount(),
+                result.afterChunkCount(),
+                pipelineResult);
     }
 
     public MarkdownPipelineEstimate estimatePipeline(String documentId, MarkdownResumeOptions request) {
@@ -243,7 +502,8 @@ public class MarkdownDocumentService {
         var document = repository.findDocumentBySourceAttachmentId(attachmentId);
         if (document.isPresent() && document.get().currentRevisionId() != null) {
             MarkdownRevision revision = repository.findRevision(document.get().currentRevisionId()).orElse(null);
-            if (revision != null && revision.status() == MarkdownRevisionStatus.COMPLETED && hasText(revision.markdownText())) {
+            if (revision != null && revision.status() == MarkdownRevisionStatus.COMPLETED
+                    && hasText(revision.markdownText())) {
                 return estimatePipeline(document.get().documentId(), request);
             }
         }
@@ -312,9 +572,12 @@ public class MarkdownDocumentService {
             String newOptionsHash = hash(newOptionsJson.getBytes(StandardCharsets.UTF_8));
             revision = new MarkdownRevision(
                     revision.revisionId(), revision.documentId(), revision.sourceAttachmentId(),
-                    revision.resultAttachmentId(), revision.documentConvertJobId(), revision.extractorType(), revision.extractorVersion(),
-                    newOptionsJson, newOptionsHash, revision.sourceContentHash(), revision.contentHash(), revision.markdownText(),
-                    revision.sourceFileName(), revision.sourceFormat(), revision.sourceObjectType(), revision.sourceObjectId(),
+                    revision.resultAttachmentId(), revision.documentConvertJobId(), revision.extractorType(),
+                    revision.extractorVersion(),
+                    newOptionsJson, newOptionsHash, revision.sourceContentHash(), revision.contentHash(),
+                    revision.markdownText(),
+                    revision.sourceFileName(), revision.sourceFormat(), revision.sourceObjectType(),
+                    revision.sourceObjectId(),
                     revision.status(), revision.errorCode(), revision.errorMessage(), revision.createdAt(),
                     revision.startedAt(), revision.completedAt(), revision.updatedAt());
             repository.saveRevision(revision);
@@ -337,17 +600,31 @@ public class MarkdownDocumentService {
     private MarkdownPipelineOptions merge(MarkdownPipelineOptions previous, MarkdownResumeOptions request) {
         boolean runChunking = request.runChunking() != null ? request.runChunking() : previous.runChunking();
         boolean runRagIndex = request.runRagIndex() != null ? request.runRagIndex() : previous.runRagIndex();
-        boolean runSkillExtraction = request.runSkillExtraction() != null ? request.runSkillExtraction() : previous.runSkillExtraction();
+        boolean runSkillExtraction = request.runSkillExtraction() != null ? request.runSkillExtraction()
+                : previous.runSkillExtraction();
 
-        String chunkingStrategy = request.chunkingStrategy() != null ? request.chunkingStrategy() : previous.chunkingStrategy();
+        String chunkingStrategy = request.chunkingStrategy() != null ? request.chunkingStrategy()
+                : previous.chunkingStrategy();
         Integer chunkMaxSize = request.chunkMaxSize() != null ? request.chunkMaxSize() : previous.chunkMaxSize();
         Integer chunkOverlap = request.chunkOverlap() != null ? request.chunkOverlap() : previous.chunkOverlap();
         String chunkUnit = request.chunkUnit() != null ? request.chunkUnit() : previous.chunkUnit();
+        String blockifyLlmProvider = request.blockifyLlmProvider() != null
+                ? request.blockifyLlmProvider()
+                : previous.blockifyLlmProvider();
+        String blockifyLlmModel = request.blockifyLlmModel() != null
+                ? request.blockifyLlmModel()
+                : previous.blockifyLlmModel();
+        Boolean blockifyPiiMaskingEnabled = request.blockifyPiiMaskingEnabled() != null
+                ? request.blockifyPiiMaskingEnabled()
+                : previous.blockifyPiiMaskingEnabled();
 
-        String embeddingProfileId = request.embeddingProfileId() != null ? request.embeddingProfileId() : previous.embeddingProfileId();
-        String embeddingProvider = request.embeddingProvider() != null ? request.embeddingProvider() : previous.embeddingProvider();
+        String embeddingProfileId = request.embeddingProfileId() != null ? request.embeddingProfileId()
+                : previous.embeddingProfileId();
+        String embeddingProvider = request.embeddingProvider() != null ? request.embeddingProvider()
+                : previous.embeddingProvider();
         String embeddingModel = request.embeddingModel() != null ? request.embeddingModel() : previous.embeddingModel();
-        Integer embeddingDimension = request.embeddingDimension() != null ? request.embeddingDimension() : previous.embeddingDimension();
+        Integer embeddingDimension = request.embeddingDimension() != null ? request.embeddingDimension()
+                : previous.embeddingDimension();
         boolean useLlmKeywordExtraction = request.useLlmKeywordExtraction() != null
                 ? request.useLlmKeywordExtraction()
                 : previous.useLlmKeywordExtraction();
@@ -376,6 +653,7 @@ public class MarkdownDocumentService {
         return new MarkdownPipelineOptions(
                 runChunking, runRagIndex, runSkillExtraction,
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
@@ -435,6 +713,9 @@ public class MarkdownDocumentService {
                 previous.chunkMaxSize(),
                 previous.chunkOverlap(),
                 previous.chunkUnit(),
+                previous.blockifyLlmProvider(),
+                previous.blockifyLlmModel(),
+                previous.blockifyPiiMaskingEnabled(),
                 explicitSelection ? embeddingProfileId : previous.embeddingProfileId(),
                 explicitSelection ? embeddingProvider : previous.embeddingProvider(),
                 explicitSelection ? embeddingModel : previous.embeddingModel(),
@@ -513,7 +794,8 @@ public class MarkdownDocumentService {
 
     public List<MarkdownResource> getResources(String documentId) {
         MarkdownDocument document = requireDocument(documentId);
-        return document.currentRevisionId() == null ? List.of() : repository.findResources(document.currentRevisionId());
+        return document.currentRevisionId() == null ? List.of()
+                : repository.findResources(document.currentRevisionId());
     }
 
     public MarkdownExtractionResult reextract(String documentId, MarkdownPipelineOptions options, String requestedBy) {
@@ -686,8 +968,7 @@ public class MarkdownDocumentService {
         AtomicReference<MarkdownPipelineStage> current = new AtomicReference<>(fromStage);
         MarkdownPipelineExecution previous = repository.findPipelineExecution(revision.revisionId())
                 .orElse(pendingExecution(revision, fromStage));
-        AtomicReference<MarkdownPipelineStage> lastCompleted =
-                new AtomicReference<>(previous.lastCompletedStage());
+        AtomicReference<MarkdownPipelineStage> lastCompleted = new AtomicReference<>(previous.lastCompletedStage());
         Instant started = clock.instant();
         repository.savePipelineExecution(new MarkdownPipelineExecution(
                 revision.revisionId(), MarkdownPipelineExecutionStatus.RUNNING, fromStage,
@@ -756,12 +1037,13 @@ public class MarkdownDocumentService {
             int currentChunkCount,
             int embeddingBatchSize) {
         if (currentChunkCount <= ESTIMATE_TARGET_CHUNKS) {
-            return new RecommendedEstimate(current, currentChunkCount, embeddingRequests(currentChunkCount, embeddingBatchSize));
+            return new RecommendedEstimate(current, currentChunkCount,
+                    embeddingRequests(currentChunkCount, embeddingBatchSize));
         }
         int overlap = current.chunkOverlap() == null ? 150 : current.chunkOverlap();
         String strategy = current.chunkingStrategy() == null ? "structure-based" : current.chunkingStrategy();
         String unit = current.chunkUnit() == null ? "CHARACTER" : current.chunkUnit();
-        int[] candidates = {2000, 3000, 4000, 6000};
+        int[] candidates = { 2000, 3000, 4000, 6000 };
         RecommendedEstimate best = new RecommendedEstimate(current, currentChunkCount,
                 embeddingRequests(currentChunkCount, embeddingBatchSize));
         for (int maxSize : candidates) {
@@ -774,6 +1056,9 @@ public class MarkdownDocumentService {
                     maxSize,
                     candidateOverlap,
                     unit,
+                    current.blockifyLlmProvider(),
+                    current.blockifyLlmModel(),
+                    current.blockifyPiiMaskingEnabled(),
                     current.embeddingProfileId(),
                     current.embeddingProvider(),
                     current.embeddingModel(),
@@ -799,12 +1084,13 @@ public class MarkdownDocumentService {
             int currentChunkCount,
             int embeddingBatchSize) {
         if (currentChunkCount <= ESTIMATE_TARGET_CHUNKS) {
-            return new RecommendedEstimate(current, currentChunkCount, embeddingRequests(currentChunkCount, embeddingBatchSize));
+            return new RecommendedEstimate(current, currentChunkCount,
+                    embeddingRequests(currentChunkCount, embeddingBatchSize));
         }
         int overlap = current.chunkOverlap() == null ? 150 : current.chunkOverlap();
         String strategy = current.chunkingStrategy() == null ? "structure-based" : current.chunkingStrategy();
         String unit = current.chunkUnit() == null ? "CHARACTER" : current.chunkUnit();
-        int[] candidates = {2000, 3000, 4000, 6000};
+        int[] candidates = { 2000, 3000, 4000, 6000 };
         RecommendedEstimate best = new RecommendedEstimate(current, currentChunkCount,
                 embeddingRequests(currentChunkCount, embeddingBatchSize));
         for (int maxSize : candidates) {
@@ -817,6 +1103,9 @@ public class MarkdownDocumentService {
                     maxSize,
                     candidateOverlap,
                     unit,
+                    current.blockifyLlmProvider(),
+                    current.blockifyLlmModel(),
+                    current.blockifyPiiMaskingEnabled(),
                     current.embeddingProfileId(),
                     current.embeddingProvider(),
                     current.embeddingModel(),

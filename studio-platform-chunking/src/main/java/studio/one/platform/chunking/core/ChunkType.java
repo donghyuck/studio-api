@@ -9,6 +9,7 @@ public enum ChunkType {
     TABLE("table"),
     OCR("ocr"),
     IMAGE_CAPTION("image-caption"),
+    IDEA_BLOCK("ideaBlock"),
     SLIDE("slide"),
     UNKNOWN("unknown");
 

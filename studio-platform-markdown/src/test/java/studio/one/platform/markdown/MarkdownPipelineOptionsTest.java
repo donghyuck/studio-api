@@ -26,4 +26,39 @@ class MarkdownPipelineOptionsTest {
                 "unknown", null, null, null,
                 null, null, null, null));
     }
+
+    @Test
+    void acceptsBlockifyLlmSelectionForBlockifyStrategy() {
+        MarkdownPipelineOptions options = new MarkdownPipelineOptions(
+                true, false, false,
+                "blockify", null, null, null,
+                "google-ai-gemini", "gemini-2.5-flash", null,
+                null, null, null, null,
+                false, null, false, null, null, null);
+
+        assertEquals("google-ai-gemini", options.blockifyLlmProvider());
+        assertEquals("gemini-2.5-flash", options.blockifyLlmModel());
+    }
+
+    @Test
+    void rejectsBlockifyLlmSelectionForNonBlockifyStrategy() {
+        assertThrows(IllegalArgumentException.class, () -> new MarkdownPipelineOptions(
+                true, false, false,
+                "structure-based", null, null, null,
+                "google-ai-gemini", "gemini-2.5-flash", null,
+                null, null, null, null,
+                false, null, false, null, null, null));
+    }
+
+    @Test
+    void acceptsBlockifyPiiMaskingSelectionForBlockifyStrategy() {
+        MarkdownPipelineOptions options = new MarkdownPipelineOptions(
+                true, false, false,
+                "blockify", null, null, null,
+                null, null, Boolean.FALSE,
+                null, null, null, null,
+                false, null, false, null, null, null);
+
+        assertEquals(Boolean.FALSE, options.blockifyPiiMaskingEnabled());
+    }
 }

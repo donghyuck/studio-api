@@ -26,6 +26,14 @@ import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.MarkdownDocumentNotFoundException;
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
 import studio.one.platform.markdown.application.MarkdownExtractionResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeBatchApplyResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreview;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreviewOptions;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoOptions;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockSummary;
 import studio.one.platform.markdown.application.MarkdownPipelineEstimate;
 import studio.one.platform.markdown.application.MarkdownPipelineEstimateUnavailableException;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
@@ -72,6 +80,71 @@ public class MarkdownDocumentController {
     @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
     public ApiResponse<List<MarkdownRevision>> revisions(@PathVariable String id) {
         return ApiResponse.ok(service.getRevisions(id));
+    }
+
+    @GetMapping("/{id}/revisions/{revisionId}/ideablocks/summary")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<MarkdownIdeaBlockSummary> ideaBlockSummary(
+            @PathVariable String id, @PathVariable String revisionId) {
+        return ApiResponse.ok(service.getIdeaBlockSummary(id, revisionId));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/ideablocks/merge-preview")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<MarkdownIdeaBlockMergePreview> ideaBlockMergePreview(
+            @PathVariable String id,
+            @PathVariable String revisionId,
+            @RequestBody(required = false) MarkdownIdeaBlockMergePreviewRequest request) {
+        return ApiResponse.ok(service.getIdeaBlockMergePreview(id, revisionId, mergePreviewOptions(request)));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/ideablocks/merge-apply")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','write')")
+    public ApiResponse<MarkdownIdeaBlockMergeApplyResult> ideaBlockMergeApply(
+            @PathVariable String id,
+            @PathVariable String revisionId,
+            @RequestBody MarkdownIdeaBlockMergeApplyRequest request) {
+        return ApiResponse.ok(service.applyIdeaBlockMerge(
+                id, revisionId, mergeApplyOptions(request), mergeApplyDownstreamOptions(request)));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/ideablocks/merge-apply-batch")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','write')")
+    public ApiResponse<MarkdownIdeaBlockMergeBatchApplyResult> ideaBlockMergeApplyBatch(
+            @PathVariable String id,
+            @PathVariable String revisionId,
+            @RequestBody MarkdownIdeaBlockMergeBatchApplyRequest request) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            throw new IllegalArgumentException("Merge apply batch items are required");
+        }
+        return ApiResponse.ok(service.applyIdeaBlockMergeBatch(
+                id,
+                revisionId,
+                request.items().stream().map(this::mergeApplyOptions).toList(),
+                mergeBatchApplyDownstreamOptions(request)));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/ideablocks/merge-auto-apply")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','write')")
+    public ApiResponse<MarkdownIdeaBlockMergeBatchApplyResult> ideaBlockMergeAutoApply(
+            @PathVariable String id,
+            @PathVariable String revisionId,
+            @RequestBody(required = false) MarkdownIdeaBlockMergeAutoApplyRequest request) {
+        return ApiResponse.ok(service.autoApplyIdeaBlockMerge(
+                id,
+                revisionId,
+                mergeAutoApplyPreviewOptions(request),
+                mergeAutoApplyDownstreamOptions(request)));
+    }
+
+    @PostMapping("/{id}/revisions/{revisionId}/ideablocks/merge-undo")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','write')")
+    public ApiResponse<MarkdownIdeaBlockMergeUndoResult> ideaBlockMergeUndo(
+            @PathVariable String id,
+            @PathVariable String revisionId,
+            @RequestBody MarkdownIdeaBlockMergeUndoRequest request) {
+        return ApiResponse.ok(service.undoIdeaBlockMerge(
+                id, revisionId, mergeUndoOptions(request), mergeUndoDownstreamOptions(request)));
     }
 
     @GetMapping("/{id}/pipeline")
@@ -209,6 +282,7 @@ public class MarkdownDocumentController {
         return new MarkdownPipelineOptions(
                 request.runChunking(), request.runRagIndex(), request.runSkillExtraction(),
                 request.chunkingStrategy(), request.chunkMaxSize(), request.chunkOverlap(), request.chunkUnit(),
+                request.blockifyLlmProvider(), request.blockifyLlmModel(), request.blockifyPiiMaskingEnabled(),
                 request.embeddingProfileId(), request.embeddingProvider(), request.embeddingModel(),
                 request.embeddingDimension(), request.useLlmKeywordExtraction(),
                 request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
@@ -219,6 +293,7 @@ public class MarkdownDocumentController {
         return new MarkdownPipelineOptions(
                 request.runChunking(), request.runRagIndex(), request.runSkillExtraction(),
                 request.chunkingStrategy(), request.chunkMaxSize(), request.chunkOverlap(), request.chunkUnit(),
+                request.blockifyLlmProvider(), request.blockifyLlmModel(), request.blockifyPiiMaskingEnabled(),
                 request.embeddingProfileId(), request.embeddingProvider(), request.embeddingModel(),
                 request.embeddingDimension(), request.useLlmKeywordExtraction(),
                 request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
@@ -238,6 +313,166 @@ public class MarkdownDocumentController {
                 request.chunkMaxSize(),
                 request.chunkOverlap(),
                 request.chunkUnit(),
+                request.blockifyLlmProvider(),
+                request.blockifyLlmModel(),
+                request.blockifyPiiMaskingEnabled(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension(),
+                request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(),
+                request.generateSkillEmbeddings(),
+                request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(),
+                request.skillEmbeddingDimension());
+    }
+
+    private MarkdownIdeaBlockMergePreviewOptions mergePreviewOptions(MarkdownIdeaBlockMergePreviewRequest request) {
+        if (request == null) {
+            return MarkdownIdeaBlockMergePreviewOptions.defaults();
+        }
+        return new MarkdownIdeaBlockMergePreviewOptions(
+                request.clusterId(),
+                request.preferEmbeddingClusters() == null || request.preferEmbeddingClusters(),
+                request.llmProvider(),
+                request.llmModel(),
+                request.maxClusters() == null ? 5 : request.maxClusters());
+    }
+
+    private MarkdownIdeaBlockMergeApplyOptions mergeApplyOptions(MarkdownIdeaBlockMergeApplyRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Merge apply request is required");
+        }
+        MarkdownIdeaBlockMergePreviewOptions previewOptions = new MarkdownIdeaBlockMergePreviewOptions(
+                request.clusterId(),
+                request.preferEmbeddingClusters() == null || request.preferEmbeddingClusters(),
+                request.llmProvider(),
+                request.llmModel(),
+                request.maxClusters() == null ? 5 : request.maxClusters());
+        return new MarkdownIdeaBlockMergeApplyOptions(previewOptions, request.planFingerprint());
+    }
+
+    private MarkdownResumeOptions mergeApplyDownstreamOptions(MarkdownIdeaBlockMergeApplyRequest request) {
+        if (request == null || !Boolean.TRUE.equals(request.runRagIndex())) {
+            return null;
+        }
+        return new MarkdownResumeOptions(
+                null,
+                false,
+                true,
+                request.runSkillExtraction(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension(),
+                request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(),
+                request.generateSkillEmbeddings(),
+                request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(),
+                request.skillEmbeddingDimension());
+    }
+
+    private MarkdownResumeOptions mergeBatchApplyDownstreamOptions(MarkdownIdeaBlockMergeBatchApplyRequest request) {
+        if (request == null || !Boolean.TRUE.equals(request.runRagIndex())) {
+            return null;
+        }
+        return new MarkdownResumeOptions(
+                null,
+                false,
+                true,
+                request.runSkillExtraction(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension(),
+                request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(),
+                request.generateSkillEmbeddings(),
+                request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(),
+                request.skillEmbeddingDimension());
+    }
+
+    private MarkdownIdeaBlockMergePreviewOptions mergeAutoApplyPreviewOptions(
+            MarkdownIdeaBlockMergeAutoApplyRequest request) {
+        if (request == null) {
+            return MarkdownIdeaBlockMergePreviewOptions.defaults();
+        }
+        return new MarkdownIdeaBlockMergePreviewOptions(
+                request.clusterId(),
+                request.preferEmbeddingClusters() == null || request.preferEmbeddingClusters(),
+                request.llmProvider(),
+                request.llmModel(),
+                request.maxClusters() == null ? 5 : request.maxClusters());
+    }
+
+    private MarkdownResumeOptions mergeAutoApplyDownstreamOptions(MarkdownIdeaBlockMergeAutoApplyRequest request) {
+        if (request == null || !Boolean.TRUE.equals(request.runRagIndex())) {
+            return null;
+        }
+        return new MarkdownResumeOptions(
+                null,
+                false,
+                true,
+                request.runSkillExtraction(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                request.embeddingDimension(),
+                request.useLlmKeywordExtraction(),
+                request.skillExtractionMode(),
+                request.generateSkillEmbeddings(),
+                request.skillEmbeddingProvider(),
+                request.skillEmbeddingModel(),
+                request.skillEmbeddingDimension());
+    }
+
+    private MarkdownIdeaBlockMergeUndoOptions mergeUndoOptions(MarkdownIdeaBlockMergeUndoRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Merge undo request is required");
+        }
+        return new MarkdownIdeaBlockMergeUndoOptions(request.mergedChunkId(), request.planFingerprint());
+    }
+
+    private MarkdownResumeOptions mergeUndoDownstreamOptions(MarkdownIdeaBlockMergeUndoRequest request) {
+        if (request == null || !Boolean.TRUE.equals(request.runRagIndex())) {
+            return null;
+        }
+        return new MarkdownResumeOptions(
+                null,
+                false,
+                true,
+                request.runSkillExtraction(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
                 request.embeddingModel(),

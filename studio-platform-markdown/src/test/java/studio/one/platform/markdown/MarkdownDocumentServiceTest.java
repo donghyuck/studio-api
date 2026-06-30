@@ -23,7 +23,13 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.MarkdownDocumentNotFoundException;
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeBatchApplyResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreview;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreviewOptions;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
+import studio.one.platform.markdown.application.MarkdownResumeResult;
 import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
@@ -342,6 +348,83 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void applyIdeaBlockMergeCanResumeRagPipelineFromRagIndex() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.txt", "text/plain", "hello");
+        ApplyAndResumePipeline pipeline = new ApplyAndResumePipeline();
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Hello", "textract-1", List.of(), List.of()),
+                pipeline);
+        var created = service.create(new MarkdownExtractionRequest(
+                1L, MarkdownPipelineOptions.none(), false, "tester"));
+
+        MarkdownIdeaBlockMergeApplyResult result = service.applyIdeaBlockMerge(
+                created.document().documentId(),
+                created.revision().revisionId(),
+                new MarkdownIdeaBlockMergeApplyOptions(
+                        new MarkdownIdeaBlockMergePreviewOptions("sim-1", false, "test", "test-model", 5),
+                        "sha256:test"),
+                new MarkdownResumeOptions(
+                        null,
+                        null,
+                        true,
+                        true,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "retrieval-ko-kure",
+                        null,
+                        null,
+                        null,
+                        true,
+                        "llm",
+                        true,
+                        "kure",
+                        "nlpai-lab/KURE-v1",
+                        1024));
+
+        assertEquals("merged-chunk-1", result.mergedChunkId());
+        assertNotNull(result.pipelineResult());
+        assertEquals("PIPELINE", result.pipelineResult().resumedPhase());
+        assertEquals(MarkdownPipelineStage.RAG_INDEX, result.pipelineResult().resumedFrom());
+        assertEquals(List.of(MarkdownPipelineStage.RAG_INDEX), pipeline.startedFrom);
+        assertTrue(pipeline.options.runChunking());
+        assertTrue(pipeline.options.runRagIndex());
+        assertTrue(pipeline.options.runSkillExtraction());
+        assertEquals("retrieval-ko-kure", pipeline.options.embeddingProfileId());
+        assertTrue(pipeline.options.useLlmKeywordExtraction());
+        assertEquals("llm", pipeline.options.skillExtractionMode());
+    }
+
+    @Test
+    void autoApplyIdeaBlockMergeAppliesOnlyApplicablePreviewPlans() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.txt", "text/plain", "hello");
+        ApplyAndResumePipeline pipeline = new ApplyAndResumePipeline();
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Hello", "textract-1", List.of(), List.of()),
+                pipeline);
+        var created = service.create(new MarkdownExtractionRequest(
+                1L, MarkdownPipelineOptions.none(), false, "tester"));
+
+        MarkdownIdeaBlockMergeBatchApplyResult result = service.autoApplyIdeaBlockMerge(
+                created.document().documentId(),
+                created.revision().revisionId(),
+                new MarkdownIdeaBlockMergePreviewOptions(null, true, "test", "test-model", 5),
+                null);
+
+        assertEquals(1, result.applied().size());
+        assertEquals("sha256:test", result.applied().get(0).planFingerprint());
+        assertEquals(0, result.failed().size());
+        assertEquals("sha256:test", pipeline.appliedPlanFingerprint);
+    }
+
+    @Test
     void returnsPersistentCompletedPipelineStateWhenNoDownstreamStageWasRequested() {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();
@@ -548,6 +631,76 @@ class MarkdownDocumentServiceTest {
                 }
                 completed.accept(MarkdownPipelineStage.RAG_INDEX);
             }
+        }
+    }
+
+    private static final class ApplyAndResumePipeline implements MarkdownPipelinePort {
+        private final List<MarkdownPipelineStage> startedFrom = new ArrayList<>();
+        private MarkdownPipelineOptions options;
+        private String appliedPlanFingerprint;
+
+        @Override
+        public void process(MarkdownRevision revision, boolean runChunking, boolean runRagIndex,
+                boolean runSkillExtraction) {
+        }
+
+        @Override
+        public void process(MarkdownRevision revision, MarkdownPipelineOptions options,
+                MarkdownPipelineStage fromStage, java.util.function.Consumer<MarkdownPipelineStage> completed) {
+            this.options = options;
+            startedFrom.add(fromStage);
+            completed.accept(MarkdownPipelineStage.RAG_INDEX);
+            if (options.runSkillExtraction()) {
+                completed.accept(MarkdownPipelineStage.SKILL_EXTRACTION);
+            }
+        }
+
+        @Override
+        public MarkdownIdeaBlockMergeApplyResult ideaBlockMergeApply(
+                MarkdownRevision revision,
+                MarkdownIdeaBlockMergeApplyOptions options) {
+            this.appliedPlanFingerprint = options.planFingerprint();
+            return new MarkdownIdeaBlockMergeApplyResult(
+                    revision.documentId(),
+                    revision.revisionId(),
+                    "merge-plan:lexical:sim-1",
+                    options.planFingerprint(),
+                    "merged-chunk-1",
+                    List.of("chunk-1", "chunk-2"),
+                    3,
+                    2,
+                    null);
+        }
+
+        @Override
+        public MarkdownIdeaBlockMergePreview ideaBlockMergePreview(
+                MarkdownRevision revision,
+                MarkdownIdeaBlockMergePreviewOptions options) {
+            return new MarkdownIdeaBlockMergePreview(
+                    revision.documentId(),
+                    revision.revisionId(),
+                    true,
+                    options.llmProvider(),
+                    options.llmModel(),
+                    List.of(new MarkdownIdeaBlockMergePreview.ClusterPreview(
+                            "sim-1",
+                            "embedding",
+                            List.of("chunk-1", "chunk-2"),
+                            "PREVIEW",
+                            "LLM_PREVIEW",
+                            "휴가 규정은 무엇인가?",
+                            "휴가 규정은 원문 근거에 따라 적용된다.",
+                            List.of("휴가"),
+                            List.of("규정"),
+                            List.of(Map.of("text", "휴가 규정은 원문 근거에 따라 적용된다.")),
+                            List.of(Map.of("start", 1, "end", 2)),
+                            "LLM_MERGE_PREVIEW",
+                            "## Critical Question\n휴가 규정은 무엇인가?\n## Trusted Answer\n휴가 규정은 원문 근거에 따라 적용된다.",
+                            "merge-plan:embedding:sim-1",
+                            "sha256:test",
+                            true,
+                            List.of(),
+                            List.of("chunk-1", "chunk-2"))));
         }
     }
 

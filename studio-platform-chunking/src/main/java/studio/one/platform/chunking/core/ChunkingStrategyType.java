@@ -8,6 +8,7 @@ public enum ChunkingStrategyType {
     RECURSIVE("recursive"),
     STRUCTURE_BASED("structure-based"),
     BLOCKIFY("blockify"),
+    KNOWLEDGE_BLOCK("knowledge-block"),
     SEMANTIC("semantic"),
     LLM_BASED("llm-based");
 
@@ -32,7 +33,7 @@ public enum ChunkingStrategyType {
             }
         }
         throw new IllegalArgumentException("Unsupported chunking strategy: " + value
-                + ". Known values are: fixed-size, recursive, structure-based, blockify, semantic, llm-based. "
-                + "Pure chunking starter support is limited to fixed-size, recursive, structure-based, and blockify.");
+                + ". Known values are: fixed-size, recursive, structure-based, blockify, knowledge-block, semantic, llm-based. "
+                + "Pure chunking starter support is limited to fixed-size, recursive, structure-based, blockify, and knowledge-block.");
     }
 }

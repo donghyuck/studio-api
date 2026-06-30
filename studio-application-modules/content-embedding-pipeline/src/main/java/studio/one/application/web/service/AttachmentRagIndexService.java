@@ -25,6 +25,7 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 @Service
 @RequiredArgsConstructor
 public class AttachmentRagIndexService {
+    public static final String METADATA_REQUIRE_RAG_CHUNK_STAGE = "requireRagChunkStage";
 
     private final AttachmentService attachmentService;
     private final ObjectProvider<FileContentExtractionService> textExtractionProvider;
@@ -85,6 +86,7 @@ public class AttachmentRagIndexService {
             AttachmentRagIndexDiagnostics structuredDiagnostics = structuredIndexer == null
                     ? AttachmentRagIndexDiagnostics.fallback("missing_structured_indexer")
                     : null;
+            boolean requireChunkStage = requiresChunkStage(command.metadata());
             if (structuredIndexer != null) {
                 try {
                     if (hasChunkStage(command)) {
@@ -102,6 +104,12 @@ public class AttachmentRagIndexService {
                         }
                         structuredDiagnostics = structuredIndexer.latestDiagnostics()
                                 .orElse(AttachmentRagIndexDiagnostics.fallback("structured_stage_not_handled"));
+                    } else if (requireChunkStage) {
+                        progress.onError(null, RagIndexJobLogCode.SOURCE_UNSUPPORTED,
+                                "Required RAG chunk stage was not found",
+                                "objectType=%s, objectId=%s, documentId=%s"
+                                        .formatted(command.objectType(), command.objectId(), command.documentId()));
+                        throw new AttachmentRagIndexUnavailableException("Required RAG chunk stage was not found");
                     } else {
                         try (InputStream in = attachmentService.getInputStream(attachment)) {
                             if (structuredIndexer.index(
@@ -123,6 +131,13 @@ public class AttachmentRagIndexService {
                 } finally {
                     structuredIndexer.clearDiagnostics();
                 }
+            }
+            if (requireChunkStage) {
+                progress.onError(null, RagIndexJobLogCode.SOURCE_UNSUPPORTED,
+                        "Required RAG chunk stage was not found",
+                        "objectType=%s, objectId=%s, documentId=%s"
+                                .formatted(command.objectType(), command.objectId(), command.documentId()));
+                throw new AttachmentRagIndexUnavailableException("Required RAG chunk stage was not found");
             }
             RagPipelineService ragPipeline = ragPipelineProvider.getIfAvailable();
             if (ragPipeline == null) {
@@ -192,6 +207,14 @@ public class AttachmentRagIndexService {
         RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable();
         return stageStore != null
                 && !stageStore.findByObject(command.objectType(), command.objectId(), command.documentId()).isEmpty();
+    }
+
+    private boolean requiresChunkStage(Map<String, Object> metadata) {
+        Object value = metadata == null ? null : metadata.get(METADATA_REQUIRE_RAG_CHUNK_STAGE);
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        return value instanceof String text && Boolean.parseBoolean(text);
     }
 
     private boolean hasText(String value) {

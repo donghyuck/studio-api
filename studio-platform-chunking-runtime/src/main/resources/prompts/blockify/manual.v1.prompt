@@ -1,0 +1,13 @@
+MANUAL schema:
+Add these fields when grounded in sourceEvidence:
+- taskName
+- procedureStep
+- prerequisite
+- input
+- output
+- actor
+- toolName
+- warning
+- nextAction
+
+Generate one IdeaBlock per task step, prerequisite, warning, input/output rule, or user action.

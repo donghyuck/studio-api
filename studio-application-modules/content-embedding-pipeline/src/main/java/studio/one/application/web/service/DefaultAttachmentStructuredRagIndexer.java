@@ -36,6 +36,7 @@ import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagEmbeddingSelection;
 import studio.one.platform.ai.service.pipeline.RagChunkStage;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
+import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
@@ -58,7 +59,8 @@ import studio.one.platform.textract.application.usecase.FileContentExtractionSer
 })
 public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructuredRagIndexer {
 
-    public static final int DEFAULT_INDEX_UPSERT_BATCH_SIZE = 10;
+    public static final int DEFAULT_INDEX_EMBEDDING_BATCH_SIZE = RagPipelineOptions.DEFAULT_INDEX_EMBEDDING_BATCH_SIZE;
+    public static final int DEFAULT_INDEX_UPSERT_BATCH_SIZE = RagPipelineOptions.DEFAULT_INDEX_UPSERT_BATCH_SIZE;
     private static final int EMBEDDING_MAX_ATTEMPTS = 3;
     private static final long EMBEDDING_RETRY_BACKOFF_MS = 1_000L;
 
@@ -68,6 +70,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private final ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagChunkStageStore> chunkStageStoreProvider;
+    private final int indexEmbeddingBatchSize;
     private final int indexUpsertBatchSize;
     private final ThreadLocal<AttachmentRagIndexDiagnostics> latestDiagnostics = new ThreadLocal<>();
 
@@ -86,9 +89,10 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
             ObjectProvider<VectorStorePort> vectorStoreProvider,
+            @Value("${studio.ai.rag.indexing.embedding-batch-size:10}") int indexEmbeddingBatchSize,
             @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
         this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
-                embeddingProfileResolverProvider, vectorStoreProvider, null, indexUpsertBatchSize);
+                embeddingProfileResolverProvider, vectorStoreProvider, null, indexEmbeddingBatchSize, indexUpsertBatchSize);
     }
 
     public DefaultAttachmentStructuredRagIndexer(
@@ -100,7 +104,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider) {
         this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
                 embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider,
-                DEFAULT_INDEX_UPSERT_BATCH_SIZE);
+                DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
     }
 
     public DefaultAttachmentStructuredRagIndexer(
@@ -111,12 +115,27 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<VectorStorePort> vectorStoreProvider,
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
             int indexUpsertBatchSize) {
+        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
+                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider,
+                DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, indexUpsertBatchSize);
+    }
+
+    public DefaultAttachmentStructuredRagIndexer(
+            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            int indexEmbeddingBatchSize,
+            int indexUpsertBatchSize) {
         this.normalizedDocumentAdapterProvider = normalizedDocumentAdapterProvider;
         this.chunkingOrchestratorProvider = chunkingOrchestratorProvider;
         this.embeddingPortProvider = embeddingPortProvider;
         this.embeddingProfileResolverProvider = embeddingProfileResolverProvider;
         this.vectorStoreProvider = vectorStoreProvider;
         this.chunkStageStoreProvider = chunkStageStoreProvider;
+        this.indexEmbeddingBatchSize = Math.max(1, indexEmbeddingBatchSize);
         this.indexUpsertBatchSize = Math.max(1, indexUpsertBatchSize);
     }
 
@@ -211,7 +230,8 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                     embeddingPort,
                     chunks,
                     vectorStore,
-                    progress);
+                    progress,
+                    restoredFromStage);
         }
         chunkStageStore.deleteByObject(objectType, objectId, documentId);
         progress.onIndexedCount(vectorCount);
@@ -298,10 +318,16 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             EmbeddingPort embeddingPort,
             List<Chunk> chunks,
             VectorStorePort vectorStore,
-            RagIndexProgressListener progress) {
+            RagIndexProgressListener progress,
+            boolean replaceExistingObject) {
         progress.onStep(RagIndexJobStep.INDEXING);
-        Set<Integer> completedChunkIndexes = completedChunkIndexes(vectorStore, objectType, objectId, metadata);
-        if (completedChunkIndexes.isEmpty()) {
+        if (replaceExistingObject) {
+            vectorStore.deleteByObject(objectType, objectId);
+        }
+        Set<Integer> completedChunkIndexes = replaceExistingObject
+                ? Set.of()
+                : completedChunkIndexes(vectorStore, objectType, objectId, metadata);
+        if (!replaceExistingObject && completedChunkIndexes.isEmpty()) {
             vectorStore.deleteByObject(objectType, objectId);
         }
         progress.onStep(RagIndexJobStep.EMBEDDING);
@@ -391,9 +417,9 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             List<Chunk> chunks,
             int startIndex,
             Set<Integer> completedChunkIndexes) {
-        List<PendingChunk> batch = new ArrayList<>(Math.min(indexUpsertBatchSize, chunks.size() - startIndex));
+        List<PendingChunk> batch = new ArrayList<>(Math.min(indexEmbeddingBatchSize, chunks.size() - startIndex));
         ResolvedRagEmbedding firstEmbedding = null;
-        for (int index = startIndex; index < chunks.size() && batch.size() < indexUpsertBatchSize; index++) {
+        for (int index = startIndex; index < chunks.size() && batch.size() < indexEmbeddingBatchSize; index++) {
             Chunk chunk = chunks.get(index);
             if (completedChunkIndexes.contains(chunkIndex(chunk))) {
                 break;

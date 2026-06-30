@@ -11,6 +11,54 @@
       "type": "java.lang.Integer",
       "defaultValue": 1000,
       "description": "OVERVIEW 요청이 최대 건수를 초과할 때 적용할 기본 sample size입니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.default-strategy",
+      "type": "java.lang.String",
+      "defaultValue": "hybrid",
+      "description": "RAG chat 요청에 retrievalStrategy가 없을 때 사용할 검색 전략입니다. 운영 기본값은 hybrid이며 default, structure, ideaBlock, hybrid, auto를 지원합니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.structure-top-k",
+      "type": "java.lang.Integer",
+      "defaultValue": 5,
+      "description": "structure 또는 hybrid 전략에서 structure-based leg에 사용할 기본 topK입니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.idea-block-top-k",
+      "type": "java.lang.Integer",
+      "defaultValue": 5,
+      "description": "ideaBlock 또는 hybrid 전략에서 Blockify/IdeaBlock leg에 사용할 기본 topK입니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.final-top-k",
+      "type": "java.lang.Integer",
+      "defaultValue": 5,
+      "description": "hybrid/auto 전략에서 leg 결과를 병합한 뒤 반환할 기본 최종 topK입니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.dedupe",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "hybrid/auto 전략에서 documentChunkId, chunkId, documentId 기준 중복 제거를 수행할지 여부입니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.distilled-score-boost",
+      "type": "java.lang.Double",
+      "defaultValue": 0.0,
+      "description": "hybrid/ideaBlock 병합 정렬 시 ideaBlockDistilled=true 결과에만 더하는 실험용 정렬 boost입니다. 원본 score 값은 변경하지 않습니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.min-recommendation-hit-rate",
+      "type": "java.lang.Double",
+      "defaultValue": 0.3,
+      "description": "질문 세트 평가 결과를 운영 retrieval policy로 적용하기 위한 최소 HitRate입니다. 미만이면 apply-recommendation 요청을 거부합니다."
+    },
+    {
+      "name": "studio.ai.endpoints.rag.retrieval.min-recommendation-mrr",
+      "type": "java.lang.Double",
+      "defaultValue": 0.2,
+      "description": "질문 세트 평가 결과를 운영 retrieval policy로 적용하기 위한 최소 MRR입니다. 미만이면 apply-recommendation 요청을 거부합니다."
     }
   ]
 }

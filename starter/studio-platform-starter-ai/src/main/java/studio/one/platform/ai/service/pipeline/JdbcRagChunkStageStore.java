@@ -61,6 +61,23 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
     }
 
     @Override
+    public List<RagChunkStage> findIndexedByObject(String objectType, String objectId, String revisionId) {
+        return template.query("""
+                SELECT id, object_type, object_id, chunk_index, text, metadata, created_at
+                  FROM tb_ai_document_chunk
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                 ORDER BY chunk_index
+                """, scopeParams(objectType, objectId, revisionId), new IndexedChunkRowMapper()).stream()
+                .filter(stage -> revisionId == null || revisionId.isBlank()
+                        || revisionId.equals(text(stage.metadata().get("markdownRevisionId")))
+                        || revisionId.equals(text(stage.metadata().get("sourceMarkdownRevisionId")))
+                        || revisionId.equals(text(stage.metadata().get("sourceRevisionId")))
+                        || revisionId.equals(text(stage.metadata().get("revisionId"))))
+                .toList();
+    }
+
+    @Override
     public void deleteByObject(String objectType, String objectId, String documentId) {
         template.update("""
                 DELETE FROM tb_ai_rag_chunk_stage
@@ -109,6 +126,10 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
         }
     }
 
+    private String text(Object value) {
+        return value == null ? null : value.toString();
+    }
+
     private final class StageRowMapper implements RowMapper<RagChunkStage> {
 
         @Override
@@ -124,6 +145,27 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
                     rs.getString("chunk_id"),
                     rs.getString("text"),
                     readJson(rs.getString("metadata")),
+                    createdAt);
+        }
+    }
+
+    private final class IndexedChunkRowMapper implements RowMapper<RagChunkStage> {
+
+        @Override
+        public RagChunkStage mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Map<String, Object> metadata = readJson(rs.getString("metadata"));
+            Object chunkId = metadata.get("chunkId");
+            Instant createdAt = rs.getTimestamp("created_at") == null
+                    ? Instant.now()
+                    : rs.getTimestamp("created_at").toInstant();
+            return new RagChunkStage(
+                    rs.getString("object_type"),
+                    rs.getString("object_id"),
+                    text(metadata.get("markdownDocumentId")),
+                    rs.getInt("chunk_index"),
+                    chunkId == null ? Long.toString(rs.getLong("id")) : chunkId.toString(),
+                    rs.getString("text"),
+                    metadata,
                     createdAt);
         }
     }

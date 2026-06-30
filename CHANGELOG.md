@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- chunking starter에 opt-in `knowledge-block` 전략을 추가했다. 기존 Blockify/IdeaBlock 생성 파이프라인을
+  재사용하되 `knowledge-block-metadata-v1`, `knowledgeBlockFingerprint`, coverage/distillation alias를
+  저장해 운영 RAG 정책과 PoC `blockify` 비교 결과를 분리할 수 있게 했다.
+
 - 이슈 #514 대응으로 chunking starter에 opt-in `blockify` 전략 PoC를 추가했다. 기본값은 비활성이며,
   `studio.chunking.blockify.enabled=true`일 때 Markdown pipeline의 `chunkingStrategy=blockify`가
   질문·답변 중심 chunk와 `blockify-metadata-v1` metadata를 생성하고, 표/검증 실패 섹션은

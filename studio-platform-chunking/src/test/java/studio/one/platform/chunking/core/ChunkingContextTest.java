@@ -45,6 +45,7 @@ class ChunkingContextTest {
     @Test
     void shouldParseStrategyAndUnitValues() {
         assertThat(ChunkingStrategyType.from("fixed-size")).isEqualTo(ChunkingStrategyType.FIXED_SIZE);
+        assertThat(ChunkingStrategyType.from("knowledge-block")).isEqualTo(ChunkingStrategyType.KNOWLEDGE_BLOCK);
         assertThat(ChunkingStrategyType.from(null)).isEqualTo(ChunkingStrategyType.RECURSIVE);
         assertThat(ChunkUnit.from("token")).isEqualTo(ChunkUnit.TOKEN);
         assertThat(ChunkUnit.from(null)).isEqualTo(ChunkUnit.CHARACTER);

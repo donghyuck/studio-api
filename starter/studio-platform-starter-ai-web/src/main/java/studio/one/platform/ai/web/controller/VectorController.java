@@ -150,7 +150,10 @@ public class VectorController {
      * - Set {@code hybrid=true} to use BM25+vector hybrid search (requires {@code query} text).
      */
     @PostMapping("/search")
-    @PreAuthorize("@endpointAuthz.can('services:ai_vector','read')")
+    @PreAuthorize("@endpointAuthz.can('services:ai_vector','read') and "
+            + "(#request.objectType() == null or "
+            + "@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' + #request.objectId().trim(),'read') or "
+            + "@endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))")
     public ResponseEntity<ApiResponse<List<VectorSearchResultDto>>> search(
             @Valid @RequestBody VectorSearchRequestDto request) {
 

@@ -1,0 +1,15 @@
+POLICY schema:
+Add these fields when grounded in sourceEvidence:
+- ruleName
+- articleNo
+- clauseNo
+- condition
+- obligation
+- prohibition
+- exception
+- effectiveScope
+- penalty
+- deadline
+
+Generate one IdeaBlock per article, clause, condition, exception, or table row.
+trustedAnswer must preserve numbers, dates, periods, and exception conditions exactly as written in the source.

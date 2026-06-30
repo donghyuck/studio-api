@@ -1,0 +1,12 @@
+TABLE_HEAVY schema:
+Add these fields when grounded in sourceEvidence:
+- tableTitle
+- rowKey
+- columnKey
+- metricName
+- metricValue
+- unit
+- comparisonTarget
+- condition
+
+Generate one IdeaBlock per table row or row/column fact. Preserve numeric values and units exactly.

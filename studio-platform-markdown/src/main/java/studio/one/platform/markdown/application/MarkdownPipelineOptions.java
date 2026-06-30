@@ -10,6 +10,9 @@ public record MarkdownPipelineOptions(
         Integer chunkMaxSize,
         Integer chunkOverlap,
         String chunkUnit,
+        String blockifyLlmProvider,
+        String blockifyLlmModel,
+        Boolean blockifyPiiMaskingEnabled,
         String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
@@ -26,6 +29,8 @@ public record MarkdownPipelineOptions(
         runChunking = runChunking || runRagIndex;
         chunkingStrategy = normalizeStrategy(chunkingStrategy);
         chunkUnit = normalizeUnit(chunkUnit);
+        blockifyLlmProvider = normalize(blockifyLlmProvider);
+        blockifyLlmModel = normalize(blockifyLlmModel);
         embeddingProfileId = normalize(embeddingProfileId);
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
@@ -51,12 +56,18 @@ public record MarkdownPipelineOptions(
             throw new IllegalArgumentException(
                     "embeddingProvider/embeddingModel must not be supplied with embeddingProfileId");
         }
+        boolean hasBlockifyLlmSelection = blockifyLlmProvider != null || blockifyLlmModel != null
+                || blockifyPiiMaskingEnabled != null;
         boolean hasChunkingSelection = chunkingStrategy != null || chunkMaxSize != null
-                || chunkOverlap != null || chunkUnit != null;
+                || chunkOverlap != null || chunkUnit != null || hasBlockifyLlmSelection;
         boolean hasEmbeddingSelection = embeddingProfileId != null || embeddingProvider != null
                 || embeddingModel != null || embeddingDimension != null;
         if (!runChunking && hasChunkingSelection) {
             throw new IllegalArgumentException("Chunking options require runChunking");
+        }
+        if (hasBlockifyLlmSelection && !isBlockifyCompatibleStrategy(chunkingStrategy)) {
+            throw new IllegalArgumentException(
+                    "Blockify LLM options require chunkingStrategy=blockify or knowledge-block");
         }
         if (!runRagIndex && hasEmbeddingSelection) {
             throw new IllegalArgumentException("Embedding options require runRagIndex");
@@ -91,6 +102,7 @@ public record MarkdownPipelineOptions(
             Integer embeddingDimension) {
         this(runChunking, runRagIndex, runSkillExtraction,
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                null, null, null,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 false, null, false, null, null, null);
     }
@@ -114,14 +126,41 @@ public record MarkdownPipelineOptions(
             Integer skillEmbeddingDimension) {
         this(runChunking, runRagIndex, runSkillExtraction,
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                null, null, null,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, null, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
     }
 
+    public MarkdownPipelineOptions(
+            boolean runChunking,
+            boolean runRagIndex,
+            boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension) {
+        this(runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                null, null, null,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
+    }
+
     public MarkdownPipelineOptions(boolean runChunking, boolean runRagIndex, boolean runSkillExtraction) {
         this(runChunking, runRagIndex, runSkillExtraction,
-                null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null,
                 false, null, false, null, null, null);
     }
 
@@ -138,10 +177,15 @@ public record MarkdownPipelineOptions(
         if (!normalized.equals("fixed-size")
                 && !normalized.equals("recursive")
                 && !normalized.equals("structure-based")
-                && !normalized.equals("blockify")) {
+                && !normalized.equals("blockify")
+                && !normalized.equals("knowledge-block")) {
             throw new IllegalArgumentException("Unsupported chunkingStrategy: " + value);
         }
         return normalized;
+    }
+
+    private static boolean isBlockifyCompatibleStrategy(String strategy) {
+        return "blockify".equals(strategy) || "knowledge-block".equals(strategy);
     }
 
     private static String normalizeUnit(String value) {

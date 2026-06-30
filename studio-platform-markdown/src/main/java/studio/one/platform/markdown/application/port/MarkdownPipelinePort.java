@@ -2,6 +2,13 @@ package studio.one.platform.markdown.application.port;
 
 import java.util.function.Consumer;
 
+import studio.one.platform.markdown.application.MarkdownIdeaBlockSummary;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoOptions;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoResult;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreview;
+import studio.one.platform.markdown.application.MarkdownIdeaBlockMergePreviewOptions;
 import studio.one.platform.markdown.application.MarkdownPipelineProgress;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
 import studio.one.platform.markdown.domain.MarkdownPipelineStage;
@@ -33,6 +40,32 @@ public interface MarkdownPipelinePort {
     }
 
     default MarkdownPipelineProgress.RagProgress latestRagProgress(MarkdownRevision revision) {
+        return null;
+    }
+
+    default MarkdownPipelineProgress.ChunkingProgress latestChunkingProgress(MarkdownRevision revision) {
+        return null;
+    }
+
+    default MarkdownIdeaBlockSummary ideaBlockSummary(MarkdownRevision revision) {
+        return null;
+    }
+
+    default MarkdownIdeaBlockMergePreview ideaBlockMergePreview(
+            MarkdownRevision revision,
+            MarkdownIdeaBlockMergePreviewOptions options) {
+        return null;
+    }
+
+    default MarkdownIdeaBlockMergeApplyResult ideaBlockMergeApply(
+            MarkdownRevision revision,
+            MarkdownIdeaBlockMergeApplyOptions options) {
+        return null;
+    }
+
+    default MarkdownIdeaBlockMergeUndoResult ideaBlockMergeUndo(
+            MarkdownRevision revision,
+            MarkdownIdeaBlockMergeUndoOptions options) {
         return null;
     }
 

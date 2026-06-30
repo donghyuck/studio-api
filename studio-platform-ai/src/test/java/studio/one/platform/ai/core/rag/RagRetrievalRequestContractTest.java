@@ -20,6 +20,7 @@ class RagRetrievalRequestContractTest {
         assertThat(request.topK()).isEqualTo(3);
         assertThat(request.metadataFilter().isEmpty()).isTrue();
         assertThat(request.minScore()).isNull();
+        assertThat(request.queryExpansionEnabled()).isTrue();
     }
 
     @Test
@@ -50,6 +51,23 @@ class RagRetrievalRequestContractTest {
         assertThat(request.minScore()).isEqualTo(0.7d);
         assertThat(request.requestedTopK()).isEqualTo(4);
         assertThat(request.requestedMinScore()).isEqualTo(0.6d);
+    }
+
+    @Test
+    void ragSearchRequestCanDisableQueryExpansion() {
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                5,
+                MetadataFilter.empty(),
+                null,
+                null,
+                null,
+                0.7d,
+                4,
+                0.6d,
+                false);
+
+        assertThat(request.queryExpansionEnabled()).isFalse();
     }
 
     @Test
