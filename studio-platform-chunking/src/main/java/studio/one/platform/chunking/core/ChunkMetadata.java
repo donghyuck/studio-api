@@ -72,6 +72,14 @@ public record ChunkMetadata(
     public static final String KEY_TOKENIZER_CONFIDENCE = "tokenizerConfidence";
     public static final String KEY_TOKENIZER_FALLBACK_USED = "tokenizerFallbackUsed";
     public static final String KEY_TOKENIZER_WARNINGS = "tokenizerWarnings";
+    public static final String KEY_REQUESTED_CHUNKING_STRATEGY = "requestedChunkingStrategy";
+    public static final String KEY_ACTUAL_CHUNKING_STRATEGY = "actualChunkingStrategy";
+    public static final String KEY_FALLBACK_STATUS = "fallbackStatus";
+    public static final String KEY_FALLBACK_FROM = "fallbackFrom";
+    public static final String KEY_FALLBACK_TO = "fallbackTo";
+    public static final String KEY_FALLBACK_REASON = "fallbackReason";
+    public static final String KEY_CHUNK_QUALITY_STATUS = "chunkQualityStatus";
+    public static final String KEY_CHUNK_QUALITY_ISSUES = "chunkQualityIssues";
 
     public ChunkMetadata {
         if (order < 0) {

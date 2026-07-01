@@ -42,10 +42,14 @@ public class TokenBasedChunker {
         int maxSize = ChunkSizing.effectiveMaxSize(context.maxSize(), defaultMaxSize);
         int overlap = ChunkSizing.effectiveOverlap(context.overlap(), defaultOverlap, maxSize);
         ResolvedTokenizer resolvedTokenizer = tokenizerResolver.resolve(context.metadata());
+        ChunkingStrategyType actualStrategy = actualStrategy(context);
+        List<Chunk> chunks;
         if (resolvedTokenizer.fallbackUsed() && "approximate".equals(resolvedTokenizer.provider())) {
-            return approximateChunks(context, text, maxSize, overlap, resolvedTokenizer);
+            chunks = approximateChunks(context, text, maxSize, overlap, resolvedTokenizer);
+        } else {
+            chunks = tokenChunks(context, text, maxSize, overlap, resolvedTokenizer);
         }
-        return tokenChunks(context, text, maxSize, overlap, resolvedTokenizer);
+        return ChunkMetadataPolicy.markCompleted(context, chunks, actualStrategy, actualStrategy, maxSize, overlap);
     }
 
     private List<Chunk> tokenChunks(
@@ -133,7 +137,7 @@ public class TokenBasedChunker {
         attributes.put(ChunkMetadata.KEY_TOKENIZER_CONFIDENCE, resolvedTokenizer.confidence());
         attributes.put(ChunkMetadata.KEY_TOKENIZER_FALLBACK_USED, resolvedTokenizer.fallbackUsed());
         attributes.put(ChunkMetadata.KEY_TOKENIZER_WARNINGS, resolvedTokenizer.warnings());
-        ChunkMetadata metadata = ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, order)
+        ChunkMetadata metadata = ChunkMetadata.builder(actualStrategy(context), order)
                 .sourceDocumentId(context.sourceDocumentId())
                 .chunkType(ChunkType.CHILD)
                 .objectType(context.objectType())
@@ -168,6 +172,10 @@ public class TokenBasedChunker {
     private String chunkId(String sourceDocumentId, int order) {
         String prefix = sourceDocumentId == null || sourceDocumentId.isBlank() ? "document" : sourceDocumentId;
         return prefix + "-" + order;
+    }
+
+    private ChunkingStrategyType actualStrategy(ChunkingContext context) {
+        return context.strategy() == null ? ChunkingStrategyType.RECURSIVE : context.strategy();
     }
 
     private String normalize(String text) {

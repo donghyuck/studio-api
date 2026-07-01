@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import studio.one.platform.chunking.core.Chunk;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkUnit;
+import studio.one.platform.chunking.core.Chunker;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.NormalizedBlock;
@@ -173,6 +174,14 @@ class StructureBasedChunkerTest {
         assertThat(chunks).extracting(Chunk::content).containsExactly("alpha beta", "gamma");
         assertThat(chunks.get(0).metadata().strategy())
                 .isEqualTo(ChunkingStrategyType.RECURSIVE);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_REQUESTED_CHUNKING_STRATEGY, "structure-based")
+                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "recursive")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "APPLIED")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_FROM, "structure-based")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_TO, "recursive")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_REASON, "plain-text-context")
+                .containsEntry(ChunkMetadata.KEY_CHUNK_QUALITY_STATUS, "VALID");
     }
 
     @Test
@@ -195,6 +204,77 @@ class StructureBasedChunkerTest {
                 .containsEntry(ChunkMetadata.KEY_BLOCK_IDS, List.of("page[1]"))
                 .containsEntry(ChunkMetadata.KEY_CONFIDENCE, 0.91d)
                 .containsEntry(ChunkMetadata.KEY_MAX_SIZE, 10);
+    }
+
+    @Test
+    void missingProvenanceMarksReviewRequiredWithoutFallback() {
+        StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "Body without locator")
+                        .order(0)
+                        .build()))
+                .build();
+
+        Chunk chunk = chunker.chunk(document, context(document, 120, 0)).get(0);
+
+        assertThat(chunk.metadata().strategy()).isEqualTo(ChunkingStrategyType.STRUCTURE_BASED);
+        assertThat(chunk.metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "NOT_REQUIRED")
+                .containsEntry(ChunkMetadata.KEY_CHUNK_QUALITY_STATUS, "REVIEW_REQUIRED")
+                .containsEntry(ChunkMetadata.KEY_CHUNK_QUALITY_ISSUES, List.of("MISSING_PROVENANCE"));
+    }
+
+    @Test
+    void oversizedStandaloneStructureChunkFallsBackToRecursive() {
+        StructureBasedChunker chunker = new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(block(NormalizedBlockType.TABLE,
+                        "alpha beta gamma", "table[1]", 0, 0.90d)))
+                .build();
+
+        List<Chunk> chunks = chunker.chunk(document, context(document, 10, 0));
+
+        assertThat(chunks).extracting(Chunk::content).containsExactly("alpha beta", "gamma");
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.RECURSIVE);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_REQUESTED_CHUNKING_STRATEGY, "structure-based")
+                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "recursive")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "APPLIED")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_REASON, "invalid-structure-chunks");
+    }
+
+    @Test
+    void recursiveFallbackFailureUsesFixedFallback() {
+        Chunker failingRecursive = new Chunker() {
+            @Override
+            public ChunkingStrategyType strategy() {
+                return ChunkingStrategyType.RECURSIVE;
+            }
+
+            @Override
+            public List<Chunk> chunk(ChunkingContext context) {
+                throw new IllegalStateException("recursive unavailable");
+            }
+        };
+        StructureBasedChunker chunker = new StructureBasedChunker(5, 0, failingRecursive, new FixedSizeChunker(5, 0));
+
+        List<Chunk> chunks = chunker.chunk(ChunkingContext.builder("abcdefghi")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.STRUCTURE_BASED)
+                .maxSize(5)
+                .overlap(0)
+                .build());
+
+        assertThat(chunks).extracting(Chunk::content).containsExactly("abcde", "fghi");
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.FIXED_SIZE);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_REQUESTED_CHUNKING_STRATEGY, "structure-based")
+                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "fixed-size")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "APPLIED")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_FROM, "recursive")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_TO, "fixed-size")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_REASON,
+                        "plain-text-context:recursive-fallback-invalid");
     }
 
     private NormalizedBlock block(NormalizedBlockType type, String text, String sourceRef, int order, double confidence) {

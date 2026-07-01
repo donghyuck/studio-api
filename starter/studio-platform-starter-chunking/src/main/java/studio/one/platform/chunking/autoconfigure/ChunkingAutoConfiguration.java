@@ -55,8 +55,10 @@ public class ChunkingAutoConfiguration {
     @ConditionalOnMissingBean
     public StructureBasedChunker structureBasedChunker(
             ChunkingProperties properties,
-            RecursiveChunker recursiveChunker) {
-        return new StructureBasedChunker(properties.getMaxSize(), properties.getOverlap(), recursiveChunker);
+            RecursiveChunker recursiveChunker,
+            FixedSizeChunker fixedSizeChunker) {
+        return new StructureBasedChunker(properties.getMaxSize(), properties.getOverlap(), recursiveChunker,
+                fixedSizeChunker);
     }
 
     @Bean
