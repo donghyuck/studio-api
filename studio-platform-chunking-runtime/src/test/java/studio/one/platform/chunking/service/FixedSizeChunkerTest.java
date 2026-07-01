@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
 
@@ -23,6 +24,11 @@ class FixedSizeChunkerTest {
         assertThat(chunks).extracting(Chunk::content).containsExactly("abcde", "fghij", "kl");
         assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.FIXED_SIZE);
         assertThat(chunks.get(0).metadata().order()).isZero();
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_REQUESTED_CHUNKING_STRATEGY, "fixed-size")
+                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "fixed-size")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "NOT_REQUIRED")
+                .containsEntry(ChunkMetadata.KEY_CHUNK_QUALITY_STATUS, "VALID");
     }
 
     @Test

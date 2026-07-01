@@ -11,11 +11,20 @@ import studio.one.platform.chunking.autoconfigure.ChunkingProperties;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.ChunkMetadata;
+import studio.one.platform.chunking.core.ChunkUnit;
 import studio.one.platform.chunking.core.NormalizedBlock;
 import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.chunking.core.NormalizedDocument;
 
 class DefaultChunkingOrchestratorTest {
+
+    @Test
+    void defaultContractRemainsRecursiveCharacter() {
+        ChunkingProperties properties = new ChunkingProperties();
+
+        assertThat(properties.strategyType()).isEqualTo(ChunkingStrategyType.RECURSIVE);
+        assertThat(properties.unitType()).isEqualTo(ChunkUnit.CHARACTER);
+    }
 
     @Test
     void usesConfiguredStrategyWhenContextRequestsDefaults() {
@@ -288,5 +297,39 @@ class DefaultChunkingOrchestratorTest {
                 .containsEntry(ChunkMetadata.KEY_TOKENIZER_PROVIDER, "approximate")
                 .containsEntry(ChunkMetadata.KEY_TOKENIZER_FALLBACK_USED, true);
         assertThat(chunks.get(0).metadata().tokenCount()).isNotNull();
+    }
+
+    @Test
+    void tokenFixedSizePreservesFixedStrategyMetadata() {
+        ChunkingProperties properties = new ChunkingProperties();
+        properties.setUnit("token");
+        properties.setMaxSize(4);
+        properties.setOverlap(1);
+        TokenBasedChunker tokenBasedChunker = new TokenBasedChunker(
+                4,
+                1,
+                new DefaultTokenizerResolver(properties.getTokenizer(), List.of(new ApproximateTokenizer())));
+        DefaultChunkingOrchestrator orchestrator = new DefaultChunkingOrchestrator(
+                properties,
+                List.of(new FixedSizeChunker(10, 0), new RecursiveChunker(10, 0),
+                        new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0))),
+                tokenBasedChunker);
+
+        var chunks = orchestrator.chunk(ChunkingContext.builder("한국어 English 1234567890 text")
+                .sourceDocumentId("doc")
+                .strategy(ChunkingStrategyType.FIXED_SIZE)
+                .unit(ChunkUnit.TOKEN)
+                .maxSize(4)
+                .overlap(1)
+                .metadata(java.util.Map.of("embeddingModel", "unknown-model"))
+                .build());
+
+        assertThat(chunks).isNotEmpty();
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.FIXED_SIZE);
+        assertThat(chunks.get(0).metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_UNIT, "token")
+                .containsEntry(ChunkMetadata.KEY_REQUESTED_CHUNKING_STRATEGY, "fixed-size")
+                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "fixed-size")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "NOT_REQUIRED");
     }
 }

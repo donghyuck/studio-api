@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- chunking metadata에 요청/실제 전략, fallback 상태, 품질 상태 key를 추가하고, structure-based full-strategy
+  fallback을 `recursive -> fixed-size` 순서로 기록하도록 보강했다. 기본 계약은 `recursive + character`로 유지한다.
+
+- 공통 chunking metadata 정책을 클라이언트가 표시할 수 있도록 요청/실제 전략, fallback, 품질 상태 표시 지침을
+  `docs/plans/client-chunking-metadata-policy-update-guide.md`에 추가했다.
+
+- 클라이언트가 청킹 품질 요약, 필터, provenance badge, strategy 분포, 재처리 추천을 구현할 수 있도록
+  `docs/plans/client-chunking-quality-ux-improvement-guide.md`를 추가했다.
+
 - chunking starter에 opt-in `knowledge-block` 전략을 추가했다. 기존 Blockify/IdeaBlock 생성 파이프라인을
   재사용하되 `knowledge-block-metadata-v1`, `knowledgeBlockFingerprint`, coverage/distillation alias를
   저장해 운영 RAG 정책과 PoC `blockify` 비교 결과를 분리할 수 있게 했다.

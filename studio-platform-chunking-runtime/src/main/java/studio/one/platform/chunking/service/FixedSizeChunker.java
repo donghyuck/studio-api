@@ -60,7 +60,7 @@ public class FixedSizeChunker implements Chunker {
             start = Math.max(end - overlap, start + 1);
         }
 
-        return chunks;
+        return ChunkMetadataPolicy.markCompleted(context, chunks, strategy(), strategy(), maxSize, overlap);
     }
 
     private Chunk chunk(

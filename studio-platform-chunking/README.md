@@ -73,6 +73,9 @@ Chunk 생성은 여러 종류의 Chunking Processor를 통해 수행된다. Text
 | `page`, `slide`, `headingPath`, `sourceFormat` | 위치와 section context입니다. | 추가 key |
 | `confidence` | parser/OCR confidence가 있는 경우 보존합니다. | 추가 key |
 | `tokenEstimate`, `chunkUnit`, `maxSize`, `overlap` | size 정책과 검증 evidence입니다. | 추가 key |
+| `requestedChunkingStrategy`, `actualChunkingStrategy` | 요청 전략과 실제 생성 전략을 구분합니다. | 추가 key |
+| `fallbackStatus`, `fallbackFrom`, `fallbackTo`, `fallbackReason` | full-strategy fallback 적용 여부와 사유입니다. | 추가 key |
+| `chunkQualityStatus`, `chunkQualityIssues` | 색인 chunk의 품질 검증 결과입니다. 실패 chunk는 저장하지 않습니다. | 추가 key |
 
 `blockify` 전략은 starter 구현체가 제공하는 opt-in PoC 전략입니다.
 core 계약에서는 `ChunkingStrategyType.BLOCKIFY` 식별자와 metadata 전달만 정의하며, LLM 호출이나 생성 구현은 포함하지 않습니다.

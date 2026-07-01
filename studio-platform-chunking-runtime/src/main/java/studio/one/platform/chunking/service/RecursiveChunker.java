@@ -47,7 +47,8 @@ public class RecursiveChunker implements Chunker {
         int maxSize = effectiveMaxSize(context.maxSize());
         int overlap = effectiveOverlap(context.overlap(), maxSize);
         List<String> segments = splitRecursively(text, maxSize);
-        return pack(context, segments, maxSize, overlap);
+        List<Chunk> chunks = pack(context, segments, maxSize, overlap);
+        return ChunkMetadataPolicy.markCompleted(context, chunks, strategy(), strategy(), maxSize, overlap);
     }
 
     private List<Chunk> pack(ChunkingContext context, List<String> segments, int maxSize, int overlap) {

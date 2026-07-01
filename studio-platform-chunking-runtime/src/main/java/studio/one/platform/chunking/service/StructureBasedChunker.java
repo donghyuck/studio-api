@@ -24,9 +24,19 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
 
     private final int defaultOverlap;
 
-    private final Chunker fallbackChunker;
+    private final Chunker recursiveFallbackChunker;
+
+    private final Chunker fixedFallbackChunker;
 
     public StructureBasedChunker(int defaultMaxSize, int defaultOverlap, Chunker fallbackChunker) {
+        this(defaultMaxSize, defaultOverlap, fallbackChunker, new FixedSizeChunker(defaultMaxSize, defaultOverlap));
+    }
+
+    public StructureBasedChunker(
+            int defaultMaxSize,
+            int defaultOverlap,
+            Chunker recursiveFallbackChunker,
+            Chunker fixedFallbackChunker) {
         if (defaultMaxSize <= 0) {
             throw new IllegalArgumentException("defaultMaxSize must be positive");
         }
@@ -35,7 +45,10 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         }
         this.defaultMaxSize = defaultMaxSize;
         this.defaultOverlap = Math.min(defaultOverlap, defaultMaxSize - 1);
-        this.fallbackChunker = fallbackChunker;
+        this.recursiveFallbackChunker = Objects.requireNonNull(recursiveFallbackChunker,
+                "recursiveFallbackChunker must not be null");
+        this.fixedFallbackChunker = Objects.requireNonNull(fixedFallbackChunker,
+                "fixedFallbackChunker must not be null");
     }
 
     @Override
@@ -48,17 +61,19 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         if (context.text() == null || context.text().isBlank()) {
             return List.of();
         }
-        return fallbackChunker.chunk(context);
+        int maxSize = ChunkSizing.effectiveMaxSize(context.maxSize(), defaultMaxSize);
+        int overlap = ChunkSizing.effectiveOverlap(context.overlap(), defaultOverlap, maxSize);
+        return fallback(context, "plain-text-context", maxSize, overlap);
     }
 
     @Override
     public List<Chunk> chunk(NormalizedDocument document, ChunkingContext context) {
-        if (document.blocks().isEmpty()) {
-            return fallbackChunker.chunk(context);
-        }
-
         int maxSize = ChunkSizing.effectiveMaxSize(context.maxSize(), defaultMaxSize);
         int overlap = ChunkSizing.effectiveOverlap(context.overlap(), defaultOverlap, maxSize);
+        if (document.blocks().isEmpty()) {
+            return fallback(context, "missing-structure", maxSize, overlap);
+        }
+
         ChunkUnit unit = context.unit();
         List<Section> sections = splitSections(document.blocks());
         List<Chunk> chunks = new ArrayList<>();
@@ -68,7 +83,15 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
             ParentChunk parentChunk = createParentChunk(document, context, section, maxSize, overlap, unit);
             childOrder = appendChildChunks(document, context, section, parentChunk, maxSize, overlap, unit, chunks, childOrder);
         }
-        return linkNeighborsWithinParent(chunks);
+        List<Chunk> completed = ChunkMetadataPolicy.markCompleted(context, linkNeighborsWithinParent(chunks),
+                strategy(), strategy(), maxSize, overlap);
+        if (completed.isEmpty() && document.blocks().stream().allMatch(this::isHeading)) {
+            return List.of();
+        }
+        if (ChunkMetadataPolicy.hasFatalIssues(completed, unit, maxSize)) {
+            return fallback(context, "invalid-structure-chunks", maxSize, overlap);
+        }
+        return completed;
     }
 
     private ParentChunk createParentChunk(
@@ -171,7 +194,7 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                 .unit(unit)
                 .metadata(context.metadata())
                 .build();
-        List<Chunk> splitChunks = fallbackChunker.chunk(splitContext);
+        List<Chunk> splitChunks = recursiveFallbackChunker.chunk(splitContext);
         List<NormalizedBlock> splitBlocks = new ArrayList<>(splitChunks.size());
         for (int index = 0; index < splitChunks.size(); index++) {
             Chunk splitChunk = splitChunks.get(index);
@@ -419,6 +442,49 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
             return null;
         }
         return values.stream().mapToDouble(Double::doubleValue).average().orElse(0.0d);
+    }
+
+    private List<Chunk> fallback(ChunkingContext context, String reason, int maxSize, int overlap) {
+        List<Chunk> recursiveChunks = tryChunk(recursiveFallbackChunker,
+                contextForStrategy(context, ChunkingStrategyType.RECURSIVE));
+        List<Chunk> recursiveFallback = ChunkMetadataPolicy.markFallback(context, recursiveChunks,
+                strategy(), strategy(), ChunkingStrategyType.RECURSIVE, reason, maxSize, overlap);
+        if (!ChunkMetadataPolicy.hasFatalIssues(recursiveFallback, context.unit(), maxSize)) {
+            return recursiveFallback;
+        }
+
+        List<Chunk> fixedChunks = tryChunk(fixedFallbackChunker,
+                contextForStrategy(context, ChunkingStrategyType.FIXED_SIZE));
+        List<Chunk> fixedFallback = ChunkMetadataPolicy.markFallback(context, fixedChunks,
+                strategy(), ChunkingStrategyType.RECURSIVE, ChunkingStrategyType.FIXED_SIZE,
+                reason + ":recursive-fallback-invalid", maxSize, overlap);
+        if (!ChunkMetadataPolicy.hasFatalIssues(fixedFallback, context.unit(), maxSize)) {
+            return fixedFallback;
+        }
+        return List.of();
+    }
+
+    private List<Chunk> tryChunk(Chunker chunker, ChunkingContext context) {
+        try {
+            return chunker.chunk(context);
+        } catch (RuntimeException ignored) {
+            return List.of();
+        }
+    }
+
+    private ChunkingContext contextForStrategy(ChunkingContext context, ChunkingStrategyType strategy) {
+        return ChunkingContext.builder(context.text())
+                .sourceDocumentId(context.sourceDocumentId())
+                .contentType(context.contentType())
+                .filename(context.filename())
+                .objectType(context.objectType())
+                .objectId(context.objectId())
+                .strategy(strategy)
+                .maxSize(context.maxSize())
+                .overlap(context.overlap())
+                .unit(context.unit())
+                .metadata(context.metadata())
+                .build();
     }
 
     private List<Chunk> linkNeighborsWithinParent(List<Chunk> chunks) {
