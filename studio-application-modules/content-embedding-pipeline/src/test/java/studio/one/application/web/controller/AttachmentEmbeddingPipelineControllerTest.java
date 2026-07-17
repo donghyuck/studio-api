@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -63,6 +64,12 @@ import studio.one.platform.ai.service.pipeline.RagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineOptions;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.artifact.ChunkSet;
+import studio.one.platform.chunking.artifact.ChunkSetItem;
+import studio.one.platform.chunking.artifact.ChunkSetQualityStatus;
+import studio.one.platform.chunking.artifact.ChunkSetStatus;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
+import studio.one.platform.chunking.artifact.InMemoryChunkSetStore;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
@@ -715,6 +722,67 @@ class AttachmentEmbeddingPipelineControllerTest {
         org.assertj.core.api.Assertions.assertThat(indexed).isTrue();
         verify(vectorStore).replaceRecordsByObject("attachment", "1", List.of());
         verifyNoInteractions(embeddingPort);
+    }
+
+    @Test
+    void structuredIndexerEmbedsPreparedChunkSetWithoutReextractingOrRechunking() throws Exception {
+        VectorStorePort vectorStore = mock(VectorStorePort.class);
+        ChunkSetStore chunkSetStore = new InMemoryChunkSetStore();
+        Instant now = Instant.parse("2026-07-17T00:00:00Z");
+        chunkSetStore.save(new ChunkSet(
+                "cset-test", "attachment", "1", "doc-1", "revision-1", "source-hash",
+                "recursive", "strategy-hash", "character", 1000, 100,
+                ChunkSetStatus.READY, ChunkSetQualityStatus.VALID, List.of(),
+                Map.of("ragIndexEligible", true),
+                List.of(new ChunkSetItem(0, "chunk-1", "exact prepared chunk", "content-hash",
+                        Map.of("strategy", "recursive", "chunkOrder", 0, "page", 3))),
+                now, now));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("0", List.of(0.1d, 0.2d)))));
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider((TextractNormalizedDocumentAdapter) null),
+                provider((ChunkingOrchestrator) null),
+                provider(embeddingPort),
+                provider((RagEmbeddingProfileResolver) null),
+                provider(vectorStore),
+                provider((RagChunkStageStore) null),
+                provider(chunkSetStore),
+                10,
+                10);
+
+        boolean indexed = indexer.index(
+                mock(Attachment.class), "doc-1", "attachment", "1",
+                Map.of("chunkSetId", "cset-test", "requirePreparedChunks", true),
+                extractionService, InputStream.nullInputStream());
+
+        assertThat(indexed).isTrue();
+        ArgumentCaptor<EmbeddingRequest> request = ArgumentCaptor.forClass(EmbeddingRequest.class);
+        verify(embeddingPort).embed(request.capture());
+        assertThat(request.getValue().texts()).containsExactly("exact prepared chunk");
+        verify(extractionService, never()).parseStructured(any(), any(), any(InputStream.class));
+        verifyNoInteractions(ragPipelineService);
+    }
+
+    @Test
+    void structuredIndexerDoesNotFallbackWhenRequiredChunkSetIsMissing() {
+        DefaultAttachmentStructuredRagIndexer indexer = new DefaultAttachmentStructuredRagIndexer(
+                provider((TextractNormalizedDocumentAdapter) null),
+                provider((ChunkingOrchestrator) null),
+                provider(embeddingPort),
+                provider((RagEmbeddingProfileResolver) null),
+                provider(mock(VectorStorePort.class)),
+                provider((RagChunkStageStore) null),
+                provider((ChunkSetStore) new InMemoryChunkSetStore()),
+                10,
+                10);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> indexer.index(
+                        mock(Attachment.class), "doc-1", "attachment", "1",
+                        Map.of("chunkSetId", "missing", "requirePreparedChunks", true),
+                        extractionService, InputStream.nullInputStream()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Prepared ChunkSet was not found");
+        verify(extractionService, never()).parseStructured(any(), any(), any(InputStream.class));
     }
 
     @Test

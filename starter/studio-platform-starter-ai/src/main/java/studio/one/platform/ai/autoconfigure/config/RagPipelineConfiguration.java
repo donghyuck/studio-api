@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -42,6 +43,7 @@ import studio.one.platform.ai.service.pipeline.DefaultRagIndexJobService;
 import studio.one.platform.ai.service.pipeline.InMemoryRagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.InMemoryRagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.JdbcRagChunkStageStore;
+import studio.one.platform.ai.service.pipeline.JdbcChunkSetStore;
 import studio.one.platform.ai.service.pipeline.JdbcRagIndexJobRepository;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobRepository;
@@ -55,6 +57,8 @@ import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.pipeline.SinglePortRagEmbeddingProfileResolver;
 import studio.one.platform.ai.service.prompt.PromptRenderer;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
+import studio.one.platform.chunking.artifact.InMemoryChunkSetStore;
 import studio.one.platform.autoconfigure.I18nKeys;
 import studio.one.platform.component.State;
 import studio.one.platform.service.I18n;
@@ -154,6 +158,26 @@ public class RagPipelineConfiguration {
                         NamedParameterJdbcTemplate template,
                         ObjectProvider<ObjectMapper> objectMapperProvider) {
                 return new JdbcRagChunkStageStore(template, objectMapperProvider.getIfAvailable(ObjectMapper::new));
+        }
+
+        @Bean
+        @ConditionalOnBean(NamedParameterJdbcTemplate.class)
+        @ConditionalOnMissingBean(ChunkSetStore.class)
+        @Conditional(RagPipelineConditions.JdbcRepository.class)
+        ChunkSetStore jdbcChunkSetStore(
+                        NamedParameterJdbcTemplate template,
+                        ObjectProvider<ObjectMapper> objectMapperProvider,
+                        ObjectProvider<TransactionOperations> transactionOperationsProvider) {
+                return new JdbcChunkSetStore(
+                                template,
+                                objectMapperProvider.getIfAvailable(ObjectMapper::new),
+                                transactionOperationsProvider.getIfAvailable());
+        }
+
+        @Bean
+        @ConditionalOnMissingBean(ChunkSetStore.class)
+        ChunkSetStore chunkSetStore() {
+                return new InMemoryChunkSetStore();
         }
 
         @Bean
