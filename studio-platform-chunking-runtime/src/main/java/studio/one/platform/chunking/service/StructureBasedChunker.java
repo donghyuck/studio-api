@@ -134,6 +134,18 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
         int order = initialOrder;
 
         for (NormalizedBlock block : section.blocks()) {
+            if (ChunkSizing.sizeOf(block.text(), unit) > maxSize) {
+                if (!current.isEmpty()) {
+                    chunks.add(toChildChunk(document, context, current, order++, section.headingPath(),
+                            parentChunk, maxSize, overlap, unit));
+                    current = new ArrayList<>();
+                }
+                for (NormalizedBlock splitBlock : splitOversizedBlock(document, context, block, maxSize, overlap, unit)) {
+                    chunks.add(toChildChunk(document, context, List.of(splitBlock), order++, section.headingPath(),
+                            parentChunk, maxSize, overlap, unit));
+                }
+                continue;
+            }
             if (isStandalone(block)) {
                 if (!current.isEmpty()) {
                     chunks.add(toChildChunk(document, context, current, order++, section.headingPath(),
@@ -149,21 +161,12 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                 chunks.add(toChildChunk(document, context, current, order++, section.headingPath(),
                         parentChunk, maxSize, overlap, unit));
                 current = overlapTail(current, overlap, unit);
+                if (!current.isEmpty() && sizeOf(current, block, unit) > maxSize) {
+                    current.clear();
+                }
             }
             if (current.isEmpty()) {
                 current = new ArrayList<>();
-            }
-            if (ChunkSizing.sizeOf(block.text(), unit) > maxSize) {
-                if (!current.isEmpty()) {
-                    chunks.add(toChildChunk(document, context, current, order++, section.headingPath(),
-                            parentChunk, maxSize, overlap, unit));
-                    current = new ArrayList<>();
-                }
-                for (NormalizedBlock splitBlock : splitOversizedBlock(document, context, block, maxSize, overlap, unit)) {
-                    chunks.add(toChildChunk(document, context, List.of(splitBlock), order++, section.headingPath(),
-                            parentChunk, maxSize, overlap, unit));
-                }
-                continue;
             }
             current.add(block);
         }
@@ -271,6 +274,10 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                 .filter(ref -> ref != null && !ref.isBlank())
                 .distinct()
                 .toList());
+        copyBlockAttribute(attributes, first, "searchContextOnly");
+        copyBlockAttribute(attributes, first, "aggregationType");
+        copyBlockAttribute(attributes, first, "sourceBlockCount");
+        copyBlockAttribute(attributes, first, "sourceBlockIds");
         if (parentChunk != null) {
             putIfPresent(attributes, ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, parentChunk.content());
             putIfPresent(attributes, ChunkMetadata.KEY_PARENT_CHUNK_BLOCK_IDS, parentChunk.metadata().blockIds());
@@ -278,6 +285,13 @@ public class StructureBasedChunker implements NormalizedDocumentChunker {
                     parentChunk.metadata().toMap().get(ChunkMetadata.KEY_SOURCE_REFS));
         }
         return attributes;
+    }
+
+    private void copyBlockAttribute(Map<String, Object> attributes, NormalizedBlock block, String key) {
+        if (block == null || block.metadata() == null || !block.metadata().containsKey(key)) {
+            return;
+        }
+        putIfPresent(attributes, key, block.metadata().get(key));
     }
 
     private void putIfPresent(Map<String, Object> attributes, String key, Object value) {

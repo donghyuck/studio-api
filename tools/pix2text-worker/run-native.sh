@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")"
+export PATH="$HOME/.local/bin:$PATH"
+export PIX2TEXT_WORKER_HOST="${PIX2TEXT_WORKER_HOST:-0.0.0.0}"
+export PIX2TEXT_WORKER_PORT="${PIX2TEXT_WORKER_PORT:-8503}"
+export PIX2TEXT_MAX_UPLOAD_BYTES="${PIX2TEXT_MAX_UPLOAD_BYTES:-52428800}"
+export PIX2TEXT_LANGUAGE="${PIX2TEXT_LANGUAGE:-ko,en}"
+export PIX2TEXT_DEVICE="${PIX2TEXT_DEVICE:-mps}"
+export PIX2TEXT_ORT_PROVIDERS="${PIX2TEXT_ORT_PROVIDERS:-CPUExecutionProvider}"
+export PIX2TEXT_DOWNLOAD_SOURCE="${PIX2TEXT_DOWNLOAD_SOURCE:-HF}"
+export PYTORCH_ENABLE_MPS_FALLBACK="${PYTORCH_ENABLE_MPS_FALLBACK:-1}"
+export UVICORN_WORKERS="${UVICORN_WORKERS:-1}"
+export LOG_LEVEL="${LOG_LEVEL:-info}"
+
+exec .venv/bin/python -m uvicorn app.main:app \
+  --host "$PIX2TEXT_WORKER_HOST" \
+  --port "$PIX2TEXT_WORKER_PORT" \
+  --workers "$UVICORN_WORKERS" \
+  --log-level "$LOG_LEVEL"

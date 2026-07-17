@@ -226,6 +226,10 @@ public class PyMuPdf4LlmResultMapper extends AbstractFileParser {
     private Map<String, Object> metadata(PyMuPdf4LlmResponse response, PdfExtractionRequest request) {
         Map<String, Object> metadata = new LinkedHashMap<>(fileMetadata(request.contentType(), request.filename()));
         metadata.put(PdfExtractionEngineSelector.KEY_EXTRACTION_ENGINE, "pymupdf4llm");
+        metadata.put("ocrRequired", request.options().ocrRequired());
+        if (request.options().ocrLanguage() != null) {
+            metadata.put("ocrLanguage", request.options().ocrLanguage());
+        }
         metadata.put("markdownAvailable", response.markdown() != null && !response.markdown().isBlank());
         if (response.elapsedMs() != null) {
             metadata.put("elapsedMs", response.elapsedMs());

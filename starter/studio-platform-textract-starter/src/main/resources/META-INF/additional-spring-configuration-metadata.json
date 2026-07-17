@@ -31,6 +31,26 @@
       "description": "PyMuPDF4LLM worker extraction engine policy."
     },
     {
+      "name": "studio.textract.pdf.engines.math",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Math",
+      "description": "Math document OCR extraction engine policy."
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.quality-gate",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$QualityGate",
+      "description": "Math document Markdown quality gate policy."
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Pix2Text",
+      "description": "Pix2Text self-host math OCR policy."
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Mathpix",
+      "description": "Mathpix math OCR policy."
+    },
+    {
       "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when",
       "type": "studio.one.platform.textract.autoconfigure.TextractProperties$PreferPyMuPdf4LlmWhen",
       "description": "Automatic PyMuPDF4LLM preference thresholds."
@@ -112,6 +132,237 @@
       "type": "java.lang.String",
       "description": "Maximum PDF size sent to the PyMuPDF4LLM worker. Plain numbers are bytes; K, KB, M, MB, G, GB, T, and TB suffixes are supported.",
       "defaultValue": "50MB"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether a dedicated math document OCR engine is enabled before heuristic math markdown fallback.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.provider",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$MathProvider",
+      "description": "Dedicated math OCR provider. Supported values are none, pix2text, and mathpix.",
+      "defaultValue": "NONE"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.fallback-providers",
+      "type": "java.util.List",
+      "description": "Ordered fallback math OCR providers after the primary provider. Supported values are none, pix2text, and mathpix.",
+      "defaultValue": "MATHPIX"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.quality-gate.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether math OCR results are checked before accepting the provider output.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.quality-gate.min-score",
+      "type": "java.lang.Double",
+      "description": "Minimum score expected from math OCR Markdown quality checks.",
+      "defaultValue": 0.65
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.hybrid.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether math-like PDFs should keep a full baseline OCR/PyMuPDF result and apply Pix2Text/Mathpix only as a bounded math supplement.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.hybrid.sample-pages",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of pages sent to the math OCR provider in hybrid mode. The full document still uses the baseline extraction route.",
+      "defaultValue": 8
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.hybrid.max-correction-pages",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of severity-ranked pages corrected by math OCR or vision in one extraction.",
+      "defaultValue": 8
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.hybrid.fallback-pages",
+      "type": "java.lang.Integer",
+      "description": "Number of sampled pages corrected when no explicit low-quality math page is detected.",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.hybrid.wave-size",
+      "type": "java.lang.Integer",
+      "description": "Maximum pages sent in one vision correction wave.",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.hybrid.time-budget",
+      "type": "java.time.Duration",
+      "description": "Per-provider time budget for bounded math correction.",
+      "defaultValue": "5m"
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether page-scoped Korean prose OCR correction is enabled.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.endpoint",
+      "type": "java.lang.String",
+      "description": "Structured PDF endpoint for the self-hosted Korean OCR provider.",
+      "defaultValue": "http://localhost:8603/extract/pdf"
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.timeout",
+      "type": "java.time.Duration",
+      "description": "HTTP timeout for each Korean OCR page request.",
+      "defaultValue": "2m"
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.max-file-size",
+      "type": "java.lang.String",
+      "description": "Maximum PDF size accepted by the Korean OCR provider client.",
+      "defaultValue": "50MB"
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.max-pages",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of severity-ranked Korean text pages corrected in one extraction.",
+      "defaultValue": 8
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.batch-size",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of consecutive pages sent to the Korean OCR provider per request.",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.fallback-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether a secondary structured OCR endpoint is used when the primary Korean OCR provider fails or returns an incomplete catastrophic correction.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.fallback-endpoint",
+      "type": "java.lang.String",
+      "description": "Secondary structured OCR endpoint, typically a local PyMuPDF4LLM worker forced into OCR mode.",
+      "defaultValue": "http://localhost:8000/extract/pdf"
+    },
+    {
+      "name": "studio.textract.pdf.engines.korean-ocr.fallback-batch-size",
+      "type": "java.lang.Integer",
+      "description": "Maximum number of consecutive pages sent to the fallback Korean OCR endpoint per request.",
+      "defaultValue": 2
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether vision LLM math correction is attempted as an additive supplement for math-like PDFs.",
+      "defaultValue": false
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.provider",
+      "type": "java.lang.String",
+      "description": "Vision LLM provider for math correction.",
+      "defaultValue": "GEMINI"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.gemini.base-url",
+      "type": "java.lang.String",
+      "description": "Gemini API base URL used for vision math correction.",
+      "defaultValue": "https://generativelanguage.googleapis.com/v1beta"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.gemini.api-key",
+      "type": "java.lang.String",
+      "description": "Gemini API key used for vision math correction."
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.gemini.model",
+      "type": "java.lang.String",
+      "description": "Gemini model used for vision math correction.",
+      "defaultValue": "gemini-2.5-flash"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.gemini.timeout",
+      "type": "java.time.Duration",
+      "description": "Gemini request timeout for vision math correction.",
+      "defaultValue": "2m"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.vision-correction.gemini.max-file-size",
+      "type": "java.lang.String",
+      "description": "Maximum PDF size sent to Gemini vision math correction.",
+      "defaultValue": "20MB"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text.endpoint",
+      "type": "java.lang.String",
+      "description": "Pix2Text self-host PDF-to-Markdown endpoint.",
+      "defaultValue": "http://localhost:8503/extract/pdf"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text.timeout",
+      "type": "java.time.Duration",
+      "description": "HTTP timeout for Pix2Text self-host calls.",
+      "defaultValue": "5m"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text.max-file-size",
+      "type": "java.lang.String",
+      "description": "Maximum PDF size sent to Pix2Text. Plain numbers are bytes; K, KB, M, MB, G, GB, T, and TB suffixes are supported.",
+      "defaultValue": "50MB"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text.language",
+      "type": "java.lang.String",
+      "description": "Language hint passed to the Pix2Text self-host endpoint.",
+      "defaultValue": "ko,en"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text.page-by-page",
+      "type": "java.lang.Boolean",
+      "description": "Whether Pix2Text should extract and return per-page Markdown blocks with page provenance.",
+      "defaultValue": true
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.pix2text.batch-size",
+      "type": "java.lang.Integer",
+      "description": "Number of PDF pages sent per Pix2Text request when the source has more pages than this value. Smaller batches avoid long single-request timeouts and make fallback behavior explicit.",
+      "defaultValue": 4
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix.api-base-url",
+      "type": "java.lang.String",
+      "description": "Mathpix API v3 base URL.",
+      "defaultValue": "https://api.mathpix.com/v3"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix.timeout",
+      "type": "java.time.Duration",
+      "description": "HTTP timeout for Mathpix calls.",
+      "defaultValue": "5m"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix.poll-interval",
+      "type": "java.time.Duration",
+      "description": "Polling interval for Mathpix async PDF conversion.",
+      "defaultValue": "2s"
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix.max-poll-attempts",
+      "type": "java.lang.Integer",
+      "description": "Maximum polling attempts for Mathpix async PDF conversion.",
+      "defaultValue": 90
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix.app-id",
+      "type": "java.lang.String",
+      "description": "Mathpix app_id credential."
+    },
+    {
+      "name": "studio.textract.pdf.engines.math.mathpix.app-key",
+      "type": "java.lang.String",
+      "description": "Mathpix app_key credential."
     },
     {
       "name": "studio.textract.pdf.auto.prefer-pymupdf4llm-when.min-pages",

@@ -51,6 +51,7 @@ docker run --rm -p 8000:8000 \
   -e LOG_LEVEL=info \
   -e PYMUPDF4LLM_OCR_ENABLED=true \
   -e PYMUPDF4LLM_OCR_LANGUAGE=kor+eng \
+  -e PYMUPDF4LLM_OCR_DPI=220 \
   studio-pymupdf4llm-worker
 ```
 
@@ -62,6 +63,7 @@ docker run -d --name studio-pymupdf4llm-worker -p 8000:8000 \
   -e UVICORN_WORKERS=2 \
   -e PYMUPDF4LLM_OCR_ENABLED=true \
   -e PYMUPDF4LLM_OCR_LANGUAGE=kor+eng \
+  -e PYMUPDF4LLM_OCR_DPI=220 \
   -e PYMUPDF4LLM_MAX_UPLOAD_BYTES=52428800 \
   studio-pymupdf4llm-worker
 ```
@@ -82,6 +84,7 @@ docker logs --tail 100 studio-pymupdf4llm-worker
 | `PYMUPDF4LLM_MAX_UPLOAD_BYTES` | `52428800` | worker upload 제한 |
 | `PYMUPDF4LLM_OCR_ENABLED` | `false` | OCR 요청 허용 여부 |
 | `PYMUPDF4LLM_OCR_LANGUAGE` | `kor+eng` | OCR 언어 표현 |
+| `PYMUPDF4LLM_OCR_DPI` | `220` | PyMuPDF OCR 렌더링 DPI |
 | `TESSDATA_PREFIX` | unset | Tesseract `tessdata` 위치 |
 | `UVICORN_WORKERS` | `1` | Uvicorn worker 수 |
 | `LOG_LEVEL` | `info` | Uvicorn log level. `critical`, `error`, `warning`, `info`, `debug`, `trace` 중 하나 |
@@ -132,7 +135,13 @@ studio:
 - `metadata`: PDF metadata와 page count
 - `warnings`: OCR disabled 같은 부분 경고
 - `elapsedMs`: worker 처리 시간
-- `ocrApplied`: OCR 적용 여부
+- `ocrApplied`: 실제 PyMuPDF OCR textpage 생성 여부
+- `metadata.ocrRequested`: 요청의 OCR 필요 여부
+- `metadata.ocrApplied`: 실제 OCR 적용 여부
+- `metadata.ocrLanguage`, `metadata.ocrDpi`: OCR 적용 시 사용한 OCR 설정
+- `blocks[].bbox`: PyMuPDF text dictionary에서 얻은 block 좌표. OCR 적용 시 OCR textpage 기준 좌표다.
+- native text block이 없는 스캔 페이지는 PyMuPDF4LLM의 `page_chunks` 결과를 사용해 해당 페이지의
+  `pageNumber`와 `sourceRef`를 보존한다.
 - `options.pageFrom`, `options.pageTo`, `options.maxPages`: 1-base page range. Java 대형 PDF coordinator가 part별로 전달한다.
 - `options.includeImages`: 이미지 reference 추출 여부. 대형 PDF 기본값은 `false`다.
 

@@ -1,7 +1,9 @@
 package studio.one.platform.textract.autoconfigure;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -38,6 +40,12 @@ import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEn
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineSelector;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionMode;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.infrastructure.extractor.pdf.HeuristicMathDocumentExtractionEngine;
+import studio.one.platform.textract.infrastructure.extractor.pdf.MathDocumentExtractionEngine;
+import studio.one.platform.textract.infrastructure.extractor.pdf.MathDocumentOcrClient;
+import studio.one.platform.textract.infrastructure.extractor.pdf.MathDocumentOcrExtractionEngine;
+import studio.one.platform.textract.infrastructure.extractor.pdf.MathVisionCorrectionClient;
+import studio.one.platform.textract.infrastructure.extractor.pdf.KoreanTextOcrClient;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox.PdfBoxExtractionEngine;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox.PdfOcrFallbackOptions;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
@@ -83,17 +91,58 @@ public class TextractAutoConfiguration {
 
     @Bean
     @ConditionalOnClass(name = "org.apache.pdfbox.pdmodel.PDDocument")
-    public FileParser pdfFileParser(ObjectProvider<PyMuPdf4LlmClient> pyMuPdf4LlmClientProvider) {
+    public FileParser pdfFileParser(
+            ObjectProvider<PyMuPdf4LlmClient> pyMuPdf4LlmClientProvider,
+            ObjectProvider<ObjectMapper> objectMapperProvider) {
         logCreated(PdfFileParser.class);
         List<PdfExtractionEngine> engines = new ArrayList<>();
+        PdfExtractionEngine pdfBoxEngine = null;
         if (props.getPdf().getEngines().getPdfbox().isEnabled()) {
-            engines.add(new PdfBoxExtractionEngine(pdfOcrFallbackOptions()));
+            pdfBoxEngine = new PdfBoxExtractionEngine(pdfOcrFallbackOptions());
+            engines.add(pdfBoxEngine);
         }
+        PdfExtractionEngine pyMuPdfEngine = null;
         PyMuPdf4LlmClient pyMuPdf4LlmClient = pyMuPdf4LlmClientProvider.getIfAvailable();
         if (pyMuPdf4LlmClient != null) {
-            engines.add(new PyMuPdf4LlmExtractionEngine(pyMuPdf4LlmClient));
+            pyMuPdfEngine = new PyMuPdf4LlmExtractionEngine(pyMuPdf4LlmClient);
+            engines.add(pyMuPdfEngine);
         }
-        return new PdfFileParser(new PdfExtractionEngineSelector(engines), pdfExtractionOptions());
+        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        List<MathDocumentExtractionEngine> mathEngines = new ArrayList<>(mathDocumentExtractionEngines(objectMapper));
+        PdfExtractionEngine mathDelegate = pyMuPdfEngine == null ? pdfBoxEngine : pyMuPdfEngine;
+        if (mathDelegate != null) {
+            mathEngines.add(new HeuristicMathDocumentExtractionEngine(mathDelegate));
+        }
+        TextractProperties.QualityGate qualityGate = props.getPdf().getEngines().getMath().getQualityGate();
+        TextractProperties.Hybrid hybrid = props.getPdf().getEngines().getMath().getHybrid();
+        List<MathVisionCorrectionClient> visionClients = mathVisionCorrectionClients(objectMapper);
+        TextractProperties.KoreanOcr koreanOcr = props.getPdf().getEngines().getKoreanOcr();
+        List<KoreanTextOcrClient> koreanTextOcrClients = koreanTextOcrClients(objectMapper, koreanOcr);
+        return new PdfFileParser(new PdfExtractionEngineSelector(engines, null, mathEngines,
+                qualityGate.isEnabled(), qualityGate.getMinScore(),
+                hybrid.isEnabled(), hybrid.getSamplePages(),
+                visionClients, props.getPdf().getEngines().getMath().getVisionCorrection().isEnabled(),
+                koreanTextOcrClients, koreanOcr.getMaxPages(),
+                new PdfExtractionEngineSelector.MathCorrectionPolicy(hybrid.getMaxCorrectionPages(),
+                        hybrid.getFallbackPages(), hybrid.getWaveSize(), hybrid.getTimeBudget())),
+                pdfExtractionOptions());
+    }
+
+    private List<KoreanTextOcrClient> koreanTextOcrClients(ObjectMapper objectMapper,
+            TextractProperties.KoreanOcr properties) {
+        if (properties == null || !properties.isEnabled()) {
+            return List.of();
+        }
+        List<KoreanTextOcrClient> clients = new ArrayList<>();
+        clients.add(new PaddleOcrKoreanTextClient(true, "paddleocr", properties.getEndpoint(),
+                properties.getTimeout(), properties.getMaxFileSizeBytes(), properties.getBatchSize(), objectMapper));
+        if (properties.isFallbackEnabled()
+                && !properties.getFallbackEndpoint().equals(properties.getEndpoint())) {
+            clients.add(new PaddleOcrKoreanTextClient(true, "pymupdf4llm-korean-ocr",
+                    properties.getFallbackEndpoint(), properties.getTimeout(), properties.getMaxFileSizeBytes(),
+                    properties.getFallbackBatchSize(), objectMapper));
+        }
+        return List.copyOf(clients);
     }
 
     @Bean
@@ -108,6 +157,105 @@ public class TextractAutoConfiguration {
                 worker.getTimeout(),
                 worker.getMaxFileSizeBytes(),
                 objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnClass(ObjectMapper.class)
+    @ConditionalOnProperty(prefix = "studio.textract.pdf.engines.math", name = "enabled", havingValue = "true")
+    public MathDocumentOcrClient mathDocumentOcrClient(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        logCreated(MathDocumentOcrClient.class);
+        ObjectMapper objectMapper = objectMapperProvider.getIfAvailable(ObjectMapper::new);
+        TextractProperties.Math math = props.getPdf().getEngines().getMath();
+        return mathDocumentOcrClient(math.getProvider(), objectMapper);
+    }
+
+    private List<MathDocumentExtractionEngine> mathDocumentExtractionEngines(ObjectMapper objectMapper) {
+        TextractProperties.Math math = props.getPdf().getEngines().getMath();
+        if (!math.isEnabled()) {
+            return List.of();
+        }
+        Set<TextractProperties.MathProvider> providers = new LinkedHashSet<>();
+        providers.add(math.getProvider());
+        if (math.getFallbackProviders() != null) {
+            providers.addAll(math.getFallbackProviders());
+        }
+        List<MathDocumentExtractionEngine> engines = new ArrayList<>();
+        for (TextractProperties.MathProvider provider : providers) {
+            MathDocumentOcrClient client = mathDocumentOcrClient(provider, objectMapper);
+            if (client.available()) {
+                engines.add(new MathDocumentOcrExtractionEngine(client));
+            }
+        }
+        return engines;
+    }
+
+    private MathDocumentOcrClient mathDocumentOcrClient(
+            TextractProperties.MathProvider provider,
+            ObjectMapper objectMapper) {
+        TextractProperties.Math math = props.getPdf().getEngines().getMath();
+        return switch (provider == null ? TextractProperties.MathProvider.NONE : provider) {
+            case PIX2TEXT -> {
+                TextractProperties.Pix2Text pix2text = math.getPix2text();
+                yield new Pix2TextMathDocumentOcrClient(
+                        pix2text.getEndpoint(),
+                        pix2text.getTimeout(),
+                        pix2text.getMaxFileSizeBytes(),
+                        pix2text.getLanguage(),
+                        pix2text.isPageByPage(),
+                        pix2text.getBatchSize(),
+                        objectMapper);
+            }
+            case MATHPIX -> {
+                TextractProperties.Mathpix mathpix = math.getMathpix();
+                yield new MathpixMathDocumentOcrClient(
+                        mathpix.getApiBaseUrl(),
+                        mathpix.getTimeout(),
+                        mathpix.getPollInterval(),
+                        mathpix.getMaxPollAttempts(),
+                        mathpix.getAppId(),
+                        mathpix.getAppKey(),
+                        objectMapper);
+            }
+            case NONE -> new MathDocumentOcrClient() {
+                @Override
+                public boolean available() {
+                    return false;
+                }
+
+                @Override
+                public String provider() {
+                    return "none";
+                }
+
+                @Override
+                public studio.one.platform.textract.domain.model.ParsedFile extract(
+                        studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest request,
+                        studio.one.platform.textract.infrastructure.extractor.pdf.PdfDocumentAnalysis analysis) {
+                    throw new studio.one.platform.textract.domain.error.FileParseException(
+                            "Math document OCR provider is not configured.");
+                }
+            };
+        };
+    }
+
+    private List<MathVisionCorrectionClient> mathVisionCorrectionClients(ObjectMapper objectMapper) {
+        TextractProperties.VisionCorrection vision = props.getPdf().getEngines().getMath().getVisionCorrection();
+        if (!vision.isEnabled()) {
+            return List.of();
+        }
+        return switch (vision.getProvider() == null ? TextractProperties.VisionProvider.NONE : vision.getProvider()) {
+            case GEMINI -> {
+                TextractProperties.Gemini gemini = vision.getGemini();
+                yield List.of(new GeminiMathVisionCorrectionClient(
+                        gemini.getBaseUrl(),
+                        gemini.getApiKey(),
+                        gemini.getModel(),
+                        gemini.getTimeout(),
+                        gemini.getMaxFileSizeBytes(),
+                        objectMapper));
+            }
+            case NONE -> List.of();
+        };
     }
 
     @Bean
