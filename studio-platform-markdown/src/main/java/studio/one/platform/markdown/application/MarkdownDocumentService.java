@@ -1,18 +1,27 @@
 package studio.one.platform.markdown.application;
 
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,12 +29,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
+import studio.one.platform.markdown.application.port.MarkdownNormalizationPort;
+import studio.one.platform.markdown.application.port.MarkdownPagePreviewPort;
 import studio.one.platform.markdown.application.port.MarkdownPipelinePort;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.application.port.MarkdownSourcePort;
 import studio.one.platform.markdown.application.port.MarkdownTaskExecutor;
 import studio.one.platform.markdown.application.port.MarkdownTransactionOperations;
 import studio.one.platform.markdown.domain.MarkdownDocument;
+import studio.one.platform.markdown.domain.MarkdownExtractPart;
 import studio.one.platform.markdown.domain.MarkdownLocator;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecutionStatus;
@@ -43,16 +55,28 @@ public class MarkdownDocumentService {
     private final MarkdownSourcePort sourcePort;
     private final MarkdownNativeExtractorPort nativeExtractor;
     private final MarkdownConversionPort conversionPort;
+    private final MarkdownNormalizationPort normalizationPort;
     private final MarkdownPipelinePort pipelinePort;
     private final MarkdownTaskExecutor taskExecutor;
     private final MarkdownTransactionOperations transactions;
     private final ObjectMapper objectMapper;
     private final Clock clock;
     private final String pandocVersion;
+    private final Set<String> pandocSourceFormats;
+    private final boolean fallbackToNativeOnPandocFailure;
+    private final Path markdownResultDirectory;
+    private final MarkdownPagePreviewPort pagePreviewPort;
+    private final String webBasePath;
     private final Set<String> activeTasks = ConcurrentHashMap.newKeySet();
     private static final int ESTIMATE_TARGET_CHUNKS = 1000;
     private static final int ESTIMATE_DEFAULT_EMBEDDING_BATCH_SIZE = 4;
     private static final int STALE_PIPELINE_RECOVERY_MINUTES = 30;
+    private static final Set<String> DEFAULT_PANDOC_SOURCE_FORMATS = Set.of("docx", "html");
+    private static final Path DEFAULT_MARKDOWN_RESULT_DIRECTORY =
+            Path.of(System.getProperty("java.io.tmpdir"), "studio-markdown-results");
+    private static final String DEFAULT_WEB_BASE_PATH = "/api/markdown-documents";
+    private static final Pattern LOGICAL_IMAGE_REFERENCE =
+            Pattern.compile("\\]\\(page\\[(\\d+)]/image\\[(\\d+)](?:\\.[^)]+)?\\)");
 
     public MarkdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
             MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
@@ -67,23 +91,79 @@ public class MarkdownDocumentService {
             MarkdownPipelinePort pipelinePort, MarkdownTaskExecutor taskExecutor,
             MarkdownTransactionOperations transactions,
             ObjectMapper objectMapper, Clock clock, String pandocVersion) {
+        this(repository, sourcePort, nativeExtractor, conversionPort, pipelinePort, taskExecutor, transactions,
+                objectMapper, clock, pandocVersion, DEFAULT_PANDOC_SOURCE_FORMATS, true);
+    }
+
+    public MarkdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
+            MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
+            MarkdownPipelinePort pipelinePort, MarkdownTaskExecutor taskExecutor,
+            MarkdownTransactionOperations transactions,
+            ObjectMapper objectMapper, Clock clock, String pandocVersion,
+            Set<String> pandocSourceFormats, boolean fallbackToNativeOnPandocFailure) {
+        this(repository, sourcePort, nativeExtractor, conversionPort, MarkdownNormalizationPort.noop(),
+                pipelinePort, taskExecutor, transactions, objectMapper, clock, pandocVersion,
+                pandocSourceFormats, fallbackToNativeOnPandocFailure);
+    }
+
+    public MarkdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
+            MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
+            MarkdownNormalizationPort normalizationPort,
+            MarkdownPipelinePort pipelinePort, MarkdownTaskExecutor taskExecutor,
+            MarkdownTransactionOperations transactions,
+            ObjectMapper objectMapper, Clock clock, String pandocVersion,
+            Set<String> pandocSourceFormats, boolean fallbackToNativeOnPandocFailure) {
+        this(repository, sourcePort, nativeExtractor, conversionPort, normalizationPort, pipelinePort, taskExecutor,
+                transactions, objectMapper, clock, pandocVersion, pandocSourceFormats,
+                fallbackToNativeOnPandocFailure, DEFAULT_MARKDOWN_RESULT_DIRECTORY,
+                MarkdownPagePreviewPort.unsupported(), DEFAULT_WEB_BASE_PATH);
+    }
+
+    public MarkdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
+            MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
+            MarkdownNormalizationPort normalizationPort,
+            MarkdownPipelinePort pipelinePort, MarkdownTaskExecutor taskExecutor,
+            MarkdownTransactionOperations transactions,
+            ObjectMapper objectMapper, Clock clock, String pandocVersion,
+            Set<String> pandocSourceFormats, boolean fallbackToNativeOnPandocFailure,
+            Path markdownResultDirectory) {
+        this(repository, sourcePort, nativeExtractor, conversionPort, normalizationPort, pipelinePort, taskExecutor,
+                transactions, objectMapper, clock, pandocVersion, pandocSourceFormats, fallbackToNativeOnPandocFailure,
+                markdownResultDirectory, MarkdownPagePreviewPort.unsupported(), DEFAULT_WEB_BASE_PATH);
+    }
+
+    public MarkdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
+            MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
+            MarkdownNormalizationPort normalizationPort,
+            MarkdownPipelinePort pipelinePort, MarkdownTaskExecutor taskExecutor,
+            MarkdownTransactionOperations transactions,
+            ObjectMapper objectMapper, Clock clock, String pandocVersion,
+            Set<String> pandocSourceFormats, boolean fallbackToNativeOnPandocFailure,
+            Path markdownResultDirectory, MarkdownPagePreviewPort pagePreviewPort, String webBasePath) {
         this.repository = Objects.requireNonNull(repository, "repository");
         this.sourcePort = Objects.requireNonNull(sourcePort, "sourcePort");
         this.nativeExtractor = Objects.requireNonNull(nativeExtractor, "nativeExtractor");
         this.conversionPort = Objects.requireNonNull(conversionPort, "conversionPort");
+        this.normalizationPort = normalizationPort == null ? MarkdownNormalizationPort.noop() : normalizationPort;
         this.pipelinePort = pipelinePort == null ? MarkdownPipelinePort.noop() : pipelinePort;
         this.taskExecutor = taskExecutor == null ? MarkdownTaskExecutor.direct() : taskExecutor;
         this.transactions = transactions == null ? MarkdownTransactionOperations.direct() : transactions;
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pandocVersion = normalize(pandocVersion, "pandoc");
+        this.pandocSourceFormats = normalizeFormats(pandocSourceFormats);
+        this.fallbackToNativeOnPandocFailure = fallbackToNativeOnPandocFailure;
+        this.markdownResultDirectory = markdownResultDirectory == null
+                ? DEFAULT_MARKDOWN_RESULT_DIRECTORY : markdownResultDirectory;
+        this.pagePreviewPort = pagePreviewPort == null ? MarkdownPagePreviewPort.unsupported() : pagePreviewPort;
+        this.webBasePath = normalizeWebBasePath(webBasePath);
         recoverStalePipelineExecutions();
     }
 
     public MarkdownExtractionResult create(MarkdownExtractionRequest request) {
         MarkdownSourcePort.MarkdownSource source = sourcePort.load(request.attachmentId());
         String sourceFormat = sourceFormat(source.fileName(), source.contentType());
-        boolean pandoc = sourceFormat.equals("docx") || sourceFormat.equals("html");
+        boolean pandoc = shouldUsePandoc(sourceFormat);
         String extractorType = pandoc ? "PANDOC" : "TEXTRACT";
         String extractorVersion = pandoc ? pandocVersion : "native";
         String sourceHash = hash(source.content());
@@ -116,10 +196,21 @@ public class MarkdownDocumentService {
 
         if (pandoc) {
             revision = markRunning(revision);
-            MarkdownConversionPort.ConversionSubmission submission = conversionPort.submit(conversionJobId,
-                    source.attachmentId(), sourceFormat, request.requestedBy());
+            MarkdownConversionPort.ConversionSubmission submission;
+            try {
+                submission = conversionPort.submit(conversionJobId,
+                        source.attachmentId(), sourceFormat, request.requestedBy());
+            } catch (RuntimeException ex) {
+                if (!fallbackToNativeOnPandocFailure) {
+                    throw ex;
+                }
+                return fallbackToNative(document, revision, "PANDOC_SUBMIT_FAILED", ex.getMessage());
+            }
             revision = withConversionJob(revision, submission.jobId());
             if ("FAILED".equalsIgnoreCase(submission.status())) {
+                if (fallbackToNativeOnPandocFailure) {
+                    return fallbackToNative(document, revision, submission.errorCode(), submission.errorMessage());
+                }
                 revision = fail(revision, submission.errorCode(), submission.errorMessage());
             }
             return new MarkdownExtractionResult(document, revision, false);
@@ -182,6 +273,10 @@ public class MarkdownDocumentService {
             if (revision.documentConvertJobId() == null) {
                 revision = withConversionJob(revision, jobId);
             }
+            if (fallbackToNativeOnPandocFailure) {
+                fallbackToNative(requireDocument(revision.documentId()), revision, errorCode, errorMessage);
+                return;
+            }
             fail(revision, errorCode, errorMessage);
         }
     }
@@ -210,6 +305,57 @@ public class MarkdownDocumentService {
     public List<MarkdownRevision> getRevisions(String documentId) {
         requireDocument(documentId);
         return repository.findRevisions(documentId);
+    }
+
+    public MarkdownContent getCurrentMarkdown(String documentId) {
+        MarkdownDocument document = requireDocument(documentId);
+        MarkdownRevision revision = hasText(document.currentRevisionId())
+                ? repository.findRevision(document.currentRevisionId())
+                        .filter(value -> documentId.equals(value.documentId()))
+                        .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                                "Current Markdown revision not found: " + document.currentRevisionId()))
+                : latestRevision(documentId);
+        return markdownContent(revision);
+    }
+
+    public MarkdownContent getRevisionMarkdown(String documentId, String revisionId) {
+        requireDocument(documentId);
+        MarkdownRevision revision = repository.findRevision(revisionId)
+                .filter(value -> documentId.equals(value.documentId()))
+                .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                        "Markdown revision not found: " + revisionId));
+        return markdownContent(revision);
+    }
+
+    public MarkdownPagePreview getPagePreview(String documentId, int page, MarkdownPagePreviewBounds bounds) {
+        MarkdownDocument document = requireDocument(documentId);
+        if (page < 1) {
+            throw new IllegalArgumentException("Page must be at least 1");
+        }
+        MarkdownRevision revision = hasText(document.currentRevisionId())
+                ? repository.findRevision(document.currentRevisionId())
+                        .filter(value -> documentId.equals(value.documentId()))
+                        .orElseThrow(() -> new MarkdownDocumentNotFoundException(
+                                "Current Markdown revision not found: " + document.currentRevisionId()))
+                : latestRevision(documentId);
+        MarkdownSourcePort.MarkdownSource source = sourcePort.load(revision.sourceAttachmentId());
+        if (!isPdf(source)) {
+            throw new MarkdownPagePreviewUnavailableException("Page preview is available only for PDF sources");
+        }
+        String sourceHash = hasText(revision.sourceContentHash()) ? revision.sourceContentHash() : hash(source.content());
+        Path path = previewPath(sourceHash, page, bounds);
+        if (!Files.exists(path)) {
+            byte[] rendered = pagePreviewPort.renderPng(source, page, bounds);
+            if (rendered == null || rendered.length == 0) {
+                throw new MarkdownPagePreviewUnavailableException("PDF page preview renderer returned no image");
+            }
+            writePreviewFile(path, rendered);
+        }
+        try {
+            return new MarkdownPagePreview(documentId, revision.revisionId(), page, bounds, path, Files.size(path));
+        } catch (java.io.IOException ex) {
+            throw new UncheckedIOException("Failed to read PDF page preview: " + path, ex);
+        }
     }
 
     public MarkdownPipelineExecution getPipelineExecution(String documentId) {
@@ -551,6 +697,15 @@ public class MarkdownDocumentService {
                 return new MarkdownResumeResult(restarted.document(), restarted.revision(), null,
                         "EXTRACTION", null);
             }
+            MarkdownRevision recovered = recoverCompletedNativeExtractParts(revision);
+            if (recovered != null) {
+                MarkdownPipelineExecution execution = repository.findPipelineExecution(recovered.revisionId())
+                        .orElse(null);
+                String phase = execution != null
+                        && execution.status() == MarkdownPipelineExecutionStatus.COMPLETED ? "COMPLETED" : "PIPELINE";
+                return new MarkdownResumeResult(requireDocument(document.documentId()), recovered, execution,
+                        phase, execution == null ? null : execution.currentStage());
+            }
             String revisionId = revision.revisionId();
             scheduleNative(revisionId);
             return new MarkdownResumeResult(document, revision, null, "EXTRACTION", null);
@@ -643,6 +798,12 @@ public class MarkdownDocumentService {
         Integer skillEmbeddingDimension = request.skillEmbeddingDimension() != null
                 ? request.skillEmbeddingDimension()
                 : previous.skillEmbeddingDimension();
+        Boolean ocrRequired = request.ocrRequired() != null ? request.ocrRequired() : previous.ocrRequired();
+        String ocrLanguage = request.ocrLanguage() != null ? request.ocrLanguage() : previous.ocrLanguage();
+        String ocrMode = request.ocrMode() != null ? request.ocrMode() : previous.ocrMode();
+        Boolean mathVisionCorrection = request.mathVisionCorrection() != null
+                ? request.mathVisionCorrection()
+                : previous.mathVisionCorrection();
 
         if (request.embeddingProfileId() != null && !request.embeddingProfileId().isBlank()) {
             embeddingProvider = null;
@@ -656,7 +817,8 @@ public class MarkdownDocumentService {
                 blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
-                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, ocrLanguage,
+                ocrMode, mathVisionCorrection);
     }
 
     public MarkdownResumeResult reindexRag(
@@ -789,7 +951,11 @@ public class MarkdownDocumentService {
 
     public List<MarkdownLocator> getLocators(String documentId) {
         MarkdownDocument document = requireDocument(documentId);
-        return document.currentRevisionId() == null ? List.of() : repository.findLocators(document.currentRevisionId());
+        return document.currentRevisionId() == null ? List.of() : locatorsWithNormalizedProvenance(document.currentRevisionId());
+    }
+
+    public List<MarkdownLocator> getProvenance(String documentId) {
+        return getLocators(documentId);
     }
 
     public List<MarkdownResource> getResources(String documentId) {
@@ -844,20 +1010,40 @@ public class MarkdownDocumentService {
     private MarkdownRevision complete(MarkdownRevision revision, Long resultAttachmentId, String markdown,
             String extractorVersion, List<MarkdownLocator> locators, List<MarkdownResource> resources) {
         Instant now = clock.instant();
-        String normalized = markdown == null ? "" : markdown;
+        MarkdownPipelineOptions options = readOptions(revision.optionsJson());
+        MarkdownNormalizationPort.NormalizationResult normalization = normalizationPort.normalize(
+                new MarkdownNormalizationPort.NormalizationRequest(
+                        revision.revisionId(), revision.sourceFormat(), revision.sourceFileName(), markdown,
+                        locators, resources, normalizationSource(revision),
+                        options.requestedDocumentProfile(), options.resolvedDocumentProfile(),
+                        options.documentProfileVersion()));
+        String normalized = normalization.markdown();
         if (normalized.isBlank()) {
             throw new NoTextExtractedException("Extracted markdown text is blank");
         }
+        normalized = withPagePreviewLinks(revision.documentId(), normalized);
         MarkdownRevision completed = repository.saveRevision(copy(revision, MarkdownRevisionStatus.COMPLETED,
                 normalized, hash(normalized.getBytes(StandardCharsets.UTF_8)), resultAttachmentId,
                 revision.documentConvertJobId(), normalize(extractorVersion, revision.extractorVersion()),
                 null, null, revision.startedAt(), now, now));
-        repository.replaceLocators(completed.revisionId(), locators == null ? List.of() : locators);
-        repository.replaceResources(completed.revisionId(), resources == null ? List.of() : resources);
+        repository.replaceLocators(completed.revisionId(),
+                locatorsWithNormalizedProvenance(completed.revisionId(), normalization.locators(),
+                        normalization.resources()));
+        repository.replaceResources(completed.revisionId(), normalization.resources());
         MarkdownDocument document = requireDocument(completed.documentId());
         repository.saveDocument(new MarkdownDocument(document.documentId(), document.sourceAttachmentId(),
                 completed.revisionId(), document.createdAt(), now));
         return completed;
+    }
+
+    private String normalizationSource(MarkdownRevision revision) {
+        if ("PANDOC".equalsIgnoreCase(revision.extractorType())) {
+            return "PANDOC_MARKDOWN";
+        }
+        if ("TEXTRACT".equalsIgnoreCase(revision.extractorType())) {
+            return "NATIVE_PARSED_FILE";
+        }
+        return "MARKDOWN_FALLBACK";
     }
 
     private MarkdownRevision fail(MarkdownRevision revision, String errorCode, String errorMessage) {
@@ -871,6 +1057,9 @@ public class MarkdownDocumentService {
     private void processNative(String revisionId) {
         MarkdownRevision revision = repository.findRevision(revisionId).orElse(null);
         if (revision == null || revision.status().terminal()) {
+            return;
+        }
+        if (recoverCompletedNativeExtractParts(revision) != null) {
             return;
         }
         try {
@@ -895,8 +1084,70 @@ public class MarkdownDocumentService {
         }
     }
 
+    private MarkdownRevision recoverCompletedNativeExtractParts(MarkdownRevision revision) {
+        if (!"TEXTRACT".equalsIgnoreCase(revision.extractorType())) {
+            return null;
+        }
+        String markdown = completedExtractPartsMarkdown(revision.revisionId());
+        if (!hasText(markdown)) {
+            return null;
+        }
+        MarkdownRevision completed = transactions.required(() -> {
+            MarkdownRevision current = repository.findRevision(revision.revisionId()).orElse(null);
+            if (current == null || current.status().terminal()) {
+                return current != null && current.status() == MarkdownRevisionStatus.COMPLETED ? current : null;
+            }
+            MarkdownRevision value = complete(current, current.resultAttachmentId(), markdown,
+                    current.extractorVersion(), List.of(), List.of());
+            preparePipeline(value);
+            return value;
+        });
+        if (completed != null && completed.status() == MarkdownRevisionStatus.COMPLETED) {
+            schedulePreparedPipeline(completed);
+        }
+        return completed;
+    }
+
+    private String completedExtractPartsMarkdown(String revisionId) {
+        List<MarkdownExtractPart> parts = repository.findExtractParts(revisionId);
+        if (parts.isEmpty()) {
+            return null;
+        }
+        boolean completed = parts.stream()
+                .allMatch(part -> "COMPLETED".equalsIgnoreCase(part.status()));
+        if (!completed) {
+            return null;
+        }
+        List<String> markdownParts = parts.stream()
+                .sorted(Comparator.comparingInt(MarkdownExtractPart::pageFrom)
+                        .thenComparingInt(MarkdownExtractPart::pageTo))
+                .map(MarkdownExtractPart::markdownText)
+                .filter(this::hasText)
+                .toList();
+        return markdownParts.isEmpty() ? null : String.join("\n\n", markdownParts);
+    }
+
     private String extractionErrorCode(RuntimeException ex, String fallback) {
         return ex instanceof NoTextExtractedException ? "NO_TEXT_EXTRACTED" : fallback;
+    }
+
+    private MarkdownExtractionResult fallbackToNative(MarkdownDocument document, MarkdownRevision revision,
+            String errorCode, String errorMessage) {
+        MarkdownRevision nativeRevision = switchToNativeFallback(revision, errorCode, errorMessage);
+        String scheduledRevisionId = nativeRevision.revisionId();
+        scheduleNative(scheduledRevisionId);
+        MarkdownRevision current = repository.findRevision(scheduledRevisionId).orElse(nativeRevision);
+        return new MarkdownExtractionResult(requireDocument(document.documentId()), current, false);
+    }
+
+    private MarkdownRevision switchToNativeFallback(MarkdownRevision revision, String errorCode, String errorMessage) {
+        Instant now = clock.instant();
+        return repository.saveRevision(new MarkdownRevision(revision.revisionId(), revision.documentId(),
+                revision.sourceAttachmentId(), null, revision.documentConvertJobId(), "TEXTRACT", "native",
+                revision.optionsJson(), revision.optionsHash(), revision.sourceContentHash(), null, null,
+                revision.sourceFileName(), revision.sourceFormat(), revision.sourceObjectType(), revision.sourceObjectId(),
+                MarkdownRevisionStatus.RUNNING, normalize(errorCode, "PANDOC_CONVERSION_FAILED"),
+                sanitize(errorMessage), revision.createdAt(), revision.startedAt(), null, now));
     }
 
     private static final class NoTextExtractedException extends RuntimeException {
@@ -1068,7 +1319,11 @@ public class MarkdownDocumentService {
                     current.generateSkillEmbeddings(),
                     current.skillEmbeddingProvider(),
                     current.skillEmbeddingModel(),
-                    current.skillEmbeddingDimension());
+                    current.skillEmbeddingDimension(),
+                    current.ocrRequired(),
+                    current.ocrLanguage(),
+                    current.ocrMode(),
+                    current.mathVisionCorrection());
             int chunks = pipelinePort.estimateChunkCount(revision, candidate);
             best = new RecommendedEstimate(candidate, chunks, embeddingRequests(chunks, embeddingBatchSize));
             if (chunks <= ESTIMATE_TARGET_CHUNKS) {
@@ -1115,7 +1370,11 @@ public class MarkdownDocumentService {
                     current.generateSkillEmbeddings(),
                     current.skillEmbeddingProvider(),
                     current.skillEmbeddingModel(),
-                    current.skillEmbeddingDimension());
+                    current.skillEmbeddingDimension(),
+                    current.ocrRequired(),
+                    current.ocrLanguage(),
+                    current.ocrMode(),
+                    current.mathVisionCorrection());
             int chunks = heuristicChunkCount(markdownLengthEstimate, candidate);
             best = new RecommendedEstimate(candidate, chunks, embeddingRequests(chunks, embeddingBatchSize));
             if (chunks <= ESTIMATE_TARGET_CHUNKS) {
@@ -1314,6 +1573,208 @@ public class MarkdownDocumentService {
                 .toList();
     }
 
+    private List<MarkdownLocator> locatorsWithNormalizedProvenance(String revisionId) {
+        List<MarkdownLocator> locators = new ArrayList<>(repository.findLocators(revisionId));
+        if (locators.stream().noneMatch(locator -> "NORMALIZED_BLOCK".equals(locator.locatorType()))) {
+            locators.addAll(normalizedBlockLocators(revisionId));
+        }
+        return List.copyOf(locators);
+    }
+
+    private List<MarkdownLocator> locatorsWithNormalizedProvenance(String revisionId,
+            List<MarkdownLocator> locators, List<MarkdownResource> resources) {
+        List<MarkdownLocator> values = new ArrayList<>(locators == null ? List.of() : locators);
+        if (values.stream().anyMatch(locator -> "NORMALIZED_BLOCK".equals(locator.locatorType()))) {
+            return List.copyOf(values);
+        }
+        values.addAll(normalizedBlockLocators(revisionId, resources));
+        return List.copyOf(values);
+    }
+
+    private List<MarkdownLocator> normalizedBlockLocators(String revisionId, List<MarkdownResource> resources) {
+        if (resources == null || resources.isEmpty()) {
+            return List.of();
+        }
+        return resources.stream()
+                .filter(resource -> MarkdownNormalizationPort.RESOURCE_TYPE_NORMALIZED_DOCUMENT.equals(resource.resourceType()))
+                .findFirst()
+                .map(resource -> normalizedBlockLocators(revisionId, resource))
+                .orElse(List.of());
+    }
+
+    private List<MarkdownLocator> normalizedBlockLocators(String revisionId) {
+        return repository.findResources(revisionId).stream()
+                .filter(resource -> MarkdownNormalizationPort.RESOURCE_TYPE_NORMALIZED_DOCUMENT.equals(resource.resourceType()))
+                .findFirst()
+                .map(resource -> normalizedBlockLocators(revisionId, resource))
+                .orElse(List.of());
+    }
+
+    private List<MarkdownLocator> normalizedBlockLocators(String revisionId, MarkdownResource resource) {
+        try {
+            Map<String, Object> payload = objectMapper.readValue(resource.metadataJson(), MAP_TYPE);
+            if (!"normalized-document-v1".equals(text(payload.get("schemaVersion")))) {
+                return List.of();
+            }
+            Object document = payload.get("document");
+            if (!(document instanceof Map<?, ?> documentMap)) {
+                return List.of();
+            }
+            Object blocks = documentMap.get("blocks");
+            if (!(blocks instanceof List<?> blockList)) {
+                return List.of();
+            }
+            List<MarkdownLocator> locators = new ArrayList<>();
+            for (Object item : blockList) {
+                if (item instanceof Map<?, ?> block) {
+                    normalizedBlockLocator(revisionId, locators.size(), block).ifPresent(locators::add);
+                }
+            }
+            return List.copyOf(locators);
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private java.util.Optional<MarkdownLocator> normalizedBlockLocator(
+            String revisionId, int index, Map<?, ?> block) {
+        Object metadata = block.get("metadata");
+        Map<?, ?> metadataMap = metadata instanceof Map<?, ?> value ? value : Map.of();
+        String sourceRef = text(firstPresent(block.get("sourceRef"), metadataMap.get("sourceRef")));
+        Integer page = firstInteger(
+                block.get("page"),
+                metadataMap.get("page"),
+                pageFromSourceRef(sourceRef));
+        Integer slide = firstInteger(
+                block.get("slide"),
+                metadataMap.get("slide"),
+                slideFromSourceRef(sourceRef));
+        Object bbox = firstPresent(metadataMap.get("bbox"), metadataMap.get("boundingBox"));
+        if (!hasText(sourceRef) && page == null && slide == null && bbox == null) {
+            return java.util.Optional.empty();
+        }
+
+        Map<String, Object> locatorMetadata = new java.util.LinkedHashMap<>();
+        putIfPresent(locatorMetadata, "schemaVersion", "normalized-document-v1");
+        putIfPresent(locatorMetadata, "provenanceSource", "NORMALIZED_DOCUMENT");
+        putIfPresent(locatorMetadata, "blockId", text(block.get("id")));
+        putIfPresent(locatorMetadata, "blockType", text(block.get("type")));
+        putIfPresent(locatorMetadata, "page", page);
+        putIfPresent(locatorMetadata, "slide", slide);
+        putIfPresent(locatorMetadata, "order", integer(block.get("order")));
+        putIfPresent(locatorMetadata, "sourceRef", sourceRef);
+        putIfPresent(locatorMetadata, "bbox", bbox);
+        putIfPresent(locatorMetadata, "blockIds", block.get("blockIds"));
+        putIfPresent(locatorMetadata, "confidence", block.get("confidence"));
+        putIfPresent(locatorMetadata, "metadata", metadataMap);
+
+        return java.util.Optional.of(new MarkdownLocator(
+                "mloc-normalized-" + revisionId + "-" + index,
+                revisionId,
+                "NORMALIZED_BLOCK",
+                page,
+                title(block),
+                0,
+                0,
+                sourceRef,
+                writeJson(locatorMetadata),
+                page,
+                slide,
+                bbox));
+    }
+
+    private String title(Map<?, ?> block) {
+        String text = text(block.get("text"));
+        if (text.isBlank()) {
+            return text(block.get("type"), "NORMALIZED_BLOCK");
+        }
+        String collapsed = text.replaceAll("\\s+", " ").trim();
+        return collapsed.length() <= 120 ? collapsed : collapsed.substring(0, 120);
+    }
+
+    private String text(Object value) {
+        return text(value, "");
+    }
+
+    private String text(Object value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String text = String.valueOf(value).trim();
+        return text.isBlank() ? fallback : text;
+    }
+
+    private Object firstPresent(Object first, Object second) {
+        return first == null ? second : first;
+    }
+
+    private void putIfPresent(Map<String, Object> target, String key, Object value) {
+        if (value == null) {
+            return;
+        }
+        if (value instanceof String string && string.isBlank()) {
+            return;
+        }
+        target.put(key, value);
+    }
+
+    private Integer integer(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String text && hasText(text)) {
+            try {
+                return Integer.parseInt(text.trim());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private Integer firstInteger(Object... values) {
+        if (values == null) {
+            return null;
+        }
+        for (Object value : values) {
+            Integer integer = integer(value);
+            if (integer != null) {
+                return integer;
+            }
+        }
+        return null;
+    }
+
+    private Integer pageFromSourceRef(String sourceRef) {
+        if (!hasText(sourceRef)) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("page\\[(\\d+)]").matcher(sourceRef);
+        if (!matcher.find()) {
+            return null;
+        }
+        return integer(matcher.group(1));
+    }
+
+    private Integer slideFromSourceRef(String sourceRef) {
+        if (!hasText(sourceRef)) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("slide\\[(\\d+)]").matcher(sourceRef);
+        if (!matcher.find()) {
+            return null;
+        }
+        return integer(matcher.group(1));
+    }
+
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception ex) {
+            return "{}";
+        }
+    }
+
     private List<MarkdownResource> copyResources(String sourceRevisionId, String targetRevisionId) {
         return repository.findResources(sourceRevisionId).stream()
                 .map(resource -> new MarkdownResource(
@@ -1355,6 +1816,118 @@ public class MarkdownDocumentService {
         return repository.findDocument(documentId)
                 .orElseThrow(() -> new MarkdownDocumentNotFoundException(
                         "Markdown document not found: " + documentId));
+    }
+
+    private MarkdownContent markdownContent(MarkdownRevision revision) {
+        if (revision.status() != MarkdownRevisionStatus.COMPLETED || !hasText(revision.markdownText())) {
+            throw new MarkdownContentUnavailableException(
+                    "Completed Markdown content is not available for revision: " + revision.revisionId());
+        }
+        String markdown = withPagePreviewLinks(revision.documentId(), revision.markdownText());
+        String contentHash = hash(markdown.getBytes(StandardCharsets.UTF_8));
+        Path path = ensureMarkdownResultFile(revision, contentHash, markdown);
+        long contentLength;
+        try {
+            contentLength = Files.size(path);
+        } catch (java.io.IOException ex) {
+            throw new UncheckedIOException("Failed to read Markdown result file: " + path, ex);
+        }
+        return new MarkdownContent(
+                revision.documentId(),
+                revision.revisionId(),
+                markdownFilename(revision),
+                contentHash,
+                path,
+                contentLength);
+    }
+
+    private Path ensureMarkdownResultFile(MarkdownRevision revision, String contentHash, String markdown) {
+        Path directory = markdownResultDirectory
+                .resolve(contentHash.substring(0, Math.min(2, contentHash.length())))
+                .resolve(contentHash);
+        Path file = directory.resolve(revision.revisionId() + ".md");
+        if (Files.exists(file)) {
+            return file;
+        }
+        try {
+            Files.createDirectories(directory);
+            Path temp = Files.createTempFile(directory, revision.revisionId() + "-", ".tmp");
+            try {
+                Files.writeString(temp, markdown, StandardCharsets.UTF_8,
+                        StandardOpenOption.TRUNCATE_EXISTING);
+                Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+            return file;
+        } catch (java.io.IOException ex) {
+            throw new UncheckedIOException("Failed to write Markdown result file: " + file, ex);
+        }
+    }
+
+    private String withPagePreviewLinks(String documentId, String markdown) {
+        Matcher matcher = LOGICAL_IMAGE_REFERENCE.matcher(markdown);
+        StringBuffer rewritten = new StringBuffer();
+        while (matcher.find()) {
+            String replacement = "](" + webBasePath + "/" + documentId + "/pages/" + matcher.group(1)
+                    + "/preview)";
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
+    }
+
+    private boolean isPdf(MarkdownSourcePort.MarkdownSource source) {
+        String contentType = source.contentType() == null ? "" : source.contentType().toLowerCase(java.util.Locale.ROOT);
+        String filename = source.fileName() == null ? "" : source.fileName().toLowerCase(java.util.Locale.ROOT);
+        return contentType.startsWith("application/pdf") || filename.endsWith(".pdf");
+    }
+
+    private Path previewPath(String sourceHash, int page, MarkdownPagePreviewBounds bounds) {
+        String key = sourceHash + ":" + page + ":" + (bounds == null ? "page" : bounds.toString());
+        String previewHash = hash(key.getBytes(StandardCharsets.UTF_8));
+        return markdownResultDirectory.resolve("previews")
+                .resolve(previewHash.substring(0, 2))
+                .resolve(previewHash + ".png");
+    }
+
+    private void writePreviewFile(Path path, byte[] content) {
+        try {
+            Files.createDirectories(path.getParent());
+            Path temp = Files.createTempFile(path.getParent(), "preview-", ".tmp");
+            try {
+                Files.write(temp, content, StandardOpenOption.TRUNCATE_EXISTING);
+                Files.move(temp, path, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temp);
+            }
+        } catch (java.io.IOException ex) {
+            throw new UncheckedIOException("Failed to cache PDF page preview: " + path, ex);
+        }
+    }
+
+    private String normalizeWebBasePath(String value) {
+        String normalized = hasText(value) ? value.trim() : DEFAULT_WEB_BASE_PATH;
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        return normalized.endsWith("/") && normalized.length() > 1
+                ? normalized.substring(0, normalized.length() - 1) : normalized;
+    }
+
+    private String markdownFilename(MarkdownRevision revision) {
+        String source = hasText(revision.sourceFileName()) ? revision.sourceFileName() : revision.revisionId();
+        String sanitized = source.replaceAll("[\\\\/\\r\\n\\t]+", "_").trim();
+        if (sanitized.isBlank()) {
+            sanitized = revision.revisionId();
+        }
+        String lower = sanitized.toLowerCase();
+        if (lower.endsWith(".md") || lower.endsWith(".markdown")) {
+            return sanitized;
+        }
+        int extension = sanitized.lastIndexOf('.');
+        String base = extension > 0 ? sanitized.substring(0, extension) : sanitized;
+        return base + ".md";
     }
 
     private MarkdownRevision findConversionRevision(String jobId, Long sourceAttachmentId) {
@@ -1403,6 +1976,23 @@ public class MarkdownDocumentService {
             return "epub";
         }
         return "unknown";
+    }
+
+    private boolean shouldUsePandoc(String sourceFormat) {
+        return sourceFormat != null && pandocSourceFormats.contains(sourceFormat.toLowerCase());
+    }
+
+    private Set<String> normalizeFormats(Set<String> formats) {
+        if (formats == null || formats.isEmpty()) {
+            return DEFAULT_PANDOC_SOURCE_FORMATS;
+        }
+        Set<String> normalized = new HashSet<>();
+        for (String format : formats) {
+            if (format != null && !format.isBlank()) {
+                normalized.add(format.trim().toLowerCase());
+            }
+        }
+        return normalized.isEmpty() ? DEFAULT_PANDOC_SOURCE_FORMATS : Set.copyOf(normalized);
     }
 
     private MarkdownRevision copy(MarkdownRevision source, MarkdownRevisionStatus status, String markdown,

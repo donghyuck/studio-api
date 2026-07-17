@@ -1,6 +1,7 @@
 package studio.one.platform.textract.autoconfigure;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Locale;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -60,7 +61,7 @@ public class TextractProperties {
             throw new IllegalArgumentException(propertyName + " must be between 1B and "
                     + Integer.MAX_VALUE + "B");
         }
-        return Math.toIntExact(bytes);
+        return java.lang.Math.toIntExact(bytes);
     }
 
     private static String normalizeDataSize(String value) {
@@ -104,6 +105,41 @@ public class TextractProperties {
     public static class PdfEngines {
         private PdfBox pdfbox = new PdfBox();
         private PyMuPdf4Llm pymupdf4llm = new PyMuPdf4Llm();
+        private Math math = new Math();
+        private KoreanOcr koreanOcr = new KoreanOcr();
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class KoreanOcr {
+        private boolean enabled = false;
+        @NotBlank
+        private String endpoint = "http://localhost:8603/extract/pdf";
+        private Duration timeout = Duration.ofMinutes(2);
+        @NotBlank
+        private String maxFileSize = "50MB";
+        private int maxPages = 8;
+        private int batchSize = 2;
+        private boolean fallbackEnabled = false;
+        @NotBlank
+        private String fallbackEndpoint = "http://localhost:8000/extract/pdf";
+        private int fallbackBatchSize = 2;
+
+        public int getMaxFileSizeBytes() {
+            return parseToBytes(maxFileSize, PREFIX + ".pdf.engines.korean-ocr.max-file-size");
+        }
+    }
+
+    public enum MathProvider {
+        NONE,
+        PIX2TEXT,
+        MATHPIX
+    }
+
+    public enum VisionProvider {
+        NONE,
+        GEMINI
     }
 
     @Getter
@@ -127,6 +163,97 @@ public class TextractProperties {
         public int getMaxFileSizeBytes() {
             return parseToBytes(maxFileSize, PREFIX + ".pdf.engines.pymupdf4llm.max-file-size");
         }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Math {
+        private boolean enabled = false;
+        private MathProvider provider = MathProvider.NONE;
+        private List<MathProvider> fallbackProviders = List.of(MathProvider.MATHPIX);
+        private QualityGate qualityGate = new QualityGate();
+        private Hybrid hybrid = new Hybrid();
+        private VisionCorrection visionCorrection = new VisionCorrection();
+        private Pix2Text pix2text = new Pix2Text();
+        private Mathpix mathpix = new Mathpix();
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class QualityGate {
+        private boolean enabled = true;
+        private double minScore = 0.65d;
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Hybrid {
+        private boolean enabled = true;
+        private int samplePages = 8;
+        private int maxCorrectionPages = 8;
+        private int fallbackPages = 2;
+        private int waveSize = 2;
+        private Duration timeBudget = Duration.ofMinutes(5);
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class VisionCorrection {
+        private boolean enabled = false;
+        private VisionProvider provider = VisionProvider.GEMINI;
+        private Gemini gemini = new Gemini();
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Gemini {
+        @NotBlank
+        private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
+        private String apiKey = "";
+        private String model = "gemini-2.5-flash";
+        private Duration timeout = Duration.ofMinutes(2);
+        @NotBlank
+        private String maxFileSize = "20MB";
+
+        public int getMaxFileSizeBytes() {
+            return parseToBytes(maxFileSize, PREFIX + ".pdf.engines.math.vision-correction.gemini.max-file-size");
+        }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Pix2Text {
+        @NotBlank
+        private String endpoint = "http://localhost:8503/extract/pdf";
+        private Duration timeout = Duration.ofMinutes(5);
+        @NotBlank
+        private String maxFileSize = "50MB";
+        private String language = "ko,en";
+        private boolean pageByPage = true;
+        private int batchSize = 1;
+
+        public int getMaxFileSizeBytes() {
+            return parseToBytes(maxFileSize, PREFIX + ".pdf.engines.math.pix2text.max-file-size");
+        }
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Mathpix {
+        @NotBlank
+        private String apiBaseUrl = "https://api.mathpix.com/v3";
+        private Duration timeout = Duration.ofMinutes(5);
+        private Duration pollInterval = Duration.ofSeconds(2);
+        private int maxPollAttempts = 90;
+        private String appId = "";
+        private String appKey = "";
     }
 
     @Getter

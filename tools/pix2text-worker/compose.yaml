@@ -1,0 +1,29 @@
+services:
+  pix2text-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: studio-pix2text-worker:local
+    container_name: studio-pix2text-worker
+    ports:
+      - "${PIX2TEXT_WORKER_PORT:-8503}:8503"
+    environment:
+      PIX2TEXT_LANGUAGE: "${PIX2TEXT_LANGUAGE:-ko,en}"
+      PIX2TEXT_DEVICE: "${PIX2TEXT_DEVICE:-cpu}"
+      PIX2TEXT_ORT_PROVIDERS: "${PIX2TEXT_ORT_PROVIDERS:-CPUExecutionProvider}"
+      PIX2TEXT_MAX_UPLOAD_BYTES: "${PIX2TEXT_MAX_UPLOAD_BYTES:-52428800}"
+      PIX2TEXT_DOWNLOAD_SOURCE: "${PIX2TEXT_DOWNLOAD_SOURCE:-HF}"
+      UVICORN_WORKERS: "${UVICORN_WORKERS:-1}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    volumes:
+      - pix2text-cache:/root/.pix2text
+      - cnocr-cache:/root/.cnocr
+      - cnstd-cache:/root/.cnstd
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+volumes:
+  pix2text-cache:
+  cnocr-cache:
+  cnstd-cache:
+  hf-cache:

@@ -8,14 +8,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.application.port.MarkdownSourcePort;
+import studio.one.platform.markdown.domain.MarkdownResource;
 import studio.one.platform.markdown.domain.MarkdownExtractPart;
 import studio.one.platform.markdown.domain.MarkdownLocator;
+import studio.one.platform.chunking.core.NormalizedDocument;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineSelector;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptionsContext;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionProgressContext;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
@@ -24,6 +28,10 @@ public class TextractMarkdownNativeExtractorAdapter implements MarkdownNativeExt
     private final ObjectMapper objectMapper;
     private final String extractorVersion;
     private final MarkdownRepository repository;
+    private final ParsedFileNormalizedDocumentMapper normalizer;
+    private final NormalizedMarkdownRenderer renderer;
+    private final NormalizedDocumentQualityValidator qualityValidator;
+    private final RenderedMarkdownPostProcessor markdownPostProcessor;
 
     public TextractMarkdownNativeExtractorAdapter(FileContentExtractionService extractionService,
             ObjectMapper objectMapper, String extractorVersion) {
@@ -32,10 +40,30 @@ public class TextractMarkdownNativeExtractorAdapter implements MarkdownNativeExt
 
     public TextractMarkdownNativeExtractorAdapter(FileContentExtractionService extractionService,
             ObjectMapper objectMapper, String extractorVersion, MarkdownRepository repository) {
+        this(extractionService, objectMapper, extractorVersion, repository,
+                new ParsedFileNormalizedDocumentMapper(), new NormalizedMarkdownRenderer(),
+                new NormalizedDocumentQualityValidator());
+    }
+
+    public TextractMarkdownNativeExtractorAdapter(FileContentExtractionService extractionService,
+            ObjectMapper objectMapper, String extractorVersion, MarkdownRepository repository,
+            ParsedFileNormalizedDocumentMapper normalizer, NormalizedMarkdownRenderer renderer) {
+        this(extractionService, objectMapper, extractorVersion, repository, normalizer, renderer,
+                new NormalizedDocumentQualityValidator());
+    }
+
+    public TextractMarkdownNativeExtractorAdapter(FileContentExtractionService extractionService,
+            ObjectMapper objectMapper, String extractorVersion, MarkdownRepository repository,
+            ParsedFileNormalizedDocumentMapper normalizer, NormalizedMarkdownRenderer renderer,
+            NormalizedDocumentQualityValidator qualityValidator) {
         this.extractionService = extractionService;
         this.objectMapper = objectMapper;
         this.extractorVersion = extractorVersion;
         this.repository = repository;
+        this.normalizer = normalizer == null ? new ParsedFileNormalizedDocumentMapper() : normalizer;
+        this.renderer = renderer == null ? new NormalizedMarkdownRenderer() : renderer;
+        this.qualityValidator = qualityValidator == null ? new NormalizedDocumentQualityValidator() : qualityValidator;
+        this.markdownPostProcessor = new RenderedMarkdownPostProcessor();
     }
 
     @Override
@@ -50,7 +78,14 @@ public class TextractMarkdownNativeExtractorAdapter implements MarkdownNativeExt
                         locator.type(), locator.number(), locator.title(), locator.startOffset(),
                         locator.endOffset(), locator.sourceRef(), writeJson(locator.metadata())))
                 .toList();
-        String markdown = parsed.markdown().isBlank() ? parsed.plainText() : parsed.markdown();
+        String fallbackMarkdown = parsed.markdown().isBlank() ? parsed.plainText() : parsed.markdown();
+        NormalizedDocument normalized = normalizer.map(parsed, revisionId, source.fileName(),
+                source.contentType(), fallbackMarkdown);
+        String markdown = renderer.render(normalized, fallbackMarkdown);
+        List<String> issues = qualityValidator.validate(normalized, markdown);
+        normalized = markdownPostProcessor.withRenderedQuality(normalized, markdown, issues);
+        List<MarkdownResource> resources = List.of(NormalizedDocumentSnapshot.resource(revisionId, normalized,
+                NormalizedDocumentSnapshot.SOURCE_NATIVE, issues, objectMapper));
         List<MarkdownExtractPart> parts = liveParts.isEmpty()
                 ? extractParts(revisionId, parsed.metadata())
                 : List.copyOf(liveParts);
@@ -62,14 +97,20 @@ public class TextractMarkdownNativeExtractorAdapter implements MarkdownNativeExt
             errorCode = "NO_EXTRACTABLE_CONTENT";
             errorMessage = "No extractable text was produced by any PDF page range.";
         }
-        return new NativeExtraction(markdown, extractorVersion, locators, List.of(), parts, errorCode, errorMessage);
+        return new NativeExtraction(markdown, extractorVersion, locators, resources, parts, errorCode, errorMessage);
     }
 
     private studio.one.platform.textract.domain.model.ParsedFile extractWithPartProgress(
             MarkdownSourcePort.MarkdownSource source,
             String revisionId,
             List<MarkdownExtractPart> liveParts) {
-        try (PdfExtractionProgressContext.Scope ignored = PdfExtractionProgressContext.withListener(partSummary -> {
+        Boolean ocrRequired = ocrRequired(revisionId);
+        String ocrLanguage = ocrLanguage(revisionId);
+        String ocrMode = ocrMode(revisionId);
+        Boolean mathVisionCorrection = mathVisionCorrection(revisionId);
+        try (PdfExtractionOptionsContext.Scope ignoredOptions = PdfExtractionOptionsContext.withOptions(ocrRequired,
+                ocrLanguage, ocrMode, mathVisionCorrection);
+                PdfExtractionProgressContext.Scope ignored = PdfExtractionProgressContext.withListener(partSummary -> {
             MarkdownExtractPart part = extractPart(revisionId, partSummary);
             if (part == null) {
                 return;
@@ -81,6 +122,70 @@ public class TextractMarkdownNativeExtractorAdapter implements MarkdownNativeExt
         })) {
             return extractionService.parseStructured(source.contentType(), source.fileName(),
                     new ByteArrayInputStream(source.content()));
+        }
+    }
+
+    private Boolean ocrRequired(String revisionId) {
+        if (repository == null) {
+            return null;
+        }
+        return repository.findRevision(revisionId)
+                .map(revision -> booleanOption(revision.optionsJson(), "ocrRequired"))
+                .orElse(null);
+    }
+
+    private String ocrLanguage(String revisionId) {
+        if (repository == null) {
+            return null;
+        }
+        return repository.findRevision(revisionId)
+                .map(revision -> stringOption(revision.optionsJson(), "ocrLanguage"))
+                .orElse(null);
+    }
+
+    private String ocrMode(String revisionId) {
+        if (repository == null) {
+            return null;
+        }
+        return repository.findRevision(revisionId)
+                .map(revision -> stringOption(revision.optionsJson(), "ocrMode"))
+                .orElse(null);
+    }
+
+    private Boolean mathVisionCorrection(String revisionId) {
+        if (repository == null) {
+            return null;
+        }
+        return repository.findRevision(revisionId)
+                .map(revision -> booleanOption(revision.optionsJson(), "mathVisionCorrection"))
+                .orElse(null);
+    }
+
+    private Boolean booleanOption(String optionsJson, String key) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode value = objectMapper.readTree(optionsJson).get(key);
+            return value == null || value.isNull() ? null : value.asBoolean(false);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private String stringOption(String optionsJson, String key) {
+        if (optionsJson == null || optionsJson.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode value = objectMapper.readTree(optionsJson).get(key);
+            if (value == null || value.isNull()) {
+                return null;
+            }
+            String text = value.asText(null);
+            return text == null || text.isBlank() ? null : text.trim();
+        } catch (Exception ignored) {
+            return null;
         }
     }
 

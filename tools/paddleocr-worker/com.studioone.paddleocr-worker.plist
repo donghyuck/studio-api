@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.studioone.paddleocr-worker</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/donghyuck.son/studio-paddleocr-worker/run-native.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/donghyuck.son/studio-paddleocr-worker</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>/Users/donghyuck.son/studio-paddleocr-worker/logs/paddleocr-native.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/donghyuck.son/studio-paddleocr-worker/logs/paddleocr-native.log</string>
+</dict>
+</plist>

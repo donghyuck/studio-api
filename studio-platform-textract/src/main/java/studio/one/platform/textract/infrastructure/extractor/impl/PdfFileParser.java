@@ -15,6 +15,7 @@ import studio.one.platform.textract.application.usecase.StructuredFileParser;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineSelector;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionMode;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptionsContext;
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pdfbox.PdfBoxExtractionEngine;
 import studio.one.platform.textract.domain.model.ParsedFile;
@@ -62,7 +63,8 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
             log.debug("Failed to parse media type: {}", contentType, e);
         }
         pdf = pdf || hasExtension(filename, ".pdf");
-        return pdf && selector.supports(new PdfExtractionRequest(new byte[0], contentType, filename, options));
+        PdfExtractionOptions effectiveOptions = effectiveOptions();
+        return pdf && selector.supports(new PdfExtractionRequest(new byte[0], contentType, filename, effectiveOptions));
     }
 
     @Override
@@ -84,18 +86,34 @@ public class PdfFileParser extends AbstractFileParser implements StructuredFileP
     }
 
     private PdfExtractionOptions withDetectedPageCount(byte[] bytes) {
-        if (!options.pyMuPdf4LlmEnabled()
-                || (options.engine() == PdfExtractionMode.PDFBOX)
-                || (options.engine() == PdfExtractionMode.AUTO
-                        && options.preferPyMuPdf4LlmMinPages() <= 0
-                        && !options.largePdfEnabled())) {
-            return options;
+        PdfExtractionOptions effectiveOptions = effectiveOptions();
+        if (!effectiveOptions.pyMuPdf4LlmEnabled()
+                || (effectiveOptions.engine() == PdfExtractionMode.PDFBOX)
+                || (effectiveOptions.engine() == PdfExtractionMode.AUTO
+                        && effectiveOptions.preferPyMuPdf4LlmMinPages() <= 0
+                        && !effectiveOptions.largePdfEnabled())) {
+            return effectiveOptions;
         }
         try (PDDocument document = Loader.loadPDF(bytes)) {
-            return options.withPageCount(document.getNumberOfPages());
+            return effectiveOptions.withPageCount(document.getNumberOfPages());
         } catch (IOException ex) {
             log.debug("Failed to inspect PDF page count before engine selection.", ex);
-            return options;
+            return effectiveOptions;
         }
+    }
+
+    private PdfExtractionOptions effectiveOptions() {
+        PdfExtractionOptions effective = PdfExtractionOptionsContext.ocrRequired()
+                .map(options::withOcrRequired)
+                .orElse(options);
+        effective = PdfExtractionOptionsContext.ocrLanguage()
+                .map(effective::withOcrLanguage)
+                .orElse(effective);
+        effective = PdfExtractionOptionsContext.ocrMode()
+                .map(effective::withOcrMode)
+                .orElse(effective);
+        return PdfExtractionOptionsContext.mathVisionCorrection()
+                .map(effective::withMathVisionCorrection)
+                .orElse(effective);
     }
 }

@@ -1,11 +1,13 @@
 package studio.one.platform.markdown;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
@@ -15,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -22,7 +25,9 @@ import org.junit.jupiter.api.Test;
 
 import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.MarkdownDocumentNotFoundException;
+import studio.one.platform.markdown.application.MarkdownContentUnavailableException;
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
+import studio.one.platform.markdown.application.MarkdownPagePreviewBounds;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyResult;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeBatchApplyResult;
@@ -33,12 +38,15 @@ import studio.one.platform.markdown.application.MarkdownResumeResult;
 import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
+import studio.one.platform.markdown.application.port.MarkdownNormalizationPort;
+import studio.one.platform.markdown.application.port.MarkdownPagePreviewPort;
 import studio.one.platform.markdown.application.port.MarkdownPipelinePort;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.application.port.MarkdownSourcePort;
 import studio.one.platform.markdown.application.port.MarkdownTaskExecutor;
 import studio.one.platform.markdown.application.port.MarkdownTransactionOperations;
 import studio.one.platform.markdown.domain.MarkdownDocument;
+import studio.one.platform.markdown.domain.MarkdownExtractPart;
 import studio.one.platform.markdown.domain.MarkdownLocator;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecution;
 import studio.one.platform.markdown.domain.MarkdownPipelineExecutionStatus;
@@ -71,6 +79,40 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void rewritesLogicalImageReferencesAndCachesPdfPagePreview() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.pdf", "application/pdf", "%PDF-test");
+        int[] renders = {0};
+        MarkdownPagePreviewPort previews = (source, page, bounds) -> {
+            renders[0]++;
+            return new byte[] {1, 2, 3};
+        };
+        var cacheDirectory = Files.createTempDirectory("markdown-preview-test");
+        MarkdownDocumentService service = new MarkdownDocumentService(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "![diagram](page[2]/image[0])", "textract-1", List.of(), List.of()),
+                conversion(), MarkdownNormalizationPort.noop(), MarkdownPipelinePort.noop(),
+                MarkdownTaskExecutor.direct(), MarkdownTransactionOperations.direct(), new ObjectMapper(), CLOCK,
+                "pandoc-3", Set.of("docx", "html"), true, cacheDirectory, previews, "/markdown-api");
+
+        var result = service.create(new MarkdownExtractionRequest(1L, true, true, false, false, "tester"));
+
+        assertTrue(result.revision().markdownText()
+                .contains("](/markdown-api/" + result.document().documentId() + "/pages/2/preview)"));
+        assertTrue(Files.readString(service.getCurrentMarkdown(result.document().documentId()).path())
+                .contains("](/markdown-api/" + result.document().documentId() + "/pages/2/preview)"));
+        var first = service.getPagePreview(result.document().documentId(), 2,
+                new MarkdownPagePreviewBounds(1, 2, 10, 20));
+        var second = service.getPagePreview(result.document().documentId(), 2,
+                new MarkdownPagePreviewBounds(1, 2, 10, 20));
+
+        assertEquals(1, renders[0]);
+        assertEquals(first.path(), second.path());
+        assertArrayEquals(new byte[] {1, 2, 3}, Files.readAllBytes(first.path()));
+    }
+
+    @Test
     void treatsEpubMimeTypeAsNativeEpubExtraction() {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();
@@ -84,6 +126,91 @@ class MarkdownDocumentServiceTest {
         assertEquals(MarkdownRevisionStatus.COMPLETED, result.revision().status());
         assertEquals("epub", result.revision().sourceFormat());
         assertEquals("TEXTRACT", result.revision().extractorType());
+    }
+
+    @Test
+    void usesConfiguredPandocFormats() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "book", "application/epub+zip", "epub");
+        int[] nativeExtractions = {0};
+        List<String> submittedFormats = new ArrayList<>();
+        MarkdownConversionPort conversion = new MarkdownConversionPort() {
+            @Override
+            public ConversionSubmission submit(String jobId, long sourceAttachmentId, String sourceFormat,
+                    String requestedBy) {
+                submittedFormats.add(sourceFormat);
+                return new ConversionSubmission(jobId, "RUNNING", null, null);
+            }
+
+            @Override
+            public void cancel(String jobId) {
+            }
+        };
+        MarkdownDocumentService service = service(repository, sources, (source, revisionId) -> {
+            nativeExtractions[0]++;
+            return new MarkdownNativeExtractorPort.NativeExtraction("# EPUB", "textract-epub", List.of(), List.of());
+        }, conversion, MarkdownPipelinePort.noop(), MarkdownTaskExecutor.direct(), Set.of("docx", "html", "epub"),
+                true);
+
+        var result = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+
+        assertEquals(MarkdownRevisionStatus.RUNNING, result.revision().status());
+        assertEquals("PANDOC", result.revision().extractorType());
+        assertEquals("epub", result.revision().sourceFormat());
+        assertEquals(List.of("epub"), submittedFormats);
+        assertEquals(0, nativeExtractions[0]);
+    }
+
+    @Test
+    void fallsBackToNativeWhenPandocSubmissionFails() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "docx");
+        MarkdownConversionPort conversion = new MarkdownConversionPort() {
+            @Override
+            public ConversionSubmission submit(String jobId, long sourceAttachmentId, String sourceFormat,
+                    String requestedBy) {
+                return new ConversionSubmission(jobId, "FAILED", "PANDOC_FAILED", "Pandoc failed");
+            }
+
+            @Override
+            public void cancel(String jobId) {
+            }
+        };
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-docx", List.of(), List.of()),
+                conversion, MarkdownPipelinePort.noop(), MarkdownTaskExecutor.direct(), Set.of("docx", "html"),
+                true);
+
+        var result = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+
+        assertEquals(MarkdownRevisionStatus.COMPLETED, result.revision().status());
+        assertEquals("TEXTRACT", result.revision().extractorType());
+        assertEquals("native", result.revision().extractorVersion());
+        assertEquals("# Native", result.revision().markdownText());
+    }
+
+    @Test
+    void fallsBackToNativeWhenPandocConversionFailsLater() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "docx");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-docx", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+
+        var created = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+        service.onConversionFailed(created.revision().documentConvertJobId(), 1L, "PANDOC_FAILED", "Pandoc failed");
+
+        MarkdownRevision revision = service.getRevisions(created.document().documentId()).get(0);
+        assertEquals(MarkdownRevisionStatus.COMPLETED, revision.status());
+        assertEquals("TEXTRACT", revision.extractorType());
+        assertEquals("# Native", revision.markdownText());
     }
 
     @Test
@@ -348,6 +475,209 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void resumeCompletesRunningNativeRevisionFromCompletedExtractParts() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.pdf", "application/pdf", "pdf");
+        CapturingPipeline pipeline = new CapturingPipeline();
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> {
+                    throw new IllegalStateException("native extractor should not be called");
+                },
+                pipeline);
+        String documentId = "mdoc-stale";
+        String revisionId = "mrev-stale";
+        repository.saveDocument(new MarkdownDocument(documentId, 1L, null, CLOCK.instant(), CLOCK.instant()));
+        repository.saveRevision(new MarkdownRevision(
+                revisionId,
+                documentId,
+                1L,
+                null,
+                null,
+                "TEXTRACT",
+                "native",
+                new ObjectMapper().writeValueAsString(MarkdownPipelineOptions.none()),
+                "options-hash",
+                "source-hash",
+                null,
+                null,
+                "sample.pdf",
+                "pdf",
+                null,
+                null,
+                MarkdownRevisionStatus.RUNNING,
+                null,
+                null,
+                CLOCK.instant(),
+                CLOCK.instant(),
+                null,
+                CLOCK.instant()));
+        repository.saveExtractPart(extractPart(revisionId, 101, 200, "## Page 101"));
+        repository.saveExtractPart(extractPart(revisionId, 1, 100, "# Page 1"));
+
+        MarkdownResumeResult result = service.resumeWithOptions(documentId, null);
+
+        assertEquals("COMPLETED", result.resumedPhase());
+        assertEquals(MarkdownRevisionStatus.COMPLETED, result.revision().status());
+        assertEquals("# Page 1\n\n## Page 101", result.revision().markdownText());
+        assertEquals(revisionId, result.document().currentRevisionId());
+        assertEquals(MarkdownPipelineExecutionStatus.COMPLETED, result.pipeline().status());
+        assertTrue(pipeline.processed.isEmpty());
+    }
+
+    @Test
+    void getsCurrentAndRevisionMarkdownContent() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.pdf", "application/pdf", "hello");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Hello", "textract-1", List.of(), List.of()),
+                new CapturingPipeline());
+        var created = service.create(new MarkdownExtractionRequest(
+                1L, MarkdownPipelineOptions.none(), false, "tester"));
+
+        var current = service.getCurrentMarkdown(created.document().documentId());
+        var revision = service.getRevisionMarkdown(created.document().documentId(), created.revision().revisionId());
+
+        assertEquals(created.document().documentId(), current.documentId());
+        assertEquals(created.revision().revisionId(), current.revisionId());
+        assertEquals("sample.md", current.filename());
+        assertEquals(created.revision().contentHash(), current.contentHash());
+        assertEquals("# Hello", Files.readString(current.path()));
+        assertEquals(current.path(), revision.path());
+        assertEquals(current.contentLength(), revision.contentLength());
+    }
+
+    @Test
+    void currentMarkdownUsesPromotedRevisionWhileNewerExtractionIsRunning() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.pdf", "application/pdf", "hello");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Hello", "textract-1", List.of(), List.of()),
+                new CapturingPipeline());
+        String documentId = "mdoc-current";
+        String completedRevisionId = "mrev-completed";
+        String runningRevisionId = "mrev-running";
+        repository.saveDocument(new MarkdownDocument(
+                documentId, 1L, completedRevisionId, CLOCK.instant(), CLOCK.instant().plusSeconds(1)));
+        repository.saveRevision(new MarkdownRevision(
+                completedRevisionId,
+                documentId,
+                1L,
+                null,
+                null,
+                "TEXTRACT",
+                "native",
+                new ObjectMapper().writeValueAsString(MarkdownPipelineOptions.none()),
+                "options-hash",
+                "source-hash",
+                "completed-hash",
+                "# Completed",
+                "sample.pdf",
+                "pdf",
+                null,
+                null,
+                MarkdownRevisionStatus.COMPLETED,
+                null,
+                null,
+                CLOCK.instant(),
+                CLOCK.instant(),
+                CLOCK.instant().plusSeconds(1),
+                CLOCK.instant().plusSeconds(1)));
+        repository.saveRevision(new MarkdownRevision(
+                runningRevisionId,
+                documentId,
+                1L,
+                null,
+                null,
+                "TEXTRACT",
+                "native",
+                new ObjectMapper().writeValueAsString(MarkdownPipelineOptions.none()),
+                "options-hash-2",
+                "source-hash",
+                null,
+                null,
+                "sample.pdf",
+                "pdf",
+                null,
+                null,
+                MarkdownRevisionStatus.RUNNING,
+                null,
+                null,
+                CLOCK.instant().plusSeconds(2),
+                CLOCK.instant().plusSeconds(2),
+                null,
+                CLOCK.instant().plusSeconds(2)));
+
+        var current = service.getCurrentMarkdown(documentId);
+
+        assertEquals(completedRevisionId, current.revisionId());
+        assertEquals("# Completed", Files.readString(current.path()));
+    }
+
+    @Test
+    void markdownContentRequiresCompletedRevisionWithText() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.pdf", "application/pdf", "pdf");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "", "textract-1", List.of(), List.of()),
+                new CapturingPipeline());
+        String documentId = "mdoc-running";
+        String revisionId = "mrev-running";
+        repository.saveDocument(new MarkdownDocument(documentId, 1L, revisionId, CLOCK.instant(), CLOCK.instant()));
+        repository.saveRevision(new MarkdownRevision(
+                revisionId,
+                documentId,
+                1L,
+                null,
+                null,
+                "TEXTRACT",
+                "native",
+                new ObjectMapper().writeValueAsString(MarkdownPipelineOptions.none()),
+                "options-hash",
+                "source-hash",
+                null,
+                null,
+                "sample.pdf",
+                "pdf",
+                null,
+                null,
+                MarkdownRevisionStatus.RUNNING,
+                null,
+                null,
+                CLOCK.instant(),
+                CLOCK.instant(),
+                null,
+                CLOCK.instant()));
+
+        assertThrows(MarkdownContentUnavailableException.class, () -> service.getCurrentMarkdown(documentId));
+    }
+
+    private static MarkdownExtractPart extractPart(String revisionId, int pageFrom, int pageTo, String markdown) {
+        return new MarkdownExtractPart(
+                "mepart-" + pageFrom,
+                revisionId,
+                pageFrom,
+                pageTo,
+                "COMPLETED",
+                "pymupdf4llm",
+                markdown.length(),
+                markdown,
+                null,
+                null,
+                1L,
+                "{}",
+                CLOCK.instant(),
+                CLOCK.instant(),
+                CLOCK.instant());
+    }
+
+    @Test
     void applyIdeaBlockMergeCanResumeRagPipelineFromRagIndex() {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();
@@ -510,6 +840,111 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void appliesNormalizationPortToPandocRevision() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx");
+        MarkdownNormalizationPort normalizer = request -> new MarkdownNormalizationPort.NormalizationResult(
+                "# Normalized",
+                request.locators(),
+                List.of(new MarkdownResource("mres-1", request.revisionId(),
+                        MarkdownNormalizationPort.RESOURCE_TYPE_NORMALIZED_DOCUMENT,
+                        "normalized-document.json", null,
+                        "{\"schemaVersion\":\"normalized-document-v1\"}")));
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> {
+                    throw new AssertionError("native extractor must not run");
+                }, MarkdownPipelinePort.noop(), normalizer);
+
+        var created = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+        service.onConversionResult(created.revision().documentConvertJobId(), "# Converted", 1L);
+        MarkdownRevision completed = service.getRevisions(created.document().documentId()).get(0);
+
+        assertEquals(MarkdownRevisionStatus.COMPLETED, completed.status());
+        assertEquals("# Normalized", completed.markdownText());
+        assertEquals(1, repository.findResources(completed.revisionId()).size());
+        assertEquals(MarkdownNormalizationPort.RESOURCE_TYPE_NORMALIZED_DOCUMENT,
+                repository.findResources(completed.revisionId()).get(0).resourceType());
+    }
+
+    @Test
+    void normalizationReviewResourceDoesNotFailRevision() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.txt", "text/plain", "hello");
+        MarkdownNormalizationPort normalizer = request -> new MarkdownNormalizationPort.NormalizationResult(
+                request.markdown(),
+                request.locators(),
+                List.of(new MarkdownResource("mres-1", request.revisionId(),
+                        MarkdownNormalizationPort.RESOURCE_TYPE_NORMALIZED_DOCUMENT,
+                        "normalized-document.json", null,
+                        "{\"schemaVersion\":\"normalized-document-v1\",\"normalizationStatus\":\"REVIEW_REQUIRED\"}")));
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop(), normalizer);
+
+        var result = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+
+        assertEquals(MarkdownRevisionStatus.COMPLETED, result.revision().status());
+        assertEquals("# Native", result.revision().markdownText());
+        assertEquals(1, repository.findResources(result.revision().revisionId()).size());
+    }
+
+    @Test
+    void exposesNormalizedBlockProvenanceAsLocators() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.pdf", "application/pdf", "pdf");
+        MarkdownNormalizationPort normalizer = request -> new MarkdownNormalizationPort.NormalizationResult(
+                request.markdown(),
+                request.locators(),
+                List.of(new MarkdownResource("mres-1", request.revisionId(),
+                        MarkdownNormalizationPort.RESOURCE_TYPE_NORMALIZED_DOCUMENT,
+                        "normalized-document.json", null,
+                        """
+                                {
+                                  "schemaVersion": "normalized-document-v1",
+                                  "document": {
+                                    "blocks": [
+                                      {
+                                        "id": "block-1",
+                                        "type": "PARAGRAPH",
+                                        "text": "본문",
+                                        "sourceRef": "page[3]/block[1]",
+                                        "order": 7,
+                                        "metadata": {
+                                          "bbox": [10.0, 20.0, 30.0, 40.0]
+                                        }
+                                      }
+                                    ]
+                                  }
+                                }
+                                """)));
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop(), normalizer);
+
+        var result = service.create(new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+
+        List<MarkdownLocator> locators = service.getLocators(result.document().documentId());
+        assertEquals(1, locators.size());
+        assertEquals("NORMALIZED_BLOCK", locators.get(0).locatorType());
+        assertEquals(3, locators.get(0).locatorNo());
+        assertEquals(3, locators.get(0).page());
+        assertEquals(null, locators.get(0).slide());
+        assertEquals(List.of(10.0, 20.0, 30.0, 40.0), locators.get(0).bbox());
+        assertEquals("page[3]/block[1]", locators.get(0).sourceRef());
+        assertTrue(locators.get(0).metadataJson().contains("\"bbox\""));
+        assertEquals(locators, service.getProvenance(result.document().documentId()));
+        assertEquals(1, repository.findLocators(result.revision().revisionId()).size());
+        assertEquals("NORMALIZED_BLOCK",
+                repository.findLocators(result.revision().revisionId()).get(0).locatorType());
+    }
+
+    @Test
     void persistsPipelineOptionsAndExpandsSkillDependencies() throws Exception {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();
@@ -547,6 +982,39 @@ class MarkdownDocumentServiceTest {
         return service(repository, sources, extractor, pipeline, MarkdownTaskExecutor.direct());
     }
 
+    private MarkdownConversionPort conversion() {
+        return new MarkdownConversionPort() {
+            @Override
+            public ConversionSubmission submit(String jobId, long sourceAttachmentId, String sourceFormat,
+                    String requestedBy) {
+                return new ConversionSubmission(jobId, "RUNNING", null, null);
+            }
+
+            @Override
+            public void cancel(String jobId) {
+            }
+        };
+    }
+
+    private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
+            MarkdownNativeExtractorPort extractor, MarkdownPipelinePort pipeline,
+            MarkdownNormalizationPort normalizationPort) {
+        MarkdownConversionPort conversion = new MarkdownConversionPort() {
+            @Override
+            public ConversionSubmission submit(String jobId, long sourceAttachmentId, String sourceFormat,
+                    String requestedBy) {
+                return new ConversionSubmission(jobId, "RUNNING", null, null);
+            }
+
+            @Override
+            public void cancel(String jobId) {
+            }
+        };
+        return new MarkdownDocumentService(repository, sources, extractor, conversion, normalizationPort, pipeline,
+                MarkdownTaskExecutor.direct(), MarkdownTransactionOperations.direct(),
+                new ObjectMapper(), CLOCK, "pandoc-3", Set.of("docx", "html"), true);
+    }
+
     private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
             MarkdownNativeExtractorPort extractor, MarkdownPipelinePort pipeline, MarkdownTaskExecutor taskExecutor) {
         MarkdownConversionPort conversion = new MarkdownConversionPort() {
@@ -563,6 +1031,14 @@ class MarkdownDocumentServiceTest {
         return new MarkdownDocumentService(repository, sources, extractor, conversion, pipeline,
                 taskExecutor, MarkdownTransactionOperations.direct(),
                 new ObjectMapper(), CLOCK, "pandoc-3");
+    }
+
+    private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
+            MarkdownNativeExtractorPort extractor, MarkdownConversionPort conversion, MarkdownPipelinePort pipeline,
+            MarkdownTaskExecutor taskExecutor, Set<String> pandocFormats, boolean fallbackToNativeOnPandocFailure) {
+        return new MarkdownDocumentService(repository, sources, extractor, conversion, pipeline,
+                taskExecutor, MarkdownTransactionOperations.direct(),
+                new ObjectMapper(), CLOCK, "pandoc-3", pandocFormats, fallbackToNativeOnPandocFailure);
     }
 
     private static final class DeferredTaskExecutor implements MarkdownTaskExecutor {

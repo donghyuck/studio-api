@@ -148,14 +148,19 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
             String text = cleanText(cleanedPages.stream()
                     .filter(page -> page != null && !page.isBlank())
                     .collect(Collectors.joining("\n\n")));
-            if ((text == null || text.isBlank()) && ocrFallbackOptions.enabled()) {
+            if ((request.options().ocrRequired() || text == null || text.isBlank()) && ocrFallbackOptions.enabled()) {
                 return extractWithOcrFallback(document, request, images, tableExtraction.warnings());
+            }
+            Map<String, Object> metadata = pdfFileMetadata(request.contentType(), request.filename());
+            metadata.put("ocrRequired", request.options().ocrRequired());
+            if (request.options().ocrLanguage() != null) {
+                metadata.put("ocrLanguage", request.options().ocrLanguage());
             }
             return new ParsedFile(
                     DocumentFormat.PDF,
                     text,
                     blocks,
-                    pdfFileMetadata(request.contentType(), request.filename()),
+                    metadata,
                     tableExtraction.warnings(),
                     pageBlocks,
                     tableExtraction.tables(),
@@ -172,12 +177,15 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
             List<ExtractedImage> images,
             List<ParseWarning> existingWarnings) throws FileParseException {
         try {
-            Object tesseract = createTesseract();
+            String ocrLanguage = request.options().ocrLanguage() == null
+                    ? ocrFallbackOptions.language()
+                    : request.options().ocrLanguage();
+            Object tesseract = createTesseract(ocrLanguage);
             Method doOcr = tesseract.getClass().getMethod("doOCR", BufferedImage.class);
 
             PDFRenderer renderer = new PDFRenderer(document);
             int totalPages = document.getNumberOfPages();
-            int pagesToRender = Math.min(totalPages, ocrFallbackOptions.maxPages());
+            int pagesToRender = pagesToRender(totalPages, request.options());
             List<String> pageTexts = new ArrayList<>();
             List<ParsedBlock> pageBlocks = new ArrayList<>();
             List<ParsedBlock> blocks = new ArrayList<>();
@@ -217,14 +225,19 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
             }
             String text = cleanText(String.join("\n\n", pageTexts));
             Map<String, Object> metadata = pdfFileMetadata(request.contentType(), request.filename());
+            metadata.put("ocrRequired", request.options().ocrRequired());
+            metadata.put("ocrLanguage", ocrLanguage);
             metadata.put(KEY_PDF_OCR_FALLBACK, true);
             metadata.put(KEY_PDF_OCR_RENDERED_PAGES, pagesToRender);
             metadata.put(KEY_PDF_OCR_TOTAL_PAGES, totalPages);
             metadata.put(KEY_PDF_OCR_DPI, ocrFallbackOptions.dpi());
+            String fallbackMessage = request.options().ocrRequired()
+                    ? "PDF OCR was requested; OCR fallback was used."
+                    : "PDF text layer was empty; OCR fallback was used.";
             List<ParseWarning> warnings = new ArrayList<>();
             warnings.add(ParseWarning.warning(
                     "PDF_OCR_FALLBACK_APPLIED",
-                    "PDF text layer was empty; OCR fallback was used.",
+                    fallbackMessage,
                     "document",
                     Map.of(
                             KEY_PDF_OCR_RENDERED_PAGES, pagesToRender,
@@ -254,13 +267,24 @@ public class PdfBoxExtractionEngine extends AbstractFileParser implements PdfExt
         }
     }
 
-    private Object createTesseract() throws ReflectiveOperationException {
+    int pagesToRender(int totalPages, PdfExtractionOptions options) {
+        if (totalPages <= 0) {
+            return 0;
+        }
+        if (options != null && options.ocrForceRequested()) {
+            return totalPages;
+        }
+        int maxPages = ocrFallbackOptions.maxPages();
+        return maxPages <= 0 ? totalPages : Math.min(totalPages, maxPages);
+    }
+
+    private Object createTesseract(String ocrLanguage) throws ReflectiveOperationException {
         Class<?> type = Class.forName("net.sourceforge.tess4j.Tesseract");
         Object tesseract = type.getConstructor().newInstance();
         if (!ocrFallbackOptions.tesseractDataPath().isBlank()) {
             type.getMethod("setDatapath", String.class).invoke(tesseract, ocrFallbackOptions.tesseractDataPath());
         }
-        type.getMethod("setLanguage", String.class).invoke(tesseract, ocrFallbackOptions.language());
+        type.getMethod("setLanguage", String.class).invoke(tesseract, ocrLanguage);
         return tesseract;
     }
 

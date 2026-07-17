@@ -41,6 +41,9 @@ import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.pipeline.RagIndexProgressListener;
 import studio.one.platform.ai.service.pipeline.ResolvedRagEmbedding;
 import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.artifact.ChunkSet;
+import studio.one.platform.chunking.artifact.ChunkSetItem;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkType;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
@@ -70,6 +73,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     private final ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider;
     private final ObjectProvider<VectorStorePort> vectorStoreProvider;
     private final ObjectProvider<RagChunkStageStore> chunkStageStoreProvider;
+    private final ObjectProvider<ChunkSetStore> chunkSetStoreProvider;
     private final int indexEmbeddingBatchSize;
     private final int indexUpsertBatchSize;
     private final ThreadLocal<AttachmentRagIndexDiagnostics> latestDiagnostics = new ThreadLocal<>();
@@ -89,21 +93,9 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
             ObjectProvider<VectorStorePort> vectorStoreProvider,
-            @Value("${studio.ai.rag.indexing.embedding-batch-size:10}") int indexEmbeddingBatchSize,
-            @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
-        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
-                embeddingProfileResolverProvider, vectorStoreProvider, null, indexEmbeddingBatchSize, indexUpsertBatchSize);
-    }
-
-    public DefaultAttachmentStructuredRagIndexer(
-            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
-            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
-            ObjectProvider<EmbeddingPort> embeddingPortProvider,
-            ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
-            ObjectProvider<VectorStorePort> vectorStoreProvider,
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider) {
         this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
-                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider,
+                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider, null,
                 DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, DEFAULT_INDEX_UPSERT_BATCH_SIZE);
     }
 
@@ -116,7 +108,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
             int indexUpsertBatchSize) {
         this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
-                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider,
+                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider, null,
                 DEFAULT_INDEX_EMBEDDING_BATCH_SIZE, indexUpsertBatchSize);
     }
 
@@ -129,12 +121,28 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
             int indexEmbeddingBatchSize,
             int indexUpsertBatchSize) {
+        this(normalizedDocumentAdapterProvider, chunkingOrchestratorProvider, embeddingPortProvider,
+                embeddingProfileResolverProvider, vectorStoreProvider, chunkStageStoreProvider, null,
+                indexEmbeddingBatchSize, indexUpsertBatchSize);
+    }
+
+    public DefaultAttachmentStructuredRagIndexer(
+            ObjectProvider<TextractNormalizedDocumentAdapter> normalizedDocumentAdapterProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingOrchestratorProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<RagEmbeddingProfileResolver> embeddingProfileResolverProvider,
+            ObjectProvider<VectorStorePort> vectorStoreProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            ObjectProvider<ChunkSetStore> chunkSetStoreProvider,
+            @Value("${studio.ai.rag.indexing.embedding-batch-size:10}") int indexEmbeddingBatchSize,
+            @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
         this.normalizedDocumentAdapterProvider = normalizedDocumentAdapterProvider;
         this.chunkingOrchestratorProvider = chunkingOrchestratorProvider;
         this.embeddingPortProvider = embeddingPortProvider;
         this.embeddingProfileResolverProvider = embeddingProfileResolverProvider;
         this.vectorStoreProvider = vectorStoreProvider;
         this.chunkStageStoreProvider = chunkStageStoreProvider;
+        this.chunkSetStoreProvider = chunkSetStoreProvider;
         this.indexEmbeddingBatchSize = Math.max(1, indexEmbeddingBatchSize);
         this.indexUpsertBatchSize = Math.max(1, indexUpsertBatchSize);
     }
@@ -169,11 +177,16 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         RagChunkStageStore chunkStageStore = chunkStageStoreProvider == null
                 ? RagChunkStageStore.noop()
                 : chunkStageStoreProvider.getIfAvailable(RagChunkStageStore::noop);
-        List<Chunk> chunks = hasObjectScope(objectType, objectId)
-                ? stagedChunks(chunkStageStore, objectType, objectId, documentId)
-                : List.of();
-        boolean restoredFromStage = !chunks.isEmpty();
-        String fallbackReason = chunks.isEmpty()
+        ChunkSet preparedChunkSet = preparedChunkSet(metadata, objectType, objectId, documentId);
+        List<Chunk> chunks = preparedChunkSet == null
+                ? List.of()
+                : preparedChunks(preparedChunkSet);
+        boolean restoredFromPrepared = preparedChunkSet != null;
+        if (chunks.isEmpty() && hasObjectScope(objectType, objectId)) {
+            chunks = stagedChunks(chunkStageStore, objectType, objectId, documentId);
+        }
+        boolean restoredFromStage = !restoredFromPrepared && !chunks.isEmpty();
+        String fallbackReason = chunks.isEmpty() && !restoredFromPrepared
                 ? fallbackReason(adapter, chunkingOrchestrator, embeddingPort, vectorStore, objectType, objectId)
                 : stagedFallbackReason(embeddingPort, vectorStore, objectType, objectId);
         if (fallbackReason != null) {
@@ -182,7 +195,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
 
         int parsedBlockCount = 0;
-        if (!restoredFromStage) {
+        if (!restoredFromStage && !restoredFromPrepared) {
             progress.onStep(RagIndexJobStep.EXTRACTING);
             ParsedFile parsedFile = extractor.parseStructured(attachment.getContentType(), attachment.getName(), inputStream);
             parsedBlockCount = parsedFile.blocks().size();
@@ -194,9 +207,10 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         } else {
             progress.onInfo(
                     RagIndexJobStep.CHUNKING,
-                    "Attachment RAG chunk stage restored",
-                    "objectType=%s, objectId=%s, documentId=%s, chunkCount=%d"
-                            .formatted(objectType, objectId, documentId, chunks.size()));
+                    restoredFromPrepared ? "Attachment RAG ChunkSet restored" : "Attachment RAG chunk stage restored",
+                    "objectType=%s, objectId=%s, documentId=%s, chunkSetId=%s, chunkCount=%d"
+                            .formatted(objectType, objectId, documentId,
+                                    preparedChunkSet == null ? null : preparedChunkSet.chunkSetId(), chunks.size()));
         }
         progress.onChunkCount(chunks.size());
         if (chunks.isEmpty()) {
@@ -209,7 +223,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
         }
 
         int vectorCount;
-        if (!restoredFromStage && chunks.size() <= indexUpsertBatchSize) {
+        if (!restoredFromStage && !restoredFromPrepared && chunks.size() <= indexUpsertBatchSize) {
             List<VectorRecord> records = embedRecords(
                     documentId,
                     objectType,
@@ -231,7 +245,7 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                     chunks,
                     vectorStore,
                     progress,
-                    restoredFromStage);
+                    restoredFromStage || restoredFromPrepared);
         }
         chunkStageStore.deleteByObject(objectType, objectId, documentId);
         progress.onIndexedCount(vectorCount);
@@ -240,6 +254,78 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 chunks.size(),
                 vectorCount));
         return true;
+    }
+
+    private ChunkSet preparedChunkSet(
+            Map<String, Object> metadata,
+            String objectType,
+            String objectId,
+            String documentId) {
+        String chunkSetId = text(metadata == null ? null : metadata.get("chunkSetId"));
+        boolean required = booleanValue(metadata == null ? null : metadata.get("requirePreparedChunks"));
+        if (chunkSetId == null) {
+            if (required) {
+                throw new IllegalStateException("chunkSetId is required for prepared-chunk RAG indexing");
+            }
+            return null;
+        }
+        ChunkSetStore store = chunkSetStoreProvider == null ? null : chunkSetStoreProvider.getIfAvailable();
+        if (store == null) {
+            if (required) {
+                throw new IllegalStateException("ChunkSet store is not configured");
+            }
+            return null;
+        }
+        ChunkSet chunkSet = store.findById(chunkSetId).orElse(null);
+        if (chunkSet == null) {
+            if (required) {
+                throw new IllegalStateException("Prepared ChunkSet was not found: " + chunkSetId);
+            }
+            return null;
+        }
+        if (!Objects.equals(chunkSet.objectType(), objectType)
+                || !Objects.equals(chunkSet.objectId(), objectId)
+                || !Objects.equals(chunkSet.documentId(), documentId)) {
+            throw new IllegalStateException("Prepared ChunkSet scope does not match the RAG index request");
+        }
+        if (!chunkSet.indexEligible()) {
+            throw new IllegalStateException("Prepared ChunkSet is not eligible for RAG indexing: " + chunkSetId);
+        }
+        return chunkSet;
+    }
+
+    private List<Chunk> preparedChunks(ChunkSet chunkSet) {
+        return chunkSet.items().stream()
+                .map(item -> preparedChunk(chunkSet, item))
+                .toList();
+    }
+
+    private Chunk preparedChunk(ChunkSet chunkSet, ChunkSetItem item) {
+        Map<String, Object> metadata = new HashMap<>(item.metadata());
+        metadata.put("chunkSetId", chunkSet.chunkSetId());
+        metadata.put("chunkSetStrategyHash", chunkSet.strategyHash());
+        metadata.put("ragRechunkApplied", false);
+        return Chunk.of(
+                item.chunkId(),
+                item.text(),
+                ChunkMetadata.builder(
+                                ChunkingStrategyType.from(firstText(
+                                        metadata.get(ChunkMetadata.KEY_STRATEGY), chunkSet.strategy())),
+                                item.chunkIndex())
+                        .chunkType(ChunkType.from(text(metadata.get(ChunkMetadata.KEY_CHUNK_TYPE))))
+                        .attributes(metadata)
+                        .build());
+    }
+
+    private boolean booleanValue(Object value) {
+        return value instanceof Boolean bool
+                ? bool
+                : value instanceof String string && Boolean.parseBoolean(string);
+    }
+
+    private String firstText(Object first, Object second) {
+        String value = text(first);
+        return value == null ? text(second) : value;
     }
 
     private List<Chunk> stagedChunks(

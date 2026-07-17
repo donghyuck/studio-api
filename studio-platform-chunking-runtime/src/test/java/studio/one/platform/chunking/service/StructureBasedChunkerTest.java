@@ -124,6 +124,39 @@ class StructureBasedChunkerTest {
     }
 
     @Test
+    void preservesPageSearchContextMetadataForRagFiltering() {
+        StructureBasedChunker chunker = new StructureBasedChunker(500, 0, new RecursiveChunker(500, 0));
+        NormalizedBlock pageContext = NormalizedBlock.builder(NormalizedBlockType.PAGE,
+                        "Page 1\n개념 다항식\n001 다음식을 전개하시오.\n$x^2+2x+1$")
+                .id("doc:page:1:search-context")
+                .sourceRef("page[1]/search-context")
+                .page(1)
+                .order(0)
+                .blockIds(List.of("page[1]/block[1]", "page[1]/block[2]"))
+                .metadata(Map.of(
+                        "searchContextOnly", true,
+                        "aggregationType", "PAGE_SEARCH_CONTEXT",
+                        "sourceBlockCount", 2,
+                        "sourceBlockIds", List.of("page[1]/block[1]", "page[1]/block[2]")))
+                .build();
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .sourceFormat("PDF")
+                .blocks(List.of(pageContext))
+                .build();
+
+        Chunk chunk = chunker.chunk(document, context(document, 500, 0)).get(0);
+
+        assertThat(chunk.content()).contains("개념 다항식", "$x^2+2x+1$");
+        assertThat(chunk.metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_SOURCE_REF, "page[1]/search-context")
+                .containsEntry(ChunkMetadata.KEY_PAGE, 1)
+                .containsEntry("searchContextOnly", true)
+                .containsEntry("aggregationType", "PAGE_SEARCH_CONTEXT")
+                .containsEntry("sourceBlockCount", 2)
+                .containsEntry("sourceBlockIds", List.of("page[1]/block[1]", "page[1]/block[2]"));
+    }
+
+    @Test
     void standardBlockIdsAndConfidenceAreStoredOnlyAsMetadataFields() {
         StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
         NormalizedDocument document = NormalizedDocument.builder("doc")
@@ -207,6 +240,25 @@ class StructureBasedChunkerTest {
     }
 
     @Test
+    void dropsOverlapTailWhenItWouldExceedMaxSizeWithNextBlock() {
+        StructureBasedChunker chunker = new StructureBasedChunker(10, 4, new RecursiveChunker(10, 4));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .blocks(List.of(
+                        block(NormalizedBlockType.PARAGRAPH, "aaaa", "page[1]/block[1]", 0, 0.90d),
+                        block(NormalizedBlockType.PARAGRAPH, "bbbb", "page[1]/block[2]", 1, 0.90d),
+                        block(NormalizedBlockType.PARAGRAPH, "cccccccc", "page[1]/block[3]", 2, 0.90d)))
+                .build();
+
+        List<Chunk> chunks = chunker.chunk(document, context(document, 10, 4));
+
+        assertThat(chunks).extracting(Chunk::content).containsExactly("aaaa\n\nbbbb", "cccccccc");
+        assertThat(chunks).allSatisfy(chunk -> {
+            assertThat(chunk.content()).hasSizeLessThanOrEqualTo(10);
+            assertThat(chunk.metadata().strategy()).isEqualTo(ChunkingStrategyType.STRUCTURE_BASED);
+        });
+    }
+
+    @Test
     void missingProvenanceMarksReviewRequiredWithoutFallback() {
         StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
         NormalizedDocument document = NormalizedDocument.builder("doc")
@@ -225,7 +277,7 @@ class StructureBasedChunkerTest {
     }
 
     @Test
-    void oversizedStandaloneStructureChunkFallsBackToRecursive() {
+    void oversizedStandaloneStructureChunkIsSplitWithoutFullStrategyFallback() {
         StructureBasedChunker chunker = new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0));
         NormalizedDocument document = NormalizedDocument.builder("doc")
                 .blocks(List.of(block(NormalizedBlockType.TABLE,
@@ -235,12 +287,12 @@ class StructureBasedChunkerTest {
         List<Chunk> chunks = chunker.chunk(document, context(document, 10, 0));
 
         assertThat(chunks).extracting(Chunk::content).containsExactly("alpha beta", "gamma");
-        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.RECURSIVE);
+        assertThat(chunks.get(0).metadata().strategy()).isEqualTo(ChunkingStrategyType.STRUCTURE_BASED);
         assertThat(chunks.get(0).metadata().toMap())
                 .containsEntry(ChunkMetadata.KEY_REQUESTED_CHUNKING_STRATEGY, "structure-based")
-                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "recursive")
-                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "APPLIED")
-                .containsEntry(ChunkMetadata.KEY_FALLBACK_REASON, "invalid-structure-chunks");
+                .containsEntry(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY, "structure-based")
+                .containsEntry(ChunkMetadata.KEY_FALLBACK_STATUS, "NOT_REQUIRED")
+                .doesNotContainKey(ChunkMetadata.KEY_FALLBACK_REASON);
     }
 
     @Test

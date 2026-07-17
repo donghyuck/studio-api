@@ -1,5 +1,8 @@
 package studio.one.application.web.service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
@@ -35,13 +38,21 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
                 ? RagIndexJobSourceRequest.empty()
                 : sourceRequest;
         long attachmentId = attachmentId(request, source);
+        Map<String, Object> sourceMetadata = new HashMap<>(source.metadata());
+        if (source.chunkSetId() != null) {
+            sourceMetadata.put("chunkSetId", source.chunkSetId());
+        }
+        if (source.requirePreparedChunks()) {
+            sourceMetadata.put("requirePreparedChunks", true);
+            sourceMetadata.put("ragRechunkApplied", false);
+        }
         AttachmentRagIndexCommand command = hasEmbeddingSelection(source)
                 ? ragIndexService.command(
                         attachmentId,
                         request.documentId(),
                         request.objectType(),
                         request.objectId(),
-                        source.metadata(),
+                        sourceMetadata,
                         source.keywords(),
                         source.useLlmKeywordExtraction(),
                         source.embeddingProfileId(),
@@ -52,7 +63,7 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
                         request.documentId(),
                         request.objectType(),
                         request.objectId(),
-                        source.metadata(),
+                        sourceMetadata,
                         source.keywords(),
                         source.useLlmKeywordExtraction());
         try {

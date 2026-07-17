@@ -1,6 +1,7 @@
 package studio.one.platform.markdown.autoconfigure;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -31,11 +33,16 @@ import studio.one.platform.ai.service.pipeline.RagChunkStage;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.artifact.ChunkSet;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
+import studio.one.platform.chunking.artifact.InMemoryChunkSetStore;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkingContext;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
 import studio.one.platform.chunking.core.ChunkingStrategyType;
 import studio.one.platform.chunking.core.NormalizedDocument;
+import studio.one.platform.chunking.core.NormalizedBlock;
+import studio.one.platform.chunking.core.NormalizedBlockType;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
 import studio.one.platform.markdown.application.MarkdownPipelineProgress;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
@@ -47,6 +54,7 @@ import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeUndoResult
 import studio.one.platform.markdown.application.MarkdownIdeaBlockSummary;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownLocator;
+import studio.one.platform.markdown.domain.MarkdownResource;
 import studio.one.platform.markdown.domain.MarkdownRevision;
 import studio.one.platform.markdown.domain.MarkdownRevisionStatus;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
@@ -58,6 +66,7 @@ class MarkdownDownstreamPipelineAdapterTest {
         RagIndexJobService ragJobs = completedJobService();
         ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);
         RagChunkStageStore stageStore = new InMemoryRagChunkStageStore();
+        ChunkSetStore chunkSetStore = new InMemoryChunkSetStore();
         MarkdownRepository repository = mock(MarkdownRepository.class);
         when(repository.findLocators("revision-1")).thenReturn(List.of());
         when(chunking.chunk(any(NormalizedDocument.class), any(ChunkingContext.class)))
@@ -68,7 +77,11 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class, chunking),
                 provider(RagChunkStageStore.class, stageStore),
-                repository);
+                provider(EmbeddingPort.class),
+                provider(AiProviderRegistry.class),
+                provider(ChunkSetStore.class, chunkSetStore),
+                repository,
+                new ObjectMapper());
         MarkdownPipelineOptions options = new MarkdownPipelineOptions(
                 true, true, false,
                 "fixed-size", 400, 40, "token",
@@ -95,10 +108,18 @@ class MarkdownDownstreamPipelineAdapterTest {
         assertThat(sourceRequest.getValue().embeddingProvider()).isEqualTo("google");
         assertThat(sourceRequest.getValue().embeddingModel()).isEqualTo("gemini-embedding-001");
         assertThat(sourceRequest.getValue().useLlmKeywordExtraction()).isTrue();
+        assertThat(sourceRequest.getValue().requirePreparedChunks()).isTrue();
+        assertThat(sourceRequest.getValue().chunkSetId()).startsWith("cset-");
         assertThat(sourceRequest.getValue().metadata())
                 .containsEntry("markdownRevisionId", "revision-1")
                 .containsEntry("strategy", "fixed-size")
                 .containsEntry("embeddingDimension", 768);
+        ChunkSet stored = chunkSetStore.findById(sourceRequest.getValue().chunkSetId()).orElseThrow();
+        assertThat(stored.items()).singleElement().satisfies(item -> {
+            assertThat(item.text()).isEqualTo("content");
+            assertThat(item.metadata()).containsEntry("strategy", "fixed-size")
+                    .containsEntry("ragRechunkApplied", false);
+        });
         verify(ragJobs).startJob("rag-job-1");
     }
 
@@ -140,7 +161,7 @@ class MarkdownDownstreamPipelineAdapterTest {
     void resumesFromRagWithoutRepeatingChunking() {
         RagIndexJobService ragJobs = completedJobService();
         ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);
-        RagChunkStageStore stageStore = mock(RagChunkStageStore.class);
+        RagChunkStageStore stageStore = preparedStageStore();
         MarkdownRepository repository = mock(MarkdownRepository.class);
         MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
                 provider(RagIndexJobService.class, ragJobs),
@@ -213,6 +234,92 @@ class MarkdownDownstreamPipelineAdapterTest {
                 .containsEntry("schemaVersion", "blockify-metadata-v1")
                 .containsKey("blockifyFingerprint")
                 .containsKey("sourceEvidence");
+    }
+
+    @Test
+    void usesNormalizedDocumentSnapshotBeforeLocatorFallback() {
+        ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);
+        RagChunkStageStore stageStore = new InMemoryRagChunkStageStore();
+        MarkdownRepository repository = mock(MarkdownRepository.class);
+        NormalizedDocument snapshotDocument = NormalizedDocument.builder("document-1")
+                .plainText("normalized text")
+                .sourceFormat("markdown")
+                .filename("sample.md")
+                .blocks(List.of(NormalizedBlock.builder(NormalizedBlockType.HEADING, "Normalized Heading")
+                        .id("block-1")
+                        .sourceRef("source-1")
+                        .order(0)
+                        .build()))
+                .metadata(Map.of("normalizationSource", "PANDOC_MARKDOWN"))
+                .build();
+        MarkdownResource snapshot = NormalizedDocumentSnapshot.resource("revision-1", snapshotDocument,
+                NormalizedDocumentSnapshot.SOURCE_PANDOC, List.of(), new ObjectMapper());
+        when(repository.findResources("revision-1")).thenReturn(List.of(snapshot));
+        when(repository.findLocators("revision-1")).thenReturn(List.of(new MarkdownLocator(
+                "locator-1", "revision-1", "SECTION", 1, "Fallback", 0, 10, "fallback", "{}")));
+        when(chunking.chunk(any(NormalizedDocument.class), any(ChunkingContext.class)))
+                .thenReturn(List.of(new Chunk("chunk-1", "content",
+                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0).build())));
+        MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
+                provider(RagIndexJobService.class),
+                provider(SkillRagExtractionJobService.class),
+                provider(ChunkingOrchestrator.class, chunking),
+                provider(RagChunkStageStore.class, stageStore),
+                provider(EmbeddingPort.class),
+                provider(AiProviderRegistry.class),
+                repository,
+                new ObjectMapper());
+
+        adapter.process(revision(), new MarkdownPipelineOptions(true, false, false));
+
+        ArgumentCaptor<NormalizedDocument> document = ArgumentCaptor.forClass(NormalizedDocument.class);
+        verify(chunking).chunk(document.capture(), any(ChunkingContext.class));
+        assertThat(document.getValue().blocks()).hasSize(1);
+        assertThat(document.getValue().blocks().get(0).text()).isEqualTo("Normalized Heading");
+        assertThat(document.getValue().metadata())
+                .containsEntry("normalizedSnapshotUsed", true)
+                .containsEntry("normalizationSource", "PANDOC_MARKDOWN")
+                .containsEntry("normalizationStatus", "VALID")
+                .containsEntry("contentBlockCount", 1)
+                .containsEntry("mathBlockCount", 0)
+                .containsEntry("searchablePageCoverage", 0.0d);
+    }
+
+    @Test
+    void blocksRagIndexWhenNormalizedQualityGateRejectsDocument() {
+        RagIndexJobService ragJobs = mock(RagIndexJobService.class);
+        ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);
+        RagChunkStageStore stageStore = new InMemoryRagChunkStageStore();
+        MarkdownRepository repository = mock(MarkdownRepository.class);
+        NormalizedDocument snapshotDocument = NormalizedDocument.builder("document-1")
+                .plainText("손상된 ㅠ산 본문")
+                .metadata(Map.of(
+                        "ragIndexEligible", false,
+                        "qualityGateStatus", "BLOCKED",
+                        "markdownQualityIssues", List.of("KOREAN_JAMO_REVIEW_REQUIRED")))
+                .blocks(List.of(NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "손상된 ㅠ산 본문")
+                        .page(1).sourceRef("page[1]/block[0]").order(0).build()))
+                .build();
+        MarkdownResource snapshot = NormalizedDocumentSnapshot.resource("revision-1", snapshotDocument,
+                NormalizedDocumentSnapshot.SOURCE_NATIVE, List.of("KOREAN_JAMO_REVIEW_REQUIRED"),
+                new ObjectMapper());
+        when(repository.findResources("revision-1")).thenReturn(List.of(snapshot));
+        when(repository.findLocators("revision-1")).thenReturn(List.of());
+        when(chunking.chunk(any(NormalizedDocument.class), any(ChunkingContext.class)))
+                .thenReturn(List.of(new Chunk("chunk-1", "content",
+                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0).build())));
+        MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
+                provider(RagIndexJobService.class, ragJobs),
+                provider(SkillRagExtractionJobService.class),
+                provider(ChunkingOrchestrator.class, chunking),
+                provider(RagChunkStageStore.class, stageStore),
+                repository);
+
+        assertThatThrownBy(() -> adapter.process(revision(), new MarkdownPipelineOptions(true, true, false)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("quality gate blocked RAG indexing")
+                .hasMessageContaining("KOREAN_JAMO_REVIEW_REQUIRED");
+        verify(ragJobs, never()).createJob(any(), any());
     }
 
     @Test
@@ -863,7 +970,7 @@ class MarkdownDownstreamPipelineAdapterTest {
                 provider(RagIndexJobService.class, ragJobs),
                 provider(SkillRagExtractionJobService.class),
                 provider(ChunkingOrchestrator.class),
-                provider(RagChunkStageStore.class),
+                provider(RagChunkStageStore.class, preparedStageStore()),
                 mock(MarkdownRepository.class));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
@@ -872,6 +979,14 @@ class MarkdownDownstreamPipelineAdapterTest {
                         }))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("embedding failed");
+    }
+
+    private RagChunkStageStore preparedStageStore() {
+        InMemoryRagChunkStageStore store = new InMemoryRagChunkStageStore();
+        store.replace("attachment", "42", "document-1", List.of(new RagChunkStage(
+                "attachment", "42", "document-1", 0, "chunk-1", "prepared markdown chunk",
+                Map.of("strategy", "recursive", "chunkOrder", 0), null)));
+        return store;
     }
 
     private RagIndexJobService completedJobService() {

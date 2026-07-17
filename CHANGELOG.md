@@ -2,6 +2,179 @@
 
 ## Unreleased
 
+- Markdown/NormalizedDocument 청킹 결과를 영속 `ChunkSet`으로 저장하고 Markdown에서 시작된 RAG 색인은
+  지정된 `chunkSetId`의 text/order/metadata만 임베딩하도록 분리했다. 임베딩 profile 변경 재색인도 같은
+  ChunkSet을 재사용하며, ChunkSet이 없거나 scope·품질 상태가 유효하지 않으면 원문 재추출·재청킹 없이
+  실패한다. 일반 attachment RAG의 기존 추출/청킹 fallback과 OCR·정규화·renderer·청킹 알고리즘은
+  유지한다. PostgreSQL/MySQL/MariaDB에 `tb_ai_chunk_set`, `tb_ai_chunk_item` 저장소를 추가했다.
+
+- Markdown 생성 요청에 서버 관리형 `documentProfile`을 추가했다. `AUTO`, 일반 문서, 전문 서적,
+  교과서, 수학 교과서, 스캔 문서, 프레젠테이션, 기술 매뉴얼 프로필을 제공하며, 프로필 목록 조회
+  `GET /api/markdown-documents/profiles`와 유효 옵션 미리보기
+  `POST /api/markdown-documents/processing-plan` API를 추가했다. 명시적으로 전달한 nullable OCR/청킹
+  옵션은 프로필 기본값보다 우선하고, 프로필이 없는 기존 요청과 DB schema는 그대로 유지한다.
+  requested/resolved profile과 정책 버전은 revision options 및 normalized snapshot metadata에 기록한다.
+
+- Markdown provenance API가 normalized block의 `page`, `slide`, `bbox`를 `metadataJson`뿐 아니라
+  응답 최상위 필드로도 노출한다. 기존 `locatorNo`와 persisted locator 계약은 유지한다.
+
+- oversized standalone OCR/table block을 validation 전에 내부 recursive split하여 구조 기반 청킹 전체가
+  `invalid-structure-chunks`로 fallback되는 문제를 방지한다. overlap tail과 다음 블록의 결합이 최대
+  크기를 다시 초과할 때는 overlap만 제거한다.
+
+- 한국어 OCR 교정으로 손상된 baseline BODY/TABLE을 숨길 때 그 안의 `0xx` 문제 식별자만 page/sourceRef를
+  유지한 `문제 0xx` marker로 복원한다. OCR 난이도 badge가 `6`, `e`, `중`으로 붙은 번호도 정규화하므로
+  본문 노이즈를 다시 노출하지 않고 문제 번호 기반 검색과 튜터 인용을 보존한다.
+
+- Preserve successful Korean OCR page batches when a later PaddleOCR batch fails, and send only missing pages to the configured fallback provider instead of discarding the full primary result.
+
+- 한국어 OCR 페이지 교체가 품질 비교를 통과하면 손상된 기존 본문과 표를 Markdown에서 제외하고,
+  균형 잡힌 LaTeX 또는 짧고 명확한 대수식으로 검증된 수식만 보존하도록 병합 정책을 강화했다.
+  `discardedOcrNoise`와 `searchContextOnly` 블록은 renderer에서도 독립적으로 제외하며, 구조화된 수학
+  전체 페이지 교체 블록은 우선순위를 유지해 정상 문서와 고품질 math provider 결과의 회귀를 방지한다.
+  치명 손상 페이지의 한국어 보정 본문에 수식이 섞여 있거나 비교 가능한 baseline 본문이 없는 경우에도
+  충분한 한글 복원도가 확인되면 교체를 적용하며, 한국어 OCR 적용 상태를 유효 OCR로 판정한다.
+
+- 스캔 PDF의 PyMuPDF4LLM Markdown fallback을 페이지별 block으로 복원해 전체 문서가 `page[1]`로
+  축약되던 provenance 결함을 수정했다. 한국어 OCR 강제 요청에서 OCR 권장 문서가 충분한 텍스트를
+  반환했지만 한글은 거의 없고 라틴 문자가 대부분이면 치명적 한글 손상으로 판정해 요청 범위의
+  페이지를 PaddleOCR 본문 보정 대상으로 선택한다. 보정 결과는 길이뿐 아니라 한글 복원도 상승과
+  라틴 문자 비율 감소를 확인한 뒤 교체하며, 잔존 손상은 `KOREAN_TEXT_GARBLING` 품질 이슈로 RAG
+  색인을 차단한다. PaddleOCR 보정은 연속 페이지를 기본 2페이지씩 묶어 전송해 대형 PDF 원문을
+  페이지마다 반복 업로드하지 않는다. 치명적인 한글 손상 문서에서 provider 실패 또는 페이지 누락이
+  발생하면 손상된 baseline을 `COMPLETED`로 저장하지 않고 추출을 실패 처리하며, 보정 요청·완료·누락
+  페이지와 `koreanTextOcrComplete`를 진단 metadata에 기록한다. 원격 PaddleOCR 장애나 불완전 응답 시
+  선택적으로 로컬 PyMuPDF4LLM 강제 OCR endpoint로 전환하는 Korean OCR fallback도 추가했다.
+
+- 수학 PDF hybrid 추출에서 본문 baseline의 강제 OCR을 제거하고 PyMuPDF 성공/실패/채택 상태와 fallback
+  원인을 metadata로 보존하도록 개선했다. Pix2Text와 vision 결과는 본문 전체를 대체하지 않고 수식 block만
+  보강하며, 오류 심각도 기반 페이지 예산·wave·시간 예산을 적용한다. 선택적 `KoreanTextOcrClient`와
+  PaddleOCR 호환 self-host HTTP adapter를 추가해 한글 자모 손상 페이지의 본문만 품질 비교 후 교체할 수
+  있게 했다. 페이지별 `page/sourceRef/bbox/confidence`를 반환하는 Mac ARM64 native PaddleOCR worker와
+  LaunchAgent 설정도 추가했다. 품질 점수에는 한글 자모 비율, 수식 보존율, 페이지 coverage,
+  PyMuPDF fallback을 반영하며,
+  심각한 결함은 `ragIndexEligible=false`로 RAG 색인을 차단한다.
+
+- Pix2Text worker의 PyTorch CPU wheel을 `torch==2.6.0+cpu`로 올려 `optimum/onnxruntime` 초기화 중
+  `torch.int4` 누락으로 math OCR provider가 503을 반환하던 문제를 수정했다. Docker compose 컨테이너
+  이름도 `studio-pix2text-worker`로 고정했다.
+
+- Pix2Text math OCR client가 긴 PDF를 전체 단일 요청으로 보내지 않고 `batch-size` 기준 page range 요청으로
+  나누어 호출한 뒤 Markdown/block/provenance를 병합하도록 보강했다. 설정 키
+  `studio.textract.pdf.engines.math.pix2text.batch-size`를 추가했다. CPU self-host 환경에서 긴 단일
+  요청이 timeout/fallback으로 이어지지 않도록 기본 batch size는 1 page로 둔다.
+
+- 수학 PDF의 명시 OCR 재추출에서 전체 문서를 Pix2Text로 대체하지 않고, baseline OCR/PyMuPDF 결과를 전체
+  문서 본문으로 유지한 뒤 설정된 샘플 페이지만 math OCR supplement로 붙이는 hybrid route를 추가했다.
+  `studio.textract.pdf.engines.math.hybrid.enabled`와
+  `studio.textract.pdf.engines.math.hybrid.sample-pages` 설정을 추가해 self-host Pix2Text 부하를 제한하면서
+  `mathHybridApplied`, `mathHybridSupplementPageCount`, `mathHybridSupplementParts` metadata로 보강 범위를
+  추적할 수 있게 했다. supplement 결과는 품질 검토용 metadata로만 남기고 본문 Markdown/block에는 직접
+  병합하지 않아 Pix2Text OCR 노이즈가 최종 Markdown을 오염시키지 않도록 했다. 이후 supplement에서
+  LaTeX/math 후보만 선별해 page provenance가 있는 math supplement block으로 추가하고, `OO`, `SS`,
+  중국어 오인식 같은 noise line은 제외해 수식 표현만 보강하도록 했다.
+
+- 수학 PDF의 고품질 보정 경로를 위해 `MathVisionCorrectionClient` 포트를 추가하고, 첫 구현체로 Gemini
+  vision 보정 client를 제공했다. `studio.textract.pdf.engines.math.vision-correction.*` 설정으로 켜고
+  provider/model/timeout/max-file-size/API key를 조정할 수 있으며, 기본값은 부하와 비용을 피하기 위해
+  비활성화다. 보정 결과는 최종 Markdown을 직접 대체하지 않고 page provenance가 있는 수식 block과
+  `mathVisionCorrectionApplied`, `mathVisionCorrectionProvider`, `mathVisionFormulaBlockCount` metadata로
+  additive 반영한다. OCR 후처리는 `00`, `O00`, `xm`, `me` 같은 단독 아이콘성 노이즈 제거와 같은 page/line
+  후보의 짧은 한글 파편 병합을 보강했다.
+
+- Markdown 생성/재추출 요청의 `mathVisionCorrection` opt-in 값을 서버 옵션에 저장하고 native PDF 추출
+  컨텍스트와 `PdfExtractionOptions`까지 전달하도록 연결했다. 이제 클라이언트가 `mathVisionCorrection=true`를
+  보낸 경우에만 Gemini vision 보정을 시도하며, metadata에는 `mathVisionCorrectionRequested`,
+  `mathVisionCorrectionApplied`, `mathVisionCorrectionSkipReason`을 남긴다.
+
+- NormalizedDocument snapshot metadata에 `contentBlockCount`, `pageProvenanceCoverage`,
+  `searchablePageCoverage`, `mathBlockCount`, `mathPageProvenanceCoverage`를 추가해 수학 PDF가
+  `REVIEW_REQUIRED` 상태라도 페이지별 검색 가능한지 판정할 수 있게 했다. page/math provenance가
+  부족하면 `PAGE_SEARCHABILITY_REVIEW_REQUIRED`, `MATH_PAGE_PROVENANCE_REVIEW_REQUIRED` 이슈를 남긴다.
+  또한 page provenance가 있는 추출 block은 Markdown 본문에는 렌더링하지 않는 `PAGE_SEARCH_CONTEXT`
+  normalized block으로 한 번 더 묶어 청킹/RAG 입력에서 같은 페이지의 개념, 문제, 수식이 함께 검색되도록 했다.
+  구조 기반 chunking metadata에는 `searchContextOnly`, `aggregationType`, `sourceBlockCount`,
+  `sourceBlockIds`를 보존해 RAG 결과에서 page context chunk를 식별할 수 있게 했다. normalized snapshot의
+  coverage 지표도 downstream chunking metadata로 전달해 색인 품질을 추적할 수 있게 했다.
+
+- PDF Markdown 추출에서 `ocrMode=FORCE`만 전달된 경우에도 내부 PyMuPDF/OCR 요청의 기존 호환
+  `ocrRequired` flag를 함께 활성화하도록 수정했다. 수학 문서 route가 추천됐지만 math OCR provider가
+  처리하지 못해 fallback되는 경우에도 `MATH_DOCUMENT` 추천 route, fallback warning, 품질 metadata를
+  유지한다.
+
+- PyMuPDF4LLM worker 호출이 worker 내부 OCR 처리 지연으로 무기한 대기하지 않도록 Java HTTP request timeout
+  외에 `sendAsync().get(timeout)` 기반 hard timeout을 추가했다. timeout 발생 시 기존 fallback/failure 경로로
+  빠져 Markdown revision이 장시간 `RUNNING`에 머무르지 않도록 했다.
+
+- PDFBox OCR fallback은 기본적으로 `studio.textract.pdf.ocr-fallback.max-pages`를 따르되,
+  클라이언트가 `ocrMode=FORCE`로 명시 OCR을 요청한 경우에는 fallback page limit으로 잘라내지 않고 전체
+  페이지를 렌더링하도록 수정했다. 6번 수학 PDF처럼 명시 OCR 재추출한 문서가 20페이지까지만 저장되는
+  문제를 방지한다.
+
+- Markdown locator/provenance API가 `NORMALIZED_DOCUMENT` snapshot의 block provenance(`page`,
+  `sourceRef`, `bbox`)를 `NORMALIZED_BLOCK` locator로 함께 반환하도록 보강했다. 별칭 endpoint
+  `GET /api/markdown-documents/{id}/provenance`도 추가했다. native 추출 경로에서 normalized snapshot이
+  이미 생성된 경우에도 block provenance locator를 저장소에 함께 persist하도록 보강했다.
+
+- 수학 문서 PDF 추출을 위해 optional `MathDocumentOcrClient` 포트를 추가하고,
+  `studio.textract.pdf.engines.math.provider=pix2text|mathpix` 설정으로 Pix2Text self-host PoC 또는
+  Mathpix backend를 선택할 수 있게 했다. 전용 수식 OCR 엔진 실패 시 기존 heuristic math markdown 경로로
+  fallback한다.
+
+- Markdown Pandoc 변환 대상 format을 `studio.markdown.pandoc-formats` allowlist로 설정할 수 있게 하고,
+  Pandoc submit/conversion 실패 시 `studio.markdown.fallback-to-native-on-pandoc-failure` 설정에 따라
+  native 추출로 fallback하도록 보강했다.
+
+- Markdown source 크기 제한인 `studio.markdown.max-source-bytes`가 기존 숫자 byte 값과 함께 `64M`,
+  `64MB` 같은 data size 표현을 지원하도록 변경했다.
+
+- Markdown 생성 pipeline에서 `NormalizedDocument` snapshot을 내부 표준 산출물로 저장하고,
+  `NormalizedDocument -> Markdown` 렌더링 결과를 `MarkdownRevision.markdownText()`에 유지하도록
+  보강했다. 청킹은 저장된 normalized blocks를 우선 사용하고 없으면 기존 Markdown/locator 기반 입력으로
+  fallback한다.
+
+- Native Markdown 추출 중 서버 재시작 등으로 `RUNNING` revision에 완료된 extract part만 남은 경우,
+  `resume` 또는 native task 재시작 시 저장된 part를 page 순서로 재조립해 revision을 완료하도록 복구 경로를
+  추가했다.
+
+- Markdown 결과 확인을 위해 현재 revision과 특정 revision의 Markdown 본문을 로컬 파일 캐시에 저장한 뒤
+  `text/markdown`으로 스트리밍하는 보기/다운로드 API를 추가하고, 클라이언트 반영 지시문
+  `docs/plans/client-markdown-result-view-guide.md`를 추가했다. 캐시 위치는
+  `studio.markdown.result-cache-dir`로 조정하며 기본값은 `var/lib/app/markdown`이다.
+
+- 클라이언트가 Markdown 생성 흐름의 정규화 상태와 normalized chunk 입력 여부를 표시할 수 있도록
+  `docs/plans/client-normalized-markdown-pipeline-guide.md` 지시문을 추가했다.
+
+- Markdown 생성/재추출/재개 API에 `ocrRequired` 옵션을 추가하고, PDF native 추출 경로에서 요청값을
+  `PdfExtractionOptions`로 전달해 OCR 적용 여부를 클라이언트가 선택할 수 있도록 했다.
+
+- Markdown 생성/재추출/재개 API에 `ocrMode=AUTO|FORCE|DISABLED` 옵션을 추가했다. 수학 PDF의 Pix2Text/Mathpix
+  math OCR provider는 `FORCE` 또는 기존 호환 `ocrRequired=true` 요청이 있을 때만 시도하며, 서버는
+  `ocrRequestedBy`, `ocrDecisionReason`, `ocrMode` metadata를 기록한다.
+  클라이언트 반영 지시문은 `docs/plans/client-ocr-mode-markdown-guide.md`에 추가했다.
+
+- PyMuPDF4LLM worker가 `ocrRequired=true` 요청에서 실제 PyMuPDF OCR textpage를 사용해 Markdown과 block을
+  생성하고, block bbox와 OCR 적용 metadata를 응답하도록 보강했다.
+
+- PDF Markdown 추출 전에 문서 분석 결과(`GENERAL`, `SCANNED`, `MATH_LIKE`, `MIXED`)를 산출하고,
+  추천 route와 실제 route를 metadata에 기록하도록 보강했다. v1에서는 `MathDocumentExtractionEngine`
+  확장 계약을 먼저 추가하고, Math route가 추천되더라도 엔진이 비활성인 경우 기존 PyMuPDF4LLM/OCR/PDFBox
+  경로로 처리하며 normalized snapshot에는 품질 검토 issue를 남긴다.
+
+- Math route가 추천된 PDF는 기본 `HeuristicMathDocumentExtractionEngine`을 통해 PyMuPDF4LLM/OCR 결과의
+  수식 후보를 Markdown math(`$...$`)로 후처리하고, `mathMarkdownApplied`,
+  `mathMarkdownExpressionCount`, `mathMarkdownEngine` metadata를 normalized snapshot에 기록하도록 했다.
+
+- PDF Markdown 추출에서 `engine=PYMUPDF4LLM`와 `ocrRequired=true`가 명시된 경우에도 수학 문서 분석 결과가
+  우선 반영되어 `MathDocumentExtractionEngine` 후처리 경로를 타도록 수정했다. 또한 생성/재추출/재개 요청의
+  `ocrLanguage`를 `PdfExtractionOptions`, PyMuPDF4LLM worker, PDFBox OCR fallback, normalized snapshot
+  metadata까지 전달하도록 보강했다.
+
+- OCR 기반 수학 PDF 결과는 짧은 라틴 잡음 제거, OCR block의 heading/list/paragraph 재분류, 휴리스틱 수식
+  후처리 품질 metadata(`mathMarkdownQuality`, `mathDocumentEngineRequired`) 기록을 수행하도록 보강했다.
+  또한 OCR 잡음, 수식 OCR 의심, 한글 공백 손실, 휴리스틱-only 수식 변환을 품질 issue로 감지해
+  `REVIEW_REQUIRED`로 남기도록 했다.
+
 - chunking metadata에 요청/실제 전략, fallback 상태, 품질 상태 key를 추가하고, structure-based full-strategy
   fallback을 `recursive -> fixed-size` 순서로 기록하도록 보강했다. 기본 계약은 `recursive + character`로 유지한다.
 

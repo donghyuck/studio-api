@@ -53,6 +53,17 @@ class PdfBoxExtractionEngineTest {
         assertThat(result.metadata()).containsEntry(PdfExtractionEngineSelector.KEY_EXTRACTION_ENGINE, "pdfbox");
     }
 
+    @Test
+    void ocrForceRendersAllPagesInsteadOfConfiguredFallbackLimit() {
+        PdfBoxExtractionEngine limitedEngine = new PdfBoxExtractionEngine(
+                new PdfOcrFallbackOptions(true, 20, 180, "", "kor+eng"));
+
+        assertThat(limitedEngine.pagesToRender(44, PdfExtractionOptions.defaults()))
+                .isEqualTo(20);
+        assertThat(limitedEngine.pagesToRender(44, PdfExtractionOptions.defaults().withOcrMode("FORCE")))
+                .isEqualTo(44);
+    }
+
     private byte[] pdfBytes() throws Exception {
         try (PDDocument document = new PDDocument();
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {

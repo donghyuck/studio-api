@@ -23,7 +23,137 @@ public record MarkdownResumeOptions(
         Boolean generateSkillEmbeddings,
         String skillEmbeddingProvider,
         String skillEmbeddingModel,
-        Integer skillEmbeddingDimension) {
+        Integer skillEmbeddingDimension,
+        Boolean ocrRequired,
+        String ocrLanguage,
+        String ocrMode,
+        Boolean mathVisionCorrection) {
+
+    public MarkdownResumeOptions(
+            MarkdownPipelineStage fromStage,
+            Boolean runChunking,
+            Boolean runRagIndex,
+            Boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            Boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired) {
+        this(fromStage, runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, null, null, null);
+    }
+
+    public MarkdownResumeOptions(
+            MarkdownPipelineStage fromStage,
+            Boolean runChunking,
+            Boolean runRagIndex,
+            Boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            Boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage) {
+        this(fromStage, runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, ocrLanguage, null, null);
+    }
+
+    public MarkdownResumeOptions(
+            MarkdownPipelineStage fromStage,
+            Boolean runChunking,
+            Boolean runRagIndex,
+            Boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            Boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage,
+            String ocrMode) {
+        this(fromStage, runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, ocrLanguage, ocrMode, null);
+    }
+
+    public MarkdownResumeOptions(
+            MarkdownPipelineStage fromStage,
+            Boolean runChunking,
+            Boolean runRagIndex,
+            Boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            Boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            Boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension) {
+        this(fromStage, runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, null, null, null, null);
+    }
 
     public MarkdownResumeOptions(
             MarkdownPipelineStage fromStage,
@@ -48,7 +178,7 @@ public record MarkdownResumeOptions(
                 null, null, null,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, null, generateSkillEmbeddings,
-                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, null, null, null, null);
     }
 
     public MarkdownResumeOptions(
@@ -75,7 +205,7 @@ public record MarkdownResumeOptions(
                 null, null, null,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
-                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension);
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, null, null, null);
     }
 
     public static MarkdownResumeOptions fromStage(MarkdownPipelineStage stage) {
@@ -84,6 +214,6 @@ public record MarkdownResumeOptions(
                 null, null, null,
                 null, null, null, null, null, null,
                 null, null, null, null,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
     }
 }

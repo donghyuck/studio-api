@@ -19,7 +19,10 @@ public record PdfExtractionOptions(
         Integer pageFrom,
         Integer pageTo,
         Integer maxPages,
-        boolean includeImages) {
+        boolean includeImages,
+        String ocrLanguage,
+        String ocrMode,
+        boolean mathVisionCorrection) {
 
     private static final int DEFAULT_PYMUPDF_MAX_BYTES = 50 * 1024 * 1024;
     private static final int DEFAULT_LARGE_PDF_PAGE_THRESHOLD = 100;
@@ -48,6 +51,36 @@ public record PdfExtractionOptions(
             pageFrom = pageTo;
             pageTo = originalFrom;
         }
+        ocrLanguage = normalize(ocrLanguage);
+        ocrMode = normalizeOcrMode(ocrMode);
+    }
+
+    public PdfExtractionOptions(
+            PdfExtractionMode engine,
+            boolean fallbackEnabled,
+            boolean pdfBoxEnabled,
+            boolean pyMuPdf4LlmEnabled,
+            boolean ocrRequired,
+            boolean preserveLayout,
+            boolean tableExtractionRequired,
+            Integer pageCount,
+            int preferPyMuPdf4LlmMinPages,
+            int pyMuPdf4LlmMaxFileSizeBytes,
+            boolean largePdfEnabled,
+            int largePdfPageThreshold,
+            int largePdfBatchSize,
+            boolean continueOnPartFailure,
+            int maxPartFailures,
+            Integer pageFrom,
+            Integer pageTo,
+            Integer maxPages,
+            boolean includeImages,
+            String ocrLanguage,
+            String ocrMode) {
+        this(engine, fallbackEnabled, pdfBoxEnabled, pyMuPdf4LlmEnabled, ocrRequired, preserveLayout,
+                tableExtractionRequired, pageCount, preferPyMuPdf4LlmMinPages, pyMuPdf4LlmMaxFileSizeBytes,
+                largePdfEnabled, largePdfPageThreshold, largePdfBatchSize, continueOnPartFailure, maxPartFailures,
+                pageFrom, pageTo, maxPages, includeImages, ocrLanguage, ocrMode, false);
     }
 
     public static PdfExtractionOptions defaults() {
@@ -68,6 +101,9 @@ public record PdfExtractionOptions(
                 true,
                 0,
                 null,
+                null,
+                null,
+                false,
                 null,
                 null,
                 false);
@@ -103,6 +139,54 @@ public record PdfExtractionOptions(
                 null,
                 null,
                 null,
+                false,
+                null,
+                null,
+                false);
+    }
+
+    public PdfExtractionOptions(
+            PdfExtractionMode engine,
+            boolean fallbackEnabled,
+            boolean pdfBoxEnabled,
+            boolean pyMuPdf4LlmEnabled,
+            boolean ocrRequired,
+            boolean preserveLayout,
+            boolean tableExtractionRequired,
+            Integer pageCount,
+            int preferPyMuPdf4LlmMinPages,
+            int pyMuPdf4LlmMaxFileSizeBytes,
+            boolean largePdfEnabled,
+            int largePdfPageThreshold,
+            int largePdfBatchSize,
+            boolean continueOnPartFailure,
+            int maxPartFailures,
+            Integer pageFrom,
+            Integer pageTo,
+            Integer maxPages,
+            boolean includeImages) {
+        this(
+                engine,
+                fallbackEnabled,
+                pdfBoxEnabled,
+                pyMuPdf4LlmEnabled,
+                ocrRequired,
+                preserveLayout,
+                tableExtractionRequired,
+                pageCount,
+                preferPyMuPdf4LlmMinPages,
+                pyMuPdf4LlmMaxFileSizeBytes,
+                largePdfEnabled,
+                largePdfPageThreshold,
+                largePdfBatchSize,
+                continueOnPartFailure,
+                maxPartFailures,
+                pageFrom,
+                pageTo,
+                maxPages,
+                includeImages,
+                null,
+                null,
                 false);
     }
 
@@ -126,7 +210,114 @@ public record PdfExtractionOptions(
                 pageFrom,
                 pageTo,
                 maxPages,
-                includeImages);
+                includeImages,
+                ocrLanguage,
+                ocrMode,
+                mathVisionCorrection);
+    }
+
+    public PdfExtractionOptions withOcrRequired(boolean ocrRequired) {
+        return new PdfExtractionOptions(
+                engine,
+                fallbackEnabled,
+                pdfBoxEnabled,
+                pyMuPdf4LlmEnabled,
+                ocrRequired,
+                preserveLayout,
+                tableExtractionRequired,
+                pageCount,
+                preferPyMuPdf4LlmMinPages,
+                pyMuPdf4LlmMaxFileSizeBytes,
+                largePdfEnabled,
+                largePdfPageThreshold,
+                largePdfBatchSize,
+                continueOnPartFailure,
+                maxPartFailures,
+                pageFrom,
+                pageTo,
+                maxPages,
+                includeImages,
+                ocrLanguage,
+                ocrMode,
+                mathVisionCorrection);
+    }
+
+    public PdfExtractionOptions withOcrLanguage(String ocrLanguage) {
+        return new PdfExtractionOptions(
+                engine,
+                fallbackEnabled,
+                pdfBoxEnabled,
+                pyMuPdf4LlmEnabled,
+                ocrRequired,
+                preserveLayout,
+                tableExtractionRequired,
+                pageCount,
+                preferPyMuPdf4LlmMinPages,
+                pyMuPdf4LlmMaxFileSizeBytes,
+                largePdfEnabled,
+                largePdfPageThreshold,
+                largePdfBatchSize,
+                continueOnPartFailure,
+                maxPartFailures,
+                pageFrom,
+                pageTo,
+                maxPages,
+                includeImages,
+                ocrLanguage,
+                ocrMode,
+                mathVisionCorrection);
+    }
+
+    public PdfExtractionOptions withOcrMode(String ocrMode) {
+        return new PdfExtractionOptions(
+                engine,
+                fallbackEnabled,
+                pdfBoxEnabled,
+                pyMuPdf4LlmEnabled,
+                ocrRequired,
+                preserveLayout,
+                tableExtractionRequired,
+                pageCount,
+                preferPyMuPdf4LlmMinPages,
+                pyMuPdf4LlmMaxFileSizeBytes,
+                largePdfEnabled,
+                largePdfPageThreshold,
+                largePdfBatchSize,
+                continueOnPartFailure,
+                maxPartFailures,
+                pageFrom,
+                pageTo,
+                maxPages,
+                includeImages,
+                ocrLanguage,
+                ocrMode,
+                mathVisionCorrection);
+    }
+
+    public PdfExtractionOptions withMathVisionCorrection(boolean mathVisionCorrection) {
+        return new PdfExtractionOptions(
+                engine,
+                fallbackEnabled,
+                pdfBoxEnabled,
+                pyMuPdf4LlmEnabled,
+                ocrRequired,
+                preserveLayout,
+                tableExtractionRequired,
+                pageCount,
+                preferPyMuPdf4LlmMinPages,
+                pyMuPdf4LlmMaxFileSizeBytes,
+                largePdfEnabled,
+                largePdfPageThreshold,
+                largePdfBatchSize,
+                continueOnPartFailure,
+                maxPartFailures,
+                pageFrom,
+                pageTo,
+                maxPages,
+                includeImages,
+                ocrLanguage,
+                ocrMode,
+                mathVisionCorrection);
     }
 
     public PdfExtractionOptions forPageRange(int pageFrom, int pageTo) {
@@ -150,7 +341,10 @@ public record PdfExtractionOptions(
                 pageFrom,
                 pageTo,
                 count,
-                includeImages);
+                includeImages,
+                ocrLanguage,
+                ocrMode,
+                mathVisionCorrection);
     }
 
     public boolean rangeRequested() {
@@ -158,7 +352,7 @@ public record PdfExtractionOptions(
     }
 
     public boolean prefersPyMuPdf4Llm() {
-        return ocrRequired
+        return ocrForceRequested()
                 || preserveLayout
                 || tableExtractionRequired
                 || (pageCount != null
@@ -166,7 +360,31 @@ public record PdfExtractionOptions(
                         && pageCount >= preferPyMuPdf4LlmMinPages);
     }
 
+    public boolean ocrForceRequested() {
+        return !ocrDisabled() && (ocrRequired || "FORCE".equals(ocrMode));
+    }
+
+    public boolean ocrDisabled() {
+        return "DISABLED".equals(ocrMode);
+    }
+
     private static Integer positiveOrNull(Integer value) {
         return value == null || value <= 0 ? null : value;
+    }
+
+    private static String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String normalizeOcrMode(String value) {
+        String normalized = normalize(value);
+        if (normalized == null) {
+            return "AUTO";
+        }
+        normalized = normalized.toUpperCase(java.util.Locale.ROOT).replace('-', '_');
+        if (!normalized.equals("AUTO") && !normalized.equals("FORCE") && !normalized.equals("DISABLED")) {
+            throw new IllegalArgumentException("Unsupported ocrMode: " + value);
+        }
+        return normalized;
     }
 }

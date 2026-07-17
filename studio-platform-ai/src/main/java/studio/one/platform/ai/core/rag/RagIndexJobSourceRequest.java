@@ -9,7 +9,20 @@ public record RagIndexJobSourceRequest(
         boolean useLlmKeywordExtraction,
         String embeddingProfileId,
         String embeddingProvider,
-        String embeddingModel) {
+        String embeddingModel,
+        String chunkSetId,
+        boolean requirePreparedChunks) {
+
+    public RagIndexJobSourceRequest(
+            Map<String, Object> metadata,
+            List<String> keywords,
+            boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        this(metadata, keywords, useLlmKeywordExtraction, embeddingProfileId, embeddingProvider, embeddingModel,
+                null, false);
+    }
 
     public RagIndexJobSourceRequest(
             Map<String, Object> metadata,
@@ -24,6 +37,10 @@ public record RagIndexJobSourceRequest(
         embeddingProfileId = normalize(embeddingProfileId);
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
+        chunkSetId = normalize(chunkSetId);
+        if (requirePreparedChunks && chunkSetId == null) {
+            throw new IllegalArgumentException("chunkSetId is required when prepared chunks are required");
+        }
     }
 
     public static RagIndexJobSourceRequest empty() {

@@ -20,5 +20,44 @@ public record MarkdownReextractRequest(
         boolean generateSkillEmbeddings,
         String skillEmbeddingProvider,
         String skillEmbeddingModel,
-        Integer skillEmbeddingDimension) {
+        Integer skillEmbeddingDimension,
+        Boolean ocrRequired,
+        String ocrLanguage,
+        String ocrMode,
+        Boolean mathVisionCorrection,
+        String documentProfile) {
+
+    public MarkdownReextractRequest(
+            boolean runChunking,
+            boolean runRagIndex,
+            boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage,
+            String ocrMode,
+            Boolean mathVisionCorrection) {
+        this(runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null);
+    }
 }

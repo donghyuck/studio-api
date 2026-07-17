@@ -8,15 +8,36 @@
     },
     {
       "name": "studio.markdown.max-source-bytes",
-      "type": "java.lang.Integer",
-      "defaultValue": 67108864,
-      "description": "Maximum source or converted Markdown attachment size loaded by the orchestrator."
+      "type": "java.lang.String",
+      "defaultValue": "64MB",
+      "description": "Maximum source or converted Markdown attachment size loaded by the orchestrator. Numeric values are treated as bytes; shorthand values such as 64M and 64MB are supported."
     },
     {
       "name": "studio.markdown.pandoc-version",
       "type": "java.lang.String",
       "defaultValue": "pandoc",
       "description": "Pandoc extractor version included in revision deduplication."
+    },
+    {
+      "name": "studio.markdown.pandoc-formats",
+      "type": "java.util.List<java.lang.String>",
+      "defaultValue": [
+        "docx",
+        "html"
+      ],
+      "description": "Source formats routed through the asynchronous Pandoc document conversion path."
+    },
+    {
+      "name": "studio.markdown.fallback-to-native-on-pandoc-failure",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "Fall back to native Markdown extraction when Pandoc submission or conversion fails."
+    },
+    {
+      "name": "studio.markdown.result-cache-dir",
+      "type": "java.nio.file.Path",
+      "defaultValue": "var/lib/app/markdown",
+      "description": "Local filesystem directory used to cache generated Markdown result files by content hash before view or download streaming."
     },
     {
       "name": "studio.markdown.textract-version",

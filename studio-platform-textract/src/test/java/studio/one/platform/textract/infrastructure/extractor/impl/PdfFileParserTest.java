@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -21,6 +22,12 @@ import studio.one.platform.textract.domain.model.BlockType;
 import studio.one.platform.textract.domain.model.ExtractedImage;
 import studio.one.platform.textract.domain.model.ExtractedTable;
 import studio.one.platform.textract.domain.model.ParsedFile;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngine;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineSelector;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionEngineType;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptions;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOptionsContext;
+import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
 
 class PdfFileParserTest {
 
@@ -218,6 +225,38 @@ class PdfFileParserTest {
         assertEquals(0, result.tables().size());
         assertEquals(0, result.warnings().size());
         assertTrue(result.plainText().contains("Total"));
+    }
+
+    @Test
+    void supportsAppliesOcrOptionsFromContext() {
+        AtomicReference<PdfExtractionRequest> captured = new AtomicReference<>();
+        PdfExtractionEngine engine = new PdfExtractionEngine() {
+            @Override
+            public PdfExtractionEngineType type() {
+                return PdfExtractionEngineType.PDFBOX;
+            }
+
+            @Override
+            public boolean supports(PdfExtractionRequest request) {
+                captured.set(request);
+                return true;
+            }
+
+            @Override
+            public ParsedFile extract(PdfExtractionRequest request) {
+                return ParsedFile.textOnly(DocumentFormat.PDF, "text", "sample.pdf");
+            }
+        };
+        PdfFileParser contextParser = new PdfFileParser(
+                new PdfExtractionEngineSelector(List.of(engine)),
+                PdfExtractionOptions.defaults());
+
+        try (PdfExtractionOptionsContext.Scope ignored = PdfExtractionOptionsContext.withOptions(true, "kor+eng")) {
+            assertTrue(contextParser.supports("application/pdf", "sample.pdf"));
+        }
+
+        assertTrue(captured.get().options().ocrRequired());
+        assertEquals("kor+eng", captured.get().options().ocrLanguage());
     }
 
     private byte[] pdfWithTwoPages() throws Exception {
