@@ -68,6 +68,24 @@ class MarkdownAutoConfigurationTest {
     }
 
     @Test
+    void parsesMaxSourceBytesWithDataSizeUnits() {
+        runner.withPropertyValues(
+                "studio.markdown.enabled=true",
+                "studio.markdown.max-source-bytes=64M")
+                .run(context -> assertThat(context.getBean(MarkdownProperties.class).getMaxSourceBytes())
+                        .isEqualTo(64 * 1024 * 1024));
+    }
+
+    @Test
+    void keepsNumericMaxSourceBytesAsBytes() {
+        runner.withPropertyValues(
+                "studio.markdown.enabled=true",
+                "studio.markdown.max-source-bytes=67108864")
+                .run(context -> assertThat(context.getBean(MarkdownProperties.class).getMaxSourceBytes())
+                        .isEqualTo(64 * 1024 * 1024));
+    }
+
+    @Test
     void doesNotRegisterControllerWithoutService() {
         new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(MarkdownWebAutoConfiguration.class))

@@ -1,6 +1,7 @@
 package studio.one.platform.markdown.autoconfigure;
 
 import java.time.Clock;
+import java.util.Set;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -25,12 +26,15 @@ import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagObjectMetadataContributor;
 import studio.one.platform.chunking.core.ChunkingOrchestrator;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertJobListener;
 import studio.one.platform.documentconvert.application.port.out.DocumentConvertDirectResultStore;
 import studio.one.platform.documentconvert.application.service.DocumentConvertService;
 import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.application.port.MarkdownConversionPort;
 import studio.one.platform.markdown.application.port.MarkdownNativeExtractorPort;
+import studio.one.platform.markdown.application.port.MarkdownNormalizationPort;
+import studio.one.platform.markdown.application.port.MarkdownPagePreviewPort;
 import studio.one.platform.markdown.application.port.MarkdownPipelinePort;
 import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.application.port.MarkdownSourcePort;
@@ -68,9 +72,10 @@ public class MarkdownAutoConfiguration {
     @ConditionalOnMissingBean
     @ConditionalOnBean(FileContentExtractionService.class)
     MarkdownNativeExtractorPort markdownNativeExtractorPort(FileContentExtractionService extractionService,
-            ObjectMapper objectMapper, MarkdownProperties properties, MarkdownRepository repository) {
+            ObjectMapper objectMapper, MarkdownProperties properties, MarkdownRepository repository,
+            ParsedFileNormalizedDocumentMapper normalizer, NormalizedMarkdownRenderer renderer) {
         return new TextractMarkdownNativeExtractorAdapter(extractionService, objectMapper,
-                properties.getTextractVersion(), repository);
+                properties.getTextractVersion(), repository, normalizer, renderer);
     }
 
     @Bean
@@ -82,15 +87,49 @@ public class MarkdownAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    MarkdownTextBlockParser markdownTextBlockParser() {
+        return new MarkdownTextBlockParser();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    NormalizedMarkdownRenderer normalizedMarkdownRenderer() {
+        return new NormalizedMarkdownRenderer();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    ParsedFileNormalizedDocumentMapper parsedFileNormalizedDocumentMapper() {
+        return new ParsedFileNormalizedDocumentMapper();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    MarkdownNormalizationPort markdownNormalizationPort(MarkdownTextBlockParser parser,
+            NormalizedMarkdownRenderer renderer,
+            ObjectMapper objectMapper) {
+        return new DefaultMarkdownNormalizationPort(parser, renderer, objectMapper);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    MarkdownPagePreviewPort markdownPagePreviewPort() {
+        return new PdfBoxMarkdownPagePreviewAdapter();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     MarkdownPipelinePort markdownPipelinePort(ObjectProvider<RagIndexJobService> ragIndexJobs,
             ObjectProvider<SkillRagExtractionJobService> skillJobService,
             ObjectProvider<ChunkingOrchestrator> chunking,
             ObjectProvider<RagChunkStageStore> chunkStageStore,
             ObjectProvider<EmbeddingPort> embeddingPort,
             ObjectProvider<AiProviderRegistry> aiProviderRegistry,
-            MarkdownRepository repository) {
+            ObjectProvider<ChunkSetStore> chunkSetStore,
+            MarkdownRepository repository,
+            ObjectMapper objectMapper) {
         return new MarkdownDownstreamPipelineAdapter(ragIndexJobs, skillJobService, chunking, chunkStageStore,
-                embeddingPort, aiProviderRegistry, repository);
+                embeddingPort, aiProviderRegistry, chunkSetStore, repository, objectMapper);
     }
 
     @Bean(name = "markdownTaskExecutor")
@@ -142,12 +181,16 @@ public class MarkdownAutoConfiguration {
             MarkdownConversionPort.class})
     MarkdownDocumentService markdownDocumentService(MarkdownRepository repository, MarkdownSourcePort sourcePort,
             MarkdownNativeExtractorPort nativeExtractor, MarkdownConversionPort conversionPort,
+            MarkdownNormalizationPort normalizationPort,
+            MarkdownPagePreviewPort pagePreviewPort,
             MarkdownPipelinePort pipelinePort, MarkdownTaskExecutor taskExecutor,
             MarkdownTransactionOperations transactions,
             ObjectMapper objectMapper, MarkdownProperties properties) {
         return new MarkdownDocumentService(repository, sourcePort, nativeExtractor, conversionPort,
-                pipelinePort, taskExecutor, transactions,
-                objectMapper, Clock.systemUTC(), properties.getPandocVersion());
+                normalizationPort, pipelinePort, taskExecutor, transactions,
+                objectMapper, Clock.systemUTC(), properties.getPandocVersion(),
+                Set.copyOf(properties.getPandocFormats()), properties.isFallbackToNativeOnPandocFailure(),
+                properties.getResultCacheDir(), pagePreviewPort, properties.getWeb().getBasePath());
     }
 
     @Bean

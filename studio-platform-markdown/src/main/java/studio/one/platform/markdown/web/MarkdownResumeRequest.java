@@ -23,6 +23,10 @@ public record MarkdownResumeRequest(
         Boolean generateSkillEmbeddings,
         String skillEmbeddingProvider,
         String skillEmbeddingModel,
-        Integer skillEmbeddingDimension
+        Integer skillEmbeddingDimension,
+        Boolean ocrRequired,
+        String ocrLanguage,
+        String ocrMode,
+        Boolean mathVisionCorrection
 ) {
 }

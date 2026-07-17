@@ -21,6 +21,7 @@ dependencies {
     compileOnly(project(":studio-platform-autoconfigure"))
     compileOnly(project(":studio-platform-document-convert"))
     compileOnly(project(":studio-platform-textract"))
+    compileOnly("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     compileOnly(project(":studio-platform-ai"))
     compileOnly(project(":studio-platform-chunking"))
     compileOnly(project(":studio-platform-skillgraph"))
@@ -32,6 +33,7 @@ dependencies {
 
     testImplementation(project(":studio-platform-document-convert"))
     testImplementation(project(":studio-platform-textract"))
+    testImplementation("org.apache.pdfbox:pdfbox:${property("apachePdfBoxVersion")}")
     testImplementation(project(":studio-platform-ai"))
     testImplementation(project(":studio-platform-chunking"))
     testImplementation(project(":studio-platform-skillgraph"))

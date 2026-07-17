@@ -5,11 +5,14 @@ import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.nio.file.Files;
 import java.time.OffsetDateTime;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ContentDisposition;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -17,13 +20,22 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import lombok.RequiredArgsConstructor;
+import studio.one.platform.markdown.application.MarkdownContent;
+import studio.one.platform.markdown.application.MarkdownContentUnavailableException;
 import studio.one.platform.markdown.application.MarkdownDocumentService;
+import studio.one.platform.markdown.application.MarkdownDocumentProfile;
+import studio.one.platform.markdown.application.MarkdownDocumentProfileDescriptor;
 import studio.one.platform.markdown.application.MarkdownDocumentNotFoundException;
+import studio.one.platform.markdown.application.MarkdownPagePreview;
+import studio.one.platform.markdown.application.MarkdownPagePreviewBounds;
+import studio.one.platform.markdown.application.MarkdownPagePreviewUnavailableException;
 import studio.one.platform.markdown.application.MarkdownExtractionRequest;
 import studio.one.platform.markdown.application.MarkdownExtractionResult;
 import studio.one.platform.markdown.application.MarkdownIdeaBlockMergeApplyOptions;
@@ -38,6 +50,7 @@ import studio.one.platform.markdown.application.MarkdownPipelineEstimate;
 import studio.one.platform.markdown.application.MarkdownPipelineEstimateUnavailableException;
 import studio.one.platform.markdown.application.MarkdownPipelineOptions;
 import studio.one.platform.markdown.application.MarkdownPipelineProgress;
+import studio.one.platform.markdown.application.MarkdownProcessingPlan;
 import studio.one.platform.markdown.application.MarkdownResumeOptions;
 import studio.one.platform.markdown.application.MarkdownResumeResult;
 import studio.one.platform.markdown.application.MarkdownSourceTooLargeException;
@@ -48,13 +61,35 @@ import studio.one.platform.markdown.domain.MarkdownResource;
 import studio.one.platform.markdown.domain.MarkdownRevision;
 import studio.one.platform.web.dto.ApiResponse;
 import studio.one.platform.web.dto.ProblemDetails;
-
+/**
+ * Controller for managing Markdown documents.
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("${studio.markdown.web.base-path:/api/markdown-documents}")
 public class MarkdownDocumentController {
     private final MarkdownDocumentService service;
 
+    @GetMapping("/profiles")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<List<MarkdownDocumentProfileDescriptor>> profiles() {
+        return ApiResponse.ok(java.util.Arrays.stream(MarkdownDocumentProfile.values())
+                .map(MarkdownDocumentProfile::descriptor)
+                .toList());
+    }
+
+    @PostMapping("/processing-plan")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<MarkdownProcessingPlan> processingPlan(@Valid @RequestBody MarkdownDocumentRequest request) {
+        return ApiResponse.ok(MarkdownProcessingPlan.from(options(request)));
+    }
+
+    /**
+     * Creates a new Markdown document from an attachment.
+     * @param request
+     * @param authentication
+     * @return
+     */
     @PostMapping("/from-attachment")
     @PreAuthorize("@endpointAuthz.can('features:markdown','manage')")
     public ResponseEntity<ApiResponse<MarkdownExtractionResult>> create(
@@ -80,6 +115,44 @@ public class MarkdownDocumentController {
     @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
     public ApiResponse<List<MarkdownRevision>> revisions(@PathVariable String id) {
         return ApiResponse.ok(service.getRevisions(id));
+    }
+
+    @GetMapping(value = "/{id}/markdown", produces = "text/markdown;charset=UTF-8")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ResponseEntity<StreamingResponseBody> currentMarkdown(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "false") boolean download) {
+        return markdownResponse(service.getCurrentMarkdown(id), download);
+    }
+
+    @GetMapping(value = "/{id}/revisions/{revisionId}/markdown", produces = "text/markdown;charset=UTF-8")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ResponseEntity<StreamingResponseBody> revisionMarkdown(
+            @PathVariable String id,
+            @PathVariable String revisionId,
+            @RequestParam(defaultValue = "false") boolean download) {
+        return markdownResponse(service.getRevisionMarkdown(id, revisionId), download);
+    }
+
+    @GetMapping(value = "/{id}/pages/{page}/preview", produces = MediaType.IMAGE_PNG_VALUE)
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ResponseEntity<byte[]> pagePreview(
+            @PathVariable String id,
+            @PathVariable int page,
+            @RequestParam(required = false) Double x0,
+            @RequestParam(required = false) Double y0,
+            @RequestParam(required = false) Double x1,
+            @RequestParam(required = false) Double y1) {
+        MarkdownPagePreview preview = service.getPagePreview(id, page, previewBounds(x0, y0, x1, y1));
+        try {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .contentLength(preview.contentLength())
+                    .header(HttpHeaders.CACHE_CONTROL, "private, max-age=3600")
+                    .body(Files.readAllBytes(preview.path()));
+        } catch (java.io.IOException ex) {
+            throw new MarkdownPagePreviewUnavailableException("Failed to read cached PDF page preview", ex);
+        }
     }
 
     @GetMapping("/{id}/revisions/{revisionId}/ideablocks/summary")
@@ -206,6 +279,12 @@ public class MarkdownDocumentController {
         return ApiResponse.ok(service.getLocators(id));
     }
 
+    @GetMapping("/{id}/provenance")
+    @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
+    public ApiResponse<List<MarkdownLocator>> provenance(@PathVariable String id) {
+        return ApiResponse.ok(service.getProvenance(id));
+    }
+
     @GetMapping("/{id}/resources")
     @PreAuthorize("@endpointAuthz.can('features:markdown','read')")
     public ApiResponse<List<MarkdownResource>> resources(@PathVariable String id) {
@@ -261,6 +340,40 @@ public class MarkdownDocumentController {
                 .body(problem);
     }
 
+    @ExceptionHandler(MarkdownContentUnavailableException.class)
+    public ResponseEntity<ProblemDetails> contentUnavailable(
+            MarkdownContentUnavailableException exception, HttpServletRequest request) {
+        ProblemDetails problem = ProblemDetails.builder()
+                .type("urn:error:markdown-content-unavailable")
+                .title(HttpStatus.CONFLICT.getReasonPhrase())
+                .status(HttpStatus.CONFLICT.value())
+                .detail(exception.getMessage())
+                .instance(request.getRequestURI())
+                .code("markdown.content-unavailable")
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
+    @ExceptionHandler(MarkdownPagePreviewUnavailableException.class)
+    public ResponseEntity<ProblemDetails> pagePreviewUnavailable(
+            MarkdownPagePreviewUnavailableException exception, HttpServletRequest request) {
+        ProblemDetails problem = ProblemDetails.builder()
+                .type("urn:error:markdown-page-preview-unavailable")
+                .title(HttpStatus.CONFLICT.getReasonPhrase())
+                .status(HttpStatus.CONFLICT.value())
+                .detail(exception.getMessage())
+                .instance(request.getRequestURI())
+                .code("markdown.page-preview-unavailable")
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .body(problem);
+    }
+
     @ExceptionHandler(MarkdownPipelineEstimateUnavailableException.class)
     public ResponseEntity<ProblemDetails> estimateUnavailable(
             MarkdownPipelineEstimateUnavailableException exception, HttpServletRequest request) {
@@ -286,7 +399,38 @@ public class MarkdownDocumentController {
                 request.embeddingProfileId(), request.embeddingProvider(), request.embeddingModel(),
                 request.embeddingDimension(), request.useLlmKeywordExtraction(),
                 request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
-                request.skillEmbeddingModel(), request.skillEmbeddingDimension());
+                request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
+                request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
+                request.documentProfile(), null, null);
+    }
+
+    private ResponseEntity<StreamingResponseBody> markdownResponse(MarkdownContent content, boolean download) {
+        ContentDisposition disposition = (download ? ContentDisposition.attachment() : ContentDisposition.inline())
+                .filename(content.filename(), java.nio.charset.StandardCharsets.UTF_8)
+                .build();
+        StreamingResponseBody body = output -> {
+            try (var input = Files.newInputStream(content.path())) {
+                input.transferTo(output);
+            }
+        };
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/markdown;charset=UTF-8"))
+                .contentLength(content.contentLength())
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header("X-Markdown-Document-Id", content.documentId())
+                .header("X-Markdown-Revision-Id", content.revisionId())
+                .header("X-Markdown-Content-Hash", content.contentHash())
+                .body(body);
+    }
+
+    private MarkdownPagePreviewBounds previewBounds(Double x0, Double y0, Double x1, Double y1) {
+        if (x0 == null && y0 == null && x1 == null && y1 == null) {
+            return null;
+        }
+        if (x0 == null || y0 == null || x1 == null || y1 == null) {
+            throw new IllegalArgumentException("Preview crop requires x0, y0, x1, and y1 together");
+        }
+        return new MarkdownPagePreviewBounds(x0, y0, x1, y1);
     }
 
     private MarkdownPipelineOptions options(MarkdownReextractRequest request) {
@@ -297,7 +441,9 @@ public class MarkdownDocumentController {
                 request.embeddingProfileId(), request.embeddingProvider(), request.embeddingModel(),
                 request.embeddingDimension(), request.useLlmKeywordExtraction(),
                 request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
-                request.skillEmbeddingModel(), request.skillEmbeddingDimension());
+                request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
+                request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
+                request.documentProfile(), null, null);
     }
 
     private MarkdownResumeOptions resumeOptions(MarkdownResumeRequest request) {
@@ -325,7 +471,11 @@ public class MarkdownDocumentController {
                 request.generateSkillEmbeddings(),
                 request.skillEmbeddingProvider(),
                 request.skillEmbeddingModel(),
-                request.skillEmbeddingDimension());
+                request.skillEmbeddingDimension(),
+                request.ocrRequired(),
+                request.ocrLanguage(),
+                request.ocrMode(),
+                request.mathVisionCorrection());
     }
 
     private MarkdownIdeaBlockMergePreviewOptions mergePreviewOptions(MarkdownIdeaBlockMergePreviewRequest request) {

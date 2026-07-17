@@ -13,10 +13,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.time.Instant;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,11 @@ import studio.one.platform.ai.service.pipeline.RagChunkStage;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
 import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.chunking.core.Chunk;
+import studio.one.platform.chunking.artifact.ChunkSet;
+import studio.one.platform.chunking.artifact.ChunkSetItem;
+import studio.one.platform.chunking.artifact.ChunkSetQualityStatus;
+import studio.one.platform.chunking.artifact.ChunkSetStatus;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
 import studio.one.platform.chunking.core.ChunkMetadata;
 import studio.one.platform.chunking.core.ChunkUnit;
 import studio.one.platform.chunking.core.ChunkingContext;
@@ -65,6 +72,7 @@ import studio.one.platform.markdown.application.port.MarkdownRepository;
 import studio.one.platform.markdown.domain.MarkdownLocator;
 import studio.one.platform.markdown.domain.MarkdownRevision;
 import studio.one.platform.markdown.domain.MarkdownPipelineStage;
+import studio.one.platform.markdown.domain.MarkdownResource;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 
 public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
@@ -83,7 +91,9 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
     private final ObjectProvider<RagChunkStageStore> chunkStageStoreProvider;
     private final ObjectProvider<EmbeddingPort> embeddingPortProvider;
     private final ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider;
+    private final ObjectProvider<ChunkSetStore> chunkSetStoreProvider;
     private final MarkdownRepository repository;
+    private final ObjectMapper objectMapper;
 
     public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
             ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
@@ -111,13 +121,40 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             ObjectProvider<EmbeddingPort> embeddingPortProvider,
             ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider,
             MarkdownRepository repository) {
+        this(ragJobServiceProvider, skillJobServiceProvider, chunkingProvider, chunkStageStoreProvider,
+                embeddingPortProvider, aiProviderRegistryProvider, null, repository, new ObjectMapper());
+    }
+
+    public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
+            ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider,
+            MarkdownRepository repository,
+            ObjectMapper objectMapper) {
+        this(ragJobServiceProvider, skillJobServiceProvider, chunkingProvider, chunkStageStoreProvider,
+                embeddingPortProvider, aiProviderRegistryProvider, null, repository, objectMapper);
+    }
+
+    public MarkdownDownstreamPipelineAdapter(ObjectProvider<RagIndexJobService> ragJobServiceProvider,
+            ObjectProvider<SkillRagExtractionJobService> skillJobServiceProvider,
+            ObjectProvider<ChunkingOrchestrator> chunkingProvider,
+            ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            ObjectProvider<EmbeddingPort> embeddingPortProvider,
+            ObjectProvider<AiProviderRegistry> aiProviderRegistryProvider,
+            ObjectProvider<ChunkSetStore> chunkSetStoreProvider,
+            MarkdownRepository repository,
+            ObjectMapper objectMapper) {
         this.ragJobServiceProvider = ragJobServiceProvider;
         this.skillJobServiceProvider = skillJobServiceProvider;
         this.chunkingProvider = chunkingProvider;
         this.chunkStageStoreProvider = chunkStageStoreProvider;
         this.embeddingPortProvider = embeddingPortProvider;
         this.aiProviderRegistryProvider = aiProviderRegistryProvider;
+        this.chunkSetStoreProvider = chunkSetStoreProvider;
         this.repository = repository;
+        this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
     }
 
     @Override
@@ -139,16 +176,28 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         String objectId = Long.toString(revision.sourceAttachmentId());
         Map<String, Object> metadata = metadata(revision, objectType, objectId);
         addPipelineMetadata(metadata, options);
+        ChunkSet preparedChunkSet = null;
         if (options.runChunking() && fromStage.ordinal() <= MarkdownPipelineStage.CHUNKING.ordinal()) {
-            stageChunks(revision, objectType, objectId, metadata, options);
+            preparedChunkSet = stageChunks(revision, objectType, objectId, metadata, options);
             stageCompleted.accept(MarkdownPipelineStage.CHUNKING);
         }
         if (options.runRagIndex() && fromStage.ordinal() <= MarkdownPipelineStage.RAG_INDEX.ordinal()) {
+            assertRagIndexEligible(revision);
+            if (preparedChunkSet == null) {
+                preparedChunkSet = resolvePreparedChunkSet(revision, objectType, objectId, metadata, options);
+            }
+            if (!preparedChunkSet.indexEligible()) {
+                throw new IllegalStateException("Prepared ChunkSet is not eligible for RAG indexing: "
+                        + preparedChunkSet.chunkSetId());
+            }
             RagIndexJobService ragJobService = ragJobServiceProvider.getIfAvailable();
             if (ragJobService == null) {
                 throw new IllegalStateException("RAG index job service is not configured");
             }
             Map<String, Object> ragMetadata = new HashMap<>(metadata);
+            ragMetadata.put("chunkSetId", preparedChunkSet.chunkSetId());
+            ragMetadata.put("requirePreparedChunks", true);
+            ragMetadata.put("ragRechunkApplied", false);
             if (isIdeaBlockStrategy(options)) {
                 ragMetadata.put(REQUIRE_RAG_CHUNK_STAGE, true);
             }
@@ -157,7 +206,8 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                     true, null, revision.sourceFileName()),
                     new RagIndexJobSourceRequest(
                             ragMetadata, List.of(), options.useLlmKeywordExtraction(),
-                            options.embeddingProfileId(), options.embeddingProvider(), options.embeddingModel()));
+                            options.embeddingProfileId(), options.embeddingProvider(), options.embeddingModel(),
+                            preparedChunkSet.chunkSetId(), true));
             RagIndexJob completed = ragJobService.startJob(job.jobId());
             if (completed.status() != RagIndexJobStatus.SUCCEEDED
                     && completed.status() != RagIndexJobStatus.WARNING) {
@@ -200,13 +250,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         String objectId = Long.toString(revision.sourceAttachmentId());
         Map<String, Object> metadata = metadata(revision, objectType, objectId);
         addPipelineMetadata(metadata, options);
-        NormalizedDocument document = NormalizedDocument.builder(revision.documentId())
-                .plainText(revision.markdownText())
-                .sourceFormat("markdown")
-                .filename(revision.sourceFileName())
-                .blocks(blocks(revision, options))
-                .metadata(metadata)
-                .build();
+        NormalizedDocument document = normalizedDocument(revision, metadata, options);
         return chunking.chunk(document, chunkingContext(document, options).build()).size();
     }
 
@@ -216,8 +260,8 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         if (ragJobService == null || revision == null) {
             return null;
         }
-        RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable();
-        if (stageStore != null && chunkStages(stageStore, revision).isEmpty()) {
+        RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable(RagChunkStageStore::noop);
+        if (chunkStages(stageStore, revision).isEmpty()) {
             return null;
         }
         RagIndexJobFilter filter = new RagIndexJobFilter(
@@ -244,10 +288,10 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
 
     @Override
     public MarkdownPipelineProgress.ChunkingProgress latestChunkingProgress(MarkdownRevision revision) {
-        RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable();
-        if (stageStore == null || revision == null) {
+        if (revision == null) {
             return null;
         }
+        RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable(RagChunkStageStore::noop);
         List<RagChunkStage> stages = chunkStages(stageStore, revision);
         if (stages.isEmpty()) {
             return null;
@@ -370,8 +414,24 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         if (!stages.isEmpty()) {
             return stages;
         }
-        return stageStore.findIndexedByObject(
+        stages = stageStore.findIndexedByObject(
                 "attachment", Long.toString(revision.sourceAttachmentId()), revision.revisionId());
+        if (!stages.isEmpty()) {
+            return stages;
+        }
+        return chunkSetStore().findLatest(
+                        "attachment", Long.toString(revision.sourceAttachmentId()),
+                        revision.documentId(), revision.revisionId())
+                .map(this::chunkSetStages)
+                .orElse(List.of());
+    }
+
+    private List<RagChunkStage> chunkSetStages(ChunkSet chunkSet) {
+        return chunkSet.items().stream()
+                .map(item -> new RagChunkStage(
+                        chunkSet.objectType(), chunkSet.objectId(), chunkSet.documentId(), item.chunkIndex(),
+                        item.chunkId(), item.text(), item.metadata(), null))
+                .toList();
     }
 
     private String chunkingQualityStatus(int chunkCount, int ideaBlockCount, int fallbackCount) {
@@ -521,6 +581,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         }
         List<RagChunkStage> reindexed = reindexStages(replaced);
         stageStore.replace(objectType, objectId, revision.documentId(), reindexed);
+        replacePreparedChunkSetItems(revision, objectType, objectId, reindexed);
         return new MarkdownIdeaBlockMergeApplyResult(
                 revision.documentId(),
                 revision.revisionId(),
@@ -567,6 +628,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         }
         List<RagChunkStage> reindexed = reindexStages(replaced);
         stageStore.replace(objectType, objectId, revision.documentId(), reindexed);
+        replacePreparedChunkSetItems(revision, objectType, objectId, reindexed);
         return new MarkdownIdeaBlockMergeUndoResult(
                 revision.documentId(),
                 revision.revisionId(),
@@ -578,20 +640,14 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 null);
     }
 
-    private void stageChunks(MarkdownRevision revision, String objectType, String objectId,
+    private ChunkSet stageChunks(MarkdownRevision revision, String objectType, String objectId,
             Map<String, Object> metadata, MarkdownPipelineOptions options) {
         ChunkingOrchestrator chunking = chunkingProvider.getIfAvailable();
         RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable();
         if (chunking == null || stageStore == null) {
             throw new IllegalStateException("Chunking pipeline is not configured");
         }
-        NormalizedDocument document = NormalizedDocument.builder(revision.documentId())
-                .plainText(revision.markdownText())
-                .sourceFormat("markdown")
-                .filename(revision.sourceFileName())
-                .blocks(blocks(revision, options))
-                .metadata(metadata)
-                .build();
+        NormalizedDocument document = normalizedDocument(revision, metadata, options);
         ChunkingContext.Builder context = document.toContextBuilder();
         applyChunkingOptions(context, options);
         List<Chunk> chunks = chunking.chunk(document, context.build());
@@ -604,6 +660,9 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                                 .formatted(chunkingStrategyLabel(options), revision.revisionId()));
             }
         }
+        String sourceContentHash = nonBlank(revision.contentHash(), sha256(revision.markdownText()));
+        String strategyHash = strategyHash(options);
+        String chunkSetId = chunkSetId(objectType, objectId, revision, sourceContentHash, strategyHash);
         List<RagChunkStage> stages = new ArrayList<>(chunks.size());
         for (int index = 0; index < chunks.size(); index++) {
             Chunk chunk = chunks.get(index);
@@ -615,13 +674,192 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 validateBlockifyStageMetadata(stageMetadata, chunk);
             }
             chunkMetadata.putAll(stageMetadata);
+            chunkMetadata.put("chunkSetId", chunkSetId);
+            chunkMetadata.put("chunkSetStrategyHash", strategyHash);
+            chunkMetadata.put("ragRechunkApplied", false);
             stages.add(new RagChunkStage(objectType, objectId, revision.documentId(), index,
                     chunk.id(), chunk.content(), chunkMetadata, null));
         }
         stageStore.replace(objectType, objectId, revision.documentId(), stages);
+        ChunkSet chunkSet = chunkSet(revision, objectType, objectId, metadata, options, stages,
+                chunkSetId, sourceContentHash, strategyHash);
+        chunkSetStore().save(chunkSet);
         if (ideaBlockStrategy) {
             verifyBlockifyStageStored(stageStore, objectType, objectId, revision.documentId(), stages.size());
         }
+        return chunkSet;
+    }
+
+    private ChunkSet resolvePreparedChunkSet(
+            MarkdownRevision revision,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            MarkdownPipelineOptions options) {
+        ChunkSetStore store = chunkSetStore();
+        var stored = store.findLatest(objectType, objectId, revision.documentId(), revision.revisionId());
+        if (stored.isPresent()) {
+            return stored.get();
+        }
+        RagChunkStageStore stageStore = chunkStageStoreProvider.getIfAvailable();
+        List<RagChunkStage> stages = stageStore == null
+                ? List.of()
+                : stageStore.findByObject(objectType, objectId, revision.documentId());
+        if (stages.isEmpty()) {
+            throw new IllegalStateException(
+                    "Prepared ChunkSet was not found; Markdown RAG indexing will not re-extract or rechunk");
+        }
+        String sourceContentHash = nonBlank(revision.contentHash(), sha256(revision.markdownText()));
+        String strategyHash = strategyHash(options);
+        String chunkSetId = chunkSetId(objectType, objectId, revision, sourceContentHash, strategyHash);
+        ChunkSet bridged = chunkSet(revision, objectType, objectId, metadata, options, stages,
+                chunkSetId, sourceContentHash, strategyHash);
+        return store.save(bridged);
+    }
+
+    private void replacePreparedChunkSetItems(
+            MarkdownRevision revision,
+            String objectType,
+            String objectId,
+            List<RagChunkStage> stages) {
+        ChunkSetStore store = chunkSetStore();
+        store.findLatest(objectType, objectId, revision.documentId(), revision.revisionId()).ifPresent(existing -> {
+            List<ChunkSetItem> items = stages.stream()
+                    .sorted(Comparator.comparingInt(RagChunkStage::chunkIndex))
+                    .map(stage -> new ChunkSetItem(
+                            stage.chunkIndex(), stage.chunkId(), stage.text(), sha256(stage.text()), stage.metadata()))
+                    .toList();
+            store.save(new ChunkSet(
+                    existing.chunkSetId(), existing.objectType(), existing.objectId(), existing.documentId(),
+                    existing.sourceRevisionId(), existing.sourceContentHash(), existing.strategy(),
+                    existing.strategyHash(), existing.chunkUnit(), existing.maxSize(), existing.overlap(),
+                    existing.status(), existing.qualityStatus(), existing.qualityIssues(), existing.metadata(),
+                    items, existing.createdAt(), Instant.now()));
+        });
+    }
+
+    private ChunkSet chunkSet(
+            MarkdownRevision revision,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            MarkdownPipelineOptions options,
+            List<RagChunkStage> stages,
+            String chunkSetId,
+            String sourceContentHash,
+            String strategyHash) {
+        List<RagChunkStage> ordered = stages.stream()
+                .sorted(Comparator.comparingInt(RagChunkStage::chunkIndex))
+                .toList();
+        Map<String, Object> artifactMetadata = new LinkedHashMap<>(metadata);
+        if (!ordered.isEmpty()) {
+            artifactMetadata.putAll(ordered.get(0).metadata());
+        }
+        artifactMetadata.put("chunkSetId", chunkSetId);
+        artifactMetadata.put("chunkSetStrategyHash", strategyHash);
+        artifactMetadata.put("chunkSetChunkCount", ordered.size());
+        artifactMetadata.put("ragRechunkApplied", false);
+        List<String> qualityIssues = qualityIssues(artifactMetadata);
+        ChunkSetQualityStatus qualityStatus = reviewRequired(artifactMetadata, qualityIssues)
+                ? ChunkSetQualityStatus.REVIEW_REQUIRED
+                : ChunkSetQualityStatus.VALID;
+        List<ChunkSetItem> items = new ArrayList<>(ordered.size());
+        for (int index = 0; index < ordered.size(); index++) {
+            RagChunkStage stage = ordered.get(index);
+            Map<String, Object> itemMetadata = new LinkedHashMap<>(stage.metadata());
+            itemMetadata.put("chunkSetId", chunkSetId);
+            itemMetadata.put("ragRechunkApplied", false);
+            items.add(new ChunkSetItem(index, stage.chunkId(), stage.text(), sha256(stage.text()), itemMetadata));
+        }
+        String strategy = firstNonBlank(
+                text(artifactMetadata.get(ChunkMetadata.KEY_ACTUAL_CHUNKING_STRATEGY)),
+                text(artifactMetadata.get(ChunkMetadata.KEY_STRATEGY)),
+                options.chunkingStrategy(),
+                ChunkingStrategyType.RECURSIVE.value());
+        String chunkUnit = firstNonBlank(
+                text(artifactMetadata.get(ChunkMetadata.KEY_CHUNK_UNIT)),
+                options.chunkUnit() == null ? null : options.chunkUnit().toLowerCase());
+        Instant now = Instant.now();
+        return new ChunkSet(
+                chunkSetId, objectType, objectId, revision.documentId(), revision.revisionId(),
+                sourceContentHash, strategy, strategyHash, chunkUnit,
+                options.chunkMaxSize(), options.chunkOverlap(), ChunkSetStatus.READY, qualityStatus,
+                qualityIssues, artifactMetadata, items, now, now);
+    }
+
+    private ChunkSetStore chunkSetStore() {
+        return chunkSetStoreProvider == null
+                ? ChunkSetStore.noop()
+                : chunkSetStoreProvider.getIfAvailable(ChunkSetStore::noop);
+    }
+
+    private String strategyHash(MarkdownPipelineOptions options) {
+        Map<String, Object> strategy = new LinkedHashMap<>();
+        strategy.put("strategy", options.chunkingStrategy());
+        strategy.put("maxSize", options.chunkMaxSize());
+        strategy.put("overlap", options.chunkOverlap());
+        strategy.put("unit", options.chunkUnit());
+        strategy.put("blockifyLlmProvider", options.blockifyLlmProvider());
+        strategy.put("blockifyLlmModel", options.blockifyLlmModel());
+        strategy.put("blockifyPiiMaskingEnabled", options.blockifyPiiMaskingEnabled());
+        try {
+            return sha256(objectMapper.writeValueAsString(strategy));
+        } catch (Exception ex) {
+            throw new IllegalStateException("Failed to fingerprint ChunkSet strategy", ex);
+        }
+    }
+
+    private String chunkSetId(
+            String objectType,
+            String objectId,
+            MarkdownRevision revision,
+            String sourceContentHash,
+            String strategyHash) {
+        String hash = sha256(String.join("|", objectType, objectId, revision.documentId(), revision.revisionId(),
+                sourceContentHash, strategyHash));
+        return "cset-" + hash.substring(0, 32);
+    }
+
+    private String sha256(String value) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest((value == null ? "" : value)
+                    .getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException("SHA-256 is not available", ex);
+        }
+    }
+
+    private List<String> qualityIssues(Map<String, Object> metadata) {
+        LinkedHashSet<String> issues = new LinkedHashSet<>();
+        addIssues(issues, metadata.get("normalizationIssues"));
+        addIssues(issues, metadata.get("markdownQualityIssues"));
+        addIssues(issues, metadata.get(ChunkMetadata.KEY_CHUNK_QUALITY_ISSUES));
+        return List.copyOf(issues);
+    }
+
+    private void addIssues(Set<String> issues, Object value) {
+        if (value instanceof Iterable<?> values) {
+            for (Object item : values) {
+                String issue = text(item);
+                if (issue != null) {
+                    issues.add(issue);
+                }
+            }
+            return;
+        }
+        String issue = text(value);
+        if (issue != null) {
+            issues.add(issue);
+        }
+    }
+
+    private boolean reviewRequired(Map<String, Object> metadata, List<String> issues) {
+        return !issues.isEmpty()
+                || "REVIEW_REQUIRED".equalsIgnoreCase(text(metadata.get("normalizationStatus")))
+                || "REVIEW_REQUIRED".equalsIgnoreCase(text(metadata.get("markdownQualityStatus")))
+                || "REVIEW_REQUIRED".equalsIgnoreCase(
+                        text(metadata.get(ChunkMetadata.KEY_CHUNK_QUALITY_STATUS)));
     }
 
     private ChunkingContext.Builder chunkingContext(NormalizedDocument document, MarkdownPipelineOptions options) {
@@ -793,7 +1031,70 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         put(metadata, "embeddingDimension", options.embeddingDimension());
     }
 
-    private List<NormalizedBlock> blocks(MarkdownRevision revision, MarkdownPipelineOptions options) {
+    private NormalizedDocument normalizedDocument(MarkdownRevision revision, Map<String, Object> metadata,
+            MarkdownPipelineOptions options) {
+        NormalizedDocumentSnapshot.Snapshot snapshot = normalizedSnapshot(revision);
+        if (snapshot != null) {
+            Map<String, Object> merged = new LinkedHashMap<>();
+            merged.putAll(snapshot.document().metadata());
+            merged.putAll(metadata);
+            merged.put("normalizationStatus", snapshot.normalizationStatus());
+            merged.put("normalizationIssues", snapshot.normalizationIssues());
+            merged.put("normalizationSource", snapshot.normalizationSource());
+            merged.putAll(snapshot.qualityMetrics());
+            merged.put("normalizedSnapshotUsed", true);
+            return NormalizedDocument.builder(revision.documentId())
+                    .plainText(nonBlank(snapshot.document().plainText(), revision.markdownText()))
+                    .sourceFormat(nonBlank(snapshot.document().sourceFormat(), "markdown"))
+                    .filename(nonBlank(snapshot.document().filename(), revision.sourceFileName()))
+                    .blocks(snapshot.document().blocks())
+                    .metadata(merged)
+                    .build();
+        }
+        Map<String, Object> fallbackMetadata = new LinkedHashMap<>(metadata);
+        fallbackMetadata.put("normalizedSnapshotUsed", false);
+        return NormalizedDocument.builder(revision.documentId())
+                .plainText(revision.markdownText())
+                .sourceFormat("markdown")
+                .filename(revision.sourceFileName())
+                .blocks(fallbackBlocks(revision, options))
+                .metadata(fallbackMetadata)
+                .build();
+    }
+
+    private NormalizedDocumentSnapshot.Snapshot normalizedSnapshot(MarkdownRevision revision) {
+        List<MarkdownResource> resources = repository.findResources(revision.revisionId());
+        if (resources == null || resources.isEmpty()) {
+            return null;
+        }
+        for (MarkdownResource resource : resources) {
+            var snapshot = NormalizedDocumentSnapshot.read(resource, objectMapper);
+            if (snapshot.isPresent()) {
+                return snapshot.get();
+            }
+        }
+        return null;
+    }
+
+    private void assertRagIndexEligible(MarkdownRevision revision) {
+        NormalizedDocumentSnapshot.Snapshot snapshot = normalizedSnapshot(revision);
+        if (snapshot == null) {
+            return;
+        }
+        Object eligible = snapshot.document().metadata().get("ragIndexEligible");
+        if (!Boolean.FALSE.equals(eligible)) {
+            return;
+        }
+        Object issues = snapshot.document().metadata().getOrDefault("markdownQualityIssues",
+                snapshot.normalizationIssues());
+        throw new IllegalStateException("Markdown quality gate blocked RAG indexing: " + issues);
+    }
+
+    private String nonBlank(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
+    }
+
+    private List<NormalizedBlock> fallbackBlocks(MarkdownRevision revision, MarkdownPipelineOptions options) {
         List<MarkdownLocator> all = repository.findLocators(revision.revisionId());
         boolean blockify = isIdeaBlockStrategy(options);
         boolean hasSection = all.stream()

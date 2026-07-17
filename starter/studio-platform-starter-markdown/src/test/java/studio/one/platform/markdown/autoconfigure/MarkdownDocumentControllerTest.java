@@ -15,6 +15,7 @@ import studio.one.platform.markdown.application.MarkdownDocumentNotFoundExceptio
 import studio.one.platform.markdown.application.MarkdownDocumentService;
 import studio.one.platform.markdown.domain.MarkdownDocument;
 import studio.one.platform.markdown.web.MarkdownDocumentController;
+import studio.one.platform.markdown.web.MarkdownDocumentRequest;
 
 class MarkdownDocumentControllerTest {
 
@@ -46,5 +47,29 @@ class MarkdownDocumentControllerTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getHeaders().getContentType()).isEqualTo(MediaType.APPLICATION_PROBLEM_JSON);
         assertThat(response.getBody().getCode()).isEqualTo("markdown.document.not-found");
+    }
+
+    @Test
+    void listsServerOwnedProfilesAndPreviewsEffectivePlan() {
+        MarkdownDocumentController controller = new MarkdownDocumentController(mock(MarkdownDocumentService.class));
+        MarkdownDocumentRequest request = new MarkdownDocumentRequest(
+                6L, true, true, false, false,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null,
+                false, null, false,
+                null, null, null,
+                null, null, null, null,
+                "MATH_TEXTBOOK");
+
+        var profiles = controller.profiles().getData();
+        var plan = controller.processingPlan(request).getData();
+
+        assertThat(profiles).extracting("id")
+                .contains("AUTO", "PROFESSIONAL_BOOK", "TEXTBOOK", "MATH_TEXTBOOK", "PRESENTATION");
+        assertThat(plan.requestedDocumentProfile()).isEqualTo("MATH_TEXTBOOK");
+        assertThat(plan.resolvedDocumentProfile()).isEqualTo("MATH_TEXTBOOK");
+        assertThat(plan.effectiveOptions().ocrRequired()).isTrue();
+        assertThat(plan.effectiveOptions().mathVisionCorrection()).isTrue();
     }
 }
