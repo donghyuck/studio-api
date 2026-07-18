@@ -153,4 +153,37 @@ class GoogleSpringAiChatRegistrationTest {
         Method modelMethod = defaultOptions.getClass().getMethod("getModel");
         assertThat(modelMethod.invoke(defaultOptions)).isEqualTo("gemini-2.5-flash");
     }
+
+    @Test
+    void explicitModelOverrideCreatesAProviderWithItsOwnGoogleModel() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google-pro");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getChat().setEnabled(true);
+        provider.getChat().setModel("gemini-2.5-pro");
+        provider.getChat().setModelOverride(true);
+        properties.getProviders().put("google-pro", provider);
+
+        Map<String, ChatPort> chatPorts = new ProviderChatConfiguration().chatPorts(
+                properties,
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.chat.api-key", "spring-key")
+                        .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash"),
+                new StaticListableBeanFactory().getBeanProvider(org.springframework.ai.chat.model.ChatModel.class),
+                List.of(new GoogleGenAiChatPortFactoryConfiguration().googleGenAiChatPortFactory()));
+
+        GoogleSpringAiChatAdapter adapter = (GoogleSpringAiChatAdapter) chatPorts.get("google-pro");
+        Field chatModelField = studio.one.platform.ai.autoconfigure.adapter.SpringAiChatAdapter.class
+                .getDeclaredField("chatModel");
+        chatModelField.setAccessible(true);
+        Object chatModel = chatModelField.get(adapter);
+        Field defaultOptionsField = chatModel.getClass().getDeclaredField("defaultOptions");
+        defaultOptionsField.setAccessible(true);
+        Object defaultOptions = defaultOptionsField.get(chatModel);
+
+        assertThat(defaultOptions.getClass().getMethod("getModel").invoke(defaultOptions))
+                .isEqualTo("gemini-2.5-pro");
+    }
 }

@@ -79,6 +79,35 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void reextractInheritsLastExplicitQualityOptionsWhenClientOmitsThem() throws Exception {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "math-textbook.pdf", "application/pdf", "%PDF-test");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Math", "textract-1", List.of(), List.of()), MarkdownPipelinePort.noop());
+        MarkdownPipelineOptions qualityOptions = new MarkdownPipelineOptions(
+                false, false, false,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null,
+                false, null, false,
+                null, null, null,
+                true, "kor+eng", "FORCE", true);
+
+        var initial = service.create(new MarkdownExtractionRequest(1L, qualityOptions, true, "tester"));
+        var reextracted = service.reextract(
+                initial.document().documentId(), new MarkdownPipelineOptions(false, false, false), true, "tester");
+        Map<String, Object> stored = new ObjectMapper().readValue(
+                reextracted.revision().optionsJson(), new TypeReference<>() {});
+
+        assertEquals(Boolean.TRUE, stored.get("ocrRequired"));
+        assertEquals("kor+eng", stored.get("ocrLanguage"));
+        assertEquals("FORCE", stored.get("ocrMode"));
+        assertEquals(Boolean.TRUE, stored.get("mathVisionCorrection"));
+    }
+
+    @Test
     void rewritesLogicalImageReferencesAndCachesPdfPagePreview() throws Exception {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();

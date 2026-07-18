@@ -296,7 +296,8 @@ public class MarkdownDocumentController {
     public ResponseEntity<ApiResponse<MarkdownExtractionResult>> reextract(
             @PathVariable String id, @RequestBody MarkdownReextractRequest request, Authentication authentication) {
         String actor = authentication == null ? null : authentication.getName();
-        return ResponseEntity.accepted().body(ApiResponse.ok(service.reextract(id, options(request), actor)));
+        return ResponseEntity.accepted().body(ApiResponse.ok(service.reextract(
+                id, options(request), extractionQualityOptionsOmitted(request), actor)));
     }
 
     @DeleteMapping("/{id}/extraction")
@@ -444,6 +445,14 @@ public class MarkdownDocumentController {
                 request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
                 request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
                 request.documentProfile(), null, null);
+    }
+
+    private boolean extractionQualityOptionsOmitted(MarkdownReextractRequest request) {
+        return request.documentProfile() == null
+                && request.ocrRequired() == null
+                && request.ocrLanguage() == null
+                && request.ocrMode() == null
+                && request.mathVisionCorrection() == null;
     }
 
     private MarkdownResumeOptions resumeOptions(MarkdownResumeRequest request) {

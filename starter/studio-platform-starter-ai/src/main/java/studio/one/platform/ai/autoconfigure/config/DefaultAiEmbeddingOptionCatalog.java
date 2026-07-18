@@ -102,6 +102,10 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
     }
 
     private String embeddingModel(String providerId, AiAdapterProperties.Provider provider) {
+        if (provider != null && provider.getEmbedding().isModelOverride()
+                && normalize(provider.getEmbedding().getModel()) != null) {
+            return normalize(provider.getEmbedding().getModel());
+        }
         return switch (providerType(provider) == null ? "" : providerType(provider)) {
             case "OPENAI" -> firstText(
                     property("spring.ai.openai.embedding.options.model"),

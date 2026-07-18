@@ -64,6 +64,7 @@ public class AiAdapterProperties {
     public static final class Channel {
         private boolean enabled = false;
         private String model;
+        private boolean modelOverride = false;
         private Integer dimension;
         private Duration requestTimeout;
     }

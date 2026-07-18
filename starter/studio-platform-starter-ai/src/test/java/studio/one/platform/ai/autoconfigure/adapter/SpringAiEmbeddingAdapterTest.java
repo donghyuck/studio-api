@@ -39,7 +39,7 @@ class SpringAiEmbeddingAdapterTest {
     @Test
     void rejectsRequestModelThatDoesNotMatchConfiguredModel() {
         EmbeddingModel model = mock(EmbeddingModel.class);
-        SpringAiEmbeddingAdapter adapter = new SpringAiEmbeddingAdapter(model, "text-embedding-004");
+        SpringAiEmbeddingAdapter adapter = new SpringAiEmbeddingAdapter(model, "gemini-embedding-001");
 
         assertThatThrownBy(() -> adapter.embed(new EmbeddingRequest(
                 List.of("text"),

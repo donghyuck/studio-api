@@ -337,6 +337,48 @@ class AiSecretPresenceGuardTest {
     }
 
     @Test
+    void validateAllowsGoogleProvidersWithExplicitModelOverrides() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.getRouting().setDefaultChatProvider("google-primary");
+        properties.getRouting().setDefaultEmbeddingProvider("google-primary");
+        Provider primary = googleProvider(true, true);
+        Provider pro = googleProvider(true, false);
+        pro.getChat().setModelOverride(true);
+        pro.getChat().setModel("gemini-2.5-pro");
+        Provider embedding2 = googleProvider(false, true);
+        embedding2.getEmbedding().setModelOverride(true);
+        embedding2.getEmbedding().setModel("gemini-embedding-2");
+        properties.getProviders().put("google-primary", primary);
+        properties.getProviders().put("google-pro", pro);
+        properties.getProviders().put("google-embedding-2", embedding2);
+
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.google.genai.chat.api-key", "test-key")
+                .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash")
+                .withProperty("spring.ai.google.genai.embedding.api-key", "test-key")
+                .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001");
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        beanFactory.addBean("googleChatModel", org.mockito.Mockito.mock(ChatModel.class));
+        beanFactory.addBean("googleEmbeddingModel", org.mockito.Mockito.mock(EmbeddingModel.class));
+
+        assertDoesNotThrow(() -> guard(properties, environment, beanFactory).validate());
+    }
+
+    @Test
+    void validateRejectsBlankExplicitGoogleModelOverride() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google");
+        Provider provider = googleProvider(true, false);
+        provider.getChat().setModelOverride(true);
+        properties.getProviders().put("google", provider);
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.google.genai.chat.api-key", "test-key")
+                .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash");
+
+        assertThrows(IllegalStateException.class, () -> guard(properties, environment).validate());
+    }
+
+    @Test
     void validateRejectsMultipleOllamaEmbeddingProvidersWhenUsingSingleSpringAiEmbeddingModel() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.getRouting().setDefaultChatProvider("ollama-primary");

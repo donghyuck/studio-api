@@ -113,6 +113,34 @@ class ChunkContextExpanderTest {
     }
 
     @Test
+    void parentChildExpansionRecoversNearbyMathConditionForOrphanQuestion() {
+        Chunk condition = chunk("doc-37",
+                "$A+B=5x^2+xy-2y^2$\n$A-B=x^2+3xy-6y^2$",
+                37, "parent-table", null, null, "Problems", ChunkType.TABLE,
+                Map.of(ChunkMetadata.KEY_PAGE, 8));
+        Chunk explanation = chunk("doc-42", "두 식을 연립하여 계산한다.",
+                42, "parent-help", null, null, "Problems", ChunkType.CHILD,
+                Map.of(ChunkMetadata.KEY_PAGE, 8));
+        Chunk seed = chunk("doc-43", "일 때, A-3B를 구하시오.",
+                43, "parent-question", null, null, "Problems", ChunkType.CHILD,
+                Map.of(
+                        ChunkMetadata.KEY_PAGE, 8,
+                        ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "일 때, A-3B를 구하시오."));
+
+        ChunkContextExpansion expansion = new ParentChildChunkContextExpander().expand(
+                ChunkContextExpansionRequest.builder(seed)
+                        .availableChunks(List.of(seed, explanation, condition))
+                        .includeParentContent(true)
+                        .build());
+
+        assertThat(expansion.contextChunks()).containsExactly(condition, explanation, seed);
+        assertThat(expansion.content()).contains("A+B=5x^2", "A-3B를 구하시오");
+        assertThat(expansion.metadata())
+                .containsEntry("problemContextFallback", true)
+                .containsEntry("problemContextChunkCount", 3);
+    }
+
+    @Test
     void headingExpansionUsesSameSectionCandidates() {
         Chunk seed = chunk("doc-1", "seed", 1, "parent-a", null, null, "Install", ChunkType.CHILD, Map.of());
         Chunk sameHeading = chunk("doc-2", "same", 2, "parent-a", null, null, "Install", ChunkType.CHILD, Map.of());

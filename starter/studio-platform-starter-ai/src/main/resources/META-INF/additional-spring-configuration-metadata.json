@@ -73,6 +73,18 @@
       "description": "Embedding vector dimension metadata exposed through AI embedding option discovery."
     },
     {
+      "name": "studio.ai.providers.*.chat.model-override",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Use this provider's chat model instead of the shared spring.ai.google.genai.chat.options.model. Intended for multiple Google model providers."
+    },
+    {
+      "name": "studio.ai.providers.*.embedding.model-override",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "Use this provider's embedding model and dimension instead of the shared Spring AI Google embedding options."
+    },
+    {
       "name": "studio.ai.providers.*.embedding.request-timeout",
       "type": "java.time.Duration",
       "defaultValue": "2m",

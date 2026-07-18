@@ -1100,7 +1100,7 @@ class MarkdownNormalizationComponentsTest {
     }
 
     @Test
-    void blocksRagIndexWhenKoreanJamoAndMathRenderingLossAreSevere() {
+    void keepsRagIndexEligibleForReviewableKoreanAndMathQualityIssues() {
         List<NormalizedBlock> blocks = new java.util.ArrayList<>();
         for (int index = 0; index < 24; index++) {
             blocks.add(NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "x^2+" + index + "=0")
@@ -1127,13 +1127,13 @@ class MarkdownNormalizationComponentsTest {
         assertThat(issues).contains("KOREAN_JAMO_REVIEW_REQUIRED", "PYMUPDF_FALLBACK_USED",
                 "MATH_RENDERING_LOSS", "CONTENT_PAGE_COVERAGE_INCOMPLETE");
         assertThat(assessed.metadata())
-                .containsEntry("ragIndexEligible", false)
-                .containsEntry("qualityGateStatus", "BLOCKED");
+                .containsEntry("ragIndexEligible", true)
+                .containsEntry("qualityGateStatus", "REVIEW_REQUIRED");
         assertThat((Double) assessed.metadata().get("markdownQualityScore")).isLessThan(0.85d);
     }
 
     @Test
-    void blocksRagIndexWhenKoreanDocumentWasTransliteratedToLatin() {
+    void keepsRagIndexEligibleWhenKoreanGarblingRequiresReview() {
         String garbled = "CrefAlo ChStAJo Cerio HUH GES latin replacement text ".repeat(12);
         NormalizedDocument document = NormalizedDocument.builder("doc-korean-garbling")
                 .filename("미래엔_고등수학.pdf")
@@ -1150,6 +1150,24 @@ class MarkdownNormalizationComponentsTest {
                 .withRenderedQuality(document, garbled, issues);
 
         assertThat(issues).contains("KOREAN_TEXT_GARBLING");
+        assertThat(assessed.metadata())
+                .containsEntry("ragIndexEligible", true)
+                .containsEntry("qualityGateStatus", "REVIEW_REQUIRED");
+    }
+
+    @Test
+    void blocksRagIndexOnlyWhenRenderedMarkdownIsEmpty() {
+        NormalizedDocument document = NormalizedDocument.builder("doc-empty")
+                .blocks(List.of(NormalizedBlock.builder(NormalizedBlockType.PARAGRAPH, "원문")
+                        .page(1)
+                        .sourceRef("page[1]/block[0]")
+                        .order(0)
+                        .build()))
+                .build();
+
+        NormalizedDocument assessed = new RenderedMarkdownPostProcessor()
+                .withRenderedQuality(document, "", List.of("MARKDOWN_BLANK"));
+
         assertThat(assessed.metadata())
                 .containsEntry("ragIndexEligible", false)
                 .containsEntry("qualityGateStatus", "BLOCKED");

@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -22,6 +23,13 @@ import studio.one.platform.textract.domain.model.ParsedBlock;
 import studio.one.platform.textract.domain.model.ParsedFile;
 
 public class PdfExtractionEngineSelector {
+
+    private static final Pattern MALFORMED_PRIME_EXPONENT = Pattern.compile(
+            "(?i).*(?<![a-z])(?:[xyzabc][’'](?:\\d+)?|\\d{2,}[xyzabc][’'])(?![a-z]).*");
+    private static final Pattern OCR_DIGIT_PRIME_EXPONENT = Pattern.compile(
+            "(?i)\\d{2,}[xyzabc][’'](?![a-z])");
+    private static final Pattern OCR_JOINED_MATH_VARIABLES = Pattern.compile(
+            "(?i).*(?<![a-z])(?:[xyzabc][rv][xyzabc]|[xyzabc]{2,}r[xyzabc])(?![a-z]).*");
 
     public static final String KEY_EXTRACTION_ENGINE = "pdfExtractionEngine";
     public static final String KEY_FALLBACK_FROM = "pdfExtractionFallbackFrom";
@@ -733,25 +741,45 @@ public class PdfExtractionEngineSelector {
             return List.of();
         }
         Map<Integer, Integer> scores = new LinkedHashMap<>();
+        Set<Integer> malformedEquationPages = new LinkedHashSet<>();
         for (ParsedBlock block : baseline.blocks()) {
             if (block == null || block.page() == null || block.text() == null) {
                 continue;
             }
             String text = block.text().strip();
-            if (text.isBlank() || !mathLikeText(text)) {
+            boolean severeMalformedEquation = severeMalformedEquationText(text);
+            if (text.isBlank() || (!mathLikeText(text) && !severeMalformedEquation)) {
                 continue;
             }
-            if (lowQualityMathText(text)) {
+            if (lowQualityMathText(text) || severeMalformedEquation) {
                 scores.merge(block.page(), lowQualityMathScore(text), Integer::sum);
+                if (severeMalformedEquation) {
+                    malformedEquationPages.add(block.page());
+                }
             }
         }
-        return scores.entrySet().stream()
+        List<Integer> ranked = scores.entrySet().stream()
                 .sorted((left, right) -> {
                     int byScore = Integer.compare(right.getValue(), left.getValue());
                     return byScore != 0 ? byScore : Integer.compare(left.getKey(), right.getKey());
                 })
                 .map(Map.Entry::getKey)
                 .toList();
+        if (malformedEquationPages.isEmpty()) {
+            return ranked;
+        }
+        LinkedHashSet<Integer> prioritized = new LinkedHashSet<>();
+        malformedEquationPages.stream()
+                .sorted()
+                .limit(Math.min(2, malformedEquationPages.size()))
+                .forEach(prioritized::add);
+        prioritized.addAll(ranked);
+        return List.copyOf(prioritized);
+    }
+
+    private boolean severeMalformedEquationText(String text) {
+        String value = text == null ? "" : text;
+        return OCR_DIGIT_PRIME_EXPONENT.matcher(value).find();
     }
 
     private int lowQualityMathScore(String text) {
@@ -761,6 +789,9 @@ public class PdfExtractionEngineSelector {
         score += value.contains("@$") ? 2 : 0;
         score += value.contains("\"$") || value.contains("$\"") ? 2 : 0;
         score += value.chars().filter(ch -> ch == '$').count() % 2 == 0 ? 0 : 3;
+        score += MALFORMED_PRIME_EXPONENT.matcher(value).matches() ? 10 : 0;
+        score += OCR_DIGIT_PRIME_EXPONENT.matcher(value).find() ? 50 : 0;
+        score += OCR_JOINED_MATH_VARIABLES.matcher(value).matches() ? 8 : 0;
         return score;
     }
 
@@ -974,7 +1005,9 @@ public class PdfExtractionEngineSelector {
                 || value.contains("\"$")
                 || value.contains("$\"")
                 || dollars % 2 != 0
-                || value.matches(".*(?:\\bOO\\b|\\bSS\\b|\\bSAS\\b|[?°]).*");
+                || value.matches(".*(?:\\bOO\\b|\\bSS\\b|\\bSAS\\b|[?°]).*")
+                || MALFORMED_PRIME_EXPONENT.matcher(value).matches()
+                || OCR_JOINED_MATH_VARIABLES.matcher(value).matches();
     }
 
     private List<List<Integer>> pageBatches(List<Integer> pages, int batchSize) {

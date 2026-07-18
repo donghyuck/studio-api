@@ -874,6 +874,74 @@ class PdfExtractionEngineSelectorTest {
     }
 
     @Test
+    void hybridMathRoutePrioritizesMalformedPrimeAndJoinedVariablePages() {
+        PdfDocumentAnalysis analysis = new PdfDocumentAnalysis(
+                44, 5, 0.0d, 1.0d, 0.0d, true, 0.0d, 1.0d, 1.0d, PdfDocumentKind.MATH_LIKE);
+        PdfExtractionEngine baseline = new PdfExtractionEngine() {
+            @Override
+            public PdfExtractionEngineType type() {
+                return PdfExtractionEngineType.PYMUPDF4LLM;
+            }
+
+            @Override
+            public boolean supports(PdfExtractionRequest request) {
+                return true;
+            }
+
+            @Override
+            public ParsedFile extract(PdfExtractionRequest request) {
+                List<studio.one.platform.textract.domain.model.ParsedBlock> blocks = new ArrayList<>(List.of(
+                        studio.one.platform.textract.domain.model.ParsedBlock.text(
+                                "page[2]/block[0]", studio.one.platform.textract.domain.model.BlockType.PARAGRAPH,
+                                "$xㅡ2+1$", 2, 0, Map.of("sourceRef", "page[2]/block[0]")),
+                        studio.one.platform.textract.domain.model.ParsedBlock.text(
+                                "page[7]/block[0]", studio.one.platform.textract.domain.model.BlockType.PARAGRAPH,
+                                "$xㅡ3+1$", 7, 1, Map.of("sourceRef", "page[7]/block[0]")),
+                        studio.one.platform.textract.domain.model.ParsedBlock.text(
+                                "page[8]/block[0]", studio.one.platform.textract.domain.model.BlockType.TABLE,
+                                "문제 006\n|A+B=52x' +2y-2y|\n|A-B=x’+3xry-6y|", 8, 2,
+                                Map.of("sourceRef", "page[8]/block[0]"))));
+                for (int page = 10; page <= 20; page++) {
+                    blocks.add(studio.one.platform.textract.domain.model.ParsedBlock.text(
+                            "page[" + page + "]/block[0]",
+                            studio.one.platform.textract.domain.model.BlockType.PARAGRAPH,
+                            "$x????????????+1$", page, page,
+                            Map.of("sourceRef", "page[" + page + "]/block[0]")));
+                }
+                return new ParsedFile(DocumentFormat.PDF, "math", blocks,
+                        Map.of(PdfExtractionEngineSelector.KEY_EXTRACTION_ENGINE, "pymupdf4llm"),
+                        List.of(), List.of(), List.of(), List.of(), true);
+            }
+        };
+        List<Integer> receivedPages = new ArrayList<>();
+        MathVisionCorrectionClient visionClient = new MathVisionCorrectionClient() {
+            @Override
+            public boolean available() {
+                return true;
+            }
+
+            @Override
+            public String provider() {
+                return "gemini";
+            }
+
+            @Override
+            public ParsedFile correct(PdfExtractionRequest request, PdfDocumentAnalysis analysis, List<Integer> pages) {
+                receivedPages.addAll(pages);
+                return ParsedFile.textOnly(DocumentFormat.PDF, "$x^{2}+1$", request.filename());
+            }
+        };
+        PdfExtractionEngineSelector selector = selectorWithAnalysis(analysis, List.of(mathEngine("$x^2$", "pix2text")),
+                true, 4, List.of(visionClient), true, pdfBox("fallback"), baseline);
+
+        selector.extract(request(PdfExtractionOptions.defaults()
+                .withOcrMode("FORCE")
+                .withMathVisionCorrection(true)));
+
+        assertThat(receivedPages).hasSize(2).first().isEqualTo(8);
+    }
+
+    @Test
     void hybridMathRouteSkipsVisionCorrectionWhenRequestDoesNotOptIn() {
         PdfDocumentAnalysis analysis = new PdfDocumentAnalysis(
                 12, 5, 0.0d, 1.0d, 0.0d, true, 0.0d, 1.0d, 1.0d, PdfDocumentKind.MATH_LIKE);

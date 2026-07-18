@@ -35,6 +35,7 @@ public class RagChatRetrievalService {
     private static final String VALUE_STRUCTURE_BASED = "structure-based";
     private static final String VALUE_BLOCKIFY = "blockify";
     private static final String VALUE_IDEA_BLOCK = "ideaBlock";
+    private static final int STRATEGY_SAMPLE_LIMIT = 32;
 
     private final RagPipelineService ragPipelineService;
     private final AiWebRagProperties.RetrievalProperties properties;
@@ -62,7 +63,9 @@ public class RagChatRetrievalService {
         RetrievalPlan plan = RetrievalPlan.from(request, properties, defaultTopK, defaultMinScore);
         MetadataFilter baseFilter = baseFilter(objectType, objectId);
         Strategy requestedStrategy = Strategy.from(plan.requestedStrategy());
-        Strategy resolvedStrategy = requestedStrategy == Strategy.AUTO ? Strategy.HYBRID : requestedStrategy;
+        RetrievalResolution resolution = resolveStrategy(request, requestedStrategy, objectType, objectId);
+        Strategy resolvedStrategy = resolution.strategy();
+        request = alignEmbeddingProfile(request, resolution.embeddingProfileId());
         if (resolvedStrategy == Strategy.DEFAULT) {
             List<RagSearchResult> results = search(request, resolvedQuery, defaultTopK, baseFilter,
                     defaultMinScore, requestedTopK, requestedMinScore(request));
@@ -95,6 +98,78 @@ public class RagChatRetrievalService {
                                 ? null : request.retrievalOptions().includeDebugChunks()))
                 : RetrievalDebug.disabled();
         return new RetrievalResult(merged, debug);
+    }
+
+    private RetrievalResolution resolveStrategy(
+            ChatRagRequestDto request,
+            Strategy requestedStrategy,
+            String objectType,
+            String objectId) {
+        boolean adaptive = requestedStrategy == Strategy.AUTO
+                || request.retrievalStrategy() == null
+                || request.retrievalStrategy().isBlank();
+        if (objectType == null || objectId == null) {
+            return new RetrievalResolution(
+                    requestedStrategy == Strategy.AUTO ? Strategy.HYBRID : requestedStrategy,
+                    null);
+        }
+        List<RagSearchResult> samples = ragPipelineService.listByObject(objectType, objectId, STRATEGY_SAMPLE_LIMIT);
+        boolean structure = false;
+        boolean ideaBlock = false;
+        String indexedEmbeddingProfileId = null;
+        boolean mixedEmbeddingProfiles = false;
+        List<RagSearchResult> availableSamples = samples == null ? List.of() : samples;
+        for (RagSearchResult sample : availableSamples) {
+            Map<String, Object> metadata = sample.metadata() == null ? Map.of() : sample.metadata();
+            String strategy = firstText(metadata, KEY_ACTUAL_CHUNKING_STRATEGY, ChunkMetadata.KEY_STRATEGY, "strategy");
+            String chunkType = firstText(metadata, ChunkMetadata.KEY_CHUNK_TYPE, "chunkType");
+            structure |= VALUE_STRUCTURE_BASED.equalsIgnoreCase(strategy);
+            ideaBlock |= VALUE_BLOCKIFY.equalsIgnoreCase(strategy) || VALUE_IDEA_BLOCK.equalsIgnoreCase(chunkType);
+            String profileId = firstText(metadata, "embeddingProfileId");
+            if (profileId != null && indexedEmbeddingProfileId == null) {
+                indexedEmbeddingProfileId = profileId;
+            } else if (profileId != null && !profileId.equalsIgnoreCase(indexedEmbeddingProfileId)) {
+                mixedEmbeddingProfiles = true;
+            }
+        }
+        String effectiveProfileId = mixedEmbeddingProfiles ? null : indexedEmbeddingProfileId;
+        if (!adaptive) {
+            return new RetrievalResolution(requestedStrategy, effectiveProfileId);
+        }
+        if (structure && !ideaBlock) {
+            return new RetrievalResolution(Strategy.STRUCTURE, effectiveProfileId);
+        }
+        if (ideaBlock && !structure) {
+            return new RetrievalResolution(Strategy.IDEA_BLOCK, effectiveProfileId);
+        }
+        if (!structure && !ideaBlock && !availableSamples.isEmpty()) {
+            return new RetrievalResolution(Strategy.DEFAULT, effectiveProfileId);
+        }
+        return new RetrievalResolution(Strategy.HYBRID, effectiveProfileId);
+    }
+
+    private ChatRagRequestDto alignEmbeddingProfile(ChatRagRequestDto request, String indexedProfileId) {
+        if (indexedProfileId == null || indexedProfileId.isBlank()
+                || indexedProfileId.equalsIgnoreCase(Objects.toString(request.embeddingProfileId(), ""))) {
+            return request;
+        }
+        return new ChatRagRequestDto(
+                request.chat(),
+                request.ragQuery(),
+                request.ragTopK(),
+                request.objectType(),
+                request.objectId(),
+                indexedProfileId,
+                null,
+                null,
+                request.topK(),
+                request.minScore(),
+                request.debug(),
+                request.retrievalStrategy(),
+                request.retrievalOptions());
+    }
+
+    private record RetrievalResolution(Strategy strategy, String embeddingProfileId) {
     }
 
     private List<LegResult> ideaBlockLegs(

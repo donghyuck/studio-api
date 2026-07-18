@@ -965,14 +965,51 @@ public class MarkdownDocumentService {
     }
 
     public MarkdownExtractionResult reextract(String documentId, MarkdownPipelineOptions options, String requestedBy) {
+        return reextract(documentId, options, false, requestedBy);
+    }
+
+    public MarkdownExtractionResult reextract(String documentId, MarkdownPipelineOptions options,
+            boolean inheritOmittedExtractionQualityOptions, String requestedBy) {
         MarkdownDocument document = requireDocument(documentId);
-        return create(new MarkdownExtractionRequest(document.sourceAttachmentId(), options, true, requestedBy));
+        MarkdownPipelineOptions effectiveOptions = inheritOmittedExtractionQualityOptions
+                ? inheritExtractionQualityOptions(documentId, options)
+                : options;
+        return create(new MarkdownExtractionRequest(
+                document.sourceAttachmentId(), effectiveOptions, true, requestedBy));
     }
 
     public MarkdownExtractionResult reextract(String documentId, boolean runChunking, boolean runRagIndex,
             boolean runSkillExtraction, String requestedBy) {
         return reextract(documentId,
                 new MarkdownPipelineOptions(runChunking, runRagIndex, runSkillExtraction), requestedBy);
+    }
+
+    private MarkdownPipelineOptions inheritExtractionQualityOptions(
+            String documentId, MarkdownPipelineOptions requested) {
+        return repository.findRevisions(documentId).stream()
+                .map(revision -> readOptions(revision.optionsJson()))
+                .filter(this::hasExplicitExtractionQualityOptions)
+                .findFirst()
+                .map(previous -> new MarkdownPipelineOptions(
+                        requested.runChunking(), requested.runRagIndex(), requested.runSkillExtraction(),
+                        requested.chunkingStrategy(), requested.chunkMaxSize(), requested.chunkOverlap(),
+                        requested.chunkUnit(), requested.blockifyLlmProvider(), requested.blockifyLlmModel(),
+                        requested.blockifyPiiMaskingEnabled(), requested.embeddingProfileId(),
+                        requested.embeddingProvider(), requested.embeddingModel(), requested.embeddingDimension(),
+                        requested.useLlmKeywordExtraction(), requested.skillExtractionMode(),
+                        requested.generateSkillEmbeddings(), requested.skillEmbeddingProvider(),
+                        requested.skillEmbeddingModel(), requested.skillEmbeddingDimension(),
+                        previous.ocrRequired(), previous.ocrLanguage(), previous.ocrMode(),
+                        previous.mathVisionCorrection(), previous.requestedDocumentProfile(), null, null))
+                .orElse(requested);
+    }
+
+    private boolean hasExplicitExtractionQualityOptions(MarkdownPipelineOptions options) {
+        return options.requestedDocumentProfile() != null
+                || options.ocrRequired() != null
+                || options.ocrLanguage() != null
+                || options.ocrMode() != null
+                || Boolean.TRUE.equals(options.mathVisionCorrection());
     }
 
     public MarkdownRevision cancel(String documentId) {

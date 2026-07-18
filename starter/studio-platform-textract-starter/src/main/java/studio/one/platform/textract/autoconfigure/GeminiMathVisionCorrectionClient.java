@@ -160,7 +160,7 @@ class GeminiMathVisionCorrectionClient implements MathVisionCorrectionClient {
         }
         String json = stripFence(modelText);
         try {
-            Map<String, Object> parsed = objectMapper.readValue(json, MAP_TYPE);
+            Map<String, Object> parsed = objectMapper.readValue(repairLatexJsonEscapes(json), MAP_TYPE);
             Object formulas = parsed.get("formulas");
             if (formulas instanceof List<?> list) {
                 List<String> lines = new ArrayList<>();
@@ -180,10 +180,74 @@ class GeminiMathVisionCorrectionClient implements MathVisionCorrectionClient {
                 }
                 return String.join("\n\n", lines);
             }
-        } catch (RuntimeException ignored) {
+        } catch (IOException | RuntimeException ignored) {
             // Fall through and parse line-by-line.
         }
         return modelText;
+    }
+
+    private String repairLatexJsonEscapes(String json) {
+        if (json == null || json.indexOf('\\') < 0) {
+            return json;
+        }
+        StringBuilder repaired = new StringBuilder(json.length() + 16);
+        for (int index = 0; index < json.length(); index++) {
+            char current = json.charAt(index);
+            if (current != '\\' || index + 1 >= json.length()) {
+                repaired.append(current);
+                continue;
+            }
+            char next = json.charAt(index + 1);
+            if (next == 'u' && hasUnicodeEscape(json, index + 2)) {
+                repaired.append(current);
+                continue;
+            }
+            if (next == '\\') {
+                repaired.append(current).append(next);
+                index++;
+                continue;
+            }
+            if (next == '"' || next == '/') {
+                repaired.append(current);
+                continue;
+            }
+            if ((next == 'b' || next == 'f' || next == 'n' || next == 'r' || next == 't')
+                    && !startsLatexCommand(json, index + 1)) {
+                repaired.append(current);
+                continue;
+            }
+            repaired.append("\\\\");
+        }
+        return repaired.toString();
+    }
+
+    private boolean hasUnicodeEscape(String value, int start) {
+        if (start + 4 > value.length()) {
+            return false;
+        }
+        for (int index = start; index < start + 4; index++) {
+            if (Character.digit(value.charAt(index), 16) < 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean startsLatexCommand(String value, int commandStart) {
+        int end = commandStart;
+        while (end < value.length() && Character.isLetter(value.charAt(end))) {
+            end++;
+        }
+        String command = value.substring(commandStart, end);
+        return command.equals("begin")
+                || command.equals("beta")
+                || command.equals("frac")
+                || command.equals("nabla")
+                || command.equals("neq")
+                || command.equals("nu")
+                || command.equals("right")
+                || command.equals("text")
+                || command.equals("times");
     }
 
     private int resolvePage(Object value, List<Integer> pages, int fallbackIndex) {

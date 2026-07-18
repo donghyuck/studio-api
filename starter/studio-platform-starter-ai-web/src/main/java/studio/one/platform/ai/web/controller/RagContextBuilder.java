@@ -238,7 +238,7 @@ public class RagContextBuilder {
             return Optional.empty();
         }
         int overhead = formatChunk(index,
-                new RagSearchResult(result.documentId(), "", result.metadata(), result.score()), false)
+                new RagSearchResult(result.documentId(), "", result.metadata(), result.score()))
                 .length();
         int contentBudget = remainingChars - overhead;
         if (contentBudget <= 0) {
@@ -250,7 +250,7 @@ public class RagContextBuilder {
                 packedContent,
                 result.metadata(),
                 result.score());
-        String packedText = formatChunk(index, packedResult, false);
+        String packedText = formatChunk(index, packedResult);
         if (packedText.length() > remainingChars) {
             return Optional.empty();
         }
@@ -258,14 +258,63 @@ public class RagContextBuilder {
     }
 
     private String formatChunk(int index, RagSearchResult result) {
-        return formatChunk(index, result, true);
-    }
-
-    private String formatChunk(int index, RagSearchResult result, boolean includeMetadata) {
         StringBuilder sb = new StringBuilder();
         sb.append("[").append(index).append("]");
-        sb.append("\n").append(result.content()).append("\n\n");
+        int headerLength = sb.length();
+        appendSourceMetadata(sb, result.metadata());
+        sb.append(sb.length() > headerLength ? "\n내용:\n" : "\n")
+                .append(result.content())
+                .append("\n\n");
         return sb.toString();
+    }
+
+    private void appendSourceMetadata(StringBuilder target, Map<String, Object> metadata) {
+        Map<String, Object> values = metadata == null ? Map.of() : metadata;
+        appendMetadataLine(target, "원본 파일", firstText(values,
+                "sourceFileName", "filename", "fileName", "name", "sourceName"));
+        appendMetadataLine(target, "문서 제목", firstText(values, "documentTitle", "title"));
+        Integer page = firstInteger(values, ChunkMetadata.KEY_PAGE, "pageNumber", "pageFrom");
+        if (page != null) {
+            appendMetadataLine(target, "페이지", page.toString());
+        }
+        appendMetadataLine(target, "섹션", firstText(values,
+                ChunkMetadata.KEY_SECTION, ChunkMetadata.KEY_HEADING_PATH, "heading"));
+        appendMetadataLine(target, "원문 위치", firstText(values,
+                ChunkMetadata.KEY_SOURCE_REF, "sourceRef"));
+    }
+
+    private void appendMetadataLine(StringBuilder target, String label, String value) {
+        String normalized = singleLine(value);
+        if (normalized != null) {
+            target.append("\n").append(label).append(": ").append(normalized);
+        }
+    }
+
+    private Integer firstInteger(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value instanceof Number number) {
+                return number.intValue();
+            }
+            if (value != null) {
+                try {
+                    return Integer.valueOf(value.toString().trim());
+                } catch (NumberFormatException ignored) {
+                    // Try the next provenance key.
+                }
+            }
+        }
+        return null;
+    }
+
+    private String singleLine(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String normalized = java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFC)
+                .replaceAll("\\s+", " ")
+                .trim();
+        return normalized.length() <= 300 ? normalized : normalized.substring(0, 300);
     }
 
     private String excerpt(String content, int limit) {
@@ -414,7 +463,7 @@ public class RagContextBuilder {
 
     private String firstText(Map<String, Object> metadata, String... keys) {
         for (String key : keys) {
-            String value = text(metadata.get(key));
+            String value = singleLine(Objects.toString(metadata.get(key), null));
             if (hasText(value)) {
                 return value;
             }

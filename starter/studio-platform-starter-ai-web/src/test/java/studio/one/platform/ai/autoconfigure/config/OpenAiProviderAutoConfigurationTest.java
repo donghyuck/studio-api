@@ -110,7 +110,7 @@ class OpenAiProviderAutoConfigurationTest {
             assertThat(registry.availableChatPorts()).containsOnlyKeys("openai");
             assertThat(registry.availableEmbeddingPorts()).containsOnlyKeys("openai");
             assertThat(context.getBean(ChatPort.class)).isSameAs(registry.chatPort("openai"));
-            assertThat(context.getBean(EmbeddingPort.class)).isSameAs(registry.embeddingPort("openai"));
+            assertThat(context.getBean(EmbeddingPort.class)).isNotSameAs(registry.embeddingPort("openai"));
         });
     }
 

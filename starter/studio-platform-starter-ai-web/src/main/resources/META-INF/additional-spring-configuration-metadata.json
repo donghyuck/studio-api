@@ -59,6 +59,43 @@
       "type": "java.lang.Double",
       "defaultValue": 0.2,
       "description": "질문 세트 평가 결과를 운영 retrieval policy로 적용하기 위한 최소 MRR입니다. 미만이면 apply-recommendation 요청을 거부합니다."
+    },
+    {
+      "name": "studio.ai.usage.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": true,
+      "description": "모델별 chat token 사용량과 추정 비용의 in-memory 집계를 활성화합니다."
+    },
+    {
+      "name": "studio.ai.usage.currency",
+      "type": "java.lang.String",
+      "defaultValue": "USD",
+      "description": "설정된 모델 단가와 추정 비용에 사용하는 통화 코드입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.input-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "모델별 입력 100만 token 단가입니다. provider/model 또는 model을 key로 사용할 수 있습니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.output-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "모델별 출력 100만 token 단가입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.high-context-threshold-tokens",
+      "type": "java.lang.Integer",
+      "description": "고용량 context 단가를 적용할 입력 token 임계값입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.high-context-input-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "고용량 context의 입력 100만 token 단가입니다."
+    },
+    {
+      "name": "studio.ai.usage.pricing.*.high-context-output-per-million-tokens",
+      "type": "java.math.BigDecimal",
+      "description": "고용량 context의 출력 100만 token 단가입니다."
     }
   ]
 }

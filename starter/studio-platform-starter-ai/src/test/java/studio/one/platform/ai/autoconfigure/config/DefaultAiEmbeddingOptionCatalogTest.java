@@ -52,7 +52,7 @@ class DefaultAiEmbeddingOptionCatalogTest {
         AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
         provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
         provider.getEmbedding().setEnabled(true);
-        provider.getEmbedding().setModel("text-embedding-004");
+        provider.getEmbedding().setModel("gemini-embedding-2");
         provider.getEmbedding().setDimension(768);
         properties.getProviders().put("google", provider);
 
@@ -60,7 +60,7 @@ class DefaultAiEmbeddingOptionCatalogTest {
         ragProperties.setDefaultEmbeddingProfile("retrieval-ko");
         RagEmbeddingProperties.ProfileProperties profile = new RagEmbeddingProperties.ProfileProperties();
         profile.setProvider("google");
-        profile.setModel("text-embedding-004");
+        profile.setModel("gemini-embedding-2");
         profile.setDimension(768);
         profile.setSupportedInputTypes(java.util.List.of("text", "ocr-text"));
         profile.setMetadata(Map.of("locale", "ko"));
@@ -82,7 +82,7 @@ class DefaultAiEmbeddingOptionCatalogTest {
                 .satisfies(option -> {
                     assertThat(option.profileId()).isEqualTo("retrieval-ko");
                     assertThat(option.provider()).isEqualTo("google");
-                    assertThat(option.model()).isEqualTo("text-embedding-004");
+                    assertThat(option.model()).isEqualTo("gemini-embedding-2");
                     assertThat(option.dimension()).isEqualTo(768);
                     assertThat(option.supportedInputTypes()).containsExactly("TEXT", "OCR_TEXT");
                     assertThat(option.defaultProfile()).isTrue();
@@ -119,5 +119,34 @@ class DefaultAiEmbeddingOptionCatalogTest {
                 .singleElement()
                 .extracting(AiEmbeddingOption::model)
                 .isEqualTo("text-embedding-3-small");
+    }
+
+    @Test
+    void explicitProviderOverrideIsExposedInsteadOfSharedGoogleModel() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setModel("gemini-embedding-2");
+        provider.getEmbedding().setModelOverride(true);
+        provider.getEmbedding().setDimension(768);
+        properties.getProviders().put("google-embedding-2", provider);
+
+        AiProviderRegistry registry = new AiProviderRegistry(
+                "google-embedding-2",
+                Map.of("google-embedding-2", org.mockito.Mockito.mock(studio.one.platform.ai.core.chat.ChatPort.class)),
+                Map.of("google-embedding-2", org.mockito.Mockito.mock(EmbeddingPort.class)));
+
+        DefaultAiEmbeddingOptionCatalog catalog = new DefaultAiEmbeddingOptionCatalog(
+                registry,
+                properties,
+                new RagEmbeddingProperties(),
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001"));
+
+        assertThat(catalog.options()).singleElement().satisfies(option -> {
+            assertThat(option.model()).isEqualTo("gemini-embedding-2");
+            assertThat(option.dimension()).isEqualTo(768);
+        });
     }
 }
