@@ -1,15 +1,22 @@
 package studio.one.platform.ai.service.pipeline;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import studio.one.platform.chunking.artifact.ChunkSet;
@@ -93,6 +100,18 @@ class JdbcChunkSetStoreTest {
         assertThat(restored.items()).hasSize(2);
     }
 
+    @Test
+    void writesChunkSetItemsInConfiguredBatches() {
+        NamedParameterJdbcTemplate template = mock(NamedParameterJdbcTemplate.class);
+        JdbcChunkSetStore batchStore = new JdbcChunkSetStore(template, new ObjectMapper(), 2, null);
+
+        batchStore.save(chunkSet(5));
+
+        ArgumentCaptor<MapSqlParameterSource[]> batches = ArgumentCaptor.forClass(MapSqlParameterSource[].class);
+        verify(template, times(3)).batchUpdate(anyString(), batches.capture());
+        assertThat(batches.getAllValues()).extracting(batch -> batch.length).containsExactly(2, 2, 1);
+    }
+
     private ChunkSet chunkSet() {
         Instant now = Instant.parse("2026-07-17T00:00:00Z");
         return new ChunkSet(
@@ -105,5 +124,19 @@ class JdbcChunkSetStoreTest {
                         new ChunkSetItem(1, "chunk-2", "$x^2+1$", "hash-2",
                                 Map.of("page", 2, "sourceRef", "page[2]/block[1]"))),
                 now, now);
+    }
+
+    private ChunkSet chunkSet(int itemCount) {
+        Instant now = Instant.parse("2026-07-17T00:00:00Z");
+        List<ChunkSetItem> items = new ArrayList<>(itemCount);
+        for (int index = 0; index < itemCount; index++) {
+            items.add(new ChunkSetItem(index, "chunk-" + index, "content-" + index,
+                    "hash-" + index, Map.of("page", index + 1)));
+        }
+        return new ChunkSet(
+                "cset-batch", "attachment", "5", "mdoc-5", "mrev-5", "source-hash",
+                "structure-based", "strategy-hash", "CHARACTER", 6000, 150,
+                ChunkSetStatus.READY, ChunkSetQualityStatus.VALID,
+                List.of(), Map.of("ragIndexEligible", true), items, now, now);
     }
 }

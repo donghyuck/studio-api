@@ -24,16 +24,27 @@ public class JdbcChunkSetStore implements ChunkSetStore {
     };
     private static final TypeReference<List<String>> LIST_TYPE = new TypeReference<>() {
     };
-    private static final int INSERT_BATCH_SIZE = 200;
+    static final int DEFAULT_INSERT_BATCH_SIZE = 25;
+    static final int MAX_INSERT_BATCH_SIZE = 200;
 
     private final NamedParameterJdbcTemplate template;
     private final ObjectMapper objectMapper;
+    private final int insertBatchSize;
     private final TransactionOperations transactions;
 
     public JdbcChunkSetStore(
             NamedParameterJdbcTemplate template, ObjectMapper objectMapper, TransactionOperations transactions) {
+        this(template, objectMapper, DEFAULT_INSERT_BATCH_SIZE, transactions);
+    }
+
+    public JdbcChunkSetStore(
+            NamedParameterJdbcTemplate template,
+            ObjectMapper objectMapper,
+            int insertBatchSize,
+            TransactionOperations transactions) {
         this.template = Objects.requireNonNull(template, "template");
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.insertBatchSize = normalizeBatchSize(insertBatchSize);
         this.transactions = transactions;
     }
 
@@ -102,9 +113,9 @@ public class JdbcChunkSetStore implements ChunkSetStore {
                     :sourceContentHash, :strategy, :strategyHash, :chunkUnit, :maxSize, :overlapSize,
                     :status, :qualityStatus, :qualityIssues, :metadata, :createdAt, :updatedAt)
                 """, headerParams(chunkSet));
-        for (int offset = 0; offset < chunkSet.items().size(); offset += INSERT_BATCH_SIZE) {
+        for (int offset = 0; offset < chunkSet.items().size(); offset += insertBatchSize) {
             List<ChunkSetItem> slice = chunkSet.items().subList(
-                    offset, Math.min(offset + INSERT_BATCH_SIZE, chunkSet.items().size()));
+                    offset, Math.min(offset + insertBatchSize, chunkSet.items().size()));
             MapSqlParameterSource[] batch = slice.stream()
                     .map(item -> itemParams(chunkSet.chunkSetId(), item))
                     .toArray(MapSqlParameterSource[]::new);
@@ -115,6 +126,13 @@ public class JdbcChunkSetStore implements ChunkSetStore {
                         :chunkSetId, :chunkIndex, :chunkId, :text, :contentHash, :metadata, :createdAt)
                     """, batch);
         }
+    }
+
+    private int normalizeBatchSize(int requestedBatchSize) {
+        if (requestedBatchSize <= 0) {
+            return DEFAULT_INSERT_BATCH_SIZE;
+        }
+        return Math.min(requestedBatchSize, MAX_INSERT_BATCH_SIZE);
     }
 
     private MapSqlParameterSource headerParams(ChunkSet value) {

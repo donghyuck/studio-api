@@ -12,29 +12,56 @@ import java.util.Objects;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.support.TransactionOperations;
 
 public class JdbcRagChunkStageStore implements RagChunkStageStore {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
-    private static final int INSERT_BATCH_SIZE = 200;
+    static final int DEFAULT_INSERT_BATCH_SIZE = 25;
+    static final int MAX_INSERT_BATCH_SIZE = 200;
 
     private final NamedParameterJdbcTemplate template;
     private final ObjectMapper objectMapper;
+    private final int insertBatchSize;
+    private final TransactionOperations transactionOperations;
 
     public JdbcRagChunkStageStore(NamedParameterJdbcTemplate template, ObjectMapper objectMapper) {
+        this(template, objectMapper, DEFAULT_INSERT_BATCH_SIZE, null);
+    }
+
+    public JdbcRagChunkStageStore(
+            NamedParameterJdbcTemplate template,
+            ObjectMapper objectMapper,
+            int insertBatchSize,
+            TransactionOperations transactionOperations) {
         this.template = Objects.requireNonNull(template, "template");
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.insertBatchSize = normalizeBatchSize(insertBatchSize);
+        this.transactionOperations = transactionOperations;
     }
 
     @Override
     public void replace(String objectType, String objectId, String documentId, List<RagChunkStage> chunks) {
+        if (transactionOperations == null) {
+            replaceInBatches(objectType, objectId, documentId, chunks);
+            return;
+        }
+        transactionOperations.executeWithoutResult(
+                status -> replaceInBatches(objectType, objectId, documentId, chunks));
+    }
+
+    private void replaceInBatches(
+            String objectType,
+            String objectId,
+            String documentId,
+            List<RagChunkStage> chunks) {
         deleteByObject(objectType, objectId, documentId);
         if (chunks == null || chunks.isEmpty()) {
             return;
         }
-        for (int offset = 0; offset < chunks.size(); offset += INSERT_BATCH_SIZE) {
-            List<RagChunkStage> slice = chunks.subList(offset, Math.min(offset + INSERT_BATCH_SIZE, chunks.size()));
+        for (int offset = 0; offset < chunks.size(); offset += insertBatchSize) {
+            List<RagChunkStage> slice = chunks.subList(offset, Math.min(offset + insertBatchSize, chunks.size()));
             MapSqlParameterSource[] batch = new MapSqlParameterSource[slice.size()];
             for (int index = 0; index < slice.size(); index++) {
                 batch[index] = params(objectType, objectId, documentId, slice.get(index));
@@ -46,6 +73,13 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
                         :objectType, :objectId, :documentId, :chunkIndex, :chunkId, :text, :metadata, :createdAt)
                     """, batch);
         }
+    }
+
+    private int normalizeBatchSize(int requestedBatchSize) {
+        if (requestedBatchSize <= 0) {
+            return DEFAULT_INSERT_BATCH_SIZE;
+        }
+        return Math.min(requestedBatchSize, MAX_INSERT_BATCH_SIZE);
     }
 
     @Override

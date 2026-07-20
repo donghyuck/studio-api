@@ -156,8 +156,14 @@ public class RagPipelineConfiguration {
         @Conditional(RagPipelineConditions.JdbcRepository.class)
         RagChunkStageStore jdbcRagChunkStageStore(
                         NamedParameterJdbcTemplate template,
-                        ObjectProvider<ObjectMapper> objectMapperProvider) {
-                return new JdbcRagChunkStageStore(template, objectMapperProvider.getIfAvailable(ObjectMapper::new));
+                        ObjectProvider<ObjectMapper> objectMapperProvider,
+                        ObjectProvider<TransactionOperations> transactionOperationsProvider,
+                        RagPipelineProperties properties) {
+                return new JdbcRagChunkStageStore(
+                                template,
+                                objectMapperProvider.getIfAvailable(ObjectMapper::new),
+                                properties.getIndexing().getChunkWriteBatchSize(),
+                                transactionOperationsProvider.getIfAvailable());
         }
 
         @Bean
@@ -167,10 +173,12 @@ public class RagPipelineConfiguration {
         ChunkSetStore jdbcChunkSetStore(
                         NamedParameterJdbcTemplate template,
                         ObjectProvider<ObjectMapper> objectMapperProvider,
-                        ObjectProvider<TransactionOperations> transactionOperationsProvider) {
+                        ObjectProvider<TransactionOperations> transactionOperationsProvider,
+                        RagPipelineProperties properties) {
                 return new JdbcChunkSetStore(
                                 template,
                                 objectMapperProvider.getIfAvailable(ObjectMapper::new),
+                                properties.getIndexing().getChunkWriteBatchSize(),
                                 transactionOperationsProvider.getIfAvailable());
         }
 

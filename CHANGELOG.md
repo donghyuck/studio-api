@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- 대용량 문서 청크의 JDBC 저장 크기를 `studio.ai.rag.indexing.chunk-write-batch-size`로 설정할 수
+  있게 했다. staging과 영속 ChunkSet을 기본 25개, 최대 200개 단위로 metadata를 분할 직렬화·저장하고
+  전체 staging 교체를 transaction으로 묶어 batch SQL 로깅에 의한 heap 사용량과 부분 저장 위험을 줄였다.
+
 - 전체 문서 요약 컨텍스트와 Map-Reduce 결과에 문서 제목과 원본 파일명을 보존하고, 요약 답변이 해당
   식별 정보로 시작하도록 개선했다. metadata에 없는 제목이나 파일명은 생성하지 않는다.
 
