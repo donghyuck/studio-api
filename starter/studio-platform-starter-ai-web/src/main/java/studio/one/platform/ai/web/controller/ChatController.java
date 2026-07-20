@@ -110,6 +110,30 @@ public class ChatController {
     private static final int MAX_CONTEXT_EXPANSION_CANDIDATES = 500;
     private static final String RAG_NO_CONTEXT_MESSAGE = "제공된 RAG 문서에서 확인할 수 없습니다.";
     private static final String RAG_SKIP_REASON_NO_RESULTS = "NO_RAG_RESULTS";
+    private static final int INTERPRETIVE_MIN_TOP_K = 8;
+    private static final double INTERPRETIVE_MAX_MIN_SCORE = 0.55d;
+    private static final int MAX_OVERVIEW_SOURCE_CHUNKS = 2_000;
+    private static final int MAX_WHOLE_DOCUMENT_CONTEXT_CHARS = 300_000;
+    private static final int MAP_REDUCE_OVERVIEW_THRESHOLD_CHARS = 80_000;
+    private static final int MAP_REDUCE_SEGMENT_CHARS = 40_000;
+    private static final String INTERPRETIVE_ANALYSIS_PROMPT = """
+            이 질문은 문서 근거를 종합하는 해석형 질문입니다.
+            문서에 결론이나 분류명이 직접 명시되지 않아도 행동, 대화, 감정 표현과 사건을 근거로 합리적으로 추론하세요.
+            답변에서는 문서에서 확인되는 사실과 추론을 구분하고, 주요 결론, 핵심 근거, 가능한 대안 해석, 확신도(낮음/중간/높음)를 제시하세요.
+            문서에 분류명이 없다는 이유만으로 답변을 거부하지 말고, 관련 근거 자체가 없을 때만 확인할 수 없다고 답하세요.
+            """;
+    private static final String DOCUMENT_SUMMARY_PROMPT = """
+            이 질문은 원본 문서 전체의 요약 또는 줄거리를 요구합니다.
+            문서 제목 metadata가 있으면 답변 첫 문장을 '[문서 제목] (파일: [원본 파일명])의 줄거리는 다음과 같습니다.' 형식으로 시작하세요.
+            제목만 있으면 제목만, 파일명만 있으면 파일명만 자연스럽게 언급하고, 둘 다 없으면 일반적인 도입 문장으로 시작하세요. 제목이나 파일명을 추측하지 마세요.
+            문서의 시작, 주요 전개, 결말을 균형 있게 포함하고 일부 장면이나 문서 안에서 언급되는 영화, 책, 이야기를 원본 전체의 줄거리로 오인하지 마세요.
+            원문에 명시되지 않은 장소, 진단, 관계를 추가하거나 원문보다 강하게 단정하지 마세요. 예를 들어 요양 또는 치료 시설을 근거 없이 병원으로 바꾸지 마세요.
+            전체 근거가 제공되지 않은 경우에는 부분 요약임을 명시하세요.
+            """;
+    private static final List<String> DOCUMENT_SUMMARY_METADATA_KEYS = List.of(
+            "documentSummary", "abstract", "executiveSummary");
+    private static final List<String> KEY_POINTS_METADATA_KEYS = List.of(
+            "keyPoints", "keyContent", "highlights", "documentOutline", "outline");
 
     private final AiProviderRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
@@ -125,6 +149,10 @@ public class ChatController {
     private final ObjectMapper objectMapper;
     private final RagRetrievalPolicyStore ragRetrievalPolicyStore;
     private final RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore;
+    private final AiModelUsageStore modelUsageStore;
+    private final RagQueryIntentClassifier ragQueryIntentClassifier = RagQueryIntentClassifier.rules();
+    private final RagDocumentOverviewAssembler documentOverviewAssembler = new RagDocumentOverviewAssembler();
+    private final RagDocumentMapReduceOverview documentMapReduceOverview = new RagDocumentMapReduceOverview();
 
     public ChatController(AiProviderRegistry providerRegistry, RagPipelineService ragPipelineService) {
         this(providerRegistry, ragPipelineService, RagContextBuilder.defaults());
@@ -255,6 +283,28 @@ public class ChatController {
             RagPipelineOptions ragPipelineOptions,
             RagRetrievalPolicyStore ragRetrievalPolicyStore,
             RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore) {
+        this(providerRegistry, ragPipelineService, ragChatRetrievalService, ragContextBuilder, allowClientDebug,
+                chatMemoryStore, chatMemoryEnabled, conversationChatService, objectMapper,
+                ragContextCandidateMultiplier, ragContextMaxCandidates, ragPipelineOptions,
+                ragRetrievalPolicyStore, ragRetrievalPolicyUsageStore, AiModelUsageStore.noop());
+    }
+
+    public ChatController(
+            AiProviderRegistry providerRegistry,
+            RagPipelineService ragPipelineService,
+            RagChatRetrievalService ragChatRetrievalService,
+            RagContextBuilder ragContextBuilder,
+            boolean allowClientDebug,
+            ChatMemoryStore chatMemoryStore,
+            boolean chatMemoryEnabled,
+            ConversationChatService conversationChatService,
+            ObjectMapper objectMapper,
+            int ragContextCandidateMultiplier,
+            int ragContextMaxCandidates,
+            RagPipelineOptions ragPipelineOptions,
+            RagRetrievalPolicyStore ragRetrievalPolicyStore,
+            RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore,
+            AiModelUsageStore modelUsageStore) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.ragPipelineService = Objects.requireNonNull(ragPipelineService, "ragPipelineService");
         this.ragChatRetrievalService = Objects.requireNonNull(ragChatRetrievalService, "ragChatRetrievalService");
@@ -275,6 +325,7 @@ public class ChatController {
         this.ragPipelineOptions = ragPipelineOptions == null ? RagPipelineOptions.defaults() : ragPipelineOptions;
         this.ragRetrievalPolicyStore = ragRetrievalPolicyStore;
         this.ragRetrievalPolicyUsageStore = ragRetrievalPolicyUsageStore;
+        this.modelUsageStore = modelUsageStore == null ? AiModelUsageStore.noop() : modelUsageStore;
     }
 
     public ChatController(
@@ -434,10 +485,15 @@ public class ChatController {
     private ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRagInternal(
             ChatRagRequestDto request,
             Principal principal) {
+        long requestStartedNanos = System.nanoTime();
         ChatRequestDto chat = request.chat();
         ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
         RagRetrievalPolicyDto appliedPolicy = resolveRetrievalPolicy(request, objectScope);
         request = applyRetrievalPolicy(request, appliedPolicy);
+        String ragQuery = request.ragQuery();
+        RagQueryIntentClassifier.Classification queryIntent = ragQueryIntentClassifier.classify(
+                ragQuery == null || ragQuery.isBlank() ? lastUserMessage(chat) : ragQuery);
+        request = applyIntentRetrievalPolicy(request, queryIntent);
         int ragTopK = effectiveTopK(request);
         int resultTopK = effectiveResultTopK(request, ragTopK);
         double minScore = effectiveMinScore(request);
@@ -445,26 +501,58 @@ public class ChatController {
         String objectId = objectScope.objectId();
 
         List<RagSearchResult> ragResults;
-        String ragQuery = request.ragQuery();
         boolean hasFilter = objectScope.hasFilter();
+        String retrievalMode = "SEMANTIC_SEARCH";
         RagChatRetrievalService.RetrievalDebug retrievalDebug = RagChatRetrievalService.RetrievalDebug.disabled();
         long retrievalStartedNanos = System.nanoTime();
 
         boolean objectCandidateResults = false;
         boolean skipFinalResultLimit = false;
-        if (ragQuery == null || ragQuery.isBlank()) {
+        RagDocumentOverviewAssembler.Assembly documentOverview = null;
+        boolean implicitOverviewRequest = (ragQuery == null || ragQuery.isBlank())
+                && request.ragTopK() == null
+                && request.topK() == null
+                && request.retrievalStrategy() == null
+                && request.retrievalOptions() == null;
+        boolean overviewRequested = hasFilter
+                && usesOverviewRetrieval(queryIntent.intent())
+                && ((ragQuery != null && !ragQuery.isBlank()) || implicitOverviewRequest);
+        if (overviewRequested) {
+            List<RagSearchResult> objectResults = ragPipelineService.listByObject(
+                    objectType,
+                    objectId,
+                    contextExpansionCandidateLimit(Math.max(ragTopK, resultTopK)));
+            OverviewSelection overview = metadataOverviewResults(objectResults, queryIntent);
+            if (overview.metadataUsed()) {
+                ragResults = overview.results();
+            } else {
+                ObjectChunks completeChunks = completeOverviewChunks(
+                        objectType, objectId, overview.results());
+                OverviewSelection completeOverview = metadataOverviewResults(
+                        completeChunks.results(), queryIntent);
+                if (completeOverview.metadataUsed()) {
+                    overview = completeOverview;
+                    ragResults = completeOverview.results();
+                } else {
+                    ragResults = completeChunks.results();
+                    documentOverview = documentOverviewAssembler.assemble(
+                            ragResults,
+                            MAX_WHOLE_DOCUMENT_CONTEXT_CHARS,
+                            completeChunks.complete());
+                }
+            }
+            objectCandidateResults = true;
+            skipFinalResultLimit = true;
+            retrievalMode = overview.metadataUsed()
+                    ? "METADATA_OVERVIEW"
+                    : documentOverview.fullCoverage() ? "WHOLE_DOCUMENT_CONTEXT" : "DOCUMENT_COVERAGE_SAMPLES";
+        } else if (ragQuery == null || ragQuery.isBlank()) {
             if (!hasFilter) {
                 throw new IllegalArgumentException("ragQuery가 없으면 objectType 또는 objectId를 제공해야 합니다");
             }
             ragResults = ragPipelineService.listByObject(objectType, objectId, ragTopK);
             objectCandidateResults = true;
-        } else if (hasFilter && isWholeDocumentSummaryQuery(ragQuery, chat)) {
-            ragResults = ragPipelineService.listByObject(
-                    objectType,
-                    objectId,
-                    contextExpansionCandidateLimit(Math.max(ragTopK, resultTopK)));
-            objectCandidateResults = true;
-            skipFinalResultLimit = true;
+            retrievalMode = "DOCUMENT_CHUNKS";
         } else {
             String resolvedQuery = resolveRagQuery(request);
             RagChatRetrievalService.RetrievalResult retrieval = ragChatRetrievalService.retrieve(
@@ -491,6 +579,7 @@ public class ChatController {
             extraMetadata.put("ragReferences", List.of());
             extraMetadata.put("ragSkippedChat", true);
             extraMetadata.put("ragSkipReason", RAG_SKIP_REASON_NO_RESULTS);
+            putQueryIntentMetadata(extraMetadata, queryIntent, retrievalMode, ragTopK, minScore);
             if (exposeDiagnostics && retrievalDebug.enabled()) {
                 extraMetadata.put("retrieval", retrievalDebug.toMetadata());
             }
@@ -512,11 +601,27 @@ public class ChatController {
                 objectId,
                 resultTopK,
                 objectCandidateResults);
-        RagContextBuilder.BuildResult contextResult = ragContextBuilder.buildWithDiagnostics(ragResults, expansionCandidates);
+        RagContextBuilder.BuildResult contextResult = documentOverview == null
+                ? ragContextBuilder.buildWithDiagnostics(ragResults, expansionCandidates)
+                : new RagContextBuilder.BuildResult(
+                        documentOverview.context(),
+                        null,
+                        documentOverview.references());
         String context = contextResult.context();
+        long overviewReductionStartedNanos = System.nanoTime();
+        RagDocumentMapReduceOverview.Reduction overviewReduction = reduceLargeDocumentOverview(
+                chat,
+                objectType,
+                objectId,
+                queryIntent,
+                context);
+        long overviewReductionElapsedMs = elapsedMillis(overviewReductionStartedNanos);
+        context = overviewReduction.context();
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
-        augmentedMessages.add(new ChatMessageDto("system", combineSystemPrompts(context, chat.systemPrompt())));
+        augmentedMessages.add(new ChatMessageDto(
+                "system",
+                combineRagSystemPrompts(context, chat.systemPrompt(), queryIntent)));
         ChatMemoryContext memory = resolveMemory(chat, principal);
         augmentedMessages.addAll(toDtoMessages(memory.history()));
         augmentedMessages.addAll(chat.messages());
@@ -533,7 +638,9 @@ public class ChatController {
                 chat.stopSequences(),
                 chat.memory());
 
+        long generationStartedNanos = System.nanoTime();
         ChatResponse response = executeChat(chatPort(chat.provider()), toDomainChatRequest(augmented));
+        long generationElapsedMs = elapsedMillis(generationStartedNanos);
         int memoryMessageCount = appendMemory(memory, chat.messages(), response);
         appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
         Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
@@ -543,6 +650,29 @@ public class ChatController {
         }
         if (exposeDiagnostics && retrievalDebug.enabled()) {
             extraMetadata.put("retrieval", retrievalDebug.toMetadata());
+        }
+        putQueryIntentMetadata(extraMetadata, queryIntent, retrievalMode, ragTopK, minScore);
+        if (documentOverview != null) {
+            extraMetadata.put("overviewSourceChunkCount", documentOverview.sourceChunkCount());
+            extraMetadata.put("overviewCoverageStatus", documentOverview.fullCoverage() ? "FULL" : "PARTIAL");
+        }
+        if (overviewReduction.applied()) {
+            extraMetadata.put("overviewReduction", "MAP_REDUCE");
+            extraMetadata.put("overviewReductionSegmentCount", overviewReduction.segmentCount());
+            extraMetadata.put("overviewReductionCacheHit", overviewReduction.cacheHit());
+        }
+        long totalElapsedMs = elapsedMillis(requestStartedNanos);
+        extraMetadata.put("ragTiming", Map.of(
+                "retrievalMs", retrievalElapsedMs,
+                "overviewReductionMs", overviewReductionElapsedMs,
+                "generationMs", generationElapsedMs,
+                "totalMs", totalElapsedMs));
+        if (totalElapsedMs >= 10_000L) {
+            log.info("Slow RAG chat: intent={}, mode={}, results={}, retrievalMs={}, overviewReductionMs={}, "
+                            + "generationMs={}, totalMs={}, overviewCacheHit={}",
+                    queryIntent.intent(), retrievalMode, ragResults.size(), retrievalElapsedMs,
+                    overviewReductionElapsedMs, generationElapsedMs, totalElapsedMs,
+                    overviewReduction.cacheHit());
         }
         putRetrievalPolicyMetadata(extraMetadata, appliedPolicy);
         return ResponseEntity.ok(ApiResponse.ok(toDto(
@@ -697,10 +827,62 @@ public class ChatController {
 
     private ChatResponse executeChat(ChatPort port, ChatRequest request) {
         try {
-            return port.chat(request);
+            ChatResponse response = port.chat(request);
+            AiModelUsageStore.UsageEstimate estimate = modelUsageStore.record(
+                    response.typedMetadata(), response.model());
+            Map<String, Object> metadata = new LinkedHashMap<>(response.metadata());
+            metadata.put("estimatedCost", estimate.toMetadata());
+            return new ChatResponse(response.messages(), response.model(), metadata);
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
         }
+    }
+
+    private long elapsedMillis(long startedNanos) {
+        return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
+    }
+
+    private RagDocumentMapReduceOverview.Reduction reduceLargeDocumentOverview(
+            ChatRequestDto chat,
+            String objectType,
+            String objectId,
+            RagQueryIntentClassifier.Classification classification,
+            String context) {
+        if (!usesOverviewRetrieval(classification.intent())) {
+            return RagDocumentMapReduceOverview.Reduction.notApplied(context);
+        }
+        try {
+            ChatPort port = chatPort(chat.provider());
+            return documentMapReduceOverview.reduce(
+                    objectType,
+                    objectId,
+                    chat.provider(),
+                    chat.model(),
+                    context,
+                    MAP_REDUCE_OVERVIEW_THRESHOLD_CHARS,
+                    MAP_REDUCE_SEGMENT_CHARS,
+                    prompt -> segmentSummary(port, chat, prompt));
+        } catch (RuntimeException ex) {
+            log.warn("Large document map-reduce overview failed; using the original context: {}", ex.getMessage());
+            return RagDocumentMapReduceOverview.Reduction.notApplied(context);
+        }
+    }
+
+    private String segmentSummary(ChatPort port, ChatRequestDto chat, String prompt) {
+        ChatRequest.Builder request = ChatRequest.builder()
+                .messages(List.of(ChatMessage.user(prompt)))
+                .temperature(0.1d)
+                .maxOutputTokens(1_200);
+        if (chat.model() != null) {
+            request.model(chat.model());
+        }
+        ChatResponse response = executeChat(port, request.build());
+        return response.messages().stream()
+                .filter(message -> message.role() == ChatMessageRole.ASSISTANT)
+                .map(ChatMessage::content)
+                .filter(content -> content != null && !content.isBlank())
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("No assistant segment summary was returned"));
     }
 
     private java.util.stream.Stream<ChatStreamEvent> openStream(ChatPort port, ChatRequest request) {
@@ -766,6 +948,46 @@ public class ChatController {
                 request.debug(),
                 effectiveStrategy,
                 effectiveOptions);
+    }
+
+    private ChatRagRequestDto applyIntentRetrievalPolicy(
+            ChatRagRequestDto request,
+            RagQueryIntentClassifier.Classification classification) {
+        if (classification.intent() != RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS) {
+            return request;
+        }
+        int topK = Math.max(effectiveTopK(request), INTERPRETIVE_MIN_TOP_K);
+        double minScore = Math.min(effectiveMinScore(request), INTERPRETIVE_MAX_MIN_SCORE);
+        ChatRagRetrievalOptionsDto options = request.retrievalOptions();
+        ChatRagRetrievalOptionsDto adjustedOptions = new ChatRagRetrievalOptionsDto(
+                atLeast(options == null ? null : options.structureTopK(), INTERPRETIVE_MIN_TOP_K),
+                atLeast(options == null ? null : options.ideaBlockTopK(), INTERPRETIVE_MIN_TOP_K),
+                atLeast(options == null ? null : options.finalTopK(), INTERPRETIVE_MIN_TOP_K),
+                options == null || options.minScore() == null
+                        ? minScore
+                        : Math.min(options.minScore(), minScore),
+                options == null ? null : options.dedupe(),
+                options == null ? null : options.includeDebugChunks(),
+                options == null ? null : options.distilledScoreBoost(),
+                options == null ? null : options.queryExpansionEnabled());
+        return new ChatRagRequestDto(
+                request.chat(),
+                request.ragQuery(),
+                request.ragTopK(),
+                request.objectType(),
+                request.objectId(),
+                request.embeddingProfileId(),
+                request.embeddingProvider(),
+                request.embeddingModel(),
+                topK,
+                minScore,
+                request.debug(),
+                request.retrievalStrategy(),
+                adjustedOptions);
+    }
+
+    private Integer atLeast(Integer value, int minimum) {
+        return value == null ? minimum : Math.max(value, minimum);
     }
 
     private void putRetrievalPolicyMetadata(Map<String, Object> metadata, RagRetrievalPolicyDto policy) {
@@ -849,6 +1071,20 @@ public class ChatController {
         return first + "\n\n" + second;
     }
 
+    private String combineRagSystemPrompts(
+            String context,
+            String clientPrompt,
+            RagQueryIntentClassifier.Classification classification) {
+        String prompt = combineSystemPrompts(context, clientPrompt);
+        if (classification.intent() == RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS) {
+            return combineSystemPrompts(prompt, INTERPRETIVE_ANALYSIS_PROMPT);
+        }
+        if (usesOverviewRetrieval(classification.intent())) {
+            return combineSystemPrompts(prompt, DOCUMENT_SUMMARY_PROMPT);
+        }
+        return prompt;
+    }
+
     private List<ChatMessage> toDomainMessages(ChatRequestDto request) {
         return toDomainMessages(request, List.of());
     }
@@ -922,8 +1158,15 @@ public class ChatController {
             documentId = result.documentId();
         }
         put(reference, "documentId", documentId);
-        String sourceName = firstText(metadata, "sourceName", "title", "filename", "fileName", "name");
+        String originalFileName = firstText(metadata,
+                "sourceFileName", "filename", "fileName", "name", "sourceName");
+        String title = firstText(metadata, "documentTitle", "title");
+        String sourceName = originalFileName == null ? title : originalFileName;
         put(reference, "sourceName", sourceName == null ? documentId : sourceName);
+        put(reference, "originalFileName", originalFileName);
+        put(reference, "sourceFileName", originalFileName);
+        put(reference, "title", title);
+        put(reference, "citationLabel", "근거 " + index);
         String chunkId = firstText(metadata, VectorRecord.KEY_CHUNK_ID, "chunkId");
         put(reference, "chunkId", chunkId == null ? documentId : chunkId);
         put(reference, "chunkOrder", firstInteger(metadata, "chunkOrder", VectorRecord.KEY_CHUNK_INDEX));
@@ -943,6 +1186,7 @@ public class ChatController {
         }
         put(reference, "section", firstText(metadata, "section", VectorRecord.KEY_HEADING_PATH, "headingPath"));
         put(reference, "heading", firstText(metadata, "heading", VectorRecord.KEY_HEADING_PATH, "headingPath"));
+        put(reference, "sourceRef", firstText(metadata, "sourceRef"));
         return Map.copyOf(reference);
     }
 
@@ -956,12 +1200,12 @@ public class ChatController {
         for (String key : keys) {
             Object value = metadata.get(key);
             if (value instanceof String text && !text.isBlank()) {
-                return text.trim();
+                return java.text.Normalizer.normalize(text.trim(), java.text.Normalizer.Form.NFC);
             }
             if (value != null && !(value instanceof String)) {
                 String text = value.toString();
                 if (!text.isBlank()) {
-                    return text.trim();
+                    return java.text.Normalizer.normalize(text.trim(), java.text.Normalizer.Form.NFC);
                 }
             }
         }
@@ -1045,30 +1289,147 @@ public class ChatController {
         throw new IllegalArgumentException("RAG query is empty");
     }
 
-    private boolean isWholeDocumentSummaryQuery(String ragQuery, ChatRequestDto chat) {
-        String query = normalizeText(ragQuery);
-        if (query == null && chat != null && chat.messages() != null) {
-            for (int i = chat.messages().size() - 1; i >= 0; i--) {
-                ChatMessageDto message = chat.messages().get(i);
-                if ("user".equalsIgnoreCase(message.role())) {
-                    query = normalizeText(message.content());
-                    break;
+    private String lastUserMessage(ChatRequestDto chat) {
+        if (chat == null || chat.messages() == null) {
+            return null;
+        }
+        for (int i = chat.messages().size() - 1; i >= 0; i--) {
+            ChatMessageDto message = chat.messages().get(i);
+            if ("user".equalsIgnoreCase(message.role())) {
+                return message.content();
+            }
+        }
+        return null;
+    }
+
+    private OverviewSelection metadataOverviewResults(
+            List<RagSearchResult> objectResults,
+            RagQueryIntentClassifier.Classification classification) {
+        if (objectResults == null || objectResults.isEmpty()) {
+            return new OverviewSelection(List.of(), false);
+        }
+        List<String> keys = new ArrayList<>();
+        if (classification.intent() == RagQueryIntentClassifier.Intent.KEY_POINTS) {
+            keys.addAll(KEY_POINTS_METADATA_KEYS);
+            keys.addAll(DOCUMENT_SUMMARY_METADATA_KEYS);
+        } else {
+            keys.addAll(DOCUMENT_SUMMARY_METADATA_KEYS);
+            keys.addAll(KEY_POINTS_METADATA_KEYS);
+        }
+        for (RagSearchResult result : objectResults) {
+            for (String key : keys) {
+                String content = metadataText(metadataValue(result.metadata(), key));
+                if (content != null) {
+                    Map<String, Object> metadata = new LinkedHashMap<>(result.metadata());
+                    metadata.put("overviewMetadataKey", key);
+                    metadata.put("overviewMetadataUsed", true);
+                    return new OverviewSelection(
+                            List.of(new RagSearchResult(
+                                    result.documentId() + ":" + key,
+                                    content,
+                                    metadata,
+                                    1.0d)),
+                            true);
                 }
             }
         }
-        if (query == null) {
-            return false;
+        return new OverviewSelection(objectResults, false);
+    }
+
+    private ObjectChunks completeOverviewChunks(
+            String objectType,
+            String objectId,
+            List<RagSearchResult> initialResults) {
+        List<RagSearchResult> initial = initialResults == null ? List.of() : initialResults;
+        long total = ragPipelineService.countByObject(objectType, objectId);
+        if (total <= initial.size() || total <= 0L) {
+            return new ObjectChunks(initial, true);
         }
-        String normalized = query.toLowerCase(Locale.ROOT);
-        return normalized.contains("줄거리")
-                || normalized.contains("전체 내용")
-                || normalized.contains("전체내용")
-                || normalized.contains("문서 요약")
-                || normalized.contains("요약해")
-                || normalized.contains("요약해줘")
-                || normalized.contains("요약하여")
-                || normalized.contains("plot summary")
-                || normalized.contains("synopsis");
+        int requested = (int) Math.min(total, MAX_OVERVIEW_SOURCE_CHUNKS);
+        int pageSize = Math.max(1, Math.min(ragPipelineOptions.maxListLimit(), requested));
+        List<RagSearchResult> all = new ArrayList<>(requested);
+        for (int offset = 0; offset < requested; offset += pageSize) {
+            int size = Math.min(pageSize, requested - offset);
+            List<RagSearchResult> page = ragPipelineService.listByObject(objectType, objectId, offset, size);
+            if (page == null || page.isEmpty()) {
+                break;
+            }
+            all.addAll(page);
+            if (page.size() < size) {
+                break;
+            }
+        }
+        if (all.isEmpty()) {
+            return new ObjectChunks(initial, false);
+        }
+        return new ObjectChunks(List.copyOf(all), all.size() >= total);
+    }
+
+    private boolean usesOverviewRetrieval(RagQueryIntentClassifier.Intent intent) {
+        return intent == RagQueryIntentClassifier.Intent.DOCUMENT_SUMMARY
+                || intent == RagQueryIntentClassifier.Intent.KEY_POINTS;
+    }
+
+    private Object metadataValue(Map<String, Object> metadata, String key) {
+        Object direct = metadata.get(key);
+        if (direct != null) {
+            return direct;
+        }
+        for (String containerKey : List.of("documentMetadata", "documentOverview", "overview")) {
+            Object container = metadata.get(containerKey);
+            if (container instanceof Map<?, ?> values && values.get(key) != null) {
+                return values.get(key);
+            }
+        }
+        return null;
+    }
+
+    private String metadataText(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String text) {
+            return normalizeText(text);
+        }
+        if (value instanceof Iterable<?> values) {
+            List<String> lines = new ArrayList<>();
+            for (Object item : values) {
+                String text = normalizeText(Objects.toString(item, null));
+                if (text != null) {
+                    lines.add("- " + text);
+                }
+            }
+            return lines.isEmpty() ? null : String.join("\n", lines);
+        }
+        try {
+            return normalizeText(objectMapper.writeValueAsString(value));
+        } catch (IOException ex) {
+            return normalizeText(Objects.toString(value, null));
+        }
+    }
+
+    private void putQueryIntentMetadata(
+            Map<String, Object> metadata,
+            RagQueryIntentClassifier.Classification classification,
+            String retrievalMode,
+            int retrievalTopK,
+            double retrievalMinScore) {
+        metadata.put("ragQueryIntent", classification.intent().name());
+        metadata.put("ragQueryIntentConfidence", classification.confidence());
+        metadata.put("ragQueryIntentReason", classification.reason());
+        metadata.put("ragRetrievalMode", retrievalMode);
+        metadata.put("ragRetrievalTopK", retrievalTopK);
+        metadata.put("ragRetrievalMinScore", retrievalMinScore);
+        if (classification.intent() == RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS) {
+            metadata.put("answerType", "EVIDENCE_BASED_INFERENCE");
+            metadata.put("ragInferenceEnabled", true);
+        }
+    }
+
+    private record OverviewSelection(List<RagSearchResult> results, boolean metadataUsed) {
+    }
+
+    private record ObjectChunks(List<RagSearchResult> results, boolean complete) {
     }
 
     private List<RagSearchResult> contextExpansionCandidates(
@@ -1211,6 +1572,9 @@ public class ChatController {
                     last == null ? Map.of() : last.metadata().toMap());
             appendMemory(memory, toDtoMessages(requestMessages), response);
             appendConversation(principal, memory, requestMessages, response);
+        }
+        if (!streamFailed && last != null) {
+            modelUsageStore.record(last.metadata(), last.model());
         }
     }
 

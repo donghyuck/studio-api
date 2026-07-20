@@ -55,6 +55,44 @@ class AiInfoControllerTest {
     }
 
     @Test
+    void exposesActualModelForExplicitGoogleProviderOverrides() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultChatProvider("google-pro");
+        properties.setDefaultEmbeddingProvider("google-embedding-2");
+
+        AiAdapterProperties.Provider pro = new AiAdapterProperties.Provider();
+        pro.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        pro.getChat().setEnabled(true);
+        pro.getChat().setModel("gemini-2.5-pro");
+        pro.getChat().setModelOverride(true);
+        properties.getProviders().put("google-pro", pro);
+
+        AiAdapterProperties.Provider embedding = new AiAdapterProperties.Provider();
+        embedding.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        embedding.getEmbedding().setEnabled(true);
+        embedding.getEmbedding().setModel("gemini-embedding-2");
+        embedding.getEmbedding().setModelOverride(true);
+        properties.getProviders().put("google-embedding-2", embedding);
+
+        AiInfoController controller = new AiInfoController(
+                properties,
+                new AiWebChatProperties(),
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.chat.options.model", "gemini-2.5-flash")
+                        .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001"),
+                null);
+
+        ApiResponse<AiInfoController.AiInfoResponse> body = controller.providers().getBody();
+
+        AiInfoController.ProviderInfo proInfo = body.getData().providers().get(0);
+        assertThat(proInfo.chat().model()).isEqualTo("gemini-2.5-pro");
+        assertThat(proInfo.embedding().model()).isNull();
+        AiInfoController.ProviderInfo embeddingInfo = body.getData().providers().get(1);
+        assertThat(embeddingInfo.chat().model()).isNull();
+        assertThat(embeddingInfo.embedding().model()).isEqualTo("gemini-embedding-2");
+    }
+
+    @Test
     void exposesOpenAiBaseUrlOnlyFromSpringAiCanonicalProperty() {
         AiAdapterProperties properties = new AiAdapterProperties();
         properties.setDefaultProvider("openai");

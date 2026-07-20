@@ -80,6 +80,7 @@ studio:
 | `POST` | `{basePath}/chat/cancel` | conversation cancel 상태 표시 | `services:ai_chat write` |
 | `POST` | `{basePath}/query-rewrite` | 검색 쿼리 리라이트 | `services:ai_chat read` |
 | `GET`  | `{basePath}/info/providers` | 프로바이더 및 벡터 스토어 상태 조회 | `services:ai_chat read` 또는 `services:ai_embedding read` |
+| `GET`  | `{basePath}/usage/models` | 실제 provider/model별 token 사용량과 추정 비용 조회 | `services:ai_chat read` |
 | `POST` | `{mgmtBasePath}/embedding` | 텍스트 임베딩 벡터 생성 | `services:ai_embedding write` |
 | `POST` | `{mgmtBasePath}/vectors` | 벡터 문서 업서트 | `services:ai_vector read` |
 | `POST` | `{mgmtBasePath}/vectors/search` | 벡터 유사도 검색 | `services:ai_vector read` |
@@ -482,6 +483,16 @@ Content-Type: application/json
 }
 ```
 
+provider가 token usage를 반환하고 `studio.ai.usage.pricing`에 실제 모델 단가가 설정된 경우 응답 metadata의
+`estimatedCost`와 `GET {basePath}/usage/models` 집계에 추정 비용이 포함된다. 단가는 `model` 또는
+`provider/model` key로 설정할 수 있고, provider/model 설정이 우선한다. 이 값은 API 응답 token 기준
+추정치이며 세금, 무료 tier, batch 할인, caching, grounding 등 별도 과금 항목을 포함하지 않는다.
+YAML에서 모델명에 `.`이 포함되면 Spring map key가 분해되지 않도록 `"[gemini-2.5-pro]"`처럼 대괄호로
+감싼 key를 사용한다.
+
+기본 `AiModelUsageStore`는 단일 인스턴스의 in-memory 집계다. 애플리케이션 재시작 시 초기화되며 장기 비용
+통계나 다중 인스턴스 합산이 필요하면 외부 저장소 기반 구현을 별도 Bean으로 등록한다.
+
 이 memory는 단일 앱 인스턴스의 in-memory cache다. 애플리케이션 재시작 시 사라지며, 다중 인스턴스 간 공유되지 않는다.
 운영에서 여러 인스턴스 간 대화 memory가 필요하면 `ChatMemoryStore`와 `ConversationRepositoryPort`를 외부 저장소 기반 구현으로 교체한다.
 
@@ -574,17 +585,12 @@ Content-Type: application/json
 {
   "chat": {
     "provider": "openai",
-    "systemPrompt": "제공된 파일 컨텍스트를 기반으로 답변하세요.",
     "messages": [
       {"role": "user", "content": "이 파일의 핵심 내용을 요약해줘"}
     ]
   },
-  "ragQuery": "핵심 내용 요약",
-  "topK": 3,
-  "minScore": 0.15,
   "objectType": "attachment",
-  "objectId": "123",
-  "embeddingProfileId": "retrieval-ko"
+  "objectId": "123"
 }
 ```
 
@@ -596,6 +602,26 @@ fallback 전략 선택은 서버 설정 `min-relevance-score` 기준으로 결�
 이 값은 attachment 전용 ID가 아니라 색인 시 저장된 chunk metadata의 object scope와 같은 의미다. 예를 들어 RAG job이
 `objectType=2001`, `objectId=6`으로 생성됐다면 RAG Chat에도 같은 값을 전달해야 한다. `ragQuery`가 없고
 객체 범위만 있으면 저장된 chunk를 순서대로 가져와 컨텍스트로 사용한다.
+단, 마지막 user message가 문서 요약·줄거리·핵심 내용 의도로 분류되면 `ragQuery`를 중복 전송하지 않아도
+서버가 overview 경로를 사용한다. 이 경우 `topK`, `minScore`, `embeddingProfileId`는 semantic retrieval
+선택값이 아니므로 클라이언트에서 생략하는 것을 권장한다.
+
+클라이언트는 질문 유형별 `systemPrompt`를 조립하지 않는다. 서버가 질문을 `CONTENT_QA`,
+`DOCUMENT_SUMMARY`, `KEY_POINTS`, `INTERPRETIVE_ANALYSIS`로 분류하고 검색 방식과 답변 정책을 결정한다.
+`systemPrompt` 필드는 기존 호환성과 일반적인 출력 형식 지시를 위해 유지하지만, 해석형 질문의 근거 기반
+추론 정책은 서버가 마지막에 적용한다. MBTI·성격·인물 동기·상징 해석 질문은 최소 8개 후보와 최대
+`0.55` cutoff를 사용하며, 응답 metadata의 `ragQueryIntent`, `answerType`, `ragRetrievalTopK`,
+`ragRetrievalMinScore`로 실제 적용값을 확인할 수 있다.
+
+전체 문서 context가 80,000자를 넘으면 서버는 원문 순서대로 구간 요약을 만든 뒤 최종 답변에 사용한다.
+구간 요약은 object, provider, model, 원문 내용 지문 기준의 제한 캐시를 사용하므로 같은 내용의 반복 요약은
+재사용된다. 응답 metadata의 `overviewReduction=MAP_REDUCE`, `overviewReductionSegmentCount`,
+`overviewReductionCacheHit`로 적용 여부를 확인할 수 있다. 구간 요약이 실패하면 기존 전체 문서 context로
+자동 복귀한다.
+대용량 문서의 구간 요약은 외부 provider 부하를 제한하기 위해 최대 3개까지만 병렬 처리한다. 모든 RAG chat
+응답은 `metadata.ragTiming`에 `retrievalMs`, `overviewReductionMs`, `generationMs`, `totalMs`를 제공한다.
+전체 문서 요약 답변은 metadata에 존재하는 문서 제목과 원본 파일명을 첫 문장에 표시한다. 둘 중 없는 값은
+추측하지 않는다.
 
 RAG context는 이슈 #202부터 설정된 chunk 수와 문자 수를 넘지 않도록 제한된다.
 문자 수 한도는 context header를 포함해 계산하며, 큰 chunk는 `max-chunk-chars` 기준으로 deterministic excerpt preview로
@@ -627,16 +653,21 @@ packed content는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모
         "chunkOrder": 0,
         "score": 0.91,
         "page": 3,
-        "pageNumber": 3
+        "pageNumber": 3,
+        "sourceRef": "page[3]"
       }
-    ]
+    ],
+    "ragQueryIntent": "INTERPRETIVE_ANALYSIS",
+    "answerType": "EVIDENCE_BASED_INFERENCE",
+    "ragRetrievalTopK": 8,
+    "ragRetrievalMinScore": 0.55
   }
 }
 ```
 
-`sourceName`은 `sourceName`, `title`, `filename`, `fileName`, `name` metadata 순서로 선택한다.
+`sourceName`은 원본 파일명 metadata를 우선하고, 없으면 문서 제목을 사용한다.
 위치 정보는 metadata에 있으면 `page`/`pageNumber`, `slide`/`slideNumber`, `section`, `heading`으로 함께 내려간다.
-raw metadata map과 `sourceRef`는 응답하지 않는다.
+`sourceRef`는 provenance 표시를 위해 응답하며 raw metadata map은 응답하지 않는다.
 
 ```yaml
 studio:

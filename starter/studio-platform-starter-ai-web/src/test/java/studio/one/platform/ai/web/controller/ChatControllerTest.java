@@ -630,6 +630,8 @@ class ChatControllerTest {
                         "file text",
                         Map.of(
                                 "sourceName", "sample.pdf",
+                                "sourceFileName", "original-sample.pdf",
+                                "title", "Sample Document",
                                 RagContextBuilder.KEY_CHUNK_ID, "chunk-1",
                                 ChunkMetadata.KEY_CHUNK_ORDER, 7,
                                 "page", 3,
@@ -659,13 +661,18 @@ class ChatControllerTest {
         assertThat(references.get(0))
                 .containsEntry("index", 1)
                 .containsEntry("documentId", "doc-1")
-                .containsEntry("sourceName", "sample.pdf")
+                .containsEntry("sourceName", "original-sample.pdf")
+                .containsEntry("originalFileName", "original-sample.pdf")
+                .containsEntry("sourceFileName", "original-sample.pdf")
+                .containsEntry("title", "Sample Document")
+                .containsEntry("citationLabel", "근거 1")
                 .containsEntry("chunkId", "chunk-1")
                 .containsEntry("chunkOrder", 7)
                 .containsEntry("score", 0.9d)
                 .containsEntry("page", 3)
-                .containsEntry("pageNumber", 3);
-        assertThat(references.get(0)).doesNotContainKeys("content", "metadata", "sourceRef");
+                .containsEntry("pageNumber", 3)
+                .containsEntry("sourceRef", "page[3]");
+        assertThat(references.get(0)).doesNotContainKeys("content", "metadata");
     }
 
     @Test
@@ -1030,7 +1037,178 @@ class ChatControllerTest {
         verify(defaultChatPort).chat(chatCaptor.capture());
         assertThat(chatCaptor.getValue().messages().get(0).content())
                 .contains("first plot fragment")
-                .contains("second plot fragment");
+                .contains("second plot fragment")
+                .contains("요양 또는 치료 시설을 근거 없이 병원으로 바꾸지 마세요")
+                .contains("영화, 책, 이야기를 원본 전체의 줄거리로 오인하지 마세요");
+    }
+
+    @Test
+    void ragChatDetectsSummaryIntentFromTheLastUserMessageWithoutDuplicatedRagQuery() {
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.listByObject("attachment", "3", 12))
+                .thenReturn(List.of(
+                        new RagSearchResult("chunk-1", "beginning", chunkMetadata("chunk-1"), 1.0d),
+                        new RagSearchResult("chunk-2", "ending", chunkMetadata("chunk-2"), 1.0d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "줄거리를 요약해줘")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                null,
+                null,
+                "attachment",
+                "3")).getBody().getData();
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("beginning", "ending", "원본 문서 전체의 요약 또는 줄거리");
+        assertThat(response.metadata())
+                .containsEntry("ragQueryIntent", "DOCUMENT_SUMMARY")
+                .containsEntry("ragRetrievalMode", "WHOLE_DOCUMENT_CONTEXT")
+                .containsEntry("overviewCoverageStatus", "FULL");
+    }
+
+    @Test
+    void ragChatReducesLargeWholeDocumentContextBeforeTheFinalAnswer() {
+        String content = "beginning\n" + "a".repeat(40_500) + "\nending\n" + "b".repeat(40_500);
+        when(ragPipelineService.listByObject("attachment", "3", 12))
+                .thenReturn(List.of(new RagSearchResult(
+                        "chunk-1",
+                        content,
+                        Map.of(
+                                "chunkId", "chunk-1",
+                                "chunkOrder", 0,
+                                "startOffset", 0,
+                                "endOffset", content.length()),
+                        1.0d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "줄거리를 요약해줘")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                null,
+                null,
+                "attachment",
+                "3")).getBody().getData();
+
+        verify(defaultChatPort, times(4)).chat(any(ChatRequest.class));
+        assertThat(response.metadata())
+                .containsEntry("overviewReduction", "MAP_REDUCE")
+                .containsEntry("overviewReductionSegmentCount", 3)
+                .containsEntry("overviewReductionCacheHit", false);
+        assertThat((Map<String, Object>) response.metadata().get("ragTiming"))
+                .containsKeys("retrievalMs", "overviewReductionMs", "generationMs", "totalMs");
+    }
+
+    @Test
+    void ragChatUsesPreExtractedKeyPointsWithoutSemanticSearch() {
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.listByObject("attachment", "6", 20))
+                .thenReturn(List.of(new RagSearchResult(
+                        "chunk-1",
+                        "raw document body",
+                        Map.of("keyPoints", List.of("다항식의 연산", "인수분해의 기초")),
+                        1.0d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "이 문서의 핵심 내용을 요약해줘")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "이 문서의 핵심 내용을 요약해줘",
+                5,
+                "attachment",
+                "6")).getBody().getData();
+
+        verify(ragPipelineService, times(0)).search(any(RagSearchRequest.class));
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("다항식의 연산", "인수분해의 기초")
+                .doesNotContain("raw document body");
+        assertThat(response.metadata())
+                .containsEntry("ragQueryIntent", "KEY_POINTS")
+                .containsEntry("ragRetrievalMode", "METADATA_OVERVIEW");
+    }
+
+    @Test
+    void ragChatUsesBroaderEvidenceSearchAndServerPromptForInterpretiveQuestions() {
+        ArgumentCaptor<RagSearchRequest> ragCaptor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.listByObject("attachment", "3", 32))
+                .thenReturn(List.of(new RagSearchResult(
+                        "chunk-1",
+                        "홀든은 타인의 위선을 비판하면서도 동생 피비를 보호하려 한다.",
+                        chunkMetadata("chunk-1"),
+                        1.0d)));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "chunk-1",
+                        "홀든은 타인의 위선을 비판하면서도 동생 피비를 보호하려 한다.",
+                        chunkMetadata("chunk-1"),
+                        0.67d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        "문서에 명시된 내용만 답변하세요.",
+                        List.of(new ChatMessageDto("user", "주인공의 MBTI 성격 유형을 문서 근거로 추정해줘")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "주인공의 MBTI 성격 유형을 문서 근거로 추정해줘",
+                2,
+                "attachment",
+                "3",
+                null,
+                null,
+                null,
+                2,
+                0.7d,
+                null,
+                null,
+                new ChatRagRetrievalOptionsDto(2, 2, 2, 0.7d, true, false, null, true)))
+                .getBody().getData();
+
+        verify(ragPipelineService).search(ragCaptor.capture());
+        assertThat(ragCaptor.getValue().topK()).isEqualTo(8);
+        assertThat(ragCaptor.getValue().requestedTopK()).isEqualTo(8);
+        assertThat(ragCaptor.getValue().minScore()).isEqualTo(0.55d);
+        assertThat(ragCaptor.getValue().requestedMinScore()).isEqualTo(0.55d);
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("문서에 명시된 내용만 답변하세요.")
+                .contains("문서에 분류명이 없다는 이유만으로 답변을 거부하지 말고")
+                .contains("가능한 대안 해석", "확신도");
+        assertThat(response.metadata())
+                .containsEntry("ragQueryIntent", "INTERPRETIVE_ANALYSIS")
+                .containsEntry("ragRetrievalMode", "SEMANTIC_SEARCH")
+                .containsEntry("ragRetrievalTopK", 8)
+                .containsEntry("ragRetrievalMinScore", 0.55d)
+                .containsEntry("answerType", "EVIDENCE_BASED_INFERENCE")
+                .containsEntry("ragInferenceEnabled", true);
     }
 
     @Test

@@ -118,4 +118,40 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         assertThat(String.valueOf(taskType)).isEqualTo("RETRIEVAL_QUERY");
         assertThat(dimensions).isEqualTo(768);
     }
+
+    @Test
+    void explicitModelOverrideCreatesAProviderWithItsOwnEmbeddingModel() throws Exception {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        properties.setDefaultProvider("google-embedding-2");
+
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setModel("gemini-embedding-2");
+        provider.getEmbedding().setModelOverride(true);
+        provider.getEmbedding().setDimension(768);
+        properties.getProviders().put("google-embedding-2", provider);
+
+        EmbeddingPort port = new ProviderEmbeddingConfiguration().embeddingPorts(
+                properties,
+                new MockEnvironment()
+                        .withProperty("spring.ai.google.genai.embedding.api-key", "spring-key")
+                        .withProperty("spring.ai.google.genai.embedding.text.options.model", "gemini-embedding-001")
+                        .withProperty("spring.ai.google.genai.embedding.text.options.dimensions", "3072"),
+                new StaticListableBeanFactory().getBeanProvider(org.springframework.ai.embedding.EmbeddingModel.class),
+                List.of(new GoogleGenAiEmbeddingPortFactoryConfiguration().googleGenAiEmbeddingPortFactory()))
+                .get("google-embedding-2");
+
+        java.lang.reflect.Field configuredModelField = SpringAiEmbeddingAdapter.class.getDeclaredField("configuredModel");
+        configuredModelField.setAccessible(true);
+        assertThat(configuredModelField.get(port)).isEqualTo("gemini-embedding-2");
+
+        java.lang.reflect.Field modelField = SpringAiEmbeddingAdapter.class.getDeclaredField("embeddingModel");
+        modelField.setAccessible(true);
+        Object model = modelField.get(port);
+        java.lang.reflect.Field optionsField = model.getClass().getDeclaredField("defaultOptions");
+        optionsField.setAccessible(true);
+        Object options = optionsField.get(model);
+        assertThat(options.getClass().getMethod("getDimensions").invoke(options)).isEqualTo(768);
+    }
 }

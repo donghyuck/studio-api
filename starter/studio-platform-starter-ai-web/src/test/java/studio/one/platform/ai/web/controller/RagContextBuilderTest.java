@@ -28,6 +28,31 @@ class RagContextBuilderTest {
     }
 
     @Test
+    void includesSourceFileTitleAndProvenanceInPromptContext() {
+        RagContextBuilder builder = new RagContextBuilder(8, 12_000, true);
+
+        String context = builder.build(List.of(new RagSearchResult(
+                "doc-1",
+                "다항식 문제 본문",
+                Map.of(
+                        "sourceFileName", "math-textbook.pdf",
+                        "title", "고등 수학",
+                        "page", 42,
+                        "section", "다항식의 연산",
+                        "sourceRef", "page[42]/block[7]"),
+                0.9d)));
+
+        assertThat(context)
+                .contains("[1]")
+                .contains("원본 파일: math-textbook.pdf")
+                .contains("문서 제목: 고등 수학")
+                .contains("페이지: 42")
+                .contains("섹션: 다항식의 연산")
+                .contains("원문 위치: page[42]/block[7]")
+                .contains("내용:\n다항식 문제 본문");
+    }
+
+    @Test
     void expandsChunkContextWhenObjectScopedMetadataIsAvailable() {
         RagContextBuilder builder = new RagContextBuilder(8, 12_000, true, TestWindowChunkContextExpander.asList());
 

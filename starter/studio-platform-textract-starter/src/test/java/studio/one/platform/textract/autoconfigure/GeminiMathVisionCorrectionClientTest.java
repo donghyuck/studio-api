@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
@@ -19,6 +20,45 @@ import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionOp
 import studio.one.platform.textract.infrastructure.extractor.pdf.PdfExtractionRequest;
 
 class GeminiMathVisionCorrectionClientTest {
+
+    @Test
+    void repairsUnescapedLatexCommandsInJsonFormulaResponses() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+        String modelText = "{\"formulas\":["
+                + "{\"page\":8,\"latex\":\"$\\{x\\}+\\frac{1}{2}$\"},"
+                + "{\"page\":8,\"latex\":\"$\\\\sqrt{x}$\"}]}";
+        byte[] response = objectMapper.writeValueAsBytes(Map.of(
+                "candidates", List.of(Map.of(
+                        "content", Map.of("parts", List.of(Map.of("text", modelText)))))));
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response);
+            exchange.close();
+        });
+        server.start();
+        try {
+            GeminiMathVisionCorrectionClient client = new GeminiMathVisionCorrectionClient(
+                    "http://127.0.0.1:" + server.getAddress().getPort(),
+                    "test-key", "gemini-test", Duration.ofSeconds(5), 1024, objectMapper);
+            PdfDocumentAnalysis analysis = new PdfDocumentAnalysis(
+                    8, 2, 0.0d, 1.0d, 0.0d, true, 0.0d, 1.0d, 1.0d, PdfDocumentKind.MATH_LIKE);
+            PdfExtractionRequest request = new PdfExtractionRequest(
+                    "pdf".getBytes(StandardCharsets.UTF_8),
+                    "application/pdf",
+                    "math.pdf",
+                    PdfExtractionOptions.defaults().withMathVisionCorrection(true));
+
+            ParsedFile result = client.correct(request, analysis, List.of(8));
+
+            assertThat(result.blocks()).extracting(block -> block.text())
+                    .containsExactly("$\\{x\\}+\\frac{1}{2}$", "$\\sqrt{x}$");
+            assertThat(result.blocks()).extracting(block -> block.page()).containsExactly(8, 8);
+        } finally {
+            server.stop(0);
+        }
+    }
 
     @Test
     void parsesStringArrayFormulaResponses() throws Exception {

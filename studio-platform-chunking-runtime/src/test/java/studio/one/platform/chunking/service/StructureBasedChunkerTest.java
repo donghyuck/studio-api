@@ -277,6 +277,27 @@ class StructureBasedChunkerTest {
     }
 
     @Test
+    void sourceQualityWarningsRemainVisibleOnCompletedChunks() {
+        StructureBasedChunker chunker = new StructureBasedChunker(120, 0, new RecursiveChunker(120, 0));
+        NormalizedDocument document = NormalizedDocument.builder("doc")
+                .metadata(Map.of(
+                        "normalizationStatus", "REVIEW_REQUIRED",
+                        "normalizationIssues", List.of("LOW_QUALITY_MATH"),
+                        "markdownQualityStatus", "REVIEW_REQUIRED",
+                        "markdownQualityIssues", List.of("MATH_VISION_CORRECTION_FAILED")))
+                .blocks(List.of(block(NormalizedBlockType.PARAGRAPH,
+                        "$A+B=52x'$", "page[8]/block[0]", 0, 0.60d)))
+                .build();
+
+        Chunk chunk = chunker.chunk(document, context(document, 120, 0)).get(0);
+
+        assertThat(chunk.metadata().toMap())
+                .containsEntry(ChunkMetadata.KEY_CHUNK_QUALITY_STATUS, "REVIEW_REQUIRED")
+                .containsEntry(ChunkMetadata.KEY_CHUNK_QUALITY_ISSUES,
+                        List.of("LOW_QUALITY_MATH", "MATH_VISION_CORRECTION_FAILED"));
+    }
+
+    @Test
     void oversizedStandaloneStructureChunkIsSplitWithoutFullStrategyFallback() {
         StructureBasedChunker chunker = new StructureBasedChunker(10, 0, new RecursiveChunker(10, 0));
         NormalizedDocument document = NormalizedDocument.builder("doc")

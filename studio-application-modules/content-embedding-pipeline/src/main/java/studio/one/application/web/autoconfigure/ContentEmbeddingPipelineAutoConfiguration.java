@@ -19,6 +19,7 @@ import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.service.pipeline.RagChunkStageStore;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
 @AutoConfiguration
@@ -82,6 +83,7 @@ class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
                     embeddingProfileResolverProvider,
             ObjectProvider<studio.one.platform.ai.core.vector.VectorStorePort> vectorStoreProvider,
             ObjectProvider<RagChunkStageStore> chunkStageStoreProvider,
+            ObjectProvider<ChunkSetStore> chunkSetStoreProvider,
             @Value("${studio.ai.rag.indexing.embedding-batch-size:10}") int indexEmbeddingBatchSize,
             @Value("${studio.ai.rag.indexing.upsert-batch-size:10}") int indexUpsertBatchSize) {
         return new studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer(
@@ -91,6 +93,7 @@ class ContentEmbeddingPipelineStructuredRagAutoConfiguration {
                 embeddingProfileResolverProvider,
                 vectorStoreProvider,
                 chunkStageStoreProvider,
+                chunkSetStoreProvider,
                 indexEmbeddingBatchSize,
                 indexUpsertBatchSize);
     }

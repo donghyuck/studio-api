@@ -2,6 +2,66 @@
 
 ## Unreleased
 
+- 전체 문서 요약 컨텍스트와 Map-Reduce 결과에 문서 제목과 원본 파일명을 보존하고, 요약 답변이 해당
+  식별 정보로 시작하도록 개선했다. metadata에 없는 제목이나 파일명은 생성하지 않는다.
+
+- 대용량 RAG 문서의 구간별 요약을 최대 3개 제한 병렬 처리로 변경해 첫 전체 요약의 순차 대기 시간을
+  줄였다. RAG 응답 metadata와 10초 이상 소요된 서버 로그에는 검색, 중간 요약, 최종 생성, 전체 시간을
+  분리해 기록한다.
+
+- 대용량 문서 전체 요약은 구간별 근거 요약을 먼저 생성하고 내용 지문 기반 제한 캐시를 재사용한다.
+  구간 요약 실패 시 기존 전체 문서 컨텍스트로 복귀해 기존 API와 답변 경로를 유지한다.
+
+- 문서 요약·줄거리 요청에 사전 생성 summary metadata가 없을 때 object의 첫 chunk들만 요약하던 문제를
+  수정했다. 전체 object chunk를 순서대로 조회하고 `startOffset`/`endOffset` overlap을 제거해 하나의
+  전체 문서 context로 재구성한다. 안전 한도를 넘는 문서는 균등 coverage sample로 제한하고 응답 metadata에
+  `overviewCoverageStatus=PARTIAL`을 표시해 부분 근거를 전체 줄거리로 오인하지 않도록 했다.
+  마지막 user message만으로도 요약 의도를 감지하므로 클라이언트가 동일한 `ragQuery`를 중복 전송할 필요가
+  없으며, 서버 prompt가 원문에 없는 장소·진단을 단정하거나 극중 작품을 원본 전체와 혼동하지 않도록 한다.
+
+- RAG chat에 `INTERPRETIVE_ANALYSIS` query intent를 추가했다. MBTI·성격·인물 동기·상징 해석처럼 문서의
+  여러 근거를 종합해야 하는 질문은 semantic search를 유지하면서 최소 8개 근거 후보와 최대 `0.55`
+  score threshold를 사용한다. 모델에는 사실과 추론을 구분하고 대안 해석과 확신도를 제시하도록 안내하며,
+  응답 metadata에 `answerType=EVIDENCE_BASED_INFERENCE`와 실제 검색 조건을 additive로 노출한다.
+
+- RAG chat 자동 검색 전략이 일반 `recursive` chunk 문서까지 structure/idea-block hybrid filter로 보내
+  검색 결과를 0건으로 만드는 문제를 수정했다. object sample에 구조화/idea-block 신호가 없으면 기존
+  default semantic search를 사용하며, 저장된 embedding profile 정렬 동작은 유지한다.
+
+- 종료된 Gemini 1.5 Pro와 `text-embedding-004` 대신 실제 지원 모델인 `gemini-2.5-pro`와
+  `gemini-embedding-2`를 provider/profile로 선택할 수 있도록 Google provider별 명시적
+  `model-override`를 추가했다. 기존 `gemini-2.5-flash`, `gemini-embedding-001`, 기본 embedding profile은
+  유지한다. 임베딩 요청의 명시적 provider도 실제 provider별 port로 라우팅한다. chat 응답의 실제
+  provider/model/token usage를 기준으로 요청 수, token, 지연시간, 설정 기반
+  USD 추정 비용을 집계하고 `GET /api/ai/usage/models`에서 조회할 수 있게 했다. provider 정보 API는
+  비활성 channel의 상속 모델을 노출하지 않아 provider 이름과 실제 활성 모델이 일관되게 표시된다.
+
+- RAG prompt의 각 근거에 원본 파일명, 문서 제목, 페이지, 섹션, sourceRef provenance를 함께 전달하고,
+  `ragReferences`에도 `originalFileName`, `sourceFileName`, `title`, `sourceRef`, `citationLabel`을 additive로
+  노출해 답변의 `(근거 N)`을 실제 원문 위치와 연결할 수 있도록 개선했다. object-scoped 검색은 저장된
+  chunk의 `embeddingProfileId`와 질의 임베딩 profile을 자동 정렬해, 다른 profile을 전달했을 때 존재하지
+  않는 TEI endpoint를 호출하거나 색인과 다른 차원의 embedding을 사용하는 문제를 방지한다.
+
+- RAG chat이 저장된 chunk metadata에서 실제 청킹 전략을 감지해 불필요한 hybrid 검색과 질의 확장을
+  생략하도록 개선했다. 규칙 기반 query intent classifier를 추가해 구체 질문은 semantic retrieval로,
+  문서 요약·핵심 내용 요청은 `documentSummary`, `keyPoints`, `highlights` 등 사전 추출 metadata를
+  우선 사용하고 metadata가 없으면 기존 object chunk 요약으로 fallback한다. 분류 결과와 실제 retrieval
+  mode는 응답 metadata에 additive로 노출한다.
+
+- Fixed content embedding auto-configuration to pass the configured `ChunkSetStore` into the attachment structured RAG indexer, allowing prepared Markdown chunks to be indexed instead of failing with `ChunkSet store is not configured`.
+
+- Markdown 품질 게이트는 빈 Markdown 또는 정규화 block 부재만 치명 오류로 차단하고, 한글 자모·수식
+  손실 가능성·페이지 커버리지 같은 비치명 품질 이슈는 `ragIndexEligible=true`,
+  `qualityGateStatus=REVIEW_REQUIRED`로 보존해 검토 가능한 유효 chunk의 RAG 색인을 계속하도록 보완했다.
+
+- 재추출 요청에서 문서 프로필과 OCR/수식 보정 옵션이 모두 누락되면 최근 명시적 품질 설정을 계승해 대용량 문서의 비용 추산 경로에서 한글·수식 품질이 퇴행하지 않도록 보완했다.
+
+- 수학 PDF 보정 페이지 선정이 `x’`, `xry`, `52x'`처럼 지수·변수 경계가 손상된 OCR 패턴을 높은
+  우선순위로 판정하도록 보완했다. Gemini vision 응답의 LaTeX가 JSON에서 `\{`, `\frac` 형태로
+  잘못 escape되어도 복구한 뒤 수식 block으로 보존하며, 정규화·Markdown 품질 경고가 청킹 완료 시
+  `chunkQualityStatus=VALID`로 덮이지 않도록 원본 issue를 병합한다. 수학 질문 청크의 parent context가
+  질문 한 줄뿐이면 같은 페이지의 가까운 조건식까지 제한적으로 확장해 식과 질문의 분리를 복구한다.
+
 - Markdown/NormalizedDocument 청킹 결과를 영속 `ChunkSet`으로 저장하고 Markdown에서 시작된 RAG 색인은
   지정된 `chunkSetId`의 text/order/metadata만 임베딩하도록 분리했다. 임베딩 profile 변경 재색인도 같은
   ChunkSet을 재사용하며, ChunkSet이 없거나 scope·품질 상태가 유효하지 않으면 원문 재추출·재청킹 없이

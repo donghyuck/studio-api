@@ -47,12 +47,14 @@ public class GoogleGenAiChatPortFactoryConfiguration {
                                AiAdapterProperties.Provider provider,
                                Environment env,
                                ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
-            String model = AiConfigurationMigration.springOrLegacyProviderValue(
-                    env,
-                    "spring.ai.google.genai.chat.options.model",
-                    "studio.ai.providers." + providerId + ".chat.model",
-                    provider.getChat().getModel(),
-                    log);
+            String model = provider.getChat().isModelOverride()
+                    ? provider.getChat().getModel()
+                    : AiConfigurationMigration.springOrLegacyProviderValue(
+                            env,
+                            "spring.ai.google.genai.chat.options.model",
+                            "studio.ai.providers." + providerId + ".chat.model",
+                            provider.getChat().getModel(),
+                            log);
             String apiKey = requireText(
                     AiConfigurationMigration.springOrLegacyProviderValue(
                             env,

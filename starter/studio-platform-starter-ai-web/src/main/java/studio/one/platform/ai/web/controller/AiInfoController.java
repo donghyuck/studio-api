@@ -85,14 +85,17 @@ public class AiInfoController {
         };
         ProviderChannel chat = new ProviderChannel(
                 provider.getChat().isEnabled(),
-                chatModel(provider));
+                provider.getChat().isEnabled() ? chatModel(provider) : null);
         ProviderChannel embedding = new ProviderChannel(
                 provider.getEmbedding().isEnabled(),
-                embeddingModel(provider));
+                provider.getEmbedding().isEnabled() ? embeddingModel(provider) : null);
         return new ProviderInfo(name, provider.getType(), chat, embedding, baseUrl);
     }
 
     private String chatModel(AiAdapterProperties.Provider provider) {
+        if (provider.getChat().isModelOverride() && provider.getChat().getModel() != null) {
+            return provider.getChat().getModel();
+        }
         return switch (provider.getType()) {
             case OPENAI -> firstNonBlank(
                     environment.getProperty("spring.ai.openai.chat.options.model"),
@@ -108,6 +111,9 @@ public class AiInfoController {
     }
 
     private String embeddingModel(AiAdapterProperties.Provider provider) {
+        if (provider.getEmbedding().isModelOverride() && provider.getEmbedding().getModel() != null) {
+            return provider.getEmbedding().getModel();
+        }
         return switch (provider.getType()) {
             case OPENAI -> firstNonBlank(
                     environment.getProperty("spring.ai.openai.embedding.options.model"),

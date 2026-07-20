@@ -3,6 +3,7 @@ package studio.one.platform.ai.autoconfigure.config;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -14,6 +15,9 @@ import org.springframework.core.env.Environment;
 
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.core.embedding.EmbeddingRequest;
+import studio.one.platform.ai.core.embedding.EmbeddingResponse;
+import studio.one.platform.ai.core.embedding.EmbeddingVector;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
 
 /**
@@ -122,6 +126,33 @@ class AiProviderRegistryConfigurationTest {
         assertThat(registry.defaultEmbeddingProvider()).isEqualTo("ollama");
         assertThat(registry.chatPort(null)).isSameAs(mockChatPort);
         assertThat(registry.embeddingPort(null)).isSameAs(mockEmbeddingPort);
+    }
+
+    @Test
+    void defaultEmbeddingPortRoutesExplicitProviderAndPreservesDefaultFallback() {
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+        AiProviderRegistryConfiguration configuration =
+                new AiProviderRegistryConfiguration(beanFactory.getBeanProvider(
+                        studio.one.platform.service.I18n.class));
+        EmbeddingPort defaultProvider = org.mockito.Mockito.mock(EmbeddingPort.class);
+        EmbeddingPort alternateProvider = org.mockito.Mockito.mock(EmbeddingPort.class);
+        EmbeddingResponse defaultResponse = new EmbeddingResponse(
+                List.of(new EmbeddingVector("default", List.of(1.0d))));
+        EmbeddingResponse alternateResponse = new EmbeddingResponse(
+                List.of(new EmbeddingVector("alternate", List.of(2.0d))));
+        EmbeddingRequest defaultRequest = new EmbeddingRequest(List.of("default"));
+        EmbeddingRequest alternateRequest = new EmbeddingRequest(
+                List.of("alternate"), "alternate", null, null, null);
+        org.mockito.Mockito.when(defaultProvider.embed(defaultRequest)).thenReturn(defaultResponse);
+        org.mockito.Mockito.when(alternateProvider.embed(alternateRequest)).thenReturn(alternateResponse);
+
+        AiProviderRegistry registry = new AiProviderRegistry(
+                "default", "default", "default",
+                Map.of(), Map.of("default", defaultProvider, "alternate", alternateProvider));
+        EmbeddingPort routingPort = configuration.defaultEmbeddingPort(registry);
+
+        assertThat(routingPort.embed(defaultRequest)).isSameAs(defaultResponse);
+        assertThat(routingPort.embed(alternateRequest)).isSameAs(alternateResponse);
     }
 
     @Test

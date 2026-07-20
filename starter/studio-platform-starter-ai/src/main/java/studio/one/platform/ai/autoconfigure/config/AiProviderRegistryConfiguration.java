@@ -85,7 +85,7 @@ public class AiProviderRegistryConfiguration {
                 LogUtils.green(EmbeddingPort.class, true),
                 LogUtils.red(State.CREATED.toString())));
 
-        return registry.embeddingPort(null);
+        return request -> registry.embeddingPort(request.provider()).embed(request);
     }
 
     private static <T> void requirePort(Map<String, T> ports, String provider, String propertyName, Class<?> portType) {

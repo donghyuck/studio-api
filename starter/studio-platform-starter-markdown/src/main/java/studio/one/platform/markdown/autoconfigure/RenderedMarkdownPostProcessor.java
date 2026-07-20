@@ -72,10 +72,16 @@ final class RenderedMarkdownPostProcessor {
         metadata.put("markdownQualityStatus", qualityIssues.isEmpty() ? "VALID" : "REVIEW_REQUIRED");
         double score = qualityScore(qualityIssues, number(metrics.get("renderedMarkdownShortLineRatio")),
                 number(metrics.get("renderedMarkdownJamoLineRatio")), document, markdown);
-        boolean ragIndexEligible = score >= TARGET_QUALITY_SCORE && qualityIssues.stream().noneMatch(this::blockingIssue);
+        boolean fatalQualityFailure = qualityIssues.stream().anyMatch(this::fatalIssue)
+                || markdown == null
+                || markdown.isBlank()
+                || document.blocks().isEmpty();
+        boolean ragIndexEligible = !fatalQualityFailure;
         metadata.put("markdownQualityScore", score);
         metadata.put("ragIndexEligible", ragIndexEligible);
-        metadata.put("qualityGateStatus", ragIndexEligible ? "PASSED" : "BLOCKED");
+        metadata.put("qualityGateStatus", fatalQualityFailure
+                ? "BLOCKED"
+                : score >= TARGET_QUALITY_SCORE && qualityIssues.isEmpty() ? "PASSED" : "REVIEW_REQUIRED");
         return NormalizedDocument.builder(document.sourceDocumentId())
                 .plainText(document.plainText())
                 .sourceFormat(document.sourceFormat())
@@ -563,14 +569,9 @@ final class RenderedMarkdownPostProcessor {
         return retention >= 0.20d ? 0.0d : Math.min(0.30d, (0.20d - retention) * 1.5d);
     }
 
-    private boolean blockingIssue(String issue) {
+    private boolean fatalIssue(String issue) {
         return "MARKDOWN_BLANK".equals(issue)
-                || "NO_NORMALIZED_BLOCKS".equals(issue)
-                || "KOREAN_JAMO_REVIEW_REQUIRED".equals(issue)
-                || "KOREAN_TEXT_GARBLING".equals(issue)
-                || "KOREAN_TEXT_OCR_INCOMPLETE".equals(issue)
-                || "MATH_RENDERING_LOSS".equals(issue)
-                || "CONTENT_PAGE_COVERAGE_INCOMPLETE".equals(issue);
+                || "NO_NORMALIZED_BLOCKS".equals(issue);
     }
 
     private double number(Object value) {

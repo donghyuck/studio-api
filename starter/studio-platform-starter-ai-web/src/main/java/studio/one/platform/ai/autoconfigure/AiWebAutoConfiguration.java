@@ -56,9 +56,12 @@ import studio.one.platform.ai.service.visualization.VectorProjectionService;
 import studio.one.platform.ai.service.visualization.VectorSearchVisualizationService;
 import studio.one.platform.ai.web.controller.AiWebExceptionHandler;
 import studio.one.platform.ai.web.controller.AiInfoController;
+import studio.one.platform.ai.web.controller.AiModelUsageController;
+import studio.one.platform.ai.web.controller.AiModelUsageStore;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationStore;
+import studio.one.platform.ai.web.controller.InMemoryAiModelUsageStore;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationJobStore;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationQuestionSetStore;
 import studio.one.platform.ai.web.controller.JdbcRagRetrievalEvaluationStore;
@@ -114,6 +117,7 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 @EnableConfigurationProperties({
         AiWebRagProperties.class,
         AiWebChatProperties.class,
+        AiModelUsageProperties.class,
         RagPipelineProperties.class,
         VectorProjectionProperties.class
 })
@@ -170,7 +174,8 @@ public class AiWebAutoConfiguration {
             ObjectMapper objectMapper,
             RagPipelineProperties ragPipelineProperties,
             RagRetrievalPolicyStore ragRetrievalPolicyStore,
-            RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore) {
+            RagRetrievalPolicyUsageStore ragRetrievalPolicyUsageStore,
+            AiModelUsageStore modelUsageStore) {
         return new ChatController(providerRegistry, ragPipelineService, ragChatRetrievalService,
                 ragContextBuilder,
                 ragProperties.getDiagnostics().isAllowClientDebug(),
@@ -182,7 +187,19 @@ public class AiWebAutoConfiguration {
                 ragProperties.getContext().getExpansion().getMaxCandidates(),
                 ragPipelineOptions(ragPipelineProperties),
                 ragRetrievalPolicyStore,
-                ragRetrievalPolicyUsageStore);
+                ragRetrievalPolicyUsageStore,
+                modelUsageStore);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    AiModelUsageStore aiModelUsageStore(AiModelUsageProperties properties) {
+        return new InMemoryAiModelUsageStore(properties);
+    }
+
+    @Bean
+    AiModelUsageController aiModelUsageController(AiModelUsageStore usageStore) {
+        return new AiModelUsageController(usageStore);
     }
 
     @Bean

@@ -49,12 +49,14 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
                                     AiAdapterProperties.Provider provider,
                                     Environment env,
                                     ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
-            String model = AiConfigurationMigration.springOrLegacyProviderValue(
-                    env,
-                    "spring.ai.google.genai.embedding.text.options.model",
-                    "studio.ai.providers." + providerId + ".embedding.model",
-                    provider.getEmbedding().getModel(),
-                    log);
+            String model = provider.getEmbedding().isModelOverride()
+                    ? provider.getEmbedding().getModel()
+                    : AiConfigurationMigration.springOrLegacyProviderValue(
+                            env,
+                            "spring.ai.google.genai.embedding.text.options.model",
+                            "studio.ai.providers." + providerId + ".embedding.model",
+                            provider.getEmbedding().getModel(),
+                            log);
             String apiKey = requireText(
                     AiConfigurationMigration.springOrLegacyProviderValue(
                             env,
@@ -65,9 +67,10 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
                     "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
             model = requireText(model,
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
-            Integer dimensions = env.getProperty(
-                    "spring.ai.google.genai.embedding.text.options.dimensions",
-                    Integer.class);
+            Integer dimensions = provider.getEmbedding().isModelOverride()
+                    && provider.getEmbedding().getDimension() != null
+                            ? provider.getEmbedding().getDimension()
+                            : env.getProperty("spring.ai.google.genai.embedding.text.options.dimensions", Integer.class);
 
             org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails connectionDetails =
                     org.springframework.ai.google.genai.GoogleGenAiEmbeddingConnectionDetails.builder()

@@ -75,13 +75,13 @@ public class AiSecretPresenceGuard {
 
     private void validateSpringAiProviderMultiplicity() {
         if (hasUnique(chatModelProvider)) {
-            rejectMultipleEnabledProviders(
+            rejectMultipleSharedModelProviders(
                     AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI,
                     true,
                     "Exactly one enabled GOOGLE_AI_GEMINI chat provider is supported when a Spring AI ChatModel bean is used");
         }
         if (hasUnique(embeddingModelProvider)) {
-            rejectMultipleEnabledProviders(
+            rejectMultipleSharedModelProviders(
                     AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI,
                     false,
                     "Exactly one enabled GOOGLE_AI_GEMINI embedding provider is supported when a Spring AI EmbeddingModel bean is used");
@@ -89,6 +89,22 @@ public class AiSecretPresenceGuard {
                     AiAdapterProperties.ProviderType.OLLAMA,
                     false,
                     "Exactly one enabled OLLAMA embedding provider is supported when a Spring AI EmbeddingModel bean is used");
+        }
+    }
+
+    private void rejectMultipleSharedModelProviders(
+            AiAdapterProperties.ProviderType type,
+            boolean chat,
+            String message) {
+        long count = properties.getProviders().values().stream()
+                .filter(provider -> provider != null
+                        && provider.isEnabled()
+                        && provider.getType() == type
+                        && (chat ? provider.getChat().isEnabled() : provider.getEmbedding().isEnabled())
+                        && !(chat ? provider.getChat().isModelOverride() : provider.getEmbedding().isModelOverride()))
+                .count();
+        if (count > 1) {
+            throw new IllegalStateException(message);
         }
     }
 
@@ -152,12 +168,14 @@ public class AiSecretPresenceGuard {
                             provider.getApiKey(),
                             log),
                     "spring.ai.google.genai.embedding.api-key must be configured for GOOGLE_AI_GEMINI embedding provider");
-            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
-                            environment,
-                            "spring.ai.google.genai.embedding.text.options.model",
-                            "studio.ai.providers." + providerId + ".embedding.model",
-                            provider.getEmbedding().getModel(),
-                            log),
+            requireText(provider.getEmbedding().isModelOverride()
+                            ? provider.getEmbedding().getModel()
+                            : AiConfigurationMigration.springOrLegacyProviderValue(
+                                    environment,
+                                    "spring.ai.google.genai.embedding.text.options.model",
+                                    "studio.ai.providers." + providerId + ".embedding.model",
+                                    provider.getEmbedding().getModel(),
+                                    log),
                     "spring.ai.google.genai.embedding.text.options.model must be configured for GOOGLE_AI_GEMINI embedding provider");
         }
         if (provider.getChat().isEnabled()) {
@@ -168,12 +186,14 @@ public class AiSecretPresenceGuard {
                             provider.getApiKey(),
                             log),
                     "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            requireText(AiConfigurationMigration.springOrLegacyProviderValue(
-                            environment,
-                            "spring.ai.google.genai.chat.options.model",
-                            "studio.ai.providers." + providerId + ".chat.model",
-                            provider.getChat().getModel(),
-                            log),
+            requireText(provider.getChat().isModelOverride()
+                            ? provider.getChat().getModel()
+                            : AiConfigurationMigration.springOrLegacyProviderValue(
+                                    environment,
+                                    "spring.ai.google.genai.chat.options.model",
+                                    "studio.ai.providers." + providerId + ".chat.model",
+                                    provider.getChat().getModel(),
+                                    log),
                     "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
         }
     }

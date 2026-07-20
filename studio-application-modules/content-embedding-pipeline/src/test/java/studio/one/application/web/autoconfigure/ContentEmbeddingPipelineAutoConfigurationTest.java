@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.FilteredClassLoader;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.application.attachment.application.usecase.AttachmentService;
 import studio.one.application.web.controller.AttachmentEmbeddingPipelineController;
@@ -15,6 +17,7 @@ import studio.one.application.web.service.AttachmentRagIndexJobSourceNameResolve
 import studio.one.application.web.service.AttachmentRagIndexService;
 import studio.one.application.web.service.AttachmentStructuredRagIndexer;
 import studio.one.application.web.service.DefaultAttachmentStructuredRagIndexer;
+import studio.one.platform.chunking.artifact.ChunkSetStore;
 
 class ContentEmbeddingPipelineAutoConfigurationTest {
 
@@ -31,6 +34,24 @@ class ContentEmbeddingPipelineAutoConfigurationTest {
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceExecutor.class);
                     assertThat(context).hasSingleBean(AttachmentRagIndexJobSourceNameResolver.class);
                     assertThat(context).hasSingleBean(AttachmentEmbeddingPipelineController.class);
+                });
+    }
+
+    @Test
+    void suppliesChunkSetStoreToStructuredRagIndexer() {
+        ChunkSetStore chunkSetStore = mock(ChunkSetStore.class);
+
+        contextRunner
+                .withBean(AttachmentService.class, () -> mock(AttachmentService.class))
+                .withBean(ChunkSetStore.class, () -> chunkSetStore)
+                .run(context -> {
+                    DefaultAttachmentStructuredRagIndexer indexer =
+                            context.getBean(DefaultAttachmentStructuredRagIndexer.class);
+                    ObjectProvider<?> provider = (ObjectProvider<?>) ReflectionTestUtils.getField(
+                            indexer, "chunkSetStoreProvider");
+
+                    assertThat(provider).isNotNull();
+                    assertThat(provider.getIfAvailable()).isSameAs(chunkSetStore);
                 });
     }
 

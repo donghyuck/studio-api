@@ -72,6 +72,67 @@ class RagChatRetrievalServiceTest {
     }
 
     @Test
+    void omittedStrategyUsesOnlyStructureLegForStructureOnlyObject() {
+        when(ragPipelineService.listByObject("attachment", "1", 32))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 1.0d, Map.of(
+                        ChunkMetadata.KEY_STRATEGY, "structure-based",
+                        "actualChunkingStrategy", "structure-based"))));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 0.9d)));
+
+        RagChatRetrievalService.RetrievalResult result = service.retrieve(
+                request(null, null), "query", "attachment", "1", 5, 0.6d, 5, true);
+
+        verify(ragPipelineService).search(any(RagSearchRequest.class));
+        assertThat(result.debug().toMetadata()).containsEntry("resolvedStrategy", "structure");
+    }
+
+    @Test
+    void omittedStrategyUsesDefaultSearchForRecursiveObject() {
+        when(ragPipelineService.listByObject("attachment", "1", 32))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 1.0d, Map.of(
+                        ChunkMetadata.KEY_STRATEGY, "recursive",
+                        "actualChunkingStrategy", "recursive"))));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 0.65d)));
+
+        RagChatRetrievalService.RetrievalResult result = service.retrieve(
+                request(null, null), "query", "attachment", "1", 5, 0.55d, 5, true);
+
+        assertThat(result.results()).hasSize(1);
+        assertThat(result.debug().enabled()).isFalse();
+        ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        verify(ragPipelineService).search(captor.capture());
+        assertThat(captor.getValue().metadataFilter().equalsCriteria())
+                .doesNotContainKeys(ChunkMetadata.KEY_STRATEGY, "actualChunkingStrategy");
+    }
+
+    @Test
+    void objectScopedSearchUsesTheProfileStoredWithIndexedChunks() {
+        ChatRagRequestDto base = request("structure", null);
+        ChatRagRequestDto mismatchedProfileRequest = new ChatRagRequestDto(
+                base.chat(), base.ragQuery(), base.ragTopK(), base.objectType(), base.objectId(),
+                "retrieval-ko-kure", null, null, base.topK(), base.minScore(), base.debug(),
+                base.retrievalStrategy(), base.retrievalOptions());
+        when(ragPipelineService.listByObject("attachment", "1", 32))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 1.0d, Map.of(
+                        ChunkMetadata.KEY_STRATEGY, "structure-based",
+                        "embeddingProfileId", "gemini-768"))));
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(result("doc-1", "chunk-1", 0.9d)));
+
+        service.retrieve(mismatchedProfileRequest, "query", "attachment", "1", 5, 0.6d, 5, true);
+
+        ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        verify(ragPipelineService).search(captor.capture());
+        assertThat(captor.getValue().embeddingProfileId()).isEqualTo("gemini-768");
+        assertThat(captor.getValue().embeddingProvider()).isNull();
+        assertThat(captor.getValue().embeddingModel()).isNull();
+        assertThat(captor.getValue().metadataFilter().equalsCriteria())
+                .containsEntry(ChunkMetadata.KEY_STRATEGY, "structure-based");
+    }
+
+    @Test
     void structureStrategyAddsStructureBasedFilter() {
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(result("doc-1", "chunk-1", 0.9d)));
