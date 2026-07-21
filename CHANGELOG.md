@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Pandoc 제출 실패와 비동기 실패 callback이 동시에 native fallback을 요청해 동일 revision의 추출 작업이
+  중복 예약되던 경쟁 조건을 제거했다. 먼저 예약된 fallback은 계속 실행하고 후속 요청은 현재 revision을
+  반환하므로 `Markdown task is already running` 오류로 생성 API가 실패하지 않는다.
+
 - 임베딩 선택 옵션에 Google 공식 모델명을 포함한 canonical `embeddingModelId`, 사용자 표시명,
   `embeddingSpaceId`, legacy alias를 추가한다. 기존 `embeddingProfileId` 요청은 호환 alias로 유지하고,
   동일 모델·차원의 기존 PostgreSQL 벡터 metadata는 재임베딩 없이 canonical 식별자로 이관한다.

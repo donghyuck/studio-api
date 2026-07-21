@@ -1176,11 +1176,26 @@ public class MarkdownDocumentService {
 
     private MarkdownExtractionResult fallbackToNative(MarkdownDocument document, MarkdownRevision revision,
             String errorCode, String errorMessage) {
-        MarkdownRevision nativeRevision = switchToNativeFallback(revision, errorCode, errorMessage);
-        String scheduledRevisionId = nativeRevision.revisionId();
-        scheduleNative(scheduledRevisionId);
-        MarkdownRevision current = repository.findRevision(scheduledRevisionId).orElse(nativeRevision);
-        return new MarkdownExtractionResult(requireDocument(document.documentId()), current, false);
+        String revisionId = revision.revisionId();
+        String taskKey = extractionTaskKey(revisionId);
+        if (!activeTasks.add(taskKey)) {
+            MarkdownRevision current = repository.findRevision(revisionId).orElse(revision);
+            return new MarkdownExtractionResult(requireDocument(document.documentId()), current, false);
+        }
+        try {
+            MarkdownRevision current = repository.findRevision(revisionId).orElse(revision);
+            if (current.status().terminal()) {
+                activeTasks.remove(taskKey);
+                return new MarkdownExtractionResult(requireDocument(document.documentId()), current, false);
+            }
+            MarkdownRevision nativeRevision = switchToNativeFallback(current, errorCode, errorMessage);
+            executeReservedTask(taskKey, () -> processNative(revisionId));
+            current = repository.findRevision(revisionId).orElse(nativeRevision);
+            return new MarkdownExtractionResult(requireDocument(document.documentId()), current, false);
+        } catch (RuntimeException ex) {
+            activeTasks.remove(taskKey);
+            throw ex;
+        }
     }
 
     private MarkdownRevision switchToNativeFallback(MarkdownRevision revision, String errorCode, String errorMessage) {
@@ -1200,7 +1215,11 @@ public class MarkdownDocumentService {
     }
 
     private void scheduleNative(String revisionId) {
-        scheduleTask("extraction:" + revisionId, () -> processNative(revisionId));
+        scheduleTask(extractionTaskKey(revisionId), () -> processNative(revisionId));
+    }
+
+    private String extractionTaskKey(String revisionId) {
+        return "extraction:" + revisionId;
     }
 
     private void prepareAndSchedulePipeline(MarkdownRevision revision) {
@@ -1237,6 +1256,10 @@ public class MarkdownDocumentService {
         if (!activeTasks.add(taskKey)) {
             throw new IllegalStateException("Markdown task is already running: " + taskKey);
         }
+        executeReservedTask(taskKey, task);
+    }
+
+    private void executeReservedTask(String taskKey, Runnable task) {
         try {
             taskExecutor.executeAfterCommit(() -> {
                 try {
