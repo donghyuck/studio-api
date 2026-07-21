@@ -85,13 +85,64 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
     @Override
     public List<RagChunkStage> findByObject(String objectType, String objectId, String documentId) {
         return template.query("""
-                SELECT object_type, object_id, document_id, chunk_index, chunk_id, text, metadata, created_at
+                SELECT object_type, object_id, document_id, chunk_index, chunk_id, text,
+                       (metadata::jsonb
+                           - 'pdfExtractionParts'
+                           - 'pageQuality'
+                           - 'parentChunkContent'
+                           - 'parentChunkBlockIds'
+                           - 'parentChunkSourceRefs')::text AS metadata,
+                       created_at
                   FROM tb_ai_rag_chunk_stage
                  WHERE object_type = :objectType
                    AND object_id = :objectId
                    AND ((:documentId IS NULL AND document_id IS NULL) OR document_id = :documentId)
                  ORDER BY chunk_index
                 """, scopeParams(objectType, objectId, documentId), new StageRowMapper());
+    }
+
+    @Override
+    public long countByObject(String objectType, String objectId, String documentId) {
+        Long count = template.queryForObject("""
+                SELECT COUNT(*)
+                  FROM tb_ai_rag_chunk_stage
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                   AND ((:documentId IS NULL AND document_id IS NULL) OR document_id = :documentId)
+                """, scopeParams(objectType, objectId, documentId), Long.class);
+        return count == null ? 0L : count;
+    }
+
+    @Override
+    public List<RagChunkStage> findBatchByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            int afterChunkIndex,
+            int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+        MapSqlParameterSource params = scopeParams(objectType, objectId, documentId)
+                .addValue("afterChunkIndex", afterChunkIndex)
+                .addValue("limit", limit);
+        return template.query("""
+                SELECT object_type, object_id, document_id, chunk_index, chunk_id, text,
+                       (metadata::jsonb
+                           - 'pdfExtractionParts'
+                           - 'pageQuality'
+                           - 'parentChunkContent'
+                           - 'parentChunkBlockIds'
+                           - 'parentChunkSourceRefs')::text AS metadata,
+                       created_at
+                  FROM tb_ai_rag_chunk_stage
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                   AND ((:documentId IS NULL AND document_id IS NULL) OR document_id = :documentId)
+                   AND chunk_index > :afterChunkIndex
+                 ORDER BY chunk_index
+                 LIMIT :limit
+                """, params, new StageRowMapper());
     }
 
     @Override

@@ -18,7 +18,7 @@ public record ChatRagRequestDto(
         Integer ragTopK,
         String objectType,
         String objectId,
-        String embeddingProfileId,
+        @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
         @Min(value = 1, message = "topK must be at least 1")

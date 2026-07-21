@@ -46,6 +46,8 @@ import studio.one.platform.chunking.core.ChunkingOrchestrator;
 @SuppressWarnings("deprecation")
 public class DefaultRagPipelineService implements RagPipelineService {
 
+    private static final int MAX_STAGE_READ_BATCH_SIZE = 200;
+
     private final EmbeddingPort embeddingPort;
     private final RagEmbeddingProfileResolver embeddingProfileResolver;
     private final VectorStorePort vectorStorePort;
@@ -266,22 +268,25 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
         String objectType = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectType"));
         String objectId = RagChunkingMetadata.normalizeObjectScope(baseMetadata.get("objectId"));
-        List<RagPipelineChunk> chunks = stagedChunks(objectType, objectId, request.documentId());
-        if (chunks.isEmpty()) {
+        long stagedChunkCount = stagedChunkCount(objectType, objectId, request.documentId());
+        List<RagPipelineChunk> chunks;
+        if (stagedChunkCount == 0L) {
             progress.onStep(RagIndexJobStep.CHUNKING);
             chunks = chunk(indexedText, chunkingRequest);
             progress.onChunkCount(chunks.size());
             saveChunkStage(objectType, objectId, request.documentId(), chunks);
         } else {
+            chunks = List.of();
             progress.onInfo(
                     RagIndexJobStep.CHUNKING,
                     "RAG chunk stage restored",
                     "objectType=%s, objectId=%s, documentId=%s, chunkCount=%d"
-                            .formatted(objectType, objectId, request.documentId(), chunks.size()));
-            progress.onChunkCount(chunks.size());
+                            .formatted(objectType, objectId, request.documentId(), stagedChunkCount));
+            progress.onChunkCount(Math.toIntExact(stagedChunkCount));
         }
-        baseMetadata.putIfAbsent("chunkCount", chunks.size());
-        if (objectType != null && objectId != null && chunks.isEmpty()) {
+        int chunkCount = stagedChunkCount > 0L ? Math.toIntExact(stagedChunkCount) : chunks.size();
+        baseMetadata.putIfAbsent("chunkCount", chunkCount);
+        if (objectType != null && objectId != null && chunkCount == 0) {
             progress.onStep(RagIndexJobStep.INDEXING);
             vectorStorePort.deleteByObject(objectType, objectId);
             chunkStageStore.deleteByObject(objectType, objectId, request.documentId());
@@ -289,7 +294,10 @@ public class DefaultRagPipelineService implements RagPipelineService {
             return;
         }
         int indexUpsertBatchSize = options.indexUpsertBatchSize();
-        if (objectType != null && objectId != null && chunks.size() <= indexUpsertBatchSize) {
+        if (stagedChunkCount > 0L && stagedChunkCount <= indexUpsertBatchSize) {
+            chunks = stagedChunkBatch(objectType, objectId, request.documentId(), -1, chunkCount);
+        }
+        if (objectType != null && objectId != null && chunkCount <= indexUpsertBatchSize) {
             List<VectorRecord> records = embedRecords(request, chunks, baseMetadata, progress);
             vectorStorePort.replaceRecordsByObject(objectType, objectId, records);
             chunkStageStore.deleteByObject(objectType, objectId, request.documentId());
@@ -301,12 +309,15 @@ public class DefaultRagPipelineService implements RagPipelineService {
                     RagIndexJobStep.INDEXING,
                     "RAG index will replace object-scoped vectors with batched upserts",
                     "objectType=%s, objectId=%s, chunkCount=%d, upsertBatchSize=%d"
-                            .formatted(objectType, objectId, chunks.size(), indexUpsertBatchSize));
+                            .formatted(objectType, objectId, chunkCount, indexUpsertBatchSize));
             vectorStorePort.deleteByObject(objectType, objectId);
         }
         int indexed;
         try {
-            indexed = embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
+            indexed = stagedChunkCount > 0L
+                    ? embedAndUpsertStagedBatches(request, objectType, objectId, request.documentId(),
+                            chunkCount, baseMetadata, progress)
+                    : embedAndUpsertInBatches(request, chunks, baseMetadata, progress);
         } catch (RuntimeException ex) {
             if (objectType != null && objectId != null) {
                 vectorStorePort.deleteByObject(objectType, objectId);
@@ -319,13 +330,29 @@ public class DefaultRagPipelineService implements RagPipelineService {
         progress.onIndexedCount(indexed);
     }
 
-    private List<RagPipelineChunk> stagedChunks(String objectType, String objectId, String documentId) {
+    private long stagedChunkCount(String objectType, String objectId, String documentId) {
         if (objectType == null || objectId == null) {
-            return List.of();
+            return 0L;
         }
-        return chunkStageStore.findByObject(objectType, objectId, documentId).stream()
-                .map(stage -> new RagPipelineChunk(stage.chunkId(), stage.text(), stage.metadata()))
+        return chunkStageStore.countByObject(objectType, objectId, documentId);
+    }
+
+    private List<RagPipelineChunk> stagedChunkBatch(
+            String objectType,
+            String objectId,
+            String documentId,
+            int afterChunkIndex,
+            int limit) {
+        return chunkStageStore.findBatchByObject(objectType, objectId, documentId, afterChunkIndex, limit).stream()
+                .map(this::toPipelineChunk)
                 .toList();
+    }
+
+    private RagPipelineChunk toPipelineChunk(RagChunkStage stage) {
+        Map<String, Object> metadata = new HashMap<>(stage.metadata());
+        metadata.putIfAbsent("chunkOrder", stage.chunkIndex());
+        metadata.putIfAbsent(VectorRecord.KEY_CHUNK_INDEX, stage.chunkIndex());
+        return new RagPipelineChunk(stage.chunkId(), stage.text(), metadata);
     }
 
     private void saveChunkStage(String objectType, String objectId, String documentId, List<RagPipelineChunk> chunks) {
@@ -413,6 +440,64 @@ public class DefaultRagPipelineService implements RagPipelineService {
         return indexed;
     }
 
+    private int embedAndUpsertStagedBatches(
+            RagIndexRequest request,
+            String objectType,
+            String objectId,
+            String documentId,
+            int chunkCount,
+            Map<String, Object> baseMetadata,
+            RagIndexProgressListener progress) {
+        progress.onStep(RagIndexJobStep.EMBEDDING);
+        int embeddingBatchSize = Math.max(1, options.indexEmbeddingBatchSize());
+        int upsertBatchSize = Math.max(1, options.indexUpsertBatchSize());
+        int readBatchSize = Math.min(
+                Math.max(embeddingBatchSize, upsertBatchSize),
+                MAX_STAGE_READ_BATCH_SIZE);
+        List<VectorRecord> upsertBatch = new ArrayList<>(upsertBatchSize);
+        int embedded = 0;
+        int indexed = 0;
+        int afterChunkIndex = -1;
+        while (embedded < chunkCount) {
+            List<RagPipelineChunk> chunks = stagedChunkBatch(
+                    objectType, objectId, documentId, afterChunkIndex, readBatchSize);
+            if (chunks.isEmpty()) {
+                throw new IllegalStateException(
+                        "RAG chunk stage ended before expected count: expected=%d, embedded=%d"
+                                .formatted(chunkCount, embedded));
+            }
+            for (int order = 0; order < chunks.size();) {
+                List<PendingRagChunk> embeddingBatch = compatibleEmbeddingBatch(
+                        request, chunks, baseMetadata, order, embeddingBatchSize);
+                for (VectorRecord record : embedPendingBatch(embeddingBatch)) {
+                    upsertBatch.add(record);
+                    embedded++;
+                    progress.onEmbeddedCount(embedded);
+                    if (upsertBatch.size() >= upsertBatchSize) {
+                        progress.onStep(RagIndexJobStep.INDEXING);
+                        upsertBatch(upsertBatch, indexed, upsertBatchSize, progress);
+                        indexed += upsertBatch.size();
+                        upsertBatch.clear();
+                        progress.onStep(RagIndexJobStep.EMBEDDING);
+                    }
+                }
+                order += embeddingBatch.size();
+            }
+            Integer lastChunkIndex = integer(chunks.get(chunks.size() - 1).metadata()
+                    .get(VectorRecord.KEY_CHUNK_INDEX));
+            if (lastChunkIndex == null || lastChunkIndex <= afterChunkIndex) {
+                throw new IllegalStateException("RAG chunk stage pagination did not advance");
+            }
+            afterChunkIndex = lastChunkIndex;
+        }
+        if (!upsertBatch.isEmpty()) {
+            progress.onStep(RagIndexJobStep.INDEXING);
+            upsertBatch(upsertBatch, indexed, upsertBatchSize, progress);
+            indexed += upsertBatch.size();
+        }
+        return indexed;
+    }
+
     private void upsertBatch(
             List<VectorRecord> batch,
             int indexedBeforeBatch,
@@ -487,8 +572,10 @@ public class DefaultRagPipelineService implements RagPipelineService {
         }
         metadata.put("documentId", request.documentId());
         metadata.put("chunkId", chunk.id());
-        metadata.put("chunkOrder", order);
-        metadata.put(VectorRecord.KEY_CHUNK_INDEX, order);
+        Integer stagedOrder = integer(chunk.metadata().get(VectorRecord.KEY_CHUNK_INDEX));
+        int effectiveOrder = stagedOrder == null ? order : stagedOrder;
+        metadata.put("chunkOrder", effectiveOrder);
+        metadata.put(VectorRecord.KEY_CHUNK_INDEX, effectiveOrder);
         metadata.put("chunkLength", chunk.content().length());
         return new PendingRagChunk(request.documentId(), chunk, metadata, resolvedEmbedding);
     }

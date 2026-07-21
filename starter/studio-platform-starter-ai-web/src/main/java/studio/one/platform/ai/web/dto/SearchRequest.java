@@ -11,7 +11,7 @@ public record SearchRequest(
                 @Min(1) @Max(100) Integer topK,
                 String objectType,
                 String objectId,
-                String embeddingProfileId,
+                @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
                 String embeddingProvider,
                 String embeddingModel,
                 @DecimalMin(value = "0.0", message = "minScore must be at least 0.0")

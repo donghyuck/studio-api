@@ -259,7 +259,18 @@ class MarkdownDownstreamPipelineAdapterTest {
                 "locator-1", "revision-1", "SECTION", 1, "Fallback", 0, 10, "fallback", "{}")));
         when(chunking.chunk(any(NormalizedDocument.class), any(ChunkingContext.class)))
                 .thenReturn(List.of(new Chunk("chunk-1", "content",
-                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0).build())));
+                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0)
+                                .attributes(Map.of(
+                                        "page", 1,
+                                        "pdfExtractionParts", List.of(Map.of("pageFrom", 1, "pageTo", 100)),
+                                        "pageQuality", List.of(Map.of("page", 1, "score", 0.8d)),
+                                        ChunkMetadata.KEY_PARENT_CHUNK_CONTENT, "document-wide parent content",
+                                        ChunkMetadata.KEY_PARENT_CHUNK_BLOCK_IDS, List.of("parent-block-1"),
+                                        ChunkMetadata.KEY_PARENT_CHUNK_SOURCE_REFS, List.of("page[1]/parent"),
+                                        ChunkMetadata.KEY_SOURCE_REFS, List.of("page[1]/child")))
+                                .parentChunkId("parent-1")
+                                .blockIds(List.of("child-block-1"))
+                                .build())));
         MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
                 provider(RagIndexJobService.class),
                 provider(SkillRagExtractionJobService.class),
@@ -283,6 +294,17 @@ class MarkdownDownstreamPipelineAdapterTest {
                 .containsEntry("contentBlockCount", 1)
                 .containsEntry("mathBlockCount", 0)
                 .containsEntry("searchablePageCoverage", 0.0d);
+        assertThat(stageStore.findByObject("attachment", "42", "document-1").get(0).metadata())
+                .containsEntry("page", 1)
+                .containsEntry(ChunkMetadata.KEY_PARENT_CHUNK_ID, "parent-1")
+                .containsEntry(ChunkMetadata.KEY_BLOCK_IDS, List.of("child-block-1"))
+                .containsEntry(ChunkMetadata.KEY_SOURCE_REFS, List.of("page[1]/child"))
+                .doesNotContainKeys(
+                        "pdfExtractionParts",
+                        "pageQuality",
+                        ChunkMetadata.KEY_PARENT_CHUNK_CONTENT,
+                        ChunkMetadata.KEY_PARENT_CHUNK_BLOCK_IDS,
+                        ChunkMetadata.KEY_PARENT_CHUNK_SOURCE_REFS);
     }
 
     @Test

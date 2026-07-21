@@ -2,9 +2,24 @@
 
 ## Unreleased
 
+- 임베딩 선택 옵션에 Google 공식 모델명을 포함한 canonical `embeddingModelId`, 사용자 표시명,
+  `embeddingSpaceId`, legacy alias를 추가한다. 기존 `embeddingProfileId` 요청은 호환 alias로 유지하고,
+  동일 모델·차원의 기존 PostgreSQL 벡터 metadata는 재임베딩 없이 canonical 식별자로 이관한다.
+  `gemini-embedding-2`에는 지원하지 않는 legacy `task_type`을 전달하지 않는다.
+
+- Markdown 파이프라인 추산 응답에 원본 크기 기반 예비 추산과 실제 revision 내용 기반 추산을 구분하는
+  `estimateBasis`, `confidence` 및 선택된 임베딩 모델 정보를 additive하게 노출한다. 클라이언트가 추산과
+  추천 설정 적용을 분리하고 RAG 색인 모델을 명시적으로 표시할 수 있도록 기존 응답 필드는 유지한다.
+
 - 대용량 문서 청크의 JDBC 저장 크기를 `studio.ai.rag.indexing.chunk-write-batch-size`로 설정할 수
   있게 했다. staging과 영속 ChunkSet을 기본 25개, 최대 200개 단위로 metadata를 분할 직렬화·저장하고
   전체 staging 교체를 transaction으로 묶어 batch SQL 로깅에 의한 heap 사용량과 부분 저장 위험을 줄였다.
+
+- RAG 임베딩이 staging 청크 전체를 한 번에 역직렬화하지 않고 `chunk_index` keyset pagination으로
+  제한 조회하도록 개선했다. `pdfExtractionParts`, `pageQuality` 같은 문서 전체 진단 배열은 normalized
+  snapshot에만 유지하고 청크별 metadata에서는 제외해 대용량 PDF의 heap 소진과 중복 저장을 방지한다.
+  parent-child 전략도 `parentChunkId`와 child provenance는 유지하되 `parentChunkContent`,
+  `parentChunkBlockIds`, `parentChunkSourceRefs` 같은 parent 전체 payload는 staging 청크마다 반복하지 않는다.
 
 - 전체 문서 요약 컨텍스트와 Map-Reduce 결과에 문서 제목과 원본 파일명을 보존하고, 요약 답변이 해당
   식별 정보로 시작하도록 개선했다. metadata에 없는 제목이나 파일명은 생성하지 않는다.

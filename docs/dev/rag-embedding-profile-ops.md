@@ -13,7 +13,7 @@ orchestration과 선택 정책을 소유한다.
 | embedding runtime model | `spring.ai.<provider>.embedding.*` | 현재 embedding provider 호출 model source다. OpenAI, Google Gemini, Ollama embedding은 Spring AI embedding model 설정이 필요하다. |
 | RAG embedding dimension/filter | `studio.ai.rag.embedding-profiles.*.dimension` | explicit profile 검색과 Vector metadata filter에 쓰는 RAG 기준값이다. 실제 provider dimension 설정과 일치해야 한다. |
 | provider enable / default provider | `studio.ai.providers.*`, `studio.ai.default-provider`, `studio.ai.default-chat-provider`, `studio.ai.default-embedding-provider` | Studio가 사용할 provider id와 기본 provider 선택이다. `default-provider`는 기존 호환 fallback이고, chat/embedding 기본 provider는 분리할 수 있다. |
-| RAG embedding profile | `studio.ai.rag.embedding-profiles.*` | RAG 요청에서 선택할 profile id와 metadata/filter 기준이다. |
+| RAG embedding model id | `studio.ai.rag.embedding-profiles.*`의 key | `provider/model@dimension` 형식의 사용자·API canonical 식별자다. 기존 profile id는 `aliases`로만 유지한다. |
 
 `studio.ai.default-provider`를 설정하면 기존 호출자 호환을 위해 해당 provider가 chat과 embedding port를 모두 제공해야 한다.
 chat 전용 기본값과 embedding 전용 기본값만 분리하려면 `default-provider`를 생략하고
@@ -46,13 +46,18 @@ studio:
         google-embedding:
           task-type: RETRIEVAL_DOCUMENT
     rag:
-      default-embedding-profile: retrieval-ko
+      default-embedding-profile: "google-ai/gemini-embedding-001@768"
       embedding-profiles:
-        retrieval-ko:
+        "google-ai/gemini-embedding-001@768":
           provider: gemini
           model: gemini-embedding-001
+          display-name: Google gemini-embedding-001 (Text, 768 dimensions)
+          aliases: [gemini-768]
           dimension: 768
           supported-input-types: [TEXT, TABLE_TEXT, IMAGE_CAPTION, OCR_TEXT]
+          metadata:
+            providerId: google-ai
+            embeddingSpaceId: "google-ai/gemini-embedding-001@768"
 
 spring:
   ai:
@@ -108,12 +113,12 @@ spring:
 
 RAG 색인/검색 요청의 embedding 선택은 다음 순서로 처리한다.
 
-1. 요청의 `embeddingProfileId`
+1. 요청의 `embeddingModelId` 또는 legacy `embeddingProfileId`
 2. 요청의 `embeddingProvider` / `embeddingModel`
 3. `studio.ai.rag.default-embedding-profile`
 4. 기본 `EmbeddingPort`
 
-`embeddingProfileId`와 `embeddingProvider`/`embeddingModel`을 동시에 보내는 요청은 혼합 해석을 막기 위해 거부한다.
+`embeddingModelId`/`embeddingProfileId`와 `embeddingProvider`/`embeddingModel`을 동시에 보내는 요청은 혼합 해석을 막기 위해 거부한다.
 요청에서 provider/model만 지정하면 default profile의 model/dimension을 섞어 쓰지 않는다.
 
 Spring AI adapter는 등록 시점의 `EmbeddingModel` 하나를 호출한다. 따라서 profile/request의 `embeddingModel`은
@@ -122,20 +127,21 @@ Spring AI adapter는 등록 시점의 `EmbeddingModel` 하나를 호출한다. �
 
 ## API 요청 필드
 
-다음 API는 기존 request body를 유지하면서 optional embedding 선택 필드를 받는다.
+다음 API는 canonical `embeddingModelId`를 받는다. 기존 `embeddingProfileId`는 같은 입력의 legacy alias로 계속
+허용하지만 신규 클라이언트는 두 필드를 동시에 보내지 않는다.
 
 | API | 필드 |
 |---|---|
-| `POST /api/mgmt/ai/rag/index` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
-| `POST /api/mgmt/ai/rag/search` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
-| `POST /api/mgmt/ai/rag/jobs` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
-| `POST /api/ai/chat/rag` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
-| `POST /api/mgmt/attachments/{attachmentId}/rag/index` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
-| `POST /api/mgmt/attachments/rag/search` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
-| `POST /api/mgmt/ai/vectors/search` | `embeddingProfileId`, `embeddingProvider`, `embeddingModel` |
+| `POST /api/mgmt/ai/rag/index` | `embeddingModelId` |
+| `POST /api/mgmt/ai/rag/search` | `embeddingModelId` |
+| `POST /api/mgmt/ai/rag/jobs` | `embeddingModelId` |
+| `POST /api/ai/chat/rag` | `embeddingModelId` |
+| `POST /api/mgmt/attachments/{attachmentId}/rag/index` | `embeddingModelId` |
+| `POST /api/mgmt/attachments/rag/search` | `embeddingModelId` |
+| `POST /api/mgmt/ai/vectors/search` | `embeddingModelId` |
 
 `/api/ai/chat/rag`에서 `chat.provider`와 `chat.model`은 답변 생성 model 선택이고,
-`embeddingProfileId`/`embeddingProvider`/`embeddingModel`은 retrieval embedding 선택이다.
+`embeddingModelId`는 retrieval embedding 선택이다. legacy 필드는 호환 입력으로만 사용한다.
 
 ## Metadata와 검색 범위
 
@@ -145,6 +151,8 @@ Spring AI adapter는 등록 시점의 `EmbeddingModel` 하나를 호출한다. �
 - `embeddingModel`
 - `embeddingDimension`
 - `embeddingProfileId`
+- `embeddingModelId`
+- `embeddingSpaceId`
 - `embeddingInputType`
 
 검색 요청에 embedding 선택 필드가 명시되면 같은 metadata 기준이 `VectorSearchRequest.metadataFilter()`에 추가된다.
@@ -167,11 +175,11 @@ provider-specific multimodal embedding은 별도 adapter/starter에서 다룬다
 ## 운영 화면 권장 흐름
 
 1. 설정 화면에서 `/api/ai/info/providers`로 configured provider와 channel enabled 상태를 표시한다.
-2. RAG 색인 화면은 대상별 기본 `embeddingProfileId`를 선택하거나 서버 default profile을 사용한다.
-3. `POST /api/mgmt/ai/rag/jobs` 또는 attachment RAG index API에 profile field를 포함해 색인을 요청한다.
+2. RAG 색인 화면은 `/api/ai/embedding-options`의 `modelId`, `displayName`을 표시한다.
+3. `POST /api/mgmt/ai/rag/jobs` 또는 attachment RAG index API에 `embeddingModelId`를 포함해 색인을 요청한다.
 4. `X-RAG-Job-Id` 또는 job create response로 job 상태를 polling한다.
-5. 색인 완료 후 object metadata/chunk API에서 `embeddingProfileId`, `embeddingModel`, `embeddingInputType`을 확인한다.
-6. RAG 검색/채팅 화면은 색인에 사용한 profile과 같은 `embeddingProfileId`를 보낸다.
+5. 색인 완료 후 object metadata/chunk API에서 `embeddingModelId`, `embeddingSpaceId`, `embeddingModel`을 확인한다.
+6. RAG 검색/채팅 화면은 색인에 사용한 것과 같은 `embeddingModelId`를 보낸다.
 
 ## 운영 주의사항
 

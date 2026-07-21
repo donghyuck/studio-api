@@ -51,21 +51,30 @@ public class DefaultRagEmbeddingProfileResolver implements RagEmbeddingProfileRe
                     + "' does not support input type " + requested.inputType());
         }
 
-        String provider = firstNonBlank(requested.provider(), profile == null ? null : profile.provider());
+        String adapterProvider = firstNonBlank(requested.provider(), profile == null ? null : profile.provider());
+        String provider = profile == null
+                ? adapterProvider
+                : firstNonBlank(metadataText(profile, "providerId"), adapterProvider);
         String model = firstNonBlank(requested.model(), profile == null ? null : profile.model());
         Integer dimension = requested.dimension() != null
                 ? requested.dimension()
                 : profile == null ? null : profile.dimension();
-        EmbeddingPort port = provider == null
+        EmbeddingPort port = adapterProvider == null
                 ? defaultEmbeddingPort
-                : providerRegistry.embeddingPort(provider);
+                : providerRegistry.embeddingPort(adapterProvider);
+        String modelId = profile == null ? null : profile.profileId();
+        String embeddingSpaceId = profile == null
+                ? null
+                : firstNonBlank(metadataText(profile, "embeddingSpaceId"), modelId);
         return new ResolvedRagEmbedding(
                 port,
                 profile == null ? profileId : profile.profileId(),
                 provider,
                 model,
                 dimension,
-                requested.inputType());
+                requested.inputType(),
+                modelId,
+                embeddingSpaceId);
     }
 
     private RagEmbeddingProfile profile(String profileId) {
@@ -75,6 +84,11 @@ public class DefaultRagEmbeddingProfileResolver implements RagEmbeddingProfileRe
 
     private static String firstNonBlank(String primary, String fallback) {
         return primary == null || primary.isBlank() ? normalize(fallback) : primary.trim();
+    }
+
+    private static String metadataText(RagEmbeddingProfile profile, String key) {
+        Object value = profile == null ? null : profile.metadata().get(key);
+        return value == null ? null : normalize(value.toString());
     }
 
     private static String normalize(String value) {

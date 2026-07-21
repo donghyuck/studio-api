@@ -1006,6 +1006,52 @@ class MarkdownDocumentServiceTest {
         assertEquals(1024, stored.get("skillEmbeddingDimension"));
     }
 
+    @Test
+    void estimatesAttachmentFromSourceSizeWithLowConfidence() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "source");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Heading\n\nBody", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+        MarkdownResumeOptions options = new MarkdownResumeOptions(
+                null, true, true, false,
+                "recursive", 800, 100, "CHARACTER",
+                null, null, null,
+                "gemini-768", "google-ai-gemini-embedding-001", "gemini-embedding-001", 768,
+                false, null, false, null, null, null,
+                null, null, null, null);
+
+        var estimate = service.estimatePipelineByAttachment(1L, options);
+
+        assertEquals("SOURCE_SIZE", estimate.estimateBasis());
+        assertEquals("LOW", estimate.confidence());
+        assertEquals("gemini-768", estimate.embedding().profileId());
+        assertEquals(null, estimate.embedding().model());
+        assertEquals(null, estimate.embedding().dimension());
+    }
+
+    @Test
+    void estimatesCompletedRevisionFromActualContentWithHighConfidence() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.txt", "text/plain", "source");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Heading\n\nBody", "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+        var extraction = service.create(new MarkdownExtractionRequest(
+                1L, false, false, false, false, "tester"));
+
+        var estimate = service.estimatePipeline(extraction.document().documentId(), null);
+
+        assertEquals("REVISION_CONTENT", estimate.estimateBasis());
+        assertEquals("HIGH", estimate.confidence());
+        assertEquals(extraction.revision().markdownText().length(), estimate.markdownLength());
+    }
+
     private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
             MarkdownNativeExtractorPort extractor, MarkdownPipelinePort pipeline) {
         return service(repository, sources, extractor, pipeline, MarkdownTaskExecutor.direct());

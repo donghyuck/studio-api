@@ -45,7 +45,7 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
             AiAdapterProperties.Provider provider = provider(providerId);
             AiEmbeddingOption option = profileOption(profileId, providerId, provider, profile);
             options.put(profileKey(profileId), option);
-            profileSignatures.add(optionSignature(option));
+            profileSignatures.add(optionSignature(providerId, option.model(), option.dimension()));
         });
         registry.availableEmbeddingPorts().keySet().forEach(providerId -> {
             AiAdapterProperties.Provider provider = provider(providerId);
@@ -69,7 +69,11 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
                 false,
                 false,
                 "provider",
-                Map.of());
+                Map.of(),
+                null,
+                embeddingModel(providerId, provider),
+                null,
+                List.of());
     }
 
     private AiEmbeddingOption profileOption(String profileId,
@@ -79,9 +83,13 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
         Integer dimension = profile.getDimension() == null
                 ? embeddingDimension(providerId, provider)
                 : profile.getDimension();
+        Map<String, Object> metadata = profile.getMetadata();
+        String canonicalProvider = firstText(text(metadata.get("providerId")), providerId);
+        String embeddingSpaceId = firstText(text(metadata.get("embeddingSpaceId")), profileId);
+        String displayName = firstText(profile.getDisplayName(), profile.getModel(), embeddingModel(providerId, provider));
         return new AiEmbeddingOption(
                 normalize(profileId),
-                providerId,
+                canonicalProvider,
                 providerType(provider),
                 firstText(profile.getModel(), embeddingModel(providerId, provider)),
                 dimension,
@@ -90,7 +98,11 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
                 normalize(profileId).equals(normalize(ragProperties.getDefaultEmbeddingProfile())),
                 true,
                 "rag-profile",
-                profile.getMetadata());
+                metadata,
+                normalize(profileId),
+                displayName,
+                embeddingSpaceId,
+                profile.getAliases());
     }
 
     private AiAdapterProperties.Provider provider(String providerId) {
@@ -186,10 +198,18 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
     }
 
     private static String optionSignature(AiEmbeddingOption option) {
-        return normalize(option.provider()) + "|" + normalize(option.model()) + "|" + option.dimension();
+        return optionSignature(option.provider(), option.model(), option.dimension());
+    }
+
+    private static String optionSignature(String provider, String model, Integer dimension) {
+        return normalize(provider) + "|" + normalize(model) + "|" + dimension;
     }
 
     private static String normalize(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private static String text(Object value) {
+        return value == null ? null : value.toString();
     }
 }

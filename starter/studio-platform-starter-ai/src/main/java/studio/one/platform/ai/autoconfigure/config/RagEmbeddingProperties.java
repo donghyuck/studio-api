@@ -30,7 +30,9 @@ public class RagEmbeddingProperties {
     public static class ProfileProperties {
         private String provider;
         private String model;
+        private String displayName;
         private Integer dimension;
+        private List<String> aliases = List.of();
         private List<String> supportedInputTypes = List.of(
                 EmbeddingInputType.TEXT.name(),
                 EmbeddingInputType.TABLE_TEXT.name(),
@@ -54,12 +56,28 @@ public class RagEmbeddingProperties {
             this.model = model;
         }
 
+        public String getDisplayName() {
+            return displayName;
+        }
+
+        public void setDisplayName(String displayName) {
+            this.displayName = displayName;
+        }
+
         public Integer getDimension() {
             return dimension;
         }
 
         public void setDimension(Integer dimension) {
             this.dimension = dimension;
+        }
+
+        public List<String> getAliases() {
+            return aliases;
+        }
+
+        public void setAliases(List<String> aliases) {
+            this.aliases = aliases == null ? List.of() : List.copyOf(aliases);
         }
 
         public List<String> getSupportedInputTypes() {

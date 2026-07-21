@@ -639,8 +639,11 @@ public class MarkdownDocumentService {
                 chunkCount,
                 embeddingRequests,
                 embeddingBatchSize,
+                "REVISION_CONTENT",
+                "HIGH",
                 riskLevel(chunkCount),
                 recommended.toResponse(),
+                embeddingSelection(options),
                 warnings);
     }
 
@@ -674,8 +677,11 @@ public class MarkdownDocumentService {
                 chunkCount,
                 embeddingRequests,
                 embeddingBatchSize,
+                "SOURCE_SIZE",
+                "LOW",
                 riskLevel(chunkCount),
                 recommended.toResponse(),
+                embeddingSelection(options),
                 warnings);
     }
 
@@ -1317,6 +1323,20 @@ public class MarkdownDocumentService {
         }
         int effectiveBatchSize = Math.max(1, batchSize);
         return (int) Math.ceil((double) chunkCount / effectiveBatchSize);
+    }
+
+    private MarkdownPipelineEstimate.EmbeddingSelection embeddingSelection(MarkdownPipelineOptions options) {
+        if (options == null || (options.embeddingProfileId() == null
+                && options.embeddingProvider() == null
+                && options.embeddingModel() == null
+                && options.embeddingDimension() == null)) {
+            return null;
+        }
+        return new MarkdownPipelineEstimate.EmbeddingSelection(
+                options.embeddingProfileId(),
+                options.embeddingProvider(),
+                options.embeddingModel(),
+                options.embeddingDimension());
     }
 
     private RecommendedEstimate recommendedEstimate(

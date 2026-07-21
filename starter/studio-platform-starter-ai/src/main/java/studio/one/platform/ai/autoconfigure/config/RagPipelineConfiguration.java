@@ -279,15 +279,31 @@ public class RagPipelineConfiguration {
                         AiAdapterProperties.Provider provider = providerId == null
                                         ? null
                                         : aiProperties.getProviders().get(providerId);
-                        profiles.put(normalizedId.toLowerCase(Locale.ROOT), new RagEmbeddingProfile(
+                        RagEmbeddingProfile resolvedProfile = new RagEmbeddingProfile(
                                         normalizedId,
                                         providerId,
                                         firstText(profile.getModel(), embeddingModel(providerId, provider, environment)),
                                         firstInteger(profile.getDimension(), embeddingDimension(providerId, provider, environment)),
                                         embeddingInputTypes(profile.getSupportedInputTypes()),
-                                        profile.getMetadata()));
+                                        profile.getMetadata());
+                        registerEmbeddingProfile(profiles, normalizedId, resolvedProfile);
+                        profile.getAliases().stream()
+                                        .map(alias -> normalize(alias))
+                                        .filter(alias -> alias != null)
+                                        .forEach(alias -> registerEmbeddingProfile(profiles, alias, resolvedProfile));
                 });
                 return profiles;
+        }
+
+        private void registerEmbeddingProfile(
+                        Map<String, RagEmbeddingProfile> profiles,
+                        String key,
+                        RagEmbeddingProfile profile) {
+                String normalizedKey = key.toLowerCase(Locale.ROOT);
+                RagEmbeddingProfile existing = profiles.putIfAbsent(normalizedKey, profile);
+                if (existing != null && !existing.profileId().equals(profile.profileId())) {
+                        throw new IllegalStateException("Duplicate embedding profile identifier: " + key);
+                }
         }
 
         private String embeddingModel(

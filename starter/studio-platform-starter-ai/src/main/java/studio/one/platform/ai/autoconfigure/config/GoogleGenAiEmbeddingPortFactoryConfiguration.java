@@ -82,8 +82,10 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
             AiAdapterProperties.GoogleEmbeddingOptions googleOptions = provider.getGoogleEmbedding();
             org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.Builder optionsBuilder =
                     org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingOptions.builder()
-                            .model(model)
-                            .taskType(parseTaskType(googleOptions.getTaskType()));
+                            .model(model);
+            if (!"gemini-embedding-2".equalsIgnoreCase(model)) {
+                optionsBuilder.taskType(parseTaskType(googleOptions.getTaskType()));
+            }
             if (dimensions != null) {
                 optionsBuilder.dimensions(dimensions);
             }
@@ -91,6 +93,10 @@ public class GoogleGenAiEmbeddingPortFactoryConfiguration {
 
             org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel embeddingModel =
                     new org.springframework.ai.google.genai.text.GoogleGenAiTextEmbeddingModel(connectionDetails, options);
+            if ("gemini-embedding-2".equalsIgnoreCase(model)) {
+                // Spring AI 1.1.x initializes the legacy task type even when it was not requested.
+                options.setTaskType(null);
+            }
             return new SpringAiEmbeddingAdapter(embeddingModel, model);
         }
 

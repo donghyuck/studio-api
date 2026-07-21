@@ -15,7 +15,9 @@ public record ResolvedRagEmbedding(
         String provider,
         String model,
         Integer dimension,
-        EmbeddingInputType inputType) {
+        EmbeddingInputType inputType,
+        String modelId,
+        String embeddingSpaceId) {
 
     public ResolvedRagEmbedding {
         if (embeddingPort == null) {
@@ -24,7 +26,19 @@ public record ResolvedRagEmbedding(
         profileId = normalize(profileId);
         provider = normalize(provider);
         model = normalize(model);
+        modelId = normalize(modelId);
+        embeddingSpaceId = normalize(embeddingSpaceId);
         inputType = inputType == null ? EmbeddingInputType.TEXT : inputType;
+    }
+
+    public ResolvedRagEmbedding(
+            EmbeddingPort embeddingPort,
+            String profileId,
+            String provider,
+            String model,
+            Integer dimension,
+            EmbeddingInputType inputType) {
+        this(embeddingPort, profileId, provider, model, dimension, inputType, profileId, profileId);
     }
 
     public EmbeddingRequest request(List<String> texts) {
@@ -34,6 +48,8 @@ public record ResolvedRagEmbedding(
     public Map<String, Object> metadata() {
         Map<String, Object> values = new LinkedHashMap<>();
         put(values, VectorRecord.KEY_EMBEDDING_PROFILE_ID, profileId);
+        put(values, VectorRecord.KEY_EMBEDDING_MODEL_ID, modelId);
+        put(values, VectorRecord.KEY_EMBEDDING_SPACE_ID, embeddingSpaceId);
         put(values, VectorRecord.KEY_EMBEDDING_PROVIDER, provider);
         put(values, VectorRecord.KEY_EMBEDDING_MODEL, model);
         put(values, VectorRecord.KEY_EMBEDDING_DIMENSION, dimension);
