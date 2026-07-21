@@ -1,7 +1,7 @@
 package studio.one.platform.markdown.web;
 
 public record MarkdownRagReindexRequest(
-        String embeddingProfileId,
+        @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
         Integer embeddingDimension,

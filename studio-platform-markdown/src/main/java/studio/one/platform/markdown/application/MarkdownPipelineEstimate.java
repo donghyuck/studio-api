@@ -13,8 +13,11 @@ public record MarkdownPipelineEstimate(
         int estimatedChunkCount,
         int estimatedEmbeddingRequests,
         int embeddingBatchSize,
+        String estimateBasis,
+        String confidence,
         String riskLevel,
         RecommendedChunking recommended,
+        EmbeddingSelection embedding,
         List<Warning> warnings) {
 
     public record RecommendedChunking(
@@ -24,6 +27,13 @@ public record MarkdownPipelineEstimate(
             String chunkUnit,
             int estimatedChunkCount,
             int estimatedEmbeddingRequests) {
+    }
+
+    public record EmbeddingSelection(
+            String profileId,
+            String provider,
+            String model,
+            Integer dimension) {
     }
 
     public record Warning(String code, String message) {

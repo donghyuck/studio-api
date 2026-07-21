@@ -12,29 +12,56 @@ import java.util.Objects;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.transaction.support.TransactionOperations;
 
 public class JdbcRagChunkStageStore implements RagChunkStageStore {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {
     };
-    private static final int INSERT_BATCH_SIZE = 200;
+    static final int DEFAULT_INSERT_BATCH_SIZE = 25;
+    static final int MAX_INSERT_BATCH_SIZE = 200;
 
     private final NamedParameterJdbcTemplate template;
     private final ObjectMapper objectMapper;
+    private final int insertBatchSize;
+    private final TransactionOperations transactionOperations;
 
     public JdbcRagChunkStageStore(NamedParameterJdbcTemplate template, ObjectMapper objectMapper) {
+        this(template, objectMapper, DEFAULT_INSERT_BATCH_SIZE, null);
+    }
+
+    public JdbcRagChunkStageStore(
+            NamedParameterJdbcTemplate template,
+            ObjectMapper objectMapper,
+            int insertBatchSize,
+            TransactionOperations transactionOperations) {
         this.template = Objects.requireNonNull(template, "template");
         this.objectMapper = objectMapper == null ? new ObjectMapper() : objectMapper;
+        this.insertBatchSize = normalizeBatchSize(insertBatchSize);
+        this.transactionOperations = transactionOperations;
     }
 
     @Override
     public void replace(String objectType, String objectId, String documentId, List<RagChunkStage> chunks) {
+        if (transactionOperations == null) {
+            replaceInBatches(objectType, objectId, documentId, chunks);
+            return;
+        }
+        transactionOperations.executeWithoutResult(
+                status -> replaceInBatches(objectType, objectId, documentId, chunks));
+    }
+
+    private void replaceInBatches(
+            String objectType,
+            String objectId,
+            String documentId,
+            List<RagChunkStage> chunks) {
         deleteByObject(objectType, objectId, documentId);
         if (chunks == null || chunks.isEmpty()) {
             return;
         }
-        for (int offset = 0; offset < chunks.size(); offset += INSERT_BATCH_SIZE) {
-            List<RagChunkStage> slice = chunks.subList(offset, Math.min(offset + INSERT_BATCH_SIZE, chunks.size()));
+        for (int offset = 0; offset < chunks.size(); offset += insertBatchSize) {
+            List<RagChunkStage> slice = chunks.subList(offset, Math.min(offset + insertBatchSize, chunks.size()));
             MapSqlParameterSource[] batch = new MapSqlParameterSource[slice.size()];
             for (int index = 0; index < slice.size(); index++) {
                 batch[index] = params(objectType, objectId, documentId, slice.get(index));
@@ -48,16 +75,74 @@ public class JdbcRagChunkStageStore implements RagChunkStageStore {
         }
     }
 
+    private int normalizeBatchSize(int requestedBatchSize) {
+        if (requestedBatchSize <= 0) {
+            return DEFAULT_INSERT_BATCH_SIZE;
+        }
+        return Math.min(requestedBatchSize, MAX_INSERT_BATCH_SIZE);
+    }
+
     @Override
     public List<RagChunkStage> findByObject(String objectType, String objectId, String documentId) {
         return template.query("""
-                SELECT object_type, object_id, document_id, chunk_index, chunk_id, text, metadata, created_at
+                SELECT object_type, object_id, document_id, chunk_index, chunk_id, text,
+                       (metadata::jsonb
+                           - 'pdfExtractionParts'
+                           - 'pageQuality'
+                           - 'parentChunkContent'
+                           - 'parentChunkBlockIds'
+                           - 'parentChunkSourceRefs')::text AS metadata,
+                       created_at
                   FROM tb_ai_rag_chunk_stage
                  WHERE object_type = :objectType
                    AND object_id = :objectId
                    AND ((:documentId IS NULL AND document_id IS NULL) OR document_id = :documentId)
                  ORDER BY chunk_index
                 """, scopeParams(objectType, objectId, documentId), new StageRowMapper());
+    }
+
+    @Override
+    public long countByObject(String objectType, String objectId, String documentId) {
+        Long count = template.queryForObject("""
+                SELECT COUNT(*)
+                  FROM tb_ai_rag_chunk_stage
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                   AND ((:documentId IS NULL AND document_id IS NULL) OR document_id = :documentId)
+                """, scopeParams(objectType, objectId, documentId), Long.class);
+        return count == null ? 0L : count;
+    }
+
+    @Override
+    public List<RagChunkStage> findBatchByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            int afterChunkIndex,
+            int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+        MapSqlParameterSource params = scopeParams(objectType, objectId, documentId)
+                .addValue("afterChunkIndex", afterChunkIndex)
+                .addValue("limit", limit);
+        return template.query("""
+                SELECT object_type, object_id, document_id, chunk_index, chunk_id, text,
+                       (metadata::jsonb
+                           - 'pdfExtractionParts'
+                           - 'pageQuality'
+                           - 'parentChunkContent'
+                           - 'parentChunkBlockIds'
+                           - 'parentChunkSourceRefs')::text AS metadata,
+                       created_at
+                  FROM tb_ai_rag_chunk_stage
+                 WHERE object_type = :objectType
+                   AND object_id = :objectId
+                   AND ((:documentId IS NULL AND document_id IS NULL) OR document_id = :documentId)
+                   AND chunk_index > :afterChunkIndex
+                 ORDER BY chunk_index
+                 LIMIT :limit
+                """, params, new StageRowMapper());
     }
 
     @Override

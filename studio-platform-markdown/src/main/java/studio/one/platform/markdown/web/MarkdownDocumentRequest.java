@@ -15,7 +15,7 @@ public record MarkdownDocumentRequest(
                 String blockifyLlmProvider,
                 String blockifyLlmModel,
                 Boolean blockifyPiiMaskingEnabled,
-                String embeddingProfileId,
+                @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
                 String embeddingProvider,
                 String embeddingModel,
                 Integer embeddingDimension,

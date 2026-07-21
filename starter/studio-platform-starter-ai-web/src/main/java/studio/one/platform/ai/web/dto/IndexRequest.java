@@ -10,7 +10,7 @@ public record IndexRequest(
         Map<String, Object> metadata,
         List<String> keywords,
         Boolean useLlmKeywordExtraction,
-        String embeddingProfileId,
+        @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel
 ) {

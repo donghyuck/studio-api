@@ -20,6 +20,25 @@ public interface RagChunkStageStore {
         return List.of();
     }
 
+    default long countByObject(String objectType, String objectId, String documentId) {
+        return findByObject(objectType, objectId, documentId).size();
+    }
+
+    default List<RagChunkStage> findBatchByObject(
+            String objectType,
+            String objectId,
+            String documentId,
+            int afterChunkIndex,
+            int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+        return findByObject(objectType, objectId, documentId).stream()
+                .filter(stage -> stage.chunkIndex() > afterChunkIndex)
+                .limit(limit)
+                .toList();
+    }
+
     default List<RagChunkStage> findIndexedByObject(String objectType, String objectId, String revisionId) {
         return List.of();
     }

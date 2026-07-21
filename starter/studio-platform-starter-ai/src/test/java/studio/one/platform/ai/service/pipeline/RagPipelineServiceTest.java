@@ -717,6 +717,56 @@ class RagPipelineServiceTest {
     }
 
     @Test
+    void shouldReadStagedChunksInBoundedBatchesBeforeEmbedding() {
+        RagChunkStageStore stageStore = org.mockito.Mockito.mock(RagChunkStageStore.class);
+        RagPipelineOptions options = new RagPipelineOptions(
+                0.7d, 0.3d, 0.15d, 0.15d,
+                false, false, 5, 20, 100, 0, 2, 3);
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                null,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                options,
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                new SinglePortRagEmbeddingProfileResolver(embeddingPort),
+                stageStore);
+        RagIndexRequest request = new RagIndexRequest("doc-staged", "ignored", Map.of(
+                "objectType", "attachment",
+                "objectId", "5"));
+        when(stageStore.countByObject("attachment", "5", "doc-staged")).thenReturn(7L);
+        when(stageStore.findBatchByObject("attachment", "5", "doc-staged", -1, 3))
+                .thenReturn(stagedChunks(0, 3));
+        when(stageStore.findBatchByObject("attachment", "5", "doc-staged", 2, 3))
+                .thenReturn(stagedChunks(3, 3));
+        when(stageStore.findBatchByObject("attachment", "5", "doc-staged", 5, 3))
+                .thenReturn(stagedChunks(6, 1));
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(embeddingVectors(2)),
+                        new EmbeddingResponse(embeddingVectors(1)),
+                        new EmbeddingResponse(embeddingVectors(2)),
+                        new EmbeddingResponse(embeddingVectors(1)),
+                        new EmbeddingResponse(embeddingVectors(1)));
+
+        ragPipelineService.index(request);
+
+        verify(stageStore, never()).findByObject("attachment", "5", "doc-staged");
+        verify(stageStore).findBatchByObject("attachment", "5", "doc-staged", -1, 3);
+        verify(stageStore).findBatchByObject("attachment", "5", "doc-staged", 2, 3);
+        verify(stageStore).findBatchByObject("attachment", "5", "doc-staged", 5, 3);
+        verify(vectorStorePort, times(3)).upsertAll(recordsCaptor.capture());
+        assertThat(recordsCaptor.getAllValues()).extracting(List::size).containsExactly(3, 3, 1);
+        assertThat(recordsCaptor.getAllValues()).flatExtracting(records -> records)
+                .extracting(record -> record.metadata().get(VectorRecord.KEY_CHUNK_INDEX))
+                .containsExactly(0, 1, 2, 3, 4, 5, 6);
+    }
+
+    @Test
     void shouldIgnoreCallerKeywordsWhenScopeIsChunk() {
         ragPipelineService = DefaultRagPipelineService.create(
                 embeddingPort,
@@ -1667,6 +1717,22 @@ class RagPipelineServiceTest {
                 content,
                 Map.of(VectorRecord.KEY_CHUNK_TOKEN_COUNT, tokenCount),
                 List.of(0.1, 0.2)), score);
+    }
+
+    private static List<RagChunkStage> stagedChunks(int startIndex, int count) {
+        List<RagChunkStage> stages = new ArrayList<>(count);
+        for (int index = startIndex; index < startIndex + count; index++) {
+            stages.add(new RagChunkStage(
+                    "attachment",
+                    "5",
+                    "doc-staged",
+                    index,
+                    "stage-" + index,
+                    "content-" + index,
+                    Map.of("chunkOrder", index),
+                    null));
+        }
+        return stages;
     }
 
     private static List<EmbeddingVector> embeddingVectors(int count) {

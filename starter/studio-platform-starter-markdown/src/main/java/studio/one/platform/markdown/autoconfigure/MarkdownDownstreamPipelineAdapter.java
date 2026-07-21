@@ -895,6 +895,11 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
         }
         Map<String, Object> sanitized = new LinkedHashMap<>(metadata);
         sanitized.remove(ChunkMetadata.KEY_PARENT_CHUNK_CONTENT);
+        sanitized.remove(ChunkMetadata.KEY_PARENT_CHUNK_BLOCK_IDS);
+        sanitized.remove(ChunkMetadata.KEY_PARENT_CHUNK_SOURCE_REFS);
+        // Document- and parent-wide values must not be duplicated for every child chunk.
+        sanitized.remove("pdfExtractionParts");
+        sanitized.remove("pageQuality");
         return sanitized;
     }
 

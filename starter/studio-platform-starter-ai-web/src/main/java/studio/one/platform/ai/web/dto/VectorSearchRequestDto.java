@@ -22,7 +22,7 @@ public record VectorSearchRequestDto(
         Double minScore,
         Boolean includeText,
         Boolean includeMetadata,
-        String embeddingProfileId,
+        @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel
 ) {

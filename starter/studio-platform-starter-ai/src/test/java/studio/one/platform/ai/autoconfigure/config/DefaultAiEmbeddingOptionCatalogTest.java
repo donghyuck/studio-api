@@ -57,14 +57,19 @@ class DefaultAiEmbeddingOptionCatalogTest {
         properties.getProviders().put("google", provider);
 
         RagEmbeddingProperties ragProperties = new RagEmbeddingProperties();
-        ragProperties.setDefaultEmbeddingProfile("retrieval-ko");
+        ragProperties.setDefaultEmbeddingProfile("google-ai/gemini-embedding-2@768");
         RagEmbeddingProperties.ProfileProperties profile = new RagEmbeddingProperties.ProfileProperties();
         profile.setProvider("google");
         profile.setModel("gemini-embedding-2");
+        profile.setDisplayName("Google gemini-embedding-2 (Multimodal, 768 dimensions)");
         profile.setDimension(768);
+        profile.setAliases(java.util.List.of("gemini-embedding-2-768"));
         profile.setSupportedInputTypes(java.util.List.of("text", "ocr-text"));
-        profile.setMetadata(Map.of("locale", "ko"));
-        ragProperties.getEmbeddingProfiles().put("retrieval-ko", profile);
+        profile.setMetadata(Map.of(
+                "locale", "ko",
+                "providerId", "google-ai",
+                "embeddingSpaceId", "google-ai/gemini-embedding-2@768"));
+        ragProperties.getEmbeddingProfiles().put("google-ai/gemini-embedding-2@768", profile);
 
         AiProviderRegistry registry = new AiProviderRegistry(
                 "google",
@@ -80,8 +85,13 @@ class DefaultAiEmbeddingOptionCatalogTest {
         assertThat(catalog.options())
                 .singleElement()
                 .satisfies(option -> {
-                    assertThat(option.profileId()).isEqualTo("retrieval-ko");
-                    assertThat(option.provider()).isEqualTo("google");
+                    assertThat(option.profileId()).isEqualTo("google-ai/gemini-embedding-2@768");
+                    assertThat(option.modelId()).isEqualTo("google-ai/gemini-embedding-2@768");
+                    assertThat(option.displayName()).isEqualTo(
+                            "Google gemini-embedding-2 (Multimodal, 768 dimensions)");
+                    assertThat(option.embeddingSpaceId()).isEqualTo("google-ai/gemini-embedding-2@768");
+                    assertThat(option.aliases()).containsExactly("gemini-embedding-2-768");
+                    assertThat(option.provider()).isEqualTo("google-ai");
                     assertThat(option.model()).isEqualTo("gemini-embedding-2");
                     assertThat(option.dimension()).isEqualTo(768);
                     assertThat(option.supportedInputTypes()).containsExactly("TEXT", "OCR_TEXT");

@@ -164,4 +164,40 @@ class DefaultRagEmbeddingProfileResolverTest {
                 .hasMessageContaining("expected 768")
                 .hasMessageContaining("requested 1024");
     }
+
+    @Test
+    void legacyAliasResolvesToCanonicalModelAndSpaceMetadata() {
+        EmbeddingPort defaultPort = mock(EmbeddingPort.class);
+        EmbeddingPort googlePort = mock(EmbeddingPort.class);
+        RagEmbeddingProfile canonical = new RagEmbeddingProfile(
+                "google-ai/gemini-embedding-001@768",
+                "google-ai-gemini-embedding-001",
+                "gemini-embedding-001",
+                768,
+                List.of(EmbeddingInputType.TEXT),
+                Map.of(
+                        "providerId", "google-ai",
+                        "embeddingSpaceId", "google-ai/gemini-embedding-001@768"));
+        DefaultRagEmbeddingProfileResolver resolver = new DefaultRagEmbeddingProfileResolver(
+                defaultPort,
+                new AiProviderRegistry("default", Map.of(), Map.of(
+                        "default", defaultPort,
+                        "google-ai-gemini-embedding-001", googlePort)),
+                "google-ai/gemini-embedding-001@768",
+                Map.of(
+                        "google-ai/gemini-embedding-001@768", canonical,
+                        "gemini-768", canonical));
+
+        ResolvedRagEmbedding resolved = resolver.resolve(new RagEmbeddingSelection(
+                "gemini-768", null, null, EmbeddingInputType.TEXT));
+
+        assertThat(resolved.embeddingPort()).isSameAs(googlePort);
+        assertThat(resolved.profileId()).isEqualTo("google-ai/gemini-embedding-001@768");
+        assertThat(resolved.modelId()).isEqualTo("google-ai/gemini-embedding-001@768");
+        assertThat(resolved.embeddingSpaceId()).isEqualTo("google-ai/gemini-embedding-001@768");
+        assertThat(resolved.provider()).isEqualTo("google-ai");
+        assertThat(resolved.metadata())
+                .containsEntry("embeddingModelId", "google-ai/gemini-embedding-001@768")
+                .containsEntry("embeddingSpaceId", "google-ai/gemini-embedding-001@768");
+    }
 }

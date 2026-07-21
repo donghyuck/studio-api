@@ -153,5 +153,6 @@ class GoogleSpringAiEmbeddingRegistrationTest {
         optionsField.setAccessible(true);
         Object options = optionsField.get(model);
         assertThat(options.getClass().getMethod("getDimensions").invoke(options)).isEqualTo(768);
+        assertThat(options.getClass().getMethod("getTaskType").invoke(options)).isNull();
     }
 }
