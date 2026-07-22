@@ -282,6 +282,45 @@ class MarkdownDocumentServiceTest {
     }
 
     @Test
+    void doesNotOverwriteNativeFallbackWhenCallbackCompletesBeforePandocSubmissionReturns() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        sources.add(1L, "sample.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "docx");
+        DeferredTaskExecutor tasks = new DeferredTaskExecutor();
+        MarkdownDocumentService[] serviceRef = new MarkdownDocumentService[1];
+        MarkdownConversionPort conversion = new MarkdownConversionPort() {
+            @Override
+            public ConversionSubmission submit(String jobId, long sourceAttachmentId, String sourceFormat,
+                    String requestedBy) {
+                serviceRef[0].onConversionFailed(jobId, sourceAttachmentId, "PANDOC_FAILED", "Pandoc failed");
+                return new ConversionSubmission(jobId, "RUNNING", null, null);
+            }
+
+            @Override
+            public void cancel(String jobId) {
+            }
+        };
+        serviceRef[0] = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        "# Native", "textract-docx", List.of(), List.of()),
+                conversion, MarkdownPipelinePort.noop(), tasks, Set.of("docx", "html"), true);
+
+        var created = serviceRef[0].create(
+                new MarkdownExtractionRequest(1L, false, false, false, false, "tester"));
+
+        assertEquals(MarkdownRevisionStatus.RUNNING, created.revision().status());
+        assertEquals("TEXTRACT", created.revision().extractorType());
+        assertEquals(1, tasks.tasks.size());
+
+        tasks.runNext();
+
+        MarkdownRevision revision = serviceRef[0].getRevisions(created.document().documentId()).get(0);
+        assertEquals(MarkdownRevisionStatus.COMPLETED, revision.status());
+        assertEquals("TEXTRACT", revision.extractorType());
+    }
+
+    @Test
     void exposesRunningRevisionBeforeNativeExtractionCompletes() {
         InMemoryRepository repository = new InMemoryRepository();
         SourcePort sources = new SourcePort();

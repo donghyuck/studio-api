@@ -206,7 +206,11 @@ public class MarkdownDocumentService {
                 }
                 return fallbackToNative(document, revision, "PANDOC_SUBMIT_FAILED", ex.getMessage());
             }
-            revision = withConversionJob(revision, submission.jobId());
+            MarkdownRevision current = repository.findRevision(revision.revisionId()).orElse(revision);
+            if (current.status().terminal() || !"PANDOC".equalsIgnoreCase(current.extractorType())) {
+                return new MarkdownExtractionResult(requireDocument(document.documentId()), current, false);
+            }
+            revision = withConversionJob(current, submission.jobId());
             if ("FAILED".equalsIgnoreCase(submission.status())) {
                 if (fallbackToNativeOnPandocFailure) {
                     return fallbackToNative(document, revision, submission.errorCode(), submission.errorMessage());
