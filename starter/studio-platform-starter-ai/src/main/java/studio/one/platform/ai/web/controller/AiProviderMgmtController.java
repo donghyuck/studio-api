@@ -3,6 +3,7 @@ package studio.one.platform.ai.web.controller;
 import java.util.List;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,6 +22,7 @@ public class AiProviderMgmtController {
     private final AiEmbeddingOptionCatalog embeddingOptionCatalog;
 
     @GetMapping("/embedding-options")
+    @PreAuthorize("@endpointAuthz.can('services:ai_embedding','read')")
     public EmbeddingOptionsResponse embeddingOptions() {
         List<AiEmbeddingOption> options = embeddingOptionCatalog.options();
         return new EmbeddingOptionsResponse(options);

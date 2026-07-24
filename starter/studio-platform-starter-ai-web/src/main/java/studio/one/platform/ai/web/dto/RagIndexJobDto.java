@@ -27,7 +27,10 @@ public record RagIndexJobDto(
         Instant createdAt,
         Instant startedAt,
         Instant finishedAt,
-        Long durationMs) {
+        Long durationMs,
+        String embeddingDeploymentId,
+        String catalogId,
+        String embeddingSpaceId) {
 
     public static RagIndexJobDto from(RagIndexJob job) {
         return from(job, null);
@@ -54,7 +57,13 @@ public record RagIndexJobDto(
                 job.createdAt(),
                 job.startedAt(),
                 job.finishedAt(),
-                job.durationMs());
+                job.durationMs(),
+                embeddingSelection == null || embeddingSelection.embeddingDeploymentId() == null
+                        ? job.embeddingDeploymentId() : embeddingSelection.embeddingDeploymentId(),
+                embeddingSelection == null || embeddingSelection.catalogId() == null
+                        ? job.catalogId() : embeddingSelection.catalogId(),
+                embeddingSelection == null || embeddingSelection.embeddingSpaceId() == null
+                        ? job.embeddingSpaceId() : embeddingSelection.embeddingSpaceId());
     }
 
     private static String sourceName(RagIndexJob job) {

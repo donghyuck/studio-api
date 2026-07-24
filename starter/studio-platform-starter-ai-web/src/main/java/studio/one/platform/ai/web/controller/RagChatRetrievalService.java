@@ -149,7 +149,8 @@ public class RagChatRetrievalService {
     }
 
     private ChatRagRequestDto alignEmbeddingProfile(ChatRagRequestDto request, String indexedProfileId) {
-        if (indexedProfileId == null || indexedProfileId.isBlank()
+        if (request.embeddingDeploymentId() != null
+                || indexedProfileId == null || indexedProfileId.isBlank()
                 || indexedProfileId.equalsIgnoreCase(Objects.toString(request.embeddingProfileId(), ""))) {
             return request;
         }
@@ -217,7 +218,8 @@ public class RagChatRetrievalService {
                 minScore,
                 requestedTopK,
                 requestedMinScore,
-                queryExpansionEnabled(request)));
+                queryExpansionEnabled(request),
+                request.embeddingDeploymentId()));
     }
 
     private boolean queryExpansionEnabled(ChatRagRequestDto request) {

@@ -62,6 +62,39 @@ import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobS
 class MarkdownDownstreamPipelineAdapterTest {
 
     @Test
+    void automaticallySelectsRecursiveForPlainMarkdownFallback() {
+        ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);
+        MarkdownRepository repository = mock(MarkdownRepository.class);
+        when(repository.findResources("revision-1")).thenReturn(List.of());
+        when(repository.findLocators("revision-1")).thenReturn(List.of());
+        when(chunking.chunk(any(NormalizedDocument.class), any(ChunkingContext.class)))
+                .thenReturn(List.of(new Chunk("chunk-1", "content",
+                        ChunkMetadata.builder(ChunkingStrategyType.RECURSIVE, 0).build())));
+        MarkdownDownstreamPipelineAdapter adapter = new MarkdownDownstreamPipelineAdapter(
+                provider(RagIndexJobService.class),
+                provider(SkillRagExtractionJobService.class),
+                provider(ChunkingOrchestrator.class, chunking),
+                provider(RagChunkStageStore.class),
+                provider(EmbeddingPort.class),
+                provider(AiProviderRegistry.class),
+                provider(ChunkSetStore.class),
+                repository,
+                new ObjectMapper());
+
+        int count = adapter.estimateChunkCount(revision(), new MarkdownPipelineOptions(true, false, false));
+
+        assertThat(count).isEqualTo(1);
+        ArgumentCaptor<ChunkingContext> context = ArgumentCaptor.forClass(ChunkingContext.class);
+        verify(chunking).chunk(any(NormalizedDocument.class), context.capture());
+        assertThat(context.getValue().strategy()).isEqualTo(ChunkingStrategyType.RECURSIVE);
+        assertThat(context.getValue().metadata())
+                .containsEntry("objectType", "attachment")
+                .containsEntry("chunkingStrategySelectionMode", "AUTO")
+                .containsEntry("chunkingStrategySelectionReason", "PLAIN_TEXT_ONLY")
+                .containsEntry("selectedChunkingStrategy", "recursive");
+    }
+
+    @Test
     void forwardsChunkingAndEmbeddingSelections() {
         RagIndexJobService ragJobs = completedJobService();
         ChunkingOrchestrator chunking = mock(ChunkingOrchestrator.class);

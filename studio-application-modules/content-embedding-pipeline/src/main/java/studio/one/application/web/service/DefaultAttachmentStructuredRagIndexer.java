@@ -663,7 +663,9 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
                 text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
                 text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)),
-                embeddingInputType(chunk.metadata().chunkType()));
+                null,
+                embeddingInputType(chunk.metadata().chunkType()),
+                text(metadata.get(VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID)));
         if (resolver != null) {
             return resolver.resolve(selection);
         }
@@ -709,6 +711,13 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
     }
 
     private boolean sameEmbeddingSelection(Map<String, Object> expected, Map<String, Object> actual) {
+        String expectedSpace = firstText(expected,
+                VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, VectorRecord.KEY_EMBEDDING_SPACE_ID);
+        String actualSpace = firstText(actual,
+                VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, VectorRecord.KEY_EMBEDDING_SPACE_ID);
+        if (expectedSpace != null || actualSpace != null) {
+            return Objects.equals(expectedSpace, actualSpace);
+        }
         return Objects.equals(
                 text(expected.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
                 text(actual.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)))
@@ -718,6 +727,16 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 && Objects.equals(
                         text(expected.get(VectorRecord.KEY_EMBEDDING_MODEL)),
                         text(actual.get(VectorRecord.KEY_EMBEDDING_MODEL)));
+    }
+
+    private String firstText(Map<String, Object> metadata, String... keys) {
+        for (String key : keys) {
+            String value = text(metadata.get(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private EmbeddingInputType embeddingInputType(ChunkType chunkType) {

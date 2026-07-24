@@ -32,6 +32,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingInputType;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.rag.RagEmbeddingProfile;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.service.cleaning.LlmTextCleaner;
 import studio.one.platform.ai.service.cleaning.TextCleaner;
@@ -198,11 +199,11 @@ public class RagPipelineConfiguration {
         @ConditionalOnMissingBean(RagEmbeddingProfileResolver.class)
         RagEmbeddingProfileResolver ragEmbeddingProfileResolver(
                         EmbeddingPort embeddingPort,
-                        ObjectProvider<AiProviderRegistry> providerRegistryProvider,
+                        ObjectProvider<ModelDeploymentRegistry> providerRegistryProvider,
                         RagEmbeddingProperties properties,
                         AiAdapterProperties aiProperties,
                         Environment environment) {
-                AiProviderRegistry providerRegistry = providerRegistryProvider.getIfAvailable();
+                ModelDeploymentRegistry providerRegistry = providerRegistryProvider.getIfAvailable();
                 if (providerRegistry == null) {
                         return new SinglePortRagEmbeddingProfileResolver(embeddingPort);
                 }

@@ -659,7 +659,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.embeddingProvider(),
                 request.embeddingModel(),
                 request.embeddingDimension(),
-                EmbeddingInputType.TEXT));
+                EmbeddingInputType.TEXT,
+                request.embeddingDeploymentId()));
         Map<String, Object> metadata = new HashMap<>(request.metadata());
         metadata.putAll(resolvedEmbedding.metadata());
         return new RagIndexRequest(
@@ -671,7 +672,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 firstText(request.embeddingProfileId(), resolvedEmbedding.profileId()),
                 firstText(request.embeddingProvider(), resolvedEmbedding.provider()),
                 firstText(request.embeddingModel(), resolvedEmbedding.model()),
-                request.embeddingDimension() == null ? resolvedEmbedding.dimension() : request.embeddingDimension());
+                request.embeddingDimension() == null ? resolvedEmbedding.dimension() : request.embeddingDimension(),
+                request.embeddingDeploymentId());
     }
 
     private String firstText(String preferred, String fallback) {
@@ -949,7 +951,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.embeddingProvider(),
                 request.embeddingModel(),
                 request.embeddingDimension(),
-                embeddingInputType(chunk.metadata())));
+                embeddingInputType(chunk.metadata()),
+                request.embeddingDeploymentId()));
     }
 
     private ResolvedRagEmbedding resolveEmbedding(RagSearchRequest request) {
@@ -957,7 +960,9 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
                 request.embeddingModel(),
-                EmbeddingInputType.TEXT));
+                null,
+                EmbeddingInputType.TEXT,
+                request.embeddingDeploymentId()));
     }
 
     private MetadataFilter embeddingFilter(

@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.time.Instant;
 import java.util.function.Consumer;
@@ -76,6 +77,9 @@ import studio.one.platform.markdown.domain.MarkdownResource;
 import studio.one.platform.skillgraph.application.usecase.SkillRagExtractionJobService;
 
 public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
+
+    private final AutomaticChunkingStrategyResolver automaticChunkingStrategyResolver =
+            new AutomaticChunkingStrategyResolver();
     private static final Logger log = LoggerFactory.getLogger(MarkdownDownstreamPipelineAdapter.class);
     private static final String BLOCKIFY_SCHEMA_VERSION = "blockify-metadata-v1";
     private static final String BLOCKIFY_VALIDATION_FALLBACK = "FALLBACK";
@@ -207,7 +211,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                     new RagIndexJobSourceRequest(
                             ragMetadata, List.of(), options.useLlmKeywordExtraction(),
                             options.embeddingProfileId(), options.embeddingProvider(), options.embeddingModel(),
-                            preparedChunkSet.chunkSetId(), true));
+                            preparedChunkSet.chunkSetId(), true, options.embeddingDeploymentId()));
             RagIndexJob completed = ragJobService.startJob(job.jobId());
             if (completed.status() != RagIndexJobStatus.SUCCEEDED
                     && completed.status() != RagIndexJobStatus.WARNING) {
@@ -648,8 +652,10 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             throw new IllegalStateException("Chunking pipeline is not configured");
         }
         NormalizedDocument document = normalizedDocument(revision, metadata, options);
+        AutomaticChunkingStrategyResolver.Selection selection =
+                automaticChunkingStrategyResolver.resolve(document, options.chunkingStrategy());
         ChunkingContext.Builder context = document.toContextBuilder();
-        applyChunkingOptions(context, options);
+        applyChunkingOptions(context, document, options, selection);
         List<Chunk> chunks = chunking.chunk(document, context.build());
         boolean ideaBlockStrategy = isIdeaBlockStrategy(options);
         if (ideaBlockStrategy) {
@@ -661,7 +667,7 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
             }
         }
         String sourceContentHash = nonBlank(revision.contentHash(), sha256(revision.markdownText()));
-        String strategyHash = strategyHash(options);
+        String strategyHash = strategyHash(options, selection.strategy().value());
         String chunkSetId = chunkSetId(objectType, objectId, revision, sourceContentHash, strategyHash);
         List<RagChunkStage> stages = new ArrayList<>(chunks.size());
         for (int index = 0; index < chunks.size(); index++) {
@@ -710,7 +716,13 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                     "Prepared ChunkSet was not found; Markdown RAG indexing will not re-extract or rechunk");
         }
         String sourceContentHash = nonBlank(revision.contentHash(), sha256(revision.markdownText()));
-        String strategyHash = strategyHash(options);
+        String selectedStrategy = stages.stream()
+                .map(RagChunkStage::metadata)
+                .map(value -> text(value.get(AutomaticChunkingStrategyResolver.KEY_SELECTED_STRATEGY)))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+        String strategyHash = strategyHash(options, selectedStrategy);
         String chunkSetId = chunkSetId(objectType, objectId, revision, sourceContentHash, strategyHash);
         ChunkSet bridged = chunkSet(revision, objectType, objectId, metadata, options, stages,
                 chunkSetId, sourceContentHash, strategyHash);
@@ -793,9 +805,10 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
                 : chunkSetStoreProvider.getIfAvailable(ChunkSetStore::noop);
     }
 
-    private String strategyHash(MarkdownPipelineOptions options) {
+    private String strategyHash(MarkdownPipelineOptions options, String selectedStrategy) {
         Map<String, Object> strategy = new LinkedHashMap<>();
         strategy.put("strategy", options.chunkingStrategy());
+        strategy.put("selectedStrategy", selectedStrategy);
         strategy.put("maxSize", options.chunkMaxSize());
         strategy.put("overlap", options.chunkOverlap());
         strategy.put("unit", options.chunkUnit());
@@ -864,16 +877,25 @@ public class MarkdownDownstreamPipelineAdapter implements MarkdownPipelinePort {
 
     private ChunkingContext.Builder chunkingContext(NormalizedDocument document, MarkdownPipelineOptions options) {
         ChunkingContext.Builder context = document.toContextBuilder();
-        applyChunkingOptions(context, options);
+        AutomaticChunkingStrategyResolver.Selection selection =
+                automaticChunkingStrategyResolver.resolve(document, options.chunkingStrategy());
+        applyChunkingOptions(context, document, options, selection);
         return context;
     }
 
-    private void applyChunkingOptions(ChunkingContext.Builder context, MarkdownPipelineOptions options) {
-        if (options.chunkingStrategy() == null) {
-            context.useConfiguredStrategy();
-        } else {
-            context.strategy(ChunkingStrategyType.from(options.chunkingStrategy()));
-        }
+    private void applyChunkingOptions(
+            ChunkingContext.Builder context,
+            NormalizedDocument document,
+            MarkdownPipelineOptions options,
+            AutomaticChunkingStrategyResolver.Selection selection) {
+        context.strategy(selection.strategy());
+        Map<String, Object> selectionMetadata = new LinkedHashMap<>(document.metadata());
+        selectionMetadata.put(AutomaticChunkingStrategyResolver.KEY_SELECTION_MODE, selection.mode());
+        selectionMetadata.put(AutomaticChunkingStrategyResolver.KEY_SELECTION_REASON, selection.reason());
+        selectionMetadata.put(AutomaticChunkingStrategyResolver.KEY_SELECTED_STRATEGY, selection.strategy().value());
+        selectionMetadata.put(AutomaticChunkingStrategyResolver.KEY_STRUCTURED_BLOCK_COUNT,
+                selection.structuredBlockCount());
+        context.metadata(selectionMetadata);
         if (options.chunkMaxSize() == null) {
             context.useConfiguredMaxSize();
         } else {

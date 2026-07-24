@@ -219,6 +219,10 @@ class ChatControllerTest {
                 "chatWithRag",
                 ChatRagRequestDto.class,
                 java.security.Principal.class));
+        String streamExpression = preAuthorizeValue(ChatController.class.getMethod(
+                "streamWithRag",
+                ChatRagRequestDto.class,
+                java.security.Principal.class));
 
         assertThat(expression).contains("services:ai_chat','write");
         assertThat(expression).contains("services:ai_rag','read");
@@ -226,6 +230,7 @@ class ChatControllerTest {
         assertThat(expression).contains("equalsIgnoreCase('attachment')");
         assertThat(expression).contains("objects:' + #request.objectType().trim() + ':'");
         assertThat(expression).contains("objects:' + #request.objectType().trim()");
+        assertThat(streamExpression).isEqualTo(expression);
     }
 
     @Test
@@ -375,6 +380,90 @@ class ChatControllerTest {
         assertThat(output.toString(StandardCharsets.UTF_8))
                 .contains("event: error")
                 .contains("provider failed");
+    }
+
+    @Test
+    void ragStreamWritesIncrementalAnswerAndRagMetadata() throws Exception {
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(new RagSearchResult(
+                        "doc-1",
+                        "file text",
+                        Map.of("sourceFileName", "sample.pdf", RagContextBuilder.KEY_CHUNK_ID, "chunk-1"),
+                        0.9d)));
+        when(defaultChatPort.stream(any(ChatRequest.class))).thenReturn(Stream.of(
+                ChatStreamEvent.delta("요약", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.delta(" 답변", "model", ChatResponseMetadata.empty()),
+                ChatStreamEvent.usage(ChatResponseMetadata.empty()),
+                ChatStreamEvent.complete("model", ChatResponseMetadata.empty())));
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        controller.streamWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        "answer from file",
+                        List.of(new ChatMessageDto("user", "summarize")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "summary",
+                3,
+                "attachment",
+                "123"), null).getBody().writeTo(output);
+
+        String body = output.toString(StandardCharsets.UTF_8);
+        assertThat(body)
+                .contains("event: rag_status")
+                .contains("\"stage\":\"retrieval_started\"")
+                .contains("\"stage\":\"retrieval_complete\"")
+                .contains("event: delta")
+                .contains("\"delta\":\"요약\"")
+                .contains("\"delta\":\" 답변\"")
+                .contains("event: usage")
+                .contains("event: complete")
+                .contains("\"ragReferences\"")
+                .contains("\"sourceName\":\"sample.pdf\"")
+                .contains("\"ragTiming\"")
+                .contains("\"retrievalMs\"")
+                .contains("\"generationMs\"")
+                .contains("\"totalMs\"")
+                .contains("\"requestId\"");
+        verify(defaultChatPort).stream(any(ChatRequest.class));
+        verify(defaultChatPort, times(0)).chat(any(ChatRequest.class));
+    }
+
+    @Test
+    void ragStreamSkipsLlmWhenRetrievalHasNoResults() throws Exception {
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        controller.streamWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "missing")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "missing",
+                3,
+                "attachment",
+                "123"), null).getBody().writeTo(output);
+
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("event: rag_status")
+                .contains("event: delta")
+                .contains("제공된 RAG 문서에서 확인할 수 없습니다.")
+                .contains("event: complete")
+                .contains("\"ragSkippedChat\":true")
+                .contains("\"ragSkipReason\":\"NO_RAG_RESULTS\"");
+        verify(defaultChatPort, times(0)).stream(any(ChatRequest.class));
+        verify(defaultChatPort, times(0)).chat(any(ChatRequest.class));
     }
 
     @Test
@@ -669,10 +758,60 @@ class ChatControllerTest {
                 .containsEntry("chunkId", "chunk-1")
                 .containsEntry("chunkOrder", 7)
                 .containsEntry("score", 0.9d)
+                .containsEntry("excerpt", "file text")
                 .containsEntry("page", 3)
                 .containsEntry("pageNumber", 3)
                 .containsEntry("sourceRef", "page[3]");
         assertThat(references.get(0)).doesNotContainKeys("content", "metadata");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void ragChatExcludesBoilerplateFromPromptAndReferences() {
+        ArgumentCaptor<ChatRequest> chatCaptor = ArgumentCaptor.forClass(ChatRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class)))
+                .thenReturn(List.of(
+                        new RagSearchResult(
+                                "doc-copyright",
+                                "ISBN 978-0-00-000000-0",
+                                Map.of("section", "판권", "chunkId", "chunk-copyright"),
+                                0.95d),
+                        new RagSearchResult(
+                                "doc-body",
+                                "The actual argument from the chapter.",
+                                Map.of("section", "첫 번째 장", "chunkId", "chunk-body"),
+                                0.85d),
+                        new RagSearchResult(
+                                "doc-image-copyright",
+                                "Image credits",
+                                Map.of("section", "이미지 저작권", "chunkId", "chunk-image-copyright"),
+                                0.80d)));
+
+        ChatResponseDto response = controller.chatWithRag(new ChatRagRequestDto(
+                new ChatRequestDto(
+                        null,
+                        null,
+                        List.of(new ChatMessageDto("user", "첫 번째 장에서 저자는 무엇을 주장하는가")),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        null),
+                "첫 번째 장에서 저자는 무엇을 주장하는가",
+                5,
+                "attachment",
+                "123")).getBody().getData();
+
+        verify(defaultChatPort).chat(chatCaptor.capture());
+        assertThat(chatCaptor.getValue().messages().get(0).content())
+                .contains("The actual argument from the chapter.")
+                .doesNotContain("ISBN 978-0-00-000000-0", "Image credits");
+        List<Map<String, Object>> references = (List<Map<String, Object>>) response.metadata().get("ragReferences");
+        assertThat(references).singleElement()
+                .satisfies(reference -> assertThat(reference)
+                        .containsEntry("documentId", "doc-body")
+                        .containsEntry("excerpt", "The actual argument from the chapter."));
     }
 
     @Test
@@ -1038,6 +1177,7 @@ class ChatControllerTest {
         assertThat(chatCaptor.getValue().messages().get(0).content())
                 .contains("first plot fragment")
                 .contains("second plot fragment")
+                .contains("각 주요 사실, 판단, 요약 항목 끝에는 이를 직접 뒷받침하는 근거 번호")
                 .contains("요양 또는 치료 시설을 근거 없이 병원으로 바꾸지 마세요")
                 .contains("영화, 책, 이야기를 원본 전체의 줄거리로 오인하지 마세요");
     }

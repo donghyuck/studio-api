@@ -2,7 +2,6 @@ package studio.one.platform.ai.web.controller;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,6 +14,7 @@ import studio.one.platform.chunking.core.ChunkMetadata;
  */
 final class RagDocumentOverviewAssembler {
 
+    private static final int MAX_REFERENCE_CHUNKS = 8;
     private static final String HEADER_PREFIX = """
             다음은 하나의 원본 문서를 처음부터 끝까지 순서대로 재구성한 내용입니다.
             문서 안에서 언급되는 영화, 책, 이야기의 줄거리를 원본 문서 전체의 줄거리와 혼동하지 마세요.
@@ -33,21 +33,11 @@ final class RagDocumentOverviewAssembler {
                 ? reconstructed
                 : representativeCoverage(ordered, Math.max(0, maxChars - header.length()));
         String context = header + body;
-        Map<String, Object> metadata = new LinkedHashMap<>(firstMetadata == null ? Map.of() : firstMetadata);
-        int firstOrder = order(ordered.get(0), 0);
-        int lastOrder = order(ordered.get(ordered.size() - 1), ordered.size() - 1);
-        String overviewDocumentId = ordered.get(0).documentId() + ":whole-document";
-        metadata.put("overviewArtifactType", "WHOLE_DOCUMENT_CONTEXT");
-        metadata.put("overviewCoverageStatus", fullCoverage ? "FULL" : "PARTIAL");
-        metadata.put("overviewSourceChunkCount", ordered.size());
-        metadata.put(RagContextBuilder.KEY_CHUNK_ID, overviewDocumentId);
-        metadata.put(ChunkMetadata.KEY_SOURCE_REF, "chunks[" + firstOrder + ".." + lastOrder + "]");
-        RagSearchResult reference = new RagSearchResult(
-                overviewDocumentId,
-                "전체 문서 범위",
-                Map.copyOf(metadata),
-                1.0d);
-        return new Assembly(context, List.of(reference), ordered.size(), fullCoverage);
+        return new Assembly(
+                context,
+                representativeReferences(ordered),
+                ordered.size(),
+                fullCoverage);
     }
 
     private String header(Map<String, Object> metadata) {
@@ -55,8 +45,20 @@ final class RagDocumentOverviewAssembler {
         appendIdentity(header, "문서 제목", firstText(metadata, "documentTitle", "title"));
         appendIdentity(header, "원본 파일", firstText(metadata,
                 "originalFileName", "sourceFileName", "filename", "fileName", "sourceName", "name"));
-        header.append("[1]\n");
+        header.append("[문서 본문]\n");
         return header.toString();
+    }
+
+    private List<RagSearchResult> representativeReferences(List<RagSearchResult> ordered) {
+        int count = Math.min(ordered.size(), MAX_REFERENCE_CHUNKS);
+        List<RagSearchResult> references = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            int sourceIndex = count == 1
+                    ? 0
+                    : (int) Math.round((double) index * (ordered.size() - 1) / (count - 1));
+            references.add(ordered.get(sourceIndex));
+        }
+        return List.copyOf(references);
     }
 
     private void appendIdentity(StringBuilder target, String label, String value) {

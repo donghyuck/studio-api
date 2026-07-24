@@ -790,6 +790,9 @@ public class MarkdownDocumentService {
         String embeddingModel = request.embeddingModel() != null ? request.embeddingModel() : previous.embeddingModel();
         Integer embeddingDimension = request.embeddingDimension() != null ? request.embeddingDimension()
                 : previous.embeddingDimension();
+        String embeddingDeploymentId = request.embeddingDeploymentId() != null
+                ? request.embeddingDeploymentId()
+                : previous.embeddingDeploymentId();
         boolean useLlmKeywordExtraction = request.useLlmKeywordExtraction() != null
                 ? request.useLlmKeywordExtraction()
                 : previous.useLlmKeywordExtraction();
@@ -816,9 +819,15 @@ public class MarkdownDocumentService {
                 : previous.mathVisionCorrection();
 
         if (request.embeddingProfileId() != null && !request.embeddingProfileId().isBlank()) {
+            embeddingDeploymentId = null;
             embeddingProvider = null;
             embeddingModel = null;
             embeddingDimension = null;
+        }
+        if (request.embeddingDeploymentId() != null && !request.embeddingDeploymentId().isBlank()) {
+            embeddingProfileId = null;
+            embeddingProvider = null;
+            embeddingModel = null;
         }
 
         return new MarkdownPipelineOptions(
@@ -828,7 +837,7 @@ public class MarkdownDocumentService {
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, ocrLanguage,
-                ocrMode, mathVisionCorrection);
+                ocrMode, mathVisionCorrection, null, null, null, embeddingDeploymentId);
     }
 
     public MarkdownResumeResult reindexRag(
@@ -840,6 +849,7 @@ public class MarkdownDocumentService {
             boolean runSkillExtraction) {
         return reindexRag(
                 documentId,
+                null,
                 embeddingProfileId,
                 embeddingProvider,
                 embeddingModel,
@@ -855,6 +865,7 @@ public class MarkdownDocumentService {
 
     public MarkdownResumeResult reindexRag(
             String documentId,
+            String embeddingDeploymentId,
             String embeddingProfileId,
             String embeddingProvider,
             String embeddingModel,
@@ -873,7 +884,8 @@ public class MarkdownDocumentService {
         }
 
         MarkdownPipelineOptions previous = readOptions(source.optionsJson());
-        boolean explicitSelection = hasText(embeddingProfileId)
+        boolean explicitSelection = hasText(embeddingDeploymentId)
+                || hasText(embeddingProfileId)
                 || hasText(embeddingProvider)
                 || hasText(embeddingModel)
                 || embeddingDimension != null;
@@ -888,16 +900,22 @@ public class MarkdownDocumentService {
                 previous.blockifyLlmProvider(),
                 previous.blockifyLlmModel(),
                 previous.blockifyPiiMaskingEnabled(),
-                explicitSelection ? embeddingProfileId : previous.embeddingProfileId(),
-                explicitSelection ? embeddingProvider : previous.embeddingProvider(),
-                explicitSelection ? embeddingModel : previous.embeddingModel(),
+                hasText(embeddingDeploymentId) ? null
+                        : explicitSelection ? embeddingProfileId : previous.embeddingProfileId(),
+                hasText(embeddingDeploymentId) ? null
+                        : explicitSelection ? embeddingProvider : previous.embeddingProvider(),
+                hasText(embeddingDeploymentId) ? null
+                        : explicitSelection ? embeddingModel : previous.embeddingModel(),
                 explicitSelection ? embeddingDimension : previous.embeddingDimension(),
                 useLlmKeywordExtraction,
                 skillExtractionMode,
                 generateSkillEmbeddings,
                 skillEmbeddingProvider,
                 skillEmbeddingModel,
-                skillEmbeddingDimension);
+                skillEmbeddingDimension,
+                null, null, null, null, null, null, null,
+                hasText(embeddingDeploymentId) ? embeddingDeploymentId
+                        : explicitSelection ? null : previous.embeddingDeploymentId());
         String optionsJson = writeOptions(options);
         String optionsHash = hash(optionsJson.getBytes(StandardCharsets.UTF_8));
         Instant now = nextRevisionTime(source.updatedAt());
@@ -1010,7 +1028,8 @@ public class MarkdownDocumentService {
                         requested.generateSkillEmbeddings(), requested.skillEmbeddingProvider(),
                         requested.skillEmbeddingModel(), requested.skillEmbeddingDimension(),
                         previous.ocrRequired(), previous.ocrLanguage(), previous.ocrMode(),
-                        previous.mathVisionCorrection(), previous.requestedDocumentProfile(), null, null))
+                        previous.mathVisionCorrection(), previous.requestedDocumentProfile(), null, null,
+                        requested.embeddingDeploymentId()))
                 .orElse(requested);
     }
 
@@ -1376,7 +1395,7 @@ public class MarkdownDocumentService {
                     embeddingRequests(currentChunkCount, embeddingBatchSize));
         }
         int overlap = current.chunkOverlap() == null ? 150 : current.chunkOverlap();
-        String strategy = current.chunkingStrategy() == null ? "structure-based" : current.chunkingStrategy();
+        String strategy = current.chunkingStrategy();
         String unit = current.chunkUnit() == null ? "CHARACTER" : current.chunkUnit();
         int[] candidates = { 2000, 3000, 4000, 6000 };
         RecommendedEstimate best = new RecommendedEstimate(current, currentChunkCount,
@@ -1427,7 +1446,7 @@ public class MarkdownDocumentService {
                     embeddingRequests(currentChunkCount, embeddingBatchSize));
         }
         int overlap = current.chunkOverlap() == null ? 150 : current.chunkOverlap();
-        String strategy = current.chunkingStrategy() == null ? "structure-based" : current.chunkingStrategy();
+        String strategy = current.chunkingStrategy();
         String unit = current.chunkUnit() == null ? "CHARACTER" : current.chunkUnit();
         int[] candidates = { 2000, 3000, 4000, 6000 };
         RecommendedEstimate best = new RecommendedEstimate(current, currentChunkCount,

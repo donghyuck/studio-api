@@ -2,6 +2,9 @@ package studio.one.platform.ai.core.registry;
 
 import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
+import studio.one.platform.ai.model.ModelDeployment;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
+import studio.one.platform.ai.model.ModelWorkload;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,7 +14,8 @@ import java.util.Map;
 /**
  * Holds the available chat/embedding ports for each configured provider.
  */
-public final class AiProviderRegistry {
+@Deprecated(since = "2026.07", forRemoval = false)
+public final class AiProviderRegistry implements ModelDeploymentRegistry {
 
     private final Map<String, ChatPort> chatPorts;
     private final Map<String, EmbeddingPort> embeddingPorts;
@@ -69,6 +73,21 @@ public final class AiProviderRegistry {
      */
     public String defaultEmbeddingProvider() {
         return defaultEmbeddingProvider;
+    }
+
+    @Override
+    public java.util.Optional<ModelDeployment> find(String deploymentId) {
+        return java.util.Optional.empty();
+    }
+
+    @Override
+    public java.util.List<ModelDeployment> deployments(ModelWorkload workload) {
+        return java.util.List.of();
+    }
+
+    @Override
+    public java.util.Optional<ModelDeployment> defaultDeployment(ModelWorkload workload) {
+        return java.util.Optional.empty();
     }
 
     private <T> T lookup(Map<String, T> ports, String provider, String defaultKey) {

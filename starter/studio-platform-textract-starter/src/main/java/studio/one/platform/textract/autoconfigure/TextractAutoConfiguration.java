@@ -86,7 +86,8 @@ public class TextractAutoConfiguration {
     @ConditionalOnClass(name = "org.jsoup.Jsoup")
     public FileParser epubFileParser() {
         logCreated(EpubFileParser.class);
-        return new EpubFileParser();
+        TextractProperties.Epub epub = props.getEpub();
+        return new EpubFileParser(epub.getMaxEntryBytes(), epub.getMaxExtractedBytes());
     }
 
     @Bean

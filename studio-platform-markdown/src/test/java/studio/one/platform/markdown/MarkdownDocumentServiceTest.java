@@ -1130,6 +1130,25 @@ class MarkdownDocumentServiceTest {
         assertEquals(extraction.revision().markdownText().length(), estimate.markdownLength());
     }
 
+    @Test
+    void keepsAutomaticStrategyInLargeDocumentRecommendation() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        String markdown = "body ".repeat(300_000);
+        sources.add(1L, "sample.txt", "text/plain", "source");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        markdown, "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+        var extraction = service.create(new MarkdownExtractionRequest(
+                1L, new MarkdownPipelineOptions(true, false, false), false, "tester"));
+
+        var estimate = service.estimatePipeline(extraction.document().documentId(), null);
+
+        assertEquals(null, estimate.recommended().chunkingStrategy());
+        assertTrue(estimate.recommended().chunkMaxSize() > 1200);
+    }
+
     private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
             MarkdownNativeExtractorPort extractor, MarkdownPipelinePort pipeline) {
         return service(repository, sources, extractor, pipeline, MarkdownTaskExecutor.direct());

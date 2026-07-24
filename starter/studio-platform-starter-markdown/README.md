@@ -94,7 +94,13 @@ studio:
 }
 ```
 
-- Chunking 전략은 `fixed-size`, `recursive`, `structure-based`, `blockify`를 지원한다.
+- `chunkingStrategy`를 생략하거나 `documentProfile=AUTO`를 사용하면 normalized block의 구조를 검사해
+  `structure-based` 또는 `recursive`를 자동 선택한다.
+- 명시적 Chunking 전략은 호환성을 위해 `fixed-size`, `recursive`, `structure-based`, `blockify`,
+  `knowledge-block`을 지원한다. `fixed-size`는 최종 fallback/관리 용도이고 `blockify`와
+  `knowledge-block`은 opt-in 실험 기능이므로 자동 선택하지 않는다.
+- 자동 선택 결과와 근거는 `chunkingStrategySelectionMode`, `chunkingStrategySelectionReason`,
+  `selectedChunkingStrategy`, `structuredBlockCount` metadata에 기록한다.
 - `embeddingProfileId`를 사용하거나 `embeddingProvider`와 `embeddingModel`을 직접 지정한다.
 - `embeddingDimension`을 profile과 함께 보내면 profile dimension과 일치하는지 검증한다.
 - RAG를 선택하면 Chunking이 자동 활성화된다.

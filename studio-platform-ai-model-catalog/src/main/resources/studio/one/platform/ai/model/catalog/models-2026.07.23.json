@@ -1,0 +1,280 @@
+{
+  "catalogVersion": "2026.07.23",
+  "models": [
+    {
+      "catalogId": "custom/local-gemma-3-4b",
+      "displayName": "Local Gemma 3 4B",
+      "providerFamily": "custom",
+      "apiModel": "gemma-3-4b",
+      "workloads": ["CHAT"],
+      "inputModalities": ["TEXT", "IMAGE"],
+      "outputModalities": ["TEXT"],
+      "capabilities": ["multimodal"],
+      "lifecycle": "STABLE",
+      "aliases": ["gemma-3-4b"],
+      "distribution": "OPEN_WEIGHT",
+      "license": "Gemma Terms of Use",
+      "artifactRefs": ["google/gemma-3-4b-it"],
+      "runtimeMappings": [{"runtime": "ollama", "model": "gemma3:4b", "protocol": "ollama"}],
+      "protocolRequirements": ["ollama"],
+      "catalogTier": "MIGRATION_READY",
+      "catalogSource": "official-model-card",
+      "sourceUrl": "https://ai.google.dev/gemma/docs/core/model_card_3",
+      "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "custom/nlpai-lab-kure-v1",
+      "displayName": "KURE v1",
+      "providerFamily": "custom",
+      "apiModel": "nlpai-lab/KURE-v1",
+      "workloads": ["EMBEDDING"],
+      "inputModalities": ["TEXT"],
+      "outputModalities": [],
+      "capabilities": ["korean-retrieval"],
+      "dimensionPolicy": {"supported": [1024], "defaultDimension": 1024},
+      "lifecycle": "STABLE",
+      "aliases": ["kure-v1"],
+      "distribution": "OPEN_WEIGHT",
+      "license": "CC-BY-NC-SA-4.0",
+      "artifactRefs": ["nlpai-lab/KURE-v1"],
+      "runtimeMappings": [{"runtime": "tei", "model": "nlpai-lab/KURE-v1", "protocol": "tei"}],
+      "protocolRequirements": ["tei"],
+      "catalogTier": "MIGRATION_READY",
+      "catalogSource": "model-card",
+      "sourceUrl": "https://huggingface.co/nlpai-lab/KURE-v1",
+      "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/gemini-2.5-flash",
+      "displayName": "Gemini 2.5 Flash",
+      "providerFamily": "google-ai",
+      "apiModel": "gemini-2.5-flash",
+      "workloads": ["CHAT"],
+      "inputModalities": ["TEXT", "IMAGE", "PDF", "AUDIO", "VIDEO"],
+      "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"],
+      "lifecycle": "STABLE",
+      "aliases": ["google/gemini-chat-stable"],
+      "reasoningModes": ["thinking"],
+      "toolCalling": true,
+      "structuredOutput": true,
+      "distribution": "MANAGED_API",
+      "catalogTier": "MIGRATION_READY",
+      "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/models",
+      "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/gemini-2.5-pro",
+      "displayName": "Gemini 2.5 Pro",
+      "providerFamily": "google-ai",
+      "apiModel": "gemini-2.5-pro",
+      "workloads": ["CHAT"],
+      "inputModalities": ["TEXT", "IMAGE", "PDF", "AUDIO", "VIDEO"],
+      "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"],
+      "lifecycle": "STABLE",
+      "aliases": [],
+      "reasoningModes": ["thinking"],
+      "toolCalling": true,
+      "structuredOutput": true,
+      "distribution": "MANAGED_API",
+      "catalogTier": "MIGRATION_READY",
+      "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/models",
+      "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/gemini-embedding-001",
+      "displayName": "Gemini Embedding 001",
+      "providerFamily": "google-ai",
+      "apiModel": "gemini-embedding-001",
+      "workloads": ["EMBEDDING"],
+      "inputModalities": ["TEXT"],
+      "outputModalities": [],
+      "capabilities": ["task-type"],
+      "dimensionPolicy": {"supported": [768, 1536, 3072], "defaultDimension": 768},
+      "lifecycle": "STABLE",
+      "aliases": ["google/gemini-embedding-text@768"],
+      "distribution": "MANAGED_API",
+      "catalogTier": "MIGRATION_READY",
+      "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/embeddings",
+      "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/gemini-embedding-2",
+      "displayName": "Gemini Embedding 2",
+      "providerFamily": "google-ai",
+      "apiModel": "gemini-embedding-2",
+      "workloads": ["EMBEDDING"],
+      "inputModalities": ["TEXT", "IMAGE", "PDF", "AUDIO", "VIDEO"],
+      "outputModalities": [],
+      "capabilities": ["multimodal", "task-type", "matryoshka-dimensions"],
+      "dimensionPolicy": {"supported": [128, 256, 512, 768, 1536, 3072], "defaultDimension": 768},
+      "lifecycle": "STABLE",
+      "aliases": ["google/gemini-embedding-multimodal@768"],
+      "distribution": "MANAGED_API",
+      "catalogTier": "MIGRATION_READY",
+      "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://ai.google.dev/gemini-api/docs/models/gemini-embedding-2",
+      "verifiedAt": "2026-07-23"
+    },
+
+    {
+      "catalogId": "openai/gpt-5.6-sol", "displayName": "GPT-5.6 Sol", "providerFamily": "openai", "apiModel": "gpt-5.6-sol",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"], "lifecycle": "STABLE", "aliases": [],
+      "reasoningModes": ["configurable"], "toolCalling": true, "structuredOutput": true,
+      "distribution": "MANAGED_API", "catalogTier": "ADAPTER_READY", "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://developers.openai.com/api/docs/models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "openai/gpt-5.6-terra", "displayName": "GPT-5.6 Terra", "providerFamily": "openai", "apiModel": "gpt-5.6-terra",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"], "lifecycle": "STABLE", "aliases": [],
+      "reasoningModes": ["configurable"], "toolCalling": true, "structuredOutput": true,
+      "distribution": "MANAGED_API", "catalogTier": "ADAPTER_READY", "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://developers.openai.com/api/docs/models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "openai/gpt-5.6-luna", "displayName": "GPT-5.6 Luna", "providerFamily": "openai", "apiModel": "gpt-5.6-luna",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"], "lifecycle": "STABLE", "aliases": [],
+      "reasoningModes": ["configurable"], "toolCalling": true, "structuredOutput": true,
+      "distribution": "MANAGED_API", "catalogTier": "ADAPTER_READY", "catalogSource": "provider-api-docs",
+      "sourceUrl": "https://developers.openai.com/api/docs/models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "openai/text-embedding-3-large", "displayName": "Text Embedding 3 Large", "providerFamily": "openai", "apiModel": "text-embedding-3-large",
+      "workloads": ["EMBEDDING"], "inputModalities": ["TEXT"], "outputModalities": [], "capabilities": ["configurable-dimensions"],
+      "dimensionPolicy": {"supported": [256, 512, 768, 1024, 1536, 3072], "defaultDimension": 3072},
+      "lifecycle": "STABLE", "aliases": [], "distribution": "MANAGED_API", "catalogTier": "ADAPTER_READY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://developers.openai.com/api/docs/models/text-embedding-3-large", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "openai/text-embedding-3-small", "displayName": "Text Embedding 3 Small", "providerFamily": "openai", "apiModel": "text-embedding-3-small",
+      "workloads": ["EMBEDDING"], "inputModalities": ["TEXT"], "outputModalities": [], "capabilities": ["configurable-dimensions"],
+      "dimensionPolicy": {"supported": [256, 512, 768, 1024, 1536], "defaultDimension": 1536},
+      "lifecycle": "STABLE", "aliases": [], "distribution": "MANAGED_API", "catalogTier": "ADAPTER_READY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://developers.openai.com/api/docs/models", "verifiedAt": "2026-07-23"
+    },
+
+    {
+      "catalogId": "google/gemini-3.6-flash", "displayName": "Gemini 3.6 Flash", "providerFamily": "google-ai", "apiModel": "gemini-3.6-flash",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE", "PDF", "AUDIO", "VIDEO"], "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"], "lifecycle": "STABLE", "aliases": [],
+      "reasoningModes": ["thinking"], "toolCalling": true, "structuredOutput": true, "distribution": "MANAGED_API",
+      "catalogTier": "ADAPTER_READY", "catalogSource": "provider-api-docs", "sourceUrl": "https://ai.google.dev/gemini-api/docs/models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/gemini-3.5-flash", "displayName": "Gemini 3.5 Flash", "providerFamily": "google-ai", "apiModel": "gemini-3.5-flash",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE", "PDF", "AUDIO", "VIDEO"], "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output", "reasoning"], "lifecycle": "STABLE", "aliases": [],
+      "reasoningModes": ["thinking"], "toolCalling": true, "structuredOutput": true, "distribution": "MANAGED_API",
+      "catalogTier": "ADAPTER_READY", "catalogSource": "provider-api-docs", "sourceUrl": "https://ai.google.dev/gemini-api/docs/models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/gemini-3.5-flash-lite", "displayName": "Gemini 3.5 Flash-Lite", "providerFamily": "google-ai", "apiModel": "gemini-3.5-flash-lite",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE", "PDF", "AUDIO", "VIDEO"], "outputModalities": ["TEXT"],
+      "capabilities": ["tool-calling", "structured-output"], "lifecycle": "STABLE", "aliases": [],
+      "toolCalling": true, "structuredOutput": true, "distribution": "MANAGED_API", "catalogTier": "ADAPTER_READY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://ai.google.dev/gemini-api/docs/models", "verifiedAt": "2026-07-23"
+    },
+
+    {
+      "catalogId": "anthropic/claude-fable-5", "displayName": "Claude Fable 5", "providerFamily": "anthropic", "apiModel": "claude-fable-5",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["tool-calling", "reasoning"],
+      "lifecycle": "STABLE", "aliases": [], "toolCalling": true, "distribution": "MANAGED_API", "catalogTier": "REFERENCE_ONLY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "anthropic/claude-opus-4.8", "displayName": "Claude Opus 4.8", "providerFamily": "anthropic", "apiModel": "claude-opus-4.8",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["tool-calling", "reasoning"],
+      "lifecycle": "STABLE", "aliases": [], "toolCalling": true, "distribution": "MANAGED_API", "catalogTier": "REFERENCE_ONLY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "anthropic/claude-sonnet-4.6", "displayName": "Claude Sonnet 4.6", "providerFamily": "anthropic", "apiModel": "claude-sonnet-4.6",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["tool-calling", "reasoning"],
+      "lifecycle": "STABLE", "aliases": [], "toolCalling": true, "distribution": "MANAGED_API", "catalogTier": "REFERENCE_ONLY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "anthropic/claude-haiku-4.5", "displayName": "Claude Haiku 4.5", "providerFamily": "anthropic", "apiModel": "claude-haiku-4.5",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["tool-calling"],
+      "lifecycle": "STABLE", "aliases": [], "toolCalling": true, "distribution": "MANAGED_API", "catalogTier": "REFERENCE_ONLY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://platform.claude.com/docs/en/about-claude/models/overview", "verifiedAt": "2026-07-23"
+    },
+
+    {
+      "catalogId": "openai/gpt-oss-20b", "displayName": "gpt-oss-20b", "providerFamily": "openai-compatible", "apiModel": "gpt-oss-20b",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT"], "outputModalities": ["TEXT"], "capabilities": ["reasoning", "tool-calling"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "OPEN_WEIGHT", "license": "Apache-2.0", "artifactRefs": ["openai/gpt-oss-20b"],
+      "runtimeMappings": [{"runtime": "vllm", "model": "openai/gpt-oss-20b", "protocol": "openai-compatible"}],
+      "protocolRequirements": ["openai-compatible"], "catalogTier": "ADAPTER_READY", "catalogSource": "official-repository",
+      "sourceUrl": "https://github.com/openai/gpt-oss", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "openai/gpt-oss-120b", "displayName": "gpt-oss-120b", "providerFamily": "openai-compatible", "apiModel": "gpt-oss-120b",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT"], "outputModalities": ["TEXT"], "capabilities": ["reasoning", "tool-calling"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "OPEN_WEIGHT", "license": "Apache-2.0", "artifactRefs": ["openai/gpt-oss-120b"],
+      "runtimeMappings": [{"runtime": "vllm", "model": "openai/gpt-oss-120b", "protocol": "openai-compatible"}],
+      "protocolRequirements": ["openai-compatible"], "catalogTier": "ADAPTER_READY", "catalogSource": "official-repository",
+      "sourceUrl": "https://github.com/openai/gpt-oss", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "google/embeddinggemma-300m", "displayName": "EmbeddingGemma 300M", "providerFamily": "tei", "apiModel": "google/embeddinggemma-300m",
+      "workloads": ["EMBEDDING"], "inputModalities": ["TEXT"], "outputModalities": [], "capabilities": ["multilingual", "matryoshka-dimensions"],
+      "dimensionPolicy": {"supported": [128, 256, 512, 768], "defaultDimension": 768}, "lifecycle": "STABLE", "aliases": [],
+      "distribution": "OPEN_WEIGHT", "license": "Gemma Terms of Use", "artifactRefs": ["google/embeddinggemma-300m"],
+      "runtimeMappings": [{"runtime": "tei", "model": "google/embeddinggemma-300m", "protocol": "tei"}],
+      "protocolRequirements": ["tei"], "catalogTier": "ADAPTER_READY", "catalogSource": "official-model-card",
+      "sourceUrl": "https://ai.google.dev/gemma/docs/embeddinggemma/model_card", "verifiedAt": "2026-07-23"
+    },
+
+    {
+      "catalogId": "meta/llama-4-scout", "displayName": "Llama 4 Scout", "providerFamily": "openai-compatible", "apiModel": "llama-4-scout",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["multimodal"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "OPEN_WEIGHT", "license": "Llama Community License", "artifactRefs": ["meta-llama/Llama-4-Scout"],
+      "catalogTier": "REFERENCE_ONLY", "catalogSource": "official-repository", "sourceUrl": "https://github.com/meta-llama/llama-models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "meta/llama-4-maverick", "displayName": "Llama 4 Maverick", "providerFamily": "openai-compatible", "apiModel": "llama-4-maverick",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["multimodal"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "OPEN_WEIGHT", "license": "Llama Community License", "artifactRefs": ["meta-llama/Llama-4-Maverick"],
+      "catalogTier": "REFERENCE_ONLY", "catalogSource": "official-repository", "sourceUrl": "https://github.com/meta-llama/llama-models", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "qwen/qwen3.6-27b", "displayName": "Qwen3.6 27B", "providerFamily": "openai-compatible", "apiModel": "qwen3.6-27b",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT"], "outputModalities": ["TEXT"], "capabilities": ["reasoning"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "OPEN_WEIGHT", "license": "Apache-2.0", "artifactRefs": ["Qwen/Qwen3.6-27B"],
+      "catalogTier": "REFERENCE_ONLY", "catalogSource": "official-repository", "sourceUrl": "https://github.com/QwenLM/Qwen3.6", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "qwen/qwen3.6-35b-a3b", "displayName": "Qwen3.6 35B-A3B", "providerFamily": "openai-compatible", "apiModel": "qwen3.6-35b-a3b",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT"], "outputModalities": ["TEXT"], "capabilities": ["reasoning", "mixture-of-experts"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "OPEN_WEIGHT", "license": "Apache-2.0", "artifactRefs": ["Qwen/Qwen3.6-35B-A3B"],
+      "catalogTier": "REFERENCE_ONLY", "catalogSource": "official-repository", "sourceUrl": "https://github.com/QwenLM/Qwen3.6", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "qwen/qwen3-embedding-8b", "displayName": "Qwen3 Embedding 8B", "providerFamily": "tei", "apiModel": "Qwen/Qwen3-Embedding-8B",
+      "workloads": ["EMBEDDING"], "inputModalities": ["TEXT"], "outputModalities": [], "capabilities": ["multilingual"],
+      "dimensionPolicy": {"supported": [1024, 2048, 4096], "defaultDimension": 4096}, "lifecycle": "STABLE", "aliases": [],
+      "distribution": "OPEN_WEIGHT", "license": "Apache-2.0", "artifactRefs": ["Qwen/Qwen3-Embedding-8B"],
+      "catalogTier": "REFERENCE_ONLY", "catalogSource": "official-repository", "sourceUrl": "https://github.com/QwenLM/Qwen3-Embedding", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "mistral/mistral-medium-3.5", "displayName": "Mistral Medium 3.5", "providerFamily": "mistral", "apiModel": "mistral-medium-3.5",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["tool-calling"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "MANAGED_API", "catalogTier": "REFERENCE_ONLY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://docs.mistral.ai/models/overview", "verifiedAt": "2026-07-23"
+    },
+    {
+      "catalogId": "mistral/mistral-small-4", "displayName": "Mistral Small 4", "providerFamily": "mistral", "apiModel": "mistral-small-4",
+      "workloads": ["CHAT"], "inputModalities": ["TEXT", "IMAGE"], "outputModalities": ["TEXT"], "capabilities": ["tool-calling"],
+      "lifecycle": "STABLE", "aliases": [], "distribution": "MANAGED_API", "catalogTier": "REFERENCE_ONLY",
+      "catalogSource": "provider-api-docs", "sourceUrl": "https://docs.mistral.ai/models/overview", "verifiedAt": "2026-07-23"
+    }
+  ]
+}

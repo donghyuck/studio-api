@@ -29,7 +29,8 @@ public record ChatRagRequestDto(
         Double minScore,
         Boolean debug,
         String retrievalStrategy,
-        @Valid ChatRagRetrievalOptionsDto retrievalOptions
+        @Valid ChatRagRetrievalOptionsDto retrievalOptions,
+        String embeddingDeploymentId
 ) {
     public ChatRagRequestDto(
             ChatRequestDto chat,
@@ -37,7 +38,7 @@ public record ChatRagRequestDto(
             Integer ragTopK,
             String objectType,
             String objectId) {
-        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, null, null, null);
+        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, null, null, null, null);
     }
 
     public ChatRagRequestDto(
@@ -47,7 +48,7 @@ public record ChatRagRequestDto(
             String objectType,
             String objectId,
             Boolean debug) {
-        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, debug, null, null);
+        this(chat, ragQuery, ragTopK, objectType, objectId, null, null, null, null, null, debug, null, null, null);
     }
 
     public ChatRagRequestDto(
@@ -63,6 +64,24 @@ public record ChatRagRequestDto(
             Double minScore,
             Boolean debug) {
         this(chat, ragQuery, ragTopK, objectType, objectId, embeddingProfileId, embeddingProvider, embeddingModel,
-                topK, minScore, debug, null, null);
+                topK, minScore, debug, null, null, null);
+    }
+
+    public ChatRagRequestDto(
+            ChatRequestDto chat,
+            String ragQuery,
+            Integer ragTopK,
+            String objectType,
+            String objectId,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer topK,
+            Double minScore,
+            Boolean debug,
+            String retrievalStrategy,
+            ChatRagRetrievalOptionsDto retrievalOptions) {
+        this(chat, ragQuery, ragTopK, objectType, objectId, embeddingProfileId, embeddingProvider, embeddingModel,
+                topK, minScore, debug, retrievalStrategy, retrievalOptions, null);
     }
 }

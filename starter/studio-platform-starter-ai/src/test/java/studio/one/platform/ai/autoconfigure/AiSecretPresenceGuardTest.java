@@ -13,8 +13,56 @@ import org.springframework.mock.env.MockEnvironment;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties.Provider;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties.ProviderType;
+import studio.one.platform.ai.autoconfigure.config.ModelDeploymentProperties;
 
 class AiSecretPresenceGuardTest {
+
+    @Test
+    void deploymentModeAllowsConnectionProvidersWithoutDuplicatedModels() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+
+        Provider google = new Provider();
+        google.setType(ProviderType.GOOGLE_AI_GEMINI);
+        google.getChat().setEnabled(true);
+        google.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google-ai", google);
+
+        Provider local = new Provider();
+        local.setType(ProviderType.OPENAI);
+        local.setBaseUrl("http://localhost:8000");
+        local.getChat().setEnabled(true);
+        properties.getProviders().put("local-gemma", local);
+
+        Provider tei = new Provider();
+        tei.setType(ProviderType.TEI);
+        tei.setBaseUrl("http://localhost:18080");
+        tei.getEmbedding().setEnabled(true);
+        properties.getProviders().put("kure", tei);
+
+        ModelDeploymentProperties deployments = new ModelDeploymentProperties();
+        deployments.getModelDeployments().put(
+                "chat-default", new ModelDeploymentProperties.Deployment());
+        deployments.getModelDeployments().put(
+                "humanities-text-v1", new ModelDeploymentProperties.Deployment());
+        deployments.getRouting().setDefaultChatDeployment("chat-default");
+        deployments.getRouting().setDefaultEmbeddingDeployment("humanities-text-v1");
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("spring.ai.google.genai.chat.api-key", "test-key")
+                .withProperty("spring.ai.google.genai.embedding.api-key", "test-key");
+
+        assertDoesNotThrow(() -> guard(properties, deployments, environment).validate());
+    }
+
+    @Test
+    void deploymentModeRequiresDeploymentRoutingDefaults() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        ModelDeploymentProperties deployments = new ModelDeploymentProperties();
+        deployments.getModelDeployments().put(
+                "chat-default", new ModelDeploymentProperties.Deployment());
+
+        assertThrows(IllegalStateException.class,
+                () -> guard(properties, deployments, environment()).validate());
+    }
 
     @Test
     void validateRequiresDefaultProvider() {
@@ -399,15 +447,31 @@ class AiSecretPresenceGuardTest {
 
     private static AiSecretPresenceGuard guard(AiAdapterProperties properties, Environment environment) {
         StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
-        return guard(properties, environment, beanFactory);
+        return guard(properties, new ModelDeploymentProperties(), environment, beanFactory);
+    }
+
+    private static AiSecretPresenceGuard guard(
+            AiAdapterProperties properties,
+            ModelDeploymentProperties deployments,
+            Environment environment) {
+        return guard(properties, deployments, environment, new StaticListableBeanFactory());
     }
 
     private static AiSecretPresenceGuard guard(
             AiAdapterProperties properties,
             Environment environment,
             StaticListableBeanFactory beanFactory) {
+        return guard(properties, new ModelDeploymentProperties(), environment, beanFactory);
+    }
+
+    private static AiSecretPresenceGuard guard(
+            AiAdapterProperties properties,
+            ModelDeploymentProperties deployments,
+            Environment environment,
+            StaticListableBeanFactory beanFactory) {
         return new AiSecretPresenceGuard(
                 properties,
+                deployments,
                 environment,
                 beanFactory.getBeanProvider(ChatModel.class),
                 beanFactory.getBeanProvider(EmbeddingModel.class));

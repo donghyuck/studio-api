@@ -91,6 +91,7 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                 request.documentId(),
                 request.sourceType(),
                 request.sourceName(),
+                requestedDeploymentId(request, sourceRequest),
                 Instant.now());
         requests.put(jobId, new StoredRequest(request, sourceRequest));
         requestOrder.add(jobId);
@@ -239,7 +240,8 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
                         "objectType", job.objectType(),
                         "objectId", job.objectId(),
                         "sourceType", job.sourceType());
-        RagIndexJobSourceRequest sourceRequest = new RagIndexJobSourceRequest(metadata, List.of(), false);
+        RagIndexJobSourceRequest sourceRequest = new RagIndexJobSourceRequest(
+                metadata, List.of(), false, null, null, null, null, false, job.embeddingDeploymentId());
         if (sourceExecutor(request, sourceRequest).isEmpty()) {
             return null;
         }
@@ -255,14 +257,17 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     public Optional<RagEmbeddingSelectionInfo> getEmbeddingSelection(String jobId) {
         StoredRequest storedRequest = requests.get(jobId);
         if (storedRequest == null) {
-            return Optional.empty();
+            return repository.findById(jobId)
+                    .flatMap(job -> selection(
+                            null, null, null, job.embeddingDeploymentId(), job.catalogId(), job.embeddingSpaceId()));
         }
         RagIndexJobCreateRequest request = storedRequest.request();
         if (request.indexRequest() != null) {
             return selection(
                     request.indexRequest().embeddingProfileId(),
                     request.indexRequest().embeddingProvider(),
-                    request.indexRequest().embeddingModel());
+                    request.indexRequest().embeddingModel(),
+                    request.indexRequest().embeddingDeploymentId());
         }
         RagIndexJobSourceRequest sourceRequest = storedRequest.sourceRequest();
         if (sourceRequest == null) {
@@ -271,7 +276,8 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
         return selection(
                 sourceRequest.embeddingProfileId(),
                 sourceRequest.embeddingProvider(),
-                sourceRequest.embeddingModel());
+                sourceRequest.embeddingModel(),
+                sourceRequest.embeddingDeploymentId());
     }
 
     @Override
@@ -318,12 +324,38 @@ public class DefaultRagIndexJobService implements RagIndexJobService {
     private Optional<RagEmbeddingSelectionInfo> selection(
             String embeddingProfileId,
             String embeddingProvider,
-            String embeddingModel) {
+            String embeddingModel,
+            String embeddingDeploymentId) {
         RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
                 embeddingProfileId,
                 embeddingProvider,
-                embeddingModel);
+                embeddingModel,
+                embeddingDeploymentId,
+                null,
+                null);
         return selection.empty() ? Optional.empty() : Optional.of(selection);
+    }
+
+    private Optional<RagEmbeddingSelectionInfo> selection(
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            String embeddingDeploymentId,
+            String catalogId,
+            String embeddingSpaceId) {
+        RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
+                embeddingProfileId, embeddingProvider, embeddingModel,
+                embeddingDeploymentId, catalogId, embeddingSpaceId);
+        return selection.empty() ? Optional.empty() : Optional.of(selection);
+    }
+
+    private String requestedDeploymentId(
+            RagIndexJobCreateRequest request,
+            RagIndexJobSourceRequest sourceRequest) {
+        if (request.indexRequest() != null) {
+            return request.indexRequest().embeddingDeploymentId();
+        }
+        return sourceRequest == null ? null : sourceRequest.embeddingDeploymentId();
     }
 
     private RagIndexJobLog log(

@@ -18,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import studio.one.platform.autoconfigure.ConfigurationPropertyMigration;
 import studio.one.platform.textract.application.usecase.FileParser;
+import studio.one.platform.textract.infrastructure.extractor.impl.EpubFileParser;
 import studio.one.platform.textract.infrastructure.extractor.pdf.pymupdf.PyMuPdf4LlmClient;
 import studio.one.platform.textract.application.usecase.FileContentExtractionService;
 
@@ -254,6 +255,22 @@ class TextractAutoConfigurationTest {
                     assertThat(context).hasBean("excelFileParser");
                     assertThat(context).doesNotHaveBean(PyMuPdf4LlmClient.class);
                     assertThat(context).hasBean("hwpHwpxFileParser");
+                });
+    }
+
+    @Test
+    void bindsEpubExtractionLimits() {
+        contextRunner
+                .withPropertyValues(
+                        "studio.textract.epub.max-entry-size=8M",
+                        "studio.textract.epub.max-extracted-size=128M")
+                .run(context -> {
+                    assertThat(context).hasNotFailed();
+                    EpubFileParser parser = context.getBean("epubFileParser", EpubFileParser.class);
+                    assertThat(ReflectionTestUtils.getField(parser, "maxEntryBytes"))
+                            .isEqualTo(8L * 1024 * 1024);
+                    assertThat(ReflectionTestUtils.getField(parser, "maxExtractedBytes"))
+                            .isEqualTo(128L * 1024 * 1024);
                 });
     }
 

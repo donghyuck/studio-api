@@ -69,6 +69,7 @@ import studio.one.platform.ai.core.chat.ChatResponseMetadata;
 import studio.one.platform.ai.core.chat.ChatStreamEvent;
 import studio.one.platform.ai.core.chat.ChatStreamEventType;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.core.rag.RagRetrievalDiagnostics;
 import studio.one.platform.ai.core.rag.RagSearchResult;
 import studio.one.platform.ai.core.vector.VectorRecord;
@@ -116,6 +117,13 @@ public class ChatController {
     private static final int MAX_WHOLE_DOCUMENT_CONTEXT_CHARS = 300_000;
     private static final int MAP_REDUCE_OVERVIEW_THRESHOLD_CHARS = 80_000;
     private static final int MAP_REDUCE_SEGMENT_CHARS = 40_000;
+    private static final int RAG_REFERENCE_EXCERPT_CHARS = 700;
+    private static final String RAG_CITATION_PROMPT = """
+            제공된 문서 근거만 사용해 답변하세요.
+            답변의 각 주요 사실, 판단, 요약 항목 끝에는 이를 직접 뒷받침하는 근거 번호를 [1] 또는 [1, 2] 형식으로 표시하세요.
+            제공되지 않은 번호를 인용하거나 근거에 없는 내용을 사실처럼 보완하지 마세요.
+            근거가 부족하거나 서로 충돌하면 그 한계를 명시하세요.
+            """;
     private static final String INTERPRETIVE_ANALYSIS_PROMPT = """
             이 질문은 문서 근거를 종합하는 해석형 질문입니다.
             문서에 결론이나 분류명이 직접 명시되지 않아도 행동, 대화, 감정 표현과 사건을 근거로 합리적으로 추론하세요.
@@ -135,7 +143,7 @@ public class ChatController {
     private static final List<String> KEY_POINTS_METADATA_KEYS = List.of(
             "keyPoints", "keyContent", "highlights", "documentOutline", "outline");
 
-    private final AiProviderRegistry providerRegistry;
+    private final ModelDeploymentRegistry providerRegistry;
     private final RagPipelineService ragPipelineService;
     private final RagChatRetrievalService ragChatRetrievalService;
     private final RagContextBuilder ragContextBuilder;
@@ -231,7 +239,7 @@ public class ChatController {
     }
 
     public ChatController(
-            AiProviderRegistry providerRegistry,
+            ModelDeploymentRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagChatRetrievalService ragChatRetrievalService,
             RagContextBuilder ragContextBuilder,
@@ -249,7 +257,7 @@ public class ChatController {
     }
 
     public ChatController(
-            AiProviderRegistry providerRegistry,
+            ModelDeploymentRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagChatRetrievalService ragChatRetrievalService,
             RagContextBuilder ragContextBuilder,
@@ -269,7 +277,7 @@ public class ChatController {
     }
 
     public ChatController(
-            AiProviderRegistry providerRegistry,
+            ModelDeploymentRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagChatRetrievalService ragChatRetrievalService,
             RagContextBuilder ragContextBuilder,
@@ -290,7 +298,7 @@ public class ChatController {
     }
 
     public ChatController(
-            AiProviderRegistry providerRegistry,
+            ModelDeploymentRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagChatRetrievalService ragChatRetrievalService,
             RagContextBuilder ragContextBuilder,
@@ -428,7 +436,8 @@ public class ChatController {
     private ResponseEntity<ApiResponse<ChatResponseDto>> chatInternal(ChatRequestDto request, Principal principal) {
         ChatMemoryContext memory = resolveMemory(request, principal);
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
-        ChatResponse response = executeChat(chatPort(request.provider()), toDomainChatRequest(request, domainMessages));
+        ChatResponse response = executeChat(chatPort(deploymentOrProvider(request)),
+                toDomainChatRequest(request, domainMessages));
         int memoryMessageCount = appendMemory(memory, request.messages(), response);
         appendConversation(principal, memory, request.messages().stream().map(this::toDomainMessage).toList(), response);
         return ResponseEntity.ok(ApiResponse.ok(toDto(response, null, false, memoryMetadata(memory, memoryMessageCount))));
@@ -441,7 +450,7 @@ public class ChatController {
             Principal principal) {
         ChatMemoryContext memory = resolveMemory(request, principal);
         List<ChatMessage> domainMessages = toDomainMessages(request, memory.history());
-        ChatPort port = chatPort(request.provider());
+        ChatPort port = chatPort(deploymentOrProvider(request));
         ChatRequest domainRequest = toDomainChatRequest(request, domainMessages);
         java.util.stream.Stream<ChatStreamEvent> events = openStream(port, domainRequest);
         String requestId = UUID.randomUUID().toString();
@@ -478,6 +487,29 @@ public class ChatController {
         return chatWithRagInternal(request, principal);
     }
 
+    @PostMapping(value = "/rag/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("@endpointAuthz.can('services:ai_chat','write') "
+            + "and @endpointAuthz.can('services:ai_rag','read') and "
+            + "(#request.objectType() == null or #request.objectType().trim().isEmpty() "
+            + "or #request.objectId() == null or #request.objectId().trim().isEmpty() "
+            + "or (#request.objectId() != null and !#request.objectId().trim().isEmpty() and "
+            + "((#request.objectType().trim().equalsIgnoreCase('attachment') "
+            + "and @endpointAuthz.can('features:attachment','read')) "
+            + "or (!#request.objectType().trim().equalsIgnoreCase('attachment') "
+            + "and (@endpointAuthz.can('objects:' + #request.objectType().trim() + ':' "
+            + "+ #request.objectId().trim(),'read') "
+            + "or @endpointAuthz.can('objects:' + #request.objectType().trim(),'read'))))))")
+    public ResponseEntity<StreamingResponseBody> streamWithRag(
+            @Valid @RequestBody ChatRagRequestDto request,
+            Principal principal) {
+        String requestId = UUID.randomUUID().toString();
+        StreamingResponseBody body = outputStream ->
+                writeRagStreamRequest(outputStream, requestId, request, principal);
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .body(body);
+    }
+
     ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRag(ChatRagRequestDto request) {
         return chatWithRagInternal(request, null);
     }
@@ -485,11 +517,51 @@ public class ChatController {
     private ResponseEntity<ApiResponse<ChatResponseDto>> chatWithRagInternal(
             ChatRagRequestDto request,
             Principal principal) {
+        PreparedRagChat prepared = prepareRagChat(request, principal);
+        if (prepared.skippedChat()) {
+            ChatResponse response = new ChatResponse(
+                    List.of(new ChatMessage(ChatMessageRole.ASSISTANT, RAG_NO_CONTEXT_MESSAGE)),
+                    prepared.chat().model(),
+                    Map.of());
+            Map<String, Object> metadata = withRagTiming(prepared, 0L);
+            return ResponseEntity.ok(ApiResponse.ok(toDto(
+                    response,
+                    prepared.diagnostics(),
+                    prepared.exposeDiagnostics(),
+                    metadata)));
+        }
+
+        long generationStartedNanos = System.nanoTime();
+        ChatResponse response = executeChat(
+                chatPort(deploymentOrProvider(prepared.chat())),
+                toDomainChatRequest(prepared.augmentedChat()));
+        long generationElapsedMs = elapsedMillis(generationStartedNanos);
+        int memoryMessageCount = appendMemory(
+                prepared.memory(),
+                prepared.chat().messages(),
+                response);
+        appendConversation(
+                principal,
+                prepared.memory(),
+                prepared.chat().messages().stream().map(this::toDomainMessage).toList(),
+                response);
+        Map<String, Object> extraMetadata = new LinkedHashMap<>(
+                memoryMetadata(prepared.memory(), memoryMessageCount));
+        extraMetadata.putAll(withRagTiming(prepared, generationElapsedMs));
+        logSlowRagChat(prepared, generationElapsedMs);
+        return ResponseEntity.ok(ApiResponse.ok(toDto(
+                response,
+                prepared.diagnostics(),
+                prepared.exposeDiagnostics(),
+                extraMetadata)));
+    }
+
+    private PreparedRagChat prepareRagChat(ChatRagRequestDto originalRequest, Principal principal) {
         long requestStartedNanos = System.nanoTime();
-        ChatRequestDto chat = request.chat();
-        ObjectScope objectScope = resolveObjectScope(request.objectType(), request.objectId());
-        RagRetrievalPolicyDto appliedPolicy = resolveRetrievalPolicy(request, objectScope);
-        request = applyRetrievalPolicy(request, appliedPolicy);
+        ChatRequestDto chat = originalRequest.chat();
+        ObjectScope objectScope = resolveObjectScope(originalRequest.objectType(), originalRequest.objectId());
+        RagRetrievalPolicyDto appliedPolicy = resolveRetrievalPolicy(originalRequest, objectScope);
+        ChatRagRequestDto request = applyRetrievalPolicy(originalRequest, appliedPolicy);
         String ragQuery = request.ragQuery();
         RagQueryIntentClassifier.Classification queryIntent = ragQueryIntentClassifier.classify(
                 ragQuery == null || ragQuery.isBlank() ? lastUserMessage(chat) : ragQuery);
@@ -567,6 +639,13 @@ public class ChatController {
             ragResults = retrieval.results();
             retrievalDebug = retrieval.debug();
         }
+        ragResults = filterEvidenceResults(ragResults);
+        if (documentOverview != null) {
+            documentOverview = documentOverviewAssembler.assemble(
+                    ragResults,
+                    MAX_WHOLE_DOCUMENT_CONTEXT_CHARS,
+                    documentOverview.fullCoverage());
+        }
         if (!skipFinalResultLimit) {
             ragResults = limitRagResults(ragResults, resultTopK);
         }
@@ -574,25 +653,31 @@ public class ChatController {
         recordRetrievalPolicyUsage(appliedPolicy, request, ragResults.size(), ragResults.isEmpty(), retrievalElapsedMs);
         RagRetrievalDiagnostics diagnostics = ragPipelineService.latestDiagnostics().orElse(null);
         boolean exposeDiagnostics = shouldExposeDiagnostics(request);
+        Map<String, Object> ragMetadata = new LinkedHashMap<>();
         if (ragResults.isEmpty()) {
-            Map<String, Object> extraMetadata = new LinkedHashMap<>();
-            extraMetadata.put("ragReferences", List.of());
-            extraMetadata.put("ragSkippedChat", true);
-            extraMetadata.put("ragSkipReason", RAG_SKIP_REASON_NO_RESULTS);
-            putQueryIntentMetadata(extraMetadata, queryIntent, retrievalMode, ragTopK, minScore);
+            ragMetadata.put("ragReferences", List.of());
+            ragMetadata.put("ragSkippedChat", true);
+            ragMetadata.put("ragSkipReason", RAG_SKIP_REASON_NO_RESULTS);
+            putQueryIntentMetadata(ragMetadata, queryIntent, retrievalMode, ragTopK, minScore);
             if (exposeDiagnostics && retrievalDebug.enabled()) {
-                extraMetadata.put("retrieval", retrievalDebug.toMetadata());
+                ragMetadata.put("retrieval", retrievalDebug.toMetadata());
             }
-            putRetrievalPolicyMetadata(extraMetadata, appliedPolicy);
-            ChatResponse response = new ChatResponse(
-                    List.of(new ChatMessage(ChatMessageRole.ASSISTANT, RAG_NO_CONTEXT_MESSAGE)),
-                    chat.model(),
-                    Map.of());
-            return ResponseEntity.ok(ApiResponse.ok(toDto(
-                    response,
+            putRetrievalPolicyMetadata(ragMetadata, appliedPolicy);
+            return new PreparedRagChat(
+                    requestStartedNanos,
+                    chat,
+                    null,
+                    null,
                     diagnostics,
                     exposeDiagnostics,
-                    extraMetadata)));
+                    Map.copyOf(ragMetadata),
+                    retrievalElapsedMs,
+                    0L,
+                    queryIntent,
+                    retrievalMode,
+                    0,
+                    false,
+                    true);
         }
 
         List<RagSearchResult> expansionCandidates = contextExpansionCandidates(
@@ -617,6 +702,18 @@ public class ChatController {
                 context);
         long overviewReductionElapsedMs = elapsedMillis(overviewReductionStartedNanos);
         context = overviewReduction.context();
+        if (documentOverview != null) {
+            RagContextBuilder.BuildResult citationContext = ragContextBuilder.buildWithDiagnostics(
+                    documentOverview.references(),
+                    documentOverview.references());
+            context = combineSystemPrompts(
+                    context,
+                    "다음은 최종 답변에서 인용할 수 있는 근거 목록입니다.\n" + citationContext.context());
+            contextResult = new RagContextBuilder.BuildResult(
+                    context,
+                    citationContext.diagnostics(),
+                    citationContext.usedResults());
+        }
 
         List<ChatMessageDto> augmentedMessages = new ArrayList<>();
         augmentedMessages.add(new ChatMessageDto(
@@ -636,50 +733,69 @@ public class ChatController {
                 chat.topK(),
                 chat.maxOutputTokens(),
                 chat.stopSequences(),
-                chat.memory());
+                chat.memory(),
+                chat.deploymentId());
 
-        long generationStartedNanos = System.nanoTime();
-        ChatResponse response = executeChat(chatPort(chat.provider()), toDomainChatRequest(augmented));
-        long generationElapsedMs = elapsedMillis(generationStartedNanos);
-        int memoryMessageCount = appendMemory(memory, chat.messages(), response);
-        appendConversation(principal, memory, chat.messages().stream().map(this::toDomainMessage).toList(), response);
-        Map<String, Object> extraMetadata = memoryMetadata(memory, memoryMessageCount);
-        extraMetadata.put("ragReferences", ragReferences(contextResult.usedResults(), exposeDiagnostics));
+        ragMetadata.put("ragReferences", ragReferences(contextResult.usedResults(), exposeDiagnostics));
         if (exposeDiagnostics && contextResult.diagnostics() != null) {
-            extraMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
+            ragMetadata.put("ragContextDiagnostics", contextResult.diagnostics().toMetadata());
         }
         if (exposeDiagnostics && retrievalDebug.enabled()) {
-            extraMetadata.put("retrieval", retrievalDebug.toMetadata());
+            ragMetadata.put("retrieval", retrievalDebug.toMetadata());
         }
-        putQueryIntentMetadata(extraMetadata, queryIntent, retrievalMode, ragTopK, minScore);
+        putQueryIntentMetadata(ragMetadata, queryIntent, retrievalMode, ragTopK, minScore);
         if (documentOverview != null) {
-            extraMetadata.put("overviewSourceChunkCount", documentOverview.sourceChunkCount());
-            extraMetadata.put("overviewCoverageStatus", documentOverview.fullCoverage() ? "FULL" : "PARTIAL");
+            ragMetadata.put("overviewSourceChunkCount", documentOverview.sourceChunkCount());
+            ragMetadata.put("overviewCoverageStatus", documentOverview.fullCoverage() ? "FULL" : "PARTIAL");
         }
         if (overviewReduction.applied()) {
-            extraMetadata.put("overviewReduction", "MAP_REDUCE");
-            extraMetadata.put("overviewReductionSegmentCount", overviewReduction.segmentCount());
-            extraMetadata.put("overviewReductionCacheHit", overviewReduction.cacheHit());
+            ragMetadata.put("overviewReduction", "MAP_REDUCE");
+            ragMetadata.put("overviewReductionSegmentCount", overviewReduction.segmentCount());
+            ragMetadata.put("overviewReductionCacheHit", overviewReduction.cacheHit());
         }
-        long totalElapsedMs = elapsedMillis(requestStartedNanos);
-        extraMetadata.put("ragTiming", Map.of(
-                "retrievalMs", retrievalElapsedMs,
-                "overviewReductionMs", overviewReductionElapsedMs,
-                "generationMs", generationElapsedMs,
-                "totalMs", totalElapsedMs));
-        if (totalElapsedMs >= 10_000L) {
-            log.info("Slow RAG chat: intent={}, mode={}, results={}, retrievalMs={}, overviewReductionMs={}, "
-                            + "generationMs={}, totalMs={}, overviewCacheHit={}",
-                    queryIntent.intent(), retrievalMode, ragResults.size(), retrievalElapsedMs,
-                    overviewReductionElapsedMs, generationElapsedMs, totalElapsedMs,
-                    overviewReduction.cacheHit());
-        }
-        putRetrievalPolicyMetadata(extraMetadata, appliedPolicy);
-        return ResponseEntity.ok(ApiResponse.ok(toDto(
-                response,
+        putRetrievalPolicyMetadata(ragMetadata, appliedPolicy);
+        return new PreparedRagChat(
+                requestStartedNanos,
+                chat,
+                augmented,
+                memory,
                 diagnostics,
                 exposeDiagnostics,
-                extraMetadata)));
+                Map.copyOf(ragMetadata),
+                retrievalElapsedMs,
+                overviewReductionElapsedMs,
+                queryIntent,
+                retrievalMode,
+                ragResults.size(),
+                overviewReduction.cacheHit(),
+                false);
+    }
+
+    private Map<String, Object> withRagTiming(PreparedRagChat prepared, long generationElapsedMs) {
+        Map<String, Object> metadata = new LinkedHashMap<>(prepared.ragMetadata());
+        metadata.put("ragTiming", Map.of(
+                "retrievalMs", prepared.retrievalElapsedMs(),
+                "overviewReductionMs", prepared.overviewReductionElapsedMs(),
+                "generationMs", generationElapsedMs,
+                "totalMs", elapsedMillis(prepared.requestStartedNanos())));
+        return metadata;
+    }
+
+    private void logSlowRagChat(PreparedRagChat prepared, long generationElapsedMs) {
+        long totalElapsedMs = elapsedMillis(prepared.requestStartedNanos());
+        if (totalElapsedMs < 10_000L) {
+            return;
+        }
+        log.info("Slow RAG chat: intent={}, mode={}, results={}, retrievalMs={}, overviewReductionMs={}, "
+                        + "generationMs={}, totalMs={}, overviewCacheHit={}",
+                prepared.queryIntent().intent(),
+                prepared.retrievalMode(),
+                prepared.resultCount(),
+                prepared.retrievalElapsedMs(),
+                prepared.overviewReductionElapsedMs(),
+                generationElapsedMs,
+                totalElapsedMs,
+                prepared.overviewCacheHit());
     }
 
     @GetMapping("/conversations")
@@ -720,7 +836,7 @@ public class ChatController {
                 .map(studio.one.platform.ai.core.chat.ChatConversationMessage::message)
                 .toList();
         ChatRequestDto chat = request.chat();
-        String provider = chat == null ? null : chat.provider();
+        String provider = chat == null ? null : deploymentOrProvider(chat);
         ChatRequest domainRequest = toDomainChatRequest(chat == null ? minimalChatRequest(messages) : chat, messages);
         ChatResponse response = chatPort(provider).chat(domainRequest);
         int messageCount = conversationChatService.replaceLastAssistantResponse(ownerId, request.conversationId(), response);
@@ -825,6 +941,12 @@ public class ChatController {
         }
     }
 
+    private String deploymentOrProvider(ChatRequestDto request) {
+        return request.deploymentId() == null || request.deploymentId().isBlank()
+                ? request.provider()
+                : request.deploymentId();
+    }
+
     private ChatResponse executeChat(ChatPort port, ChatRequest request) {
         try {
             ChatResponse response = port.chat(request);
@@ -852,11 +974,12 @@ public class ChatController {
             return RagDocumentMapReduceOverview.Reduction.notApplied(context);
         }
         try {
-            ChatPort port = chatPort(chat.provider());
+            String deployment = deploymentOrProvider(chat);
+            ChatPort port = chatPort(deployment);
             return documentMapReduceOverview.reduce(
                     objectType,
                     objectId,
-                    chat.provider(),
+                    deployment,
                     chat.model(),
                     context,
                     MAP_REDUCE_OVERVIEW_THRESHOLD_CHARS,
@@ -947,7 +1070,8 @@ public class ChatController {
                 request.minScore(),
                 request.debug(),
                 effectiveStrategy,
-                effectiveOptions);
+                effectiveOptions,
+                request.embeddingDeploymentId());
     }
 
     private ChatRagRequestDto applyIntentRetrievalPolicy(
@@ -983,7 +1107,8 @@ public class ChatController {
                 minScore,
                 request.debug(),
                 request.retrievalStrategy(),
-                adjustedOptions);
+                adjustedOptions,
+                request.embeddingDeploymentId());
     }
 
     private Integer atLeast(Integer value, int minimum) {
@@ -1075,7 +1200,9 @@ public class ChatController {
             String context,
             String clientPrompt,
             RagQueryIntentClassifier.Classification classification) {
-        String prompt = combineSystemPrompts(context, clientPrompt);
+        String prompt = combineSystemPrompts(
+                combineSystemPrompts(context, RAG_CITATION_PROMPT),
+                clientPrompt);
         if (classification.intent() == RagQueryIntentClassifier.Intent.INTERPRETIVE_ANALYSIS) {
             return combineSystemPrompts(prompt, INTERPRETIVE_ANALYSIS_PROMPT);
         }
@@ -1171,6 +1298,7 @@ public class ChatController {
         put(reference, "chunkId", chunkId == null ? documentId : chunkId);
         put(reference, "chunkOrder", firstInteger(metadata, "chunkOrder", VectorRecord.KEY_CHUNK_INDEX));
         put(reference, "score", result.score());
+        put(reference, "excerpt", referenceExcerpt(result.content()));
         if (includePackedContent) {
             put(reference, "content", result.content());
         }
@@ -1273,6 +1401,50 @@ public class ChatController {
         return results.stream()
                 .limit(Math.max(topK, 0))
                 .toList();
+    }
+
+    private List<RagSearchResult> filterEvidenceResults(List<RagSearchResult> results) {
+        if (results == null || results.isEmpty()) {
+            return List.of();
+        }
+        return results.stream()
+                .filter(result -> !isBoilerplateEvidence(result))
+                .toList();
+    }
+
+    private boolean isBoilerplateEvidence(RagSearchResult result) {
+        Map<String, Object> metadata = result.metadata() == null ? Map.of() : result.metadata();
+        String label = firstText(metadata,
+                "section", VectorRecord.KEY_HEADING_PATH, "headingPath", "heading", "title");
+        if (label == null) {
+            return false;
+        }
+        String normalized = label.strip().toLowerCase(Locale.ROOT)
+                .replaceAll("[\\s·:_\\-]+", "");
+        return normalized.equals("판권")
+                || normalized.equals("저작권")
+                || normalized.equals("저작권정보")
+                || normalized.equals("이미지저작권")
+                || normalized.equals("사진저작권")
+                || normalized.equals("출판정보")
+                || normalized.equals("도서정보")
+                || normalized.equals("copyright")
+                || normalized.equals("copyrightnotice")
+                || normalized.equals("colophon")
+                || normalized.equals("imprint")
+                || normalized.equals("isbn");
+    }
+
+    private String referenceExcerpt(String content) {
+        String normalized = normalizeText(content);
+        if (normalized == null) {
+            return null;
+        }
+        normalized = normalized.replaceAll("\\s+", " ");
+        if (normalized.length() <= RAG_REFERENCE_EXCERPT_CHARS) {
+            return normalized;
+        }
+        return normalized.substring(0, RAG_REFERENCE_EXCERPT_CHARS - 1).stripTrailing() + "…";
     }
 
     private String resolveRagQuery(ChatRagRequestDto request) {
@@ -1578,6 +1750,149 @@ public class ChatController {
         }
     }
 
+    private void writeSkippedRagStream(
+            OutputStream outputStream,
+            String requestId,
+            PreparedRagChat prepared) throws IOException {
+        String model = normalizeText(prepared.chat().model());
+        writeSse(outputStream, requestId,
+                ChatStreamEvent.delta(RAG_NO_CONTEXT_MESSAGE, model, ChatResponseMetadata.empty()));
+        ChatResponseMetadata metadata = ChatResponseMetadata.from(withRagTiming(prepared, 0L));
+        writeSse(outputStream, requestId, ChatStreamEvent.complete(model, metadata));
+    }
+
+    private void writeRagStreamRequest(
+            OutputStream outputStream,
+            String requestId,
+            ChatRagRequestDto request,
+            Principal principal) throws IOException {
+        writeRagStatus(outputStream, requestId, "retrieval_started", Map.of());
+        try {
+            PreparedRagChat prepared = prepareRagChat(request, principal);
+            writeRagStatus(outputStream, requestId, "retrieval_complete", Map.of(
+                    "retrievalMs", prepared.retrievalElapsedMs(),
+                    "resultCount", prepared.resultCount()));
+            if (prepared.skippedChat()) {
+                writeSkippedRagStream(outputStream, requestId, prepared);
+                return;
+            }
+
+            ChatPort port = chatPort(deploymentOrProvider(prepared.chat()));
+            long generationStartedNanos = System.nanoTime();
+            java.util.stream.Stream<ChatStreamEvent> events =
+                    openStream(port, toDomainChatRequest(prepared.augmentedChat()));
+            writeRagStreamEvents(
+                    outputStream,
+                    requestId,
+                    events,
+                    prepared,
+                    principal,
+                    generationStartedNanos);
+        } catch (RuntimeException ex) {
+            writeSse(outputStream, requestId,
+                    ChatStreamEvent.error(errorMessage(ex), ChatResponseMetadata.empty()));
+        }
+    }
+
+    private void writeRagStatus(
+            OutputStream outputStream,
+            String requestId,
+            String stage,
+            Map<String, Object> details) throws IOException {
+        Map<String, Object> payload = new LinkedHashMap<>(details);
+        payload.put("type", "rag_status");
+        payload.put("stage", stage);
+        payload.put("requestId", requestId);
+        String serialized = "event: rag_status\n"
+                + "data: " + objectMapper.writeValueAsString(payload) + "\n\n";
+        outputStream.write(serialized.getBytes(StandardCharsets.UTF_8));
+        outputStream.flush();
+    }
+
+    private void writeRagStreamEvents(
+            OutputStream outputStream,
+            String requestId,
+            java.util.stream.Stream<ChatStreamEvent> events,
+            PreparedRagChat prepared,
+            Principal principal,
+            long generationStartedNanos) throws IOException {
+        StringBuilder assistant = new StringBuilder();
+        ChatStreamEvent last = null;
+        try (events) {
+            Iterator<ChatStreamEvent> iterator = events.iterator();
+            while (iterator.hasNext()) {
+                ChatStreamEvent event = iterator.next();
+                last = event;
+                if (event.type() == ChatStreamEventType.ERROR) {
+                    writeSse(outputStream, requestId, event);
+                    return;
+                }
+                if (event.type() == ChatStreamEventType.DELTA) {
+                    assistant.append(event.delta());
+                    writeSse(outputStream, requestId, event);
+                    continue;
+                }
+                if (event.type() == ChatStreamEventType.COMPLETE) {
+                    ChatStreamEvent completed = completeRagStream(
+                            prepared,
+                            principal,
+                            assistant,
+                            event,
+                            elapsedMillis(generationStartedNanos));
+                    writeSse(outputStream, requestId, completed);
+                    return;
+                }
+                writeSse(outputStream, requestId, event);
+            }
+        } catch (RuntimeException ex) {
+            ChatStreamEvent error = ChatStreamEvent.error(errorMessage(ex), ChatResponseMetadata.empty());
+            writeSse(outputStream, requestId, error);
+            return;
+        }
+        if (assistant.length() > 0) {
+            ChatStreamEvent completed = completeRagStream(
+                    prepared,
+                    principal,
+                    assistant,
+                    last,
+                    elapsedMillis(generationStartedNanos));
+            writeSse(outputStream, requestId, completed);
+        }
+    }
+
+    private ChatStreamEvent completeRagStream(
+            PreparedRagChat prepared,
+            Principal principal,
+            StringBuilder assistant,
+            ChatStreamEvent terminal,
+            long generationElapsedMs) {
+        String model = terminal == null || terminal.model().isBlank()
+                ? normalizeText(prepared.chat().model())
+                : terminal.model();
+        ChatResponse response = new ChatResponse(
+                List.of(ChatMessage.assistant(assistant.toString())),
+                model,
+                terminal == null ? Map.of() : terminal.metadata().toMap());
+        int memoryMessageCount = prepared.memory().history().size();
+        if (assistant.length() > 0) {
+            memoryMessageCount = appendMemory(prepared.memory(), prepared.chat().messages(), response);
+            appendConversation(
+                    principal,
+                    prepared.memory(),
+                    prepared.chat().messages().stream().map(this::toDomainMessage).toList(),
+                    response);
+        }
+
+        Map<String, Object> metadata = new LinkedHashMap<>(
+                terminal == null ? Map.of() : terminal.metadata().toMap());
+        metadata.putAll(memoryMetadata(prepared.memory(), memoryMessageCount));
+        metadata.putAll(withRagTiming(prepared, generationElapsedMs));
+        ChatResponseMetadata completedMetadata = ChatResponseMetadata.from(metadata);
+        modelUsageStore.record(completedMetadata, model);
+        logSlowRagChat(prepared, generationElapsedMs);
+        return ChatStreamEvent.complete(model, completedMetadata);
+    }
+
     private void writeSse(OutputStream outputStream, String requestId, ChatStreamEvent event) throws IOException {
         Map<String, Object> payload = new HashMap<>(event.toMap());
         payload.put("requestId", requestId);
@@ -1602,6 +1917,23 @@ public class ChatController {
         boolean hasFilter() {
             return objectType != null || objectId != null;
         }
+    }
+
+    private record PreparedRagChat(
+            long requestStartedNanos,
+            ChatRequestDto chat,
+            ChatRequestDto augmentedChat,
+            ChatMemoryContext memory,
+            RagRetrievalDiagnostics diagnostics,
+            boolean exposeDiagnostics,
+            Map<String, Object> ragMetadata,
+            long retrievalElapsedMs,
+            long overviewReductionElapsedMs,
+            RagQueryIntentClassifier.Classification queryIntent,
+            String retrievalMode,
+            int resultCount,
+            boolean overviewCacheHit,
+            boolean skippedChat) {
     }
 
     private String currentPrincipalScope(Principal principal) {

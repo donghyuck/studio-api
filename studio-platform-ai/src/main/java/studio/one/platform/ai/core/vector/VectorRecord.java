@@ -36,6 +36,10 @@ public final class VectorRecord {
     public static final String KEY_EMBEDDING_PROFILE_ID = "embeddingProfileId";
     public static final String KEY_EMBEDDING_MODEL_ID = "embeddingModelId";
     public static final String KEY_EMBEDDING_SPACE_ID = "embeddingSpaceId";
+    public static final String KEY_EMBEDDING_SPACE_ID_V2 = "embeddingSpaceIdV2";
+    public static final String KEY_EMBEDDING_DEPLOYMENT_ID = "embeddingDeploymentId";
+    public static final String KEY_EMBEDDING_CATALOG_ID = "embeddingCatalogId";
+    public static final String KEY_EMBEDDING_CONTRACT_VERSION = "embeddingContractVersion";
     public static final String KEY_EMBEDDING_MODEL = "embeddingModel";
     public static final String KEY_EMBEDDING_DIMENSION = "embeddingDimension";
     public static final String KEY_EMBEDDING_INPUT_TYPE = "embeddingInputType";

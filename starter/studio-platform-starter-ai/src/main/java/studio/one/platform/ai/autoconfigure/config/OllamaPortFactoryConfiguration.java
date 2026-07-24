@@ -53,8 +53,20 @@ public class OllamaPortFactoryConfiguration {
                     "studio.ai.providers." + providerId + ".embedding.model",
                     provider.getEmbedding().getModel(),
                     log);
-            model = requireText(model,
-                    "spring.ai.ollama.embedding.options.model must be configured for OLLAMA embedding provider");
+            return createForDeployment(providerId, provider, model, provider.getEmbedding().getDimension(),
+                    env, embeddingModelProvider);
+        }
+
+        @Override
+        public EmbeddingPort createForDeployment(
+                                    String providerId,
+                                    AiAdapterProperties.Provider provider,
+                                    String apiModel,
+                                    Integer dimension,
+                                    Environment env,
+                                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+            String model = requireText(apiModel,
+                    "Catalog-resolved model must be configured for OLLAMA embedding deployment");
             String baseUrl = AiConfigurationMigration.springOrLegacyProviderValue(
                     env,
                     "spring.ai.ollama.base-url",

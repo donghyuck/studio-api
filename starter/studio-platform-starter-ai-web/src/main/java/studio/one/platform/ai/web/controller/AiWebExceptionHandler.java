@@ -26,7 +26,8 @@ import studio.one.platform.ai.web.dto.visualization.ProjectionProblemDetails;
         RagIndexJobController.class,
         RagRetrievalPolicyController.class,
         QueryRewriteController.class,
-        AiInfoController.class
+        AiInfoController.class,
+        ModelCatalogController.class
 })
 @Slf4j
 public class AiWebExceptionHandler {
@@ -84,6 +85,13 @@ public class AiWebExceptionHandler {
                 .timestamp(OffsetDateTime.now())
                 .build();
         return ResponseEntity.status(ex.getStatusCode()).body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ProblemDetails> handleIllegalArgumentException(
+            IllegalArgumentException ex,
+            HttpServletRequest request) {
+        return problem(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
     @ExceptionHandler(RuntimeException.class)

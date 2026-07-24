@@ -7,12 +7,14 @@ public record RagEmbeddingSelection(
         String provider,
         String model,
         Integer dimension,
-        EmbeddingInputType inputType) {
+        EmbeddingInputType inputType,
+        String deploymentId) {
 
     public RagEmbeddingSelection {
         profileId = normalize(profileId);
         provider = normalize(provider);
         model = normalize(model);
+        deploymentId = normalize(deploymentId);
         if (dimension != null && dimension <= 0) {
             throw new IllegalArgumentException("dimension must be greater than zero");
         }
@@ -20,11 +22,16 @@ public record RagEmbeddingSelection(
     }
 
     public RagEmbeddingSelection(String profileId, String provider, String model, EmbeddingInputType inputType) {
-        this(profileId, provider, model, null, inputType);
+        this(profileId, provider, model, null, inputType, null);
+    }
+
+    public RagEmbeddingSelection(
+            String profileId, String provider, String model, Integer dimension, EmbeddingInputType inputType) {
+        this(profileId, provider, model, dimension, inputType, null);
     }
 
     public boolean isLegacyDefault() {
-        return profileId == null && provider == null && model == null && dimension == null;
+        return profileId == null && provider == null && model == null && dimension == null && deploymentId == null;
     }
 
     private static String normalize(String value) {

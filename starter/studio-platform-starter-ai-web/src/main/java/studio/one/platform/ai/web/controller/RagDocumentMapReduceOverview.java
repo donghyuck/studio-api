@@ -79,7 +79,6 @@ final class RagDocumentMapReduceOverview {
         StringBuilder header = new StringBuilder(REDUCED_HEADER_PREFIX);
         appendIdentityLine(header, source, "문서 제목:");
         appendIdentityLine(header, source, "원본 파일:");
-        header.append("[1]\n");
         return header.toString();
     }
 
@@ -129,7 +128,7 @@ final class RagDocumentMapReduceOverview {
         if (summary.isBlank()) {
             throw new IllegalStateException("Document segment summary was blank");
         }
-        return summary;
+        return summary.replaceAll("\\[(?:\\d+(?:\\s*,\\s*\\d+)*)\\]", "").strip();
     }
 
     private List<String> split(String context, int maxChars) {
@@ -158,7 +157,9 @@ final class RagDocumentMapReduceOverview {
                 아래 내용은 하나의 원본 문서 중 %d/%d 구간입니다.
                 이 구간의 핵심 주장, 개념, 절차 또는 사건과 인물의 변화, 다음 구간 이해에 필요한 연결 정보만 원문 근거대로 요약하세요.
                 문서 속 인물이 언급하거나 감상하는 영화, 책, 꿈, 회상은 원본 문서의 주 줄거리와 구분해서 표시하세요.
-                원문에 없는 장소, 진단, 관계, 동기를 추가하지 마세요. 1,200자 이내의 한국어로 작성하세요.
+                원문에 없는 장소, 진단, 관계, 동기를 추가하지 마세요.
+                최종 답변의 근거 번호와 혼동되지 않도록 [1], [1, 2] 같은 대괄호 숫자 인용은 작성하지 마세요.
+                1,200자 이내의 한국어로 작성하세요.
 
                 %s
                 """.formatted(index + 1, total, segment);

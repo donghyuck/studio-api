@@ -49,7 +49,10 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
             instant(rs, "created_at"),
             instant(rs, "started_at"),
             instant(rs, "finished_at"),
-            nullableLong(rs, "duration_ms"));
+            nullableLong(rs, "duration_ms"),
+            rs.getString("embedding_deployment_id"),
+            rs.getString("catalog_id"),
+            rs.getString("embedding_space_id"));
 
     private static final RowMapper<RagIndexJobLog> LOG_ROW_MAPPER = (rs, rowNum) -> new RagIndexJobLog(
             rs.getString("log_id"),
@@ -87,7 +90,10 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                            created_at = :createdAt,
                            started_at = :startedAt,
                            finished_at = :finishedAt,
-                           duration_ms = :durationMs
+                           duration_ms = :durationMs,
+                           embedding_deployment_id = :embeddingDeploymentId,
+                           catalog_id = :catalogId,
+                           embedding_space_id = :embeddingSpaceId
                      WHERE job_id = :jobId
                     """, jobParameters(job));
             return job;
@@ -96,11 +102,13 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                 INSERT INTO tb_ai_rag_index_job(
                     job_id, object_type, object_id, document_id, source_type, source_name,
                     status, current_step, chunk_count, embedded_count, indexed_count,
-                    warning_count, error_message, created_at, started_at, finished_at, duration_ms)
+                    warning_count, error_message, created_at, started_at, finished_at, duration_ms,
+                    embedding_deployment_id, catalog_id, embedding_space_id)
                 VALUES (
                     :jobId, :objectType, :objectId, :documentId, :sourceType, :sourceName,
                     :status, :currentStep, :chunkCount, :embeddedCount, :indexedCount,
-                    :warningCount, :errorMessage, :createdAt, :startedAt, :finishedAt, :durationMs)
+                    :warningCount, :errorMessage, :createdAt, :startedAt, :finishedAt, :durationMs,
+                    :embeddingDeploymentId, :catalogId, :embeddingSpaceId)
                 """, jobParameters(job));
         return job;
     }
@@ -276,7 +284,10 @@ public class JdbcRagIndexJobRepository implements RagIndexJobRepository {
                 .addValue("createdAt", timestamp(job.createdAt()))
                 .addValue("startedAt", timestamp(job.startedAt()))
                 .addValue("finishedAt", timestamp(job.finishedAt()))
-                .addValue("durationMs", job.durationMs());
+                .addValue("durationMs", job.durationMs())
+                .addValue("embeddingDeploymentId", job.embeddingDeploymentId())
+                .addValue("catalogId", job.catalogId())
+                .addValue("embeddingSpaceId", job.embeddingSpaceId());
     }
 
     private MapSqlParameterSource logParameters(RagIndexJobLog log) {

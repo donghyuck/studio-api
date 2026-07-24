@@ -16,6 +16,7 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.core.vector.VectorSearchHit;
 import studio.one.platform.ai.core.vector.VectorSearchRequest;
 import studio.one.platform.ai.core.vector.VectorSearchResults;
@@ -37,7 +38,7 @@ public class DefaultVectorSearchVisualizationService implements VectorSearchVisu
     private final VectorProjectionRepository projectionRepository;
     private final VectorProjectionPointRepository pointRepository;
     private final ExistingVectorItemRepository itemRepository;
-    private final AiProviderRegistry providerRegistry;
+    private final ModelDeploymentRegistry providerRegistry;
 
     public DefaultVectorSearchVisualizationService(
             EmbeddingPort embeddingPort,
@@ -54,7 +55,7 @@ public class DefaultVectorSearchVisualizationService implements VectorSearchVisu
             VectorProjectionRepository projectionRepository,
             VectorProjectionPointRepository pointRepository,
             ExistingVectorItemRepository itemRepository,
-            AiProviderRegistry providerRegistry) {
+            ModelDeploymentRegistry providerRegistry) {
         this.embeddingPort = Objects.requireNonNull(embeddingPort, "embeddingPort");
         this.vectorStorePort = Objects.requireNonNull(vectorStorePort, "vectorStorePort");
         this.projectionRepository = Objects.requireNonNull(projectionRepository, "projectionRepository");

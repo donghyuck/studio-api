@@ -260,6 +260,7 @@ public class MarkdownDocumentController {
             @PathVariable String id, @Valid @RequestBody MarkdownRagReindexRequest request) {
         return ResponseEntity.accepted().body(ApiResponse.ok(service.reindexRag(
                 id,
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()),
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
                 request.embeddingModel(),
@@ -402,7 +403,8 @@ public class MarkdownDocumentController {
                 request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
                 request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
                 request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
-                request.documentProfile(), null, null);
+                request.documentProfile(), null, null,
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
     }
 
     private ResponseEntity<StreamingResponseBody> markdownResponse(MarkdownContent content, boolean download) {
@@ -444,7 +446,8 @@ public class MarkdownDocumentController {
                 request.skillExtractionMode(), request.generateSkillEmbeddings(), request.skillEmbeddingProvider(),
                 request.skillEmbeddingModel(), request.skillEmbeddingDimension(), request.ocrRequired(),
                 request.ocrLanguage(), request.ocrMode(), request.mathVisionCorrection(),
-                request.documentProfile(), null, null);
+                request.documentProfile(), null, null,
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
     }
 
     private boolean extractionQualityOptionsOmitted(MarkdownReextractRequest request) {
@@ -453,6 +456,20 @@ public class MarkdownDocumentController {
                 && request.ocrLanguage() == null
                 && request.ocrMode() == null
                 && request.mathVisionCorrection() == null;
+    }
+
+    private String embeddingDeploymentId(String deploymentId, String legacyModelId) {
+        String canonical = normalizeText(deploymentId);
+        String legacy = normalizeText(legacyModelId);
+        if (canonical != null && legacy != null && !canonical.equalsIgnoreCase(legacy)) {
+            throw new IllegalArgumentException(
+                    "embeddingDeploymentId and legacy embeddingModelId must identify the same deployment");
+        }
+        return canonical == null ? legacy : canonical;
+    }
+
+    private String normalizeText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private MarkdownResumeOptions resumeOptions(MarkdownResumeRequest request) {
@@ -484,7 +501,8 @@ public class MarkdownDocumentController {
                 request.ocrRequired(),
                 request.ocrLanguage(),
                 request.ocrMode(),
-                request.mathVisionCorrection());
+                request.mathVisionCorrection(),
+                embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
     }
 
     private MarkdownIdeaBlockMergePreviewOptions mergePreviewOptions(MarkdownIdeaBlockMergePreviewRequest request) {

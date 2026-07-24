@@ -19,6 +19,7 @@ import studio.one.platform.ai.core.chat.ChatPort;
 import studio.one.platform.ai.core.chat.ChatRequest;
 import studio.one.platform.ai.core.chat.ChatResponse;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.chunking.core.NormalizedBlock;
 
 public class LlmBlockifyGenerator implements BlockifyGenerator {
@@ -37,14 +38,14 @@ public class LlmBlockifyGenerator implements BlockifyGenerator {
             "sourceEvidence", "source_evidence", "evidence", "evidences", "citations",
             "sourceBlockRange", "source_block_range", "confidence");
 
-    private final AiProviderRegistry providerRegistry;
+    private final ModelDeploymentRegistry providerRegistry;
     private final ObjectMapper objectMapper;
 
-    public LlmBlockifyGenerator(AiProviderRegistry providerRegistry) {
+    public LlmBlockifyGenerator(ModelDeploymentRegistry providerRegistry) {
         this(providerRegistry, new ObjectMapper());
     }
 
-    LlmBlockifyGenerator(AiProviderRegistry providerRegistry, ObjectMapper objectMapper) {
+    LlmBlockifyGenerator(ModelDeploymentRegistry providerRegistry, ObjectMapper objectMapper) {
         this.providerRegistry = Objects.requireNonNull(providerRegistry, "providerRegistry");
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
     }

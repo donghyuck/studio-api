@@ -103,7 +103,9 @@ public class RagController {
                 useLlmKeywords,
                 request.embeddingProfileId(),
                 request.embeddingProvider(),
-                request.embeddingModel());
+                request.embeddingModel(),
+                null,
+                request.embeddingDeploymentId());
         if (ragIndexJobService == null) {
             ragPipelineService.index(indexRequest);
             return ResponseEntity.accepted().build();
@@ -150,7 +152,9 @@ public class RagController {
                     request.embeddingModel(),
                     effectiveMinScore(request.minScore()),
                     request.topK(),
-                    request.minScore()));
+                    request.minScore(),
+                    true,
+                    request.embeddingDeploymentId()));
         } catch (EmbeddingProviderQuotaExceededException ex) {
             throw new ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,

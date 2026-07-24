@@ -8,6 +8,40 @@
   native fallback으로 전환한 뒤 늦게 반환된 Pandoc submit 응답이 revision을 다시 PANDOC 상태로 덮어쓰지
   않도록 현재 상태를 재확인한다.
 
+- `POST /api/ai/chat/rag/stream` SSE API를 추가했다. 기존 RAG 검색·컨텍스트 구성과 권한 계약을 공유하고,
+  검색 시작·완료 상태, 답변 delta, token usage, RAG 근거와 구간별 timing을 순서대로 전달한다. RAG Chat
+  클라이언트도 fetch 기반 SSE 처리로 전환해 검색 진행 상태와 생성 중인 답변을 즉시 표시한다.
+
+- EPUB extraction now loads only package and HTML content entries, and exposes configurable per-entry and combined extracted-size limits under `studio.textract.epub`.
+
+- Markdown 추출·재추출·resume·RAG 재색인과 RAG 작업 생성의 임베딩 선택 계약을
+  `embeddingDeploymentId`로 통일했다. 기존 `embeddingModelId`와 `embeddingProfileId`는 호환 입력으로
+  유지하되, 찾을 수 없는 명시 선택을 기본 모델로 조용히 대체하지 않는다. 선택한 deployment ID를
+  RAG 작업 이력에 저장하고 API 응답에 catalog/embedding-space 식별자를 함께 노출한다. 기존 벡터는
+  canonical profile이 실제 생성 모델을 증명하는 경우에만 provider/model/deployment metadata를 보정한다.
+
+- 채팅·임베딩 모델의 provider 중립 계약과 built-in model catalog 모듈을 추가했다. 현재 사용 중인
+  Gemma/KURE/Gemini와 검증된 managed·open-weight 모델 정보를 catalog snapshot으로 제공하며,
+  deployment 활성화와 catalog 등록을 분리한다. embedding vector 공간은 모델·차원·정규화·task type·
+  input transform을 canonical SHA-256 fingerprint로 식별할 수 있다. 신규 `ModelDeploymentRegistry`는
+  `studio.ai.model-deployments` 설정을 우선 사용하고, 설정이 없으면 기존 provider channel에서 deployment를
+  합성한다. 채팅, RAG, SkillGraph, LLM blockify와 벡터 시각화의 런타임 선택은
+  `ModelDeploymentRegistry`로 전환하고, `AiProviderRegistry`는 기존 생성자 및 옵션 API 호환용으로 유지한다.
+  RAG index/search 요청은 `embeddingDeploymentId`를 받아 canonical embedding-space metadata를 기록하며,
+  model/deployment 조회 API와 PostgreSQL dry-run/보수적 batch backfill 서비스를 제공한다. 신규 조회 API는
+  declared/effective modality 및 catalog/provider/adapter/effective 상태를 구분하고, 기존
+  `embedding-options`와 `info/providers`에는 deployment summary를 additive하게 투영한다. 명시적
+  deployment 설정에서는 provider를 연결 계정 단위로 재사용하고 catalog의 `apiModel`·dimension으로
+  deployment별 port를 생성한다. 기존 embedding profile ID는 중복 모델 설정 없이 deployment로 위임할
+  수 있으며, 신규 설정이 없을 때의 provider channel 기반 legacy 합성 경로는 rollback용으로 유지한다.
+  secret presence guard도 deployment 모드에서는 provider channel 모델 대신 기본 deployment와 연결
+  credential/base URL을 검증해 catalog 기반 설정이 시작 단계에서 잘못 거부되지 않도록 했다.
+
+- Markdown 청킹 옵션을 생략하거나 `documentProfile=AUTO`를 사용하면 normalized block의 구조를 분석해
+  `structure-based` 또는 `recursive`를 자동 선택한다. 구조 기반 처리의 기존 `recursive → fixed-size`
+  fallback은 유지하며 `fixed-size`, `blockify`, `knowledge-block`은 자동 선택 대상에서 제외한다.
+  실제 선택 전략과 결정 근거를 chunk metadata 및 ChunkSet fingerprint에 additive하게 기록한다.
+
 - 임베딩 선택 옵션에 Google 공식 모델명을 포함한 canonical `embeddingModelId`, 사용자 표시명,
   `embeddingSpaceId`, legacy alias를 추가한다. 기존 `embeddingProfileId` 요청은 호환 alias로 유지하고,
   동일 모델·차원의 기존 PostgreSQL 벡터 metadata는 재임베딩 없이 canonical 식별자로 이관한다.

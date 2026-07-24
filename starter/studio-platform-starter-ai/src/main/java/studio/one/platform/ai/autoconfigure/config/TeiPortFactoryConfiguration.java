@@ -39,10 +39,23 @@ public class TeiPortFactoryConfiguration {
                                     AiAdapterProperties.Provider provider,
                                     Environment env,
                                     ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+            return createForDeployment(providerId, provider, provider.getEmbedding().getModel(),
+                    provider.getEmbedding().getDimension(), env, embeddingModelProvider);
+        }
+
+        @Override
+        public EmbeddingPort createForDeployment(
+                                    String providerId,
+                                    AiAdapterProperties.Provider provider,
+                                    String apiModel,
+                                    Integer dimension,
+                                    Environment env,
+                                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
             String baseUrl = provider.getBaseUrl();
             baseUrl = requireText(baseUrl, "studio.ai.providers." + providerId
                     + ".base-url must be configured for TEI embedding provider");
-            String model = provider.getEmbedding().getModel();
+            String model = requireText(apiModel,
+                    "Catalog-resolved model must be configured for TEI embedding deployment");
             return new TeiEmbeddingAdapter(baseUrl, model, provider.getEmbedding().getRequestTimeout());
         }
 

@@ -11,7 +11,9 @@ public record MarkdownReextractRequest(
         String blockifyLlmProvider,
         String blockifyLlmModel,
         Boolean blockifyPiiMaskingEnabled,
-        @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
+        String embeddingDeploymentId,
+        String embeddingModelId,
+        String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
         Integer embeddingDimension,
@@ -55,9 +57,27 @@ public record MarkdownReextractRequest(
         this(runChunking, runRagIndex, runSkillExtraction,
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
                 blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
-                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                null, null, embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
                 ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null);
+    }
+
+    public MarkdownReextractRequest(
+            boolean runChunking, boolean runRagIndex, boolean runSkillExtraction,
+            String chunkingStrategy, Integer chunkMaxSize, Integer chunkOverlap, String chunkUnit,
+            String blockifyLlmProvider, String blockifyLlmModel, Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId, String embeddingProvider, String embeddingModel,
+            Integer embeddingDimension, boolean useLlmKeywordExtraction, String skillExtractionMode,
+            boolean generateSkillEmbeddings, String skillEmbeddingProvider, String skillEmbeddingModel,
+            Integer skillEmbeddingDimension, Boolean ocrRequired, String ocrLanguage, String ocrMode,
+            Boolean mathVisionCorrection, String documentProfile) {
+        this(runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                null, null, embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, documentProfile);
     }
 }

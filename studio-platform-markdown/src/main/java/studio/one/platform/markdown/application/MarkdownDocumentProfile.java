@@ -5,8 +5,8 @@ import java.util.List;
 import java.util.Locale;
 
 public enum MarkdownDocumentProfile {
-    AUTO("Auto", "Low-cost baseline; runtime analyzers may adapt the extraction route.", "LOW",
-            "structure-based", 1200, 150, "CHARACTER", false, null, "AUTO", false,
+    AUTO("Auto", "Automatic extraction routing and structure-aware chunking selection.", "LOW",
+            null, 1200, 150, "CHARACTER", false, null, "AUTO", false,
             List.of("pdf", "docx", "html", "pptx", "epub", "txt")),
     GENERAL_DOCUMENT("General document", "General text document with structure-aware chunking.", "LOW",
             "structure-based", 1200, 150, "CHARACTER", false, null, "AUTO", false,

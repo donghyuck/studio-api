@@ -70,6 +70,7 @@ studio:
 | `POST` | `{basePath}/chat` | 채팅 완성 요청 | `services:ai_chat write` |
 | `POST` | `{basePath}/chat/stream` | SSE 채팅 스트림 | `services:ai_chat write` |
 | `POST` | `{basePath}/chat/rag` | RAG 컨텍스트 주입 후 채팅 | `services:ai_chat write`, `services:ai_rag read`, object scope read |
+| `POST` | `{basePath}/chat/rag/stream` | RAG 검색 상태와 답변을 SSE로 스트리밍 | `services:ai_chat write`, `services:ai_rag read`, object scope read |
 | `GET` | `{basePath}/chat/conversations` | conversation 목록 조회 | `services:ai_chat read` |
 | `GET` | `{basePath}/chat/conversations/{conversationId}` | conversation 상세 및 메시지 조회 | `services:ai_chat read` |
 | `DELETE` | `{basePath}/chat/conversations/{conversationId}` | conversation 삭제 | `services:ai_chat write` |
@@ -496,7 +497,7 @@ YAML에서 모델명에 `.`이 포함되면 Spring map key가 분해되지 않�
 이 memory는 단일 앱 인스턴스의 in-memory cache다. 애플리케이션 재시작 시 사라지며, 다중 인스턴스 간 공유되지 않는다.
 운영에서 여러 인스턴스 간 대화 memory가 필요하면 `ChatMemoryStore`와 `ConversationRepositoryPort`를 외부 저장소 기반 구현으로 교체한다.
 
-memory가 활성화된 `/chat`, `/chat/rag`, `/chat/stream` 요청은 conversation repository에도 기록된다.
+memory가 활성화된 `/chat`, `/chat/rag`, `/chat/stream`, `/chat/rag/stream` 요청은 conversation repository에도 기록된다.
 기본 구현은 단일 인스턴스용 `InMemoryConversationRepository`이며, conversation 목록/상세/삭제/regenerate/fork/truncate/compact/cancel API의 개발 및 smoke 용도다.
 장기 보관, 감사 로그, 다중 인스턴스 공유가 필요하면 운영 저장소 구현을 별도 Bean으로 등록한다.
 기존 `/chat` 응답 shape는 유지되며, conversation 관련 필드는 metadata에 additive하게 추가된다.
@@ -594,6 +595,13 @@ Content-Type: application/json
 }
 ```
 
+같은 요청을 `/api/ai/chat/rag/stream`으로 보내고 `Accept: text/event-stream`을 지정하면
+`rag_status`, `delta`, `usage`, `complete`, `error` 이벤트를 받는다. `rag_status`의 `stage`는
+`retrieval_started`, `retrieval_complete` 순서이며 검색 완료 이벤트에는 `retrievalMs`와 `resultCount`가
+포함된다. 최종 `complete.metadata`에는 일반 RAG 응답과 동일한 `ragReferences`, `ragTiming`, 검색 진단
+정보가 포함된다. 검색 결과가 없으면 provider를 호출하지 않고 안내 문구를 `delta`로 보낸 뒤 `complete`로
+종료한다.
+
 `topK`는 `1` 이상 `100` 이하만 허용한다. 기존 `ragTopK`도 호환용으로 계속 받지만, 둘 다 있으면 `topK`가 우선한다.
 `minScore`를 지정하면 최종 검색 결과에서 해당 점수 이상인 항목만 context 후보로 사용한다. 요청값이 없으면
 `studio.ai.rag.retrieval.top-k`, `studio.ai.rag.retrieval.min-score` 설정값을 사용한다.
@@ -608,6 +616,9 @@ fallback 전략 선택은 서버 설정 `min-relevance-score` 기준으로 결�
 
 클라이언트는 질문 유형별 `systemPrompt`를 조립하지 않는다. 서버가 질문을 `CONTENT_QA`,
 `DOCUMENT_SUMMARY`, `KEY_POINTS`, `INTERPRETIVE_ANALYSIS`로 분류하고 검색 방식과 답변 정책을 결정한다.
+`핵심 주제`, `주요 주제`, `저자의 논지`와 같은 표현은 `KEY_POINTS`로 분류해 semantic 상위 청크만이
+아니라 문서 전체 overview 경로를 사용한다. 검색 근거에서는 `판권`, `저작권`, `ISBN`, `colophon` 등
+본문을 뒷받침하지 않는 상용구 섹션을 제외한다.
 `systemPrompt` 필드는 기존 호환성과 일반적인 출력 형식 지시를 위해 유지하지만, 해석형 질문의 근거 기반
 추론 정책은 서버가 마지막에 적용한다. MBTI·성격·인물 동기·상징 해석 질문은 최소 8개 후보와 최대
 `0.55` cutoff를 사용하며, 응답 metadata의 `ragQueryIntent`, `answerType`, `ragRetrievalTopK`,
@@ -618,6 +629,9 @@ fallback 전략 선택은 서버 설정 `min-relevance-score` 기준으로 결�
 재사용된다. 응답 metadata의 `overviewReduction=MAP_REDUCE`, `overviewReductionSegmentCount`,
 `overviewReductionCacheHit`로 적용 여부를 확인할 수 있다. 구간 요약이 실패하면 기존 전체 문서 context로
 자동 복귀한다.
+구간 요약 과정의 임시 번호는 최종 citation으로 사용하지 않는다. 최종 답변에는 문서 전체에서 순서대로
+선정한 최대 8개 대표 원문 청크를 별도 근거 목록으로 제공하며, 응답의 `ragReferences`도 같은 순서와
+발췌문을 반환한다.
 대용량 문서의 구간 요약은 외부 provider 부하를 제한하기 위해 최대 3개까지만 병렬 처리한다. 모든 RAG chat
 응답은 `metadata.ragTiming`에 `retrievalMs`, `overviewReductionMs`, `generationMs`, `totalMs`를 제공한다.
 전체 문서 요약 답변은 metadata에 존재하는 문서 제목과 원본 파일명을 첫 문장에 표시한다. 둘 중 없는 값은
@@ -638,7 +652,9 @@ LLM에 전달되는 context에는 요청 단위 인덱스와 packed preview만 �
 RAG Chat 응답은 실제 답변 생성 프롬프트에 포함된 근거를 `metadata.ragReferences` 배열로 반환한다.
 순서는 system context의 `[1]`, `[2]` 순서와 같으며, context expansion 또는 fallback이 적용된 경우에도
 최종 프롬프트 순서를 따른다. 일반 응답의 reference는 citation 표시용 allowlist field만 포함하며,
-packed content는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때만 포함한다.
+클라이언트가 근거를 직접 확인할 수 있도록 공백을 정규화하고 최대 700자로 제한한 `excerpt`를 포함한다.
+packed content 전체는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모두 만족될 때만 포함한다.
+서버는 답변의 주요 사실과 요약 항목에 `[1]`, `[1, 2]` 형식으로 실제 reference 번호를 인용하도록 지시한다.
 클라이언트는 별도 management search를 다시 호출하지 않고 이 값으로 출처 UI를 구성할 수 있다.
 
 ```json
@@ -652,6 +668,7 @@ packed content는 서버 `allow-client-debug=true`와 요청 `debug=true`가 모
         "chunkId": "chunk-1",
         "chunkOrder": 0,
         "score": 0.91,
+        "excerpt": "검색된 원문 중 답변의 근거가 된 부분...",
         "page": 3,
         "pageNumber": 3,
         "sourceRef": "page[3]"

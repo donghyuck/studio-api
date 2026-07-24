@@ -154,7 +154,7 @@ public class ChunkingAutoConfiguration {
     }
 
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(name = "studio.one.platform.ai.core.registry.AiProviderRegistry")
+    @ConditionalOnClass(name = "studio.one.platform.ai.model.ModelDeploymentRegistry")
     static class LlmBlockifyGeneratorConfiguration {
 
         @Bean
@@ -162,7 +162,7 @@ public class ChunkingAutoConfiguration {
         @ConditionalOnProperty(prefix = "studio.chunking.blockify", name = "generator-type", havingValue = "llm")
         BlockifyGenerator llmBlockifyGenerator(
                 ChunkingProperties properties,
-                studio.one.platform.ai.core.registry.AiProviderRegistry providerRegistry) {
+                studio.one.platform.ai.model.ModelDeploymentRegistry providerRegistry) {
             BlockifyGenerator generator = new LlmBlockifyGenerator(providerRegistry);
             if (!properties.getBlockify().getPiiMasking().isEnabled()) {
                 return generator;

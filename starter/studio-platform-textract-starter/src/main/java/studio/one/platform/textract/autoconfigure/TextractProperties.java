@@ -36,6 +36,8 @@ public class TextractProperties {
 
     private Tesseract tesseract = new Tesseract();
 
+    private Epub epub = new Epub();
+
     private Pdf pdf = new Pdf();
 
     public int getMaxExtractBytes() {
@@ -79,6 +81,24 @@ public class TextractProperties {
     public static class Tesseract {
         private String datapath = "/usr/share/tesseract-ocr/4.00/tessdata";
         private String language = "kor+eng";
+    }
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class Epub {
+        @NotBlank
+        private String maxEntrySize = "16MB";
+        @NotBlank
+        private String maxExtractedSize = "50MB";
+
+        public int getMaxEntryBytes() {
+            return parseToBytes(maxEntrySize, PREFIX + ".epub.max-entry-size");
+        }
+
+        public int getMaxExtractedBytes() {
+            return parseToBytes(maxExtractedSize, PREFIX + ".epub.max-extracted-size");
+        }
     }
 
     public enum PdfEngine {

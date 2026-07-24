@@ -9,8 +9,44 @@ import org.springframework.mock.env.MockEnvironment;
 
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeployment;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
+import studio.one.platform.ai.model.ModelWorkload;
+import studio.one.platform.ai.model.catalog.BuiltInModelCatalog;
 
 class DefaultAiEmbeddingOptionCatalogTest {
+
+    @Test
+    void projectsConfiguredEmbeddingDeploymentsWithAdditiveIdentityFields() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        properties.getProviders().put("google-embedding", provider);
+        EmbeddingPort port = org.mockito.Mockito.mock(EmbeddingPort.class);
+        AiProviderRegistry legacyRegistry = new AiProviderRegistry(
+                "google-embedding", Map.of(), Map.of("google-embedding", port));
+        ModelDeploymentRegistry deploymentRegistry = org.mockito.Mockito.mock(ModelDeploymentRegistry.class);
+        var definition = BuiltInModelCatalog.load().find("google/gemini-embedding-001").orElseThrow();
+        var deployment = new ModelDeployment(
+                "humanities-text-v1", "google-embedding", definition, ModelWorkload.EMBEDDING, 768, true);
+        org.mockito.Mockito.when(deploymentRegistry.deployments(ModelWorkload.EMBEDDING))
+                .thenReturn(java.util.List.of(deployment));
+        org.mockito.Mockito.when(deploymentRegistry.defaultDeployment(ModelWorkload.EMBEDDING))
+                .thenReturn(java.util.Optional.of(deployment));
+
+        DefaultAiEmbeddingOptionCatalog catalog = new DefaultAiEmbeddingOptionCatalog(
+                legacyRegistry, deploymentRegistry, properties, new RagEmbeddingProperties(), new MockEnvironment());
+
+        assertThat(catalog.options()).singleElement().satisfies(option -> {
+            assertThat(option.source()).isEqualTo("deployment");
+            assertThat(option.deploymentId()).isEqualTo("humanities-text-v1");
+            assertThat(option.catalogId()).isEqualTo("google/gemini-embedding-001");
+            assertThat(option.embeddingSpaceId()).startsWith("es:v1:");
+            assertThat(option.defaultProvider()).isTrue();
+            assertThat(option.effectiveStatus()).isEqualTo("EFFECTIVE");
+        });
+    }
 
     @Test
     void listsRegisteredEmbeddingProvidersWithResolvedModelMetadata() {

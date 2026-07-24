@@ -13,6 +13,10 @@ import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
 import studio.one.platform.ai.autoconfigure.config.AiConfigurationMigration;
 import studio.one.platform.ai.core.vector.VectorStorePort;
+import studio.one.platform.ai.model.ModelDeployment;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
+import studio.one.platform.ai.model.ModelWorkload;
+import studio.one.platform.ai.model.embedding.EmbeddingSpaceId;
 import studio.one.platform.constant.PropertyKeys;
 import studio.one.platform.web.dto.ApiResponse;
 
@@ -32,6 +36,8 @@ public class AiInfoController {
     private final AiWebChatProperties chatProperties;
     private final Environment environment;
     @Nullable
+    private final ModelDeploymentRegistry deploymentRegistry;
+    @Nullable
     private final VectorStorePort vectorStorePort;
 
     public AiInfoController(
@@ -39,10 +45,20 @@ public class AiInfoController {
             AiWebChatProperties chatProperties,
             Environment environment,
             @Nullable VectorStorePort vectorStorePort) {
+        this(properties, chatProperties, environment, vectorStorePort, null);
+    }
+
+    public AiInfoController(
+            AiAdapterProperties properties,
+            AiWebChatProperties chatProperties,
+            Environment environment,
+            @Nullable VectorStorePort vectorStorePort,
+            @Nullable ModelDeploymentRegistry deploymentRegistry) {
         this.properties = properties;
         this.chatProperties = chatProperties;
         this.environment = environment;
         this.vectorStorePort = vectorStorePort;
+        this.deploymentRegistry = deploymentRegistry;
     }
 
     @GetMapping("/providers")
@@ -70,6 +86,9 @@ public class AiInfoController {
                         defaultProvider(),
                         defaultChatProvider(),
                         defaultEmbeddingProvider(),
+                        defaultDeployment(ModelWorkload.CHAT),
+                        defaultDeployment(ModelWorkload.EMBEDDING),
+                        deployments(),
                         vectorInfo,
                         chatInfo)));
     }
@@ -89,7 +108,8 @@ public class AiInfoController {
         ProviderChannel embedding = new ProviderChannel(
                 provider.getEmbedding().isEnabled(),
                 provider.getEmbedding().isEnabled() ? embeddingModel(provider) : null);
-        return new ProviderInfo(name, provider.getType(), chat, embedding, baseUrl);
+        return new ProviderInfo(name, provider.getType(), chat, embedding, baseUrl,
+                deployments().stream().filter(value -> value.providerRef().equals(name)).toList());
     }
 
     private String chatModel(AiAdapterProperties.Provider provider) {
@@ -149,14 +169,44 @@ public class AiInfoController {
         return AiConfigurationMigration.resolveRouting(properties, environment, null).defaultProvider();
     }
 
+    private String defaultDeployment(ModelWorkload workload) {
+        return deploymentRegistry == null ? null
+                : deploymentRegistry.defaultDeployment(workload)
+                        .map(ModelDeployment::deploymentId)
+                        .orElse(null);
+    }
+
+    private List<DeploymentSummary> deployments() {
+        if (deploymentRegistry == null) {
+            return List.of();
+        }
+        return deploymentRegistry.deployments(null).stream()
+                .map(deployment -> new DeploymentSummary(
+                        deployment.deploymentId(), deployment.providerRef(),
+                        deployment.definition().catalogId(), deployment.definition().apiModel(),
+                        deployment.workload(), deployment.dimension(),
+                        deployment.embeddingContract() == null
+                                ? null : EmbeddingSpaceId.from(deployment.embeddingContract()),
+                        "UNVERIFIED", "EFFECTIVE"))
+                .toList();
+    }
+
     public record AiInfoResponse(List<ProviderInfo> providers,
                                  String defaultProvider,
                                  String defaultChatProvider,
                                  String defaultEmbeddingProvider,
+                                 String defaultChatDeployment,
+                                 String defaultEmbeddingDeployment,
+                                 List<DeploymentSummary> deployments,
                                  VectorInfo vector,
                                  ChatInfo chat) {
+        public AiInfoResponse {
+            deployments = deployments == null ? List.of() : List.copyOf(deployments);
+        }
+
         public AiInfoResponse(List<ProviderInfo> providers, String defaultProvider, VectorInfo vector, ChatInfo chat) {
-            this(providers, defaultProvider, defaultProvider, defaultProvider, vector, chat);
+            this(providers, defaultProvider, defaultProvider, defaultProvider,
+                    null, null, List.of(), vector, chat);
         }
     }
 
@@ -164,7 +214,29 @@ public class AiInfoController {
                                AiAdapterProperties.ProviderType type,
                                ProviderChannel chat,
                                ProviderChannel embedding,
-                               String baseUrl) {}
+                               String baseUrl,
+                               List<DeploymentSummary> deployments) {
+        public ProviderInfo {
+            deployments = deployments == null ? List.of() : List.copyOf(deployments);
+        }
+
+        public ProviderInfo(String name, AiAdapterProperties.ProviderType type,
+                ProviderChannel chat, ProviderChannel embedding, String baseUrl) {
+            this(name, type, chat, embedding, baseUrl, List.of());
+        }
+    }
+
+    public record DeploymentSummary(
+            String deploymentId,
+            String providerRef,
+            String catalogId,
+            String apiModel,
+            ModelWorkload workload,
+            Integer dimension,
+            String embeddingSpaceId,
+            String providerStatus,
+            String effectiveStatus) {
+    }
 
     public record ProviderChannel(boolean enabled, String model) {}
 

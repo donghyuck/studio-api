@@ -12,7 +12,22 @@ public record AttachmentRagIndexCommand(
         boolean useLlmKeywordExtraction,
         String embeddingProfileId,
         String embeddingProvider,
-        String embeddingModel) {
+        String embeddingModel,
+        String embeddingDeploymentId) {
+
+    public AttachmentRagIndexCommand(
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction,
+                embeddingProfileId, embeddingProvider, embeddingModel, null);
+    }
 
     public AttachmentRagIndexCommand(
             String documentId,
@@ -21,7 +36,8 @@ public record AttachmentRagIndexCommand(
             Map<String, Object> metadata,
             List<String> keywords,
             boolean useLlmKeywordExtraction) {
-        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction, null, null, null);
+        this(documentId, objectType, objectId, metadata, keywords, useLlmKeywordExtraction,
+                null, null, null, null);
     }
 
     public AttachmentRagIndexCommand {
@@ -33,6 +49,12 @@ public record AttachmentRagIndexCommand(
         embeddingProfileId = normalize(embeddingProfileId);
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
+        embeddingDeploymentId = normalize(embeddingDeploymentId);
+        if (embeddingDeploymentId != null
+                && (embeddingProfileId != null || embeddingProvider != null || embeddingModel != null)) {
+            throw new IllegalArgumentException(
+                    "embeddingDeploymentId must not be supplied with legacy embedding selection fields");
+        }
     }
 
     private static String normalize(String value) {
