@@ -609,6 +609,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 && Objects.equals(left.provider(), right.provider())
                 && Objects.equals(left.model(), right.model())
                 && Objects.equals(left.dimension(), right.dimension())
+                && Objects.equals(left.modelId(), right.modelId())
+                && Objects.equals(left.embeddingSpaceId(), right.embeddingSpaceId())
+                && Objects.equals(left.deploymentId(), right.deploymentId())
+                && Objects.equals(left.catalogId(), right.catalogId())
+                && Objects.equals(left.contractVersion(), right.contractVersion())
                 && left.inputType() == right.inputType();
     }
 
@@ -973,30 +978,37 @@ public class DefaultRagPipelineService implements RagPipelineService {
             return filter;
         }
         Map<String, Object> equals = new HashMap<>(filter.equalsCriteria());
-        if (resolvedEmbedding.model() != null) {
-            equals.put(VectorRecord.KEY_EMBEDDING_MODEL, resolvedEmbedding.model());
-        }
         if (resolvedEmbedding.dimension() != null) {
             equals.put(VectorRecord.KEY_EMBEDDING_DIMENSION, resolvedEmbedding.dimension());
         }
-        if (resolvedEmbedding.provider() != null) {
-            equals.put(VectorRecord.KEY_EMBEDDING_PROVIDER, resolvedEmbedding.provider());
-        }
-        if (resolvedEmbedding.profileId() != null) {
-            equals.put(VectorRecord.KEY_EMBEDDING_PROFILE_ID, resolvedEmbedding.profileId());
+        if (resolvedEmbedding.embeddingSpaceId() != null) {
+            equals.put(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, resolvedEmbedding.embeddingSpaceId());
+        } else {
+            if (resolvedEmbedding.model() != null) {
+                equals.put(VectorRecord.KEY_EMBEDDING_MODEL, resolvedEmbedding.model());
+            }
+            if (resolvedEmbedding.provider() != null) {
+                equals.put(VectorRecord.KEY_EMBEDDING_PROVIDER, resolvedEmbedding.provider());
+            }
+            if (resolvedEmbedding.profileId() != null) {
+                equals.put(VectorRecord.KEY_EMBEDDING_PROFILE_ID, resolvedEmbedding.profileId());
+            }
         }
         return MetadataFilter.of(equals, filter.inCriteria(), filter.rangeCriteria());
     }
 
     private boolean hasResolvedEmbeddingMetadata(ResolvedRagEmbedding resolvedEmbedding) {
-        return resolvedEmbedding.profileId() != null
+        return resolvedEmbedding.embeddingSpaceId() != null
+                || resolvedEmbedding.deploymentId() != null
+                || resolvedEmbedding.profileId() != null
                 || resolvedEmbedding.provider() != null
                 || resolvedEmbedding.model() != null
                 || resolvedEmbedding.dimension() != null;
     }
 
     private boolean hasEmbeddingSelection(RagSearchRequest request) {
-        return request.embeddingProfileId() != null
+        return request.embeddingDeploymentId() != null
+                || request.embeddingProfileId() != null
                 || request.embeddingProvider() != null
                 || request.embeddingModel() != null;
     }
@@ -1004,6 +1016,11 @@ public class DefaultRagPipelineService implements RagPipelineService {
     private String embeddingCacheKey(String text, ResolvedRagEmbedding resolvedEmbedding) {
         return String.join("|",
                 text == null ? "" : text,
+                Objects.toString(resolvedEmbedding.embeddingSpaceId(), ""),
+                Objects.toString(resolvedEmbedding.deploymentId(), ""),
+                Objects.toString(resolvedEmbedding.catalogId(), ""),
+                Objects.toString(resolvedEmbedding.contractVersion(), ""),
+                Objects.toString(resolvedEmbedding.dimension(), ""),
                 resolvedEmbedding.profileId() == null ? "" : resolvedEmbedding.profileId(),
                 resolvedEmbedding.provider() == null ? "" : resolvedEmbedding.provider(),
                 resolvedEmbedding.model() == null ? "" : resolvedEmbedding.model(),
@@ -1190,7 +1207,8 @@ public class DefaultRagPipelineService implements RagPipelineService {
                 options.minScore(),
                 request.requestedTopK(),
                 request.requestedMinScore(),
-                request.queryExpansionEnabled());
+                request.queryExpansionEnabled(),
+                request.embeddingDeploymentId());
     }
 
     private String enrichQuery(String query) {

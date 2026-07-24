@@ -600,6 +600,11 @@ public class DefaultAttachmentStructuredRagIndexer implements AttachmentStructur
                 && Objects.equals(left.provider(), right.provider())
                 && Objects.equals(left.model(), right.model())
                 && Objects.equals(left.dimension(), right.dimension())
+                && Objects.equals(left.modelId(), right.modelId())
+                && Objects.equals(left.embeddingSpaceId(), right.embeddingSpaceId())
+                && Objects.equals(left.deploymentId(), right.deploymentId())
+                && Objects.equals(left.catalogId(), right.catalogId())
+                && Objects.equals(left.contractVersion(), right.contractVersion())
                 && left.inputType() == right.inputType();
     }
 

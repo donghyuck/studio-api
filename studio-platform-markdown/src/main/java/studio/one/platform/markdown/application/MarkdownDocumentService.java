@@ -837,7 +837,11 @@ public class MarkdownDocumentService {
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, ocrLanguage,
-                ocrMode, mathVisionCorrection, null, null, null, embeddingDeploymentId);
+                ocrMode, mathVisionCorrection,
+                previous.requestedDocumentProfile(),
+                previous.resolvedDocumentProfile(),
+                previous.documentProfileVersion(),
+                embeddingDeploymentId);
     }
 
     public MarkdownResumeResult reindexRag(
@@ -913,7 +917,13 @@ public class MarkdownDocumentService {
                 skillEmbeddingProvider,
                 skillEmbeddingModel,
                 skillEmbeddingDimension,
-                null, null, null, null, null, null, null,
+                previous.ocrRequired(),
+                previous.ocrLanguage(),
+                previous.ocrMode(),
+                previous.mathVisionCorrection(),
+                previous.requestedDocumentProfile(),
+                previous.resolvedDocumentProfile(),
+                previous.documentProfileVersion(),
                 hasText(embeddingDeploymentId) ? embeddingDeploymentId
                         : explicitSelection ? null : previous.embeddingDeploymentId());
         String optionsJson = writeOptions(options);

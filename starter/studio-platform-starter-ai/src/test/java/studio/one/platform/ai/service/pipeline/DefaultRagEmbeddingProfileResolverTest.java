@@ -53,6 +53,30 @@ class DefaultRagEmbeddingProfileResolverTest {
     }
 
     @Test
+    void legacyDefaultSelectionUsesDefaultEmbeddingDeploymentWhenNoProfileIsConfigured() {
+        EmbeddingPort defaultPort = mock(EmbeddingPort.class);
+        EmbeddingPort deploymentPort = mock(EmbeddingPort.class);
+        ModelDeploymentRegistry registry = mock(ModelDeploymentRegistry.class);
+        var definition = BuiltInModelCatalog.load().find("google/gemini-embedding-001").orElseThrow();
+        var deployment = new ModelDeployment(
+                "humanities-text-v1", "google-embedding", definition, ModelWorkload.EMBEDDING, 768, true);
+        when(registry.defaultDeployment(ModelWorkload.EMBEDDING))
+                .thenReturn(java.util.Optional.of(deployment));
+        when(registry.find("humanities-text-v1")).thenReturn(java.util.Optional.of(deployment));
+        when(registry.embeddingPort("humanities-text-v1")).thenReturn(deploymentPort);
+        DefaultRagEmbeddingProfileResolver resolver = new DefaultRagEmbeddingProfileResolver(
+                defaultPort, registry, null, Map.of());
+
+        ResolvedRagEmbedding resolved = resolver.resolve(new RagEmbeddingSelection(
+                null, null, null, null, EmbeddingInputType.TEXT, null));
+
+        assertThat(resolved.embeddingPort()).isSameAs(deploymentPort);
+        assertThat(resolved.deploymentId()).isEqualTo("humanities-text-v1");
+        assertThat(resolved.embeddingSpaceId()).startsWith("es:v1:");
+        assertThat(resolved.model()).isEqualTo("gemini-embedding-001");
+    }
+
+    @Test
     void legacyCatalogIdResolvesToUniqueDeployment() {
         EmbeddingPort defaultPort = mock(EmbeddingPort.class);
         EmbeddingPort deploymentPort = mock(EmbeddingPort.class);

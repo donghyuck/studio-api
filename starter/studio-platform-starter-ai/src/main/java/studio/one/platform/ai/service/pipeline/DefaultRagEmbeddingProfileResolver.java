@@ -40,7 +40,20 @@ public class DefaultRagEmbeddingProfileResolver implements RagEmbeddingProfileRe
         }
         String profileId = requested.profileId();
         if (profileId == null && requested.isLegacyDefault()) {
-            profileId = defaultProfileId;
+            if (defaultProfileId != null) {
+                profileId = defaultProfileId;
+            } else {
+                var defaultDeployment = providerRegistry.defaultDeployment(ModelWorkload.EMBEDDING);
+                if (defaultDeployment.isPresent()) {
+                    return resolveDeployment(new RagEmbeddingSelection(
+                            null,
+                            null,
+                            null,
+                            requested.dimension(),
+                            requested.inputType(),
+                            defaultDeployment.get().deploymentId()));
+                }
+            }
         }
         if (profileId != null && (requested.provider() != null || requested.model() != null)) {
             throw new IllegalArgumentException(
