@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({ AiAdapterProperties.class, RagEmbeddingProperties.class })
@@ -16,10 +17,13 @@ public class AiEmbeddingOptionCatalogConfiguration {
     @Bean
     @ConditionalOnBean(AiProviderRegistry.class)
     @ConditionalOnMissingBean(AiEmbeddingOptionCatalog.class)
-    AiEmbeddingOptionCatalog aiEmbeddingOptionCatalog(AiProviderRegistry registry,
+    AiEmbeddingOptionCatalog aiEmbeddingOptionCatalog(
+            AiProviderRegistry registry,
+            ModelDeploymentRegistry deploymentRegistry,
             AiAdapterProperties aiProperties,
             RagEmbeddingProperties ragProperties,
             Environment environment) {
-        return new DefaultAiEmbeddingOptionCatalog(registry, aiProperties, ragProperties, environment);
+        return new DefaultAiEmbeddingOptionCatalog(
+                registry, deploymentRegistry, aiProperties, ragProperties, environment);
     }
 }

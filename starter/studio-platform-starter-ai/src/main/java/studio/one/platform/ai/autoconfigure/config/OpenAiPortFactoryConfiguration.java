@@ -43,15 +43,34 @@ public class OpenAiPortFactoryConfiguration {
                                AiAdapterProperties.Provider provider,
                                Environment env,
                                ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+            String model = firstNonBlank(
+                    provider.getChat().getModel(),
+                    env.getProperty("spring.ai.openai.chat.options.model"));
+            return createForDeployment(providerId, provider, model, env, chatModelProvider);
+        }
+
+        @Override
+        public ChatPort createForDeployment(
+                               String providerId,
+                               AiAdapterProperties.Provider provider,
+                               String apiModel,
+                               Environment env,
+                               ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
             if (hasText(provider.getBaseUrl())) {
                 return new OpenAiCompatibleChatAdapter(
                         provider.getBaseUrl(),
                         firstNonBlank(provider.getApiKey(), env.getProperty("spring.ai.openai.api-key")),
                         firstNonBlank(providerId, provider.getType().name()),
-                        firstNonBlank(provider.getChat().getModel(), env.getProperty("spring.ai.openai.chat.options.model")),
+                        apiModel,
                         provider.getChat().getRequestTimeout());
             }
-            return create(provider, env, chatModelProvider);
+            org.springframework.ai.chat.model.ChatModel chatModel = chatModelProvider.getIfAvailable();
+            if (chatModel == null) {
+                throw new IllegalStateException(
+                        "Spring AI ChatModel bean is required for OPENAI provider. " +
+                        "Ensure spring-ai-starter-model-openai is on the classpath and spring.ai.openai.api-key is configured.");
+            }
+            return new SpringAiChatAdapter(chatModel, provider.getType().name(), apiModel);
         }
 
         @Override
@@ -104,6 +123,31 @@ public class OpenAiPortFactoryConfiguration {
             return new SpringAiEmbeddingAdapter(
                     embeddingModel,
                     env.getProperty("spring.ai.openai.embedding.options.model"));
+        }
+
+        @Override
+        public EmbeddingPort createForDeployment(
+                                    String providerId,
+                                    AiAdapterProperties.Provider provider,
+                                    String apiModel,
+                                    Integer dimension,
+                                    Environment env,
+                                    ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> embeddingModelProvider) {
+            String configuredModel = provider.getEmbedding().getModel();
+            if (configuredModel == null || configuredModel.isBlank()) {
+                configuredModel = env.getProperty("spring.ai.openai.embedding.options.model");
+            }
+            if (configuredModel != null && !configuredModel.equals(apiModel)) {
+                throw new IllegalStateException("OPENAI embedding deployment model " + apiModel
+                        + " does not match the configured Spring AI model " + configuredModel);
+            }
+            org.springframework.ai.embedding.EmbeddingModel embeddingModel = embeddingModelProvider.getIfAvailable();
+            if (embeddingModel == null) {
+                throw new IllegalStateException(
+                        "Spring AI EmbeddingModel bean is required for OPENAI provider. " +
+                        "Ensure spring-ai-starter-model-openai is on the classpath and spring.ai.openai.api-key is configured.");
+            }
+            return new SpringAiEmbeddingAdapter(embeddingModel, apiModel);
         }
     }
 }

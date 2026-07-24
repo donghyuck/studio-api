@@ -87,6 +87,68 @@ provider SDK의 실제 API key, model, dimensions, temperature, base-url 같은 
 `studio.ai.providers.<id>.embedding.model`은 legacy/fallback 성격이며 Spring AI provider에서는
 가능하면 `spring.ai.*` 설정을 사용한다.
 
+### Model deployment 병행 설정
+
+모델 선택을 provider 접속 설정과 분리하려면 catalog의 `model-ref`를 사용하는 deployment를 추가한다.
+현재 호환 단계에서는 기존 provider routing과 함께 설정한다. 신규 설정이 없으면 기존 provider channel의
+model로 deployment를 합성하며, 신규 설정이 있으면 `studio.ai.model-deployments`가 우선한다.
+
+```yaml
+studio:
+  ai:
+    routing:
+      default-chat-provider: google-ai
+      default-embedding-provider: google-embedding
+      default-chat-deployment: chat-default
+      default-embedding-deployment: humanities-text-v1
+    model-deployments:
+      chat-default:
+        provider-ref: google-ai
+        model-ref: google/gemini-2.5-flash
+        workload: CHAT
+      humanities-text-v1:
+        provider-ref: google-embedding
+        model-ref: google/gemini-embedding-001
+        workload: EMBEDDING
+        dimension: 768
+```
+
+`model-ref`가 없거나 `REFERENCE_ONLY` 모델이거나 provider channel의 고정 model/dimension과 다르면
+애플리케이션 시작을 실패시킨다. Catalog 등록만으로 provider API가 활성화되지는 않는다.
+
+RAG index/search 요청에는 기존 `embeddingProfileId`/provider/model 조합 대신
+`embeddingDeploymentId`를 사용할 수 있다. 두 선택 방식을 동시에 보내면 요청을 거부한다. deployment 선택 시
+vector metadata에 `embeddingDeploymentId`, `embeddingCatalogId`, `embeddingContractVersion`,
+`embeddingSpaceIdV2`가 기록되어 검색 공간의 호환성을 명시적으로 판별한다.
+
+운영 조회 API는 기본 경로 `${studio.ai.endpoints.base-path:/api/ai}` 아래에 제공한다.
+
+- `GET /models?workload=EMBEDDING&effectiveOnly=true`: catalog 및 현재 활성화 여부
+- `GET /deployments?workload=CHAT`: 실제 활성 deployment 목록
+- `GET /deployments/{id}`: deployment의 model, modality, capability, dimension, embedding space
+
+응답은 catalog가 선언한 `declaredModalities`와 현재 text adapter로 실제 처리 가능한
+`effectiveModalities`를 구분한다. Discovery를 수행하지 않은 provider는 설정 여부와 무관하게
+`providerStatus=UNVERIFIED`로 표시하며 `catalogStatus`, `adapterStatus`, `effectiveStatus`,
+`statusReason`을 함께 반환한다. API 응답에는 API key나 provider base URL을 포함하지 않는다.
+
+첫 호환 릴리스 동안 기존 API도 유지한다.
+
+- `/api/ai/embedding-options`는 기존 profile/provider 필드를 보존하면서 deployment 항목에
+  `deploymentId`, `catalogId`, `effectiveStatus`, canonical `embeddingSpaceId`를 additive하게 제공한다.
+- `/api/ai/info/providers`는 기존 provider/model/baseUrl 필드를 유지하고 default deployment 및
+  provider별 deployment summary를 additive하게 제공한다. `baseUrl`은 이 보호된 legacy endpoint에서만
+  호환 필드로 남으며 신규 model/deployment API에서는 반환하지 않는다.
+
+### 기존 vector metadata 이관
+
+`V619__expand_model_deployment_identity.sql`과 SkillGraph의
+`V1521__expand_model_deployment_identity.sql`은 신규 식별 컬럼과 인덱스를 additive하게 생성한다.
+기존 vector metadata의 자동 변경은 애플리케이션 시작 시 수행하지 않는다. PostgreSQL 운영에서는
+`PostgresModelDataMigrationService.dryRun(LegacyModelDataMappings.fromRegistry(registry))` 결과를 먼저
+검토하고, active RAG index job이 없고 ambiguous mapping이 0일 때만 `backfillKnown(plan, batchSize)`를
+호출한다. unknown row는 변경하지 않으며 재색인 또는 명시적 mapping 결정 대상으로 남긴다.
+
 RAG 색인/검색에서 embedding provider/model을 고정해 운영해야 하면 `studio.ai.rag.embedding-profiles`
 를 사용한다. profile은 Studio orchestration 설정이며 실제 provider SDK의 기본 API key/model/dimensions는
 계속 `spring.ai.*`가 소유한다.

@@ -83,6 +83,20 @@ class RagControllerTest {
     }
 
     @Test
+    void searchPropagatesEmbeddingDeploymentId() {
+        RagPipelineService ragPipelineService = mock(RagPipelineService.class);
+        RagController controller = new RagController(ragPipelineService);
+        ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
+        when(ragPipelineService.search(any(RagSearchRequest.class))).thenReturn(List.of());
+
+        controller.search(new SearchRequest(
+                "humanities", 3, null, null, null, null, null, null, "humanities-text-v1"));
+
+        verify(ragPipelineService).search(captor.capture());
+        assertThat(captor.getValue().embeddingDeploymentId()).isEqualTo("humanities-text-v1");
+    }
+
+    @Test
     void searchPassesMinScoreToCoreRequest() {
         RagPipelineService ragPipelineService = mock(RagPipelineService.class);
         RagController controller = new RagController(ragPipelineService);

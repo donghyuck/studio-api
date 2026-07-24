@@ -508,7 +508,7 @@ class MarkdownDocumentServiceTest {
                 pipeline);
         var created = service.create(new MarkdownExtractionRequest(
                 1L,
-                new MarkdownPipelineOptions(false, false, false),
+                profiledOptions(false, false),
                 false,
                 "tester"));
 
@@ -530,6 +530,13 @@ class MarkdownDocumentServiceTest {
         assertEquals("retrieval-ko-kure", options.embeddingProfileId());
         assertTrue(options.runChunking());
         assertTrue(options.runRagIndex());
+        assertEquals("MATH_TEXTBOOK", options.requestedDocumentProfile());
+        assertEquals("MATH_TEXTBOOK", options.resolvedDocumentProfile());
+        assertNotNull(options.documentProfileVersion());
+        assertEquals(Boolean.TRUE, options.ocrRequired());
+        assertEquals("kor", options.ocrLanguage());
+        assertEquals("FORCE", options.ocrMode());
+        assertEquals(Boolean.TRUE, options.mathVisionCorrection());
         assertEquals(1, repository.findLocators(reindexed.revision().revisionId()).size());
         assertEquals(1, repository.findResources(reindexed.revision().revisionId()).size());
         assertFalse(repository.findLocators(reindexed.revision().revisionId()).get(0).locatorId()
@@ -551,7 +558,7 @@ class MarkdownDocumentServiceTest {
                         "# Hello", "textract-1", List.of(), List.of()),
                 pipeline);
         var created = service.create(new MarkdownExtractionRequest(
-                1L, MarkdownPipelineOptions.none(), false, "tester"));
+                1L, profiledOptions(false, false), false, "tester"));
 
         service.resumeWithOptions(created.document().documentId(), new MarkdownResumeOptions(
                 MarkdownPipelineStage.RAG_INDEX,
@@ -579,6 +586,13 @@ class MarkdownDocumentServiceTest {
         assertEquals("kure", pipeline.options.skillEmbeddingProvider());
         assertEquals("nlpai-lab/KURE-v1", pipeline.options.skillEmbeddingModel());
         assertEquals(1024, pipeline.options.skillEmbeddingDimension());
+        assertEquals("MATH_TEXTBOOK", pipeline.options.requestedDocumentProfile());
+        assertEquals("MATH_TEXTBOOK", pipeline.options.resolvedDocumentProfile());
+        assertNotNull(pipeline.options.documentProfileVersion());
+        assertEquals(Boolean.TRUE, pipeline.options.ocrRequired());
+        assertEquals("kor", pipeline.options.ocrLanguage());
+        assertEquals("FORCE", pipeline.options.ocrMode());
+        assertEquals(Boolean.TRUE, pipeline.options.mathVisionCorrection());
     }
 
     @Test
@@ -1130,9 +1144,60 @@ class MarkdownDocumentServiceTest {
         assertEquals(extraction.revision().markdownText().length(), estimate.markdownLength());
     }
 
+    @Test
+    void keepsAutomaticStrategyInLargeDocumentRecommendation() {
+        InMemoryRepository repository = new InMemoryRepository();
+        SourcePort sources = new SourcePort();
+        String markdown = "body ".repeat(300_000);
+        sources.add(1L, "sample.txt", "text/plain", "source");
+        MarkdownDocumentService service = service(repository, sources,
+                (source, revisionId) -> new MarkdownNativeExtractorPort.NativeExtraction(
+                        markdown, "textract-1", List.of(), List.of()),
+                MarkdownPipelinePort.noop());
+        var extraction = service.create(new MarkdownExtractionRequest(
+                1L, new MarkdownPipelineOptions(true, false, false), false, "tester"));
+
+        var estimate = service.estimatePipeline(extraction.document().documentId(), null);
+
+        assertEquals(null, estimate.recommended().chunkingStrategy());
+        assertTrue(estimate.recommended().chunkMaxSize() > 1200);
+    }
+
     private MarkdownDocumentService service(InMemoryRepository repository, SourcePort sources,
             MarkdownNativeExtractorPort extractor, MarkdownPipelinePort pipeline) {
         return service(repository, sources, extractor, pipeline, MarkdownTaskExecutor.direct());
+    }
+
+    private MarkdownPipelineOptions profiledOptions(boolean runChunking, boolean runRagIndex) {
+        return new MarkdownPipelineOptions(
+                runChunking,
+                runRagIndex,
+                false,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                false,
+                null,
+                false,
+                null,
+                null,
+                null,
+                true,
+                "kor",
+                "FORCE",
+                true,
+                "MATH_TEXTBOOK",
+                "MATH_TEXTBOOK",
+                "test-v1",
+                null);
     }
 
     private MarkdownConversionPort conversion() {

@@ -15,10 +15,22 @@ public record RagIndexJobCreateRequestDto(
         Map<String, Object> metadata,
         List<String> keywords,
         Boolean useLlmKeywordExtraction,
-        @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
+        String embeddingDeploymentId,
+        String embeddingModelId,
+        String embeddingProfileId,
         String embeddingProvider,
         String embeddingModel,
         String sourceName) {
+    public RagIndexJobCreateRequestDto(
+            String objectType, String objectId, String documentId, String sourceType,
+            Boolean forceReindex, String text, Map<String, Object> metadata, List<String> keywords,
+            Boolean useLlmKeywordExtraction, String embeddingProfileId,
+            String embeddingProvider, String embeddingModel, String sourceName) {
+        this(objectType, objectId, documentId, sourceType, forceReindex, text, metadata, keywords,
+                useLlmKeywordExtraction, null, null, embeddingProfileId,
+                embeddingProvider, embeddingModel, sourceName);
+    }
+
     public RagIndexJobCreateRequestDto(
             String objectType,
             String objectId,
@@ -30,6 +42,6 @@ public record RagIndexJobCreateRequestDto(
             List<String> keywords,
             Boolean useLlmKeywordExtraction) {
         this(objectType, objectId, documentId, sourceType, forceReindex, text, metadata, keywords,
-                useLlmKeywordExtraction, null, null, null, null);
+                useLlmKeywordExtraction, null, null, null, null, null, null);
     }
 }

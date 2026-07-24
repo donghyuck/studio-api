@@ -55,6 +55,18 @@ public class GoogleGenAiChatPortFactoryConfiguration {
                             "studio.ai.providers." + providerId + ".chat.model",
                             provider.getChat().getModel(),
                             log);
+            return createForDeployment(providerId, provider, model, env, chatModelProvider);
+        }
+
+        @Override
+        public ChatPort createForDeployment(
+                               String providerId,
+                               AiAdapterProperties.Provider provider,
+                               String apiModel,
+                               Environment env,
+                               ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+            String model = requireText(apiModel,
+                    "Catalog-resolved model must be configured for GOOGLE_AI_GEMINI chat deployment");
             String apiKey = requireText(
                     AiConfigurationMigration.springOrLegacyProviderValue(
                             env,
@@ -63,8 +75,6 @@ public class GoogleGenAiChatPortFactoryConfiguration {
                             provider.getApiKey(),
                             log),
                     "spring.ai.google.genai.chat.api-key must be configured for GOOGLE_AI_GEMINI chat provider");
-            model = requireText(model,
-                    "spring.ai.google.genai.chat.options.model must be configured for GOOGLE_AI_GEMINI chat provider");
             String baseUrl = AiConfigurationMigration.springOrLegacyProviderValue(
                     env,
                     "spring.ai.google.genai.chat.base-url",

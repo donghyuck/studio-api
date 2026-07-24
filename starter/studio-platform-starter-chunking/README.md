@@ -20,6 +20,10 @@ Phase 1 지원 전략:
 - `blockify` (opt-in, PoC)
 - `knowledge-block` (opt-in)
 
+Markdown pipeline의 자동 선택은 이 목록에서 `structure-based`와 `recursive`만 사용합니다.
+`fixed-size`는 구조/recursive 처리가 유효 chunk를 만들지 못할 때의 최종 fallback이며,
+`blockify`와 `knowledge-block`은 명시적으로 요청한 실험 작업에서만 사용합니다.
+
 Phase 2 후보이며 이 starter에는 포함하지 않는 전략:
 
 - `semantic` (AI-linked)

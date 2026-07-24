@@ -16,6 +16,11 @@
       "description": "Studio OCR runtime policy."
     },
     {
+      "name": "studio.textract.epub",
+      "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Epub",
+      "description": "EPUB ZIP extraction safety policy."
+    },
+    {
       "name": "studio.textract.pdf",
       "type": "studio.one.platform.textract.autoconfigure.TextractProperties$Pdf",
       "description": "Studio PDF extraction engine policy."
@@ -78,6 +83,18 @@
       "type": "java.lang.String",
       "description": "Maximum file size accepted for text extraction. Plain numbers are bytes; K, KB, M, MB, G, GB, T, and TB suffixes are supported.",
       "defaultValue": "10MB"
+    },
+    {
+      "name": "studio.textract.epub.max-entry-size",
+      "type": "java.lang.String",
+      "description": "Maximum extracted size of one selected EPUB package or content entry.",
+      "defaultValue": "16MB"
+    },
+    {
+      "name": "studio.textract.epub.max-extracted-size",
+      "type": "java.lang.String",
+      "description": "Maximum combined extracted size of EPUB container, package, and HTML content entries. Images, fonts, and other non-text resources are excluded.",
+      "defaultValue": "50MB"
     },
     {
       "name": "studio.textract.tesseract.datapath",

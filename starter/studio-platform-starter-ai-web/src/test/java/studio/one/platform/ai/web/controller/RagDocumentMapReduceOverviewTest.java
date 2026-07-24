@@ -53,4 +53,21 @@ class RagDocumentMapReduceOverviewTest {
 
         assertThat(calls).hasValue(4);
     }
+
+    @Test
+    void removesIntermediateCitationNumbersFromSegmentSummaries() {
+        RagDocumentMapReduceOverview.Reduction reduction = overview.reduce(
+                "attachment",
+                "3",
+                "gemini",
+                "flash",
+                "a".repeat(1_200),
+                1_000,
+                1_000,
+                prompt -> "첫 주장 [1]과 두 번째 주장 [2, 3]");
+
+        assertThat(reduction.context())
+                .contains("첫 주장 과 두 번째 주장")
+                .doesNotContain("[1]", "[2, 3]");
+    }
 }

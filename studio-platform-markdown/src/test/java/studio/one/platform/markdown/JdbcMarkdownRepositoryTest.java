@@ -71,13 +71,24 @@ class JdbcMarkdownRepositoryTest {
         repository.savePipelineExecution(new MarkdownPipelineExecution(
                 "mrev-1", MarkdownPipelineExecutionStatus.FAILED, MarkdownPipelineStage.RAG_INDEX,
                 MarkdownPipelineStage.CHUNKING, 1, "PIPELINE_FAILED", "failed", now, now, now));
+        MarkdownRevision updatedRevision = new MarkdownRevision(
+                "mrev-1", "mdoc-1", 10L, 20L, "conv-1", "PANDOC", "3.6",
+                "{\"requestedDocumentProfile\":\"BOOK\"}", "updated-options",
+                "source", "content", "# Title", "sample.docx", "docx",
+                "2001", "42", MarkdownRevisionStatus.COMPLETED, null, null,
+                now, now, now, now.plusSeconds(1));
+        repository.saveRevision(updatedRevision);
 
         assertEquals("mrev-1", repository.findDocument("mdoc-1").orElseThrow().currentRevisionId());
         assertEquals("mrev-1", repository.findRevisionByConvertJobId("conv-1").orElseThrow().revisionId());
+        assertEquals("{\"requestedDocumentProfile\":\"BOOK\"}",
+                repository.findRevision("mrev-1").orElseThrow().optionsJson());
+        assertEquals("updated-options", repository.findRevision("mrev-1").orElseThrow().optionsHash());
         assertEquals(1, repository.findLocators("mrev-1").size());
         assertEquals(1, repository.findResources("mrev-1").size());
         assertEquals(1, repository.findExtractParts("mrev-1").size());
-        assertTrue(repository.findReusableRevision(10L, "source", "PANDOC", "3.6", "options").isPresent());
+        assertTrue(repository.findReusableRevision(
+                10L, "source", "PANDOC", "3.6", "updated-options").isPresent());
         assertEquals(MarkdownPipelineStage.RAG_INDEX,
                 repository.findPipelineExecution("mrev-1").orElseThrow().currentStage());
     }

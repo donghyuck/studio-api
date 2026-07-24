@@ -29,10 +29,9 @@ class RagDocumentOverviewAssemblerTest {
                 .doesNotContain("tsecond");
         assertThat(assembly.fullCoverage()).isTrue();
         assertThat(assembly.sourceChunkCount()).isEqualTo(3);
-        assertThat(assembly.references()).singleElement().satisfies(reference -> assertThat(reference.metadata())
-                .containsEntry("overviewCoverageStatus", "FULL")
-                .containsEntry("chunkId", "doc-1:whole-document")
-                .containsEntry("sourceRef", "chunks[0..2]"));
+        assertThat(assembly.references())
+                .extracting(RagSearchResult::content)
+                .containsExactly("first", "tsecond", "dthree");
     }
 
     @Test

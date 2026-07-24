@@ -39,8 +39,26 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
     private static final String CONTAINER_PATH = "META-INF/container.xml";
     private static final int BUFFER_SIZE = 8192;
     private static final int MAX_ENTRIES = 4096;
-    private static final long MAX_ENTRY_BYTES = 16L * 1024L * 1024L;
-    private static final long MAX_EXTRACTED_BYTES = 50L * 1024L * 1024L;
+    private static final long DEFAULT_MAX_ENTRY_BYTES = 16L * 1024L * 1024L;
+    private static final long DEFAULT_MAX_EXTRACTED_BYTES = 50L * 1024L * 1024L;
+
+    private final long maxEntryBytes;
+    private final long maxExtractedBytes;
+
+    public EpubFileParser() {
+        this(DEFAULT_MAX_ENTRY_BYTES, DEFAULT_MAX_EXTRACTED_BYTES);
+    }
+
+    public EpubFileParser(long maxEntryBytes, long maxExtractedBytes) {
+        if (maxEntryBytes <= 0) {
+            throw new IllegalArgumentException("maxEntryBytes must be positive");
+        }
+        if (maxExtractedBytes <= 0) {
+            throw new IllegalArgumentException("maxExtractedBytes must be positive");
+        }
+        this.maxEntryBytes = maxEntryBytes;
+        this.maxExtractedBytes = maxExtractedBytes;
+    }
 
     @Override
     public boolean supports(String contentType, String filename) {
@@ -50,16 +68,20 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
     @Override
     public ParsedFile parseStructured(byte[] bytes, String contentType, String filename) throws FileParseException {
         try {
-            Map<String, byte[]> entries = readEntries(bytes, filename);
-            String opfPath = packagePath(entries);
-            PackageDocument packageDocument = readPackage(entries, opfPath);
-            List<String> contentPaths = contentPaths(packageDocument);
+            ExtractionBudget budget = new ExtractionBudget(maxExtractedBytes, safeFilename(filename));
+            ArchiveIndex archive = indexArchive(bytes, filename, budget);
+            String opfPath = packagePath(archive);
+            byte[] packageBytes = readSelectedEntries(bytes, Set.of(opfPath), filename, budget).get(opfPath);
+            PackageDocument packageDocument = readPackage(packageBytes, opfPath);
+            List<String> contentPaths = contentPaths(packageDocument, archive.paths());
+            Map<String, byte[]> contentEntries =
+                    readSelectedEntries(bytes, Set.copyOf(contentPaths), filename, budget);
             List<ParsedBlock> blocks = new ArrayList<>();
             StringBuilder plainText = new StringBuilder();
             int order = 0;
 
             for (String contentPath : contentPaths) {
-                byte[] content = entries.get(contentPath);
+                byte[] content = contentEntries.get(contentPath);
                 if (content == null) {
                     continue;
                 }
@@ -91,6 +113,9 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
             Map<String, Object> metadata = new LinkedHashMap<>(fileMetadata(contentType, filename));
             metadata.put("packagePath", opfPath);
             metadata.put("contentDocumentCount", contentPaths.size());
+            metadata.put("archiveEntryCount", archive.paths().size());
+            metadata.put("loadedEntryCount", contentEntries.size() + 2);
+            metadata.put("loadedExtractedBytes", budget.usedBytes());
             return new ParsedFile(
                     DocumentFormat.EPUB,
                     cleanText(plainText.toString()),
@@ -113,9 +138,9 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
         return parseStructured(bytes, contentType, filename).plainText();
     }
 
-    private Map<String, byte[]> readEntries(byte[] bytes, String filename) {
-        Map<String, byte[]> entries = new LinkedHashMap<>();
-        long totalBytes = 0;
+    private ArchiveIndex indexArchive(byte[] bytes, String filename, ExtractionBudget budget) {
+        Set<String> paths = new LinkedHashSet<>();
+        byte[] container = null;
         int entryCount = 0;
         try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
             ZipEntry entry;
@@ -127,18 +152,63 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
                     throw new FileParseException("EPUB exceeds max entry count: " + safeFilename(filename));
                 }
                 String path = normalizePath(entry.getName(), false);
-                byte[] content = readEntry(zip, path);
-                totalBytes += content.length;
-                if (totalBytes > MAX_EXTRACTED_BYTES) {
-                    throw new FileParseException("EPUB exceeds max extracted bytes: " + safeFilename(filename));
+                if (!paths.add(path)) {
+                    throw new FileParseException("EPUB contains duplicate entry: " + path);
                 }
+                if (CONTAINER_PATH.equals(path)) {
+                    container = readEntry(zip, path);
+                    budget.add(container.length);
+                } else {
+                    skipEntry(zip, path);
+                }
+            }
+            return new ArchiveIndex(Set.copyOf(paths), container);
+        } catch (IOException ex) {
+            throw new FileParseException("Failed to read EPUB ZIP: " + safeFilename(filename), ex);
+        }
+    }
+
+    private Map<String, byte[]> readSelectedEntries(
+            byte[] bytes,
+            Set<String> selectedPaths,
+            String filename,
+            ExtractionBudget budget) {
+        if (selectedPaths.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, byte[]> entries = new LinkedHashMap<>();
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                String path = normalizePath(entry.getName(), false);
+                if (!selectedPaths.contains(path)) {
+                    skipEntry(zip, path);
+                    continue;
+                }
+                byte[] content = readEntry(zip, path);
+                budget.add(content.length);
                 if (entries.putIfAbsent(path, content) != null) {
                     throw new FileParseException("EPUB contains duplicate entry: " + path);
                 }
             }
-            return entries;
         } catch (IOException ex) {
             throw new FileParseException("Failed to read EPUB ZIP: " + safeFilename(filename), ex);
+        }
+        return entries;
+    }
+
+    private void skipEntry(ZipInputStream input, String path) throws IOException {
+        byte[] buffer = new byte[BUFFER_SIZE];
+        long total = 0;
+        int read;
+        while ((read = input.read(buffer)) != -1) {
+            total += read;
+            if (total > maxEntryBytes) {
+                throw new FileParseException("EPUB entry exceeds max extracted bytes: " + path);
+            }
         }
     }
 
@@ -149,7 +219,7 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
         int read;
         while ((read = input.read(buffer)) != -1) {
             total += read;
-            if (total > MAX_ENTRY_BYTES) {
+            if (total > maxEntryBytes) {
                 throw new FileParseException("EPUB entry exceeds max extracted bytes: " + path);
             }
             output.write(buffer, 0, read);
@@ -157,8 +227,8 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
         return output.toByteArray();
     }
 
-    private String packagePath(Map<String, byte[]> entries) {
-        byte[] container = entries.get(CONTAINER_PATH);
+    private String packagePath(ArchiveIndex archive) {
+        byte[] container = archive.container();
         if (container == null) {
             throw new FileParseException("EPUB is missing " + CONTAINER_PATH);
         }
@@ -167,14 +237,17 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
                 .findFirst()
                 .orElseThrow(() -> new FileParseException("EPUB container has no rootfile"));
         String path = normalizePath(rootfile.getAttribute("full-path"), false);
-        if (!entries.containsKey(path)) {
+        if (!archive.paths().contains(path)) {
             throw new FileParseException("EPUB is missing package document: " + path);
         }
         return path;
     }
 
-    private PackageDocument readPackage(Map<String, byte[]> entries, String opfPath) {
-        Document document = parseXml(entries.get(opfPath), opfPath);
+    private PackageDocument readPackage(byte[] packageBytes, String opfPath) {
+        if (packageBytes == null) {
+            throw new FileParseException("EPUB is missing package document: " + opfPath);
+        }
+        Document document = parseXml(packageBytes, opfPath);
         Map<String, ManifestItem> manifest = new LinkedHashMap<>();
         for (org.w3c.dom.Element item : elements(document, "item")) {
             String id = item.getAttribute("id");
@@ -190,14 +263,14 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
                 .map(item -> item.getAttribute("idref"))
                 .filter(id -> !id.isBlank())
                 .toList();
-        return new PackageDocument(entries, manifest, spine);
+        return new PackageDocument(manifest, spine);
     }
 
-    private List<String> contentPaths(PackageDocument epub) {
+    private List<String> contentPaths(PackageDocument epub, Set<String> archivePaths) {
         Set<String> paths = new LinkedHashSet<>();
         for (String id : epub.spine()) {
             ManifestItem item = epub.manifest().get(id);
-            if (item != null && isContentDocument(item) && epub.entries().containsKey(item.path())) {
+            if (item != null && isContentDocument(item) && archivePaths.contains(item.path())) {
                 paths.add(item.path());
             }
         }
@@ -205,7 +278,7 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
             epub.manifest().values().stream()
                     .filter(this::isContentDocument)
                     .map(ManifestItem::path)
-                    .filter(epub.entries()::containsKey)
+                    .filter(archivePaths::contains)
                     .forEach(paths::add);
         }
         return List.copyOf(paths);
@@ -322,9 +395,33 @@ public class EpubFileParser extends AbstractFileParser implements StructuredFile
     private record ManifestItem(String path, String mediaType) {
     }
 
+    private record ArchiveIndex(Set<String> paths, byte[] container) {
+    }
+
     private record PackageDocument(
-            Map<String, byte[]> entries,
             Map<String, ManifestItem> manifest,
             List<String> spine) {
+    }
+
+    private static final class ExtractionBudget {
+        private final long maxBytes;
+        private final String filename;
+        private long usedBytes;
+
+        private ExtractionBudget(long maxBytes, String safeFilename) {
+            this.maxBytes = maxBytes;
+            this.filename = safeFilename;
+        }
+
+        private void add(long bytes) {
+            usedBytes += bytes;
+            if (usedBytes > maxBytes) {
+                throw new FileParseException("EPUB exceeds max extracted bytes: " + filename);
+            }
+        }
+
+        private long usedBytes() {
+            return usedBytes;
+        }
     }
 }

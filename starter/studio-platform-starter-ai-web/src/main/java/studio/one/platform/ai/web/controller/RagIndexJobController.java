@@ -371,22 +371,35 @@ public class RagIndexJobController {
 
     private Optional<RagEmbeddingSelectionInfo> embeddingSelection(RagIndexJob job) {
         Optional<RagEmbeddingSelectionInfo> requestSelection = jobService.getEmbeddingSelection(job.jobId());
-        if (requestSelection.isPresent()) {
-            return requestSelection;
-        }
         if (vectorStorePort == null || job.objectType() == null || job.objectId() == null) {
-            return Optional.empty();
+            return requestSelection;
         }
         try {
             Map<String, Object> metadata = vectorStorePort.getMetadata(job.objectType(), job.objectId());
+            RagEmbeddingSelectionInfo requested = requestSelection.orElse(null);
             RagEmbeddingSelectionInfo selection = new RagEmbeddingSelectionInfo(
-                    text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
-                    text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
-                    text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)));
+                    firstNonBlank(text(metadata.get(VectorRecord.KEY_EMBEDDING_PROFILE_ID)),
+                            requested == null ? null : requested.embeddingProfileId()),
+                    firstNonBlank(text(metadata.get(VectorRecord.KEY_EMBEDDING_PROVIDER)),
+                            requested == null ? null : requested.embeddingProvider()),
+                    firstNonBlank(text(metadata.get(VectorRecord.KEY_EMBEDDING_MODEL)),
+                            requested == null ? null : requested.embeddingModel()),
+                    firstNonBlank(text(metadata.get(VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID)),
+                            requested == null ? job.embeddingDeploymentId() : requested.embeddingDeploymentId()),
+                    firstNonBlank(text(metadata.get(VectorRecord.KEY_EMBEDDING_CATALOG_ID)),
+                            requested == null ? job.catalogId() : requested.catalogId()),
+                    firstNonBlank(firstNonBlank(
+                                    text(metadata.get(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2)),
+                                    text(metadata.get(VectorRecord.KEY_EMBEDDING_SPACE_ID))),
+                            requested == null ? job.embeddingSpaceId() : requested.embeddingSpaceId()));
             return selection.empty() ? Optional.empty() : Optional.of(selection);
         } catch (UnsupportedOperationException ex) {
-            return Optional.empty();
+            return requestSelection;
         }
+    }
+
+    private String firstNonBlank(String primary, String fallback) {
+        return hasText(primary) ? primary.trim() : hasText(fallback) ? fallback.trim() : null;
     }
 
     private CreateJobCommand toCreateRequest(RagIndexJobCreateRequestDto request) {
@@ -416,7 +429,9 @@ public class RagIndexJobController {
                     Boolean.TRUE.equals(request.useLlmKeywordExtraction()),
                     request.embeddingProfileId(),
                     request.embeddingProvider(),
-                    request.embeddingModel());
+                    request.embeddingModel(),
+                    null,
+                    embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()));
         }
         RagIndexJobSourceRequest sourceRequest = indexRequest == null
                 ? new RagIndexJobSourceRequest(
@@ -425,7 +440,10 @@ public class RagIndexJobController {
                         Boolean.TRUE.equals(request.useLlmKeywordExtraction()),
                         request.embeddingProfileId(),
                         request.embeddingProvider(),
-                        request.embeddingModel())
+                        request.embeddingModel(),
+                        null,
+                        false,
+                        embeddingDeploymentId(request.embeddingDeploymentId(), request.embeddingModelId()))
                 : null;
         RagIndexJobCreateRequest createRequest = new RagIndexJobCreateRequest(
                 request.objectType(),
@@ -578,6 +596,17 @@ public class RagIndexJobController {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
+    }
+
+    private String embeddingDeploymentId(String deploymentId, String legacyModelId) {
+        String canonical = hasText(deploymentId) ? deploymentId.trim() : null;
+        String legacy = hasText(legacyModelId) ? legacyModelId.trim() : null;
+        if (canonical != null && legacy != null && !canonical.equalsIgnoreCase(legacy)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "embeddingDeploymentId and legacy embeddingModelId must identify the same deployment");
+        }
+        return canonical == null ? legacy : canonical;
     }
 
     private String pathSegment(String value) {

@@ -20,7 +20,10 @@ public record RagIndexJob(
         Instant createdAt,
         Instant startedAt,
         Instant finishedAt,
-        Long durationMs) {
+        Long durationMs,
+        String embeddingDeploymentId,
+        String catalogId,
+        String embeddingSpaceId) {
 
     public static final int MAX_SOURCE_NAME_LENGTH = 300;
 
@@ -37,10 +40,36 @@ public record RagIndexJob(
         indexedCount = Math.max(0, indexedCount);
         warningCount = Math.max(0, warningCount);
         errorMessage = normalize(errorMessage);
+        embeddingDeploymentId = normalize(embeddingDeploymentId);
+        catalogId = normalize(catalogId);
+        embeddingSpaceId = normalize(embeddingSpaceId);
         createdAt = createdAt == null ? Instant.now() : createdAt;
         if (durationMs != null && durationMs < 0L) {
             durationMs = 0L;
         }
+    }
+
+    public RagIndexJob(
+            String jobId,
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            String sourceName,
+            RagIndexJobStatus status,
+            RagIndexJobStep currentStep,
+            int chunkCount,
+            int embeddedCount,
+            int indexedCount,
+            int warningCount,
+            String errorMessage,
+            Instant createdAt,
+            Instant startedAt,
+            Instant finishedAt,
+            Long durationMs) {
+        this(jobId, objectType, objectId, documentId, sourceType, sourceName, status, currentStep,
+                chunkCount, embeddedCount, indexedCount, warningCount, errorMessage,
+                createdAt, startedAt, finishedAt, durationMs, null, null, null);
     }
 
     public RagIndexJob(
@@ -103,6 +132,21 @@ public record RagIndexJob(
                 null);
     }
 
+    public static RagIndexJob pending(
+            String jobId,
+            String objectType,
+            String objectId,
+            String documentId,
+            String sourceType,
+            String sourceName,
+            String embeddingDeploymentId,
+            Instant createdAt) {
+        return new RagIndexJob(
+                jobId, objectType, objectId, documentId, sourceType, sourceName,
+                RagIndexJobStatus.PENDING, null, 0, 0, 0, 0, null,
+                createdAt, null, null, null, embeddingDeploymentId, null, null);
+    }
+
     public RagIndexJob withStatus(RagIndexJobStatus status, RagIndexJobStep step, String errorMessage, Instant now) {
         Instant nextStartedAt = startedAt;
         Instant nextFinishedAt = finishedAt;
@@ -136,7 +180,10 @@ public record RagIndexJob(
                 createdAt,
                 nextStartedAt,
                 nextFinishedAt,
-                nextDurationMs);
+                nextDurationMs,
+                embeddingDeploymentId,
+                catalogId,
+                embeddingSpaceId);
     }
 
     public RagIndexJob withCounts(Integer chunkCount, Integer embeddedCount, Integer indexedCount, Integer warningCount) {
@@ -157,7 +204,10 @@ public record RagIndexJob(
                 createdAt,
                 startedAt,
                 finishedAt,
-                durationMs);
+                durationMs,
+                embeddingDeploymentId,
+                catalogId,
+                embeddingSpaceId);
     }
 
     public RagIndexJob resetForRetry(Instant now) {
@@ -178,7 +228,10 @@ public record RagIndexJob(
                 createdAt == null ? now : createdAt,
                 null,
                 null,
-                null);
+                null,
+                embeddingDeploymentId,
+                catalogId,
+                embeddingSpaceId);
     }
 
     private static boolean isTerminal(RagIndexJobStatus status) {

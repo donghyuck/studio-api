@@ -31,7 +31,9 @@ final class RuleBasedRagQueryIntentClassifier implements RagQueryIntentClassifie
         String normalized = query == null ? "" : query.strip().toLowerCase(Locale.ROOT);
         if (containsAny(normalized,
                 "핵심 내용", "핵심내용", "핵심 요점", "핵심요점", "주요 내용", "주요내용",
-                "중요 내용", "중요내용", "목차", "key point", "key points", "highlights", "main ideas")) {
+                "중요 내용", "중요내용", "핵심 주제", "핵심주제", "주요 주제", "주요주제",
+                "문서의 주제", "책의 주제", "저자의 논지", "핵심 논지", "핵심논지",
+                "목차", "key point", "key points", "highlights", "main idea", "main ideas", "main theme")) {
             return new Classification(Intent.KEY_POINTS, 0.95d, "KEY_POINT_PHRASE");
         }
         if (containsAny(normalized,

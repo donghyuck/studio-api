@@ -8,13 +8,14 @@ import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.embedding.EmbeddingRequest;
 import studio.one.platform.ai.core.embedding.EmbeddingResponse;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.skillgraph.domain.port.SkillEmbeddingPort;
 
 @RequiredArgsConstructor
 public class AiSkillEmbeddingPort implements SkillEmbeddingPort {
 
     private final EmbeddingPort embeddingPort;
-    private final AiProviderRegistry providerRegistry;
+    private final ModelDeploymentRegistry providerRegistry;
 
     public AiSkillEmbeddingPort(EmbeddingPort embeddingPort) {
         this(embeddingPort, null);

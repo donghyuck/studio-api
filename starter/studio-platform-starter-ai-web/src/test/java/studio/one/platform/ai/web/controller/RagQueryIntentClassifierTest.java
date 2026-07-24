@@ -18,6 +18,10 @@ class RagQueryIntentClassifierTest {
     void classifiesKeyPointQueriesBeforeGenericSummaryPhrases() {
         assertThat(classifier.classify("핵심 내용을 요약해줘").intent())
                 .isEqualTo(RagQueryIntentClassifier.Intent.KEY_POINTS);
+        assertThat(classifier.classify("이 책의 핵심 주제는 무엇인가?").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.KEY_POINTS);
+        assertThat(classifier.classify("저자의 핵심 논지를 근거와 함께 설명해줘").intent())
+                .isEqualTo(RagQueryIntentClassifier.Intent.KEY_POINTS);
     }
 
     @Test

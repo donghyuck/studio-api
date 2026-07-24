@@ -36,6 +36,7 @@ import studio.one.platform.ai.service.pipeline.RagIndexJobService;
 import studio.one.platform.ai.service.pipeline.RagIndexJobSourceNameResolver;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.controller.AiInfoController;
+import studio.one.platform.ai.web.controller.ModelCatalogController;
 import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.QueryRewriteController;
@@ -270,6 +271,7 @@ class OpenAiProviderAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(ChatController.class);
                     assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
                     assertThat(context).doesNotHaveBean(AiInfoController.class);
+                    assertThat(context).doesNotHaveBean(ModelCatalogController.class);
                 });
     }
 
@@ -282,6 +284,7 @@ class OpenAiProviderAutoConfigurationTest {
                     assertThat(context).doesNotHaveBean(ChatController.class);
                     assertThat(context).doesNotHaveBean(RagChunkPreviewController.class);
                     assertThat(context).doesNotHaveBean(AiInfoController.class);
+                    assertThat(context).doesNotHaveBean(ModelCatalogController.class);
                 });
     }
 

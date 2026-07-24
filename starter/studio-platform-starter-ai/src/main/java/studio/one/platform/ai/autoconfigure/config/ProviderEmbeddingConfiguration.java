@@ -24,6 +24,27 @@ public class ProviderEmbeddingConfiguration {
             AiAdapterProperties properties,
             Environment environment,
             ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider,
+            List<ProviderEmbeddingPortFactory> factories,
+            ObjectProvider<ModelDeploymentProperties> deploymentPropertiesProvider) {
+        ModelDeploymentProperties deploymentProperties = deploymentPropertiesProvider.getIfAvailable();
+        if (deploymentProperties != null && !deploymentProperties.getModelDeployments().isEmpty()) {
+            return Map.of();
+        }
+        return legacyEmbeddingPorts(properties, environment, springAiEmbeddingModelProvider, factories);
+    }
+
+    Map<String, EmbeddingPort> embeddingPorts(
+            AiAdapterProperties properties,
+            Environment environment,
+            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider,
+            List<ProviderEmbeddingPortFactory> factories) {
+        return legacyEmbeddingPorts(properties, environment, springAiEmbeddingModelProvider, factories);
+    }
+
+    private Map<String, EmbeddingPort> legacyEmbeddingPorts(
+            AiAdapterProperties properties,
+            Environment environment,
+            ObjectProvider<org.springframework.ai.embedding.EmbeddingModel> springAiEmbeddingModelProvider,
             List<ProviderEmbeddingPortFactory> factories) {
 
         Map<AiAdapterProperties.ProviderType, ProviderEmbeddingPortFactory> factoryMap = factories.stream()

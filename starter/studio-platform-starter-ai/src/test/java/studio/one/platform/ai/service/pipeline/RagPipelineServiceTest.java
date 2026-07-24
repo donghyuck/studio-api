@@ -934,10 +934,68 @@ class RagPipelineServiceTest {
         ArgumentCaptor<VectorSearchRequest> searchRequest = ArgumentCaptor.forClass(VectorSearchRequest.class);
         verify(vectorStorePort).hybridSearch(eq("hello"), searchRequest.capture(), anyDouble(), anyDouble());
         assertThat(searchRequest.getValue().metadataFilter().equalsCriteria())
-                .containsEntry(VectorRecord.KEY_EMBEDDING_PROFILE_ID, "retrieval")
-                .containsEntry(VectorRecord.KEY_EMBEDDING_PROVIDER, "google")
-                .containsEntry(VectorRecord.KEY_EMBEDDING_MODEL, "gemini-embedding-001")
-                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768);
+                .containsEntry(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, "retrieval")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768)
+                .doesNotContainKeys(
+                        VectorRecord.KEY_EMBEDDING_PROFILE_ID,
+                        VectorRecord.KEY_EMBEDDING_PROVIDER,
+                        VectorRecord.KEY_EMBEDDING_MODEL);
+    }
+
+    @Test
+    void shouldPreserveDeploymentSelectionAndConstrainSearchToCanonicalEmbeddingSpaceWhenDefaultsApply() {
+        RagEmbeddingProfileResolver resolver = selection -> new ResolvedRagEmbedding(
+                embeddingPort,
+                "humanities-text-v1",
+                "google-ai",
+                "gemini-embedding-001",
+                768,
+                selection.inputType(),
+                "google/gemini-embedding-001",
+                "es:v1:test-space",
+                "humanities-text-v1",
+                "google/gemini-embedding-001",
+                "v1");
+        ragPipelineService = DefaultRagPipelineService.create(
+                embeddingPort,
+                vectorStorePort,
+                textChunker,
+                null,
+                cache,
+                retry,
+                keywordExtractor,
+                null,
+                RagPipelineOptions.defaults(),
+                RagPipelineDiagnosticsOptions.defaults(),
+                RagKeywordOptions.defaults(),
+                resolver);
+        RagSearchRequest request = new RagSearchRequest(
+                "hello",
+                2,
+                MetadataFilter.empty(),
+                null,
+                null,
+                null,
+                null,
+                2,
+                null,
+                true,
+                "humanities-text-v1");
+        when(embeddingPort.embed(any(EmbeddingRequest.class)))
+                .thenReturn(new EmbeddingResponse(List.of(new EmbeddingVector("hello", List.of(0.5, 0.6)))));
+        when(vectorStorePort.hybridSearch(anyString(), any(VectorSearchRequest.class), anyDouble(), anyDouble()))
+                .thenReturn(List.of(new VectorSearchResult(
+                        new VectorDocument("doc-1", "chunk", Map.of(), List.of()),
+                        0.9)));
+
+        ragPipelineService.search(request);
+
+        ArgumentCaptor<VectorSearchRequest> searchRequest = ArgumentCaptor.forClass(VectorSearchRequest.class);
+        verify(vectorStorePort).hybridSearch(eq("hello"), searchRequest.capture(), anyDouble(), anyDouble());
+        assertThat(searchRequest.getValue().metadataFilter().equalsCriteria())
+                .containsEntry(VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, "es:v1:test-space")
+                .containsEntry(VectorRecord.KEY_EMBEDDING_DIMENSION, 768)
+                .doesNotContainKey(VectorRecord.KEY_EMBEDDING_PROFILE_ID);
     }
 
     @Test

@@ -24,6 +24,27 @@ public class ProviderChatConfiguration {
             AiAdapterProperties properties,
             Environment environment,
             ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider,
+            List<ProviderChatPortFactory> factories,
+            ObjectProvider<ModelDeploymentProperties> deploymentPropertiesProvider) {
+        ModelDeploymentProperties deploymentProperties = deploymentPropertiesProvider.getIfAvailable();
+        if (deploymentProperties != null && !deploymentProperties.getModelDeployments().isEmpty()) {
+            return Map.of();
+        }
+        return legacyChatPorts(properties, environment, springAiChatModelProvider, factories);
+    }
+
+    Map<String, ChatPort> chatPorts(
+            AiAdapterProperties properties,
+            Environment environment,
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider,
+            List<ProviderChatPortFactory> factories) {
+        return legacyChatPorts(properties, environment, springAiChatModelProvider, factories);
+    }
+
+    private Map<String, ChatPort> legacyChatPorts(
+            AiAdapterProperties properties,
+            Environment environment,
+            ObjectProvider<org.springframework.ai.chat.model.ChatModel> springAiChatModelProvider,
             List<ProviderChatPortFactory> factories) {
 
         Map<AiAdapterProperties.ProviderType, ProviderChatPortFactory> factoryMap = factories.stream()

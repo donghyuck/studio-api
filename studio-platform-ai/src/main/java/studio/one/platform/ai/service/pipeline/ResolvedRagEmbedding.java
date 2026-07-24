@@ -17,7 +17,10 @@ public record ResolvedRagEmbedding(
         Integer dimension,
         EmbeddingInputType inputType,
         String modelId,
-        String embeddingSpaceId) {
+        String embeddingSpaceId,
+        String deploymentId,
+        String catalogId,
+        String contractVersion) {
 
     public ResolvedRagEmbedding {
         if (embeddingPort == null) {
@@ -28,6 +31,9 @@ public record ResolvedRagEmbedding(
         model = normalize(model);
         modelId = normalize(modelId);
         embeddingSpaceId = normalize(embeddingSpaceId);
+        deploymentId = normalize(deploymentId);
+        catalogId = normalize(catalogId);
+        contractVersion = normalize(contractVersion);
         inputType = inputType == null ? EmbeddingInputType.TEXT : inputType;
     }
 
@@ -38,7 +44,21 @@ public record ResolvedRagEmbedding(
             String model,
             Integer dimension,
             EmbeddingInputType inputType) {
-        this(embeddingPort, profileId, provider, model, dimension, inputType, profileId, profileId);
+        this(embeddingPort, profileId, provider, model, dimension, inputType, profileId, profileId,
+                null, null, null);
+    }
+
+    public ResolvedRagEmbedding(
+            EmbeddingPort embeddingPort,
+            String profileId,
+            String provider,
+            String model,
+            Integer dimension,
+            EmbeddingInputType inputType,
+            String modelId,
+            String embeddingSpaceId) {
+        this(embeddingPort, profileId, provider, model, dimension, inputType, modelId, embeddingSpaceId,
+                null, null, null);
     }
 
     public EmbeddingRequest request(List<String> texts) {
@@ -50,6 +70,10 @@ public record ResolvedRagEmbedding(
         put(values, VectorRecord.KEY_EMBEDDING_PROFILE_ID, profileId);
         put(values, VectorRecord.KEY_EMBEDDING_MODEL_ID, modelId);
         put(values, VectorRecord.KEY_EMBEDDING_SPACE_ID, embeddingSpaceId);
+        put(values, VectorRecord.KEY_EMBEDDING_SPACE_ID_V2, embeddingSpaceId);
+        put(values, VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID, deploymentId);
+        put(values, VectorRecord.KEY_EMBEDDING_CATALOG_ID, catalogId);
+        put(values, VectorRecord.KEY_EMBEDDING_CONTRACT_VERSION, contractVersion);
         put(values, VectorRecord.KEY_EMBEDDING_PROVIDER, provider);
         put(values, VectorRecord.KEY_EMBEDDING_MODEL, model);
         put(values, VectorRecord.KEY_EMBEDDING_DIMENSION, dimension);

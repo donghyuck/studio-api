@@ -9,6 +9,10 @@ import java.util.Map;
 import org.springframework.core.env.Environment;
 
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelDeployment;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
+import studio.one.platform.ai.model.ModelWorkload;
+import studio.one.platform.ai.model.embedding.EmbeddingSpaceId;
 
 public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionCatalog {
 
@@ -19,6 +23,7 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
             "OCR_TEXT");
 
     private final AiProviderRegistry registry;
+    private final ModelDeploymentRegistry deploymentRegistry;
     private final AiAdapterProperties aiProperties;
     private final RagEmbeddingProperties ragProperties;
     private final Environment environment;
@@ -27,7 +32,17 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
             AiAdapterProperties aiProperties,
             RagEmbeddingProperties ragProperties,
             Environment environment) {
+        this(registry, null, aiProperties, ragProperties, environment);
+    }
+
+    public DefaultAiEmbeddingOptionCatalog(
+            AiProviderRegistry registry,
+            ModelDeploymentRegistry deploymentRegistry,
+            AiAdapterProperties aiProperties,
+            RagEmbeddingProperties ragProperties,
+            Environment environment) {
         this.registry = registry;
+        this.deploymentRegistry = deploymentRegistry;
         this.aiProperties = aiProperties;
         this.ragProperties = ragProperties;
         this.environment = environment;
@@ -38,6 +53,9 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
         Map<String, AiEmbeddingOption> options = new LinkedHashMap<>();
         List<String> profileSignatures = new ArrayList<>();
         ragProperties.getEmbeddingProfiles().forEach((profileId, profile) -> {
+            if (deploymentProfile(profile)) {
+                return;
+            }
             String providerId = normalize(profile.getProvider());
             if (providerId == null) {
                 providerId = registry.defaultEmbeddingProvider();
@@ -47,14 +65,59 @@ public final class DefaultAiEmbeddingOptionCatalog implements AiEmbeddingOptionC
             options.put(profileKey(profileId), option);
             profileSignatures.add(optionSignature(providerId, option.model(), option.dimension()));
         });
-        registry.availableEmbeddingPorts().keySet().forEach(providerId -> {
-            AiAdapterProperties.Provider provider = provider(providerId);
-            AiEmbeddingOption option = providerOption(providerId, provider);
-            if (!profileSignatures.contains(optionSignature(option))) {
-                options.put(providerKey(providerId), option);
-            }
-        });
+        List<ModelDeployment> deployments = deploymentRegistry == null
+                ? List.of() : deploymentRegistry.deployments(ModelWorkload.EMBEDDING);
+        if (deployments.isEmpty()) {
+            registry.availableEmbeddingPorts().keySet().forEach(providerId -> {
+                AiAdapterProperties.Provider provider = provider(providerId);
+                AiEmbeddingOption option = providerOption(providerId, provider);
+                if (!profileSignatures.contains(optionSignature(option))) {
+                    options.put(providerKey(providerId), option);
+                }
+            });
+        } else {
+            deployments.forEach(deployment -> options.put(
+                    "deployment:" + deployment.deploymentId(), deploymentOption(deployment)));
+        }
         return new ArrayList<>(options.values());
+    }
+
+    private boolean deploymentProfile(RagEmbeddingProperties.ProfileProperties profile) {
+        Object deploymentId = profile.getMetadata().get("deploymentId");
+        return deploymentRegistry != null && deploymentId != null
+                && deploymentRegistry.find(deploymentId.toString()).isPresent();
+    }
+
+    private AiEmbeddingOption deploymentOption(ModelDeployment deployment) {
+        AiAdapterProperties.Provider provider = provider(deployment.providerRef());
+        boolean defaultDeployment = deploymentRegistry.defaultDeployment(ModelWorkload.EMBEDDING)
+                .map(value -> value.deploymentId().equals(deployment.deploymentId()))
+                .orElse(false);
+        List<String> aliases = deployment.definition().aliases().stream().sorted().toList();
+        String spaceId = EmbeddingSpaceId.from(deployment.embeddingContract());
+        return new AiEmbeddingOption(
+                null,
+                deployment.providerRef(),
+                providerType(provider),
+                deployment.definition().apiModel(),
+                deployment.dimension(),
+                DEFAULT_INPUT_TYPES,
+                defaultDeployment,
+                false,
+                false,
+                "deployment",
+                Map.of(
+                        "deploymentId", deployment.deploymentId(),
+                        "catalogId", deployment.definition().catalogId(),
+                        "effectiveStatus", "EFFECTIVE"),
+                deployment.definition().catalogId(),
+                firstText(deployment.definition().displayName(), deployment.definition().apiModel()),
+                spaceId,
+                aliases,
+                deployment.deploymentId(),
+                deployment.definition().catalogId(),
+                "EFFECTIVE",
+                "Configured deployment; provider discovery has not been performed");
     }
 
     private AiEmbeddingOption providerOption(String providerId, AiAdapterProperties.Provider provider) {

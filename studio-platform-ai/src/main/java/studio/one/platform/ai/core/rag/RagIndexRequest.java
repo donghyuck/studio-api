@@ -18,6 +18,7 @@ public final class RagIndexRequest {
     private final String embeddingProvider;
     private final String embeddingModel;
     private final Integer embeddingDimension;
+    private final String embeddingDeploymentId;
 
     public RagIndexRequest(String documentId, String text, Map<String, Object> metadata) {
         this(documentId, text, metadata, List.of(), false);
@@ -52,6 +53,20 @@ public final class RagIndexRequest {
                            String embeddingProvider,
                            String embeddingModel,
                            Integer embeddingDimension) {
+        this(documentId, text, metadata, keywords, useLlmKeywordExtraction, embeddingProfileId,
+                embeddingProvider, embeddingModel, embeddingDimension, null);
+    }
+
+    public RagIndexRequest(String documentId,
+                           String text,
+                           Map<String, Object> metadata,
+                           List<String> keywords,
+                           boolean useLlmKeywordExtraction,
+                           String embeddingProfileId,
+                           String embeddingProvider,
+                           String embeddingModel,
+                           Integer embeddingDimension,
+                           String embeddingDeploymentId) {
         this.documentId = Objects.requireNonNull(documentId, "documentId");
         this.text = Objects.requireNonNull(text, "text");
         this.metadata = metadata == null ? Map.of() : Map.copyOf(metadata);
@@ -64,6 +79,7 @@ public final class RagIndexRequest {
             throw new IllegalArgumentException("embeddingDimension must be greater than zero");
         }
         this.embeddingDimension = embeddingDimension;
+        this.embeddingDeploymentId = normalize(embeddingDeploymentId);
     }
 
     public String documentId() {
@@ -100,6 +116,10 @@ public final class RagIndexRequest {
 
     public Integer embeddingDimension() {
         return embeddingDimension;
+    }
+
+    public String embeddingDeploymentId() {
+        return embeddingDeploymentId;
     }
 
     private static String normalize(String value) {

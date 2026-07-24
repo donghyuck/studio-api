@@ -20,6 +20,25 @@ public interface ProviderChatPortFactory {
         return create(provider, env, chatModelProvider);
     }
 
+    /**
+     * Creates a port for an explicit deployment. Provider properties describe the
+     * connection; the catalog-resolved model is supplied separately.
+     */
+    default ChatPort createForDeployment(
+                    String providerId,
+                    AiAdapterProperties.Provider provider,
+                    String apiModel,
+                    Environment env,
+                    ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider) {
+        String configuredModel = provider.getChat().getModel();
+        if (configuredModel != null && !configuredModel.isBlank()
+                && configuredModel.trim().equals(apiModel)) {
+            return create(providerId, provider, env, chatModelProvider);
+        }
+        throw new IllegalStateException("Provider chat factory " + supportedType()
+                + " does not support deployment model override: " + apiModel);
+    }
+
     ChatPort create(AiAdapterProperties.Provider provider,
                     Environment env,
                     ObjectProvider<org.springframework.ai.chat.model.ChatModel> chatModelProvider);

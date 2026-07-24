@@ -70,6 +70,43 @@ class EpubFileParserTest {
     }
 
     @Test
+    void excludesNonTextResourcesFromExtractedBytesBudget() throws Exception {
+        Map<String, byte[]> entries = baseEntries("""
+                <manifest>
+                  <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+                  <item id="cover" href="images/cover.jpg" media-type="image/jpeg"/>
+                </manifest>
+                <spine><itemref idref="chapter"/></spine>
+                """);
+        entries.put("OPS/chapter.xhtml", xhtml("제목", "본문", ""));
+        entries.put("OPS/images/cover.jpg", new byte[16 * 1024]);
+
+        ParsedFile result = new EpubFileParser(32 * 1024, 4 * 1024).parseStructured(
+                epub(entries), "application/epub+zip", "large-image.epub");
+
+        assertThat(result.plainText()).contains("제목", "본문");
+        assertThat(result.metadata()).containsEntry("archiveEntryCount", 4);
+        assertThat(result.metadata()).containsEntry("loadedEntryCount", 3);
+        assertThat((Long) result.metadata().get("loadedExtractedBytes")).isLessThan(4 * 1024L);
+    }
+
+    @Test
+    void rejectsWhenSelectedTextEntriesExceedConfiguredBudget() throws Exception {
+        Map<String, byte[]> entries = baseEntries("""
+                <manifest>
+                  <item id="chapter" href="chapter.xhtml" media-type="application/xhtml+xml"/>
+                </manifest>
+                <spine><itemref idref="chapter"/></spine>
+                """);
+        entries.put("OPS/chapter.xhtml", xhtml("제목", "가".repeat(8 * 1024), ""));
+
+        assertThatThrownBy(() -> new EpubFileParser(64 * 1024, 4 * 1024).parseStructured(
+                epub(entries), "application/epub+zip", "large-text.epub"))
+                .isInstanceOf(FileParseException.class)
+                .hasMessageContaining("EPUB exceeds max extracted bytes");
+    }
+
+    @Test
     void rejectsZipEntryPathTraversal() throws Exception {
         Map<String, byte[]> entries = new LinkedHashMap<>();
         entries.put("../outside.xhtml", "bad".getBytes(UTF_8));

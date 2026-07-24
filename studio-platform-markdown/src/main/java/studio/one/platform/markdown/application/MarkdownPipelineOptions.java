@@ -31,14 +31,15 @@ public record MarkdownPipelineOptions(
         Boolean mathVisionCorrection,
         @JsonInclude(JsonInclude.Include.NON_NULL) String requestedDocumentProfile,
         @JsonInclude(JsonInclude.Include.NON_NULL) String resolvedDocumentProfile,
-        @JsonInclude(JsonInclude.Include.NON_NULL) String documentProfileVersion) {
+        @JsonInclude(JsonInclude.Include.NON_NULL) String documentProfileVersion,
+        @JsonInclude(JsonInclude.Include.NON_NULL) String embeddingDeploymentId) {
 
     public MarkdownPipelineOptions {
         runRagIndex = runRagIndex || runSkillExtraction;
         runChunking = runChunking || runRagIndex;
         String explicitOcrMode = normalizeOcrMode(ocrMode);
-        if (ocrRequired != null && explicitOcrMode != null
-                && (Boolean.FALSE.equals(ocrRequired) != "DISABLED".equals(explicitOcrMode))) {
+        if ((Boolean.FALSE.equals(ocrRequired) && "FORCE".equals(explicitOcrMode))
+                || (Boolean.TRUE.equals(ocrRequired) && "DISABLED".equals(explicitOcrMode))) {
             throw new IllegalArgumentException("ocrRequired and ocrMode must describe the same OCR state");
         }
         if (Boolean.FALSE.equals(ocrRequired) && explicitOcrMode == null) {
@@ -54,8 +55,10 @@ public record MarkdownPipelineOptions(
             requestedDocumentProfile = requestedProfile.name();
             resolvedDocumentProfile = resolvedProfile.name();
             documentProfileVersion = MarkdownDocumentProfile.VERSION;
-            if (runChunking) {
+            if (runChunking && requestedProfile != MarkdownDocumentProfile.AUTO) {
                 chunkingStrategy = valueOrDefault(chunkingStrategy, resolvedProfile.chunkingStrategy());
+            }
+            if (runChunking) {
                 chunkMaxSize = valueOrDefault(chunkMaxSize, resolvedProfile.chunkMaxSize());
                 chunkOverlap = valueOrDefault(chunkOverlap, resolvedProfile.chunkOverlap());
                 chunkUnit = valueOrDefault(chunkUnit, resolvedProfile.chunkUnit());
@@ -79,6 +82,7 @@ public record MarkdownPipelineOptions(
         embeddingProfileId = normalize(embeddingProfileId);
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
+        embeddingDeploymentId = normalize(embeddingDeploymentId);
         skillEmbeddingProvider = normalize(skillEmbeddingProvider);
         skillEmbeddingModel = normalize(skillEmbeddingModel);
         skillExtractionMode = normalizeSkillExtractionMode(skillExtractionMode);
@@ -97,6 +101,11 @@ public record MarkdownPipelineOptions(
         if (skillEmbeddingDimension != null && skillEmbeddingDimension <= 0) {
             throw new IllegalArgumentException("skillEmbeddingDimension must be greater than zero");
         }
+        if (embeddingDeploymentId != null
+                && (embeddingProfileId != null || embeddingProvider != null || embeddingModel != null)) {
+            throw new IllegalArgumentException(
+                    "embeddingDeploymentId must not be supplied with legacy embedding selection fields");
+        }
         if (embeddingProfileId != null && (embeddingProvider != null || embeddingModel != null)) {
             throw new IllegalArgumentException(
                     "embeddingProvider/embeddingModel must not be supplied with embeddingProfileId");
@@ -105,7 +114,8 @@ public record MarkdownPipelineOptions(
                 || blockifyPiiMaskingEnabled != null;
         boolean hasChunkingSelection = chunkingStrategy != null || chunkMaxSize != null
                 || chunkOverlap != null || chunkUnit != null || hasBlockifyLlmSelection;
-        boolean hasEmbeddingSelection = embeddingProfileId != null || embeddingProvider != null
+        boolean hasEmbeddingSelection = embeddingDeploymentId != null || embeddingProfileId != null
+                || embeddingProvider != null
                 || embeddingModel != null || embeddingDimension != null;
         if (!runChunking && hasChunkingSelection) {
             throw new IllegalArgumentException("Chunking options require runChunking");
@@ -157,6 +167,44 @@ public record MarkdownPipelineOptions(
             Boolean ocrRequired,
             String ocrLanguage,
             String ocrMode,
+            Boolean mathVisionCorrection,
+            String requestedDocumentProfile,
+            String resolvedDocumentProfile,
+            String documentProfileVersion) {
+        this(runChunking, runRagIndex, runSkillExtraction,
+                chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
+                blockifyLlmProvider, blockifyLlmModel, blockifyPiiMaskingEnabled,
+                embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
+                useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
+                skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection,
+                requestedDocumentProfile, resolvedDocumentProfile, documentProfileVersion, null);
+    }
+
+    public MarkdownPipelineOptions(
+            boolean runChunking,
+            boolean runRagIndex,
+            boolean runSkillExtraction,
+            String chunkingStrategy,
+            Integer chunkMaxSize,
+            Integer chunkOverlap,
+            String chunkUnit,
+            String blockifyLlmProvider,
+            String blockifyLlmModel,
+            Boolean blockifyPiiMaskingEnabled,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            Integer embeddingDimension,
+            boolean useLlmKeywordExtraction,
+            String skillExtractionMode,
+            boolean generateSkillEmbeddings,
+            String skillEmbeddingProvider,
+            String skillEmbeddingModel,
+            Integer skillEmbeddingDimension,
+            Boolean ocrRequired,
+            String ocrLanguage,
+            String ocrMode,
             Boolean mathVisionCorrection) {
         this(runChunking, runRagIndex, runSkillExtraction,
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
@@ -164,7 +212,7 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null, null, null);
+                ocrRequired, ocrLanguage, ocrMode, mathVisionCorrection, null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -195,7 +243,7 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, ocrRequired, null, null, null,
-                null, null, null);
+                null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -227,7 +275,7 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                ocrRequired, ocrLanguage, null, null, null, null, null);
+                ocrRequired, ocrLanguage, null, null, null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -260,7 +308,7 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension,
-                ocrRequired, ocrLanguage, ocrMode, null, null, null, null);
+                ocrRequired, ocrLanguage, ocrMode, null, null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -290,7 +338,7 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, null, null, null, null,
-                null, null, null);
+                null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -309,7 +357,7 @@ public record MarkdownPipelineOptions(
                 chunkingStrategy, chunkMaxSize, chunkOverlap, chunkUnit,
                 null, null, null,
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
-                false, null, false, null, null, null, null, null, null, null, null, null, null);
+                false, null, false, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -335,7 +383,7 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, null, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, null, null, null, null,
-                null, null, null);
+                null, null, null, null);
     }
 
     public MarkdownPipelineOptions(
@@ -362,13 +410,13 @@ public record MarkdownPipelineOptions(
                 embeddingProfileId, embeddingProvider, embeddingModel, embeddingDimension,
                 useLlmKeywordExtraction, skillExtractionMode, generateSkillEmbeddings,
                 skillEmbeddingProvider, skillEmbeddingModel, skillEmbeddingDimension, null, null, null, null,
-                null, null, null);
+                null, null, null, null);
     }
 
     public MarkdownPipelineOptions(boolean runChunking, boolean runRagIndex, boolean runSkillExtraction) {
         this(runChunking, runRagIndex, runSkillExtraction,
                 null, null, null, null, null, null, null, null, null, null, null,
-                false, null, false, null, null, null, null, null, null, null, null, null, null);
+                false, null, false, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     public static MarkdownPipelineOptions none() {

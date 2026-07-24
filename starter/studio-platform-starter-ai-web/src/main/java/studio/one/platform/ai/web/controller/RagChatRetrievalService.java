@@ -13,6 +13,7 @@ import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.core.MetadataFilter;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
 import studio.one.platform.ai.web.dto.ChatRagRetrievalOptionsDto;
@@ -65,7 +66,10 @@ public class RagChatRetrievalService {
         Strategy requestedStrategy = Strategy.from(plan.requestedStrategy());
         RetrievalResolution resolution = resolveStrategy(request, requestedStrategy, objectType, objectId);
         Strategy resolvedStrategy = resolution.strategy();
-        request = alignEmbeddingProfile(request, resolution.embeddingProfileId());
+        request = alignEmbeddingSelection(
+                request,
+                resolution.embeddingDeploymentId(),
+                resolution.embeddingProfileId());
         if (resolvedStrategy == Strategy.DEFAULT) {
             List<RagSearchResult> results = search(request, resolvedQuery, defaultTopK, baseFilter,
                     defaultMinScore, requestedTopK, requestedMinScore(request));
@@ -111,11 +115,14 @@ public class RagChatRetrievalService {
         if (objectType == null || objectId == null) {
             return new RetrievalResolution(
                     requestedStrategy == Strategy.AUTO ? Strategy.HYBRID : requestedStrategy,
+                    null,
                     null);
         }
         List<RagSearchResult> samples = ragPipelineService.listByObject(objectType, objectId, STRATEGY_SAMPLE_LIMIT);
         boolean structure = false;
         boolean ideaBlock = false;
+        String indexedEmbeddingDeploymentId = null;
+        boolean mixedEmbeddingDeployments = false;
         String indexedEmbeddingProfileId = null;
         boolean mixedEmbeddingProfiles = false;
         List<RagSearchResult> availableSamples = samples == null ? List.of() : samples;
@@ -125,32 +132,47 @@ public class RagChatRetrievalService {
             String chunkType = firstText(metadata, ChunkMetadata.KEY_CHUNK_TYPE, "chunkType");
             structure |= VALUE_STRUCTURE_BASED.equalsIgnoreCase(strategy);
             ideaBlock |= VALUE_BLOCKIFY.equalsIgnoreCase(strategy) || VALUE_IDEA_BLOCK.equalsIgnoreCase(chunkType);
-            String profileId = firstText(metadata, "embeddingProfileId");
+            String deploymentId = firstText(metadata, VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID);
+            if (deploymentId != null && indexedEmbeddingDeploymentId == null) {
+                indexedEmbeddingDeploymentId = deploymentId;
+            } else if (deploymentId != null
+                    && !deploymentId.equalsIgnoreCase(indexedEmbeddingDeploymentId)) {
+                mixedEmbeddingDeployments = true;
+            }
+            String profileId = firstText(metadata, VectorRecord.KEY_EMBEDDING_PROFILE_ID);
             if (profileId != null && indexedEmbeddingProfileId == null) {
                 indexedEmbeddingProfileId = profileId;
             } else if (profileId != null && !profileId.equalsIgnoreCase(indexedEmbeddingProfileId)) {
                 mixedEmbeddingProfiles = true;
             }
         }
+        String effectiveDeploymentId = mixedEmbeddingDeployments ? null : indexedEmbeddingDeploymentId;
         String effectiveProfileId = mixedEmbeddingProfiles ? null : indexedEmbeddingProfileId;
         if (!adaptive) {
-            return new RetrievalResolution(requestedStrategy, effectiveProfileId);
+            return new RetrievalResolution(requestedStrategy, effectiveDeploymentId, effectiveProfileId);
         }
         if (structure && !ideaBlock) {
-            return new RetrievalResolution(Strategy.STRUCTURE, effectiveProfileId);
+            return new RetrievalResolution(Strategy.STRUCTURE, effectiveDeploymentId, effectiveProfileId);
         }
         if (ideaBlock && !structure) {
-            return new RetrievalResolution(Strategy.IDEA_BLOCK, effectiveProfileId);
+            return new RetrievalResolution(Strategy.IDEA_BLOCK, effectiveDeploymentId, effectiveProfileId);
         }
         if (!structure && !ideaBlock && !availableSamples.isEmpty()) {
-            return new RetrievalResolution(Strategy.DEFAULT, effectiveProfileId);
+            return new RetrievalResolution(Strategy.DEFAULT, effectiveDeploymentId, effectiveProfileId);
         }
-        return new RetrievalResolution(Strategy.HYBRID, effectiveProfileId);
+        return new RetrievalResolution(Strategy.HYBRID, effectiveDeploymentId, effectiveProfileId);
     }
 
-    private ChatRagRequestDto alignEmbeddingProfile(ChatRagRequestDto request, String indexedProfileId) {
-        if (indexedProfileId == null || indexedProfileId.isBlank()
-                || indexedProfileId.equalsIgnoreCase(Objects.toString(request.embeddingProfileId(), ""))) {
+    private ChatRagRequestDto alignEmbeddingSelection(
+            ChatRagRequestDto request,
+            String indexedDeploymentId,
+            String indexedProfileId) {
+        if (hasExplicitEmbeddingSelection(request)) {
+            return request;
+        }
+        String deploymentId = normalize(indexedDeploymentId);
+        String profileId = deploymentId == null ? normalize(indexedProfileId) : null;
+        if (deploymentId == null && profileId == null) {
             return request;
         }
         return new ChatRagRequestDto(
@@ -159,17 +181,32 @@ public class RagChatRetrievalService {
                 request.ragTopK(),
                 request.objectType(),
                 request.objectId(),
-                indexedProfileId,
+                profileId,
                 null,
                 null,
                 request.topK(),
                 request.minScore(),
                 request.debug(),
                 request.retrievalStrategy(),
-                request.retrievalOptions());
+                request.retrievalOptions(),
+                deploymentId);
     }
 
-    private record RetrievalResolution(Strategy strategy, String embeddingProfileId) {
+    private boolean hasExplicitEmbeddingSelection(ChatRagRequestDto request) {
+        return normalize(request.embeddingDeploymentId()) != null
+                || normalize(request.embeddingProfileId()) != null
+                || normalize(request.embeddingProvider()) != null
+                || normalize(request.embeddingModel()) != null;
+    }
+
+    private String normalize(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private record RetrievalResolution(
+            Strategy strategy,
+            String embeddingDeploymentId,
+            String embeddingProfileId) {
     }
 
     private List<LegResult> ideaBlockLegs(
@@ -217,7 +254,8 @@ public class RagChatRetrievalService {
                 minScore,
                 requestedTopK,
                 requestedMinScore,
-                queryExpansionEnabled(request)));
+                queryExpansionEnabled(request),
+                request.embeddingDeploymentId()));
     }
 
     private boolean queryExpansionEnabled(ChatRagRequestDto request) {

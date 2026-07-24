@@ -57,7 +57,8 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
                         source.useLlmKeywordExtraction(),
                         source.embeddingProfileId(),
                         source.embeddingProvider(),
-                        source.embeddingModel())
+                        source.embeddingModel(),
+                        source.embeddingDeploymentId())
                 : ragIndexService.command(
                         attachmentId,
                         request.documentId(),
@@ -76,7 +77,8 @@ public class AttachmentRagIndexJobSourceExecutor implements RagIndexJobSourceExe
     private boolean hasEmbeddingSelection(RagIndexJobSourceRequest source) {
         return source.embeddingProfileId() != null
                 || source.embeddingProvider() != null
-                || source.embeddingModel() != null;
+                || source.embeddingModel() != null
+                || source.embeddingDeploymentId() != null;
     }
 
     private long attachmentId(RagIndexJobCreateRequest request, RagIndexJobSourceRequest sourceRequest) {

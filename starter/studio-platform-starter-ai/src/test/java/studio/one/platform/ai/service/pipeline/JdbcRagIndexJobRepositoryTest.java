@@ -72,6 +72,18 @@ class JdbcRagIndexJobRepositoryTest {
     }
 
     @Test
+    void persistsEmbeddingDeploymentIdentity() {
+        RagIndexJob job = RagIndexJob.pending(
+                "job-embedding", "attachment", "9", "doc-9", "attachment", "book.epub",
+                "document-multimodal-v1", Instant.parse("2026-04-26T00:00:00Z"));
+
+        repository.save(job);
+
+        assertThat(repository.findById("job-embedding").orElseThrow().embeddingDeploymentId())
+                .isEqualTo("document-multimodal-v1");
+    }
+
+    @Test
     void updatesStatusCountsCancelAndLogs() {
         repository.save(pending("job-1", "attachment", "42", "doc-1"));
 
@@ -171,7 +183,10 @@ class JdbcRagIndexJobRepositoryTest {
                   created_at TIMESTAMP NOT NULL,
                   started_at TIMESTAMP,
                   finished_at TIMESTAMP,
-                  duration_ms BIGINT
+                  duration_ms BIGINT,
+                  embedding_deployment_id VARCHAR(200),
+                  catalog_id VARCHAR(300),
+                  embedding_space_id VARCHAR(80)
                 )
                 """,
                 """

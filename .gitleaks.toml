@@ -4,7 +4,7 @@ title = "studio-api gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Allow obvious documentation placeholders only"
+description = "Allow obvious documentation placeholders and verified public model IDs only"
 paths = [
   '''(^|/).*README\.md$''',
   '''(^|/).*SKILL\.md$'''
@@ -15,5 +15,8 @@ regexes = [
   '''(?i)example''',
   '''(?i)secret''',
   '''(?i)<token>''',
-  '''(?i)encryptedvaluehere'''
+  '''(?i)encryptedvaluehere''',
+  '''(?i)claude-opus-4\.8''',
+  '''(?i)claude-haiku-4\.5''',
+  '''(?i)mistral-medium-3\.5'''
 ]

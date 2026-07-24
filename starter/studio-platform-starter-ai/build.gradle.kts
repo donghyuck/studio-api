@@ -19,9 +19,11 @@ dependencies {
     implementation(project(":studio-platform-autoconfigure"))
     compileOnly(project(":starter:studio-platform-starter"))
     api(project(":studio-platform-ai"))
+    implementation(project(":studio-platform-ai-model-catalog"))
     api(project(":studio-platform-chunking"))
     compileOnly("org.springframework:spring-jdbc")
     compileOnly("org.springframework:spring-tx")
+    compileOnly("org.springframework.security:spring-security-core")
     compileOnly("org.mybatis.spring.boot:mybatis-spring-boot-starter:${property("mybatisSpringBootStarterVersion")}")
 
     // Provider libraries: compileOnly so they do NOT become transitive dependencies.
@@ -47,6 +49,7 @@ dependencies {
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.springframework:spring-jdbc")
     testImplementation("org.springframework:spring-tx")
+    testImplementation("org.springframework.security:spring-security-core")
     testImplementation(project(":starter:studio-platform-starter-mybatis"))
     testImplementation("org.mybatis.spring.boot:mybatis-spring-boot-starter:${property("mybatisSpringBootStarterVersion")}")
     testImplementation("org.testcontainers:junit-jupiter")

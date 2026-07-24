@@ -61,6 +61,8 @@ public class JdbcMarkdownRepository implements MarkdownRepository {
                 SET result_attachment_id=:resultAttachmentId,
                     document_convert_job_id=:documentConvertJobId,
                     extractor_version=:extractorVersion,
+                    options_json=:optionsJson,
+                    options_hash=:optionsHash,
                     content_hash=:contentHash,
                     markdown_text=:markdownText,
                     status=:status,

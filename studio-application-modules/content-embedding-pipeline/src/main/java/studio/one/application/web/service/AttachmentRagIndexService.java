@@ -42,7 +42,8 @@ public class AttachmentRagIndexService {
             Boolean useLlmKeywordExtraction,
             String embeddingProfileId,
             String embeddingProvider,
-            String embeddingModel) {
+            String embeddingModel,
+            String embeddingDeploymentId) {
         return new AttachmentRagIndexCommand(
                 hasText(documentId) ? documentId.trim() : String.valueOf(attachmentId),
                 "attachment",
@@ -52,7 +53,22 @@ public class AttachmentRagIndexService {
                 Boolean.TRUE.equals(useLlmKeywordExtraction),
                 embeddingProfileId,
                 embeddingProvider,
-                embeddingModel);
+                embeddingModel,
+                embeddingDeploymentId);
+    }
+
+    public AttachmentRagIndexCommand command(long attachmentId,
+            String documentId,
+            String objectType,
+            String objectId,
+            Map<String, Object> metadata,
+            List<String> keywords,
+            Boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        return command(attachmentId, documentId, objectType, objectId, metadata, keywords,
+                useLlmKeywordExtraction, embeddingProfileId, embeddingProvider, embeddingModel, null);
     }
 
     public AttachmentRagIndexCommand command(long attachmentId,
@@ -63,7 +79,7 @@ public class AttachmentRagIndexService {
             List<String> keywords,
             Boolean useLlmKeywordExtraction) {
         return command(attachmentId, documentId, objectType, objectId, metadata, keywords,
-                useLlmKeywordExtraction, null, null, null);
+                useLlmKeywordExtraction, null, null, null, null);
     }
 
     public boolean hasTextExtractor() {
@@ -156,7 +172,9 @@ public class AttachmentRagIndexService {
                         command.useLlmKeywordExtraction(),
                         command.embeddingProfileId(),
                         command.embeddingProvider(),
-                        command.embeddingModel()), progress);
+                        command.embeddingModel(),
+                        null,
+                        command.embeddingDeploymentId()), progress);
             }
             return new AttachmentRagIndexResult(AttachmentRagIndexDiagnostics.fallback(
                     structuredDiagnostics == null ? "structured_not_attempted" : structuredDiagnostics.fallbackReason()));
@@ -183,6 +201,7 @@ public class AttachmentRagIndexService {
         putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_PROFILE_ID, command.embeddingProfileId());
         putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_PROVIDER, command.embeddingProvider());
         putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_MODEL, command.embeddingModel());
+        putIfPresent(metadata, VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID, command.embeddingDeploymentId());
         metadata.putIfAbsent("indexedAt", Instant.now().toString());
         metadata.putIfAbsent("contentType", attachment.getContentType());
         metadata.putIfAbsent("size", attachment.getSize());

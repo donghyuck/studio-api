@@ -18,7 +18,8 @@ public record ChatRequestDto(
         Integer topK,
         Integer maxOutputTokens,
         List<String> stopSequences,
-        ChatMemoryOptionsDto memory
+        ChatMemoryOptionsDto memory,
+        String deploymentId
 ) {
     public ChatRequestDto(
             String provider,
@@ -30,6 +31,22 @@ public record ChatRequestDto(
             Integer topK,
             Integer maxOutputTokens,
             List<String> stopSequences) {
-        this(provider, systemPrompt, messages, model, temperature, topP, topK, maxOutputTokens, stopSequences, null);
+        this(provider, systemPrompt, messages, model, temperature, topP, topK, maxOutputTokens, stopSequences, null,
+                null);
+    }
+
+    public ChatRequestDto(
+            String provider,
+            String systemPrompt,
+            List<ChatMessageDto> messages,
+            String model,
+            Double temperature,
+            Double topP,
+            Integer topK,
+            Integer maxOutputTokens,
+            List<String> stopSequences,
+            ChatMemoryOptionsDto memory) {
+        this(provider, systemPrompt, messages, model, temperature, topP, topK, maxOutputTokens, stopSequences, memory,
+                null);
     }
 }

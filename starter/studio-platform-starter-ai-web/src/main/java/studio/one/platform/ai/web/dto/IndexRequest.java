@@ -12,14 +12,28 @@ public record IndexRequest(
         Boolean useLlmKeywordExtraction,
         @com.fasterxml.jackson.annotation.JsonAlias("embeddingModelId") String embeddingProfileId,
         String embeddingProvider,
-        String embeddingModel
+        String embeddingModel,
+        String embeddingDeploymentId
 ) {
     public IndexRequest(
             String documentId,
             String text,
             Map<String, Object> metadata,
             List<String> keywords,
+            Boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel) {
+        this(documentId, text, metadata, keywords, useLlmKeywordExtraction, embeddingProfileId,
+                embeddingProvider, embeddingModel, null);
+    }
+
+    public IndexRequest(
+            String documentId,
+            String text,
+            Map<String, Object> metadata,
+            List<String> keywords,
             Boolean useLlmKeywordExtraction) {
-        this(documentId, text, metadata, keywords, useLlmKeywordExtraction, null, null, null);
+        this(documentId, text, metadata, keywords, useLlmKeywordExtraction, null, null, null, null);
     }
 }

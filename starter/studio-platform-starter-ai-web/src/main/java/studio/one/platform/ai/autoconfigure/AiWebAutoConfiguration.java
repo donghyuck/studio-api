@@ -33,6 +33,8 @@ import studio.one.platform.ai.core.chat.ConversationRepositoryPort;
 import studio.one.platform.ai.core.chunk.TextChunker;
 import studio.one.platform.ai.core.embedding.EmbeddingPort;
 import studio.one.platform.ai.core.registry.AiProviderRegistry;
+import studio.one.platform.ai.model.ModelCatalog;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
 import studio.one.platform.ai.core.vector.VectorStorePort;
 import studio.one.platform.ai.core.vector.visualization.ExistingVectorItemRepository;
 import studio.one.platform.ai.core.vector.visualization.PcaVectorProjectionGenerator;
@@ -62,6 +64,7 @@ import studio.one.platform.ai.web.controller.ChatController;
 import studio.one.platform.ai.web.controller.EmbeddingController;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationStore;
 import studio.one.platform.ai.web.controller.InMemoryAiModelUsageStore;
+import studio.one.platform.ai.web.controller.ModelCatalogController;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationJobStore;
 import studio.one.platform.ai.web.controller.InMemoryRagRetrievalEvaluationQuestionSetStore;
 import studio.one.platform.ai.web.controller.JdbcRagRetrievalEvaluationStore;
@@ -163,7 +166,7 @@ public class AiWebAutoConfiguration {
 
     @Bean
     ChatController chatController(
-            AiProviderRegistry providerRegistry,
+            ModelDeploymentRegistry providerRegistry,
             RagPipelineService ragPipelineService,
             RagChatRetrievalService ragChatRetrievalService,
             RagContextBuilder ragContextBuilder,
@@ -189,6 +192,15 @@ public class AiWebAutoConfiguration {
                 ragRetrievalPolicyStore,
                 ragRetrievalPolicyUsageStore,
                 modelUsageStore);
+    }
+
+    @Bean
+    @ConditionalOnBean({ModelCatalog.class, ModelDeploymentRegistry.class})
+    ModelCatalogController modelCatalogController(
+            ModelCatalog catalog,
+            ModelDeploymentRegistry registry,
+            AiAdapterProperties adapterProperties) {
+        return new ModelCatalogController(catalog, registry, adapterProperties);
     }
 
     @Bean
@@ -468,12 +480,12 @@ public class AiWebAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnBean({EmbeddingPort.class, AiProviderRegistry.class, VectorStorePort.class, VectorProjectionRepository.class,
+    @ConditionalOnBean({EmbeddingPort.class, ModelDeploymentRegistry.class, VectorStorePort.class, VectorProjectionRepository.class,
             VectorProjectionPointRepository.class, ExistingVectorItemRepository.class})
     @ConditionalOnMissingBean
     VectorSearchVisualizationService vectorSearchVisualizationService(
             EmbeddingPort embeddingPort,
-            AiProviderRegistry providerRegistry,
+            ModelDeploymentRegistry providerRegistry,
             VectorStorePort vectorStorePort,
             VectorProjectionRepository projectionRepository,
             VectorProjectionPointRepository pointRepository,
@@ -599,8 +611,9 @@ public class AiWebAutoConfiguration {
             AiAdapterProperties properties,
             AiWebChatProperties chatProperties,
             Environment environment,
+            ModelDeploymentRegistry deploymentRegistry,
             @Nullable VectorStorePort vectorStorePort) {
-        return new AiInfoController(properties, chatProperties, environment, vectorStorePort);
+        return new AiInfoController(properties, chatProperties, environment, vectorStorePort, deploymentRegistry);
     }
 
     @Configuration(proxyBeanMethods = false)

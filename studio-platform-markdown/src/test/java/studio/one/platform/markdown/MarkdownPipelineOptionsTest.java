@@ -112,6 +112,26 @@ class MarkdownPipelineOptionsTest {
     }
 
     @Test
+    void keepsAutoProfileStrategyUnspecifiedForRuntimeSelection() {
+        MarkdownPipelineOptions options = new MarkdownPipelineOptions(
+                true, false, false,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null,
+                false, null, false,
+                null, null, null,
+                null, null, null, null,
+                "AUTO", null, null);
+
+        assertEquals(null, options.chunkingStrategy());
+        assertEquals(1200, options.chunkMaxSize());
+        assertEquals(150, options.chunkOverlap());
+        assertEquals("CHARACTER", options.chunkUnit());
+        assertEquals("AUTO", options.requestedDocumentProfile());
+        assertEquals("GENERAL_DOCUMENT", options.resolvedDocumentProfile());
+    }
+
+    @Test
     void explicitOptionsOverrideProfileDefaults() {
         MarkdownPipelineOptions options = new MarkdownPipelineOptions(
                 true, false, false,
@@ -159,6 +179,22 @@ class MarkdownPipelineOptionsTest {
                 null, null, null,
                 false, null, "FORCE", null,
                 "MATH_TEXTBOOK", null, null));
+    }
+
+    @Test
+    void acceptsLegacyOcrRequiredFalseWithAutoMode() {
+        MarkdownPipelineOptions options = new MarkdownPipelineOptions(
+                false, false, false,
+                null, null, null, null,
+                null, null, null,
+                null, null, null, null,
+                false, null, false,
+                null, null, null,
+                false, null, "AUTO", null,
+                "PROFESSIONAL_BOOK", null, null);
+
+        assertEquals(Boolean.FALSE, options.ocrRequired());
+        assertEquals("AUTO", options.ocrMode());
     }
 
     @Test

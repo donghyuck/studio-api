@@ -11,7 +11,7 @@ import studio.one.platform.markdown.web.MarkdownDocumentRequest;
 class MarkdownDocumentRequestTest {
 
     @Test
-    void acceptsCanonicalEmbeddingModelIdAsLegacyProfileSelection() throws Exception {
+    void keepsLegacyEmbeddingModelIdSeparateFromProfileSelection() throws Exception {
         MarkdownDocumentRequest request = new ObjectMapper().readValue("""
                 {
                   "attachmentId": 7,
@@ -21,8 +21,25 @@ class MarkdownDocumentRequestTest {
                 }
                 """, MarkdownDocumentRequest.class);
 
-        assertThat(request.embeddingProfileId()).isEqualTo("google-ai/gemini-embedding-001@768");
+        assertThat(request.embeddingModelId()).isEqualTo("google-ai/gemini-embedding-001@768");
+        assertThat(request.embeddingProfileId()).isNull();
         assertThat(request.embeddingProvider()).isNull();
         assertThat(request.embeddingModel()).isNull();
+    }
+
+    @Test
+    void acceptsEmbeddingDeploymentIdAsCanonicalSelection() throws Exception {
+        MarkdownDocumentRequest request = new ObjectMapper().readValue("""
+                {
+                  "attachmentId": 7,
+                  "runChunking": true,
+                  "runRagIndex": true,
+                  "embeddingDeploymentId": "document-multimodal-v1"
+                }
+                """, MarkdownDocumentRequest.class);
+
+        assertThat(request.embeddingDeploymentId()).isEqualTo("document-multimodal-v1");
+        assertThat(request.embeddingModelId()).isNull();
+        assertThat(request.embeddingProfileId()).isNull();
     }
 }

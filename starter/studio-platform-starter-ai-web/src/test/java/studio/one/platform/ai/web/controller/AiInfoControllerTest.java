@@ -1,15 +1,66 @@
 package studio.one.platform.ai.web.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
 
 import studio.one.platform.ai.autoconfigure.AiWebChatProperties;
 import studio.one.platform.ai.autoconfigure.config.AiAdapterProperties;
+import studio.one.platform.ai.model.ModelDefinition;
+import studio.one.platform.ai.model.ModelDeployment;
+import studio.one.platform.ai.model.ModelDeploymentRegistry;
+import studio.one.platform.ai.model.ModelDimensionPolicy;
+import studio.one.platform.ai.model.ModelWorkload;
 import studio.one.platform.web.dto.ApiResponse;
 
 class AiInfoControllerTest {
+
+    @Test
+    void addsDeploymentSummaryWithoutChangingLegacyProviderFields() {
+        AiAdapterProperties properties = new AiAdapterProperties();
+        AiAdapterProperties.Provider provider = new AiAdapterProperties.Provider();
+        provider.setType(AiAdapterProperties.ProviderType.GOOGLE_AI_GEMINI);
+        provider.getEmbedding().setEnabled(true);
+        provider.getEmbedding().setModel("gemini-embedding-001");
+        properties.getProviders().put("google-embedding", provider);
+        ModelDefinition definition = mock(ModelDefinition.class);
+        when(definition.supports(ModelWorkload.EMBEDDING)).thenReturn(true);
+        when(definition.catalogId()).thenReturn("google/gemini-embedding-001");
+        when(definition.providerFamily()).thenReturn("google");
+        when(definition.apiModel()).thenReturn("gemini-embedding-001");
+        when(definition.dimensionPolicy()).thenReturn(new ModelDimensionPolicy(Set.of(768), 768));
+        ModelDeployment deployment = new ModelDeployment(
+                "humanities-text-v1", "google-embedding", definition, ModelWorkload.EMBEDDING, 768, true);
+        ModelDeploymentRegistry registry = mock(ModelDeploymentRegistry.class);
+        when(registry.deployments(null)).thenReturn(List.of(deployment));
+        when(registry.defaultDeployment(ModelWorkload.EMBEDDING)).thenReturn(Optional.of(deployment));
+        when(registry.defaultDeployment(ModelWorkload.CHAT)).thenReturn(Optional.empty());
+
+        AiInfoController controller = new AiInfoController(
+                properties, new AiWebChatProperties(), new MockEnvironment(), null, registry);
+
+        var response = controller.providers().getBody().getData();
+
+        assertThat(response.providers()).singleElement().satisfies(info -> {
+            assertThat(info.name()).isEqualTo("google-embedding");
+            assertThat(info.embedding().model()).isEqualTo("gemini-embedding-001");
+            assertThat(info.deployments()).extracting(AiInfoController.DeploymentSummary::deploymentId)
+                    .containsExactly("humanities-text-v1");
+        });
+        assertThat(response.defaultEmbeddingDeployment()).isEqualTo("humanities-text-v1");
+        assertThat(response.deployments()).singleElement().satisfies(summary -> {
+            assertThat(summary.catalogId()).isEqualTo("google/gemini-embedding-001");
+            assertThat(summary.embeddingSpaceId()).startsWith("es:v1:");
+            assertThat(summary.providerStatus()).isEqualTo("UNVERIFIED");
+        });
+    }
 
     @Test
     void exposesSpringAiProviderModelsAsCanonicalSource() {

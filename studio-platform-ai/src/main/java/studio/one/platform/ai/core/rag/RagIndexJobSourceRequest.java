@@ -11,7 +11,21 @@ public record RagIndexJobSourceRequest(
         String embeddingProvider,
         String embeddingModel,
         String chunkSetId,
-        boolean requirePreparedChunks) {
+        boolean requirePreparedChunks,
+        String embeddingDeploymentId) {
+
+    public RagIndexJobSourceRequest(
+            Map<String, Object> metadata,
+            List<String> keywords,
+            boolean useLlmKeywordExtraction,
+            String embeddingProfileId,
+            String embeddingProvider,
+            String embeddingModel,
+            String chunkSetId,
+            boolean requirePreparedChunks) {
+        this(metadata, keywords, useLlmKeywordExtraction, embeddingProfileId, embeddingProvider, embeddingModel,
+                chunkSetId, requirePreparedChunks, null);
+    }
 
     public RagIndexJobSourceRequest(
             Map<String, Object> metadata,
@@ -38,6 +52,12 @@ public record RagIndexJobSourceRequest(
         embeddingProvider = normalize(embeddingProvider);
         embeddingModel = normalize(embeddingModel);
         chunkSetId = normalize(chunkSetId);
+        embeddingDeploymentId = normalize(embeddingDeploymentId);
+        if (embeddingDeploymentId != null
+                && (embeddingProfileId != null || embeddingProvider != null || embeddingModel != null)) {
+            throw new IllegalArgumentException(
+                    "embeddingDeploymentId must not be supplied with legacy embedding selection fields");
+        }
         if (requirePreparedChunks && chunkSetId == null) {
             throw new IllegalArgumentException("chunkSetId is required when prepared chunks are required");
         }

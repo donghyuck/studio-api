@@ -18,6 +18,7 @@ import org.mockito.MockitoAnnotations;
 import studio.one.platform.ai.autoconfigure.AiWebRagProperties;
 import studio.one.platform.ai.core.rag.RagSearchRequest;
 import studio.one.platform.ai.core.rag.RagSearchResult;
+import studio.one.platform.ai.core.vector.VectorRecord;
 import studio.one.platform.ai.service.pipeline.RagPipelineService;
 import studio.one.platform.ai.web.dto.ChatMessageDto;
 import studio.one.platform.ai.web.dto.ChatRagRequestDto;
@@ -108,24 +109,21 @@ class RagChatRetrievalServiceTest {
     }
 
     @Test
-    void objectScopedSearchUsesTheProfileStoredWithIndexedChunks() {
-        ChatRagRequestDto base = request("structure", null);
-        ChatRagRequestDto mismatchedProfileRequest = new ChatRagRequestDto(
-                base.chat(), base.ragQuery(), base.ragTopK(), base.objectType(), base.objectId(),
-                "retrieval-ko-kure", null, null, base.topK(), base.minScore(), base.debug(),
-                base.retrievalStrategy(), base.retrievalOptions());
+    void objectScopedSearchUsesTheDeploymentStoredWithIndexedChunks() {
         when(ragPipelineService.listByObject("attachment", "1", 32))
                 .thenReturn(List.of(result("doc-1", "chunk-1", 1.0d, Map.of(
                         ChunkMetadata.KEY_STRATEGY, "structure-based",
-                        "embeddingProfileId", "gemini-768"))));
+                        VectorRecord.KEY_EMBEDDING_PROFILE_ID, "humanities-text-v1",
+                        VectorRecord.KEY_EMBEDDING_DEPLOYMENT_ID, "humanities-text-v1"))));
         when(ragPipelineService.search(any(RagSearchRequest.class)))
                 .thenReturn(List.of(result("doc-1", "chunk-1", 0.9d)));
 
-        service.retrieve(mismatchedProfileRequest, "query", "attachment", "1", 5, 0.6d, 5, true);
+        service.retrieve(request("structure", null), "query", "attachment", "1", 5, 0.6d, 5, true);
 
         ArgumentCaptor<RagSearchRequest> captor = ArgumentCaptor.forClass(RagSearchRequest.class);
         verify(ragPipelineService).search(captor.capture());
-        assertThat(captor.getValue().embeddingProfileId()).isEqualTo("gemini-768");
+        assertThat(captor.getValue().embeddingDeploymentId()).isEqualTo("humanities-text-v1");
+        assertThat(captor.getValue().embeddingProfileId()).isNull();
         assertThat(captor.getValue().embeddingProvider()).isNull();
         assertThat(captor.getValue().embeddingModel()).isNull();
         assertThat(captor.getValue().metadataFilter().equalsCriteria())
