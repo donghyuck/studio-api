@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `2.1.0-rc.1` release candidate로 artifact version을 갱신했다. 이 candidate는 Java 17,
+  Gradle 8.14.5, Spring Boot 3.5.16, Spring AI 1.1.8 호환 기준선을 보존하며, 개발 실행
+  서버의 ApplicationContext·DB migration·chat/embedding·RAG sync/SSE·Redis fail-open
+  검증을 통과한 뒤에만 `v2.1.0`으로 승격한다.
+
 - Redis가 설치되지 않은 실행 서버에서도 RAG answer-cache 자동 구성을 안전하게 건너뛰도록 Redis 전용 구성을 클래스패스 조건부 중첩 구성으로 격리했습니다.
 
 - Spring Boot 3.5.16, Spring AI 1.1.8, Gradle 8.14.5로 패치 기준선을 갱신하고 Spring AI BOM을

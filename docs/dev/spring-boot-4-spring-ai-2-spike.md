@@ -88,3 +88,17 @@ test starter 전환이 필요하다. 테스트를 제외해 제품 전환을 승
 
 그전까지 제품 기준선은 Boot 3.5.16/Spring AI 1.1.8을 유지하며, exact cache는 이
 기준선의 Spring Data Redis로 구현한다.
+
+## 2.1 호환 기준선 보존
+
+Boot 4/Jackson 3 전환 전에 `2.1.0-rc.1` candidate를 아래 순서로 검증한다.
+
+1. repository 전체 main/test build와 PostgreSQL/MySQL/MariaDB migration contract를 확인한다.
+2. 개발 실행 서버를 Spring Boot 3.5.16과 `2.1.0-rc.1` artifact에 맞춘다.
+3. ApplicationContext, chat, embedding, RAG sync/SSE를 확인한다.
+4. exact cache의 MISS/HIT, revision 변경 miss, Redis fail-open을 확인한다.
+5. 동일 소스를 `2.1.0`으로 승격해 `2.x`에 병합한 뒤 annotated tag `v2.1.0`을 생성한다.
+
+`2.x`는 Boot 3 호환 유지보수 브랜치로 남긴다. Boot 4.1, Spring AI 2.0,
+Jackson 3 전환은 `v2.1.0`에서 분기한 별도 `3.x` 또는 `upgrade/boot4-ai2`
+브랜치에서 수행하며 `2.x`에 병합하지 않는다.
